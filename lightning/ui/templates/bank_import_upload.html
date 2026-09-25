@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Import bank CSV{% endblock %}
+{% block heading %}<div class="acct-title"><h1>Import statement</h1></div><p class="muted">{{ account.name }}</p>{% endblock %}
+{% block content %}
+<section class="card form-card">
+  <p>Upload a monthly CSV. Standard columns are <b>Date</b>, <b>Counterparty</b>, and signed <b>Amount</b>; Category, Notes, and Reference are optional.</p>
+  <p class="muted small">We’ll preview rows before posting. Money out is negative; money in is positive. A bank reference prevents duplicate imports.</p>
+  {% if error %}<p class="flash error">{{ error }}</p>{% endif %}
+  <form method="post" enctype="multipart/form-data" action="/accounts/{{ account.id }}/import">
+    <label for="bank-csv">CSV file</label><input id="bank-csv" type="file" name="file" accept=".csv,text/csv" required>
+    <label><input type="checkbox" name="invert_amount"> Reverse the sign convention (this statement shows spending as positive)</label>
+    <div class="actions"><button class="btn primary">Review statement</button><a class="btn" href="/accounts/{{ account.id }}">Cancel</a></div>
+  </form>
+</section>
+{% endblock %}

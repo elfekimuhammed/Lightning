@@ -97,7 +97,7 @@ class InvestmentService:
         if kind in (DocType.BUY, DocType.SEL):
             lines, counterparty = self._trade_lines(kind, values["account_id"], values["asset_id"], values["quantity"],
                                                     values["price"], values.get("fees", "0"),
-                                                    values.get("cash_account_id"), total=values.get("total"))
+                                                    values.get("cash_account_id"), total=values.get("total") or None)
             return self.transactions.repost(txn_id, date, lines, "", counterparty, notes)
         if kind == DocType.DIV:
             lines, counterparty = self._dividend_lines(values["account_id"], values["asset_id"], values["amount"])

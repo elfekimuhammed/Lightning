@@ -68,7 +68,7 @@ class CategoryService:
         ('Personal › Food & Groceries'), the plain name ('Food & Groceries') or the code; case does not matter."""
         wanted = " ".join((text or "").split()).casefold()
         if not wanted:
-            raise ValidationError("Choose a category — or pick one of your accounts in To for a transfer.",
+            raise ValidationError("Choose a category — or pick one of your accounts as the counterparty for a transfer.",
                                   "category")
         options = [c for c in self.tree(active_only=True) if not c.is_root and not c.is_system]
         for key in (lambda c: self.display_name(c.id), lambda c: c.name, lambda c: c.code):

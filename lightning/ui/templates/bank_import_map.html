@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Match CSV columns{% endblock %}
+{% block heading %}<div class="acct-title"><h1>Match your columns</h1></div><p class="muted">{{ account.name }} · {{ filename }}</p>{% endblock %}
+{% block content %}
+<section class="card form-card">
+  <p>Your CSV headers differ from Lightning’s. Map them once for this upload; your original file is unchanged.</p>
+  <form method="post" action="/accounts/{{ account.id }}/import/map">
+    <input type="hidden" name="payload" value="{{ payload }}"><input type="hidden" name="filename" value="{{ filename }}">
+    {% for key in required %}<label>{{ key }} <select name="map_{{ key }}" required><option value="">Choose column…</option>{% for h in headers %}<option value="{{ h }}">{{ h }}</option>{% endfor %}</select></label>{% endfor %}
+    {% for key in optional %}<label>{{ key }} <select name="map_{{ key }}"><option value="">Not in file</option>{% for h in headers %}<option value="{{ h }}">{{ h }}</option>{% endfor %}</select></label>{% endfor %}
+    <div class="actions"><button class="btn primary">Preview rows</button><a class="btn" href="/accounts/{{ account.id }}/import">Cancel</a></div>
+  </form>
+</section>
+{% endblock %}

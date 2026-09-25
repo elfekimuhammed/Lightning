@@ -47,9 +47,9 @@ document.querySelectorAll(".money-input").forEach((input) => {
   });
 });
 
-// Register: "To" and "Category" work together.
-//  - one of your accounts in To  -> a transfer: the category box is not needed
-//  - a To used before            -> its last category is filled in (if empty)
+// Register: Counterparty and Category work together.
+//  - an owned account as counterparty -> transfer: no category is needed
+//  - a known counterparty -> fill its most recent category when available
 // Show the per-unit price implied by the all-in total on investment trades.
 document.querySelectorAll(".trade-total").forEach((total) => {
   const form = total.closest("form");
@@ -203,22 +203,22 @@ if (catalogueNode) {
 
 const ledger = document.querySelector(".ledger");
 if (ledger) {
-  const known = JSON.parse(ledger.dataset.payees || "{}");
+  const known = JSON.parse(ledger.dataset.counterparties || "{}");
   const accounts = new Set(JSON.parse(ledger.dataset.accounts || "[]").map((a) => a.toLowerCase()));
-  document.querySelectorAll(".to-input").forEach((to) => {
-    const form = to.getAttribute("form");
+  document.querySelectorAll(".counterparty-input").forEach((counterparty) => {
+    const form = counterparty.getAttribute("form");
     const category = document.querySelector(`.category-input[form="${form}"]`);
     const sync = () => {
-      const isTransfer = accounts.has(to.value.trim().toLowerCase());
+      const isTransfer = accounts.has(counterparty.value.trim().toLowerCase());
       if (category) {
         category.disabled = isTransfer;
         category.placeholder = isTransfer ? "Transfer — no category needed" : "Category — type to search";
         if (isTransfer) category.value = "";
-        else if (!category.value && known[to.value]) category.value = known[to.value];
+        else if (!category.value && known[counterparty.value]) category.value = known[counterparty.value];
       }
     };
-    to.addEventListener("change", sync);
-    to.addEventListener("input", () => { if (category && category.disabled) sync(); });
+    counterparty.addEventListener("change", sync);
+    counterparty.addEventListener("input", () => { if (category && category.disabled) sync(); });
     sync();
   });
 }
@@ -259,3 +259,16 @@ if (typeSelect) {
     if (target) target.textContent = groups[typeSelect.value] || "";
   });
 }
+
+// Bank import: filter the canonical Counterparty chooser as the user types.
+document.querySelectorAll("[data-counterparty-filter]").forEach((search) => {
+  const select = document.getElementById(search.dataset.counterpartyFilter);
+  if (!select) return;
+  search.addEventListener("input", () => {
+    const query = search.value.trim().toLocaleLowerCase();
+    Array.from(select.options).forEach((option) => {
+      const fixed = option.value === "" || option.value === "new";
+      option.hidden = !fixed && !option.textContent.toLocaleLowerCase().includes(query);
+    });
+  });
+});

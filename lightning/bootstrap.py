@@ -11,7 +11,9 @@ from pathlib import Path
 from lightning.accounts.service import AccountService
 from lightning.assets.service import AssetService
 from lightning.budgeting.service import BudgetService
+from lightning.bank_imports import BankImportService
 from lightning.categories.service import CategoryService
+from lightning.counterparties import CounterpartyService
 from lightning.database.audit import AuditLog
 from lightning.database.backup import backup
 from lightning.database.connection import Database
@@ -35,6 +37,8 @@ class Container:
     audit: AuditLog
     assets: AssetService
     categories: CategoryService
+    counterparties: CounterpartyService
+    bank_imports: BankImportService
     accounts: AccountService
     transactions: TransactionService
     reporting: ReportingService
@@ -73,6 +77,8 @@ def build(db_path: str | Path | None = None, backup_on_start: bool = False) -> C
         audit=audit,
         assets=assets,
         categories=categories,
+        counterparties=CounterpartyService(db),
+        bank_imports=BankImportService(db, accounts, categories, CounterpartyService(db), transactions),
         accounts=accounts,
         transactions=transactions,
         reporting=reporting,

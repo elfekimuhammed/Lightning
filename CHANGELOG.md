@@ -6,7 +6,12 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 - Add it under `## [Unreleased]`.
 
+## [Unreleased]
+
 ### Added
+- Canonical Counterparty records with normalized names, confirmed aliases, reusable default categories, and ranked approximate suggestions that never auto-merge. Bank import staging retains original source rows for review.
+- Database migration `0008_counterparties.sql` adds canonical counterparties, aliases, transaction links, and bank-import batch/row staging.
+- Database migration `0009_import_column_maps.sql` remembers a confirmed CSV header/sign mapping per bank account.
 - Best-effort investment quote refresh runs when Lightning starts, saving supported Yahoo Finance quotes to
   price history so portfolio values and unrealized gains recalculate from the newest quote. Stocks and funds
   use their ticker with Yahoo's CA suffix; unsupported symbols keep their prior saved valuation.

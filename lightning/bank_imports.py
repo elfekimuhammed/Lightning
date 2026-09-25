@@ -1,0 +1,265 @@
+"""Reviewed, idempotent bank CSV imports into the transaction ledger."""
+
+from __future__ import annotations
+
+import csv
+import hashlib
+import io
+import json
+from datetime import date, datetime
+from decimal import Decimal, InvalidOperation
+
+from lightning.accounts.domain import AccountType
+from lightning.categories.domain import Movement
+from lightning.core.dates import now_iso, parse_date
+from lightning.core.errors import ConflictError, NotFoundError, ValidationError
+from lightning.counterparties import normalize
+from lightning.core.refs import DocType
+from lightning.transactions.domain import TxnSource
+
+REQUIRED = ("Date", "Counterparty", "Amount")
+OPTIONAL = ("Category", "Notes", "Reference")
+MAX_BYTES = 5 * 1024 * 1024
+MAX_ROWS = 10000
+
+
+def _date(value: str) -> str:
+    value = (value or "").strip()
+    for fmt in ("%Y-%m-%d", "%d/%m/%Y"):
+        try:
+            return datetime.strptime(value, fmt).date().isoformat()
+        except ValueError:
+            pass
+    raise ValueError("Use yyyy-mm-dd or dd/mm/yyyy.")
+
+
+def _amount(value: str) -> str:
+    try:
+        amount = Decimal((value or "").strip().replace(",", ""))
+        if not amount.is_finite() or amount == 0:
+            raise InvalidOperation
+        return format(amount, "f")
+    except (InvalidOperation, ValueError):
+        raise ValueError("Enter a non-zero amount; use a minus sign for money out.") from None
+
+
+def decode_csv(data: bytes) -> tuple[list[str], list[dict[str, str]]]:
+    if len(data) > MAX_BYTES:
+        raise ValidationError("CSV files must be 5 MB or smaller.", "file")
+    try:
+        text = data.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        raise ValidationError("Save the statement as a UTF-8 CSV file.", "file") from None
+    try:
+        sample = text[:4096]
+        dialect = csv.Sniffer().sniff(sample, delimiters=",;\t") if sample else csv.excel
+        reader = csv.DictReader(io.StringIO(text, newline=""), dialect=dialect)
+        headers = [str(h or "").strip() for h in (reader.fieldnames or [])]
+        if not headers or any(not h for h in headers):
+            raise ValidationError("The CSV needs a header row with column names.", "file")
+        rows = []
+        for line, row in enumerate(reader, start=2):
+            if len(rows) >= MAX_ROWS:
+                raise ValidationError("A statement can contain at most 10,000 rows.", "file")
+            rows.append({h: str(row.get(h, "") or "").strip() for h in headers} | {"__line__": str(line)})
+        return headers, rows
+    except csv.Error as exc:
+        raise ValidationError(f"Could not read this CSV: {exc}", "file") from None
+
+
+class BankImportService:
+    def __init__(self, db, accounts, categories, counterparties, transactions):
+        self.db, self.accounts, self.categories = db, accounts, categories
+        self.counterparties, self.transactions = counterparties, transactions
+
+    def stage(self, account_id: int, filename: str, data: bytes, mapping: dict[str, str] | None = None, invert_amount: bool = False):
+        account = self.accounts.get(account_id)
+        if account.account_type != AccountType.BANK:
+            raise ValidationError("CSV import is currently available for bank accounts only.", "account")
+        digest = hashlib.sha256(data).hexdigest()
+        old = self.db.one("SELECT id,status FROM bank_import_batches WHERE account_id=? AND file_hash=?",
+                          (account_id, digest))
+        if old:
+            return int(old["id"]), True
+        headers, raw_rows = decode_csv(data)
+        header_signature = hashlib.sha256(json.dumps(headers, ensure_ascii=False).encode()).hexdigest()
+        saved = self.db.one("SELECT mapping_json,invert_amount FROM bank_import_column_maps WHERE account_id=? AND header_signature=?",
+                            (account_id, header_signature))
+        if mapping is None and saved:
+            mapping = json.loads(saved["mapping_json"])
+            invert_amount = bool(saved["invert_amount"])
+        mapping = mapping or {key: key for key in (*REQUIRED, *OPTIONAL) if key in headers}
+        missing = [key for key in REQUIRED if mapping.get(key) not in headers]
+        if missing:
+            raise ValidationError("Map these required columns to continue: " + ", ".join(missing), "mapping")
+        stored = []
+        for raw in raw_rows:
+            parsed = {key: raw.get(mapping.get(key, ""), "") for key in (*REQUIRED, *OPTIONAL)}
+            errors = []
+            try:
+                parsed["Date"] = _date(parsed["Date"])
+                parsed["Amount"] = _amount(parsed["Amount"])
+                if invert_amount:
+                    parsed["Amount"] = format(-Decimal(parsed["Amount"]), "f")
+                if not parsed["Counterparty"]:
+                    raise ValueError("Counterparty is required.")
+            except ValueError as exc:
+                errors.append(str(exc))
+            parsed["_line"] = raw["__line__"]
+            parsed["_errors"] = errors
+            stored.append((raw, parsed))
+        now = now_iso()
+        with self.db.transaction():
+            if saved is None and mapping and (any(mapping.get(key) != key for key in REQUIRED) or invert_amount):
+                self.db.execute("INSERT INTO bank_import_column_maps(account_id,header_signature,mapping_json,invert_amount,created_at,updated_at) "
+                                "VALUES (?,?,?,?,?,?) ON CONFLICT(account_id,header_signature) DO UPDATE SET "
+                                "mapping_json=excluded.mapping_json,invert_amount=excluded.invert_amount,updated_at=excluded.updated_at",
+                                (account_id, header_signature, json.dumps(mapping), int(invert_amount), now, now))
+            cur = self.db.execute(
+                "INSERT INTO bank_import_batches(account_id,file_hash,file_name,status,created_at) "
+                "VALUES (?,?,?,'REVIEW',?)", (account_id, digest, filename[:255], now)
+            )
+            batch_id = int(cur.lastrowid)
+            for raw, parsed in stored:
+                ref = parsed["Reference"].strip() or None
+                self.db.execute(
+                    "INSERT INTO bank_import_rows(batch_id,row_number,raw_json,bank_reference,status) "
+                    "VALUES (?,?,?,?,?)", (batch_id, int(raw["__line__"]),
+                    json.dumps({"raw": raw, "parsed": parsed}, ensure_ascii=False), ref, "REVIEW")
+                )
+        return batch_id, False
+
+    def preview(self, batch_id: int):
+        batch = self.db.one("SELECT * FROM bank_import_batches WHERE id=?", (batch_id,))
+        if not batch:
+            raise NotFoundError("Import batch not found.")
+        rows = self.db.all("SELECT * FROM bank_import_rows WHERE batch_id=? ORDER BY row_number", (batch_id,))
+        result = []
+        seen_refs = set()
+        for row in rows:
+            record = json.loads(row["raw_json"])
+            parsed = record["parsed"]
+            ref_duplicate = bool(row["bank_reference"] and (row["bank_reference"] in seen_refs or self.db.scalar(
+                "SELECT 1 FROM bank_import_rows r JOIN bank_import_batches b ON b.id=r.batch_id "
+                "WHERE b.account_id=? AND r.bank_reference=? AND b.id<>? AND r.status IN ('POSTED','DUPLICATE') LIMIT 1",
+                (batch["account_id"], row["bank_reference"], batch_id))))
+            if row["bank_reference"]:
+                seen_refs.add(row["bank_reference"])
+            cp = self.counterparties.resolve(parsed["Counterparty"])
+            parsed["_counterparty_id"] = cp["id"] if cp else None
+            parsed["_suggestions"] = self.counterparties.suggestions(parsed["Counterparty"])
+            parsed["_reference_duplicate"] = ref_duplicate
+            parsed["_similarity_warning"] = self._similarity_warning(batch["account_id"], parsed)
+            parsed["_category_id"] = self._category_for(parsed, cp)
+            parsed["_import_row_id"] = row["id"]
+            parsed["_status"] = row["status"]
+            result.append(parsed)
+        return batch, result
+
+    def _category_for(self, parsed, counterparty):
+        if parsed["Category"]:
+            try:
+                return self.categories.find_by_text(parsed["Category"]).id
+            except ValidationError:
+                pass
+        if counterparty and counterparty["default_category_id"]:
+            return counterparty["default_category_id"]
+        recent = self.transactions.counterparty_suggestions()
+        return recent.get(parsed["Counterparty"])
+
+    def _similarity_warning(self, account_id, parsed):
+        if parsed["Reference"] or parsed["_errors"]:
+            return False
+        amount = Decimal(parsed["Amount"])
+        row = self.db.one(
+            "SELECT 1 FROM transactions t JOIN ledger_entries l ON l.transaction_id=t.id "
+            "WHERE t.status='POSTED' AND t.date=? AND t.counterparty=? AND l.account_id=? "
+            "AND l.amount_e6=? LIMIT 1",
+            (parsed["Date"], parsed["Counterparty"], account_id, int(amount * 1_000_000)),
+        )
+        return bool(row)
+
+    def confirm(self, batch_id: int, decisions: dict[int, dict]):
+        batch = self.db.one("SELECT * FROM bank_import_batches WHERE id=?", (batch_id,))
+        if not batch:
+            raise NotFoundError("Import batch not found.")
+        if batch["status"] == "POSTED":
+            raise ConflictError("This statement has already been posted.")
+        _, rows = self.preview(batch_id)
+        row_by_id = {r["_import_row_id"]: r for r in rows}
+        accounts = self.accounts.list(active_only=True)
+        mapped_counterparties = {}
+        with self.db.transaction():
+            for row_id, decision in decisions.items():
+                row = row_by_id.get(int(row_id))
+                if not row:
+                    continue
+                if row["_reference_duplicate"]:
+                    self.db.execute("UPDATE bank_import_rows SET status='DUPLICATE' WHERE id=?", (row_id,))
+                    continue
+                if row["_errors"] or decision.get("skip"):
+                    self.db.execute("UPDATE bank_import_rows SET status='SKIPPED' WHERE id=?", (row_id,))
+                    continue
+                if self.db.scalar("SELECT status FROM bank_import_rows WHERE id=?", (row_id,)) != "REVIEW":
+                    continue
+                cp_text = row["Counterparty"]
+                target = next((a for a in accounts if a.name.casefold() == cp_text.casefold()), None)
+                group_key = normalize(cp_text)
+                counterparty_id = mapped_counterparties.get(group_key) or decision.get("counterparty_id") or row["_counterparty_id"]
+                if not target:
+                    if decision.get("new_counterparty") and not counterparty_id:
+                        name = str(decision["new_counterparty"]).strip()
+                        if not name:
+                            raise ValidationError(f"Enter a canonical name for {cp_text}.", "counterparty")
+                        counterparty_id = self.counterparties.create(name, alias=cp_text)
+                    elif counterparty_id:
+                        self.counterparties.add_alias(int(counterparty_id), cp_text)
+                    else:
+                        raise ValidationError(f"Choose or create one Counterparty for {cp_text} (CSV row {row['_line']}).", "counterparty")
+                    mapped_counterparties[group_key] = int(counterparty_id)
+                category_id = decision.get("category_id") or row["_category_id"]
+                if decision.get("remember_category") and counterparty_id and category_id:
+                    self.counterparties.set_default_category(int(counterparty_id), int(category_id))
+                if row["Reference"]:
+                    duplicate_ref = self.db.scalar(
+                        "SELECT 1 FROM bank_import_rows r JOIN bank_import_batches b ON b.id=r.batch_id "
+                        "WHERE b.account_id=? AND r.bank_reference=? AND r.id<>? AND r.status IN ('POSTED','DUPLICATE') LIMIT 1",
+                        (batch["account_id"], row["Reference"], row_id))
+                    if duplicate_ref:
+                        self.db.execute("UPDATE bank_import_rows SET status='DUPLICATE' WHERE id=?", (row_id,))
+                        continue
+                amount = Decimal(row["Amount"])
+                if target:
+                    txn = self.transactions.record_transfer(
+                        row["Date"], batch["account_id"] if amount < 0 else target.id,
+                        target.id if amount < 0 else batch["account_id"], abs(amount),
+                        notes=row["Notes"], source=TxnSource.IMPORT,
+                    )
+                else:
+                    if not category_id:
+                        raise ValidationError(f"Choose a category for {cp_text} (CSV row {row['_line']}).", "category")
+                    movement = Movement.OUTFLOW if amount < 0 else Movement.INFLOW
+                    self.categories.require(int(category_id), movement)
+                    fn = self.transactions.record_outflow if amount < 0 else self.transactions.record_inflow
+                    canonical = self.counterparties.get(int(counterparty_id))
+                    kwargs = {"source": TxnSource.IMPORT,
+                              "counterparty": canonical["name"] if canonical else cp_text, "notes": row["Notes"]}
+                    if amount < 0:
+                        txn = fn(row["Date"], batch["account_id"], abs(amount), int(category_id), **kwargs)
+                    else:
+                        txn = fn(row["Date"], batch["account_id"], amount, int(category_id), **kwargs)
+                    if counterparty_id:
+                        self.db.execute("UPDATE transactions SET counterparty_id=? WHERE id=?",
+                                        (int(counterparty_id), txn.id))
+                self.db.execute("UPDATE bank_import_rows SET status='POSTED',transaction_id=? WHERE id=?",
+                                (txn.id, row_id))
+            self.db.execute("UPDATE bank_import_rows SET status='SKIPPED' WHERE batch_id=? AND status='REVIEW'", (batch_id,))
+            self.db.execute("UPDATE bank_import_batches SET status='POSTED',posted_at=? WHERE id=?",
+                            (now_iso(), batch_id))
+        return self.summary(batch_id)
+
+    def summary(self, batch_id: int) -> dict[str, int]:
+        counts = {row["status"]: row["n"] for row in self.db.all(
+            "SELECT status,COUNT(*) AS n FROM bank_import_rows WHERE batch_id=? GROUP BY status", (batch_id,))}
+        return {"posted": counts.get("POSTED", 0), "skipped": counts.get("SKIPPED", 0),
+                "duplicates": counts.get("DUPLICATE", 0)}

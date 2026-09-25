@@ -105,7 +105,7 @@ class StatementRow:
     ref: str
     type: str
     type_label: str
-    payee: str
+    counterparty: str
     description: str
     notes: str
     category_label: str  # plain names, or "Transfer ↔ <account>"

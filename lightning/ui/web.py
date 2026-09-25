@@ -7,7 +7,7 @@ from pathlib import Path
 from urllib.parse import quote
 
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -68,12 +68,17 @@ def redirect(url: str, msg: str = "") -> RedirectResponse:
 
 
 def create_app(c: Container) -> FastAPI:
-    from .routes import accounts, budget, categories, dashboard, investments, settings, transactions
+    from .routes import accounts, bank_imports, budget, categories, dashboard, investments, settings, transactions
 
     app = FastAPI(title="Lightning", docs_url=None, redoc_url=None, openapi_url=None)
     app.state.container = c
+
+    @app.get("/__health", include_in_schema=False)
+    async def health():
+        return PlainTextResponse("lightning-ok")
+
     app.mount("/static", StaticFiles(directory=str(UI_DIR / "static")), name="static")
-    for module in (dashboard, accounts, transactions, budget, investments, categories, settings):
+    for module in (dashboard, accounts, bank_imports, transactions, budget, investments, categories, settings):
         app.include_router(module.router)
 
     @app.exception_handler(NotFoundError)

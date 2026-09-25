@@ -134,6 +134,7 @@ class TestSearch:
 
     def test_filters(self, data, c):
         accounts, cats = data
+        assert ids(c, search="CIB-CUR-EGP")[1] == 3  # searched through the account links, not the ref
         assert ids(c, account_id=accounts["wallet"].id)[1] == 2  # opening + outflow
         assert ids(c, date_from="2026-10-01", date_to="2026-10-31")[1] == 1
         assert ids(c, category_ids=[cats["EXP.PERSONAL.FOOD"].id])[1] == 2
@@ -153,7 +154,7 @@ class TestRegister:
     def test_signed_amount_and_transfers(self, setup, c):
         accounts, cats = setup
         w = accounts["wallet"].id
-        out = c.transactions.record_in_account(w, "2026-09-10", "-50", cats["EXP.PERSONAL.FOOD"].id, to="Kiosk")
+        out = c.transactions.record_in_account(w, "2026-09-10", "-50", cats["EXP.PERSONAL.FOOD"].id, counterparty="Kiosk")
         assert out.type == "OUT" and out.counterparty == "Kiosk" and out.lines[0].quantity == Decimal("-50")
         inn = c.transactions.record_in_account(w, "2026-09-10", "20", cats["INC.SALARY"].id)
         assert inn.type == "IN"
@@ -175,12 +176,12 @@ class TestRegister:
         with pytest.raises(ValidationError, match=msg):
             c.transactions.record_in_account(accounts["wallet"].id, "2026-09-10", amount, cid)
 
-    def test_payee_memory(self, setup, c):
+    def test_counterparty_memory(self, setup, c):
         accounts, cats = setup
         w = accounts["wallet"].id
-        c.transactions.record_in_account(w, "2026-09-10", "-5", cats["EXP.PERSONAL.FOOD"].id, to="Kiosk")
-        c.transactions.record_in_account(w, "2026-09-12", "-5", cats["EXP.WORK.SOFTWARE"].id, to="Kiosk")
-        assert c.transactions.payee_suggestions()["Kiosk"] == cats["EXP.WORK.SOFTWARE"].id
+        c.transactions.record_in_account(w, "2026-09-10", "-5", cats["EXP.PERSONAL.FOOD"].id, counterparty="Kiosk")
+        c.transactions.record_in_account(w, "2026-09-12", "-5", cats["EXP.WORK.SOFTWARE"].id, counterparty="Kiosk")
+        assert c.transactions.counterparty_suggestions()["Kiosk"] == cats["EXP.WORK.SOFTWARE"].id
 
     def test_typed_category_and_account_lookup(self, setup, c):
         accounts, _ = setup

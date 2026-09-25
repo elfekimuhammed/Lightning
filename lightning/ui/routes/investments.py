@@ -53,8 +53,18 @@ def _save(request: Request, kind: str, v: dict, txn_id: int | None = None):
                           price=v["price"], fees=v["fees"], total=v["total"], cash_account_id=cash, amount=v["amount"],
                           total_cost=v["total_cost"], notes=v["notes"])
     if kind == "buy":
+        if v["total"].strip():
+            return inv.buy_total(v["date"], account, asset, v["quantity"], v["total"], cash, v["notes"])
+        if v["price"].strip():
+            return inv.buy(v["date"], account, asset, v["quantity"], v["price"], v["fees"], cash,
+                           v["notes"])
         return inv.buy_total(v["date"], account, asset, v["quantity"], v["total"], cash, v["notes"])
     if kind == "sell":
+        if v["total"].strip():
+            return inv.sell_total(v["date"], account, asset, v["quantity"], v["total"], cash, v["notes"])
+        if v["price"].strip():
+            return inv.sell(v["date"], account, asset, v["quantity"], v["price"], v["fees"], cash,
+                            v["notes"])
         return inv.sell_total(v["date"], account, asset, v["quantity"], v["total"], cash, v["notes"])
     if kind == "dividend":
         return inv.dividend(v["date"], account, asset, v["amount"], v["notes"])

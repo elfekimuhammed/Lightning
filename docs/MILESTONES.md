@@ -12,7 +12,8 @@
 | M4 | Market data & FX | | Daily prices, USD/EGP, 24K/21K gold (parity and local), multi-currency accounts, FX revaluation |
 | M5 | Reimbursements | deferred | Receivables and claims are not a priority for personal wealth management; revisit only if requested |
 | M6 | Deposits & gold details | | CD lifecycle and interest, gold workmanship fees and buyback, bonus shares and splits |
-| M7 | Imports & planning | | CSV/Excel and broker-statement imports, recurring transactions, target allocation |
+| M7a | Bank CSV import | ✅ implemented | Upload a monthly CSV from a bank account; remember non-standard column/sign mappings; preview malformed/duplicate rows; confirm canonical Counterparty aliases and existing categories; post confirmed transactions to the ledger |
+| M7 | Planning | next | Recurring transactions and target allocation |
 | M8 | Polish | | Charts, settings, packaging |
 
 Known limits: EGP accounts only (FX in M4); one category per transaction (splits in M2).

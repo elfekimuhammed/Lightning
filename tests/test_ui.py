@@ -34,15 +34,16 @@ def test_full_flow(client, c):
 
     # the sidebar lists every account with its balance
     page = client.get(f"/accounts/{cib.id}")
-    assert "All accounts" in page.text and "51,000.00" in page.text and "CIB-CUR-EGP" in page.text
+    assert "All accounts" in page.text and "51,000.00" in page.text and "CIB Current" in page.text
+    assert "CIB-CUR-EGP" not in page.text  # ordinary account UI leads with the name, not its code
 
-    r = client.post(f"/accounts/{cib.id}/register", data={"date": "2026-09-25", "to": "Carrefour",
+    r = client.post(f"/accounts/{cib.id}/register", data={"date": "2026-09-25", "counterparty": "Carrefour",
                     "category": "Personal › Food & Groceries", "amount": "-450", "notes": "Groceries"})
     assert r.status_code == 200 and "Saved OUT-2026-09-25-001" in r.text
     txn = c.transactions.get_by_ref("OUT-2026-09-25-001")
 
-    # one of your accounts in To = a transfer (no category needed)
-    r = client.post(f"/accounts/{cib.id}/register", data={"date": "2026-09-26", "to": "Wallet", "amount": "-2000"})
+    # one of your accounts as Counterparty = a transfer (no category needed)
+    r = client.post(f"/accounts/{cib.id}/register", data={"date": "2026-09-26", "counterparty": "Wallet", "amount": "-2000"})
     assert "Saved TRF-2026-09-26-001" in r.text
 
     # validation errors re-render the register with the message and the typed values
@@ -57,7 +58,7 @@ def test_full_flow(client, c):
     # edit in place: the row becomes a form, saving keeps the ref
     r = client.get(f"/accounts/{cib.id}?edit={txn.id}&acct={cib.id}")
     assert 'id="f-edit"' in r.text and 'value="-450.00"' in r.text
-    r = client.post(f"/accounts/{cib.id}/register/{txn.id}", data={"date": "2026-09-25", "to": "Carrefour",
+    r = client.post(f"/accounts/{cib.id}/register/{txn.id}", data={"date": "2026-09-25", "counterparty": "Carrefour",
                     "category": "Personal › Food & Groceries", "amount": "-540", "notes": ""})
     assert "Saved OUT-2026-09-25-001" in r.text
     assert c.reporting.account_balance(cib.id) == 50000 - 540 - 2000
@@ -80,15 +81,15 @@ def test_full_flow(client, c):
 def test_all_accounts_register(client, c, setup):
     accounts, cats = setup
     wallet, cib = accounts["wallet"], accounts["cib"]
-    r = client.post("/transactions/register", data={"date": "2026-09-20", "account_id": wallet.id, "to": "Kiosk",
+    r = client.post("/transactions/register", data={"date": "2026-09-20", "account_id": wallet.id, "counterparty": "Kiosk",
                     "category": "Food & Groceries", "amount": "-30"})
     assert "Saved OUT-2026-09-20-001" in r.text
     t = client.post("/transactions/register", data={"date": "2026-09-21", "account_id": cib.id,
-                    "to": wallet.label, "amount": "-100"})
+                    "counterparty": wallet.label, "amount": "-100"})
     assert "Saved TRF" in t.text
     page = client.get("/transactions")
     assert page.text.count('class="pill transfer"') == 2  # one row per account
-    r = client.post("/transactions/register", data={"date": "2026-09-21", "to": "Wallet", "amount": "-100"})
+    r = client.post("/transactions/register", data={"date": "2026-09-21", "counterparty": "Wallet", "amount": "-100"})
     assert r.status_code == 400 and "Choose an account" in r.text
 
 
@@ -96,7 +97,7 @@ def test_edit_changing_kind_replaces_transaction(client, c, setup):
     accounts, cats = setup
     w, cib = accounts["wallet"], accounts["cib"]
     txn = c.transactions.record_transfer("2026-09-10", cib.id, w.id, "100")
-    r = client.post(f"/accounts/{w.id}/register/{txn.id}", data={"date": "2026-09-10", "to": "Kiosk",
+    r = client.post(f"/accounts/{w.id}/register/{txn.id}", data={"date": "2026-09-10", "counterparty": "Kiosk",
                     "category": "Food & Groceries", "amount": "-100"})
     assert "Saved OUT-2026-09-10-001" in r.text
     assert c.transactions.get(txn.id).is_void
@@ -135,22 +136,22 @@ def test_register_entry(client, c, setup):
     page = client.get(f"/accounts/{wallet.id}")
     assert 'action="/accounts/%d/register"' % wallet.id in page.text
     assert 'list="category-options"' in page.text and "<select form=\"f-new\" name=\"choice\"" not in page.text
-    assert "Payee" not in page.text and ">To<" in page.text
+    assert "Payee" not in page.text and ">Counterparty<" in page.text
     assert "EXP.PERSONAL" not in page.text  # plain names only
 
-    r = client.post(f"/accounts/{wallet.id}/register", data={"date": "2026-09-20", "to": "Carrefour",
+    r = client.post(f"/accounts/{wallet.id}/register", data={"date": "2026-09-20", "counterparty": "Carrefour",
                     "category": "Personal › Food & Groceries", "amount": "-150", "notes": "milk"})
     assert "Saved OUT-2026-09-20-001" in r.text and "Personal › Food &amp; Groceries" in r.text
     assert c.reporting.account_balance(wallet.id) == 1200 - 150
 
-    r = client.post(f"/accounts/{wallet.id}/register", data={"date": "2026-09-21", "to": "CIB Current",
+    r = client.post(f"/accounts/{wallet.id}/register", data={"date": "2026-09-21", "counterparty": "CIB Current",
                     "amount": "500"})
     assert "Saved TRF-2026-09-21-001" in r.text
     assert c.reporting.account_balance(wallet.id) == 1200 - 150 + 500
     assert c.reporting.account_balance(cib.id) == 50000 - 500
 
     # wrong sign for the category -> friendly error, typed values kept
-    r = client.post(f"/accounts/{wallet.id}/register", data={"date": "2026-09-22", "to": "Employer",
+    r = client.post(f"/accounts/{wallet.id}/register", data={"date": "2026-09-22", "counterparty": "Employer",
                     "category": "Salary", "amount": "-99"})
     assert r.status_code == 400 and "make the amount positive" in r.text and 'value="-99"' in r.text
 
@@ -160,10 +161,10 @@ def test_register_entry(client, c, setup):
     assert r.status_code == 400 and "Which one" in r.text
 
     # a transfer to the same account is refused
-    r = client.post(f"/accounts/{wallet.id}/register", data={"date": "2026-09-22", "to": "Wallet", "amount": "-1"})
+    r = client.post(f"/accounts/{wallet.id}/register", data={"date": "2026-09-22", "counterparty": "Wallet", "amount": "-1"})
     assert r.status_code == 400 and "same account" in r.text
 
-    # To remembers its category
+    # Counterparty remembers its category
     page = client.get(f"/accounts/{wallet.id}")
     assert "Carrefour" in page.text and "Personal › Food &amp; Groceries" in page.text
 
@@ -177,3 +178,31 @@ def test_account_form_has_no_class_picker(client):
 def test_categories_page_is_plain(client):
     r = client.get("/categories")
     assert "Food &amp; Groceries" in r.text and "EXP.PERSONAL.FOOD" not in r.text
+
+
+def test_register_manual_counterparty_alias_uses_canonical_record(client, c, setup):
+    accounts, cats = setup
+    account = accounts["cib"]
+    counterparty_id = c.counterparties.create("Talabat", alias="Talabaat")
+    response = client.post(f"/accounts/{account.id}/register", data={
+        "date": "2026-09-20", "counterparty": "Talabaat", "category": "Food & Groceries", "amount": "-25"
+    })
+    assert response.status_code == 200
+    row = c.db.one("SELECT counterparty,counterparty_id FROM transactions WHERE counterparty_id=?", (counterparty_id,))
+    assert row["counterparty"] == "Talabat" and row["counterparty_id"] == counterparty_id
+
+
+def test_register_near_match_requires_explicit_reuse_or_create(client, c, setup):
+    accounts, cats = setup
+    account = accounts["cib"]
+    c.counterparties.create("Talabat")
+    values = {"date": "2026-09-20", "counterparty": "Talabaat",
+              "category": "Food & Groceries", "amount": "-25"}
+    response = client.post(f"/accounts/{account.id}/register", data=values)
+    assert response.status_code == 400 and "Choose reuse or create" in response.text
+    assert c.db.scalar("SELECT COUNT(*) FROM transactions WHERE counterparty='Talabat'") == 0
+    counterparty_id = c.counterparties.resolve("Talabat")["id"]
+    response = client.post(f"/accounts/{account.id}/register", data={**values, "counterparty_choice": f"existing:{counterparty_id}"})
+    assert response.status_code == 200
+    row = c.db.one("SELECT counterparty,counterparty_id FROM transactions WHERE counterparty_id=?", (counterparty_id,))
+    assert row["counterparty"] == "Talabat" and row["counterparty_id"] == counterparty_id

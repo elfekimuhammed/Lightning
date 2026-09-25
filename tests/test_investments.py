@@ -273,7 +273,7 @@ def test_inline_investment_workflow(setup, c):
     accounts, _ = setup
     thndr = accounts["thndr"]
     c.transactions.record_transfer("2026-09-02", accounts["cib"].id, thndr.id, "5000")
-    client = TestClient(create_app(c))
+    client = TestClient(create_app(c), follow_redirects=False)
     register = client.get(f"/accounts/{thndr.id}")
     assert register.status_code == 200
     assert "trade-instrument-search" in register.text

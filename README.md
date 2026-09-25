@@ -8,7 +8,7 @@ with investments, market prices, reimbursements and budgets coming milestone by 
 **Windows:** double-click `run.bat`. The first run sets everything up (needs Python 3.11+ from
 python.org, with "Add python.exe to PATH" ticked). Your browser opens at `http://127.0.0.1:8765`.
 
-**Linux:** double-click the **Lightning** icon on your Desktop. If your desktop asks, right-click it and choose **Allow Launching** once. The first run sets up the app, opens it in your browser, and keeps a terminal window open while it runs.
+**Linux:** launch **Lightning** from the app menu. It starts the local server and keeps a small terminal open; open `http://127.0.0.1:8765` in Firefox and bookmark it. Launching the icon again while Lightning is running reuses the server and opens no new tab. Close the terminal or press Ctrl+C to stop Lightning.
 
 **macOS:** from the project folder, run `./run.sh`.
 
@@ -42,9 +42,11 @@ the app on one computer at a time.
 ## Using it
 
 1. **Add your accounts** with today's balances.
-2. Open an account and type transactions straight into its register (Payee · Category · Payment · Deposit),
-   or use **Money out**, **Money in** and **Move money** from any page.
-3. The **Dashboard** shows net worth, what it's made of, the month's bridge, spending and trends.
+2. Open an account and type transactions straight into its register (Counterparty · Category · Amount).
+3. To import a monthly statement, open a **bank account** and choose **Import CSV**. Use `Date`, `Counterparty`,
+   and signed `Amount` columns (negative = spending); `Category`, `Notes`, and `Reference` are optional. Review
+   the preview to map aliases and categories before confirming—the app does not post until you confirm.
+4. The **Dashboard** shows net worth, what it's made of, the month's bridge, spending and trends.
 
 Search finds anything: `carrefour`, `2026-09`, `450`, `CIB-CUR-EGP`, `OUT-2026-09-25-003`.
 

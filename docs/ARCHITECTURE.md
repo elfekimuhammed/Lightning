@@ -10,7 +10,7 @@ bootstrap.py   Composition root: builds the database and wires services together
 workflows/     Actions spanning modules, each in ONE database transaction
                (open account + opening balance, start-date guard, deactivate if zero).
 reporting/     Read-only: net worth, bridge, cash flow, spending, statements. Owns no tables.
-transactions/  Records, edits, voids, finds transactions (register rows; post() for other modules); only ledger writer.
+transactions/  Records, edits, voids, finds transactions (Counterparty register rows; post() for other modules); only ledger writer.
 accounts/      Where value is held.
 assets/ · categories/   What value is (asset classes, financial assets) · why money moved.
 budgeting/     Budget amounts per category × month; budget vs actual (actuals via reporting).

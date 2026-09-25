@@ -55,7 +55,7 @@ def _like(term: str) -> str:
     return f"%{escaped}%"
 
 
-# One search word must appear somewhere in the transaction: its ref, date, payee, description, notes,
+# One search word must appear somewhere in the transaction: its ref, date, counterparty, description, notes,
 # or on one of its lines — account code/name, category code/name, or the amount (e.g. 450.00).
 _TERM_SQL = (
     "(t.ref LIKE ? ESCAPE '\\' OR t.date LIKE ? ESCAPE '\\' OR t.counterparty LIKE ? ESCAPE '\\'"
@@ -88,11 +88,11 @@ class TransactionRepository:
         return max((parse_ref(r["ref"])[2] for r in rows), default=0) + 1
 
     # -- writing -----------------------------------------------------------
-    def insert(self, t: Transaction, lines: list[PostingLine]) -> int:
+    def insert(self, t: Transaction, lines: list[PostingLine], counterparty_id: int | None = None) -> int:
         now = now_iso()
         cur = self.db.execute(
             "INSERT INTO transactions(ref, type, date, description, counterparty, status, source,"
-            " notes, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+            " notes, created_at, updated_at, counterparty_id) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
             (
                 t.ref,
                 t.type.value,
@@ -104,17 +104,18 @@ class TransactionRepository:
                 t.notes,
                 now,
                 now,
+                counterparty_id,
             ),
         )
         txn_id = int(cur.lastrowid)
         self._insert_lines(txn_id, t.date, lines)
         return txn_id
 
-    def update_header(self, t: Transaction) -> None:
+    def update_header(self, t: Transaction, counterparty_id: int | None = None) -> None:
         self.db.execute(
             "UPDATE transactions SET date=?, description=?, counterparty=?, status=?, notes=?,"
-            " updated_at=? WHERE id=?",
-            (t.date, t.description, t.counterparty, t.status.value, t.notes, now_iso(), t.id),
+            " updated_at=?, counterparty_id=? WHERE id=?",
+            (t.date, t.description, t.counterparty, t.status.value, t.notes, now_iso(), counterparty_id, t.id),
         )
 
     def replace_lines(self, txn_id: int, date: str, lines: list[PostingLine]) -> None:
@@ -233,14 +234,14 @@ class TransactionRepository:
         )
         return (int(row["q"]), row["date"]) if row else (0, None)
 
-    def payee_categories(self) -> dict[str, int]:
+    def counterparty_categories(self) -> dict[str, int]:
         rows = self.db.all(
-            "SELECT t.counterparty AS payee, le.category_id, MAX(t.date || printf('%010d', t.id)) AS latest"
+            "SELECT t.counterparty AS counterparty, le.category_id, MAX(t.date || printf('%010d', t.id)) AS latest"
             " FROM transactions t JOIN ledger_entries le ON le.transaction_id = t.id"
             " WHERE t.status = 'POSTED' AND t.counterparty != '' AND le.category_id IS NOT NULL"
             " GROUP BY t.counterparty ORDER BY latest DESC LIMIT 500"
         )
-        return {r["payee"]: r["category_id"] for r in rows}
+        return {r["counterparty"]: r["category_id"] for r in rows}
 
     def earliest_activity(self, account_id: int) -> str | None:
         return self.db.scalar(

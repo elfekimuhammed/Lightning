@@ -15,6 +15,7 @@ from lightning.accounts.service import AccountService
 from lightning.assets.service import AssetService
 from lightning.categories.domain import Movement
 from lightning.categories.service import CategoryService
+from lightning.counterparties import CounterpartyService
 from lightning.core.dates import fmt_date, parse_date, today
 from lightning.core.errors import NotFoundError, ValidationError
 from lightning.core.ledger import Effect, PostingLine, validate_posting
@@ -44,6 +45,7 @@ class TransactionService:
         self.accounts = accounts
         self.assets = assets
         self.categories = categories
+        self.counterparties = CounterpartyService(db)
         self.audit = audit
         self.base_currency = base_currency
 
@@ -70,24 +72,24 @@ class TransactionService:
         return self._create(DocType.TRF, day, lines, description, "", notes, source)
 
     def record_in_account(self, account_id: int, date: str, amount: object, category_id: int | None = None,
-                          other_account_id: int | None = None, to: str = "", notes: str = "") -> Transaction:
+                          other_account_id: int | None = None, counterparty: str = "", notes: str = "") -> Transaction:
         """One register row -> the right transaction.
 
         ``amount`` is signed from this account's point of view: positive = money in, negative = money out.
         Give a category (money in / money out) — or another of your accounts, which makes it a transfer.
-        ``to`` is who the money went to or came from (e.g. Carrefour, Employer).
+        Counterparty is the person or business; choosing an owned account makes a transfer.
         """
         kind, value, category_id = self._register_kind(amount, category_id, other_account_id)
         if kind == DocType.TRF:
             src, dst = (account_id, other_account_id) if value < 0 else (other_account_id, account_id)
-            return self.record_transfer(date, src, dst, abs(value), to, notes)
+            return self.record_transfer(date, src, dst, abs(value), notes=notes)
         if kind == DocType.OUT:
-            return self.record_outflow(date, account_id, -value, category_id, counterparty=to, notes=notes)
-        return self.record_inflow(date, account_id, value, category_id, counterparty=to, notes=notes)
+            return self.record_outflow(date, account_id, -value, category_id, counterparty=counterparty, notes=notes)
+        return self.record_inflow(date, account_id, value, category_id, counterparty=counterparty, notes=notes)
 
     def update_in_account(self, txn_id: int, account_id: int, date: str, amount: object,
                           category_id: int | None = None, other_account_id: int | None = None,
-                          to: str = "", notes: str = "") -> Transaction:
+                          counterparty: str = "", notes: str = "") -> Transaction:
         """Edit a register row in place, seen from ``account_id`` (the register it was edited in).
 
         If the kind changes (e.g. a transfer becomes money out) the old one is voided and a new one recorded,
@@ -104,11 +106,11 @@ class TransactionService:
         with self.db.transaction():
             if kind != current.type:
                 self.void(current.id, f"Replaced when edited ({current.type_label} → {DOC_LABELS[kind]})")
-                return self.record_in_account(account_id, date, value, category_id, other_account_id, to, notes)
+                return self.record_in_account(account_id, date, value, category_id, other_account_id, counterparty, notes)
             if kind == DocType.TRF:
                 src, dst = (account_id, other_account_id) if value < 0 else (other_account_id, account_id)
-                return self.update_transfer(current.id, date, src, dst, abs(value), to, notes)
-            return self.update_money(current.id, date, account_id, abs(value), category_id, "", to, notes)
+                return self.update_transfer(current.id, date, src, dst, abs(value), "", notes)
+            return self.update_money(current.id, date, account_id, abs(value), category_id, "", counterparty, notes)
 
     def _register_kind(self, amount: object, category_id: int | None, other_account_id: int | None):
         value = to_decimal(amount, "amount")
@@ -117,7 +119,7 @@ class TransactionService:
         if other_account_id is not None:
             return DocType.TRF, value, None
         if category_id is None:
-            raise ValidationError("Choose a category — or pick one of your accounts in To for a transfer.",
+            raise ValidationError("Choose a category — or pick one of your accounts as the counterparty for a transfer.",
                                   "category")
         category = self.categories.get(category_id)
         name = self.categories.display_name(category.id)
@@ -133,9 +135,9 @@ class TransactionService:
         txns, _ = self.repo.list(TxnFilter(search=text, limit=100000))
         return {t.id for t in txns}
 
-    def payee_suggestions(self) -> dict[str, int]:
-        """Payees used before -> the category used with them last time (for the register)."""
-        return self.repo.payee_categories()
+    def counterparty_suggestions(self) -> dict[str, int]:
+        """Previously used counterparties and their most recent category."""
+        return self.repo.counterparty_categories()
 
     def post(self, doc_type: DocType, date: str, lines: list[PostingLine], description: str = "",
              counterparty: str = "", notes: str = "", source: TxnSource = TxnSource.MANUAL) -> Transaction:
@@ -344,7 +346,15 @@ class TransactionService:
                 status=TxnStatus.POSTED, source=source, notes=(notes or "").strip(),
                 created_at="", updated_at="",
             )
-            txn_id = self.repo.insert(header, lines)
+            canonical = self.counterparties.resolve(header.counterparty) if header.counterparty else None
+            if header.counterparty and not canonical:
+                if self.counterparties.suggestions(header.counterparty):
+                    raise ValidationError("This Counterparty resembles a saved one. Confirm reuse or explicitly create it.", "counterparty")
+                canonical_id = self.counterparties.create(header.counterparty)
+                canonical = self.counterparties.get(canonical_id)
+            if canonical:
+                header.counterparty = canonical["name"]
+            txn_id = self.repo.insert(header, lines, canonical["id"] if canonical else None)
             self._check_holdings(lines)
         return self.get(txn_id)
 
@@ -355,7 +365,15 @@ class TransactionService:
                 current, date=fmt_date(day), description=(description or "").strip(),
                 counterparty=(counterparty or "").strip(), notes=(notes or "").strip(),
             )
-            self.repo.update_header(updated)
+            canonical = self.counterparties.resolve(updated.counterparty) if updated.counterparty else None
+            if updated.counterparty and not canonical:
+                if self.counterparties.suggestions(updated.counterparty):
+                    raise ValidationError("This Counterparty resembles a saved one. Confirm reuse or explicitly create it.", "counterparty")
+                canonical_id = self.counterparties.create(updated.counterparty)
+                canonical = self.counterparties.get(canonical_id)
+            if canonical:
+                updated.counterparty = canonical["name"]
+            self.repo.update_header(updated, canonical["id"] if canonical else None)
             self.repo.replace_lines(current.id, updated.date, lines)
             self._check_holdings(list(current.lines) + list(lines))
             after = self.get(current.id)

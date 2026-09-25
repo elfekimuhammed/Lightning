@@ -16,7 +16,7 @@
       <tr><td class="muted">Account</td><td>{{ summary.account_label }}</td></tr>
       {% if summary.category_label %}<tr><td class="muted">Category</td><td>{{ summary.category_label }}</td></tr>{% endif %}
       {% endif %}
-      {% if txn.counterparty %}<tr><td class="muted">{{ 'Paid to' if txn.type == 'OUT' else 'From' }}</td><td>{{ txn.counterparty }}</td></tr>{% endif %}
+      {% if txn.counterparty %}<tr><td class="muted">Counterparty</td><td>{{ txn.counterparty }}</td></tr>{% endif %}
       {% if txn.notes %}<tr><td class="muted">Notes</td><td>{{ txn.notes }}</td></tr>{% endif %}
       <tr><td class="muted">Recorded</td><td class="small">{{ txn.created_at }}{% if txn.updated_at != txn.created_at %} · updated {{ txn.updated_at }}{% endif %}</td></tr>
     </table>

@@ -1,6 +1,6 @@
 """The register — an account's transactions with a quick-add bar and in-place editing.
 
-One signed Amount (+ money in, − money out). "To" is who the money went to or came from;
+One signed Amount (+ money in, − money out). "Counterparty" is the person or account on the other side;
 typing or picking one of your own accounts there makes the row a transfer.
 Used by one account (/accounts/{id}) and by all accounts (/transactions). Only calls services.
 """
@@ -22,7 +22,7 @@ from lightning.core.refs import DocType
 
 from ..web import container, render
 
-ENTRY_FIELDS = ("date", "account_id", "to", "category", "notes", "amount")
+ENTRY_FIELDS = ("date", "account_id", "counterparty", "counterparty_choice", "category", "notes", "amount")
 FAR_PAST, FAR_FUTURE = "1900-01-01", "9999-12-31"
 
 
@@ -39,14 +39,26 @@ def _lists(request: Request) -> dict:
         for cat in c.categories.pickable(movement):
             categories.append(c.categories.display_name(cat.id))
     accounts = c.accounts.list(active_only=True)
-    payees = c.transactions.payee_suggestions()
+    cp_rows = c.counterparties.list_active()
+    counterparty_options = [row["name"] for row in cp_rows]
+    counterparty_categories = {row["name"]: c.categories.display_name(row["default_category_id"])
+                               for row in cp_rows if row["default_category_id"]}
     return {
         "category_options": categories,
-        "account_options": [a.label for a in accounts],
-        "payee_options": list(payees),
-        "payee_categories": {p: c.categories.display_name(cid) for p, cid in payees.items()},
+        "account_options": [a.name for a in accounts],
+        "counterparty_options": counterparty_options,
+        "counterparty_categories": counterparty_categories,
         "accounts": accounts,
     }
+
+
+def _counterparty_matches(c, value: str):
+    matches = []
+    for name, score in c.counterparties.suggestions(value):
+        party = c.counterparties.resolve(name)
+        if party:
+            matches.append({"id": party["id"], "name": name, "score": score})
+    return matches
 
 
 def _trade_choices(c, account, positions) -> list[dict]:
@@ -108,7 +120,7 @@ def page(request: Request, account_id: int | None, entry: dict | None = None, ed
         if row is not None:
             edit_values = {
                 "date": row.date, "account_id": str(row.account_id), "notes": row.notes,
-                "to": row.other_account_label if row.type == DocType.TRF else (row.payee or ""),
+                "counterparty": row.other_account_label if row.type == DocType.TRF else (row.counterparty or ""),
                 "category": row.category_label if row.category_id else "",
                 "amount": str(row.amount),
             }
@@ -142,20 +154,44 @@ def page(request: Request, account_id: int | None, entry: dict | None = None, ed
         q=q, month=month, base_url=base_url, keep_qs=urlencode(keep),
         post_url=(f"/accounts/{account_id}/register" if account_id else "/transactions/register"),
         show_account=account is None, error=error, error_field=error_field,
+        counterparty_matches=_counterparty_matches(c, (entry or {}).get("counterparty", "")),
     )
 
 
 def _resolve(request: Request, row_account: int | None, values: dict):
-    """Typed text -> (other account for a transfer | category, to-text)."""
+    """Typed counterparty text -> internal account transfer or external transaction party."""
     c = container(request)
     if row_account is None:
         raise ValidationError("Choose an account.", "account")
-    other = c.accounts.find_by_text(values["to"])
+    raw = values["counterparty"].strip()
+    other = c.accounts.find_by_text(raw)
     if other is not None:
         if other.id == row_account:
-            raise ValidationError("That is this same account — pick a different one for a transfer.", "to")
+            raise ValidationError("That is this same account — pick a different counterparty for a transfer.", "counterparty")
         return other.id, None, ""
-    return None, c.categories.find_by_text(values["category"]).id, values["to"].strip()
+    party = c.counterparties.resolve(raw)
+    choice = values.get("counterparty_choice", "")
+    if party:
+        canonical = party["name"]
+    else:
+        guesses = c.counterparties.suggestions(raw)
+        if guesses:
+            if choice.startswith("existing:"):
+                selected_id = _int(choice.split(":", 1)[1])
+                selected = c.counterparties.get(selected_id) if selected_id else None
+                if not selected or selected["name"] not in {name for name, _ in guesses}:
+                    raise ValidationError("Choose one of the suggested counterparties, or explicitly create this name.", "counterparty")
+                c.counterparties.add_alias(int(selected["id"]), raw)
+                canonical = selected["name"]
+            elif choice == "create":
+                canonical = raw
+                c.counterparties.create(canonical)
+            else:
+                names = ", ".join(name for name, _ in guesses[:3])
+                raise ValidationError(f"Possible Counterparty match: {names}. Choose reuse or create.", "counterparty")
+        else:
+            canonical = raw
+    return None, c.categories.find_by_text(values["category"]).id, canonical
 
 
 async def create(request: Request, account_id: int | None):
@@ -165,9 +201,10 @@ async def create(request: Request, account_id: int | None):
     entry = {k: str(form.get(k, "")) for k in ENTRY_FIELDS}
     row_account = account_id or _int(entry["account_id"])
     try:
-        other_id, category_id, to = _resolve(request, row_account, entry)
-        txn = c.transactions.record_in_account(row_account, entry["date"], entry["amount"], category_id, other_id,
-                                               to, entry["notes"])
+        with c.db.transaction():
+            other_id, category_id, counterparty = _resolve(request, row_account, entry)
+            txn = c.transactions.record_in_account(row_account, entry["date"], entry["amount"], category_id, other_id,
+                                                   counterparty, entry["notes"])
     except LightningError as exc:
         return page(request, account_id, entry=entry, error=exc.message, error_field=exc.field or "",
                     status_code=400)
@@ -181,9 +218,10 @@ async def update(request: Request, account_id: int | None, txn_id: int):
     values = {k: str(form.get(k, "")) for k in ENTRY_FIELDS}
     row_account = account_id or _int(values["account_id"])
     try:
-        other_id, category_id, to = _resolve(request, row_account, values)
-        txn = c.transactions.update_in_account(txn_id, row_account, values["date"], values["amount"], category_id,
-                                               other_id, to, values["notes"])
+        with c.db.transaction():
+            other_id, category_id, counterparty = _resolve(request, row_account, values)
+            txn = c.transactions.update_in_account(txn_id, row_account, values["date"], values["amount"], category_id,
+                                                   other_id, counterparty, values["notes"])
     except LightningError as exc:
         return page(request, account_id, edit_values=values, error=exc.message, error_field=exc.field or "",
                     status_code=400, edit_id=txn_id, edit_acct=row_account)
