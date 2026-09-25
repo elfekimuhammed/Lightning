@@ -1,5 +1,7 @@
-"""The register — Actual-style list of transactions with an entry row and in-place editing.
+"""The register — an account's transactions with a quick-add bar and in-place editing.
 
+One signed Amount (+ money in, − money out). "To" is who the money went to or came from;
+typing or picking one of your own accounts there makes the row a transfer.
 Used by one account (/accounts/{id}) and by all accounts (/transactions). Only calls services.
 """
 
@@ -16,39 +18,31 @@ from lightning.core.refs import DocType
 
 from ..web import container, render
 
-ENTRY_FIELDS = ("date", "account_id", "payee", "notes", "choice", "payment", "deposit")
+ENTRY_FIELDS = ("date", "account_id", "to", "category", "notes", "amount")
 FAR_PAST, FAR_FUTURE = "1900-01-01", "9999-12-31"
-
-
-def choices(request: Request) -> list[tuple[str, list[tuple[str, str]]]]:
-    """Category list grouped for a <select>, plus 'Transfer ↔ account' options."""
-    c = container(request)
-    result = []
-    for title, movement in (("Money out", Movement.OUTFLOW), ("Money in", Movement.INFLOW)):
-        loose = []
-        for group, items in c.categories.groups(movement, include_inactive=False):
-            if items:
-                result.append((f"{title} · {group.name}",
-                               [(f"cat:{i.id}", ("— " * (i.depth - 2)) + i.name) for i in items]))
-            else:
-                loose.append((f"cat:{group.id}", group.name))
-        if loose:
-            result.append((title, loose))
-    accounts = c.accounts.list(active_only=True)
-    if len(accounts) > 1:
-        result.append(("Transfer ↔ another account", [(f"acct:{a.id}", a.label) for a in accounts]))
-    return result
-
-
-def parse_choice(value: str) -> tuple[int | None, int | None]:
-    kind, _, raw = (value or "").partition(":")
-    target = int(raw) if raw.isdigit() else None
-    return (target if kind == "cat" else None), (target if kind == "acct" else None)
 
 
 def _int(value) -> int | None:
     text = str(value or "").strip()
     return int(text) if text.isdigit() else None
+
+
+def _lists(request: Request) -> dict:
+    """Data for the type-and-pick boxes (HTML datalists)."""
+    c = container(request)
+    categories = []
+    for movement, hint in ((Movement.OUTFLOW, "money out"), (Movement.INFLOW, "money in")):
+        for cat in c.categories.pickable(movement):
+            categories.append((c.categories.display_name(cat.id), hint))
+    accounts = c.accounts.list(active_only=True)
+    payees = c.transactions.payee_suggestions()
+    return {
+        "category_options": categories,
+        "account_options": [a.label for a in accounts],
+        "payee_options": list(payees),
+        "payee_categories": {p: c.categories.display_name(cid) for p, cid in payees.items()},
+        "accounts": accounts,
+    }
 
 
 def page(request: Request, account_id: int | None, entry: dict | None = None, edit_values: dict | None = None,
@@ -74,12 +68,14 @@ def page(request: Request, account_id: int | None, entry: dict | None = None, ed
         if row is not None:
             edit_values = {
                 "date": row.date, "account_id": str(row.account_id), "notes": row.notes,
-                "payee": row.payee or (row.description if row.type == DocType.TRF else ""),
-                "choice": f"cat:{row.category_id}" if row.category_id else
-                          (f"acct:{row.other_account_id}" if row.other_account_id else ""),
-                "payment": str(row.payment) if row.payment else "",
-                "deposit": str(row.deposit) if row.deposit else "",
+                "to": row.other_account_label if row.type == DocType.TRF else (row.payee or ""),
+                "category": row.category_label if row.category_id else "",
+                "amount": str(row.amount),
             }
+    holdings, account_value = [], None
+    if account:
+        holdings = c.investments.portfolio(fmt_date(today()), account.id).open
+        account_value = c.reporting.account_value(account.id, today())
     keep = {k: v for k, v in (("q", q), ("month", month)) if v}
     base_url = (f"/accounts/{account_id}" if account_id else "/transactions")
     return render(
@@ -87,8 +83,9 @@ def page(request: Request, account_id: int | None, entry: dict | None = None, ed
         account=account,
         group=c.accounts.reporting_group(account) if account else "",
         balance=c.reporting.account_balance(account_id, today()) if account else None,
-        rows=rows, choices=choices(request), accounts=c.accounts.list(active_only=True),
-        payees={p: f"cat:{cid}" for p, cid in c.transactions.payee_suggestions().items()},
+        account_value=account_value, holdings=holdings,
+        can_invest=bool(account and account.account_type.value in ("BROKERAGE", "PHYSICAL_ASSET", "OTHER_ASSET")),
+        rows=rows, **_lists(request),
         entry=entry or {"date": qp.get("date") or fmt_date(today()), "account_id": qp.get("new_acct", "")},
         edit_id=edit_id if edit_values is not None else None, edit_acct=edit_acct, edit=edit_values or {},
         q=q, month=month, base_url=base_url, keep_qs=urlencode(keep),
@@ -97,18 +94,29 @@ def page(request: Request, account_id: int | None, entry: dict | None = None, ed
     )
 
 
+def _resolve(request: Request, row_account: int | None, values: dict):
+    """Typed text -> (other account for a transfer | category, to-text)."""
+    c = container(request)
+    if row_account is None:
+        raise ValidationError("Choose an account.", "account")
+    other = c.accounts.find_by_text(values["to"])
+    if other is not None:
+        if other.id == row_account:
+            raise ValidationError("That is this same account — pick a different one for a transfer.", "to")
+        return other.id, None, ""
+    return None, c.categories.find_by_text(values["category"]).id, values["to"].strip()
+
+
 async def create(request: Request, account_id: int | None):
-    """Save the entry row; come back ready for the next one."""
+    """Save the quick-add row; come back ready for the next one."""
     c = container(request)
     form = await request.form()
     entry = {k: str(form.get(k, "")) for k in ENTRY_FIELDS}
-    category_id, other_id = parse_choice(entry["choice"])
-    target_account = account_id or _int(entry["account_id"])
+    row_account = account_id or _int(entry["account_id"])
     try:
-        if target_account is None:
-            raise ValidationError("Choose an account.", "account")
-        txn = c.transactions.record_in_account(target_account, entry["date"], entry["payment"], entry["deposit"],
-                                               category_id, other_id, entry["payee"], entry["notes"])
+        other_id, category_id, to = _resolve(request, row_account, entry)
+        txn = c.transactions.record_in_account(row_account, entry["date"], entry["amount"], category_id, other_id,
+                                               to, entry["notes"])
     except LightningError as exc:
         return page(request, account_id, entry=entry, error=exc.message, error_field=exc.field or "",
                     status_code=400)
@@ -120,14 +128,11 @@ async def update(request: Request, account_id: int | None, txn_id: int):
     c = container(request)
     form = await request.form()
     values = {k: str(form.get(k, "")) for k in ENTRY_FIELDS}
-    category_id, other_id = parse_choice(values["choice"])
     row_account = account_id or _int(values["account_id"])
     try:
-        if row_account is None:
-            raise ValidationError("Choose an account.", "account")
-        txn = c.transactions.update_in_account(txn_id, row_account, values["date"], values["payment"],
-                                               values["deposit"], category_id, other_id, values["payee"],
-                                               values["notes"])
+        other_id, category_id, to = _resolve(request, row_account, values)
+        txn = c.transactions.update_in_account(txn_id, row_account, values["date"], values["amount"], category_id,
+                                               other_id, to, values["notes"])
     except LightningError as exc:
         return page(request, account_id, edit_values=values, error=exc.message, error_field=exc.field or "",
                     status_code=400, edit_id=txn_id, edit_acct=row_account)

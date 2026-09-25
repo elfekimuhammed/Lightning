@@ -10,6 +10,54 @@ _Nothing yet._
 
 ---
 
+## [0.3.0] — 2026-09-25 — M3 Investments, new register
+
+### Added — M3 Investments (manual)
+- **Investments** you can hold: stocks, funds (equity, money market, gold, other), gold and other — created with a
+  kind and symbol; codes `STK:COMI`, `FND:AZ-GOLD`, `GLD:21K`. Units follow the kind (shares whole, fund units
+  4 decimals, gold grams 3 decimals, gold karat → purity).
+- **Buy, Sell, Dividend** and **"Holding I already own"** (units + what you paid in total, for existing positions).
+  Buy/sell use the broker's own cash (THNDR) or another account (e.g. wallet pays for gold at home).
+- **Positions** from the ledger, average cost (as THNDR shows): cost basis incl. buy fees, realized gain on sells
+  (after sell fees), unrealized gain, dividends per holding, total return; allocation by asset class and by
+  exposure (a gold fund counts as gold).
+- **Prices**: "Update prices" page (one date, a box per investment). Valuation uses the newest of a typed price
+  and the last buy/sell price (a typed price wins on the same day); holdings entered as already owned are
+  valued at cost until priced, marked "at cost". Price changes flow into the net-worth bridge as revaluation.
+- **Investments page** (`/investments`): value, invested, unrealized, total return, holdings table, allocation,
+  sold-out positions. Account pages of brokerage / gold-at-home accounts show a Holdings strip and
+  Cash · Holdings · Total, with Buy / Sell / Dividend buttons.
+- "Physical asset (e.g. gold at home)" account type is now offered.
+- New `investments` module (builds lines, calls `TransactionService.post()`); `AssetService.create_investment`,
+  `set_price(s)`; `TransactionService.post()/repost()` for documents built by other modules.
+- Docs: `PROJECT_OVERVIEW.md` rewritten for 0.3.0; glossary and architecture notes updated.
+
+### Changed — the register (owner feedback)
+- Its own design (not Actual's): a quick-add row, coloured edge per kind (in, out, transfer, investment, opening),
+  a date shown once per day.
+- **One Amount column**: positive = money in, negative = money out (replaces Payment / Deposit).
+- **"To"** replaces "Payee". Typing or picking one of your accounts in To makes the row a **transfer** automatically
+  (the Category box is not needed and is disabled).
+- **Category is a type-and-pick box** (a list of matches while you type), not a dropdown. It accepts the full name
+  ("Personal › Food & Groceries"), the short name, a unique part of it, or the code; ambiguous names ask "Which one?".
+- The account register lists **cash only**; investment lines appear in holdings. Buys show as money out with
+  "Buy 150 × STK:COMI @ 92.4 + fee 45.00".
+- Sidebar groups accounts by kind: Cash & bank · Deposits · Investments · Other (values include holdings).
+
+### Fixed / rules
+- A holding can never go below zero units at any date — enforced on sell, edit, void and restore.
+- An account's cash opening balance and each holding's starting amount are separate (`OPN` per cash or per holding).
+- Holding values are kept at full precision (rounded only on screen), so net worth = cash + Σ units × price exactly.
+
+### Decisions
+- 2026-09-25 — Average cost; buy fees go into cost; sell fees reduce what you receive (owner, THNDR style).
+- 2026-09-25 — Buys and sells are conversions: their lines net to zero at cost/proceeds, so gains appear as
+  revaluation in the net-worth bridge and as realized/unrealized in the portfolio view.
+- 2026-09-25 — Register: one signed amount, "To" (an account there = transfer), typed categories (owner).
+- Dividends link to their investment through the cash line's memo (the investment's code).
+
+---
+
 ## [0.2.0] — 2026-09-25 — Register, budgeting, simplification
 
 ### Added

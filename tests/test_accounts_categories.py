@@ -26,7 +26,7 @@ class TestAccounts:
         assert total == 1 and found[0].ref == "OPN-2026-09-01-001"
 
     def test_debt_accounts_are_not_offered(self, c):
-        for retired in ("CREDIT_CARD", "LOAN", "PAYABLE", "PHYSICAL_ASSET"):
+        for retired in ("CREDIT_CARD", "LOAN", "PAYABLE"):
             with pytest.raises(ValidationError):
                 c.account_flows.open_account("X", retired, "2026-09-01")
 

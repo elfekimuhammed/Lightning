@@ -12,12 +12,10 @@ document.addEventListener("click", (e) => {
   input.value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 });
 
-// Register: click a row to edit it in place; "+ Add New" jumps to the entry row.
+// Register: click a row to edit it in place.
 document.addEventListener("click", (e) => {
   const row = e.target.closest("tr[data-href]");
   if (row && !e.target.closest("a, button, input, select")) location.href = row.dataset.href;
-  const focus = e.target.closest("[data-focus]");
-  if (focus) document.getElementById(focus.dataset.focus)?.focus();
 });
 
 // Register: Escape cancels an edit.
@@ -27,14 +25,30 @@ document.addEventListener("keydown", (e) => {
   if (cancel && e.target.closest("tr.editing")) location.href = cancel.href;
 });
 
-// Register: a payee used before fills in its last category (only if none is chosen yet).
-const known = JSON.parse(document.querySelector("[data-payees]")?.dataset.payees || "{}");
-document.querySelectorAll(".payee-input").forEach((payee) => {
-  payee.addEventListener("change", () => {
-    const choice = document.querySelector(`select.choice-input[form="${payee.getAttribute("form")}"]`);
-    if (choice && !choice.value && known[payee.value]) choice.value = known[payee.value];
+// Register: "To" and "Category" work together.
+//  - one of your accounts in To  -> a transfer: the category box is not needed
+//  - a To used before            -> its last category is filled in (if empty)
+const ledger = document.querySelector(".ledger");
+if (ledger) {
+  const known = JSON.parse(ledger.dataset.payees || "{}");
+  const accounts = new Set(JSON.parse(ledger.dataset.accounts || "[]").map((a) => a.toLowerCase()));
+  document.querySelectorAll(".to-input").forEach((to) => {
+    const form = to.getAttribute("form");
+    const category = document.querySelector(`.category-input[form="${form}"]`);
+    const sync = () => {
+      const isTransfer = accounts.has(to.value.trim().toLowerCase());
+      if (category) {
+        category.disabled = isTransfer;
+        category.placeholder = isTransfer ? "Transfer — no category needed" : "Category — type to search";
+        if (isTransfer) category.value = "";
+        else if (!category.value && known[to.value]) category.value = known[to.value];
+      }
+    };
+    to.addEventListener("change", sync);
+    to.addEventListener("input", () => { if (category && category.disabled) sync(); });
+    sync();
   });
-});
+}
 
 // Account form: show where the chosen type appears on the dashboard.
 const typeSelect = document.getElementById("account_type");

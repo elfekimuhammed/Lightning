@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import field %}
+{% block title %}{{ 'Edit investment' if asset else 'New investment' }}{% endblock %}
+{% block heading %}<h1>{{ ('Edit ' ~ asset.label) if asset else 'New investment' }}</h1>
+<div class="muted">Something you can own units of: a stock, a fund, gold.</div>{% endblock %}
+{% block content %}
+<form method="post" class="card" style="max-width:640px" autocomplete="off">
+  {{ field('name', 'Name', values, error_field, placeholder='e.g. Commercial International Bank', attrs='required autofocus') }}
+  <div class="row">
+    <div class="field {{ 'has-error' if error_field == 'class_code' }}">
+      <label for="class_code">Kind</label>
+      <select id="class_code" name="class_code">
+        {% for c in classes %}<option value="{{ c.code }}" {{ 'selected' if values.class_code == c.code }}>{{ c.name if c.depth == 0 else 'Fund · ' ~ c.name }}</option>{% endfor %}
+      </select>
+    </div>
+    {% if not asset %}
+    {{ field('symbol', 'Symbol', values, error_field, help='The ticker, e.g. COMI. For gold leave empty.', placeholder='e.g. COMI') }}
+    {% endif %}
+  </div>
+  {% if not asset %}
+  <div class="field">
+    <label for="karat">Gold karat <span class="muted small">(gold only)</span></label>
+    <select id="karat" name="karat">{% for k in ['24', '22', '21', '18'] %}<option {{ 'selected' if values.karat == k }}>{{ k }}</option>{% endfor %}</select>
+  </div>
+  {% endif %}
+  <details>
+    <summary>More options</summary>
+    <div style="margin-top:10px">
+      {{ field('isin', 'ISIN', values, error_field, placeholder='optional') }}
+      <div class="field"><label for="notes">Notes</label><textarea id="notes" name="notes" rows="2">{{ values.notes }}</textarea></div>
+      {% if asset %}<label class="small"><input type="checkbox" name="active" value="1" {{ 'checked' if values.active }}> Show in lists</label>{% endif %}
+    </div>
+  </details>
+  <div class="actions" style="margin-top:12px">
+    <button class="btn primary">Save</button>
+    <a class="btn" href="/investments">Cancel</a>
+  </div>
+  {% if not asset %}<p class="muted small">The code is made from the kind and symbol, e.g. STK:COMI, FND:AZ-GOLD, GLD:21K. Shares are whole numbers, fund units allow 4 decimals, gold is in grams (3 decimals).</p>{% endif %}
+</form>
+{% endblock %}

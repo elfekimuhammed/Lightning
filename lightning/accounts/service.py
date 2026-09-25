@@ -42,6 +42,16 @@ class AccountService:
             raise NotFoundError(f"Account {code} not found.")
         return found
 
+    def find_by_text(self, text: str) -> Account | None:
+        """An active account matching what was typed: its label ('CIB-CUR-EGP · CIB Current'), code or name."""
+        wanted = " ".join((text or "").split()).casefold()
+        if not wanted:
+            return None
+        for account in self.repo.list(active_only=True):
+            if wanted in (account.label.casefold(), account.code.casefold(), account.name.casefold()):
+                return account
+        return None
+
     def require_usable(self, account_id: int | None, field: str = "account") -> Account:
         if account_id is None:
             raise ValidationError("Choose an account.", field)

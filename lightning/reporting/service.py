@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 from decimal import Decimal
 
-from lightning.accounts.domain import Account
+from lightning.accounts.domain import SIDEBAR_GROUPS, Account
 from lightning.accounts.service import AccountService
 from lightning.assets.service import AssetService
 from lightning.categories.domain import IncomeClass, Scope
@@ -32,6 +32,10 @@ class HoldingValue:
     asset_class_label: str
     quantity: Decimal
     value: Decimal | None
+    asset_id: int = 0
+    price: Decimal | None = None
+    price_date: str | None = None
+    price_source: str = ""
 
 
 @dataclass
@@ -111,6 +115,7 @@ class StatementRow:
     account_label: str = ""
     category_id: int | None = None
     other_account_id: int | None = None
+    other_account_label: str = ""
 
     @property
     def payment(self) -> Decimal | None:
@@ -158,7 +163,8 @@ class ReportingService:
             if valuation.value is None:
                 unvalued.append(f"{account.label} — {valuation.reason}")
             result.append(HoldingValue(account, asset.code, asset_class.code, asset_class.name, quantity,
-                                       valuation.value))
+                                       valuation.value, asset.id, valuation.price, valuation.price_date,
+                                       valuation.source))
         return result, unvalued
 
     def net_worth(self, as_of: date | str) -> NetWorth:
@@ -322,31 +328,48 @@ class ReportingService:
             amount = from_e6(r["quantity_e6"])
             if running is not None:
                 running += amount
-            if r["category_id"]:
+            other_label = self.accounts.get(r["other_account_id"]).label if r["other_account_id"] else ""
+            if r["type"] in ("BUY", "SEL") and r["memo"]:
+                category = r["memo"]
+            elif r["category_id"]:
                 category = self.categories.display_name(r["category_id"])
-            elif r["other_account_id"]:
-                category = f"Transfer ↔ {self.accounts.get(r['other_account_id']).label}"
+            elif r["type"] == "TRF":
+                category = "Transfer"
             else:
                 category = DOC_LABELS[DocType(r["type"])]
             rows.append(StatementRow(
                 r["date"], r["txn_id"], r["ref"], r["type"], DOC_LABELS[DocType(r["type"])], r["counterparty"],
                 r["description"], r["notes"], category, amount, running, r["account_id"],
-                self.accounts.get(r["account_id"]).label, r["category_id"], r["other_account_id"]))
+                self.accounts.get(r["account_id"]).label, r["category_id"], r["other_account_id"], other_label))
         return rows
 
     def sidebar(self, as_of: date | str) -> tuple[Decimal, list[Group]]:
-        """All-accounts total and active accounts grouped like the dashboard (Liquid Cash, Deposits, ...)."""
+        """All-accounts total and active accounts grouped by kind (Cash & bank, Deposits, Investments, Other).
+        An account's value includes its holdings at market value."""
         nw = self.net_worth(as_of)
-        order = {c.code: i for i, c in enumerate(self.assets.list_classes())}
         groups: dict[str, Group] = {}
         for account, value in nw.by_account:
             if not account.active:
                 continue
-            root = self.assets.root_of(account.cash_class_id)
-            group = groups.setdefault(root.code, Group(root.code, root.name, ZERO))
+            name = SIDEBAR_GROUPS[account.account_type]
+            group = groups.setdefault(name, Group(name, name, ZERO))
             group.value += value
             group.children.append(Group(account.code, account.label, value, id=account.id))
-        return nw.total, sorted(groups.values(), key=lambda g: order.get(g.code, 999))
+        order = list(dict.fromkeys(SIDEBAR_GROUPS.values()))
+        return nw.total, sorted(groups.values(), key=lambda g: order.index(g.code))
+
+    def investment_lines(self, as_of: date | str, account_id: int | None = None) -> list[dict]:
+        """Posted lines of investments (and dividends), oldest first — the input for positions."""
+        return self.q.investment_lines(self._day(as_of), account_id)
+
+    def value_of(self, asset_id: int, quantity: Decimal, as_of: date | str):
+        """Market value of units of an asset on a date (see Valuer for where the price comes from)."""
+        return self.valuer.value(self.assets.get_asset(asset_id), quantity, self._day(as_of))
+
+    def account_value(self, account_id: int, as_of: date | str) -> Decimal:
+        """Cash plus holdings at market value."""
+        holdings, _ = self.holdings(as_of)
+        return sum((h.value or ZERO for h in holdings if h.account.id == account_id), ZERO)
 
     def first_date(self) -> str | None:
         return self.q.first_entry_date()

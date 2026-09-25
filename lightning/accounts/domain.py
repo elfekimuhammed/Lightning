@@ -58,9 +58,24 @@ OFFERED_TYPES = [
     AccountType.BANK,
     AccountType.DEPOSIT,
     AccountType.BROKERAGE,
+    AccountType.PHYSICAL_ASSET,
     AccountType.RECEIVABLE,
     AccountType.OTHER_ASSET,
 ]
+
+# Accounts that can hold investments (stocks, funds, gold)
+INVESTMENT_ACCOUNT_TYPES = {AccountType.BROKERAGE, AccountType.PHYSICAL_ASSET, AccountType.OTHER_ASSET}
+
+# How the sidebar groups accounts (the dashboard groups wealth by asset class instead)
+SIDEBAR_GROUPS: dict[AccountType, str] = {
+    AccountType.CASH: "Cash & bank",
+    AccountType.BANK: "Cash & bank",
+    AccountType.DEPOSIT: "Deposits",
+    AccountType.BROKERAGE: "Investments",
+    AccountType.PHYSICAL_ASSET: "Investments",
+    AccountType.RECEIVABLE: "Other",
+    AccountType.OTHER_ASSET: "Other",
+}
 
 
 @dataclass

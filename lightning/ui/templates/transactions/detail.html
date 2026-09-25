@@ -22,7 +22,8 @@
     </table>
     <div class="actions" style="margin-top:14px">
       {% if not txn.is_void %}
-        {% if txn.type == 'OPN' %}<a class="btn" href="/accounts/{{ lines[0].account_id }}/edit">Change opening balance</a>
+        {% if txn.type in ('BUY', 'SEL', 'DIV') or (txn.type == 'OPN' and lines[0].asset != 'CASH:' ~ base) %}<a class="btn" href="/investments/{{ txn.id }}/edit">Edit</a>
+        {% elif txn.type == 'OPN' %}<a class="btn" href="/accounts/{{ lines[0].account_id }}/edit">Change opening balance</a>
         {% else %}<a class="btn" href="/accounts/{{ lines[0].account_id }}?edit={{ txn.id }}&acct={{ lines[0].account_id }}">Edit in register</a>{% endif %}
         <form method="post" action="/transactions/{{ txn.id }}/void"><button class="btn danger">Void</button></form>
       {% else %}

@@ -18,6 +18,7 @@ from lightning.database.connection import Database
 from lightning.database.migrator import migrate
 from lightning.database.seed import seed
 from lightning.database.settings import SettingsStore
+from lightning.investments.service import InvestmentService
 from lightning.reporting.service import ReportingService
 from lightning.transactions.service import TransactionService
 from lightning.workflows.accounts import AccountWorkflows
@@ -38,6 +39,7 @@ class Container:
     transactions: TransactionService
     reporting: ReportingService
     budgets: BudgetService
+    investments: InvestmentService
     account_flows: AccountWorkflows
 
     @property
@@ -59,7 +61,7 @@ def build(db_path: str | Path | None = None, backup_on_start: bool = False) -> C
     settings = SettingsStore(db)
     base = settings.base_currency
     audit = AuditLog(db)
-    assets = AssetService(db)
+    assets = AssetService(db, base)
     categories = CategoryService(db)
     accounts = AccountService(db, assets, base)
     transactions = TransactionService(db, accounts, assets, categories, audit, base)
@@ -75,5 +77,6 @@ def build(db_path: str | Path | None = None, backup_on_start: bool = False) -> C
         transactions=transactions,
         reporting=reporting,
         budgets=BudgetService(db, categories, reporting),
+        investments=InvestmentService(db, accounts, assets, categories, transactions, reporting),
         account_flows=AccountWorkflows(db, accounts, transactions, reporting),
     )

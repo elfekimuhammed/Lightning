@@ -63,6 +63,31 @@ class CategoryService:
             current = self.get(current.parent_id)
         return " › ".join(reversed(names)) or current.name
 
+    def find_by_text(self, text: str) -> Category:
+        """What someone typed in the Category box -> the category. Accepts the full name
+        ('Personal › Food & Groceries'), the plain name ('Food & Groceries') or the code; case does not matter."""
+        wanted = " ".join((text or "").split()).casefold()
+        if not wanted:
+            raise ValidationError("Choose a category — or pick one of your accounts in To for a transfer.",
+                                  "category")
+        options = [c for c in self.tree(active_only=True) if not c.is_root and not c.is_system]
+        for key in (lambda c: self.display_name(c.id), lambda c: c.name, lambda c: c.code):
+            matches = [c for c in options if key(c).casefold() == wanted]
+            if len(matches) == 1:
+                return matches[0]
+            if len(matches) > 1:
+                names = " or ".join(self.display_name(c.id) for c in matches)
+                raise ValidationError(f"Which one — {names}?", "category")
+        partial = [c for c in options if wanted in self.display_name(c.id).casefold()]
+        if len(partial) == 1:
+            return partial[0]
+        if partial:
+            names = ", ".join(self.display_name(c.id) for c in partial[:4])
+            raise ValidationError(f"'{text}' matches several categories: {names}. Pick one from the list.",
+                                  "category")
+        raise ValidationError(f"There is no category called '{text}'. Pick one from the list, or add it under "
+                              "Categories.", "category")
+
     def groups(self, movement: Movement, include_inactive: bool = True) -> list[tuple[Category, list[Category]]]:
         """Second-level groups (Personal, Work, Fees…) with everything beneath them, for the categories page."""
         items = [c for c in self.tree(movement) if not c.is_root and not c.is_system]

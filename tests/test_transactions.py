@@ -150,34 +150,49 @@ class TestSearch:
 
 
 class TestRegister:
-    def test_payment_deposit_and_transfer(self, setup, c):
+    def test_signed_amount_and_transfers(self, setup, c):
         accounts, cats = setup
         w = accounts["wallet"].id
-        out = c.transactions.record_in_account(w, "2026-09-10", payment="50", category_id=cats["EXP.PERSONAL.FOOD"].id,
-                                               payee="Kiosk")
-        assert out.type == "OUT" and out.counterparty == "Kiosk"
-        inn = c.transactions.record_in_account(w, "2026-09-10", deposit="20", category_id=cats["INC.SALARY"].id)
+        out = c.transactions.record_in_account(w, "2026-09-10", "-50", cats["EXP.PERSONAL.FOOD"].id, to="Kiosk")
+        assert out.type == "OUT" and out.counterparty == "Kiosk" and out.lines[0].quantity == Decimal("-50")
+        inn = c.transactions.record_in_account(w, "2026-09-10", "20", cats["INC.SALARY"].id)
         assert inn.type == "IN"
-        t1 = c.transactions.record_in_account(w, "2026-09-11", payment="100", other_account_id=accounts["cib"].id)
-        t2 = c.transactions.record_in_account(w, "2026-09-11", deposit="300", other_account_id=accounts["cib"].id)
+        t1 = c.transactions.record_in_account(w, "2026-09-11", "-100", other_account_id=accounts["cib"].id)
+        t2 = c.transactions.record_in_account(w, "2026-09-11", "300", other_account_id=accounts["cib"].id)
         assert c.transactions.summarize(t1).to_account_label.startswith("CIB-CUR-EGP")
         assert c.transactions.summarize(t2).account_label.startswith("CIB-CUR-EGP")
         assert c.reporting.account_balance(w) == Decimal("1200") - 50 + 20 - 100 + 300
 
-    @pytest.mark.parametrize("kw,msg", [
-        ({"payment": "5", "deposit": "5"}, "one of them"),
-        ({}, "one of them"),
-        ({"payment": "5"}, "Choose a category"),
+    @pytest.mark.parametrize("amount,category,msg", [
+        ("0", "EXP.PERSONAL.FOOD", "Enter an amount"),
+        ("50", "EXP.PERSONAL.FOOD", "make the amount negative"),
+        ("-50", "INC.SALARY", "make the amount positive"),
+        ("-50", None, "Choose a category"),
     ])
-    def test_register_rules(self, setup, c, kw, msg):
-        accounts, _ = setup
+    def test_register_rules(self, setup, c, amount, category, msg):
+        accounts, cats = setup
+        cid = cats[category].id if category else None
         with pytest.raises(ValidationError, match=msg):
-            c.transactions.record_in_account(accounts["wallet"].id, "2026-09-10", **kw)
+            c.transactions.record_in_account(accounts["wallet"].id, "2026-09-10", amount, cid)
 
     def test_payee_memory(self, setup, c):
         accounts, cats = setup
-        c.transactions.record_in_account(accounts["wallet"].id, "2026-09-10", payment="5",
-                                         category_id=cats["EXP.PERSONAL.FOOD"].id, payee="Kiosk")
-        c.transactions.record_in_account(accounts["wallet"].id, "2026-09-12", payment="5",
-                                         category_id=cats["EXP.WORK.SOFTWARE"].id, payee="Kiosk")
+        w = accounts["wallet"].id
+        c.transactions.record_in_account(w, "2026-09-10", "-5", cats["EXP.PERSONAL.FOOD"].id, to="Kiosk")
+        c.transactions.record_in_account(w, "2026-09-12", "-5", cats["EXP.WORK.SOFTWARE"].id, to="Kiosk")
         assert c.transactions.payee_suggestions()["Kiosk"] == cats["EXP.WORK.SOFTWARE"].id
+
+    def test_typed_category_and_account_lookup(self, setup, c):
+        accounts, _ = setup
+        find = c.categories.find_by_text
+        assert find("Personal › Food & Groceries").code == "EXP.PERSONAL.FOOD"
+        assert find("food & groceries").code == "EXP.PERSONAL.FOOD"
+        assert find("EXP.WORK.SOFTWARE").code == "EXP.WORK.SOFTWARE"
+        assert find("groceries").code == "EXP.PERSONAL.FOOD"  # unique partial match
+        with pytest.raises(ValidationError, match="Which one"):
+            find("Transportation")  # Personal and Work both have one
+        with pytest.raises(ValidationError, match="no category"):
+            find("Spaceships")
+        assert c.accounts.find_by_text("wallet").id == accounts["wallet"].id
+        assert c.accounts.find_by_text("CIB-CUR-EGP · CIB Current").id == accounts["cib"].id
+        assert c.accounts.find_by_text("Carrefour") is None

@@ -11,6 +11,12 @@ Effects:
 
 Net-worth equation (per period):
     closing = opening + inflows - outflows + revaluation + new balances added
+
+Cash lines vs investment lines:
+- cash:        quantity == amount, unit price 1
+- investment:  quantity = units (shares, fund units, grams); unit_price = the trade price;
+               amount = what the units cost (buy, incl. fees) or fetched (sell, net of fees).
+               So a buy or sell always nets to zero against its cash line; gains show as revaluation.
 """
 
 from __future__ import annotations
@@ -40,8 +46,9 @@ class PostingLine:
     fx_rate: Decimal = ONE  # asset currency -> base currency, fixed at transaction date
     category_id: int | None = None
     memo: str = ""
-    amount: Decimal = field(default=ZERO)  # quantity x unit_price (asset currency)
+    amount: Decimal = field(default=ZERO)  # cash: = quantity; investment: cost or proceeds (asset currency)
     amount_base: Decimal = field(default=ZERO)  # amount x fx_rate (base currency, EGP)
+    is_cash: bool = True  # not stored; tells the rules which kind of line this is
 
     @staticmethod
     def cash(
@@ -67,6 +74,31 @@ class PostingLine:
             amount_base=_round6(amount * fx_rate),
         )
 
+    @staticmethod
+    def units(
+        account_id: int,
+        asset_id: int,
+        quantity: Decimal,
+        amount: Decimal,
+        effect: Effect,
+        trade_price: Decimal,
+        memo: str = "",
+        fx_rate: Decimal = ONE,
+    ) -> "PostingLine":
+        """An investment line: units of a non-cash asset and what they cost / fetched."""
+        return PostingLine(
+            account_id=account_id,
+            asset_id=asset_id,
+            quantity=quantity,
+            unit_price=trade_price,
+            fx_rate=fx_rate,
+            effect=effect,
+            memo=memo,
+            amount=amount,
+            amount_base=_round6(amount * fx_rate),
+            is_cash=False,
+        )
+
 
 def _round6(value: Decimal) -> Decimal:
     return value.quantize(Decimal("0.000001"))
@@ -85,8 +117,10 @@ def validate_posting(lines: list[PostingLine]) -> None:
                 raise ValidationError(f"Line {i}: {name} has more than 6 decimal places.")
         if line.unit_price < ZERO or line.fx_rate <= ZERO:
             raise ValidationError(f"Line {i}: price and exchange rate must be positive.")
-        if line.amount != _round6(line.quantity * line.unit_price):
-            raise ValidationError(f"Line {i}: amount must equal quantity x unit price.")
+        if line.is_cash and (line.unit_price != ONE or line.amount != line.quantity):
+            raise ValidationError(f"Line {i}: a cash line's amount must equal its quantity.")
+        if not line.is_cash and line.amount != ZERO and (line.amount > ZERO) != (line.quantity > ZERO):
+            raise ValidationError(f"Line {i}: units in must cost money; units out must return money.")
         if line.amount_base != _round6(line.amount * line.fx_rate):
             raise ValidationError(f"Line {i}: base amount must equal amount x exchange rate.")
         if line.effect in (Effect.INFLOW, Effect.OUTFLOW) and line.category_id is None:

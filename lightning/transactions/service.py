@@ -69,40 +69,29 @@ class TransactionService:
         day, lines = self._transfer_lines(date, from_account_id, to_account_id, amount)
         return self._create(DocType.TRF, day, lines, description, "", notes, source)
 
-    def record_in_account(self, account_id: int, date: str, payment: object = "", deposit: object = "",
-                          category_id: int | None = None, other_account_id: int | None = None,
-                          payee: str = "", notes: str = "") -> Transaction:
-        """One register row (Actual-style) -> the right transaction.
+    def record_in_account(self, account_id: int, date: str, amount: object, category_id: int | None = None,
+                          other_account_id: int | None = None, to: str = "", notes: str = "") -> Transaction:
+        """One register row -> the right transaction.
 
-        Fill Payment (money leaves this account) or Deposit (money arrives), and choose either a
-        category (money out / money in) or another account (a transfer).
+        ``amount`` is signed from this account's point of view: positive = money in, negative = money out.
+        Give a category (money in / money out) — or another of your accounts, which makes it a transfer.
+        ``to`` is who the money went to or came from (e.g. Carrefour, Employer).
         """
-        pay, dep = str(payment or "").strip(), str(deposit or "").strip()
-        if bool(pay) == bool(dep):
-            raise ValidationError("Enter the amount under Payment or under Deposit — one of them.", "amount")
-        if (category_id is None) == (other_account_id is None):
-            raise ValidationError("Choose a category, or an account for a transfer.", "category")
-        if other_account_id is not None:
-            if pay:
-                return self.record_transfer(date, account_id, other_account_id, pay, payee, notes)
-            return self.record_transfer(date, other_account_id, account_id, dep, payee, notes)
-        category = self.categories.get(category_id)
-        name = self.categories.display_name(category.id)
-        if pay:
-            if category.movement != Movement.OUTFLOW:
-                raise ValidationError(f"{name} is money in — put the amount under Deposit.", "amount")
-            return self.record_outflow(date, account_id, pay, category.id, counterparty=payee, notes=notes)
-        if category.movement != Movement.INFLOW:
-            raise ValidationError(f"{name} is money out — put the amount under Payment.", "amount")
-        return self.record_inflow(date, account_id, dep, category.id, counterparty=payee, notes=notes)
+        kind, value, category_id = self._register_kind(amount, category_id, other_account_id)
+        if kind == DocType.TRF:
+            src, dst = (account_id, other_account_id) if value < 0 else (other_account_id, account_id)
+            return self.record_transfer(date, src, dst, abs(value), to, notes)
+        if kind == DocType.OUT:
+            return self.record_outflow(date, account_id, -value, category_id, counterparty=to, notes=notes)
+        return self.record_inflow(date, account_id, value, category_id, counterparty=to, notes=notes)
 
-    def update_in_account(self, txn_id: int, account_id: int, date: str, payment: object = "", deposit: object = "",
+    def update_in_account(self, txn_id: int, account_id: int, date: str, amount: object,
                           category_id: int | None = None, other_account_id: int | None = None,
-                          payee: str = "", notes: str = "") -> Transaction:
-        """Edit a register row in place. Seen from ``account_id`` (the register it was edited in).
+                          to: str = "", notes: str = "") -> Transaction:
+        """Edit a register row in place, seen from ``account_id`` (the register it was edited in).
 
-        If the kind of transaction changes (e.g. a transfer becomes money out), the old one is voided and
-        a new one recorded, because a ref's prefix (TRF/OUT/IN) must always tell the truth.
+        If the kind changes (e.g. a transfer becomes money out) the old one is voided and a new one recorded,
+        because a ref's prefix (TRF/OUT/IN) must always tell the truth.
         """
         current = self.get(txn_id)
         if current.is_void:
@@ -110,31 +99,34 @@ class TransactionService:
         if current.type == DocType.OPN:
             raise ValidationError("Change an opening balance from the account's edit page.")
         if current.type not in EDITABLE_TYPES:
-            raise ValidationError(f"{current.type_label} transactions cannot be edited here.")
-        pay, dep = str(payment or "").strip(), str(deposit or "").strip()
-        if bool(pay) == bool(dep):
-            raise ValidationError("Enter the amount under Payment or under Deposit — one of them.", "amount")
-        if (category_id is None) == (other_account_id is None):
-            raise ValidationError("Choose a category, or an account for a transfer.", "category")
-        if other_account_id is not None:
-            new_type = DocType.TRF
-        else:
-            new_type = DocType.OUT if pay else DocType.IN
-            category = self.categories.get(category_id)
-            wanted = Movement.OUTFLOW if pay else Movement.INFLOW
-            if category.movement != wanted:
-                name = self.categories.display_name(category.id)
-                column = "Deposit" if pay else "Payment"
-                kind = "money in" if pay else "money out"
-                raise ValidationError(f"{name} is {kind} — put the amount under {column}.", "amount")
+            raise ValidationError(f"{current.type_label} transactions are edited from Investments.")
+        kind, value, category_id = self._register_kind(amount, category_id, other_account_id)
         with self.db.transaction():
-            if new_type != current.type:
-                self.void(current.id, f"Replaced when edited ({current.type_label} → {DOC_LABELS[new_type]})")
-                return self.record_in_account(account_id, date, pay, dep, category_id, other_account_id, payee, notes)
-            if new_type == DocType.TRF:
-                src, dst = (account_id, other_account_id) if pay else (other_account_id, account_id)
-                return self.update_transfer(current.id, date, src, dst, pay or dep, payee, notes)
-            return self.update_money(current.id, date, account_id, pay or dep, category_id, "", payee, notes)
+            if kind != current.type:
+                self.void(current.id, f"Replaced when edited ({current.type_label} → {DOC_LABELS[kind]})")
+                return self.record_in_account(account_id, date, value, category_id, other_account_id, to, notes)
+            if kind == DocType.TRF:
+                src, dst = (account_id, other_account_id) if value < 0 else (other_account_id, account_id)
+                return self.update_transfer(current.id, date, src, dst, abs(value), to, notes)
+            return self.update_money(current.id, date, account_id, abs(value), category_id, "", to, notes)
+
+    def _register_kind(self, amount: object, category_id: int | None, other_account_id: int | None):
+        value = to_decimal(amount, "amount")
+        if value == ZERO:
+            raise ValidationError("Enter an amount: negative for money out (-450), positive for money in.", "amount")
+        if other_account_id is not None:
+            return DocType.TRF, value, None
+        if category_id is None:
+            raise ValidationError("Choose a category — or pick one of your accounts in To for a transfer.",
+                                  "category")
+        category = self.categories.get(category_id)
+        name = self.categories.display_name(category.id)
+        if value < 0 and category.movement != Movement.OUTFLOW:
+            raise ValidationError(f"{name} is money in — make the amount positive.", "amount")
+        if value > 0 and category.movement != Movement.INFLOW:
+            raise ValidationError(f"{name} is money out — make the amount negative (e.g. -{abs(value)}).",
+                                  "amount")
+        return (DocType.OUT if value < 0 else DocType.IN), value, category.id
 
     def search_ids(self, text: str) -> set[int]:
         """Transaction ids matching a search (posted ones)."""
@@ -145,6 +137,25 @@ class TransactionService:
         """Payees used before -> the category used with them last time (for the register)."""
         return self.repo.payee_categories()
 
+    def post(self, doc_type: DocType, date: str, lines: list[PostingLine], description: str = "",
+             counterparty: str = "", notes: str = "", source: TxnSource = TxnSource.MANUAL) -> Transaction:
+        """Record any document from lines built by another module (investments). Same rules as everything else:
+        accounts usable, date not in the future nor before an account opened, lines valid, holdings never below zero.
+        """
+        day = self._check_date(date, [self.accounts.require_usable(i) for i in {ln.account_id for ln in lines}])
+        validate_posting(lines)
+        return self._create(doc_type, day, lines, description, counterparty, notes, source)
+
+    def repost(self, txn_id: int, date: str, lines: list[PostingLine], description: str = "",
+               counterparty: str = "", notes: str = "") -> Transaction:
+        """Replace the lines of a document built by another module; the ref never changes."""
+        current = self.get(txn_id)
+        if current.is_void:
+            raise ValidationError("Restore this transaction before editing it.")
+        day = self._check_date(date, [self.accounts.require_usable(i) for i in {ln.account_id for ln in lines}])
+        validate_posting(lines)
+        return self._update(current, day, lines, description, counterparty, notes)
+
     def set_opening_balance(self, account_id: int, amount: Decimal, date: str) -> Transaction | None:
         """Create, change or remove an account's opening balance (signed: liabilities are negative).
 
@@ -154,7 +165,7 @@ class TransactionService:
         day = parse_date(date, "opening_date")
         asset = self.assets.cash_asset(account.currency)
         amount = check_places(to_decimal(amount, "opening_balance"), asset.quantity_decimals, "opening_balance")
-        existing_id = self.repo.opening_txn_id(account_id)
+        existing_id = self.repo.opening_txn_id(account_id)  # the cash opening balance
         with self.db.transaction():
             if amount == ZERO:
                 if existing_id:
@@ -169,11 +180,17 @@ class TransactionService:
             return self._create(DocType.OPN, day, lines, f"Opening balance — {account.name}", "", "",
                                 TxnSource.SYSTEM)
 
+    def opening_txn_id(self, account_id: int, asset_id: int | None = None, exclude_id: int | None = None) -> int | None:
+        """The live opening transaction for an account's cash (asset_id None) or for one of its holdings."""
+        return self.repo.opening_txn_id(account_id, asset_id, exclude_id)
+
     def opening_balance(self, account_id: int) -> Decimal:
+        """The account's opening cash balance."""
         txn_id = self.repo.opening_txn_id(account_id)
         if not txn_id:
             return ZERO
-        return sum((ln.quantity for ln in self.get(txn_id).lines if ln.account_id == account_id), ZERO)
+        return sum((ln.quantity for ln in self.get(txn_id).lines if ln.account_id == account_id
+                    and self.assets.get_asset(ln.asset_id).is_cash), ZERO)
 
     # ======================================================================
     # Editing, voiding
@@ -198,6 +215,7 @@ class TransactionService:
             return t
         with self.db.transaction():
             self.repo.set_status(t.id, TxnStatus.VOID)
+            self._check_holdings(t.lines)
             self.audit.record("transaction", t.id, "void", reason or f"Voided {t.ref}")
         return self.get(txn_id)
 
@@ -207,13 +225,15 @@ class TransactionService:
             return t
         if t.type == DocType.OPN:
             for line in t.lines:
-                if self.repo.opening_txn_id(line.account_id):
-                    raise ValidationError("This account already has another opening balance.")
+                asset = self.assets.get_asset(line.asset_id)
+                if self.repo.opening_txn_id(line.account_id, None if asset.is_cash else asset.id, exclude_id=t.id):
+                    raise ValidationError("This account already has another opening balance for that.")
         with self.db.transaction():
             # re-validate against today's rules (accounts may have been deactivated)
             for line in t.lines:
                 self.accounts.require_usable(line.account_id)
             self.repo.set_status(t.id, TxnStatus.POSTED)
+            self._check_holdings(t.lines)
             self.audit.record("transaction", t.id, "restore", f"Restored {t.ref}")
         return self.get(txn_id)
 
@@ -256,9 +276,10 @@ class TransactionService:
             to_account_id = in_line.account_id if in_line else None
             amount = in_line.quantity if in_line else ZERO
         elif t.lines:
-            first = t.lines[0]
+            cash = [ln for ln in t.lines if self.assets.get_asset(ln.asset_id).is_cash]
+            first = (cash or t.lines)[0]
             account_id, category_id = first.account_id, first.category_id
-            amount = sum((ln.quantity for ln in t.lines), ZERO)
+            amount = sum((ln.quantity for ln in cash), ZERO)  # 0 for a holding-only document
         currency = self.accounts.get(account_id).currency if account_id else self.base_currency
         return TxnSummary(
             id=t.id,
@@ -324,6 +345,7 @@ class TransactionService:
                 created_at="", updated_at="",
             )
             txn_id = self.repo.insert(header, lines)
+            self._check_holdings(lines)
         return self.get(txn_id)
 
     def _update(self, current: Transaction, day, lines: list[PostingLine], description: str, counterparty: str,
@@ -335,6 +357,7 @@ class TransactionService:
             )
             self.repo.update_header(updated)
             self.repo.replace_lines(current.id, updated.date, lines)
+            self._check_holdings(list(current.lines) + list(lines))
             after = self.get(current.id)
             self.audit.record("transaction", current.id, "edit", f"Edited {current.ref}",
                               before=self._snapshot(current), after=self._snapshot(after))
@@ -349,6 +372,19 @@ class TransactionService:
                 raise ValidationError("Change an opening balance from the account's edit page.")
             raise ValidationError(f"{t.type_label} transactions cannot be edited here.")
         return t
+
+    def _check_holdings(self, lines) -> None:
+        """No holding may ever go below zero units (you cannot sell or remove what you did not have)."""
+        for account_id, asset_id in {(ln.account_id, ln.asset_id) for ln in lines}:
+            asset = self.assets.get_asset(asset_id)
+            if asset.is_cash:
+                continue
+            lowest, on = self.repo.lowest_running_quantity(account_id, asset_id)
+            if lowest < 0:
+                account = self.accounts.get(account_id)
+                raise ValidationError(
+                    f"{account.label} would hold less than zero {asset.name} on {on}. "
+                    "Check the quantities and dates of buys and sells.", "quantity")
 
     def _check_date(self, date: str, accounts: list[Account]):
         day = parse_date(date)

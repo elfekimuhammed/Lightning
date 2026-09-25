@@ -15,13 +15,16 @@ The same words are used in the code, the database and the screens.
 | **Money out** (outflow) | Value leaving your finances | Groceries, fees, tax |
 | **Transfer** | Money moving between your own accounts; net worth unchanged | CIB → THNDR |
 | **Conversion** | One asset swapped for another inside your finances (M3/M4) | Cash → shares, EGP → USD |
-| **Revaluation** | A value change with no money moving (M3/M4) | Share price up |
+| **Revaluation** | A value change with no money moving (prices; FX from M4) | Share price up |
 | **Opening balance** | What an account held when tracking started | `OPN-2026-09-01-001` |
 | **New balances added** | Opening balances of accounts started during a period | |
 | **Net worth** | Everything you own (Lightning does not track debts) | |
-| **Register** | An account page: its transactions with an entry row on top | Payee · Category · Payment · Deposit |
+| **Register** | An account page: its transactions with a quick-add row | Date · To · Category · Notes · Amount (+ in / − out) |
+| **To** | Who money went to or came from; one of your accounts there = a transfer | Carrefour · THNDR |
+| **Holding** | Units of an investment in an account (calculated) | 150 × STK:COMI in THNDR |
+| **Buy / Sell / Dividend** | Cash into units / units into cash / cash paid by an investment | `BUY`, `SEL`, `DIV` |
 | **Receivable** | Money owed to you | Pending reimbursement (M5) |
-| **Cost basis** | What you paid for a holding, including fees (M3) | |
+| **Cost basis** | What the units you still hold cost, including buy fees (average cost) | |
 | **Void** | Cancelled: kept for history, excluded from balances | |
 
 ## Codes

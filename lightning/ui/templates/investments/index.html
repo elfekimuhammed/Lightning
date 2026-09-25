@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Investments{% endblock %}
+{% block heading %}<h1>Investments</h1><div class="muted">Stocks, funds and gold across your accounts · as of {{ p.as_of }}</div>{% endblock %}
+{% block top_actions %}
+<a class="btn small primary" href="/investments/new?kind=buy">Buy</a>
+<a class="btn small" href="/investments/new?kind=sell">Sell</a>
+<a class="btn small" href="/investments/new?kind=dividend">Dividend</a>
+<a class="btn small" href="/investments/prices">Update prices</a>
+{% endblock %}
+{% block content %}
+{% macro price_tag(source) -%}
+{% if source == 'COST' %}<span class="pill" title="No price yet — valued at what you paid">at cost</span>
+{% elif source == 'TRADE' %}<span class="pill" title="Price of your last buy or sell">last trade</span>{% endif %}
+{%- endmacro %}
+
+{% if not accounts %}
+<div class="card empty">Investments live in a brokerage account (like THNDR) or a physical-asset account (like gold at home).
+  <div class="actions" style="justify-content:center;margin-top:10px">
+    <a class="btn primary" href="/accounts/new?type=BROKERAGE">Add a brokerage account</a>
+    <a class="btn" href="/accounts/new?type=PHYSICAL_ASSET">Add gold at home</a></div></div>
+{% else %}
+<div class="grid g4">
+  <div class="card tile"><div class="label">Value</div><div class="value">{{ p.value|money }}</div><div class="sub">{{ base }} · {{ p.open|length }} holding{{ 's' if p.open|length != 1 }}</div></div>
+  <div class="card tile"><div class="label">Invested (cost)</div><div class="value">{{ p.cost_basis|money }}</div><div class="sub">what the units you hold cost</div></div>
+  <div class="card tile"><div class="label">Unrealized</div><div class="value {{ p.unrealized|tone }}">{{ p.unrealized|money(True) }}</div>
+    <div class="sub">{% if p.cost_basis %}{{ (p.unrealized / p.cost_basis * 100)|round(1) }}% on cost{% else %}—{% endif %}</div></div>
+  <div class="card tile"><div class="label">Total return</div><div class="value {{ p.total_return|tone }}">{{ p.total_return|money(True) }}</div>
+    <div class="sub">realized {{ p.realized|money(True) }} · dividends {{ p.dividends|money }}</div></div>
+</div>
+
+<div class="card wide" style="margin-top:16px">
+  <h2>Holdings</h2>
+  {% if p.open %}
+  <table>
+    <thead><tr><th>Investment</th><th>Account</th><th class="num">Units</th><th class="num">Cost</th>
+      <th class="num">Price</th><th class="num">Value</th><th class="num">Unrealized</th><th class="num">Share</th></tr></thead>
+    {% for h in p.open %}
+    <tr>
+      <td>{{ h.asset_name }}<div class="code muted small">{{ h.asset_code }} · {{ h.asset_class }}</div></td>
+      {% set parts = h.account_label.split(' · ', 1) %}
+      <td class="small">{{ parts[1] if parts|length > 1 else h.account_label }}<div class="code muted" style="font-size:11px">{{ parts[0] }}</div></td>
+      <td class="num">{{ h.quantity|money(False, 3 if h.unit == 'gram' else (0 if h.unit == 'share' else 4)) }} <span class="muted small">{{ h.unit }}s</span></td>
+      <td class="num">{{ h.cost_basis|money }}<div class="small muted">avg {{ h.average_cost|money(False, 2 if h.unit == 'share' else 4) if h.average_cost is not none }}</div></td>
+      <td class="num">{{ h.price|money(False, 4) if h.price is not none }}<div class="small muted">{{ h.price_date or '' }} {{ price_tag(h.price_source) }}</div></td>
+      <td class="num"><b>{{ h.value|money if h.value is not none else '—' }}</b></td>
+      <td class="num {{ h.unrealized|tone }}">{{ h.unrealized|money(True) if h.unrealized is not none }}
+        <div class="small">{{ (h.unrealized_pct|round(1) ~ '%') if h.unrealized_pct is not none }}</div></td>
+      <td class="num small">{{ ((h.value / p.value * 100)|round(1) ~ '%') if p.value and h.value }}</td>
+    </tr>
+    {% endfor %}
+    <tr class="total"><td colspan="3">Total</td><td class="num">{{ p.cost_basis|money }}</td><td></td>
+      <td class="num">{{ p.value|money }}</td><td class="num {{ p.unrealized|tone }}">{{ p.unrealized|money(True) }}</td><td></td></tr>
+  </table>
+  {% else %}
+  <div class="empty">No holdings yet.
+    <div class="actions" style="justify-content:center;margin-top:10px">
+      {% if not has_assets %}<a class="btn primary" href="/investments/assets/new">Add your first investment (e.g. a stock)</a>
+      {% else %}<a class="btn primary" href="/investments/new?kind=buy">Record a buy</a>{% endif %}
+      <a class="btn" href="/investments/new?kind=holding">Add a holding you already own</a></div></div>
+  {% endif %}
+  <div class="actions" style="margin-top:12px">
+    <a class="btn small" href="/investments/new?kind=holding">+ Holding I already own</a>
+    <a class="btn small" href="/investments/assets/new">+ New investment (stock, fund, gold)</a>
+  </div>
+</div>
+
+{% if p.open %}
+<div class="grid g2" style="margin-top:16px">
+  {% for title, rows in [("By asset class", by_class), ("By exposure", by_exposure)] %}
+  <div class="card">
+    <h2>{{ title }}</h2>
+    <table>
+      {% for name, value, share in rows %}
+      <tr><td class="small">{{ name }}<div class="bartrack"><div class="bar" style="width:{{ share }}%"></div></div></td>
+          <td class="num small">{{ value|money }}</td><td class="num small">{{ share|round(1) }}%</td></tr>
+      {% endfor %}
+    </table>
+    {% if title == "By exposure" %}<p class="muted small">Exposure looks through the wrapper: a gold fund counts as gold.</p>{% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if p.closed %}
+<div class="card" style="margin-top:16px">
+  <details><summary>Sold out and past dividends ({{ p.closed|length }})</summary>
+  <table style="margin-top:10px">
+    <thead><tr><th>Investment</th><th>Account</th><th class="num">Realized</th><th class="num">Dividends</th></tr></thead>
+    {% for h in p.closed %}
+    <tr><td>{{ h.asset_name }} <span class="code muted small">{{ h.asset_code }}</span></td><td class="small">{{ h.account_label }}</td>
+        <td class="num {{ h.realized|tone }}">{{ h.realized|money(True) }}</td><td class="num">{{ h.dividends|money }}</td></tr>
+    {% endfor %}
+  </table></details>
+</div>
+{% endif %}
+{% endif %}
+{% endblock %}

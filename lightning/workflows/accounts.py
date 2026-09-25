@@ -68,12 +68,16 @@ class AccountWorkflows:
 
     def deactivate(self, account_id: int) -> Account:
         account = self.accounts.get(account_id)
-        balance = self.reporting.account_balance(account_id)
+        balance = self.reporting.account_balance(account_id, "9999-12-31")
         if balance != ZERO:
             raise ConflictError(
                 f"{account.label} still holds {fmt(balance)} {account.currency}. "
                 "Move the balance to another account first, then deactivate it."
             )
+        held = [h for h in self.reporting.holdings("9999-12-31")[0] if h.account.id == account_id]
+        if held:
+            raise ConflictError(f"{account.label} still holds investments ({', '.join(h.asset_code for h in held)}). "
+                                "Sell or move them first, then deactivate it.")
         return self.accounts.set_active(account_id, False)
 
     def reactivate(self, account_id: int) -> Account:

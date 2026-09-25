@@ -9,6 +9,7 @@ from __future__ import annotations
 from lightning.database.connection import Database
 
 POSTED = "JOIN transactions t ON t.id = le.transaction_id AND t.status = 'POSTED'"
+CASH_ONLY = "le.asset_id IN (SELECT id FROM financial_assets WHERE is_cash = 1)"
 
 
 class ReportQueries:
@@ -63,7 +64,7 @@ class ReportQueries:
         return [dict(r) for r in rows]
 
     def account_quantity(self, account_id: int, as_of: str | None = None, before: str | None = None) -> int:
-        sql = f"SELECT SUM(le.quantity_e6) FROM ledger_entries le {POSTED} WHERE le.account_id = ?"
+        sql = f"SELECT SUM(le.quantity_e6) FROM ledger_entries le {POSTED} WHERE le.account_id = ? AND {CASH_ONLY}"
         params: list = [account_id]
         if as_of:
             sql += " AND le.date <= ?"
@@ -74,8 +75,8 @@ class ReportQueries:
         return int(self.db.scalar(sql, tuple(params)) or 0)
 
     def statement_lines(self, account_id: int | None, date_from: str, date_to: str) -> list[dict]:
-        """Posted ledger lines for one account (or every account when account_id is None)."""
-        where = "le.date BETWEEN ? AND ?"
+        """Posted cash lines for one account (or every account when account_id is None) — the register."""
+        where = f"le.date BETWEEN ? AND ? AND {CASH_ONLY}"
         params: list = [date_from, date_to]
         if account_id is not None:
             where = "le.account_id = ? AND " + where
@@ -99,6 +100,41 @@ class ReportQueries:
             (asset_id, as_of),
         )
         return dict(row) if row else None
+
+    def latest_trade_price(self, asset_id: int, as_of: str) -> dict | None:
+        """The price of the most recent buy or sell on or before the date."""
+        row = self.db.one(
+            f"SELECT le.unit_price_e6 AS price_e6, le.date FROM ledger_entries le {POSTED}"
+            " WHERE le.asset_id = ? AND le.date <= ? AND t.type IN ('BUY', 'SEL')"
+            " ORDER BY le.date DESC, t.id DESC LIMIT 1",
+            (asset_id, as_of),
+        )
+        return dict(row) if row else None
+
+    def average_opening_cost(self, asset_id: int, as_of: str) -> dict | None:
+        """Cost per unit of holdings entered as already owned — the last resort for a value."""
+        row = self.db.one(
+            f"SELECT SUM(le.amount_e6) AS amount, SUM(le.quantity_e6) AS qty, MAX(le.date) AS date"
+            f" FROM ledger_entries le {POSTED} WHERE le.asset_id = ? AND le.date <= ? AND t.type = 'OPN'",
+            (asset_id, as_of),
+        )
+        return dict(row) if row and row["qty"] else None
+
+    def investment_lines(self, as_of: str, account_id: int | None = None) -> list[dict]:
+        """Every posted line of a non-cash asset (and dividend lines), oldest first — for positions."""
+        where = "le.date <= ? AND (le.asset_id NOT IN (SELECT id FROM financial_assets WHERE is_cash = 1)" \
+                " OR t.type = 'DIV')"
+        params: list = [as_of]
+        if account_id is not None:
+            where += " AND le.account_id = ?"
+            params.append(account_id)
+        rows = self.db.all(
+            f"SELECT le.date, le.account_id, le.asset_id, le.quantity_e6, le.amount_base_e6, le.memo,"
+            f" t.id AS txn_id, t.type, t.ref FROM ledger_entries le {POSTED} WHERE {where}"
+            f" ORDER BY le.date, t.id, le.line_no",
+            tuple(params),
+        )
+        return [dict(r) for r in rows]
 
     def latest_fx(self, base: str, quote: str, as_of: str) -> dict | None:
         row = self.db.one(

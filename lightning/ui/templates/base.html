@@ -14,7 +14,7 @@
       Lightning
     </a>
     <nav class="nav">
-      {% for href, label in [("/", "Overview"), ("/budget", "Budget"), ("/categories", "Categories"), ("/settings", "Settings")] %}
+      {% for href, label in [("/", "Overview"), ("/budget", "Budget"), ("/investments", "Investments"), ("/categories", "Categories"), ("/settings", "Settings")] %}
         <a href="{{ href }}" class="{{ 'active' if (href == '/' and path == '/') or (href != '/' and path.startswith(href)) }}">{{ label }}</a>
       {% endfor %}
     </nav>

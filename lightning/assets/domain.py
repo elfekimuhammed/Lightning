@@ -74,3 +74,40 @@ class FinancialAsset:
     @property
     def label(self) -> str:
         return f"{self.code} · {self.name}"
+
+
+@dataclass(frozen=True)
+class InvestmentKind:
+    """Defaults for a new investment of a given asset class."""
+
+    prefix: str  # code prefix, e.g. STK in STK:COMI
+    unit: str
+    quantity_decimals: int
+    exposure: Exposure
+    liquidity: Liquidity
+
+
+# Asset classes you can create investments in, with sensible defaults.
+INVESTMENT_KINDS: dict[str, InvestmentKind] = {
+    "STOCK": InvestmentKind("STK", "share", 0, Exposure.EQUITY, Liquidity.DAYS),
+    "FUND.EQUITY": InvestmentKind("FND", "unit", 4, Exposure.EQUITY, Liquidity.DAYS),
+    "FUND.MONEY_MARKET": InvestmentKind("FND", "unit", 4, Exposure.FIXED_INCOME, Liquidity.DAYS),
+    "FUND.GOLD": InvestmentKind("FND", "unit", 4, Exposure.GOLD, Liquidity.DAYS),
+    "FUND.OTHER": InvestmentKind("FND", "unit", 4, Exposure.OTHER, Liquidity.DAYS),
+    "GOLD": InvestmentKind("GLD", "gram", 3, Exposure.GOLD, Liquidity.DAYS),
+    "OTHER": InvestmentKind("OTH", "unit", 4, Exposure.OTHER, Liquidity.DAYS),
+}
+
+EXPOSURE_LABELS = {
+    Exposure.CASH: "Cash", Exposure.EQUITY: "Equity", Exposure.GOLD: "Gold",
+    Exposure.FIXED_INCOME: "Fixed income", Exposure.REAL_ESTATE: "Real estate", Exposure.OTHER: "Other",
+}
+
+
+@dataclass
+class Price:
+    asset_id: int
+    date: str
+    price: Decimal
+    currency: str
+    source: str  # MANUAL (typed), later YAHOO / GOLD_CALC ...

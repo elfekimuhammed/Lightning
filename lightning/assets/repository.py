@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import sqlite3
 
-from lightning.core.money import from_e6
+from lightning.core.dates import now_iso
+from lightning.core.money import from_e6, to_e6
 from lightning.database.connection import Database
 
-from .domain import AssetClass, Exposure, FinancialAsset, Liquidity, PriceSource
+from .domain import AssetClass, Exposure, FinancialAsset, Liquidity, Price, PriceSource
 
 
 def _class(row: sqlite3.Row) -> AssetClass:
@@ -75,3 +76,42 @@ class AssetRepository:
             "SELECT * FROM financial_assets WHERE is_cash = 1 AND currency = ?", (currency,)
         )
         return _asset(row) if row else None
+
+    def insert_asset(self, a: FinancialAsset) -> int:
+        now = now_iso()
+        cur = self.db.execute(
+            "INSERT INTO financial_assets(code, name, asset_class_id, currency, unit, quantity_decimals, is_cash,"
+            " exposure, liquidity, purity_e6, isin, price_source, external_symbol, active, notes, created_at,"
+            " updated_at) VALUES (?,?,?,?,?,?,0,?,?,?,?,?,?,1,?,?,?)",
+            (a.code, a.name, a.asset_class_id, a.currency, a.unit, a.quantity_decimals, a.exposure.value,
+             a.liquidity.value, None if a.purity is None else to_e6(a.purity), a.isin, a.price_source.value,
+             a.external_symbol, a.notes, now, now),
+        )
+        return int(cur.lastrowid)
+
+    def update_asset(self, a: FinancialAsset) -> None:
+        self.db.execute(
+            "UPDATE financial_assets SET name=?, asset_class_id=?, exposure=?, isin=?, external_symbol=?, active=?,"
+            " notes=?, updated_at=? WHERE id=?",
+            (a.name, a.asset_class_id, a.exposure.value, a.isin, a.external_symbol, int(a.active), a.notes,
+             now_iso(), a.id),
+        )
+
+    # prices
+    def upsert_price(self, asset_id: int, date: str, price, currency: str, source: str) -> None:
+        now = now_iso()
+        self.db.execute(
+            "INSERT INTO price_history(asset_id, date, price_e6, currency, source, fetched_at, created_at)"
+            " VALUES (?,?,?,?,?,?,?) ON CONFLICT(asset_id, date, source) DO UPDATE SET price_e6 = excluded.price_e6,"
+            " fetched_at = excluded.fetched_at",
+            (asset_id, date, to_e6(price), currency, source, now, now),
+        )
+
+    def delete_price(self, asset_id: int, date: str, source: str) -> None:
+        self.db.execute("DELETE FROM price_history WHERE asset_id = ? AND date = ? AND source = ?",
+                        (asset_id, date, source))
+
+    def prices(self, asset_id: int, limit: int = 50) -> list[Price]:
+        rows = self.db.all(
+            "SELECT * FROM price_history WHERE asset_id = ? ORDER BY date DESC, source LIMIT ?", (asset_id, limit))
+        return [Price(r["asset_id"], r["date"], from_e6(r["price_e6"]), r["currency"], r["source"]) for r in rows]

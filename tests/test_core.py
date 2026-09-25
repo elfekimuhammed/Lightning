@@ -92,8 +92,16 @@ class TestPostingRules:
             validate_posting([PostingLine.cash(1, 1, Decimal("0"), Effect.OPENING)])
         bad = PostingLine(1, 1, Decimal("2"), Effect.OPENING, unit_price=Decimal("3"), amount=Decimal("5"),
                           amount_base=Decimal("5"))
-        with pytest.raises(ValidationError, match="quantity x unit price"):
+        with pytest.raises(ValidationError, match="cash line"):
             validate_posting([bad])
+        wrong_sign = PostingLine.units(1, 2, Decimal("-10"), Decimal("500"), Effect.INTERNAL, Decimal("50"))
+        with pytest.raises(ValidationError, match="units out"):
+            validate_posting([wrong_sign, PostingLine.cash(1, 1, Decimal("-500"), Effect.INTERNAL)])
+
+    def test_buy_with_fee_nets_to_zero(self):
+        buy = [PostingLine.cash(1, 1, Decimal("-9550"), Effect.INTERNAL),
+               PostingLine.units(1, 2, Decimal("100"), Decimal("9550"), Effect.INTERNAL, Decimal("95"))]
+        validate_posting(buy)
 
     def test_valid_transfer(self):
         validate_posting([PostingLine.cash(1, 1, Decimal("-100"), Effect.INTERNAL),

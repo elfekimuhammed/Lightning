@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Update prices{% endblock %}
+{% block heading %}<h1>Update prices</h1><div class="muted">Type today's price for what you hold. Empty boxes are skipped.</div>{% endblock %}
+{% block content %}
+<form method="post" class="card" style="max-width:860px" autocomplete="off">
+  <div class="field" style="max-width:220px">
+    <label for="date">Price date <span class="muted small">yyyy-mm-dd</span></label>
+    <input type="text" id="date" name="date" value="{{ day }}" pattern="\d{4}-\d{2}-\d{2}" required>
+  </div>
+  <table class="budget">
+    <thead><tr><th>Investment</th><th class="num">You hold</th><th class="num">Last price</th><th class="num" style="width:170px">New price</th></tr></thead>
+    {% for r in rows %}
+    <tr>
+      <td>{{ r.asset.name }} <span class="code muted small">{{ r.asset.code }}</span>
+        <a class="small" href="/investments/assets/{{ r.asset.id }}/edit" style="margin-left:6px">edit</a></td>
+      <td class="num small">{% if r.held %}{{ r.held.quantity|money(False, 3 if r.asset.unit == 'gram' else (0 if r.asset.unit == 'share' else 4)) }} {{ r.asset.unit }}s{% else %}<span class="muted">—</span>{% endif %}</td>
+      <td class="num small">{% if r.price is not none %}{{ r.price|money(False, 4) }}<div class="muted">{{ r.price_date }}{{ ' · last trade' if r.source == 'TRADE' else (' · at cost' if r.source == 'COST' else '') }}</div>{% else %}<span class="muted">none</span>{% endif %}</td>
+      <td><input type="text" name="p_{{ r.asset.id }}" inputmode="decimal" class="num" placeholder="{{ r.price|money(False, 4) if r.price is not none else '' }}"></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="4" class="empty">No investments yet. <a href="/investments/assets/new">Add one</a>.</td></tr>
+    {% endfor %}
+  </table>
+  <div class="actions" style="margin-top:14px"><button class="btn primary">Save prices</button><a class="btn" href="/investments">Cancel</a></div>
+  <p class="muted small">A price you type wins over the last trade price for the same day. Automatic daily prices (EGX, gold) come in M4.</p>
+</form>
+{% endblock %}

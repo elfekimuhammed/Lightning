@@ -27,6 +27,7 @@ layers = [
     "lightning.bootstrap",
     "lightning.workflows",
     "lightning.budgeting",
+    "lightning.investments",
     "lightning.reporting",
     "lightning.transactions",
     "lightning.accounts",
@@ -57,6 +58,8 @@ source_modules = [
     "lightning.transactions",
     "lightning.reporting",
     "lightning.workflows",
+    "lightning.budgeting",
+    "lightning.investments",
 ]
 forbidden_modules = [
     "lightning.accounts.repository",
@@ -68,6 +71,6 @@ allow_indirect_imports = true
 [[tool.importlinter.contracts]]
 name = "Workflows and reporting never write through the transactions repository"
 type = "forbidden"
-source_modules = ["lightning.workflows", "lightning.reporting", "lightning.budgeting"]
+source_modules = ["lightning.workflows", "lightning.reporting", "lightning.budgeting", "lightning.investments"]
 forbidden_modules = ["lightning.transactions.repository"]
 allow_indirect_imports = true

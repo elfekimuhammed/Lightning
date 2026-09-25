@@ -10,10 +10,11 @@ bootstrap.py   Composition root: builds the database and wires services together
 workflows/     Actions spanning modules, each in ONE database transaction
                (open account + opening balance, start-date guard, deactivate if zero).
 reporting/     Read-only: net worth, bridge, cash flow, spending, statements. Owns no tables.
-transactions/  Records, edits, voids and finds transactions (incl. one register row); the only ledger writer.
+transactions/  Records, edits, voids, finds transactions (register rows; post() for other modules); only ledger writer.
 accounts/      Where value is held.
 assets/ · categories/   What value is (asset classes, financial assets) · why money moved.
 budgeting/     Budget amounts per category × month; budget vs actual (actuals via reporting).
+investments/   Buy, sell, dividends, holdings already owned → lines posted via transactions; positions & gains.
 database/      sqlite3 connection, SQL migrations, seed data, backup, audit, settings.
 core/          money · dates · codes · refs · posting rules. Depends on nothing.
 ```
@@ -33,6 +34,7 @@ transactions (the document a person sees)  ──1:n──▶  ledger_entries (t
 | Groceries 450 | CIB −450 EGP · OUTFLOW · `EXP.PERSONAL.FOOD` |
 | Transfer 10,000 CIB → THNDR | CIB −10,000 INTERNAL · THNDR +10,000 INTERNAL |
 | ATM 3,000 | CIB −3,000 INTERNAL · Wallet +3,000 INTERNAL |
+| Buy 150 COMI @ 92.40 + fee 45 | THNDR cash −13,905 INTERNAL · THNDR STK:COMI +150 (cost 13,905) INTERNAL |
 | Opening balance | Account ±X · OPENING |
 
 Rules (`core/ledger.py`): INTERNAL lines net to zero; INFLOW/OUTFLOW need a category of matching

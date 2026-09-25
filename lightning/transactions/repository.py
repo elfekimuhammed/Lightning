@@ -211,12 +211,27 @@ class TransactionRepository:
             t.lines = lines[t.id]
         return txns, int(total)
 
-    def opening_txn_id(self, account_id: int) -> int | None:
+    def opening_txn_id(self, account_id: int, asset_id: int | None = None, exclude_id: int | None = None) -> int | None:
+        """The live opening balance of an account's cash (asset_id None) or of one holding."""
+        asset_rule = "le.asset_id = ?" if asset_id is not None else \
+            "le.asset_id IN (SELECT id FROM financial_assets WHERE is_cash = 1)"
+        params = [account_id] + ([asset_id] if asset_id is not None else []) + [exclude_id]
         return self.db.scalar(
             "SELECT t.id FROM transactions t JOIN ledger_entries le ON le.transaction_id = t.id"
-            " WHERE t.type = 'OPN' AND t.status != 'VOID' AND le.account_id = ? ORDER BY t.id LIMIT 1",
-            (account_id,),
+            f" WHERE t.type = 'OPN' AND t.status != 'VOID' AND le.account_id = ? AND {asset_rule}"
+            " AND t.id IS NOT ? ORDER BY t.id LIMIT 1",
+            tuple(params),
         )
+
+    def lowest_running_quantity(self, account_id: int, asset_id: int) -> tuple[int, str | None]:
+        """Smallest quantity an (account, holding) ever reaches over time, and the date it happens."""
+        row = self.db.one(
+            "SELECT q, date FROM (SELECT le.date, SUM(le.quantity_e6) OVER (ORDER BY le.date, t.id, le.line_no)"
+            " AS q FROM ledger_entries le JOIN transactions t ON t.id = le.transaction_id"
+            " WHERE t.status = 'POSTED' AND le.account_id = ? AND le.asset_id = ?) ORDER BY q LIMIT 1",
+            (account_id, asset_id),
+        )
+        return (int(row["q"]), row["date"]) if row else (0, None)
 
     def payee_categories(self) -> dict[str, int]:
         rows = self.db.all(

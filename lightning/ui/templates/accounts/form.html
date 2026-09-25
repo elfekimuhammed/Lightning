@@ -15,7 +15,8 @@
       <select id="account_type" name="account_type" data-groups='{{ groups|tojson }}'>
         {% for value, label in types %}<option value="{{ value }}" {{ 'selected' if values.account_type == value }}>{{ label }}</option>{% endfor %}
       </select>
-      <div class="help">Shows on the dashboard under <b id="group_name">{{ groups.get(values.account_type, '') }}</b>.</div>
+      <div class="help">Cash here shows on the dashboard under <b id="group_name">{{ groups.get(values.account_type, '') }}</b>.
+        Stocks, funds and gold held in a brokerage or gold-at-home account show under their own class.</div>
     </div>
     <div class="field">
       <label>Currency</label>

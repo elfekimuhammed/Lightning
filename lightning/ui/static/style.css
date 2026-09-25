@@ -139,26 +139,44 @@ a.side-row:hover { background: var(--surface-2); text-decoration: none; }
 .side-name small { color: var(--muted); font-size: 11px; font-family: ui-monospace, Consolas, monospace; overflow: hidden; text-overflow: ellipsis; }
 .side-add { display: block; padding: 8px 10px; margin-top: 8px; font-size: 14px; }
 
-/* register */
-.big-balance { font-size: 26px; font-weight: 650; font-variant-numeric: tabular-nums; margin: 2px 0; }
-.toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+/* register — own look: quick-add row, one signed amount, coloured edge per kind */
+.acct-title { display: flex; align-items: baseline; gap: 10px; }
+.acct-figures { display: flex; align-items: baseline; gap: 22px; flex-wrap: wrap; margin-top: 4px; }
+.acct-figures > div { display: flex; flex-direction: column; }
+.acct-figures b { font-size: 24px; font-variant-numeric: tabular-nums; }
+.toolbar { display: flex; gap: 8px; align-items: center; margin: 12px 0 10px; flex-wrap: wrap; }
 .toolbar-filters { display: flex; gap: 6px; align-items: center; flex: 1; justify-content: flex-end; flex-wrap: wrap; }
-.toolbar-filters input[type=search] { width: 280px; }
+.toolbar-filters input[type=search] { width: 300px; }
 .toolbar-filters .month-input { width: 100px; }
-.register table { table-layout: fixed; }
-.register td { padding: 7px 8px; overflow: hidden; text-overflow: ellipsis; }
-.register tr.entry td { background: var(--accent-soft); padding: 6px 4px; }
-.register tr.entry input, .register tr.entry select { padding: 6px 7px; font-size: 14px; width: 100%; }
-.register tr.entry .num { text-align: right; }
-.register tr.editing td { background: var(--warn-bg); }
-.register tr.edit-bar td { background: var(--warn-bg); padding: 4px 8px 8px; border-bottom: 2px solid var(--border); }
-.register tr.edit-bar .btn, .register tr.edit-bar form { margin-right: 6px; }
+.ledger { padding: 6px 10px; }
+.ledger table { table-layout: fixed; }
+.ledger td { padding: 8px 8px; overflow: hidden; text-overflow: ellipsis; }
+.ledger tr.add-row td { padding: 8px 4px 4px; border-bottom: 0; }
+.ledger tr.add-row input, .ledger tr.add-row select { padding: 7px 8px; font-size: 14px; width: 100%; border-radius: 6px; }
+.ledger tr.add-row input.num { text-align: right; font-weight: 600; }
+.ledger tr.add-hint td { font-size: 12px; color: var(--muted); padding: 0 6px 10px; border-bottom: 2px solid var(--border); }
+.ledger tr.editing td { background: var(--warn-bg); }
+.ledger tr.edit-bar td { background: var(--warn-bg); padding: 4px 8px 8px; }
+.ledger tr.edit-bar .btn, .ledger tr.edit-bar form { margin-right: 6px; }
+.ledger tr[class*="row-"] td:first-child { border-left: 3px solid transparent; }
+.ledger tr.row-in td:first-child { border-left-color: var(--pos); }
+.ledger tr.row-out td:first-child { border-left-color: var(--neg); }
+.ledger tr.row-transfer td:first-child { border-left-color: var(--accent); }
+.ledger tr.row-invest td:first-child { border-left-color: #9b6cf0; }
+.ledger tr.row-opening td:first-child { border-left-color: var(--muted); }
+.ledger td.same-day { color: transparent; }
+.ledger tr:hover td.same-day { color: var(--muted); }
+.ledger td.amount { font-weight: 600; }
+.pill.transfer { background: var(--accent-soft); color: var(--accent); }
+.holdings-strip { margin-top: 12px; padding: 10px 14px; }
+.strip-head { display: flex; justify-content: space-between; margin-bottom: 6px; }
+.holding-chip { display: inline-block; padding: 5px 10px; border-radius: 8px; background: var(--surface-2); font-size: 13px; }
 .bad { border-color: var(--neg) !important; }
 tr.clickable { cursor: pointer; }
 tr.clickable:hover td { background: var(--surface-2); }
 @media (max-width: 900px) {
-  .register { overflow-x: auto; }
-  .register table { min-width: 860px; }
+  .ledger { overflow-x: auto; }
+  .ledger table { min-width: 860px; }
 }
 
 /* categories page */
@@ -181,3 +199,8 @@ tr.clickable:hover td { background: var(--surface-2); }
 .budget tr.budget-group td { font-weight: 600; background: var(--surface-2); }
 .budget .bartrack { height: 6px; }
 .budget-save { margin-top: 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+
+/* investments */
+.card.wide { overflow-x: auto; }
+.card.wide table { font-size: 13.5px; }
+.card.wide td, .card.wide th { padding: 7px 6px; }
