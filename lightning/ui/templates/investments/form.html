@@ -10,7 +10,7 @@
   {% endfor %}
 </div>
 {% endif %}
-<form method="post" class="card" style="max-width:780px" autocomplete="off">
+<form method="post" class="card investment-ownership-form" style="max-width:780px" autocomplete="off">
   <div class="row">
     <div class="field {{ 'has-error' if error_field == 'account' }}">
       <label for="account_id">{{ 'Received into' if kind == 'dividend' else 'Held in' }}</label>
@@ -64,6 +64,12 @@
   </div>
   {% endif %}
 
+  <div class="field investment-owner-flag"><label><input type="checkbox" name="is_others" value="1" {{ 'checked' if values.is_others }}> This investment is for someone else</label></div>
+  <div class="field investment-owner-field" {{ 'hidden' if not values.is_others }}>
+    <label for="investment-whom">Whom</label>
+    <input id="investment-whom" type="text" name="whom" value="{{ values.whom }}" list="counterparty-options" placeholder="Choose a saved Counterparty">
+  </div>
+  <datalist id="counterparty-options">{% for party in counterparties %}<option value="{{ party.name }}"></option>{% endfor %}</datalist>
   <div class="field"><label for="notes">Notes</label><textarea id="notes" name="notes" rows="2">{{ values.notes }}</textarea></div>
   <div class="actions">
     <button class="btn primary">Save</button>

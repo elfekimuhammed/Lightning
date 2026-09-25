@@ -7,7 +7,7 @@ import sqlite3
 from lightning.core.dates import now_iso
 from lightning.database.connection import Database
 
-from .domain import Category, IncomeClass, Movement, Scope
+from .domain import Category, CategoryFamily, IncomeClass, Movement, Scope
 
 
 def _row(row: sqlite3.Row) -> Category:
@@ -19,6 +19,7 @@ def _row(row: sqlite3.Row) -> Category:
         movement=Movement(row["movement"]),
         scope=Scope(row["scope"]) if row["scope"] else None,
         income_class=IncomeClass(row["income_class"]) if row["income_class"] else None,
+        family=CategoryFamily(row["family"]) if row["family"] else None,
         default_reimbursable=bool(row["default_reimbursable"]),
         is_system=bool(row["is_system"]),
         active=bool(row["active"]),
@@ -55,9 +56,9 @@ class CategoryRepository:
     def insert(self, c: Category) -> int:
         now = now_iso()
         cur = self.db.execute(
-            "INSERT INTO categories(code, name, parent_id, movement, scope, income_class,"
+            "INSERT INTO categories(code, name, parent_id, movement, scope, income_class, family,"
             " default_reimbursable, is_system, active, sort_order, created_at, updated_at)"
-            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (
                 c.code,
                 c.name,
@@ -65,6 +66,7 @@ class CategoryRepository:
                 c.movement.value,
                 c.scope.value if c.scope else None,
                 c.income_class.value if c.income_class else None,
+                c.family.value if c.family else None,
                 int(c.default_reimbursable),
                 int(c.is_system),
                 int(c.active),
@@ -77,13 +79,14 @@ class CategoryRepository:
 
     def update(self, c: Category) -> None:
         self.db.execute(
-            "UPDATE categories SET code=?, name=?, scope=?, income_class=?, default_reimbursable=?,"
+            "UPDATE categories SET code=?, name=?, scope=?, income_class=?, family=?, default_reimbursable=?,"
             " active=?, sort_order=?, updated_at=? WHERE id=?",
             (
                 c.code,
                 c.name,
                 c.scope.value if c.scope else None,
                 c.income_class.value if c.income_class else None,
+                c.family.value if c.family else None,
                 int(c.default_reimbursable),
                 int(c.active),
                 c.sort_order,

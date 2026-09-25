@@ -6,38 +6,30 @@
 {% if batch.status == 'POSTED' %}<div class="card"><b>Import complete.</b> {{ summary.posted }} posted · {{ summary.skipped }} skipped · {{ summary.duplicates }} duplicates. Re-uploading this file will not create duplicates.</div>
 {% else %}
 <form method="post" action="/accounts/{{ account.id }}/import/{{ batch.id }}/confirm">
-  <section class="card form-card">
-    <h2>Counterparties</h2><p class="muted">Each distinct spelling is handled once. Similar names are suggestions only; choosing one saves this spelling as an alias.</p>
-    {% for g in groups %}
-    <div class="import-counterparty-row"><label for="counterparty-{{ g.key }}"><b>{{ g.raw }}</b>
-      {% if g.exact %}<span class="muted small">Matches {{ g.exact.name }}</span>{% endif %}
-      {% if g.suggestions %}<span class="muted small">Possible matches: {% for name, score in g.suggestions %}{{ name }}{% if not loop.last %}, {% endif %}{% endfor %}</span>{% endif %}
-    </label>
-    <input type="search" class="counterparty-option-search" data-counterparty-filter="counterparty-{{ g.key }}" placeholder="Type to search saved Counterparties" autocomplete="off">
-    <select id="counterparty-{{ g.key }}" name="counterparty_{{ g.key }}">
-      {% if g.exact %}<option value="existing:{{ g.exact.id }}" selected>Use {{ g.exact.name }}</option>{% else %}<option value="" selected>Choose or create Counterparty…</option>{% endif %}
-      {% for name, score in g.suggestions %}{% set match = namespace(id=none) %}{% for candidate in counterparties %}{% if candidate.name == name %}{% set match.id = candidate.id %}{% endif %}{% endfor %}{% if match.id %}<option value="existing:{{ match.id }}">Use existing: {{ name }} (suggested)</option>{% endif %}{% endfor %}
-      {% for candidate in counterparties %}{% if not g.exact or candidate.id != g.exact.id %}<option value="existing:{{ candidate.id }}">Use existing: {{ candidate.name }}</option>{% endif %}{% endfor %}
-      <option value="new">Create a new Counterparty…</option>
-    </select>
-    <label class="small">Canonical name if creating (edit to merge spelling variants)<input type="text" name="canonical_name_{{ g.key }}" value="{{ g.raw }}" placeholder="e.g. Talabat"></label>
-    <label class="small">Default category for this Counterparty<select name="category_cp_{{ g.key }}"><option value="">Use row/category suggestion</option>{% for cat in categories %}<option value="{{ cat.id }}" {{ 'selected' if g.suggested_category_id == cat.id }}>{{ cat.label }}</option>{% endfor %}</select></label></div>
-    {% endfor %}
-  </section>
   <section class="card ledger">
-    <h2>Transactions</h2><p class="muted small">Rows with problems are not posted. Missing-reference lookalikes are flagged for your review, not silently removed.</p>
-    <div class="table-scroll"><table><thead><tr><th>Line</th><th>Date</th><th>Counterparty</th><th>Category</th><th>Notes</th><th>Amount</th><th>Review</th></tr></thead><tbody>
+    <h2>Review and edit rows</h2><p class="muted small">Edit anything that needs fixing directly in its row. Category and Counterparty may be left blank; the row will still post as uncategorized. Date and amount must be valid. Similar Counterparty names are suggestions, not automatic matches.</p>
+    <div class="table-scroll"><table><thead><tr><th>Line</th><th>Date</th><th>Counterparty</th><th>Match saved Counterparty</th><th>Category</th><th class="import-whom-head" hidden>Whom</th><th>Notes</th><th>Amount</th><th>Review</th></tr></thead><tbody>
     {% for r in rows %}
-    <tr><td>{{ r._line }}</td><td>{{ r.Date }}</td><td>{{ r.Counterparty }}</td>
-      <td><select name="category_{{ r._import_row_id }}"><option value="">Choose category…</option>{% for cat in categories %}<option value="{{ cat.id }}" {{ 'selected' if r._category_id == cat.id }}>{{ cat.label }}</option>{% endfor %}</select></td>
-      <td>{{ r.Notes }}</td><td class="num">{{ r.Amount }}</td>
-      <td>{% if r._errors %}<span class="neg">{{ r._errors|join('; ') }}</span>
-          {% elif r._reference_duplicate %}<span class="neg">Duplicate reference — skipped</span>
-          {% else %}<label><input type="checkbox" name="skip_{{ r._import_row_id }}"> Skip</label>{% if r._similarity_warning %}<span class="muted small">Possible duplicate; review</span>{% endif %}{% endif %}</td></tr>
+    <tr>
+      <td>{{ r._line }}</td>
+      <td><input type="text" name="date_{{ r._import_row_id }}" value="{{ r.Date }}" placeholder="yyyy-mm-dd" aria-label="Date"></td>
+      <td><input type="text" name="counterparty_{{ r._import_row_id }}" value="{{ r.Counterparty }}" list="counterparties-{{ r._import_row_id }}" placeholder="Optional" aria-label="Counterparty">
+        <datalist id="counterparties-{{ r._import_row_id }}">{% for cp in counterparties %}<option value="{{ cp.name }}">{% endfor %}</datalist>
+        {% if r._suggestions %}<span class="muted small">Possible matches: {% for name, score in r._suggestions %}{{ name }}{% if not loop.last %}, {% endif %}{% endfor %}</span>{% endif %}</td>
+      <td><select name="counterparty_choice_{{ r._import_row_id }}"><option value="" {{ 'selected' if not r._counterparty_choice and not r._counterparty_id }}>Use typed name / leave unlinked</option>{% for cp in counterparties %}<option value="existing:{{ cp.id }}" {{ 'selected' if r._counterparty_choice == 'existing:' ~ cp.id|string or (not r._counterparty_choice and r._counterparty_id == cp.id) }}>Use {{ cp.name }}</option>{% endfor %}<option value="new" {{ 'selected' if r._counterparty_choice == 'new' }}>Create typed name as new Counterparty</option><option value="unlinked" {{ 'selected' if r._counterparty_choice == 'unlinked' }}>Leave unlinked</option></select></td>
+      <td><select name="category_{{ r._import_row_id }}" class="import-category"><option value="__uncategorized__" {{ 'selected' if not r._category_id }}>Uncategorized</option>{% for cat in categories %}<option value="{{ cat.id }}" {{ 'selected' if r._category_id == cat.id }}>{{ cat.label }}</option>{% endfor %}</select></td>
+      <td class="import-whom-cell" hidden><input type="text" name="whom_{{ r._import_row_id }}" value="{{ r.get('_whom', '') }}" list="counterparty-options" placeholder="Whom?" aria-label="Whom" disabled></td>
+      <td><input type="text" name="notes_{{ r._import_row_id }}" value="{{ r.Notes }}" aria-label="Notes"></td>
+      <td><input class="num" type="text" name="amount_{{ r._import_row_id }}" value="{{ r.Amount }}" aria-label="Signed amount"></td>
+      <td>{% if r._errors %}<span class="neg">Check date/amount before posting</span>{% endif %}
+          {% if r._reference_duplicate %}<span class="neg">Duplicate reference — skipped</span>
+          {% else %}<label><input type="checkbox" name="skip_{{ r._import_row_id }}"> Skip</label>{% if r._similarity_warning %}<span class="muted small">Possible duplicate; review</span>{% endif %}{% endif %}</td>
+    </tr>
     {% endfor %}
     </tbody></table></div>
-    <div class="actions"><button class="btn primary">Confirm and post selected rows</button><a class="btn" href="/accounts/{{ account.id }}">Cancel</a></div>
+    <div class="actions"><button class="btn primary">Post rows</button><a class="btn" href="/accounts/{{ account.id }}">Cancel</a></div>
   </section>
+  <datalist id="counterparty-options">{% for cp in counterparties %}<option value="{{ cp.name }}"></option>{% endfor %}</datalist>
 </form>
 {% endif %}
 {% endblock %}

@@ -38,7 +38,8 @@ def test_full_flow(client, c):
     assert "CIB-CUR-EGP" not in page.text  # ordinary account UI leads with the name, not its code
 
     r = client.post(f"/accounts/{cib.id}/register", data={"date": "2026-09-25", "counterparty": "Carrefour",
-                    "category": "Personal › Food & Groceries", "amount": "-450", "notes": "Groceries"})
+                    "counterparty_choice": "create", "category": "Personal › Food & Groceries",
+                    "amount": "-450", "notes": "Groceries"})
     assert r.status_code == 200 and "Saved OUT-2026-09-25-001" in r.text
     txn = c.transactions.get_by_ref("OUT-2026-09-25-001")
 
@@ -82,7 +83,7 @@ def test_all_accounts_register(client, c, setup):
     accounts, cats = setup
     wallet, cib = accounts["wallet"], accounts["cib"]
     r = client.post("/transactions/register", data={"date": "2026-09-20", "account_id": wallet.id, "counterparty": "Kiosk",
-                    "category": "Food & Groceries", "amount": "-30"})
+                    "counterparty_choice": "create", "category": "Food & Groceries", "amount": "-30"})
     assert "Saved OUT-2026-09-20-001" in r.text
     t = client.post("/transactions/register", data={"date": "2026-09-21", "account_id": cib.id,
                     "counterparty": wallet.label, "amount": "-100"})
@@ -98,7 +99,7 @@ def test_edit_changing_kind_replaces_transaction(client, c, setup):
     w, cib = accounts["wallet"], accounts["cib"]
     txn = c.transactions.record_transfer("2026-09-10", cib.id, w.id, "100")
     r = client.post(f"/accounts/{w.id}/register/{txn.id}", data={"date": "2026-09-10", "counterparty": "Kiosk",
-                    "category": "Food & Groceries", "amount": "-100"})
+                    "counterparty_choice": "create", "category": "Food & Groceries", "amount": "-100"})
     assert "Saved OUT-2026-09-10-001" in r.text
     assert c.transactions.get(txn.id).is_void
     assert c.reporting.account_balance(w.id) == 1100
@@ -140,7 +141,8 @@ def test_register_entry(client, c, setup):
     assert "EXP.PERSONAL" not in page.text  # plain names only
 
     r = client.post(f"/accounts/{wallet.id}/register", data={"date": "2026-09-20", "counterparty": "Carrefour",
-                    "category": "Personal › Food & Groceries", "amount": "-150", "notes": "milk"})
+                    "counterparty_choice": "create", "category": "Personal › Food & Groceries",
+                    "amount": "-150", "notes": "milk"})
     assert "Saved OUT-2026-09-20-001" in r.text and "Personal › Food &amp; Groceries" in r.text
     assert c.reporting.account_balance(wallet.id) == 1200 - 150
 
@@ -152,13 +154,13 @@ def test_register_entry(client, c, setup):
 
     # wrong sign for the category -> friendly error, typed values kept
     r = client.post(f"/accounts/{wallet.id}/register", data={"date": "2026-09-22", "counterparty": "Employer",
-                    "category": "Salary", "amount": "-99"})
+                    "counterparty_choice": "create", "category": "Salary", "amount": "-99"})
     assert r.status_code == 400 and "make the amount positive" in r.text and 'value="-99"' in r.text
 
     # an ambiguous category name asks which one
     r = client.post(f"/accounts/{wallet.id}/register", data={"date": "2026-09-22", "category": "Transportation",
                     "amount": "-10"})
-    assert r.status_code == 400 and "Which one" in r.text
+    assert r.status_code == 400 and "Choose a broad category" in r.text
 
     # a transfer to the same account is refused
     r = client.post(f"/accounts/{wallet.id}/register", data={"date": "2026-09-22", "counterparty": "Wallet", "amount": "-1"})
@@ -180,6 +182,57 @@ def test_categories_page_is_plain(client):
     assert "Food &amp; Groceries" in r.text and "EXP.PERSONAL.FOOD" not in r.text
 
 
+def test_counterparties_tab_lists_and_creates_canonical_names(client, c):
+    page = client.get("/counterparties")
+    assert page.status_code == 200 and "Saved Counterparties" in page.text
+    response = client.post("/counterparties", data={"name": "Talabat"})
+    assert response.status_code == 200 and "Review this Counterparty" in response.text
+    response = client.post("/counterparties", data={"name": "Talabat", "counterparty_action": "create"})
+    assert response.status_code == 200 and "Saved Talabat" in response.text
+    assert "Talabat" in client.get("/counterparties").text
+
+
+def test_counterparty_review_offers_canonical_match_or_explicit_new_name(client, c, setup):
+    accounts, _ = setup
+    cib = accounts["cib"]
+    canonical_id = c.counterparties.create("Talabat")
+    values = {"date": "2026-09-25", "counterparty": "Talabaat",
+              "category": "Food & Groceries", "amount": "-20"}
+    response = client.post(f"/accounts/{cib.id}/register", data=values)
+    assert response.status_code == 400 and "Review this Counterparty" in response.text
+    assert "Use Talabat" in response.text and "Create “Talabaat”" in response.text
+    assert c.counterparties.resolve("Talabaat") is None
+
+    response = client.post(f"/accounts/{cib.id}/register", data={**values,
+                          "counterparty_choice": f"existing:{canonical_id}"})
+    assert response.status_code == 200 and c.counterparties.resolve("Talabaat")["id"] == canonical_id
+
+
+def test_category_create_requires_review_when_a_similar_l2_exists(client, c):
+    personal = c.categories.get_by_code("EXP.PERSONAL")
+    response = client.post(f"/categories/new?parent={personal.id}", data={"name": "Food and Groceries"})
+    assert response.status_code == 400 and "Check for a similar category" in response.text
+    assert "Use Personal › Food &amp; Groceries" in response.text
+    assert c.db.scalar("SELECT 1 FROM categories WHERE code=?", ("EXP.PERSONAL.FOOD_AND_GROCERIES",)) is None
+
+
+def test_register_selection_controls_and_bulk_delete_work(client, c, setup):
+    accounts, cats = setup
+    account = accounts["cib"]
+    txn = c.transactions.record_outflow("2026-09-25", account.id, "25", cats["EXP.PERSONAL.FOOD"].id)
+    page = client.get(f"/accounts/{account.id}")
+    assert 'id="select-visible"' in page.text
+    assert 'id="delete-selected"' in page.text
+    assert '/static/app.js?v=4' in page.text
+    assert "<td>Money out</td>" not in page.text
+
+    response = client.post("/transactions/bulk-delete", data={"back": f"/accounts/{account.id}", "txn_ids": str(txn.id)})
+    assert response.status_code == 200 and response.url.path == f"/accounts/{account.id}"
+    assert "Deleted 1 transaction" in response.text
+    assert c.transactions.get(txn.id).is_void
+    assert c.reporting.account_balance(account.id) == 50_000
+
+
 def test_register_manual_counterparty_alias_uses_canonical_record(client, c, setup):
     accounts, cats = setup
     account = accounts["cib"]
@@ -199,7 +252,7 @@ def test_register_near_match_requires_explicit_reuse_or_create(client, c, setup)
     values = {"date": "2026-09-20", "counterparty": "Talabaat",
               "category": "Food & Groceries", "amount": "-25"}
     response = client.post(f"/accounts/{account.id}/register", data=values)
-    assert response.status_code == 400 and "Choose reuse or create" in response.text
+    assert response.status_code == 400 and "Review this Counterparty" in response.text
     assert c.db.scalar("SELECT COUNT(*) FROM transactions WHERE counterparty='Talabat'") == 0
     counterparty_id = c.counterparties.resolve("Talabat")["id"]
     response = client.post(f"/accounts/{account.id}/register", data={**values, "counterparty_choice": f"existing:{counterparty_id}"})

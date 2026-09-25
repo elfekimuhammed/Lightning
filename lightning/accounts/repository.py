@@ -36,7 +36,7 @@ class AccountRepository:
         sql = "SELECT * FROM accounts"
         if active_only:
             sql += " WHERE active = 1"
-        sql += " ORDER BY sort_order, code"
+        sql += " ORDER BY name COLLATE NOCASE, code COLLATE NOCASE"
         return [_row(r) for r in self.db.all(sql)]
 
     def get(self, account_id: int) -> Account | None:

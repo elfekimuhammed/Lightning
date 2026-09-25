@@ -20,10 +20,10 @@
     <a class="btn" href="/accounts/new?type=PHYSICAL_ASSET">Add gold at home</a></div></div>
 {% else %}
 <div class="grid g4">
-  <div class="card tile"><div class="label">Value</div><div class="value">{{ p.value|money }}</div><div class="sub">{{ base }} · {{ p.open|length }} holding{{ 's' if p.open|length != 1 }}</div></div>
-  <div class="card tile"><div class="label">Invested (cost)</div><div class="value">{{ p.cost_basis|money }}</div><div class="sub">what the units you hold cost</div></div>
+  <div class="card tile"><div class="label">Total value</div><div class="value">{{ p.value|money }}</div><div class="sub">You own {{ owned_value|money }} · {{ base }}</div></div>
+  <div class="card tile"><div class="label">Invested (cost)</div><div class="value">{{ p.cost_basis|money }}</div><div class="sub">Your part {{ owned_cost|money }}</div></div>
   <div class="card tile"><div class="label">Unrealized</div><div class="value {{ p.unrealized|tone }}">{{ p.unrealized|money(True) }}</div>
-    <div class="sub">{% if p.cost_basis %}{{ (p.unrealized / p.cost_basis * 100)|round(1) }}% on cost{% else %}—{% endif %}</div></div>
+    <div class="sub">Your part {{ owned_unrealized|money(True) }}{% if owned_cost %} · {{ (owned_unrealized / owned_cost * 100)|round(1) }}% on cost{% endif %}</div></div>
   <div class="card tile"><div class="label">Total return</div><div class="value {{ p.total_return|tone }}">{{ p.total_return|money(True) }}</div>
     <div class="sub">realized {{ p.realized|money(True) }} · dividends {{ p.dividends|money }}</div></div>
 </div>
@@ -42,7 +42,8 @@
       <td class="num">{{ h.quantity|money(False, 3 if h.unit == 'gram' else (0 if h.unit == 'share' else 4)) }} <span class="muted small">{{ h.unit }}s</span></td>
       <td class="num">{{ h.cost_basis|money }}<div class="small muted">avg {{ h.average_cost|money(False, 2 if h.unit == 'share' else 4) if h.average_cost is not none }}</div></td>
       <td class="num">{{ h.price|money(False, 4) if h.price is not none }}<div class="small muted">{{ h.price_date or '' }} {{ price_tag(h.price_source) }}</div></td>
-      <td class="num"><b>{{ h.value|money if h.value is not none else '—' }}</b></td>
+      <td class="num"><b>{{ h.value|money if h.value is not none else '—' }}</b>
+        <div class="small muted">you own {{ own_by_holding.get(h.account_id|string ~ ':' ~ h.asset_id|string, h.value)|money if h.value is not none else '—' }}</div></td>
       <td class="num {{ h.unrealized|tone }}">{{ h.unrealized|money(True) if h.unrealized is not none }}
         <div class="small">{{ (h.unrealized_pct|round(1) ~ '%') if h.unrealized_pct is not none }}</div></td>
       <td class="num small">{{ ((h.value / p.value * 100)|round(1) ~ '%') if p.value and h.value }}</td>

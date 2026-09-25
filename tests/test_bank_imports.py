@@ -33,6 +33,18 @@ def test_import_stages_posts_and_same_file_is_idempotent(c, setup):
     assert c.reporting.account_balance(accounts["cib"].id) == 50000 - 125
 
 
+def test_import_works_for_non_bank_accounts_and_missing_optional_columns(c, setup):
+    accounts, _ = setup
+    wallet_id = accounts["wallet"].id
+    batch_id, repeated = c.bank_imports.stage(wallet_id, "wallet.csv", b"Date,Amount\n2026-09-22,-25\n")
+    assert not repeated
+    _, rows = c.bank_imports.preview(batch_id)
+    assert rows[0]["Counterparty"] == "" and rows[0]["_category_id"] is None
+    summary = c.bank_imports.confirm(batch_id, {rows[0]["_import_row_id"]: {}})
+    assert summary["posted"] == 1
+    assert c.reporting.account_balance(wallet_id) == 1200 - 25
+
+
 def test_reference_duplicate_is_flagged_and_not_posted(c, setup):
     accounts, cats = setup
     first = b"Date,Counterparty,Amount,Category,Reference\n2026-09-20,Kiosk,-5,Food & Groceries,REF-X\n"
@@ -52,7 +64,7 @@ def test_malformed_rows_are_previewed_and_can_be_skipped(c, setup):
     data = b"Date,Counterparty,Amount\nnot-a-date,Shop,bad\n"
     batch_id, _ = c.bank_imports.stage(accounts["cib"].id, "broken.csv", data)
     _, rows = c.bank_imports.preview(batch_id)
-    assert rows[0]["_errors"] and c.bank_imports.confirm(batch_id, {rows[0]["_import_row_id"]: {}})["skipped"] == 1
+    assert rows[0]["_errors"] and c.bank_imports.confirm(batch_id, {rows[0]["_import_row_id"]: {"skip": True}})["skipped"] == 1
 
 
 def test_ui_upload_review_and_post(c, setup):
@@ -65,37 +77,39 @@ def test_ui_upload_review_and_post(c, setup):
     upload = client.post(f"/accounts/{account_id}/import", files={"file": ("month.csv", csv, "text/csv")}, follow_redirects=False)
     assert upload.status_code == 303
     preview = client.get(upload.headers["location"])
-    assert preview.status_code == 200 and "Confirm and post selected rows" in preview.text
+    assert preview.status_code == 200 and "Post rows" in preview.text and 'name="amount_' in preview.text
     batch_id = int(upload.headers["location"].rsplit("/", 1)[-1])
     _, rows = c.bank_imports.preview(batch_id)
     row_id = rows[0]["_import_row_id"]
-    import hashlib
-    group = hashlib.sha1(b"shop").hexdigest()[:12]
     posted = client.post(f"/accounts/{account_id}/import/{batch_id}/confirm", data={
-        f"counterparty_{group}": "new", f"canonical_name_{group}": "Shop", f"category_{row_id}": str(cats["EXP.PERSONAL.FOOD"].id)
+        f"counterparty_{row_id}": "Shop", f"counterparty_choice_{row_id}": "new",
+        f"category_{row_id}": str(cats["EXP.PERSONAL.FOOD"].id), f"date_{row_id}": "2026-09-22",
+        f"amount_{row_id}": "-14"
     }, follow_redirects=False)
     assert posted.status_code == 303 and "Import%20complete" in posted.headers["location"]
     assert c.reporting.account_balance(account_id) == 50000 - 14
 
 
-def test_ui_requires_explicit_counterparty_for_unknown(c, setup):
+def test_ui_allows_incomplete_rows_and_defaults_category(c, setup):
     from fastapi.testclient import TestClient
     from lightning.ui.web import create_app
     accounts, cats = setup
     client = TestClient(create_app(c))
     account_id = accounts["cib"].id
-    csv = b"Date,Counterparty,Amount,Category\n2026-09-22,New Shop,-14,Food & Groceries\n"
+    csv = b"Date,Counterparty,Amount\n2026-09-22,New Shop,-14\n"
     upload = client.post(f"/accounts/{account_id}/import", files={"file": ("m.csv", csv, "text/csv")}, follow_redirects=False)
     batch_id = int(upload.headers["location"].rsplit("/", 1)[-1])
     _, rows = c.bank_imports.preview(batch_id)
     row_id = rows[0]["_import_row_id"]
-    import hashlib
-    group = hashlib.sha1(b"new shop").hexdigest()[:12]
     response = client.post(f"/accounts/{account_id}/import/{batch_id}/confirm", data={
-        f"counterparty_{group}": "", f"category_{row_id}": str(cats["EXP.PERSONAL.FOOD"].id)
+        f"counterparty_{row_id}": "", f"category_{row_id}": "", f"date_{row_id}": "2026-09-22",
+        f"amount_{row_id}": "-14"
     }, follow_redirects=False)
-    assert response.status_code == 400 and "Choose or create one Counterparty" in response.text
-    assert c.db.scalar("SELECT COUNT(*) FROM transactions WHERE source='IMPORT'") == 0
+    assert response.status_code == 303
+    assert c.db.scalar("SELECT COUNT(*) FROM transactions WHERE source='IMPORT'") == 1
+    txn = c.db.one("SELECT counterparty FROM transactions WHERE source='IMPORT'")
+    assert txn["counterparty"] == ""
+    assert c.db.scalar("SELECT c.code FROM ledger_entries l JOIN categories c ON c.id=l.category_id JOIN transactions t ON t.id=l.transaction_id WHERE t.source='IMPORT'") == "EXP.UNACCOUNTED"
 
 
 def test_ui_maps_nonstandard_headers_once_and_can_reverse_sign(c, setup):

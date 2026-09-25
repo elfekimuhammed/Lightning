@@ -22,8 +22,8 @@ def test_seed_structure(c):
     assert c.assets.get_class_by_code("FUND.GOLD").parent_id == c.assets.get_class_by_code("FUND").id
     work = c.categories.get_by_code("EXP.WORK.SOFTWARE")
     assert work.scope.value == "WORK" and work.default_reimbursable
-    assert c.categories.get_by_code("INC.INVEST.DIVIDEND").income_class.value == "INVESTMENT"
-    assert c.categories.get_by_code("INC.SALARY").income_class.value == "HOUSEHOLD"
+    assert c.categories.get_by_code("EXP.INVEST.DIVIDEND").income_class.value == "INVESTMENT"
+    assert c.categories.get_by_code("EXP.WORK.SALARY").income_class.value == "HOUSEHOLD"
 
 
 def test_readable_views(setup, c):

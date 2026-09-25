@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from difflib import SequenceMatcher
+import re
 
 from lightning.core.codes import path_segment, validate_path_code
 from lightning.core.errors import ConflictError, NotFoundError, ValidationError
@@ -19,7 +21,7 @@ class CategoryService:
 
     # -- reading -----------------------------------------------------------
     def tree(self, movement: Movement | None = None, active_only: bool = False) -> list[Category]:
-        """Categories in tree order (parent, then its children)."""
+        """Activity categories in tree order. Movement is a legacy/reporting filter only."""
         cats = self.repo.list()
         by_parent: dict[int | None, list[Category]] = {}
         for c in cats:
@@ -39,9 +41,15 @@ class CategoryService:
         walk(None, True)
         return ordered
 
-    def pickable(self, movement: Movement) -> list[Category]:
-        """What a user can choose on a form: active, not a top-level root, not system-only."""
-        return [c for c in self.tree(movement, active_only=True) if not c.is_root and not c.is_system]
+    def pickable(self, movement: Movement | None = None) -> list[Category]:
+        """Broad L2 categories users can choose; L3 detail is intentionally not enabled."""
+        return sorted(
+            (c for c in self.tree(active_only=True) if not c.is_root and not c.is_system
+             and c.depth == 2 and c.code.startswith("EXP.")
+             and not (movement is not None and c.code == "EXP.PERSONAL.CUSTODY")
+             and (movement is None or c.movement == movement)),
+            key=lambda c: (self.display_name(c.id).casefold(), c.id),
+        )
 
     def get(self, category_id: int) -> Category:
         found = self.repo.get(category_id)
@@ -70,7 +78,7 @@ class CategoryService:
         if not wanted:
             raise ValidationError("Choose a category — or pick one of your accounts as the counterparty for a transfer.",
                                   "category")
-        options = [c for c in self.tree(active_only=True) if not c.is_root and not c.is_system]
+        options = [c for c in self.pickable()]
         for key in (lambda c: self.display_name(c.id), lambda c: c.name, lambda c: c.code):
             matches = [c for c in options if key(c).casefold() == wanted]
             if len(matches) == 1:
@@ -88,9 +96,28 @@ class CategoryService:
         raise ValidationError(f"There is no category called '{text}'. Pick one from the list, or add it under "
                               "Categories.", "category")
 
-    def groups(self, movement: Movement, include_inactive: bool = True) -> list[tuple[Category, list[Category]]]:
-        """Second-level groups (Personal, Work, Fees…) with everything beneath them, for the categories page."""
-        items = [c for c in self.tree(movement) if not c.is_root and not c.is_system]
+    def suggestions(self, text: str, parent_id: int | None = None, limit: int = 3) -> list[tuple[Category, float]]:
+        """Suggest existing L2 categories so near-duplicates can be reviewed before creation."""
+        wanted = re.sub(r"[^\w]+", " ", (text or "").casefold()).strip()
+        if not wanted:
+            return []
+        matches = []
+        for category in self.pickable():
+            if parent_id is not None and category.parent_id != parent_id:
+                continue
+            names = (category.name, self.display_name(category.id), category.code)
+            score = max((SequenceMatcher(None, wanted, re.sub(r"[^\w]+", " ", name.casefold()).strip()).ratio()
+                         for name in names), default=0.0)
+            if any(wanted in re.sub(r"[^\w]+", " ", name.casefold()).strip() for name in names):
+                score = max(score, 0.8)
+            if score >= 0.5:
+                matches.append((category, score))
+        return sorted(matches, key=lambda item: (-item[1], self.display_name(item[0].id).casefold()))[:limit]
+
+    def groups(self, movement: Movement | None = None, include_inactive: bool = True) -> list[tuple[Category, list[Category]]]:
+        """L1 activity families with their broad L2 categories, for the categories page."""
+        items = [c for c in self.tree() if c.code.startswith("EXP.") and c.depth <= 2
+                 and not c.is_root and not c.is_system]
         if not include_inactive:
             items = [c for c in items if c.active]
         result: list[tuple[Category, list[Category]]] = []
@@ -99,23 +126,24 @@ class CategoryService:
                 result.append((c, []))
             elif result:
                 result[-1][1].append(c)
+        family_order = {"PERSONAL": 0, "WORK": 1, "INVESTMENT": 2}
+        result.sort(key=lambda pair: family_order.get(pair[0].family.value if pair[0].family else "", 99))
+        for _, children in result:
+            children.sort(key=lambda c: (c.name.casefold(), c.id))
         return result
 
     def descendants(self, category_id: int) -> list[Category]:
         root = self.get(category_id)
         return [c for c in self.repo.list() if c.code.startswith(root.code + ".")]
 
-    def require(self, category_id: int | None, movement: Movement) -> Category:
+    def require(self, category_id: int | None, movement: Movement, allow_system: bool = False) -> Category:
         """Validate that a category can be used for this direction of money."""
         if category_id is None:
             raise ValidationError("Choose a category.", "category")
         cat = self.get(category_id)
-        if cat.movement != movement:
-            wanted = "money in" if movement == Movement.INFLOW else "money out"
-            raise ValidationError(f"{cat.label} is not a {wanted} category.", "category")
         if not cat.active:
             raise ValidationError(f"{cat.label} is inactive.", "category")
-        if cat.is_root:
+        if cat.is_root or (cat.is_system and not allow_system):
             raise ValidationError("Choose a more specific category than the top level.", "category")
         return cat
 
@@ -131,6 +159,10 @@ class CategoryService:
         if not name:
             raise ValidationError("Enter a name.", "name")
         parent = self.get(parent_id)
+        if not parent.code.startswith("EXP.") or parent.family is None:
+            raise ValidationError("Add categories inside Personal, Work, or Investment.", "parent")
+        if parent.depth >= 2:
+            raise ValidationError("Categories stop at L2: activity family, then broad category.", "parent")
         code = self._child_code(parent, code or path_segment(name))
         if self.repo.code_exists(code):
             raise ConflictError(f"The code {code} is already used.", "code")
@@ -142,6 +174,7 @@ class CategoryService:
             movement=parent.movement,
             scope=parent.scope,
             income_class=parent.income_class,
+            family=parent.family,
             default_reimbursable=(
                 parent.default_reimbursable if default_reimbursable is None else default_reimbursable
             ),
@@ -178,6 +211,10 @@ class CategoryService:
             raise ValidationError("This category cannot be deactivated.", "active")
         changed = [cat.id]
         with self.db.transaction():
+            if not active:
+                for child in self.descendants(cat.id):
+                    if child.active:
+                        self.repo.update(replace(child, active=False))
             if new_code != cat.code:
                 for child in self.descendants(cat.id):
                     self.repo.update(replace(child, code=new_code + child.code[len(cat.code):]))
@@ -194,6 +231,29 @@ class CategoryService:
                 )
             )
         return changed
+
+    def delete_or_archive(self, category_id: int) -> bool:
+        """Delete an unused category; archive it when history or another record refers to it.
+
+        Returns True when archived and False when permanently deleted.
+        """
+        category = self.get(category_id)
+        if category.is_root or category.is_system or category.depth < 2:
+            raise ValidationError("Top-level activity categories cannot be deleted.")
+        references = (
+            self.db.scalar("SELECT 1 FROM ledger_entries WHERE category_id=? LIMIT 1", (category_id,))
+            or self.db.scalar("SELECT 1 FROM budgets WHERE category_id=? LIMIT 1", (category_id,))
+            or self.db.scalar("SELECT 1 FROM counterparties WHERE default_category_id=? LIMIT 1", (category_id,))
+            or self.db.scalar("SELECT 1 FROM categories WHERE parent_id=? LIMIT 1", (category_id,))
+        )
+        with self.db.transaction():
+            if references:
+                for item in [category, *self.descendants(category_id)]:
+                    if item.active:
+                        self.repo.update(replace(item, active=False))
+                return True
+            self.db.execute("DELETE FROM categories WHERE id=?", (category_id,))
+        return False
 
     @staticmethod
     def _child_code(parent: Category, segment: str) -> str:

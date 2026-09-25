@@ -53,15 +53,17 @@ class TransactionService:
     # Recording
     # ======================================================================
     def record_inflow(self, date: str, account_id: int, amount, category_id: int, description: str = "",
-                      counterparty: str = "", notes: str = "", source: TxnSource = TxnSource.MANUAL) -> Transaction:
+                      counterparty: str = "", notes: str = "", source: TxnSource = TxnSource.MANUAL,
+                      allow_system_category: bool = False) -> Transaction:
         """Money in: salary, interest, a gift."""
-        day, lines = self._money_lines(Movement.INFLOW, date, account_id, amount, category_id)
+        day, lines = self._money_lines(Movement.INFLOW, date, account_id, amount, category_id, allow_system_category)
         return self._create(DocType.IN, day, lines, description, counterparty, notes, source)
 
     def record_outflow(self, date: str, account_id: int, amount, category_id: int, description: str = "",
-                       counterparty: str = "", notes: str = "", source: TxnSource = TxnSource.MANUAL) -> Transaction:
+                       counterparty: str = "", notes: str = "", source: TxnSource = TxnSource.MANUAL,
+                       allow_system_category: bool = False) -> Transaction:
         """Money out: groceries, fees, tax. On a credit card this increases what you owe."""
-        day, lines = self._money_lines(Movement.OUTFLOW, date, account_id, amount, category_id)
+        day, lines = self._money_lines(Movement.OUTFLOW, date, account_id, amount, category_id, allow_system_category)
         return self._create(DocType.OUT, day, lines, description, counterparty, notes, source)
 
     def record_transfer(self, date: str, from_account_id: int, to_account_id: int, amount,
@@ -122,12 +124,6 @@ class TransactionService:
             raise ValidationError("Choose a category — or pick one of your accounts as the counterparty for a transfer.",
                                   "category")
         category = self.categories.get(category_id)
-        name = self.categories.display_name(category.id)
-        if value < 0 and category.movement != Movement.OUTFLOW:
-            raise ValidationError(f"{name} is money in — make the amount positive.", "amount")
-        if value > 0 and category.movement != Movement.INFLOW:
-            raise ValidationError(f"{name} is money out — make the amount negative (e.g. -{abs(value)}).",
-                                  "amount")
         return (DocType.OUT if value < 0 else DocType.IN), value, category.id
 
     def search_ids(self, text: str) -> set[int]:
@@ -221,6 +217,23 @@ class TransactionService:
             self.audit.record("transaction", t.id, "void", reason or f"Voided {t.ref}")
         return self.get(txn_id)
 
+    def delete_many(self, txn_ids: list[int]) -> int:
+        """Hide selected transactions from normal views while retaining audit and restore history."""
+        ids = list(dict.fromkeys(int(value) for value in txn_ids))
+        transactions = [self.get(txn_id) for txn_id in ids]
+        if any(txn.type == DocType.OPN and not txn.is_void for txn in transactions):
+            raise ValidationError("Change an opening balance from the account edit page.")
+        pending = [txn for txn in transactions if not txn.is_void]
+        if not pending:
+            return 0
+        lines = [line for txn in pending for line in txn.lines]
+        with self.db.transaction():
+            for txn in pending:
+                self.repo.set_status(txn.id, TxnStatus.VOID)
+                self.audit.record("transaction", txn.id, "void", f"Deleted by user: {txn.ref}")
+            self._check_holdings(lines)
+        return len(pending)
+
     def restore(self, txn_id: int) -> Transaction:
         t = self.get(txn_id)
         if not t.is_void:
@@ -307,12 +320,13 @@ class TransactionService:
     # ======================================================================
     # Internals
     # ======================================================================
-    def _money_lines(self, movement: Movement, date: str, account_id: int, amount, category_id: int):
+    def _money_lines(self, movement: Movement, date: str, account_id: int, amount, category_id: int,
+                     allow_system_category: bool = False):
         account = self.accounts.require_usable(account_id)
         day = self._check_date(date, [account])
         asset = self.assets.cash_asset(account.currency)
         value = self._positive_amount(amount, asset.quantity_decimals)
-        category = self.categories.require(category_id, movement)
+        category = self.categories.require(category_id, movement, allow_system=allow_system_category)
         signed = value if movement == Movement.INFLOW else -value
         effect = Effect.INFLOW if movement == Movement.INFLOW else Effect.OUTFLOW
         lines = [PostingLine.cash(account.id, asset.id, signed, effect, category.id, fx_rate=self._fx(account))]

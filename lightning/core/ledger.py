@@ -34,6 +34,7 @@ class Effect(StrEnum):
     OUTFLOW = "OUTFLOW"
     INTERNAL = "INTERNAL"
     OPENING = "OPENING"
+    REVALUATION = "REVALUATION"
 
 
 @dataclass(frozen=True)
@@ -99,6 +100,12 @@ class PostingLine:
             is_cash=False,
         )
 
+    @staticmethod
+    def revaluation(account_id: int, cash_asset_id: int, amount: Decimal, fx_rate: Decimal = ONE,
+                    memo: str = "Investment revaluation") -> "PostingLine":
+        """Value-only adjustment: no cash movement and no units added or removed."""
+        return PostingLine(account_id, cash_asset_id, ZERO, Effect.REVALUATION, ONE, fx_rate,
+                           memo=memo, amount=amount, amount_base=_round6(amount * fx_rate), is_cash=True)
 
 def _round6(value: Decimal) -> Decimal:
     return value.quantize(Decimal("0.000001"))
@@ -110,14 +117,14 @@ def validate_posting(lines: list[PostingLine]) -> None:
         raise ValidationError("A transaction needs at least one line.")
     internal_total = ZERO
     for i, line in enumerate(lines, start=1):
-        if line.quantity == ZERO:
+        if line.quantity == ZERO and line.effect != Effect.REVALUATION:
             raise ValidationError(f"Line {i}: amount cannot be zero.", "amount")
         for name in ("quantity", "unit_price", "fx_rate", "amount", "amount_base"):
             if decimal_places(getattr(line, name)) > 6:
                 raise ValidationError(f"Line {i}: {name} has more than 6 decimal places.")
         if line.unit_price < ZERO or line.fx_rate <= ZERO:
             raise ValidationError(f"Line {i}: price and exchange rate must be positive.")
-        if line.is_cash and (line.unit_price != ONE or line.amount != line.quantity):
+        if line.is_cash and line.effect != Effect.REVALUATION and (line.unit_price != ONE or line.amount != line.quantity):
             raise ValidationError(f"Line {i}: a cash line's amount must equal its quantity.")
         if not line.is_cash and line.amount != ZERO and (line.amount > ZERO) != (line.quantity > ZERO):
             raise ValidationError(f"Line {i}: units in must cost money; units out must return money.")

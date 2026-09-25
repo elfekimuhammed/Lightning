@@ -28,7 +28,6 @@ ASSET_CLASSES: list[tuple[str, str]] = [
     ("FUND.OTHER", "Other Fund"),
     ("GOLD", "Gold"),
     ("OTHER", "Other Investments"),
-    ("RECEIVABLE", "Money Owed to You"),
 ]
 
 # (code, name, unit) — one cash asset per currency
@@ -41,20 +40,12 @@ CASH_ASSETS: list[tuple[str, str]] = [
     ("AED", "UAE Dirham"),
 ]
 
-# (code, name, extra) — movement/scope/income_class inherit from the parent unless given
+# (code, name, extra) — activity family and reimbursement rules inherit from the parent
 CATEGORIES: list[tuple[str, str, dict]] = [
-    ("INC", "Income", {"movement": "INFLOW", "income_class": "HOUSEHOLD"}),
-    ("INC.SALARY", "Salary", {}),
-    ("INC.BONUS", "Bonus", {}),
-    ("INC.BUSINESS", "Business & Freelance", {}),
-    ("INC.GIFT", "Gifts Received", {}),
-    ("INC.OTHER", "Other Income", {}),
-    ("INC.INVEST", "Investment Income", {"income_class": "INVESTMENT"}),
-    ("INC.INVEST.INTEREST", "Interest", {}),
-    ("INC.INVEST.DIVIDEND", "Dividends", {}),
+    ("INC", "Income (legacy root)", {"movement": "INFLOW", "income_class": "HOUSEHOLD", "is_system": 1}),
     ("INC.UNACCOUNTED", "Unaccounted Money Found", {"is_system": 1}),
-    ("EXP", "Expenses", {"movement": "OUTFLOW"}),
-    ("EXP.PERSONAL", "Personal", {"scope": "PERSONAL"}),
+    ("EXP", "Activities", {"movement": "OUTFLOW"}),
+    ("EXP.PERSONAL", "Personal", {"scope": "PERSONAL", "family": "PERSONAL"}),
     ("EXP.PERSONAL.FOOD", "Food & Groceries", {}),
     ("EXP.PERSONAL.DINING", "Eating Out", {}),
     ("EXP.PERSONAL.TRANSPORT", "Transportation", {}),
@@ -66,19 +57,28 @@ CATEGORIES: list[tuple[str, str, dict]] = [
     ("EXP.PERSONAL.EDUCATION", "Education", {}),
     ("EXP.PERSONAL.TRAVEL", "Travel", {}),
     ("EXP.PERSONAL.GIFTS", "Gifts & Donations", {}),
+    ("EXP.PERSONAL.GIFTS_RECEIVED", "Gifts Received", {"movement": "INFLOW", "income_class": "HOUSEHOLD"}),
+    ("EXP.PERSONAL.CUSTODY", "Money Held for Others", {"movement": "INFLOW", "family": "PERSONAL"}),
+    ("EXP.PERSONAL.OTHER_INCOME", "Other Income", {"movement": "INFLOW", "income_class": "HOUSEHOLD"}),
     ("EXP.PERSONAL.OTHER", "Other Personal", {}),
-    ("EXP.WORK", "Work", {"scope": "WORK", "default_reimbursable": 1}),
+    ("EXP.PERSONAL.FEES", "Fees & Charges", {"scope": "PERSONAL"}),
+    ("EXP.PERSONAL.TAXES", "Taxes", {"scope": "PERSONAL"}),
+    ("EXP.WORK", "Work", {"scope": "WORK", "family": "WORK", "default_reimbursable": 1}),
+    ("EXP.WORK.SALARY", "Salary", {"movement": "INFLOW", "income_class": "HOUSEHOLD"}),
+    ("EXP.WORK.BONUS", "Bonus", {"movement": "INFLOW", "income_class": "HOUSEHOLD"}),
+    ("EXP.WORK.BUSINESS", "Business & Freelance", {"movement": "INFLOW", "income_class": "HOUSEHOLD"}),
     ("EXP.WORK.TRANSPORT", "Transportation", {}),
     ("EXP.WORK.SOFTWARE", "Software", {}),
     ("EXP.WORK.MEALS", "Meals", {}),
     ("EXP.WORK.OFFICE", "Office Supplies", {}),
     ("EXP.WORK.TRAVEL", "Travel", {}),
     ("EXP.WORK.OTHER", "Other Work", {}),
-    ("EXP.FEES", "Fees & Charges", {"scope": "PERSONAL"}),
-    ("EXP.FEES.BANK", "Bank Fees", {}),
-    ("EXP.FEES.INTEREST", "Interest Paid", {}),
-    ("EXP.TAX", "Taxes", {"scope": "PERSONAL"}),
     ("EXP.UNACCOUNTED", "Unaccounted Spending", {"scope": "PERSONAL", "is_system": 1}),
+    ("EXP.INVEST", "Investment", {"family": "INVESTMENT", "income_class": "INVESTMENT"}),
+    ("EXP.INVEST.INTEREST", "Interest", {"movement": "INFLOW", "income_class": "INVESTMENT"}),
+    ("EXP.INVEST.DIVIDEND", "Dividends", {"movement": "INFLOW", "income_class": "INVESTMENT"}),
+    ("EXP.INVEST.FEES", "Investment Fees", {}),
+    ("EXP.INVEST.OTHER", "Other Investment", {}),
 ]
 
 
@@ -125,16 +125,17 @@ def seed(db: Database) -> None:
             parent = (
                 db.one("SELECT * FROM categories WHERE id = ?", (parent_id,)) if parent_id else None
             )
-            movement = extra.get("movement") or (parent["movement"] if parent else None)
+            movement = extra.get("movement") or (parent["movement"] if parent else "OUTFLOW")
             scope = extra.get("scope", parent["scope"] if parent else None)
             income_class = extra.get("income_class", parent["income_class"] if parent else None)
+            family = extra.get("family", parent["family"] if parent else None)
             reimb = extra.get(
                 "default_reimbursable", parent["default_reimbursable"] if parent else 0
             )
             db.execute(
-                "INSERT INTO categories(code, name, parent_id, movement, scope, income_class,"
+                "INSERT INTO categories(code, name, parent_id, movement, scope, income_class, family,"
                 " default_reimbursable, is_system, sort_order, created_at, updated_at)"
-                " VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                " VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     code,
                     name,
@@ -142,6 +143,7 @@ def seed(db: Database) -> None:
                     movement,
                     scope if movement == "OUTFLOW" else None,
                     income_class if movement == "INFLOW" else None,
+                    family,
                     reimb,
                     extra.get("is_system", 0),
                     order,

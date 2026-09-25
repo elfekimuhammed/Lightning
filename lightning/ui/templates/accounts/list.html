@@ -5,21 +5,22 @@
 {% block content %}
 <div class="card">
   <table>
-    <thead><tr><th>Account</th><th>Type</th><th>Institution</th><th class="num">Transactions</th><th class="num">Balance</th></tr></thead>
+    <thead><tr><th>Account</th><th>Type</th><th class="num">Transactions</th><th class="num">Total balance</th><th class="num">You own</th></tr></thead>
     <tbody>
-    {% for acc, balance, count in rows %}
+    {% for acc, balance, owned, count in rows %}
       <tr class="{{ 'void' if not acc.active }}">
         <td><a href="/accounts/{{ acc.id }}">{{ acc.name }}</a>{% if not acc.active %} <span class="pill">inactive</span>{% endif %}</td>
         <td class="small">{{ acc.type_label }}</td>
-        <td class="small">{{ acc.institution }}</td>
         <td class="num small">{{ count }}</td>
-        <td class="num">{{ amount(balance, acc.currency) }}</td>
+        <td class="num">{{ amount(balance, base) }}</td>
+        <td class="num">{{ amount(owned, base) }}</td>
       </tr>
     {% else %}
       <tr><td colspan="5" class="empty">No accounts yet.</td></tr>
     {% endfor %}
     {% if rows %}
-      <tr class="total"><td colspan="4">Net worth</td><td class="num">{{ amount(net_worth.total, base) }}</td></tr>
+      <tr class="total"><td colspan="3">Total balance</td><td class="num">{{ amount(gross_total, base) }}</td><td></td></tr>
+      <tr class="total"><td colspan="4">Your net worth</td><td class="num">{{ amount(net_worth.total, base) }}</td></tr>
     {% endif %}
     </tbody>
   </table>

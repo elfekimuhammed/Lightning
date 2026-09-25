@@ -10,11 +10,17 @@
         {% for a in accounts %}<option value="{{ a.id }}" {{ 'selected' if v.get('account_id') == a.id|string }}>{{ a.label }}</option>{% endfor %}
       </select></td>
   {% endif %}
-  <td><input form="{{ form_id }}" type="text" name="counterparty" value="{{ v.get('counterparty', '') }}" placeholder="Counterparty — person, business, or your account"
-             list="counterparty-options" class="counterparty-input {{ 'bad' if error_field in ('counterparty', 'to_account', 'from_account') }}"
-             {{ '' if is_edit else 'id=counterparty' }} {{ 'autofocus' if is_edit or edit_id is none }}></td>
+  <td><div class="counterparty-picker"><input form="{{ form_id }}" type="text" name="counterparty" value="{{ v.get('counterparty', '') }}" placeholder="Counterparty or your account"
+             autocomplete="off" aria-autocomplete="list" aria-expanded="false" aria-controls="{{ form_id }}-counterparty-results"
+             data-counterparty-results="{{ form_id }}-counterparty-results"
+             class="counterparty-input {{ 'bad' if error_field in ('counterparty', 'counterparty_review', 'to_account', 'from_account') }}"
+             {{ '' if is_edit else 'id=counterparty' }} {{ 'autofocus' if is_edit or edit_id is none }}>
+      <div id="{{ form_id }}-counterparty-results" class="counterparty-results" role="listbox" hidden></div>
+    </div></td>
   <td><input form="{{ form_id }}" type="text" name="category" value="{{ v.get('category', '') }}" placeholder="Category — type to search"
              list="category-options" class="category-input {{ 'bad' if error_field == 'category' }}"></td>
+  <td class="whom-cell" hidden><input form="{{ form_id }}" type="text" name="whom" value="{{ v.get('whom', '') }}"
+             placeholder="Whom?" list="counterparty-options" class="{{ 'bad' if error_field == 'whom' }}"></td>
   <td><input form="{{ form_id }}" type="text" name="notes" value="{{ v.get('notes', '') }}" placeholder="Notes"></td>
   <td><input form="{{ form_id }}" type="text" name="amount" value="{{ v.get('amount', '') }}" placeholder="-450 or 1,200"
              inputmode="decimal" required class="num money-input {{ 'bad' if error_field == 'amount' }}"></td>
@@ -25,8 +31,9 @@
 <div class="acct-title"><h1>{{ account.name }}</h1></div>
 <div class="acct-figures">
   <div><span class="muted small">Cash</span><b class="{{ balance|tone }}">{{ balance|money }}</b></div>
-  {% if holdings %}<div><span class="muted small">Holdings</span><b>{{ (account_value - balance)|money }}</b></div>
-  <div><span class="muted small">Total</span><b>{{ account_value|money }}</b></div>{% endif %}
+  <div><span class="muted small">Cash you own</span><b>{{ owned_cash|money }}</b></div>
+  <div><span class="muted small">Total balance</span><b>{{ account_value|money }}</b></div>
+  <div><span class="muted small">Your share</span><b>{{ owned_account_value|money }}</b></div>
   <span class="muted small">{{ account.currency }} · {{ account.type_label }}</span>
 </div>
 {% else %}
@@ -37,7 +44,7 @@
 
 {% block top_actions %}
 {% if account %}
-{% if account.account_type.value == "BANK" %}<a class="btn small" href="/accounts/{{ account.id }}/import">Import CSV</a>{% endif %}
+<a class="btn small" href="/accounts/{{ account.id }}/import">Import CSV</a>
 <a class="btn small" href="/accounts/{{ account.id }}/edit">Edit account</a>
 {% if account.active %}<form method="post" action="/accounts/{{ account.id }}/deactivate"><button class="btn small danger">Deactivate</button></form>
 {% else %}<form method="post" action="/accounts/{{ account.id }}/reactivate"><button class="btn small">Reactivate</button></form>{% endif %}
@@ -46,22 +53,36 @@
 
 {% block content %}
 {% set with_balance = account and not q %}
-{% set ncols = 6 + (1 if show_account else 0) + (1 if with_balance else 0) %}
+{% set ncols = 8 + (1 if show_account else 0) + (1 if with_balance else 0) %}
 
-<datalist id="counterparty-options">
-  {% for a in account_options %}{% if not account or a != account.name %}<option value="{{ a }}" label="↔ your account — transfer"></option>{% endif %}{% endfor %}
-  {% for p in counterparty_options %}<option value="{{ p }}"></option>{% endfor %}
-</datalist>
-{% if counterparty_matches and error_field == 'counterparty' %}
-<div class="flash">
-  <b>Choose what you meant by “{{ entry.get('counterparty', '') }}”:</b>
-  {% for match in counterparty_matches %}<button class="btn small" form="{{ 'f-edit' if edit_id is not none else 'f-new' }}" name="counterparty_choice" value="existing:{{ match.id }}">Use {{ match.name }}</button>{% endfor %}
-  <button class="btn small" form="{{ 'f-edit' if edit_id is not none else 'f-new' }}" name="counterparty_choice" value="create">Create “{{ entry.get('counterparty', '') }}”</button>
-</div>
-{% endif %}
 <datalist id="category-options">{% for name in category_options %}<option value="{{ name }}"></option>{% endfor %}</datalist>
+<datalist id="counterparty-options">{% for name in counterparty_options %}<option value="{{ name }}"></option>{% endfor %}</datalist>
 <form id="f-new" method="post" action="{{ post_url }}" autocomplete="off"></form>
 {% if edit_id is not none %}<form id="f-edit" method="post" action="{{ post_url }}/{{ edit_id }}" autocomplete="off"></form>{% endif %}
+{% set review_form_id = 'f-edit' if edit_id is not none else 'f-new' %}
+{% if entry.get('counterparty_choice') and review_mode != 'counterparty' %}<input form="{{ review_form_id }}" type="hidden" name="counterparty_choice" value="{{ entry.counterparty_choice }}">{% endif %}
+{% if entry.get('category_choice') and review_mode != 'category' %}<input form="{{ review_form_id }}" type="hidden" name="category_choice" value="{{ entry.category_choice }}">{% endif %}
+{% if review_mode %}
+<div class="review-backdrop">
+  <section class="review-dialog" role="dialog" aria-modal="true" aria-labelledby="register-review-title">
+    {% if review_mode == 'counterparty' %}
+    <h2 id="register-review-title">Review this Counterparty</h2>
+    <p>Before saving “{{ entry.get('counterparty', '') }}”, check whether it is already saved. New names always need an explicit confirmation.</p>
+    {% if counterparty_matches %}<ul class="review-matches">
+      {% for match in counterparty_matches %}<li><button class="btn" form="{{ review_form_id }}" name="counterparty_choice" value="existing:{{ match.id }}">Use {{ match.name }}</button></li>{% endfor %}
+    </ul>{% else %}<p class="muted">No close match found in your saved Counterparties.</p>{% endif %}
+    <button class="btn primary" form="{{ review_form_id }}" name="counterparty_choice" value="create">Create “{{ entry.get('counterparty', '') }}” as a new Counterparty</button>
+    {% else %}
+    <h2 id="register-review-title">Choose a broad category</h2>
+    <p>Check these existing categories before saving. Categories are selected from the list; this transaction won’t create a new one.</p>
+    {% if category_matches %}<ul class="review-matches">
+      {% for match in category_matches %}<li><button class="btn" form="{{ review_form_id }}" name="category_choice" value="{{ match.id }}">Use {{ match.name }}</button></li>{% endfor %}
+    </ul>{% else %}<p class="muted">No close match. Add a broad category from the Categories tab, then return to this transaction.</p><a class="btn" href="/categories">Open Categories</a>{% endif %}
+    {% endif %}
+    <a class="btn" href="{{ base_url }}">Cancel</a>
+  </section>
+</div>
+{% endif %}
 
 {% if can_invest and account.active %}
 <div class="card investment-entry-card">
@@ -83,6 +104,11 @@
         <input id="trade-instrument-search" type="search" value="{{ investment_entry.get('instrument_label', '') }}" placeholder="Type a name or ticker" autocomplete="off" aria-controls="trade-instrument-results" aria-expanded="false" required>
         <div id="trade-instrument-results" class="instrument-results" role="listbox" hidden></div>
         <div id="trade-position-hint" class="help" aria-live="polite"></div>
+      </div>
+      <label class="field investment-owner-flag"><span>Ownership</span><span><input type="checkbox" name="is_others" value="1" {{ 'checked' if investment_entry.get('is_others') }}> Invested for someone else</span></label>
+      <div class="field investment-owner-field" {{ 'hidden' if not investment_entry.get('is_others') }}>
+        <label for="investment-whom">Whom</label>
+        <input id="investment-whom" type="text" name="whom" value="{{ investment_entry.get('whom', '') }}" list="counterparty-options" placeholder="Choose a saved Counterparty">
       </div>
       <div class="field {{ 'has-error' if investment_error_field == 'units' }}">
         <label for="investment-units">Units</label>
@@ -140,19 +166,24 @@
 </div>
 
 <div class="card ledger" data-counterparties='{{ counterparty_categories|tojson }}' data-accounts='{{ account_options|tojson }}'>
+  <div class="selection-tools" id="selection-tools" hidden>
+    <span id="selection-count" class="muted small">0 selected</span>
+    <button type="button" class="btn small danger" id="delete-selected">Delete selected</button>
+  </div>
   <table>
     <colgroup>
-      <col style="width:118px">{% if show_account %}<col style="width:16%">{% endif %}
-      <col style="width:21%"><col style="width:22%"><col>
+      <col style="width:42px"><col style="width:118px">{% if show_account %}<col style="width:16%">{% endif %}
+      <col style="width:18%"><col style="width:18%"><col style="width:16%"><col>
       <col style="width:130px">{% if with_balance %}<col style="width:120px">{% endif %}<col style="width:72px">
     </colgroup>
     <thead><tr>
-      <th>Date</th>{% if show_account %}<th>Account</th>{% endif %}<th>Counterparty</th><th>Category</th><th>Notes</th>
+      <th id="select-visible-header" class="select-visible-header" title="Select or clear all visible transactions"><input id="select-visible" type="checkbox" aria-label="Select all visible transactions"></th><th>Date</th>{% if show_account %}<th>Account</th>{% endif %}<th>Counterparty</th><th>Category</th><th class="whom-head" {{ 'hidden' if not custody_present }}>Whom</th><th>Notes</th>
       <th class="num">Amount</th>{% if with_balance %}<th class="num">Balance</th>{% endif %}<th></th>
     </tr></thead>
     <tbody>
     {% if not account or account.active %}
     <tr class="add-row">
+      <td></td>
       {{ inputs('f-new', entry, False) }}
       {% if with_balance %}<td></td>{% endif %}
       <td><button form="f-new" class="btn primary small" title="Enter also saves">Add</button></td>
@@ -166,13 +197,14 @@
       {% if r.type == 'TRF' %}{% set kind = 'transfer' %}{% elif r.type in ('BUY', 'SEL', 'DIV') %}{% set kind = 'invest' %}{% elif r.type == 'OPN' %}{% set kind = 'opening' %}{% endif %}
       {% if edit_id == r.txn_id and edit_acct == r.account_id %}
       <tr class="add-row editing">
+        <td></td>
         {{ inputs('f-edit', edit, True) }}
         {% if with_balance %}<td class="num muted">{{ r.balance|money if r.balance is not none }}</td>{% endif %}
         <td><button form="f-edit" class="btn primary small">Save</button></td>
       </tr>
       <tr class="edit-bar"><td colspan="{{ ncols }}">
         <a href="{{ base_url }}{{ '?' ~ keep_qs if keep_qs }}" class="btn small" data-cancel>Cancel</a>
-        <form method="post" action="/transactions/{{ r.txn_id }}/void?back={{ base_url|urlencode }}" style="display:inline"><button class="btn small danger">Void</button></form>
+        <form method="post" action="/transactions/{{ r.txn_id }}/delete?back={{ base_url|urlencode }}" style="display:inline" data-confirm-delete><button class="btn small danger">Delete</button></form>
         <a class="btn small" href="/transactions/{{ r.txn_id }}">Details &amp; history</a>
         <span class="muted small code">{{ r.ref }}</span>
       </td></tr>
@@ -181,10 +213,12 @@
       {% elif r.type in ('BUY', 'SEL', 'DIV') %}{% set href = '/investments/' ~ r.txn_id ~ '/edit' %}
       {% else %}{% set href = base_url ~ '?edit=' ~ r.txn_id ~ '&acct=' ~ r.account_id ~ ('&' ~ keep_qs if keep_qs) %}{% endif %}
       <tr class="clickable row-{{ kind }}" data-href="{{ href }}" title="{{ r.ref }} — click to edit">
+        <td><input type="checkbox" class="transaction-select" value="{{ r.txn_id }}" data-type="{{ r.type }}" aria-label="Select {{ r.counterparty or r.type_label }}" {{ 'disabled title="Edit opening balances from the account page"' if r.type == 'OPN' }}></td>
         <td class="code {{ 'same-day' if r.date == ns.last_date }}">{{ r.date }}</td>
         {% if show_account %}<td class="small">{{ r.account_label }}</td>{% endif %}
-        <td>{% if r.type == 'TRF' %}<span class="pill transfer">↔</span> {{ r.other_account_label }}{% else %}{{ r.counterparty or r.description or r.type_label }}{% endif %}</td>
+        <td>{% if r.type == 'TRF' %}<span class="pill transfer">↔</span> {{ r.other_account_label }}{% else %}{{ r.counterparty or r.description or '—' }}{% endif %}</td>
         <td class="small">{{ r.category_label }}</td>
+        <td class="small whom-cell" {{ 'hidden' if not custody_owners.get(r.txn_id) }}>{{ custody_owners.get(r.txn_id, '') }}</td>
         <td class="small muted">{{ r.notes }}{% if r.type == 'TRF' and r.description %} {{ r.description }}{% endif %}</td>
         <td class="num amount {{ r.amount|tone }}">{{ r.amount|money(True) }}</td>
         {% if with_balance %}<td class="num muted">{{ r.balance|money }}</td>{% endif %}
@@ -197,6 +231,10 @@
     {% endfor %}
     </tbody>
   </table>
+</div>
+<div id="transaction-context-menu" class="context-menu" role="menu" hidden>
+  <button type="button" role="menuitem" data-context-edit>Edit transaction</button>
+  <button type="button" role="menuitem" class="danger-text" data-context-delete>Delete transaction</button>
 </div>
 {% if account and account.notes %}<div class="card" style="margin-top:16px"><h2>Notes</h2>{{ account.notes }}</div>{% endif %}
 {% endblock %}

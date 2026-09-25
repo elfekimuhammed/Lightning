@@ -177,6 +177,29 @@ a.side-row:hover { background: var(--surface-2); text-decoration: none; }
 .toolbar-filters input[type=search] { width: 300px; }
 .toolbar-filters .month-input { width: 100px; }
 .ledger { padding: 6px 10px; }
+.counterparty-picker { min-width: 0; }
+.counterparty-results { position: fixed; z-index: 1010; max-height: 280px; overflow-y: auto; padding: 5px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); box-shadow: 0 8px 24px rgba(16,24,40,.18); }
+.counterparty-results[hidden] { display: none; }
+.counterparty-group-title { padding: 7px 9px 4px; color: var(--muted); font-size: 11px; font-weight: 650; text-transform: uppercase; letter-spacing: .04em; }
+.counterparty-option { display: flex; justify-content: space-between; align-items: center; width: 100%; border: 0; border-radius: 6px; background: transparent; color: var(--text); padding: 7px 9px; text-align: left; font: inherit; cursor: pointer; }
+.counterparty-option:hover, .counterparty-option:focus { background: var(--surface-2); outline: none; }
+.counterparty-kind { color: var(--muted); font-size: 11px; margin-left: 12px; white-space: nowrap; }
+.review-backdrop { position: fixed; z-index: 1200; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(16,24,40,.42); }
+.review-dialog { width: min(520px, 100%); max-height: min(80vh, 680px); overflow: auto; padding: 22px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); box-shadow: 0 16px 48px rgba(16,24,40,.25); }
+.review-dialog > p { color: var(--muted); }
+.review-dialog > .btn { margin: 4px 6px 0 0; }
+.review-matches { display: grid; gap: 7px; margin: 12px 0 16px; padding: 0; list-style: none; }
+.review-matches .btn { width: 100%; justify-content: flex-start; }
+.review-matches li { margin: 0; }
+.selection-tools { display: flex; align-items: center; gap: 10px; padding: 8px 6px; border-bottom: 1px solid var(--border); }
+.selection-tools[hidden] { display: none; }
+.context-menu { position: fixed; z-index: 1000; min-width: 190px; padding: 5px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); box-shadow: 0 8px 24px rgba(16,24,40,.18); }
+.context-menu[hidden] { display: none; }
+.context-menu button { display: block; width: 100%; border: 0; border-radius: 6px; background: transparent; color: var(--text); padding: 8px 10px; text-align: left; font: inherit; cursor: pointer; }
+.context-menu button:hover { background: var(--surface-2); }
+.context-menu .danger-text { color: var(--neg); }
+.ledger td:first-child input[type=checkbox], .ledger th:first-child input[type=checkbox] { width: auto; margin: 0; }
+.ledger th.select-visible-header { cursor: pointer; user-select: none; }
 .ledger table { table-layout: fixed; }
 .ledger td { padding: 8px 8px; overflow: hidden; text-overflow: ellipsis; }
 .ledger tr.add-row td { padding: 8px 4px 4px; border-bottom: 0; }
@@ -212,6 +235,12 @@ tr.clickable:hover td { background: var(--surface-2); }
 .cat-group:first-of-type { border-top: 0; }
 .cat-group-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .cat-group-head b { font-size: 15px; }
+.cat-group-head a, .category-tree-item { display: flex; align-items: center; gap: 10px; }
+.level-tag { display: inline-block; min-width: 30px; color: var(--muted); font-size: 11px; font-weight: 650; text-transform: uppercase; letter-spacing: .04em; }
+.category-tree { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); column-gap: 18px; }
+.category-tree-item { min-height: 36px; padding: 4px 0; }
+.category-tree-item a { color: var(--text); }
+.category-tree-item a:hover { color: var(--accent); }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip { display: inline-block; padding: 4px 10px; border: 1px solid var(--border); border-radius: 99px; color: var(--text); font-size: 13.5px; background: var(--surface); }
 .chip:hover { background: var(--surface-2); text-decoration: none; }

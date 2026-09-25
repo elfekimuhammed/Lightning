@@ -1,32 +1,17 @@
 {% extends "base.html" %}
 {% block title %}Categories{% endblock %}
-{% block heading %}<h1>Categories</h1><div class="muted">Why money moved. Click a name to rename or hide it.</div>{% endblock %}
+{% block heading %}<h1>Categories</h1><div class="muted">L1 is the activity. L2 is the broad category. L3 is not used.</div>{% endblock %}
 {% block content %}
 <div class="grid g2">
-  {% for side in sides %}
+  {% for group, items in groups %}
   <div class="card">
-    <h2>{{ side.title }}</h2>
-    {% if side.loose %}
-    <div class="cat-group">
-      <div class="cat-group-head"><b>{{ side.loose_title }}</b></div>
-      <div class="chips">
-        {% for c in side.loose %}<a class="chip {{ 'off' if not c.active }}" href="/categories/{{ c.id }}/edit">{{ c.name }}</a>{% endfor %}
-        <a class="chip add" href="/categories/new?parent={{ side.root.id }}">+ Add</a>
-      </div>
-    </div>
-    {% endif %}
-    {% for group, items in side.groups %}
-    <div class="cat-group">
-      <div class="cat-group-head">
-        <a href="/categories/{{ group.id }}/edit" class="{{ 'muted' if not group.active }}"><b>{{ group.name }}</b></a>
-      </div>
-      <div class="chips">
-        {% for c in items %}<a class="chip {{ 'sub' if c.depth > 2 }} {{ 'off' if not c.active }}" href="/categories/{{ c.id }}/edit">{{ c.name }}</a>{% endfor %}
-        <a class="chip add" href="/categories/new?parent={{ group.id }}">+ Add</a>
-      </div>
-    </div>
-    {% endfor %}
-    <div style="margin-top:8px"><a class="btn small" href="/categories/new?parent={{ side.root.id }}">+ New group</a></div>
+    <div class="cat-group-head"><a href="/categories/{{ group.id }}/edit" class="{{ 'muted' if not group.active }}"><span class="level-tag">L1</span><h2>{{ group.name }}</h2></a></div>
+    <ul class="category-tree">
+      {% for c in items %}
+      <li class="category-tree-item {{ 'off' if not c.active }}"><span class="level-tag">L2</span><a href="/categories/{{ c.id }}/edit">{{ c.name }}</a>{% if not c.active %}<span class="small muted">Archived</span>{% endif %}</li>
+      {% endfor %}
+    </ul>
+    <div style="margin-top:12px"><a class="btn small" href="/categories/new?parent={{ group.id }}">+ Add L2 category</a></div>
   </div>
   {% endfor %}
 </div>

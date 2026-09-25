@@ -39,7 +39,10 @@ class ReportQueries:
     def effect_totals(self, date_from: str, date_to: str) -> dict[str, int]:
         rows = self.db.all(
             f"SELECT le.effect, SUM(le.amount_base_e6) AS total"
-            f" FROM ledger_entries le {POSTED} WHERE le.date BETWEEN ? AND ? GROUP BY le.effect",
+            f" FROM ledger_entries le {POSTED} WHERE le.date BETWEEN ? AND ?"
+            " AND COALESCE(le.category_id,0) NOT IN (SELECT id FROM categories WHERE code='EXP.PERSONAL.CUSTODY')"
+            " AND NOT EXISTS (SELECT 1 FROM money_from_others m WHERE m.transaction_id=t.id)"
+            " GROUP BY le.effect",
             (date_from, date_to),
         )
         return {r["effect"]: int(r["total"] or 0) for r in rows}
@@ -49,7 +52,10 @@ class ReportQueries:
             f"SELECT le.category_id, le.effect, SUM(le.amount_base_e6) AS total"
             f" FROM ledger_entries le {POSTED}"
             f" WHERE le.date BETWEEN ? AND ? AND le.category_id IS NOT NULL"
-            f" AND le.effect IN ('INFLOW','OUTFLOW') GROUP BY le.category_id, le.effect",
+            f" AND le.effect IN ('INFLOW','OUTFLOW')"
+            " AND COALESCE(le.category_id,0) NOT IN (SELECT id FROM categories WHERE code='EXP.PERSONAL.CUSTODY')"
+            " AND NOT EXISTS (SELECT 1 FROM money_from_others m WHERE m.transaction_id=t.id)"
+            " GROUP BY le.category_id, le.effect",
             (date_from, date_to),
         )
         return [dict(r) for r in rows]
@@ -58,6 +64,8 @@ class ReportQueries:
         rows = self.db.all(
             f"SELECT substr(le.date, 1, 7) AS month, le.effect, SUM(le.amount_base_e6) AS total"
             f" FROM ledger_entries le {POSTED} WHERE le.date BETWEEN ? AND ?"
+            " AND COALESCE(le.category_id,0) NOT IN (SELECT id FROM categories WHERE code='EXP.PERSONAL.CUSTODY')"
+            " AND NOT EXISTS (SELECT 1 FROM money_from_others m WHERE m.transaction_id=t.id)"
             f" GROUP BY month, le.effect ORDER BY month",
             (date_from, date_to),
         )

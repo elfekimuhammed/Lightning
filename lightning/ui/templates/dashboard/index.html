@@ -52,6 +52,7 @@
       <tr><td>− Money out</td><td class="num neg">{{ (-bridge.outflows)|money }}</td></tr>
       <tr><td>± Revaluation</td><td class="num">{{ bridge.revaluation|money(True) }}</td></tr>
       <tr><td>+ New balances added</td><td class="num">{{ bridge.new_balances|money(True) }}</td></tr>
+      <tr><td>− Change in money held for others</td><td class="num">{{ bridge.custody_change|money(True) }}</td></tr>
       <tr class="total"><td>Closing net worth ({{ bridge.date_to }})</td><td class="num">{{ amount(bridge.closing, base) }}</td></tr>
     </table>
     {% if bridge.difference != 0 %}<div class="flash error" style="margin-top:10px">Check: the bridge is off by {{ bridge.difference|money }}. Please report this.</div>
@@ -62,12 +63,12 @@
 <div class="grid g2" style="margin-top:16px">
   <div class="card">
     <h2>Accounts</h2>
-    <table>
+    <table><thead><tr><th>Account</th><th class="num">Total balance</th><th class="num">You own</th></tr></thead><tbody>
       {% for acc, value in net_worth.by_account %}
       <tr><td><a href="/accounts/{{ acc.id }}">{{ acc.label }}</a><div class="muted small">{{ acc.type_label }}</div></td>
-          <td class="num">{{ amount(value) }}</td></tr>
+          <td class="num">{{ amount(value) }}</td><td class="num">{{ amount(value - custody_by_account.get(acc.id, 0)) }}</td></tr>
       {% endfor %}
-    </table>
+    </tbody></table>
     <div style="margin-top:10px"><a class="btn small" href="/accounts/new">Add account</a></div>
   </div>
   <div class="card">
@@ -80,7 +81,7 @@
           <td class="num small">{{ g.value|money }}</td></tr>
       {% endfor %}
     </table>
-    <p class="muted small">Personal {{ cash_flow.personal_outflows|money }} · Work {{ cash_flow.work_outflows|money }}</p>
+    <p class="muted small">Personal {{ cash_flow.personal_outflows|money }} · Work {{ cash_flow.work_outflows|money }} · Investment {{ cash_flow.investment_outflows|money }}</p>
     {% else %}<div class="empty">No spending recorded this month.</div>{% endif %}
   </div>
 </div>

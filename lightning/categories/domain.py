@@ -16,6 +16,12 @@ class Scope(StrEnum):
     WORK = "WORK"
 
 
+class CategoryFamily(StrEnum):
+    PERSONAL = "PERSONAL"
+    WORK = "WORK"
+    INVESTMENT = "INVESTMENT"
+
+
 class IncomeClass(StrEnum):
     HOUSEHOLD = "HOUSEHOLD"  # salary, gifts -> household income
     INVESTMENT = "INVESTMENT"  # interest, dividends -> kept apart from household income
@@ -30,6 +36,7 @@ class Category:
     movement: Movement
     scope: Scope | None  # outflows only; inherited from the parent
     income_class: IncomeClass | None  # inflows only; inherited from the parent
+    family: CategoryFamily | None  # cross-cutting analysis group, inherited from parent
     default_reimbursable: bool
     is_system: bool
     active: bool

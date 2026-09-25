@@ -61,6 +61,32 @@ async def void_transaction(request: Request, txn_id: int):
     return redirect(_back(request, f"/transactions/{txn.id}"), f"{txn.ref} is void — it no longer counts.")
 
 
+@router.post("/transactions/{txn_id:int}/delete")
+async def delete_transaction(request: Request, txn_id: int):
+    c = container(request)
+    try:
+        c.transactions.delete_many([txn_id])
+    except LightningError as exc:
+        return redirect(_back(request, f"/transactions/{txn_id}"), exc.message)
+    return redirect(_back(request, "/transactions"), "Transaction deleted. You can restore it from its history page.")
+
+
+@router.post("/transactions/bulk-delete")
+async def delete_transactions(request: Request):
+    c = container(request)
+    form = await request.form()
+    ids = [int(value) for value in form.getlist("txn_ids") if str(value).isdigit()]
+    back = str(form.get("back", ""))
+    destination = back if back.startswith("/") and not back.startswith("//") else "/transactions"
+    if not ids:
+        return redirect(destination, "Choose at least one transaction.")
+    try:
+        count = c.transactions.delete_many(ids)
+    except LightningError as exc:
+        return redirect(destination, exc.message)
+    return redirect(destination, f"Deleted {count} transaction(s). You can restore them from history.")
+
+
 @router.post("/transactions/{txn_id:int}/restore")
 async def restore_transaction(request: Request, txn_id: int):
     try:

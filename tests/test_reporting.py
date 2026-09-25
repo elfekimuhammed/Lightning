@@ -31,9 +31,20 @@ def test_transfers_do_not_change_net_worth_or_cash_flow(setup, c):
     assert flow.inflows == ZERO and flow.outflows == ZERO
 
 
+def test_money_from_others_is_deducted_and_reconciles_bridge(setup, c):
+    accounts, cats = setup
+    before = c.reporting.net_worth("2026-09-19").total
+    c.transactions.record_inflow("2026-09-20", accounts["cib"].id, "1000", cats["EXP.WORK.SALARY"].id)
+    c.money_from_others.record("2026-09-20", "Dad", accounts["cib"].id, Decimal("1000"))
+    nw = c.reporting.net_worth("2026-09-30")
+    assert nw.total == before
+    assert sum((group.value for group in nw.by_class), Decimal("0")) == nw.total
+    assert c.reporting.bridge("2026-09-20", "2026-09-30").difference == 0
+
+
 def test_bridge_example(setup, c):
     accounts, cats = setup
-    c.transactions.record_inflow("2026-10-01", accounts["cib"].id, "20000", cats["INC.SALARY"].id)
+    c.transactions.record_inflow("2026-10-01", accounts["cib"].id, "20000", cats["EXP.WORK.SALARY"].id)
     c.transactions.record_outflow("2026-10-03", accounts["cib"].id, "12000", cats["EXP.PERSONAL.FOOD"].id)
     c.transactions.record_transfer("2026-10-04", accounts["cib"].id, accounts["thndr"].id, "5000")
     b = c.reporting.bridge_for_month("2026-10")
@@ -51,8 +62,8 @@ def test_new_account_mid_month_is_its_own_bridge_line(setup, c):
 
 def test_cash_flow_splits(setup, c):
     accounts, cats = setup
-    c.transactions.record_inflow("2026-09-10", accounts["cib"].id, "30000", cats["INC.SALARY"].id)
-    c.transactions.record_inflow("2026-09-11", accounts["cib"].id, "500", cats["INC.INVEST.INTEREST"].id)
+    c.transactions.record_inflow("2026-09-10", accounts["cib"].id, "30000", cats["EXP.WORK.SALARY"].id)
+    c.transactions.record_inflow("2026-09-11", accounts["cib"].id, "500", cats["EXP.INVEST.INTEREST"].id)
     c.transactions.record_outflow("2026-09-12", accounts["cib"].id, "300", cats["EXP.WORK.SOFTWARE"].id)
     c.transactions.record_outflow("2026-09-12", accounts["cib"].id, "700", cats["EXP.PERSONAL.FOOD"].id)
     f = c.reporting.cash_flow("2026-09-01", "2026-09-30")
@@ -68,7 +79,7 @@ def test_cash_flow_splits(setup, c):
 def test_statement_running_balance(setup, c):
     accounts, cats = setup
     c.transactions.record_outflow("2026-09-10", accounts["cib"].id, "100", cats["EXP.PERSONAL.FOOD"].id)
-    c.transactions.record_inflow("2026-09-11", accounts["cib"].id, "40", cats["INC.SALARY"].id)
+    c.transactions.record_inflow("2026-09-11", accounts["cib"].id, "40", cats["EXP.WORK.SALARY"].id)
     s = c.reporting.statement(accounts["cib"].id, "2026-09-05", "2026-09-30")
     assert s.opening == Decimal("50000")
     assert [r.balance for r in s.rows] == [Decimal("49900"), Decimal("49940")]
@@ -77,7 +88,7 @@ def test_statement_running_balance(setup, c):
 
 def test_monthly_trend(setup, c):
     accounts, cats = setup
-    c.transactions.record_inflow("2026-09-20", accounts["cib"].id, "100", cats["INC.SALARY"].id)
+    c.transactions.record_inflow("2026-09-20", accounts["cib"].id, "100", cats["EXP.WORK.SALARY"].id)
     trend = c.reporting.monthly_trend("2026-10", 3)
     assert [m["month"] for m in trend] == ["2026-08", "2026-09", "2026-10"]
     assert trend[1]["inflows"] == Decimal("100")
@@ -92,7 +103,7 @@ def test_randomized_ledger_always_reconciles(c):
     rng = random.Random(20260925)
     flows = c.account_flows
     accs = [flows.open_account(f"Acc {i}", t, "2026-01-01", str(rng.randint(0, 50000)))
-            for i, t in enumerate(["BANK", "CASH", "DEPOSIT", "BROKERAGE", "RECEIVABLE", "OTHER_ASSET"])]
+            for i, t in enumerate(["BANK", "CASH", "DEPOSIT", "BROKERAGE", "OTHER_ASSET"])]
     from lightning.categories.domain import Movement
     ins = c.categories.pickable(Movement.INFLOW)
     outs = c.categories.pickable(Movement.OUTFLOW)

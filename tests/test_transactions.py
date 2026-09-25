@@ -25,7 +25,7 @@ class TestRecording:
         r1 = c.transactions.record_outflow("2026-09-25", accounts["cib"].id, "1", food).ref
         r2 = c.transactions.record_outflow("2026-09-25", accounts["cib"].id, "1", food).ref
         r3 = c.transactions.record_outflow("2026-09-26", accounts["cib"].id, "1", food).ref
-        r4 = c.transactions.record_inflow("2026-09-25", accounts["cib"].id, "1", cats["INC.SALARY"].id).ref
+        r4 = c.transactions.record_inflow("2026-09-25", accounts["cib"].id, "1", cats["EXP.WORK.SALARY"].id).ref
         assert (r1, r2, r3, r4) == ("OUT-2026-09-25-001", "OUT-2026-09-25-002", "OUT-2026-09-26-001",
                                     "IN-2026-09-25-001")
 
@@ -52,10 +52,9 @@ class TestRecording:
         with pytest.raises(ValidationError):
             c.transactions.record_outflow("2026-09-10", accounts["cib"].id, amount, cats["EXP.PERSONAL.FOOD"].id)
 
-    def test_wrong_direction_category(self, setup, c):
+    def test_category_describes_activity_not_money_direction(self, setup, c):
         accounts, cats = setup
-        with pytest.raises(ValidationError, match="not a money in"):
-            c.transactions.record_inflow("2026-09-10", accounts["cib"].id, "5", cats["EXP.PERSONAL.FOOD"].id)
+        c.transactions.record_inflow("2026-09-10", accounts["cib"].id, "5", cats["EXP.PERSONAL.FOOD"].id)
         with pytest.raises(ValidationError, match="more specific"):
             c.transactions.record_outflow("2026-09-10", accounts["cib"].id, "5", c.categories.get_by_code("EXP").id)
 
@@ -110,7 +109,7 @@ class TestEditingAndVoiding:
         accounts, cats = setup
         opening_id = c.transactions.repo.opening_txn_id(accounts["cib"].id)
         with pytest.raises(ValidationError, match="account's edit page"):
-            c.transactions.update_money(opening_id, "2026-09-01", accounts["cib"].id, "1", cats["INC.SALARY"].id)
+            c.transactions.update_money(opening_id, "2026-09-01", accounts["cib"].id, "1", cats["EXP.WORK.SALARY"].id)
 
 
 class TestSearch:
@@ -156,7 +155,7 @@ class TestRegister:
         w = accounts["wallet"].id
         out = c.transactions.record_in_account(w, "2026-09-10", "-50", cats["EXP.PERSONAL.FOOD"].id, counterparty="Kiosk")
         assert out.type == "OUT" and out.counterparty == "Kiosk" and out.lines[0].quantity == Decimal("-50")
-        inn = c.transactions.record_in_account(w, "2026-09-10", "20", cats["INC.SALARY"].id)
+        inn = c.transactions.record_in_account(w, "2026-09-10", "20", cats["EXP.WORK.SALARY"].id)
         assert inn.type == "IN"
         t1 = c.transactions.record_in_account(w, "2026-09-11", "-100", other_account_id=accounts["cib"].id)
         t2 = c.transactions.record_in_account(w, "2026-09-11", "300", other_account_id=accounts["cib"].id)
@@ -166,8 +165,6 @@ class TestRegister:
 
     @pytest.mark.parametrize("amount,category,msg", [
         ("0", "EXP.PERSONAL.FOOD", "Enter an amount"),
-        ("50", "EXP.PERSONAL.FOOD", "make the amount negative"),
-        ("-50", "INC.SALARY", "make the amount positive"),
         ("-50", None, "Choose a category"),
     ])
     def test_register_rules(self, setup, c, amount, category, msg):

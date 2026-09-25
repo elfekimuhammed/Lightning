@@ -7,7 +7,6 @@
 <form method="post" class="card" style="max-width:760px">
   <div class="row">
     {{ field('name', 'Name', values, error_field, placeholder='e.g. CIB Current', attrs='required autofocus') }}
-    {{ field('institution', 'Bank or provider', values, error_field, placeholder='e.g. CIB, THNDR (optional)') }}
   </div>
   <div class="row">
     <div class="field {{ 'has-error' if error_field == 'account_type' }}">
@@ -15,8 +14,7 @@
       <select id="account_type" name="account_type" data-groups='{{ groups|tojson }}'>
         {% for value, label in types %}<option value="{{ value }}" {{ 'selected' if values.account_type == value }}>{{ label }}</option>{% endfor %}
       </select>
-      <div class="help">Cash here shows on the dashboard under <b id="group_name">{{ groups.get(values.account_type, '') }}</b>.
-        Stocks, funds and gold held in a brokerage or gold-at-home account show under their own class.</div>
+      <div class="help">Shown under <b id="group_name">{{ groups.get(values.account_type, '') }}</b>.</div>
     </div>
     <div class="field">
       <label>Currency</label>
@@ -24,13 +22,9 @@
       <div class="help">Other currencies arrive with exchange rates (M4).</div>
     </div>
   </div>
-  <div class="row">
-    {{ date_field(values, error_field, 'opening_date', 'Tracking starts on') }}
-    <div class="field amount {{ 'has-error' if error_field == 'opening_balance' }}">
-      <label for="opening_balance">Balance on that day</label>
-      <input type="text" id="opening_balance" name="opening_balance" value="{{ values.opening_balance }}" inputmode="decimal" placeholder="0.00">
-      <div class="help">What the account held when you start tracking. Leave empty for 0.</div>
-    </div>
+  <p class="help">Add your first transaction after creating the account. Its date and amount establish your history—no separate opening balance is needed.</p>
+  <div class="field" id="account-type-guidance" data-account-type="{{ values.account_type }}">
+    <div class="help" id="account-type-help"></div>
   </div>
   <details {{ 'open' if error_field in ('code', 'last4', 'notes') }}>
     <summary>More options</summary>
@@ -48,4 +42,18 @@
     <a class="btn" href="{{ '/accounts/' ~ account.id if account else '/accounts' }}">Cancel</a>
   </div>
 </form>
+<script>
+(() => {
+  const type = document.getElementById('account_type');
+  const help = document.getElementById('account-type-help');
+  if (!type || !help) return;
+  const update = () => {
+    if (type.value === 'DEPOSIT') help.textContent = 'Certificate / time deposit: include the term, annual return, and maturity date in Notes. You can record the deposit as your first transaction.';
+    else if (type.value === 'PHYSICAL_ASSET') help.textContent = 'Gold purity belongs to the gold holding itself, so choose its karat when you add the gold investment. This account can hold physical assets.';
+    else help.textContent = '';
+  };
+  type.addEventListener('change', update);
+  update();
+})();
+</script>
 {% endblock %}

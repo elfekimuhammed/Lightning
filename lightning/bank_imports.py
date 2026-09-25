@@ -6,19 +6,17 @@ import csv
 import hashlib
 import io
 import json
-from datetime import date, datetime
+from datetime import datetime
 from decimal import Decimal, InvalidOperation
 
-from lightning.accounts.domain import AccountType
 from lightning.categories.domain import Movement
-from lightning.core.dates import now_iso, parse_date
+from lightning.core.dates import now_iso
 from lightning.core.errors import ConflictError, NotFoundError, ValidationError
-from lightning.counterparties import normalize
 from lightning.core.refs import DocType
 from lightning.transactions.domain import TxnSource
 
-REQUIRED = ("Date", "Counterparty", "Amount")
-OPTIONAL = ("Category", "Notes", "Reference")
+REQUIRED = ("Date", "Amount")
+OPTIONAL = ("Counterparty", "Category", "Notes", "Reference")
 MAX_BYTES = 5 * 1024 * 1024
 MAX_ROWS = 10000
 
@@ -68,14 +66,13 @@ def decode_csv(data: bytes) -> tuple[list[str], list[dict[str, str]]]:
 
 
 class BankImportService:
-    def __init__(self, db, accounts, categories, counterparties, transactions):
+    def __init__(self, db, accounts, categories, counterparties, transactions, money_from_others=None):
         self.db, self.accounts, self.categories = db, accounts, categories
         self.counterparties, self.transactions = counterparties, transactions
+        self.money_from_others = money_from_others
 
     def stage(self, account_id: int, filename: str, data: bytes, mapping: dict[str, str] | None = None, invert_amount: bool = False):
-        account = self.accounts.get(account_id)
-        if account.account_type != AccountType.BANK:
-            raise ValidationError("CSV import is currently available for bank accounts only.", "account")
+        self.accounts.require_usable(account_id)
         digest = hashlib.sha256(data).hexdigest()
         old = self.db.one("SELECT id,status FROM bank_import_batches WHERE account_id=? AND file_hash=?",
                           (account_id, digest))
@@ -101,8 +98,6 @@ class BankImportService:
                 parsed["Amount"] = _amount(parsed["Amount"])
                 if invert_amount:
                     parsed["Amount"] = format(-Decimal(parsed["Amount"]), "f")
-                if not parsed["Counterparty"]:
-                    raise ValueError("Counterparty is required.")
             except ValueError as exc:
                 errors.append(str(exc))
             parsed["_line"] = raw["__line__"]
@@ -188,7 +183,6 @@ class BankImportService:
         _, rows = self.preview(batch_id)
         row_by_id = {r["_import_row_id"]: r for r in rows}
         accounts = self.accounts.list(active_only=True)
-        mapped_counterparties = {}
         with self.db.transaction():
             for row_id, decision in decisions.items():
                 row = row_by_id.get(int(row_id))
@@ -197,27 +191,41 @@ class BankImportService:
                 if row["_reference_duplicate"]:
                     self.db.execute("UPDATE bank_import_rows SET status='DUPLICATE' WHERE id=?", (row_id,))
                     continue
-                if row["_errors"] or decision.get("skip"):
+                if decision.get("skip"):
                     self.db.execute("UPDATE bank_import_rows SET status='SKIPPED' WHERE id=?", (row_id,))
                     continue
                 if self.db.scalar("SELECT status FROM bank_import_rows WHERE id=?", (row_id,)) != "REVIEW":
                     continue
-                cp_text = row["Counterparty"]
+                cp_text = str(decision.get("counterparty", row["Counterparty"])).strip()
+                try:
+                    day = _date(str(decision.get("date", row["Date"])))
+                    amount = Decimal(_amount(str(decision.get("amount", row["Amount"]))))
+                except ValueError as exc:
+                    raise ValidationError(f"CSV row {row['_line']}: {exc}", "row") from None
+                notes = str(decision.get("notes", row["Notes"])).strip()
                 target = next((a for a in accounts if a.name.casefold() == cp_text.casefold()), None)
-                group_key = normalize(cp_text)
-                counterparty_id = mapped_counterparties.get(group_key) or decision.get("counterparty_id") or row["_counterparty_id"]
-                if not target:
-                    if decision.get("new_counterparty") and not counterparty_id:
-                        name = str(decision["new_counterparty"]).strip()
-                        if not name:
-                            raise ValidationError(f"Enter a canonical name for {cp_text}.", "counterparty")
-                        counterparty_id = self.counterparties.create(name, alias=cp_text)
-                    elif counterparty_id:
-                        self.counterparties.add_alias(int(counterparty_id), cp_text)
-                    else:
-                        raise ValidationError(f"Choose or create one Counterparty for {cp_text} (CSV row {row['_line']}).", "counterparty")
-                    mapped_counterparties[group_key] = int(counterparty_id)
-                category_id = decision.get("category_id") or row["_category_id"]
+                counterparty_id = decision.get("counterparty_id") or (row["_counterparty_id"] if cp_text == row["Counterparty"] else None)
+                if cp_text and not counterparty_id:
+                    exact = self.counterparties.resolve(cp_text)
+                    counterparty_id = exact["id"] if exact else None
+                similar = self.counterparties.suggestions(cp_text) if cp_text and not counterparty_id else []
+                choice = str(decision.get("counterparty_choice", ""))
+                if choice.startswith("existing:"):
+                    counterparty_id = int(choice.split(":", 1)[1])
+                elif choice == "unlinked":
+                    counterparty_id = None
+                elif choice == "new" or (cp_text and not counterparty_id and not similar):
+                    name = str(decision.get("new_counterparty", cp_text)).strip()
+                    if name:
+                        counterparty_id = self.counterparties.create(name, alias=cp_text or None)
+                if counterparty_id and cp_text and not target:
+                    self.counterparties.add_alias(int(counterparty_id), cp_text)
+                category_id = None if decision.get("force_uncategorized") else (decision.get("category_id") or row["_category_id"])
+                if category_id:
+                    category_id = int(category_id)
+                else:
+                    fallback_code = "EXP.UNACCOUNTED" if amount < 0 else "INC.UNACCOUNTED"
+                    category_id = self.categories.repo.get_by_code(fallback_code).id
                 if decision.get("remember_category") and counterparty_id and category_id:
                     self.counterparties.set_default_category(int(counterparty_id), int(category_id))
                 if row["Reference"]:
@@ -228,26 +236,32 @@ class BankImportService:
                     if duplicate_ref:
                         self.db.execute("UPDATE bank_import_rows SET status='DUPLICATE' WHERE id=?", (row_id,))
                         continue
-                amount = Decimal(row["Amount"])
                 if target:
                     txn = self.transactions.record_transfer(
-                        row["Date"], batch["account_id"] if amount < 0 else target.id,
+                        day, batch["account_id"] if amount < 0 else target.id,
                         target.id if amount < 0 else batch["account_id"], abs(amount),
-                        notes=row["Notes"], source=TxnSource.IMPORT,
+                        notes=notes, source=TxnSource.IMPORT,
                     )
                 else:
-                    if not category_id:
-                        raise ValidationError(f"Choose a category for {cp_text} (CSV row {row['_line']}).", "category")
                     movement = Movement.OUTFLOW if amount < 0 else Movement.INFLOW
-                    self.categories.require(int(category_id), movement)
+                    self.categories.require(int(category_id), movement, allow_system=True)
+                    category = self.categories.get(int(category_id))
+                    owner = None
+                    if category.code == "EXP.PERSONAL.CUSTODY":
+                        party = self.counterparties.resolve(str(decision.get("whom", "")))
+                        if not party or not party["active"]:
+                            raise ValidationError(f"CSV row {row['_line']}: choose a saved active Counterparty in Whom.", "whom")
+                        owner = party["name"]
                     fn = self.transactions.record_outflow if amount < 0 else self.transactions.record_inflow
-                    canonical = self.counterparties.get(int(counterparty_id))
-                    kwargs = {"source": TxnSource.IMPORT,
-                              "counterparty": canonical["name"] if canonical else cp_text, "notes": row["Notes"]}
+                    canonical = self.counterparties.get(int(counterparty_id)) if counterparty_id else None
+                    linked_name = canonical["name"] if canonical else ("" if similar or choice == "unlinked" else cp_text)
+                    kwargs = {"source": TxnSource.IMPORT, "counterparty": linked_name, "notes": notes}
                     if amount < 0:
-                        txn = fn(row["Date"], batch["account_id"], abs(amount), int(category_id), **kwargs)
+                        txn = fn(day, batch["account_id"], abs(amount), int(category_id), allow_system_category=True, **kwargs)
                     else:
-                        txn = fn(row["Date"], batch["account_id"], amount, int(category_id), **kwargs)
+                        txn = fn(day, batch["account_id"], amount, int(category_id), allow_system_category=True, **kwargs)
+                    if owner and self.money_from_others:
+                        self.money_from_others.sync_transaction(txn.id, txn.date, owner, batch["account_id"], amount, notes)
                     if counterparty_id:
                         self.db.execute("UPDATE transactions SET counterparty_id=? WHERE id=?",
                                         (int(counterparty_id), txn.id))

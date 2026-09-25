@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Counterparties{% endblock %}
+{% block heading %}<div class="acct-title"><h1>Counterparties</h1></div><div class="muted small">People and businesses you transact with</div>{% endblock %}
+{% block content %}
+<div class="card" style="max-width:760px">
+  <h2>Add a Counterparty</h2>
+  <p class="muted small">Use one saved name across transactions. You can set a suggested category; each transaction can still use a different one.</p>
+  <form method="post" action="/counterparties" class="stack">
+    <label>Name<input type="text" name="name" value="{{ entered_name or '' }}" placeholder="e.g. Talabat" required></label>
+    <label>Suggested category <span class="muted small">(optional)</span>
+      <select name="default_category_id"><option value="">No default</option>
+        {% for category in categories %}<option value="{{ category.id }}" {{ 'selected' if entered_category_id == category.id|string }}>{{ category_labels[category.id] }}</option>{% endfor %}
+      </select>
+    </label>
+    <button class="btn primary">Add Counterparty</button>
+  </form>
+</div>
+<div class="card" style="margin-top:14px">
+  <h2>Saved Counterparties <span class="muted small">{{ parties|length }}</span></h2>
+  {% if parties %}
+  <table><thead><tr><th>Name</th><th>Suggested category</th></tr></thead><tbody>
+    {% for party in parties %}<tr><td>{{ party.name }}</td><td class="muted small">{{ category_labels.get(party.default_category_id, '—') if party.default_category_id else '—' }}</td></tr>{% endfor %}
+  </tbody></table>
+  {% else %}<p class="muted">No saved counterparties yet.</p>{% endif %}
+</div>
+{% if review_required %}
+<div class="review-backdrop">
+  <section class="review-dialog" role="dialog" aria-modal="true" aria-labelledby="counterparty-review-title">
+    <h2 id="counterparty-review-title">Review this Counterparty</h2>
+    <p>Before saving “{{ entered_name }}”, check the saved names. Pressing Enter alone never creates a new Counterparty.</p>
+    {% if similar_counterparties %}<ul class="review-matches">
+      {% for match in similar_counterparties %}<li><form method="post" action="/counterparties">
+        <input type="hidden" name="name" value="{{ entered_name }}"><input type="hidden" name="default_category_id" value="{{ entered_category_id }}">
+        <button class="btn" name="counterparty_action" value="existing:{{ match.id }}">Use {{ match.name }}</button>
+      </form></li>{% endfor %}
+    </ul>{% else %}<p class="muted">No close match found.</p>{% endif %}
+    {% if not exact_existing %}<form method="post" action="/counterparties">
+      <input type="hidden" name="name" value="{{ entered_name }}"><input type="hidden" name="default_category_id" value="{{ entered_category_id }}">
+      <button class="btn primary" name="counterparty_action" value="create">Create “{{ entered_name }}” as a new Counterparty</button>
+      <a class="btn" href="/counterparties">Cancel</a>
+    </form>{% else %}<a class="btn" href="/counterparties">Cancel</a>{% endif %}
+  </section>
+</div>
+{% endif %}
+{% endblock %}

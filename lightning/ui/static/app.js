@@ -18,6 +18,141 @@ document.addEventListener("click", (e) => {
   if (row && !e.target.closest("a, button, input, select")) location.href = row.dataset.href;
 });
 
+// Keep repeated Enter presses from posting the quick-add form twice.
+document.addEventListener("submit", (event) => {
+  const form = event.target;
+  if (form.matches("[data-confirm-delete]") && !window.confirm("Delete this transaction? You can restore it from its history page.")) {
+    event.preventDefault(); return;
+  }
+  if (!(form.matches("#f-new, #f-edit, .investment-entry-form"))) return;
+  if (form.dataset.submitting === "true") { event.preventDefault(); return; }
+  form.dataset.submitting = "true";
+  const buttons = [...form.querySelectorAll("button")];
+  if (form.id) buttons.push(...document.querySelectorAll(`[form="${form.id}"][type="submit"], [form="${form.id}"]:not([type])`));
+  buttons.forEach((button) => { button.disabled = true; });
+});
+
+// Select rows, use the right-click menu, and soft-delete one or many transactions.
+const ledger = document.querySelector(".ledger");
+if (ledger) {
+  const menu = document.getElementById("transaction-context-menu");
+  const tools = document.getElementById("selection-tools");
+  const count = document.getElementById("selection-count");
+  const selectAll = document.getElementById("select-visible");
+  const visibleChecks = () => [...ledger.querySelectorAll(".transaction-select:not(:disabled)")];
+  const selectedIds = () => visibleChecks().filter((box) => box.checked).map((box) => box.value);
+  const syncSelection = () => {
+    const selected = selectedIds();
+    tools.hidden = selected.length === 0;
+    count.textContent = `${selected.length} selected`;
+    selectAll.checked = visibleChecks().length > 0 && visibleChecks().every((box) => box.checked);
+    selectAll.indeterminate = selected.length > 0 && !selectAll.checked;
+    if (menu && !menu.hidden) menu.querySelector("[data-context-delete]").textContent =
+      selected.length > 1 ? `Delete ${selected.length} selected` : "Delete transaction";
+  };
+  const deleteTransactions = (ids) => {
+    if (!ids.length || !window.confirm(`Delete ${ids.length === 1 ? "this transaction" : `${ids.length} transactions`}? They will be removed from the register and can be restored from transaction history.`)) return;
+    const form = document.createElement("form");
+    form.method = "post"; form.action = "/transactions/bulk-delete";
+    const back = document.createElement("input"); back.type = "hidden"; back.name = "back"; back.value = location.pathname + location.search; form.append(back);
+    ids.forEach((id) => { const input = document.createElement("input"); input.type = "hidden"; input.name = "txn_ids"; input.value = id; form.append(input); });
+    document.body.append(form); form.submit();
+  };
+  visibleChecks().forEach((box) => box.addEventListener("change", syncSelection));
+  selectAll?.addEventListener("change", () => { visibleChecks().forEach((box) => { box.checked = selectAll.checked; }); syncSelection(); });
+  document.getElementById("select-visible-header")?.addEventListener("click", (event) => {
+    if (event.target.closest("input")) return;
+    event.preventDefault();
+    selectAll.checked = !selectAll.checked;
+    visibleChecks().forEach((box) => { box.checked = selectAll.checked; });
+    syncSelection();
+  });
+  document.getElementById("delete-selected")?.addEventListener("click", () => deleteTransactions(selectedIds()));
+  ledger.addEventListener("contextmenu", (event) => {
+    const row = event.target.closest("tr[data-href]");
+    if (!row || !menu) return;
+    const checkbox = row.querySelector(".transaction-select");
+    if (!checkbox || checkbox.disabled) return;
+    event.preventDefault();
+    if (!checkbox.checked) { visibleChecks().forEach((box) => { box.checked = false; }); checkbox.checked = true; }
+    menu.dataset.href = row.dataset.href;
+    menu.hidden = false;
+    const x = Math.min(event.clientX, window.innerWidth - menu.offsetWidth - 8);
+    const y = Math.min(event.clientY, window.innerHeight - menu.offsetHeight - 8);
+    menu.style.left = `${Math.max(8, x)}px`; menu.style.top = `${Math.max(8, y)}px`;
+    syncSelection();
+  });
+  menu?.querySelector("[data-context-edit]").addEventListener("click", () => { if (menu.dataset.href) location.href = menu.dataset.href; });
+  menu?.querySelector("[data-context-delete]").addEventListener("click", () => { menu.hidden = true; deleteTransactions(selectedIds()); });
+  document.addEventListener("click", (event) => { if (menu && !event.target.closest("#transaction-context-menu")) menu.hidden = true; });
+  document.addEventListener("keydown", (event) => { if (event.key === "Escape" && menu) menu.hidden = true; });
+  syncSelection();
+}
+
+// Money held for another person is shown in its own register column and needs an owner.
+document.querySelectorAll(".category-input").forEach((category) => {
+  const row = category.closest("tr");
+  const cell = row?.querySelector(".whom-cell");
+  const header = document.querySelector(".whom-head");
+  const counterparty = row?.querySelector(".counterparty-input");
+  const ledger = category.closest(".ledger");
+  const internalAccounts = JSON.parse(ledger?.dataset.accounts || "[]");
+  if (!cell) return;
+  const syncWhom = () => {
+    const isCustody = /money held for others/i.test(category.value);
+    const target = counterparty?.value.trim() || "";
+    const isTransfer = target.startsWith("↔") || internalAccounts.includes(target);
+    const visible = isCustody || isTransfer;
+    cell.hidden = !visible;
+    if (header && visible) header.hidden = false;
+    const input = cell.querySelector("input");
+    if (input) {
+      input.disabled = !visible;
+      input.placeholder = isTransfer ? "Whom? (if held for someone)" : "Whom?";
+    }
+  };
+  category.addEventListener("input", syncWhom);
+  category.addEventListener("change", syncWhom);
+  counterparty?.addEventListener("input", syncWhom);
+  counterparty?.addEventListener("change", syncWhom);
+  syncWhom();
+});
+
+// For brokerage trades, owner attribution is independent from the Counterparty field.
+document.querySelectorAll(".investment-entry-form").forEach((form) => {
+  const flag = form.querySelector('[name="is_others"]');
+  const field = form.querySelector(".investment-owner-field");
+  if (!flag || !field) return;
+  const sync = () => { field.hidden = !flag.checked; };
+  flag.addEventListener("change", sync);
+  sync();
+});
+document.querySelectorAll(".investment-ownership-form").forEach((form) => {
+  const flag = form.querySelector('[name="is_others"]');
+  const field = form.querySelector(".investment-owner-field");
+  if (!flag || !field) return;
+  const sync = () => { field.hidden = !flag.checked; };
+  flag.addEventListener("change", sync);
+  sync();
+});
+
+// CSV rows use the same Whom rule as the register when custody is selected.
+document.querySelectorAll(".import-category").forEach((category) => {
+  const row = category.closest("tr");
+  const cell = row?.querySelector(".import-whom-cell");
+  const header = document.querySelector(".import-whom-head");
+  if (!cell) return;
+  const sync = () => {
+    const visible = /money held for others/i.test(category.selectedOptions[0]?.textContent || "");
+    cell.hidden = !visible;
+    if (header && visible) header.hidden = false;
+    const input = cell.querySelector("input");
+    if (input) input.disabled = !visible;
+  };
+  category.addEventListener("change", sync);
+  sync();
+});
+
 // Register: Escape cancels an edit.
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
@@ -37,7 +172,7 @@ document.querySelectorAll(".money-input").forEach((input) => {
     const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     input.value = sign + grouped + (fraction.length ? "." + fraction.join("") : (unsigned.endsWith(".") ? "." : ""));
     if (document.activeElement === input) {
-      let seen = 0, next = 0;
+      let seen = 0, next = (sign && caret > 0) ? 1 : 0;
       while (next < input.value.length && seen < digitsBeforeCaret) {
         if (/\d/.test(input.value[next])) seen++;
         next++;
@@ -201,25 +336,71 @@ if (catalogueNode) {
   document.addEventListener("click",(event)=>{if(!event.target.closest(".instrument-picker")){results.hidden=true;search.setAttribute("aria-expanded","false");}});
 }
 
-const ledger = document.querySelector(".ledger");
 if (ledger) {
   const known = JSON.parse(ledger.dataset.counterparties || "{}");
-  const accounts = new Set(JSON.parse(ledger.dataset.accounts || "[]").map((a) => a.toLowerCase()));
+  const accounts = JSON.parse(ledger.dataset.accounts || "[]");
+  const parties = Object.keys(known).sort((a, b) => a.localeCompare(b));
   document.querySelectorAll(".counterparty-input").forEach((counterparty) => {
     const form = counterparty.getAttribute("form");
     const category = document.querySelector(`.category-input[form="${form}"]`);
+    const results = document.getElementById(counterparty.dataset.counterpartyResults);
+    const clearDecision = (name) => document.querySelector(`input[type="hidden"][form="${form}"][name="${name}"]`)?.remove();
+    const closeResults = () => { if (results) { results.hidden = true; counterparty.setAttribute("aria-expanded", "false"); } };
     const sync = () => {
-      const isTransfer = accounts.has(counterparty.value.trim().toLowerCase());
+      const isTransfer = accounts.some((name) => name.toLocaleLowerCase() === counterparty.value.trim().toLocaleLowerCase());
       if (category) {
         category.disabled = isTransfer;
         category.placeholder = isTransfer ? "Transfer — no category needed" : "Category — type to search";
         if (isTransfer) category.value = "";
-        else if (!category.value && known[counterparty.value]) category.value = known[counterparty.value];
+        else if (!category.value && known[counterparty.value]) {
+          category.value = known[counterparty.value];
+          category.dispatchEvent(new Event("input", { bubbles: true }));
+        }
       }
     };
+    const addGroup = (title, values, tag) => {
+      if (!values.length) return;
+      const heading = document.createElement("div"); heading.className = "counterparty-group-title"; heading.textContent = title; results.append(heading);
+      values.forEach((name) => {
+        const button = document.createElement("button"); button.type = "button"; button.className = "counterparty-option"; button.setAttribute("role", "option");
+        const label = document.createElement("span"); label.textContent = name;
+        const type = document.createElement("span"); type.className = "counterparty-kind"; type.textContent = tag;
+        button.append(label, type);
+        button.addEventListener("click", () => {
+          counterparty.value = name; closeResults();
+          counterparty.dispatchEvent(new Event("input", { bubbles: true }));
+          counterparty.dispatchEvent(new Event("change", { bubbles: true }));
+        });
+        results.append(button);
+      });
+    };
+    const renderResults = () => {
+      const query = counterparty.value.trim().toLocaleLowerCase();
+      results.replaceChildren();
+      if (!query) { closeResults(); return; }
+      const internal = accounts.filter((name) => name.toLocaleLowerCase().includes(query)).slice(0, 8);
+      const saved = parties.filter((name) => name.toLocaleLowerCase().includes(query)).slice(0, 8);
+      addGroup("Your accounts · internal transfers", internal, "Internal");
+      addGroup("People & businesses", saved, "Counterparty");
+      if (!internal.length && !saved.length) {
+        const empty = document.createElement("div"); empty.className = "counterparty-group-title";
+        empty.textContent = "No saved match · press Enter to review this new name"; results.append(empty);
+      }
+      const rect = counterparty.getBoundingClientRect();
+      results.style.left = `${Math.max(8, rect.left)}px`;
+      results.style.top = `${rect.bottom + 4}px`;
+      results.style.width = `${Math.max(230, rect.width)}px`;
+      results.hidden = false; counterparty.setAttribute("aria-expanded", "true");
+    };
     counterparty.addEventListener("change", sync);
-    counterparty.addEventListener("input", () => { if (category && category.disabled) sync(); });
+    counterparty.addEventListener("input", () => { clearDecision("counterparty_choice"); sync(); renderResults(); });
+    category?.addEventListener("input", () => clearDecision("category_choice"));
+    counterparty.addEventListener("focus", renderResults);
+    counterparty.addEventListener("keydown", (event) => { if (event.key === "Escape") closeResults(); });
     sync();
+  });
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest(".counterparty-picker")) document.querySelectorAll(".counterparty-results").forEach((results) => { results.hidden = true; });
   });
 }
 

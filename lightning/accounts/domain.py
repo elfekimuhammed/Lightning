@@ -17,7 +17,6 @@ class AccountType(StrEnum):
     DEPOSIT = "DEPOSIT"  # certificate / time deposit (CD)
     BROKERAGE = "BROKERAGE"
     PHYSICAL_ASSET = "PHYSICAL_ASSET"  # offered from M3 (holdings of gold etc.)
-    RECEIVABLE = "RECEIVABLE"
     OTHER_ASSET = "OTHER_ASSET"
 
 
@@ -27,7 +26,6 @@ TYPE_LABELS: dict[AccountType, str] = {
     AccountType.DEPOSIT: "Certificate / time deposit (CD)",
     AccountType.BROKERAGE: "Brokerage / investment (e.g. THNDR)",
     AccountType.PHYSICAL_ASSET: "Physical asset (e.g. gold at home)",
-    AccountType.RECEIVABLE: "Money owed to me",
     AccountType.OTHER_ASSET: "Other",
 }
 
@@ -37,7 +35,6 @@ TYPE_ABBR: dict[AccountType, str] = {
     AccountType.DEPOSIT: "CD",
     AccountType.BROKERAGE: "BRK",
     AccountType.PHYSICAL_ASSET: "PHY",
-    AccountType.RECEIVABLE: "RCV",
     AccountType.OTHER_ASSET: "OTH",
 }
 
@@ -48,7 +45,6 @@ DEFAULT_CASH_CLASS: dict[AccountType, str] = {
     AccountType.DEPOSIT: "DEPOSIT.CD",
     AccountType.BROKERAGE: "CASH.BROKERAGE",
     AccountType.PHYSICAL_ASSET: "OTHER",
-    AccountType.RECEIVABLE: "RECEIVABLE",
     AccountType.OTHER_ASSET: "OTHER",
 }
 
@@ -59,7 +55,6 @@ OFFERED_TYPES = [
     AccountType.DEPOSIT,
     AccountType.BROKERAGE,
     AccountType.PHYSICAL_ASSET,
-    AccountType.RECEIVABLE,
     AccountType.OTHER_ASSET,
 ]
 
@@ -73,7 +68,6 @@ SIDEBAR_GROUPS: dict[AccountType, str] = {
     AccountType.DEPOSIT: "Deposits",
     AccountType.BROKERAGE: "Investments",
     AccountType.PHYSICAL_ASSET: "Investments",
-    AccountType.RECEIVABLE: "Other",
     AccountType.OTHER_ASSET: "Other",
 }
 

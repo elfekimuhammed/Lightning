@@ -28,5 +28,5 @@ def setup(c):
         "thndr": f.open_account("THNDR", "BROKERAGE", "2026-09-01", "0", institution="THNDR"),
     }
     cats = {code: c.categories.get_by_code(code) for code in (
-        "EXP.PERSONAL.FOOD", "EXP.WORK.SOFTWARE", "INC.SALARY", "INC.INVEST.INTEREST", "EXP.FEES.BANK")}
+        "EXP.PERSONAL.FOOD", "EXP.WORK.SOFTWARE", "EXP.WORK.SALARY", "EXP.INVEST.INTEREST")}
     return accounts, cats

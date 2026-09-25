@@ -21,6 +21,7 @@ from lightning.database.migrator import migrate
 from lightning.database.seed import seed
 from lightning.database.settings import SettingsStore
 from lightning.investments.service import InvestmentService
+from lightning.money_from_others import MoneyFromOthersService
 from lightning.reporting.service import ReportingService
 from lightning.transactions.service import TransactionService
 from lightning.workflows.accounts import AccountWorkflows
@@ -42,6 +43,7 @@ class Container:
     accounts: AccountService
     transactions: TransactionService
     reporting: ReportingService
+    money_from_others: MoneyFromOthersService
     budgets: BudgetService
     investments: InvestmentService
     account_flows: AccountWorkflows
@@ -69,7 +71,10 @@ def build(db_path: str | Path | None = None, backup_on_start: bool = False) -> C
     categories = CategoryService(db)
     accounts = AccountService(db, assets, base)
     transactions = TransactionService(db, accounts, assets, categories, audit, base)
-    reporting = ReportingService(db, accounts, assets, categories, base)
+    counterparties = CounterpartyService(db)
+    money_from_others = MoneyFromOthersService(db, accounts)
+    bank_imports = BankImportService(db, accounts, categories, counterparties, transactions, money_from_others)
+    reporting = ReportingService(db, accounts, assets, categories, base, money_from_others)
     return Container(
         db=db,
         data_dir=data_dir,
@@ -77,11 +82,12 @@ def build(db_path: str | Path | None = None, backup_on_start: bool = False) -> C
         audit=audit,
         assets=assets,
         categories=categories,
-        counterparties=CounterpartyService(db),
-        bank_imports=BankImportService(db, accounts, categories, CounterpartyService(db), transactions),
+        counterparties=counterparties,
+        bank_imports=bank_imports,
         accounts=accounts,
         transactions=transactions,
         reporting=reporting,
+        money_from_others=money_from_others,
         budgets=BudgetService(db, categories, reporting),
         investments=InvestmentService(db, accounts, assets, categories, transactions, reporting),
         account_flows=AccountWorkflows(db, accounts, transactions, reporting),

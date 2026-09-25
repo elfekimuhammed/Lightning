@@ -12,10 +12,11 @@ from decimal import Decimal
 from lightning.accounts.domain import SIDEBAR_GROUPS, Account
 from lightning.accounts.service import AccountService
 from lightning.assets.service import AssetService
-from lightning.categories.domain import IncomeClass, Scope
+from lightning.categories.domain import CategoryFamily, IncomeClass, Scope
 from lightning.categories.service import CategoryService
 from lightning.core.dates import fmt_date, parse_date, parse_month, previous_day
 from lightning.core.money import ZERO, from_e6
+from lightning.money_from_others import MoneyFromOthersService
 from lightning.core.refs import DOC_LABELS, DocType
 from lightning.database.connection import Database
 
@@ -68,6 +69,7 @@ class Bridge:
     revaluation: Decimal
     new_balances: Decimal
     closing: Decimal
+    custody_change: Decimal = ZERO
 
     @property
     def change(self) -> Decimal:
@@ -75,7 +77,7 @@ class Bridge:
 
     @property
     def expected_closing(self) -> Decimal:
-        return self.opening + self.inflows - self.outflows + self.revaluation + self.new_balances
+        return self.opening + self.inflows - self.outflows + self.revaluation + self.new_balances + self.custody_change
 
     @property
     def difference(self) -> Decimal:
@@ -92,6 +94,7 @@ class CashFlow:
     outflows: Decimal
     personal_outflows: Decimal
     work_outflows: Decimal
+    investment_outflows: Decimal
 
     @property
     def net(self) -> Decimal:
@@ -139,12 +142,13 @@ class Statement:
 # ---------------------------------------------------------------------------- service
 class ReportingService:
     def __init__(self, db: Database, accounts: AccountService, assets: AssetService,
-                 categories: CategoryService, base_currency: str):
+                 categories: CategoryService, base_currency: str, money_from_others: MoneyFromOthersService):
         self.q = ReportQueries(db)
         self.accounts = accounts
         self.assets = assets
         self.categories = categories
         self.base_currency = base_currency
+        self.money_from_others = money_from_others
         self.valuer = Valuer(self.q, base_currency)
 
     # -- holdings & net worth ---------------------------------------------
@@ -194,7 +198,90 @@ class ReportingService:
             g.children.sort(key=lambda c: order.get(c.code, 999))
         accounts_sorted = sorted(by_account.values(), key=lambda item: (item[0].sort_order, item[0].code))
         total = sum((v for _, v in accounts_sorted), ZERO)
+        custody, custody_unvalued = self._money_from_others_value(day)
+        total -= custody
+        unvalued.extend(custody_unvalued)
+        if custody:
+            by_class.append(Group("CUSTODY", "Less: money from others", -custody))
         return NetWorth(day, total, accounts_sorted, by_class, unvalued)
+
+    def money_from_others_total(self, as_of: date | str) -> Decimal:
+        return self._money_from_others_value(as_of)[0]
+
+    def money_from_others_by_owner(self, as_of: date | str) -> list[dict]:
+        day = self._day(as_of)
+        grouped: dict[tuple[str, str, int], dict] = {}
+        for row in self.money_from_others.by_owner(day):
+            key = (row["owner"], row["currency"], row["account_id"])
+            grouped[key] = dict(row)
+        for pos in self.money_from_others.investment_positions(day):
+            asset = self.assets.get_asset(pos["asset_id"])
+            valuation = self.valuer.value(asset, pos["units"], day)
+            if valuation.value is None:
+                continue
+            account = self.accounts.get(pos["account_id"])
+            key = (pos["owner"], self.base_currency, pos["account_id"])
+            row = grouped.setdefault(key, {"owner": pos["owner"], "currency": self.base_currency,
+                                           "account_id": pos["account_id"], "account_name": account.name,
+                                           "amount": ZERO})
+            row["amount"] += valuation.value
+        return sorted(grouped.values(), key=lambda row: (row["owner"].casefold(), row["account_name"].casefold()))
+
+    def money_from_others_history(self, limit: int = 100) -> list[dict]:
+        return self.money_from_others.history(limit)
+
+    def money_from_others_investments(self, as_of: date | str) -> list[dict]:
+        day = self._day(as_of)
+        rows = []
+        for pos in self.money_from_others.investment_positions(day):
+            asset = self.assets.get_asset(pos["asset_id"])
+            account = self.accounts.get(pos["account_id"])
+            valuation = self.valuer.value(asset, pos["units"], day)
+            rows.append({"owner": pos["owner"], "account_name": account.name, "asset_name": asset.name,
+                         "units": pos["units"], "unit": asset.unit, "value": valuation.value,
+                         "currency": self.base_currency})
+        return sorted(rows, key=lambda row: (row["owner"].casefold(), row["asset_name"].casefold()))
+
+    def _money_from_others_value(self, as_of: date | str) -> tuple[Decimal, list[str]]:
+        day = self._day(as_of)
+        totals = self.money_from_others.totals_by_account(day)
+        total, unvalued = ZERO, []
+        for row in totals:
+            account = self.accounts.get(row["account_id"])
+            local_amount = from_e6(row["amount_e6"])
+            valuation = self.valuer.value(self.assets.cash_asset(account.currency), local_amount, day)
+            if valuation.value is None:
+                unvalued.append(f"Money from others — {account.label}: {valuation.reason}")
+            else:
+                total += valuation.value
+        for position in self.money_from_others.investment_positions(day):
+            asset = self.assets.get_asset(position["asset_id"])
+            account = self.accounts.get(position["account_id"])
+            valuation = self.valuer.value(asset, position["units"], day)
+            if valuation.value is None:
+                unvalued.append(f"Money from others — {position['owner']} / {asset.name}: {valuation.reason}")
+            else:
+                total += valuation.value
+        return total, unvalued
+
+    def custody_value_by_account(self, as_of: date | str) -> dict[int, Decimal]:
+        """Market value held for others, partitioned by account for gross/owned comparisons."""
+        day = self._day(as_of)
+        values: dict[int, Decimal] = {}
+        for row in self.money_from_others.totals_by_account(day):
+            account = self.accounts.get(row["account_id"])
+            valuation = self.valuer.value(self.assets.cash_asset(account.currency), from_e6(row["amount_e6"]), day)
+            if valuation.value is not None:
+                values[account.id] = values.get(account.id, ZERO) + valuation.value
+        for position in self.money_from_others.investment_positions(day):
+            valuation = self.valuer.value(self.assets.get_asset(position["asset_id"]), position["units"], day)
+            if valuation.value is not None:
+                account_id = position["account_id"]
+                values[account_id] = values.get(account_id, ZERO) + valuation.value
+        return values
+
+    def owned_account_value(self, account_id: int, as_of: date | str) -> Decimal:
+        return self.account_value(account_id, as_of) - self.custody_value_by_account(as_of).get(account_id, ZERO)
 
     def account_balance(self, account_id: int, as_of: date | str | None = None) -> Decimal:
         return from_e6(self.q.account_quantity(account_id, as_of=self._day(as_of) if as_of else None))
@@ -210,7 +297,9 @@ class ReportingService:
         outflows = -from_e6(totals.get("OUTFLOW", 0))
         new_balances = from_e6(totals.get("OPENING", 0))
         revaluation = self._revaluation(before, fmt_date(start), fmt_date(end))
-        return Bridge(fmt_date(start), fmt_date(end), opening, inflows, outflows, revaluation, new_balances, closing)
+        custody_change = -(self.money_from_others_total(end) - self.money_from_others_total(before))
+        return Bridge(fmt_date(start), fmt_date(end), opening, inflows, outflows, revaluation, new_balances, closing,
+                      custody_change)
 
     def bridge_for_month(self, month: str) -> Bridge:
         first, last = parse_month(month)
@@ -235,23 +324,25 @@ class ReportingService:
     # -- cash flow & spending ----------------------------------------------
     def cash_flow(self, date_from: date | str, date_to: date | str) -> CashFlow:
         start, end = self._day(date_from), self._day(date_to)
-        inflow = household = investment = outflow = personal = work = ZERO
+        inflow = household = investment = outflow = personal = work = investment_out = ZERO
         for row in self.q.category_totals(start, end):
             amount = from_e6(row["total"])
             cat = self.categories.get(row["category_id"])
             if row["effect"] == "INFLOW":
                 inflow += amount
-                if cat.income_class == IncomeClass.INVESTMENT:
+                if cat.family == CategoryFamily.INVESTMENT or cat.income_class == IncomeClass.INVESTMENT:
                     investment += amount
                 else:
                     household += amount
             else:
                 outflow -= amount
-                if cat.scope == Scope.WORK:
+                if cat.family == CategoryFamily.INVESTMENT:
+                    investment_out -= amount
+                elif cat.family == CategoryFamily.WORK or cat.scope == Scope.WORK:
                     work -= amount
                 else:
                     personal -= amount
-        return CashFlow(start, end, inflow, household, investment, outflow, personal, work)
+        return CashFlow(start, end, inflow, household, investment, outflow, personal, work, investment_out)
 
     def money_out_by_category(self, date_from: date | str, date_to: date | str) -> dict[int, Decimal]:
         """Money out per category (positive; refunds reduce it), for the category itself only."""
@@ -355,7 +446,11 @@ class ReportingService:
             group = groups.setdefault(name, Group(name, name, ZERO))
             group.value += value
             group.children.append(Group(account.code, account.name, value, id=account.id))
+        custody = self.money_from_others_total(as_of)
+        if custody:
+            groups["CUSTODY"] = Group("CUSTODY", "Money from others", -custody)
         order = list(dict.fromkeys(SIDEBAR_GROUPS.values()))
+        order.append("CUSTODY")
         return nw.total, sorted(groups.values(), key=lambda g: order.index(g.code))
 
     def investment_lines(self, as_of: date | str, account_id: int | None = None) -> list[dict]:

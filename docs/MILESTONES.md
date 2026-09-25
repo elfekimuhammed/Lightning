@@ -10,15 +10,14 @@
 | M3.1 | Investment catalogue | next | Search Egyptian stocks and funds by name, ticker, or ISIN; choose to prefill an investment; assess EGX, Investing.com, TradingView, Yahoo, and other sources for coverage and reliable identifiers |
 | M3.2 | Daily wealth history | | Record daily account/asset valuations; show overall wealth change and drill down by asset, class, and period, separating new money, income, and investment return |
 | M4 | Market data & FX | | Daily prices, USD/EGP, 24K/21K gold (parity and local), multi-currency accounts, FX revaluation |
-| M5 | Reimbursements | deferred | Receivables and claims are not a priority for personal wealth management; revisit only if requested |
+| M5 | Reimbursements | deferred | Reimbursement and claims tracking is not a priority for personal wealth management; revisit only if requested |
 | M6 | Deposits & gold details | | CD lifecycle and interest, gold workmanship fees and buyback, bonus shares and splits |
-| M7a | Bank CSV import | ✅ implemented | Upload a monthly CSV from a bank account; remember non-standard column/sign mappings; preview malformed/duplicate rows; confirm canonical Counterparty aliases and existing categories; post confirmed transactions to the ledger |
+| M7a | Account CSV import | ✅ implemented | Upload statements for any account type; remember non-standard column/sign mappings; edit rows inline; post valid rows with optional Counterparty/category and duplicate checks |
 | M7 | Planning | next | Recurring transactions and target allocation |
 | M8 | Polish | | Charts, settings, packaging |
 
 Known limits: EGP accounts only (FX in M4); one category per transaction (splits in M2).
-Out of scope by decision (2026-09-25): liabilities — credit cards, loans, installments. Money held for others may be
-tracked as a narrow custody balance excluded from net worth; general receivables remain deferred.
+Out of scope by decision (2026-09-25): liabilities — credit cards, loans, installments — and receivables/money owed to the user. Money held for others is tracked separately and excluded from net worth.
 
 ## Delivery approach and model budget
 

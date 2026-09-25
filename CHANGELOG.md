@@ -9,6 +9,12 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 ## [Unreleased]
 
 ### Added
+- Activity-ledger categories organized as Personal, Work, or Investment, with up to one user-defined detail level below each broad activity category; money direction no longer determines the category tree.
+- Transaction multi-select and right-click delete actions, with audit-preserving deletion and restore.
+- "Money from others" custody entries tied to an account and owner; outstanding balances are excluded from net worth and reconciled in the net-worth bridge.
+- CSV import is available for all account types. Statement rows can be edited inline, and valid incomplete rows can post with safe uncategorized/optional-counterparty handling.
+- Database migration `0011_money_from_others.sql` adds custody tracking and converts existing legacy receivable accounts to Other Assets.
+- Database migration `0010_category_families.sql` stores category families and migrates income activities into the Personal/Work/Investment tree.
 - Canonical Counterparty records with normalized names, confirmed aliases, reusable default categories, and ranked approximate suggestions that never auto-merge. Bank import staging retains original source rows for review.
 - Database migration `0008_counterparties.sql` adds canonical counterparties, aliases, transaction links, and bank-import batch/row staging.
 - Database migration `0009_import_column_maps.sql` remembers a confirmed CSV header/sign mapping per bank account.
@@ -20,6 +26,8 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - Database migration `0007_budget_averages.sql` stores the selected calculation method.
 
 ### Changed
+- Removed "Money owed to me"/receivable accounts from the active account model and choices; the app has no receivables workflow.
+- CSV import review no longer requires a separate Counterparties resolution screen; corrections are made on the transaction rows.
 - Investment-account names now appear in the left sidebar without internal account codes.
 - Account codes no longer appear beneath account names in the sidebar or account register heading, or beside
   account names in the account list and account edit heading. Account names are sufficient in these views.

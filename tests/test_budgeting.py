@@ -12,7 +12,7 @@ def b(c, setup):
     accounts, cats = setup
     g = c.categories.get_by_code
     ids = {k: g(k).id for k in ("EXP.PERSONAL", "EXP.PERSONAL.FOOD", "EXP.PERSONAL.TRANSPORT",
-                                 "EXP.WORK", "EXP.WORK.SOFTWARE", "INC.SALARY")}
+                                 "EXP.WORK", "EXP.WORK.SOFTWARE", "EXP.WORK.SALARY")}
     return c, accounts, ids
 
 
@@ -76,7 +76,7 @@ def test_actuals_roll_up_and_sections_are_separate(b):
     c.transactions.record_outflow("2026-09-07", cib, "899", ids["EXP.WORK.SOFTWARE"])
     c.transactions.record_outflow("2026-10-01", cib, "999", ids["EXP.PERSONAL.FOOD"])  # other month
     c.transactions.record_transfer("2026-09-08", cib, accounts["wallet"].id, "5000")  # never counts
-    c.transactions.record_inflow("2026-09-25", cib, "42000", ids["INC.SALARY"])
+    c.transactions.record_inflow("2026-09-25", cib, "42000", ids["EXP.WORK.SALARY"])
     c.budgets.save_month("2026-09", {ids["EXP.PERSONAL.FOOD"]: "1000", ids["EXP.WORK"]: "1500"})
     view = c.budgets.month_view("2026-09")
     food = line(view, "EXP.PERSONAL.FOOD")
@@ -94,7 +94,7 @@ def test_actuals_roll_up_and_sections_are_separate(b):
 def test_rules(b):
     c, _, ids = b
     with pytest.raises(ValidationError, match="money out"):
-        c.budgets.set_budget(ids["INC.SALARY"], "2026-09", "10")
+        c.budgets.set_budget(ids["EXP.WORK.SALARY"], "2026-09", "10")
     with pytest.raises(ValidationError, match="negative"):
         c.budgets.set_budget(ids["EXP.PERSONAL.FOOD"], "2026-09", "-1")
     with pytest.raises(ValidationError):

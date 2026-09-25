@@ -25,7 +25,7 @@ from lightning.transactions.service import TransactionService
 
 from .domain import Portfolio, Position
 
-DIVIDEND_CATEGORY = "INC.INVEST.DIVIDEND"
+DIVIDEND_CATEGORY = "EXP.INVEST.DIVIDEND"
 CENT = Decimal("0.01")
 
 

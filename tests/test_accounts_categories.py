@@ -116,12 +116,17 @@ class TestCategories:
             c.categories.create(personal.id, "مواصلات")
         assert c.categories.create(personal.id, "مواصلات", "MICROBUS").name == "مواصلات"
 
-    def test_renaming_code_cascades_to_children(self, c):
-        personal = c.categories.get_by_code("EXP.PERSONAL")
-        pets = c.categories.create(personal.id, "Pets")
-        vet = c.categories.create(pets.id, "Vet")
-        c.categories.update(pets.id, "Pets", "ANIMALS")
-        assert c.categories.get(vet.id).code == "EXP.PERSONAL.ANIMALS.VET"
+    def test_categories_stop_at_l2(self, c):
+        food = c.categories.get_by_code("EXP.PERSONAL.FOOD")
+        with pytest.raises(ValidationError, match="stop at L2"):
+            c.categories.create(food.id, "Groceries")
+        assert all(category.depth == 2 for category in c.categories.pickable())
+        assert all(category.depth <= 2 for _, items in c.categories.groups() for category in items)
+        assert [group.name for group, _ in c.categories.groups()] == ["Personal", "Work", "Investment"]
+
+    def test_category_suggestions_flag_near_duplicates(self, c):
+        matches = c.categories.suggestions("Food and Groceries", c.categories.get_by_code("EXP.PERSONAL").id)
+        assert matches and matches[0][0].code == "EXP.PERSONAL.FOOD"
 
     def test_roots_and_system_categories_are_protected(self, c):
         with pytest.raises(ValidationError):

@@ -12,6 +12,7 @@ workflows/     Actions spanning modules, each in ONE database transaction
 reporting/     Read-only: net worth, bridge, cash flow, spending, statements. Owns no tables.
 transactions/  Records, edits, voids, finds transactions (Counterparty register rows; post() for other modules); only ledger writer.
 accounts/      Where value is held.
+money_from_others.py  Custody entries for funds held on behalf of someone else; excluded from net worth.
 assets/ · categories/   What value is (asset classes, financial assets) · why money moved.
 budgeting/     Budget amounts per category × month; budget vs actual (actuals via reporting).
 investments/   Buy, sell, dividends, holdings already owned → lines posted via transactions; positions & gains.
