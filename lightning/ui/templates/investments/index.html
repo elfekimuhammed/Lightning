@@ -2,10 +2,8 @@
 {% block title %}Investments{% endblock %}
 {% block heading %}<h1>Investments</h1><div class="muted">Stocks, funds and gold across your accounts · as of {{ p.as_of }}</div>{% endblock %}
 {% block top_actions %}
-<a class="btn small primary" href="/investments/new?kind=buy">Buy</a>
-<a class="btn small" href="/investments/new?kind=sell">Sell</a>
-<a class="btn small" href="/investments/new?kind=dividend">Dividend</a>
 <a class="btn small" href="/investments/prices">Update prices</a>
+<a class="btn small" href="/investments/reevaluations">Reevaluation ledger</a>
 {% endblock %}
 {% block content %}
 {% macro price_tag(source) -%}
@@ -25,7 +23,8 @@
   <div class="card tile"><div class="label">Unrealized</div><div class="value {{ p.unrealized|tone }}">{{ p.unrealized|money(True) }}</div>
     <div class="sub">Your part {{ owned_unrealized|money(True) }}{% if owned_cost %} · {{ (owned_unrealized / owned_cost * 100)|round(1) }}% on cost{% endif %}</div></div>
   <div class="card tile"><div class="label">Total return</div><div class="value {{ p.total_return|tone }}">{{ p.total_return|money(True) }}</div>
-    <div class="sub">realized {{ p.realized|money(True) }} · dividends {{ p.dividends|money }}</div></div>
+    <div class="sub">realized {{ p.realized|money(True) }} · dividends {{ p.dividends|money }}</div>
+    <div class="sub">XIRR, annualized (all holdings): {{ (p.xirr * 100)|round(2) ~ '%' if p.xirr is not none else '—' }}</div></div>
 </div>
 
 <div class="card wide" style="margin-top:16px">
@@ -33,30 +32,31 @@
   {% if p.open %}
   <table>
     <thead><tr><th>Investment</th><th>Account</th><th class="num">Units</th><th class="num">Cost</th>
-      <th class="num">Price</th><th class="num">Value</th><th class="num">Unrealized</th><th class="num">Share</th></tr></thead>
+      <th class="num">Latest price</th><th class="num">Value</th><th class="num">Unrealized</th><th class="num">XIRR</th><th class="num">Share</th></tr></thead>
     {% for h in p.open %}
     <tr>
       <td>{{ h.asset_name }}<div class="code muted small">{{ h.asset_code }} · {{ h.asset_class }}</div></td>
-      {% set parts = h.account_label.split(' · ', 1) %}
-      <td class="small">{{ parts[1] if parts|length > 1 else h.account_label }}<div class="code muted" style="font-size:11px">{{ parts[0] }}</div></td>
+      <td class="small">{{ h.account_label }}</td>
       <td class="num">{{ h.quantity|money(False, 3 if h.unit == 'gram' else (0 if h.unit == 'share' else 4)) }} <span class="muted small">{{ h.unit }}s</span></td>
       <td class="num">{{ h.cost_basis|money }}<div class="small muted">avg {{ h.average_cost|money(False, 2 if h.unit == 'share' else 4) if h.average_cost is not none }}</div></td>
-      <td class="num">{{ h.price|money(False, 4) if h.price is not none }}<div class="small muted">{{ h.price_date or '' }} {{ price_tag(h.price_source) }}</div></td>
+      <td class="num">{{ h.price|money(False, 4) if h.price is not none }}<div class="small muted">{{ h.price_date or '' }} {{ price_tag(h.price_source) }}</div>
+        {% if h.variance_per_unit is not none %}<div class="small {{ h.variance_per_unit|tone }}">{{ h.variance_per_unit|money(True, 4) }} / unit vs avg cost</div>{% endif %}</td>
       <td class="num"><b>{{ h.value|money if h.value is not none else '—' }}</b>
         <div class="small muted">you own {{ own_by_holding.get(h.account_id|string ~ ':' ~ h.asset_id|string, h.value)|money if h.value is not none else '—' }}</div></td>
       <td class="num {{ h.unrealized|tone }}">{{ h.unrealized|money(True) if h.unrealized is not none }}
         <div class="small">{{ (h.unrealized_pct|round(1) ~ '%') if h.unrealized_pct is not none }}</div></td>
+      <td class="num">{{ (h.xirr * 100)|round(2) ~ '%' if h.xirr is not none else '—' }}</td>
       <td class="num small">{{ ((h.value / p.value * 100)|round(1) ~ '%') if p.value and h.value }}</td>
     </tr>
     {% endfor %}
     <tr class="total"><td colspan="3">Total</td><td class="num">{{ p.cost_basis|money }}</td><td></td>
-      <td class="num">{{ p.value|money }}</td><td class="num {{ p.unrealized|tone }}">{{ p.unrealized|money(True) }}</td><td></td></tr>
+      <td class="num">{{ p.value|money }}</td><td class="num {{ p.unrealized|tone }}">{{ p.unrealized|money(True) }}</td><td class="num">{{ (p.xirr * 100)|round(2) ~ '%' if p.xirr is not none else '—' }}</td><td></td></tr>
   </table>
   {% else %}
   <div class="empty">No holdings yet.
     <div class="actions" style="justify-content:center;margin-top:10px">
       {% if not has_assets %}<a class="btn primary" href="/investments/assets/new">Add your first investment (e.g. a stock)</a>
-      {% else %}<a class="btn primary" href="/investments/new?kind=buy">Record a buy</a>{% endif %}
+      {% else %}<a class="btn primary" href="/accounts/{{ accounts[0].id }}">Open {{ accounts[0].name }} to record an investment transaction</a>{% endif %}
       <a class="btn" href="/investments/new?kind=holding">Add a holding you already own</a></div></div>
   {% endif %}
   <div class="actions" style="margin-top:12px">

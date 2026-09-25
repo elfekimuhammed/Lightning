@@ -74,7 +74,8 @@ class TransactionService:
         return self._create(DocType.TRF, day, lines, description, "", notes, source)
 
     def record_in_account(self, account_id: int, date: str, amount: object, category_id: int | None = None,
-                          other_account_id: int | None = None, counterparty: str = "", notes: str = "") -> Transaction:
+                          other_account_id: int | None = None, counterparty: str = "", notes: str = "",
+                          description: str = "") -> Transaction:
         """One register row -> the right transaction.
 
         ``amount`` is signed from this account's point of view: positive = money in, negative = money out.
@@ -84,10 +85,12 @@ class TransactionService:
         kind, value, category_id = self._register_kind(amount, category_id, other_account_id)
         if kind == DocType.TRF:
             src, dst = (account_id, other_account_id) if value < 0 else (other_account_id, account_id)
-            return self.record_transfer(date, src, dst, abs(value), notes=notes)
+            return self.record_transfer(date, src, dst, abs(value), description=description, notes=notes)
         if kind == DocType.OUT:
-            return self.record_outflow(date, account_id, -value, category_id, counterparty=counterparty, notes=notes)
-        return self.record_inflow(date, account_id, value, category_id, counterparty=counterparty, notes=notes)
+            return self.record_outflow(date, account_id, -value, category_id, description=description,
+                                       counterparty=counterparty, notes=notes)
+        return self.record_inflow(date, account_id, value, category_id, description=description,
+                                  counterparty=counterparty, notes=notes)
 
     def update_in_account(self, txn_id: int, account_id: int, date: str, amount: object,
                           category_id: int | None = None, other_account_id: int | None = None,
@@ -108,11 +111,13 @@ class TransactionService:
         with self.db.transaction():
             if kind != current.type:
                 self.void(current.id, f"Replaced when edited ({current.type_label} → {DOC_LABELS[kind]})")
-                return self.record_in_account(account_id, date, value, category_id, other_account_id, counterparty, notes)
+                return self.record_in_account(account_id, date, value, category_id, other_account_id,
+                                              counterparty, notes, current.description)
             if kind == DocType.TRF:
                 src, dst = (account_id, other_account_id) if value < 0 else (other_account_id, account_id)
-                return self.update_transfer(current.id, date, src, dst, abs(value), "", notes)
-            return self.update_money(current.id, date, account_id, abs(value), category_id, "", counterparty, notes)
+                return self.update_transfer(current.id, date, src, dst, abs(value), current.description, notes)
+            return self.update_money(current.id, date, account_id, abs(value), category_id,
+                                     current.description, counterparty, notes)
 
     def _register_kind(self, amount: object, category_id: int | None, other_account_id: int | None):
         value = to_decimal(amount, "amount")
@@ -209,6 +214,8 @@ class TransactionService:
     def void(self, txn_id: int, reason: str = "") -> Transaction:
         """Cancel a transaction. It stays visible (greyed out) and can be restored."""
         t = self.get(txn_id)
+        if t.type == DocType.VAL and t.source == TxnSource.SYSTEM:
+            raise ValidationError("System-generated reevaluation entries are managed by the investment reevaluation ledger.")
         if t.is_void:
             return t
         with self.db.transaction():
@@ -221,6 +228,8 @@ class TransactionService:
         """Hide selected transactions from normal views while retaining audit and restore history."""
         ids = list(dict.fromkeys(int(value) for value in txn_ids))
         transactions = [self.get(txn_id) for txn_id in ids]
+        if any(txn.type == DocType.VAL and txn.source == TxnSource.SYSTEM for txn in transactions):
+            raise ValidationError("System-generated reevaluation entries cannot be deleted manually.")
         if any(txn.type == DocType.OPN and not txn.is_void for txn in transactions):
             raise ValidationError("Change an opening balance from the account edit page.")
         pending = [txn for txn in transactions if not txn.is_void]
@@ -245,8 +254,10 @@ class TransactionService:
                     raise ValidationError("This account already has another opening balance for that.")
         with self.db.transaction():
             # re-validate against today's rules (accounts may have been deactivated)
+            accounts = []
             for line in t.lines:
-                self.accounts.require_usable(line.account_id)
+                accounts.append(self.accounts.require_usable(line.account_id))
+            self._check_date(t.date, accounts)
             self.repo.set_status(t.id, TxnStatus.POSTED)
             self._check_holdings(t.lines)
             self.audit.record("transaction", t.id, "restore", f"Restored {t.ref}")
@@ -294,7 +305,10 @@ class TransactionService:
             cash = [ln for ln in t.lines if self.assets.get_asset(ln.asset_id).is_cash]
             first = (cash or t.lines)[0]
             account_id, category_id = first.account_id, first.category_id
-            amount = sum((ln.quantity for ln in cash), ZERO)  # 0 for a holding-only document
+            if t.type == DocType.VAL and t.source == TxnSource.SYSTEM:
+                amount = first.amount
+            else:
+                amount = sum((ln.quantity for ln in cash), ZERO)  # 0 for a holding-only document
         currency = self.accounts.get(account_id).currency if account_id else self.base_currency
         return TxnSummary(
             id=t.id,

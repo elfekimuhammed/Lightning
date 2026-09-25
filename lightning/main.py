@@ -46,7 +46,7 @@ def main(argv: list[str] | None = None) -> None:
         pass
 
     container = build(args.db, backup_on_start=True)
-    from lightning.assets.market_data import refresh_market_prices
+    from lightning.assets.market_data import refresh_market_prices, refresh_reevaluation_prices
 
     try:
         updated = refresh_market_prices(container)
@@ -54,6 +54,13 @@ def main(argv: list[str] | None = None) -> None:
             print(f"Updated {updated} investment price{'s' if updated != 1 else ''}.")
     except Exception:
         print("Investment price refresh skipped; existing saved prices remain in use.", file=sys.stderr)
+    try:
+        fetched = refresh_reevaluation_prices(container)
+        completed = container.reevaluations.process_due()
+        print(f"Investment reevaluations: {completed} monthly checkpoint(s) posted; "
+              f"{fetched} historical price(s) fetched.")
+    except Exception as exc:
+        print(f"Investment reevaluation catch-up deferred: {exc}", file=sys.stderr)
     app = create_app(container)
     print(f"Lightning is running at {url}  (data: {container.db.path})  — press Ctrl+C to stop.")
     if not args.no_browser:

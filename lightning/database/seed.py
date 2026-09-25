@@ -1,7 +1,7 @@
-"""Starter data: asset-class tree, cash assets, and a category tree.
+"""Starter data: asset-class tree, cash assets, and the initial category tree.
 
-Idempotent: rows are inserted only if their code does not exist yet, so user edits
-(renames, deactivations) are never overwritten. Everything here is editable in the app.
+Categories are seeded once; later built-in category additions belong in migrations so
+user-renamed or deleted categories are not recreated on each application start.
 """
 
 from __future__ import annotations
@@ -10,6 +10,8 @@ from lightning.core.dates import now_iso
 
 from .connection import Database
 from .settings import DEFAULTS, SettingsStore
+
+CATEGORY_SEED_VERSION = "1"
 
 # (code, name) — parent is derived from the dotted path
 ASSET_CLASSES: list[tuple[str, str]] = [
@@ -118,36 +120,38 @@ def seed(db: Database) -> None:
                 (code, name, cash_class, currency, currency, now, now),
             )
 
-        for order, (code, name, extra) in enumerate(CATEGORIES):
-            if db.scalar("SELECT 1 FROM categories WHERE code = ?", (code,)):
-                continue
-            parent_id = _parent_id(db, "categories", code)
-            parent = (
-                db.one("SELECT * FROM categories WHERE id = ?", (parent_id,)) if parent_id else None
-            )
-            movement = extra.get("movement") or (parent["movement"] if parent else "OUTFLOW")
-            scope = extra.get("scope", parent["scope"] if parent else None)
-            income_class = extra.get("income_class", parent["income_class"] if parent else None)
-            family = extra.get("family", parent["family"] if parent else None)
-            reimb = extra.get(
-                "default_reimbursable", parent["default_reimbursable"] if parent else 0
-            )
-            db.execute(
-                "INSERT INTO categories(code, name, parent_id, movement, scope, income_class, family,"
-                " default_reimbursable, is_system, sort_order, created_at, updated_at)"
-                " VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-                (
-                    code,
-                    name,
-                    parent_id,
-                    movement,
-                    scope if movement == "OUTFLOW" else None,
-                    income_class if movement == "INFLOW" else None,
-                    family,
-                    reimb,
-                    extra.get("is_system", 0),
-                    order,
-                    now,
-                    now,
-                ),
-            )
+        if settings.get("category_seed_version") != CATEGORY_SEED_VERSION:
+            for order, (code, name, extra) in enumerate(CATEGORIES):
+                if db.scalar("SELECT 1 FROM categories WHERE code = ?", (code,)):
+                    continue
+                parent_id = _parent_id(db, "categories", code)
+                parent = (
+                    db.one("SELECT * FROM categories WHERE id = ?", (parent_id,)) if parent_id else None
+                )
+                movement = extra.get("movement") or (parent["movement"] if parent else "OUTFLOW")
+                scope = extra.get("scope", parent["scope"] if parent else None)
+                income_class = extra.get("income_class", parent["income_class"] if parent else None)
+                family = extra.get("family", parent["family"] if parent else None)
+                reimb = extra.get(
+                    "default_reimbursable", parent["default_reimbursable"] if parent else 0
+                )
+                db.execute(
+                    "INSERT INTO categories(code, name, parent_id, movement, scope, income_class, family,"
+                    " default_reimbursable, is_system, sort_order, created_at, updated_at)"
+                    " VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                    (
+                        code,
+                        name,
+                        parent_id,
+                        movement,
+                        scope if movement == "OUTFLOW" else None,
+                        income_class if movement == "INFLOW" else None,
+                        family,
+                        reimb,
+                        extra.get("is_system", 0),
+                        order,
+                        now,
+                        now,
+                    ),
+                )
+            settings.set("category_seed_version", CATEGORY_SEED_VERSION)

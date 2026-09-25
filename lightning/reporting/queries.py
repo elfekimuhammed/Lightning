@@ -30,7 +30,7 @@ class ReportQueries:
         rows = self.db.all(
             f"SELECT le.account_id, le.asset_id, SUM(le.quantity_e6) AS quantity_e6,"
             f" SUM(le.amount_base_e6) AS amount_base_e6"
-            f" FROM ledger_entries le {POSTED} WHERE le.date BETWEEN ? AND ?"
+            f" FROM ledger_entries le {POSTED} WHERE le.date BETWEEN ? AND ? AND le.effect<>'REVALUATION'"
             f" GROUP BY le.account_id, le.asset_id",
             (date_from, date_to),
         )
@@ -90,7 +90,7 @@ class ReportQueries:
             where = "le.account_id = ? AND " + where
             params.insert(0, account_id)
         rows = self.db.all(
-            f"SELECT le.date, le.account_id, le.quantity_e6, le.effect, le.category_id, le.memo,"
+            f"SELECT le.date, le.account_id, le.quantity_e6, le.amount_e6, le.effect, le.category_id, le.memo,"
             f" t.id AS txn_id, t.ref, t.type, t.description, t.counterparty, t.notes,"
             f" (SELECT o.account_id FROM ledger_entries o WHERE o.transaction_id = t.id"
             f"  AND o.account_id != le.account_id LIMIT 1) AS other_account_id"
@@ -104,7 +104,7 @@ class ReportQueries:
     def latest_price(self, asset_id: int, as_of: str) -> dict | None:
         row = self.db.one(
             "SELECT price_e6, currency, date, source FROM price_history WHERE asset_id = ? AND date <= ?"
-            " ORDER BY date DESC, CASE source WHEN 'MANUAL' THEN 0 ELSE 1 END LIMIT 1",
+            " ORDER BY date DESC, CASE WHEN source IN ('MANUAL','REEVALUATION_MANUAL') THEN 0 ELSE 1 END LIMIT 1",
             (asset_id, as_of),
         )
         return dict(row) if row else None

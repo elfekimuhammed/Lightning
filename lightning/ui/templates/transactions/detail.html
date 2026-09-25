@@ -2,7 +2,7 @@
 {% from "partials/macros.html" import amount %}
 {% block title %}{{ txn.ref }}{% endblock %}
 {% block heading %}<h1 class="code" style="font-size:20px">{{ txn.ref }}</h1>
-<div class="muted">{{ txn.type_label }} · {{ txn.date }}{% if txn.is_void %} · <span class="pill void">deleted</span>{% endif %}</div>{% endblock %}
+<div class="muted">{{ txn.type_label }} · {{ txn.date }}{% if txn.source == 'SYSTEM' %} · <span class="pill">System-generated</span>{% endif %}{% if txn.is_void %} · <span class="pill void">deleted</span>{% endif %}</div>{% endblock %}
 {% block content %}
 <div class="grid g2">
   <div class="card">
@@ -21,6 +21,8 @@
       <tr><td class="muted">Recorded</td><td class="small">{{ txn.created_at }}{% if txn.updated_at != txn.created_at %} · updated {{ txn.updated_at }}{% endif %}</td></tr>
     </table>
     <div class="actions" style="margin-top:14px">
+      {% if txn.source == 'SYSTEM' %}<span class="muted small">Managed by the reevaluation ledger.</span>
+      {% else %}
       {% if not txn.is_void %}
         {% if txn.type in ('BUY', 'SEL', 'DIV') or (txn.type == 'OPN' and lines[0].asset != 'CASH:' ~ base) %}<a class="btn" href="/investments/{{ txn.id }}/edit">Edit</a>
         {% elif txn.type == 'OPN' %}<a class="btn" href="/accounts/{{ lines[0].account_id }}/edit">Change opening balance</a>
@@ -28,6 +30,7 @@
         {% if txn.type != 'OPN' %}<form method="post" action="/transactions/{{ txn.id }}/delete" data-confirm-delete><button class="btn danger">Delete</button></form>{% endif %}
       {% else %}
         <form method="post" action="/transactions/{{ txn.id }}/restore"><button class="btn">Restore</button></form>
+      {% endif %}
       {% endif %}
     </div>
   </div>

@@ -50,6 +50,26 @@ class TestAssets:
 
 
 class TestTrades:
+    def test_fees_can_be_added_outside_the_entered_trade_total(self, inv):
+        c, accounts, _, comi, _ = inv
+        account = accounts["thndr"].id
+        c.investments.buy_total("2026-09-10", account, comi.id, "10", "1000", fees="25",
+                                fees_included=False)
+        assert pos(c, account, comi.id).cost_basis == D("1025")
+        c.investments.sell_total("2026-09-20", account, comi.id, "2", "300", fees="10",
+                                 fees_included=False)
+        assert c.reporting.account_balance(account) == D("30000") - D("1025") + D("290")
+
+    def test_portfolio_and_holding_show_xirr_from_dated_cashflows(self, inv):
+        c, accounts, _, comi, _ = inv
+        account = accounts["thndr"].id
+        c.investments.buy_total("2026-09-10", account, comi.id, "10", "1000")
+        c.assets.set_price(comi.id, "2026-09-25", "110")
+        portfolio = c.investments.portfolio("2026-09-25", account)
+        holding = next(row for row in portfolio.positions if row.asset_id == comi.id)
+        assert portfolio.xirr is not None and portfolio.xirr > 0
+        assert holding.xirr == portfolio.xirr
+
     def test_buy_is_a_conversion_at_cost(self, inv):
         c, accounts, _, comi, _ = inv
         thndr = accounts["thndr"].id

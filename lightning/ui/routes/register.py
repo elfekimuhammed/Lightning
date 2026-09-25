@@ -31,16 +31,19 @@ def _int(value) -> int | None:
 
 
 def _lists(request: Request) -> dict:
-    """Data for the type-and-pick boxes (HTML datalists)."""
+    """Data for register typeahead pickers."""
     c = container(request)
-    categories = [c.categories.display_name(cat.id) for cat in c.categories.pickable()]
+    categories = [{"id": cat.id, "name": cat.name,
+                   "parent": c.categories.get(cat.parent_id).name if cat.parent_id else "",
+                   "label": c.categories.display_name(cat.id)} for cat in c.categories.pickable()]
+    categories.sort(key=lambda row: (row["parent"].casefold(), row["name"].casefold(), row["id"]))
     accounts = c.accounts.list(active_only=True)
     cp_rows = c.counterparties.list_active()
     counterparty_options = [row["name"] for row in cp_rows]
     counterparty_categories = {row["name"]: c.categories.display_name(row["default_category_id"])
                                for row in cp_rows if row["default_category_id"]}
     return {
-        "category_options": categories,
+        "category_choices": categories,
         "account_options": [a.name for a in accounts],
         "counterparty_options": counterparty_options,
         "counterparty_categories": counterparty_categories,
@@ -317,7 +320,8 @@ async def create_investment_entry(request: Request, account_id: int):
     account = c.accounts.get(account_id)
     form = await request.form()
     values = {key: str(form.get(key, "")).strip() for key in
-              ("date", "instrument_key", "units", "total", "unit_price", "price_basis", "cash_account_id", "notes", "whom")}
+              ("date", "instrument_key", "units", "total", "unit_price", "price_basis", "fees",
+               "fees_included", "cash_account_id", "notes", "whom")}
     values["instrument_label"] = str(form.get("instrument_label", ""))
     values["is_others"] = "1" if form.get("is_others") else ""
     try:
@@ -367,12 +371,14 @@ async def create_investment_entry(request: Request, account_id: int):
                     if not unit_price:
                         raise ValidationError("Enter a price per unit or the total paid.", "unit_price")
                     txn = c.investments.buy(values["date"], account.id, asset.id, units, unit_price,
+                                            fees=values["fees"],
                                             cash_account_id=int(values["cash_account_id"] or 0) or None,
                                             notes=values["notes"])
                 else:
                     if not total:
                         raise ValidationError("Enter the total paid or a price per unit.", "total")
                     txn = c.investments.buy_total(values["date"], account.id, asset.id, units, total,
+                                                  fees=values["fees"], fees_included=values["fees_included"] != "0",
                                                   cash_account_id=int(values["cash_account_id"] or 0) or None,
                                                   notes=values["notes"])
             else:
@@ -382,12 +388,14 @@ async def create_investment_entry(request: Request, account_id: int):
                     if not unit_price:
                         raise ValidationError("Enter a price per unit or the total received.", "unit_price")
                     txn = c.investments.sell(values["date"], account.id, asset.id, units, unit_price,
+                                             fees=values["fees"],
                                              cash_account_id=int(values["cash_account_id"] or 0) or None,
                                              notes=values["notes"])
                 else:
                     if not total:
                         raise ValidationError("Enter the total received or a price per unit.", "total")
                     txn = c.investments.sell_total(values["date"], account.id, asset.id, units, total,
+                                                   fees=values["fees"], fees_included=values["fees_included"] != "0",
                                                    cash_account_id=int(values["cash_account_id"] or 0) or None,
                                                    notes=values["notes"])
             owner = None

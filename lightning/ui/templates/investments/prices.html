@@ -1,7 +1,18 @@
 {% extends "base.html" %}
-{% block title %}Update prices{% endblock %}
-{% block heading %}<h1>Update prices</h1><div class="muted">Type today's price for what you hold. Empty boxes are skipped.</div>{% endblock %}
+{% block title %}Investment prices{% endblock %}
+{% block heading %}<h1>Investment prices</h1><div class="muted">Monthly checkpoints are fetched automatically where available. Enter a missing historical price to complete the return log.</div>{% endblock %}
 {% block content %}
+{% if pending %}
+<form method="post" class="card" style="max-width:1000px;margin-bottom:16px" autocomplete="off">
+  <h2>Prices needed to complete reevaluations</h2>
+  <p class="muted">These month-end checkpoints are waiting for a price. Enter each missing price; its account return will then be posted to the main ledger.</p>
+  <table class="budget"><thead><tr><th>Checkpoint</th><th>Investment</th><th>Price needed</th></tr></thead>
+    {% for row in pending %}<tr><td>{{ row.date }}</td><td>{{ row.asset_name }} <span class="code muted small">{{ row.asset_code }}</span></td>
+      <td><input name="rp_{{ row.asset_id }}_{{ row.date }}" class="num" inputmode="decimal" placeholder="Price per unit" required></td></tr>{% endfor %}
+  </table>
+  <div class="actions" style="margin-top:12px"><button class="btn primary">Save missing prices</button></div>
+</form>
+{% endif %}
 <form method="post" class="card" style="max-width:860px" autocomplete="off">
   <div class="field" style="max-width:220px">
     <label for="date">Price date <span class="muted small">yyyy-mm-dd</span></label>

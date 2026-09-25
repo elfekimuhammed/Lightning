@@ -18,6 +18,21 @@ def test_seed_never_overwrites_user_edits(c):
     assert c.categories.get(food.id).name == "Groceries"
 
 
+def test_seed_does_not_resurrect_a_renamed_default_category(c):
+    education = c.categories.get_by_code("EXP.PERSONAL.EDUCATION")
+    c.categories.update(education.id, "Courses", "EXP.PERSONAL.COURSES")
+    # Simulate an installation from before the seed marker migration.
+    c.db.execute("DELETE FROM settings WHERE key = 'category_seed_version'")
+    c.db.execute("DELETE FROM schema_migrations WHERE version = 14")
+    assert migrate(c.db) == ["0014_preserve_category_codes (APPLIED)"]
+
+    seed(c.db)
+
+    assert c.categories.repo.get_by_code("EXP.PERSONAL.EDUCATION") is None
+    renamed = c.categories.get_by_code("EXP.PERSONAL.COURSES")
+    assert renamed.id == education.id and renamed.name == "Courses"
+
+
 def test_seed_structure(c):
     assert c.assets.get_class_by_code("FUND.GOLD").parent_id == c.assets.get_class_by_code("FUND").id
     work = c.categories.get_by_code("EXP.WORK.SOFTWARE")

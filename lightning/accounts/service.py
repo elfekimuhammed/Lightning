@@ -48,7 +48,8 @@ class AccountService:
         if not wanted:
             return None
         for account in self.repo.list(active_only=True):
-            if wanted in (account.label.casefold(), account.code.casefold(), account.name.casefold()):
+            if wanted in (account.label.casefold(), account.code.casefold(), account.name.casefold(),
+                          f"{account.code} · {account.name}".casefold()):
                 return account
         return None
 

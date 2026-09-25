@@ -26,10 +26,9 @@
   <div class="field" id="account-type-guidance" data-account-type="{{ values.account_type }}">
     <div class="help" id="account-type-help"></div>
   </div>
-  <details {{ 'open' if error_field in ('code', 'last4', 'notes') }}>
+  <details {{ 'open' if error_field in ('last4', 'notes') }}>
     <summary>More options</summary>
     <div class="row" style="margin-top:12px">
-      {{ field('code', 'Code', values, error_field, help='Short ID shown next to the name, e.g. CIB-CUR-EGP. Leave empty to create one.', placeholder='created for you') }}
       {{ field('last4', 'Last 4 digits', values, error_field, help='Optional. Never enter the full number.', attrs='inputmode="numeric" maxlength="4"') }}
     </div>
     <div class="field">

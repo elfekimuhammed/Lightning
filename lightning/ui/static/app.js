@@ -191,15 +191,22 @@ document.querySelectorAll(".trade-total").forEach((total) => {
   const quantity = form?.querySelector(".quantity-input");
   const preview = form?.querySelector(".unit-price-preview");
   if (!quantity || !preview) return;
+  const feeInput = form.querySelector('[name="fees"]');
+  const feeChoice = form.querySelector('[name="fees_included"]');
   const update = () => {
     const units = Number(quantity.value.replace(/,/g, ""));
     const amount = Number(total.value.replace(/,/g, ""));
-    preview.value = units > 0 && amount > 0
-      ? new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 }).format(amount / units)
+    const fee = Number((feeInput?.value || "0").replace(/,/g, "")) || 0;
+    const included = feeChoice?.value !== "0";
+    const gross = amount + (included ? (form.dataset.tradeKind === "buy" ? -fee : fee) : 0);
+    preview.value = units > 0 && gross > 0
+      ? new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 }).format(gross / units)
       : "";
   };
   quantity.addEventListener("input", update);
   total.addEventListener("input", update);
+  feeInput?.addEventListener("input", update);
+  feeChoice?.addEventListener("change", update);
   update();
 });
 
@@ -215,6 +222,8 @@ if (tradeCatalogueNode) {
   const units = document.getElementById("investment-units");
   const total = document.getElementById("investment-total");
   const unitPrice = document.getElementById("investment-unit-price");
+  const fees = document.getElementById("investment-fees");
+  const feesIncluded = document.getElementById("investment-fees-included");
   const basis = form.querySelector('[name="price_basis"]');
   const amountLabel = document.getElementById("investment-total-label");
   const positionHint = document.getElementById("trade-position-hint");
@@ -234,11 +243,18 @@ if (tradeCatalogueNode) {
     const qty = number(units);
     const cashTotal = number(total);
     const price = number(unitPrice);
+    const fee = number(fees) || 0;
+    const included = feesIncluded?.value !== "0";
     if (qty === null) amountLabel.textContent = "Dividend amount";
-    else amountLabel.textContent = qty < 0 ? "Total received (after fees)" : "Total paid (fees included)";
+    else amountLabel.textContent = qty < 0 ? "Total received" : "Total paid";
     if (qty !== null && Math.abs(qty) > 0) {
-      if (basis.value === "unit_price" && price !== null) total.value = formatted(Math.abs(qty) * price, 2);
-      else if (cashTotal !== null) unitPrice.value = formatted(cashTotal / Math.abs(qty));
+      if (basis.value === "unit_price" && price !== null) {
+        const gross = Math.abs(qty) * price;
+        total.value = formatted(gross + (included ? (qty > 0 ? fee : -fee) : 0), 2);
+      } else if (cashTotal !== null) {
+        const gross = cashTotal + (included ? (qty > 0 ? -fee : fee) : 0);
+        unitPrice.value = formatted(gross / Math.abs(qty));
+      }
     }
     let exceeds = false;
     if (selected && qty !== null && qty < 0) {
@@ -252,8 +268,8 @@ if (tradeCatalogueNode) {
     }
     if (qty === null) entryHint.textContent = "Leave units blank to record a dividend. Enter the dividend total received.";
     else entryHint.textContent = qty < 0
-      ? "For a sell, enter units with a minus sign; the total is what arrived after fees."
-      : "For a buy, enter positive units; the total paid includes fees.";
+      ? "Enter units with a minus sign. Choose whether the sale total includes the fee below."
+      : "Enter positive units. Fees are tracked separately and included in your cost basis.";
     addButton.disabled = exceeds;
   };
   const renderResults = () => {
@@ -292,6 +308,8 @@ if (tradeCatalogueNode) {
   units.addEventListener("input", sync);
   total.addEventListener("input", () => { basis.value = "total"; sync(); });
   unitPrice.addEventListener("input", () => { basis.value = "unit_price"; sync(); });
+  fees?.addEventListener("input", sync);
+  feesIncluded?.addEventListener("change", sync);
   document.addEventListener("click", (event) => {
     if (!event.target.closest(".instrument-picker")) {
       results.hidden = true; search.setAttribute("aria-expanded", "false");
@@ -336,6 +354,102 @@ if (catalogueNode) {
   document.addEventListener("click",(event)=>{if(!event.target.closest(".instrument-picker")){results.hidden=true;search.setAttribute("aria-expanded","false");}});
 }
 
+// Category picker: one alphabetized header per activity, with broad categories nested below.
+const categoryCatalogueNode = document.getElementById("category-catalogue");
+if (categoryCatalogueNode) {
+  const categories = JSON.parse(categoryCatalogueNode.textContent || "[]");
+  const closeCategoryResults = (input, results) => {
+    results.hidden = true;
+    input.setAttribute("aria-expanded", "false");
+  };
+  document.querySelectorAll(".category-input").forEach((input) => {
+    const results = document.getElementById(input.dataset.categoryResults);
+    const formId = input.getAttribute("form");
+    let activeIndex = -1;
+    const matchesFor = () => {
+      const query = input.value.trim().toLocaleLowerCase().replaceAll("›", " ").replace(/\s+/g, " ");
+      return categories.filter((item) => !query ||
+        `${item.parent} ${item.name} ${item.label}`.toLocaleLowerCase().replaceAll("›", " ").replace(/\s+/g, " ").includes(query));
+    };
+    const render = () => {
+      if (input.disabled || document.activeElement !== input) return;
+      results.replaceChildren();
+      activeIndex = -1;
+      const matches = matchesFor();
+      const groups = new Map();
+      matches.forEach((item) => {
+        if (!groups.has(item.parent)) groups.set(item.parent, []);
+        groups.get(item.parent).push(item);
+      });
+      [...groups.keys()].sort((a, b) => a.localeCompare(b)).forEach((parent) => {
+        const heading = document.createElement("div");
+        heading.className = "category-group-title";
+        heading.textContent = parent;
+        results.append(heading);
+        groups.get(parent).sort((a, b) => a.name.localeCompare(b.name)).forEach((item) => {
+          const option = document.createElement("button");
+          option.type = "button";
+          option.className = "category-option";
+          option.setAttribute("role", "option");
+          option.textContent = item.name;
+          option.addEventListener("mousedown", (event) => event.preventDefault());
+          option.addEventListener("click", () => {
+            input.value = item.label;
+            input.dispatchEvent(new Event("input", { bubbles: true }));
+            closeCategoryResults(input, results);
+          });
+          results.append(option);
+        });
+      });
+      if (!matches.length) {
+        const empty = document.createElement("div");
+        empty.className = "category-group-title";
+        empty.textContent = "No matching category";
+        results.append(empty);
+      }
+      const rect = input.getBoundingClientRect();
+      results.style.left = `${Math.max(8, rect.left)}px`;
+      results.style.top = `${rect.bottom + 4}px`;
+      results.style.width = `${Math.max(230, rect.width)}px`;
+      results.hidden = false;
+      input.setAttribute("aria-expanded", "true");
+    };
+    input.addEventListener("input", () => {
+      document.querySelector(`input[type="hidden"][form="${formId}"][name="category_choice"]`)?.remove();
+      render();
+    });
+    input.addEventListener("focus", render);
+    input.addEventListener("focus", () => {
+      if (input.dataset.autofilled === "true") input.select();
+    });
+    input.addEventListener("click", () => {
+      if (input.dataset.autofilled === "true") input.select();
+    });
+    input.addEventListener("keydown", (event) => {
+      const options = [...results.querySelectorAll(".category-option")];
+      if (event.key === "Escape") closeCategoryResults(input, results);
+      else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        if (results.hidden || !options.length) return;
+        event.preventDefault();
+        activeIndex = (activeIndex + (event.key === "ArrowDown" ? 1 : -1) + options.length) % options.length;
+        options.forEach((option, index) => {
+          option.setAttribute("aria-selected", String(index === activeIndex));
+          if (index === activeIndex) option.scrollIntoView({ block: "nearest" });
+        });
+      } else if (event.key === "Enter" && !results.hidden && options.length) {
+        event.preventDefault();
+        options[activeIndex < 0 ? 0 : activeIndex].click();
+      }
+    });
+    input.addEventListener("blur", () => setTimeout(() => closeCategoryResults(input, results), 120));
+  });
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest(".category-picker")) {
+      document.querySelectorAll(".category-results").forEach((results) => { results.hidden = true; });
+    }
+  });
+}
+
 if (ledger) {
   const known = JSON.parse(ledger.dataset.counterparties || "{}");
   const accounts = JSON.parse(ledger.dataset.accounts || "[]");
@@ -355,6 +469,7 @@ if (ledger) {
         else if (!category.value && known[counterparty.value]) {
           category.value = known[counterparty.value];
           category.dispatchEvent(new Event("input", { bubbles: true }));
+          category.dataset.autofilled = "true";
         }
       }
     };
@@ -394,7 +509,10 @@ if (ledger) {
     };
     counterparty.addEventListener("change", sync);
     counterparty.addEventListener("input", () => { clearDecision("counterparty_choice"); sync(); renderResults(); });
-    category?.addEventListener("input", () => clearDecision("category_choice"));
+    category?.addEventListener("input", () => {
+      clearDecision("category_choice");
+      delete category.dataset.autofilled;
+    });
     counterparty.addEventListener("focus", renderResults);
     counterparty.addEventListener("keydown", (event) => { if (event.key === "Escape") closeResults(); });
     sync();

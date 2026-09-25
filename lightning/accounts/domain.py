@@ -90,8 +90,8 @@ class Account:
 
     @property
     def label(self) -> str:
-        """Code and name always travel together."""
-        return f"{self.code} · {self.name}"
+        """Human-facing account label; the internal code is never shown in the UI."""
+        return self.name
 
     @property
     def type_label(self) -> str:

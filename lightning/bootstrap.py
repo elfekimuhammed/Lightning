@@ -23,6 +23,7 @@ from lightning.database.settings import SettingsStore
 from lightning.investments.service import InvestmentService
 from lightning.money_from_others import MoneyFromOthersService
 from lightning.reporting.service import ReportingService
+from lightning.reevaluations import ReevaluationService
 from lightning.transactions.service import TransactionService
 from lightning.workflows.accounts import AccountWorkflows
 
@@ -43,6 +44,7 @@ class Container:
     accounts: AccountService
     transactions: TransactionService
     reporting: ReportingService
+    reevaluations: ReevaluationService
     money_from_others: MoneyFromOthersService
     budgets: BudgetService
     investments: InvestmentService
@@ -75,6 +77,7 @@ def build(db_path: str | Path | None = None, backup_on_start: bool = False) -> C
     money_from_others = MoneyFromOthersService(db, accounts)
     bank_imports = BankImportService(db, accounts, categories, counterparties, transactions, money_from_others)
     reporting = ReportingService(db, accounts, assets, categories, base, money_from_others)
+    reevaluations = ReevaluationService(db, accounts, transactions, reporting)
     return Container(
         db=db,
         data_dir=data_dir,
@@ -87,8 +90,9 @@ def build(db_path: str | Path | None = None, backup_on_start: bool = False) -> C
         accounts=accounts,
         transactions=transactions,
         reporting=reporting,
+        reevaluations=reevaluations,
         money_from_others=money_from_others,
         budgets=BudgetService(db, categories, reporting),
-        investments=InvestmentService(db, accounts, assets, categories, transactions, reporting),
+        investments=InvestmentService(db, accounts, assets, categories, transactions, reporting, reevaluations),
         account_flows=AccountWorkflows(db, accounts, transactions, reporting),
     )

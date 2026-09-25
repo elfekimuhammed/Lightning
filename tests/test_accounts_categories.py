@@ -12,7 +12,7 @@ class TestAccounts:
         a = c.account_flows.open_account("CIB Current", "BANK", "2026-09-01", institution="CIB")
         b = c.account_flows.open_account("CIB Payroll", "BANK", "2026-09-01", institution="CIB")
         assert a.code == "CIB-CUR-EGP" and b.code == "CIB-CUR-EGP-2"
-        assert a.label == "CIB-CUR-EGP · CIB Current"
+        assert a.label == "CIB Current"
 
     def test_duplicate_manual_code_rejected(self, c):
         c.account_flows.open_account("A", "BANK", "2026-09-01", code="MY-BANK")

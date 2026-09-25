@@ -17,8 +17,13 @@
              {{ '' if is_edit else 'id=counterparty' }} {{ 'autofocus' if is_edit or edit_id is none }}>
       <div id="{{ form_id }}-counterparty-results" class="counterparty-results" role="listbox" hidden></div>
     </div></td>
-  <td><input form="{{ form_id }}" type="text" name="category" value="{{ v.get('category', '') }}" placeholder="Category — type to search"
-             list="category-options" class="category-input {{ 'bad' if error_field == 'category' }}"></td>
+  <td><div class="category-picker">
+    <input form="{{ form_id }}" type="text" name="category" value="{{ v.get('category', '') }}" placeholder="Category — type to search"
+           autocomplete="off" aria-autocomplete="list" aria-expanded="false"
+           aria-controls="{{ form_id }}-category-results" data-category-results="{{ form_id }}-category-results"
+           class="category-input {{ 'bad' if error_field == 'category' }}">
+    <div id="{{ form_id }}-category-results" class="category-results" role="listbox" hidden></div>
+  </div></td>
   <td class="whom-cell" hidden><input form="{{ form_id }}" type="text" name="whom" value="{{ v.get('whom', '') }}"
              placeholder="Whom?" list="counterparty-options" class="{{ 'bad' if error_field == 'whom' }}"></td>
   <td><input form="{{ form_id }}" type="text" name="notes" value="{{ v.get('notes', '') }}" placeholder="Notes"></td>
@@ -55,8 +60,8 @@
 {% set with_balance = account and not q %}
 {% set ncols = 8 + (1 if show_account else 0) + (1 if with_balance else 0) %}
 
-<datalist id="category-options">{% for name in category_options %}<option value="{{ name }}"></option>{% endfor %}</datalist>
 <datalist id="counterparty-options">{% for name in counterparty_options %}<option value="{{ name }}"></option>{% endfor %}</datalist>
+<script id="category-catalogue" type="application/json">{{ category_choices|tojson }}</script>
 <form id="f-new" method="post" action="{{ post_url }}" autocomplete="off"></form>
 {% if edit_id is not none %}<form id="f-edit" method="post" action="{{ post_url }}/{{ edit_id }}" autocomplete="off"></form>{% endif %}
 {% set review_form_id = 'f-edit' if edit_id is not none else 'f-new' %}
@@ -122,6 +127,17 @@
         <label for="investment-unit-price">Price per unit</label>
         <input id="investment-unit-price" type="text" name="unit_price" value="{{ investment_entry.get('unit_price', '') }}" placeholder="Or enter unit price" inputmode="decimal" class="money-input">
       </div>
+      <div class="field">
+        <label for="investment-fees">Fees</label>
+        <input id="investment-fees" type="text" name="fees" value="{{ investment_entry.get('fees', '') }}" placeholder="0.00" inputmode="decimal" class="money-input">
+      </div>
+      <div class="field">
+        <label for="investment-fees-included">Fee handling</label>
+        <select id="investment-fees-included" name="fees_included">
+          <option value="1" {{ 'selected' if investment_entry.get('fees_included', '1') != '0' }}>Total includes fees</option>
+          <option value="0" {{ 'selected' if investment_entry.get('fees_included') == '0' }}>Total excludes fees (add them separately)</option>
+        </select>
+      </div>
       <button class="btn primary small investment-entry-submit">Add</button>
     </div>
     {% if cash_accounts %}
@@ -133,7 +149,7 @@
     </div>
     {% endif %}
     <div class="investment-entry-foot">
-      <span id="investment-entry-hint" class="muted small">For a buy, total includes fees; for a sell, total is what you receive after fees. Enter either total or unit price.</span>
+      <span id="investment-entry-hint" class="muted small">Enter fees separately. Choose whether your total includes or excludes them.</span>
       <input type="text" name="notes" value="{{ investment_entry.get('notes', '') }}" placeholder="Notes (optional)">
     </div>
   </form>

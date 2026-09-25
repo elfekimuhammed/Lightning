@@ -23,7 +23,7 @@ class DocType(StrEnum):
     BUY = "BUY"  # Investment buy                                  [M3]
     SEL = "SEL"  # Investment sell                                 [M3]
     DIV = "DIV"  # Dividend                                        [M3]
-    VAL = "VAL"  # Manual valuation / price entry                  [M3]
+    VAL = "VAL"  # Investment revaluation checkpoint; SYSTEM source
     ADJ = "ADJ"  # Reconciliation adjustment                       [M2]
 
 
@@ -36,7 +36,7 @@ DOC_LABELS = {
     DocType.BUY: "Buy",
     DocType.SEL: "Sell",
     DocType.DIV: "Dividend",
-    DocType.VAL: "Valuation",
+    DocType.VAL: "Investment revaluation",
     DocType.ADJ: "Adjustment",
 }
 

@@ -34,6 +34,7 @@ class Position:
     price_date: str | None
     price_source: str  # MANUAL · TRADE · COST
     value: Decimal | None
+    xirr: Decimal | None = None
 
     @property
     def average_cost(self) -> Decimal | None:
@@ -50,6 +51,10 @@ class Position:
         return self.unrealized / self.cost_basis * 100
 
     @property
+    def variance_per_unit(self) -> Decimal | None:
+        return None if self.price is None or self.average_cost is None else self.price - self.average_cost
+
+    @property
     def total_return(self) -> Decimal:
         return (self.unrealized or ZERO) + self.realized + self.dividends
 
@@ -62,6 +67,7 @@ class Position:
 class Portfolio:
     as_of: str
     positions: list[Position] = field(default_factory=list)  # open and closed
+    xirr: Decimal | None = None
 
     @property
     def open(self) -> list[Position]:

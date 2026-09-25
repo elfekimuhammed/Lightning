@@ -1,6 +1,7 @@
 """The HTML UI end to end: every page renders, forms create real records."""
 
 import re
+from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
@@ -13,12 +14,22 @@ def client(c):
     return TestClient(create_app(c))
 
 
+def test_register_category_picker_data_groups_children_under_alphabetical_parents(c):
+    from lightning.ui.routes.register import _lists
+
+    request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(container=c)))
+    choices = _lists(request)["category_choices"]
+    parents = list(dict.fromkeys(row["parent"] for row in choices))
+    assert parents == sorted(parents, key=str.casefold)
+    assert all(row["label"] == f"{row['parent']} › {row['name']}" for row in choices)
+
+
 def test_welcome_then_first_account(client, c):
     r = client.get("/")
     assert r.status_code == 200 and "Let's start with your accounts" in r.text
     r = client.post("/accounts/new", data={"name": "CIB Current", "institution": "CIB", "account_type": "BANK",
                                            "opening_date": "2026-09-01", "opening_balance": "50,000"})
-    assert r.status_code == 200 and "CIB-CUR-EGP · CIB Current" in r.text
+    assert r.status_code == 200 and "CIB Current" in r.text and "CIB-CUR-EGP" not in r.text
     r = client.get("/")
     assert "Net worth" in r.text and "50,000.00" in r.text
 
@@ -136,7 +147,8 @@ def test_register_entry(client, c, setup):
     wallet, cib = accounts["wallet"], accounts["cib"]
     page = client.get(f"/accounts/{wallet.id}")
     assert 'action="/accounts/%d/register"' % wallet.id in page.text
-    assert 'list="category-options"' in page.text and "<select form=\"f-new\" name=\"choice\"" not in page.text
+    assert 'id="category-catalogue"' in page.text and 'role="listbox"' in page.text
+    assert 'list="category-options"' not in page.text
     assert "Payee" not in page.text and ">Counterparty<" in page.text
     assert "EXP.PERSONAL" not in page.text  # plain names only
 

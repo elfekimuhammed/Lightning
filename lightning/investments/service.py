@@ -24,6 +24,7 @@ from lightning.transactions.domain import Transaction
 from lightning.transactions.service import TransactionService
 
 from .domain import Portfolio, Position
+from .xirr import xirr
 
 DIVIDEND_CATEGORY = "EXP.INVEST.DIVIDEND"
 CENT = Decimal("0.01")
@@ -41,13 +42,14 @@ def _num(value: Decimal) -> str:
 
 class InvestmentService:
     def __init__(self, db: Database, accounts: AccountService, assets: AssetService, categories: CategoryService,
-                 transactions: TransactionService, reporting: ReportingService):
+                 transactions: TransactionService, reporting: ReportingService, reevaluations=None):
         self.db = db
         self.accounts = accounts
         self.assets = assets
         self.categories = categories
         self.transactions = transactions
         self.reporting = reporting
+        self.reevaluations = reevaluations
 
     # ======================================================================
     # Recording
@@ -57,15 +59,17 @@ class InvestmentService:
         """Buy units: cash leaves the paying account, the holding grows at cost (fees included)."""
         return self._trade(DocType.BUY, date, account_id, asset_id, quantity, price, fees, cash_account_id, notes)
 
-    def buy_total(self, date, account_id, asset_id, quantity, total, cash_account_id=None, notes=""):
-        """Buy units for a single all-in total; per-unit cost is derived from total / units."""
+    def buy_total(self, date, account_id, asset_id, quantity, total, cash_account_id=None, notes="",
+                  fees="0", fees_included=True):
+        """Buy by total cash paid (fees included) or gross trade value (fees additional)."""
         return self._trade(DocType.BUY, date, account_id, asset_id, quantity, None, "0", cash_account_id, notes,
-                           total=total)
+                           total=total, total_fees=fees, fees_included=fees_included)
 
-    def sell_total(self, date, account_id, asset_id, quantity, total, cash_account_id=None, notes=""):
-        """Sell units for a single net cash total after fees; per-unit proceeds are derived."""
+    def sell_total(self, date, account_id, asset_id, quantity, total, cash_account_id=None, notes="",
+                   fees="0", fees_included=True):
+        """Sell by net cash received (fees included) or gross trade value (fees additional)."""
         return self._trade(DocType.SEL, date, account_id, asset_id, quantity, None, "0", cash_account_id, notes,
-                           total=total)
+                           total=total, total_fees=fees, fees_included=fees_included)
 
     def sell(self, date: str, account_id: int, asset_id: int, quantity, price, fees="0",
              cash_account_id: int | None = None, notes: str = "") -> Transaction:
@@ -97,8 +101,15 @@ class InvestmentService:
         if kind in (DocType.BUY, DocType.SEL):
             lines, counterparty = self._trade_lines(kind, values["account_id"], values["asset_id"], values["quantity"],
                                                     values["price"], values.get("fees", "0"),
-                                                    values.get("cash_account_id"), total=values.get("total") or None)
-            return self.transactions.repost(txn_id, date, lines, "", counterparty, notes)
+                                                    values.get("cash_account_id"), total=values.get("total") or None,
+                                                    total_fees=values.get("total_fees", "0"),
+                                                    fees_included=values.get("fees_included", True))
+            updated = self.transactions.repost(txn_id, date, lines, "", counterparty, notes)
+            if kind == DocType.SEL and self.reevaluations:
+                unit_line = next(line for line in lines if not self.assets.get_asset(line.asset_id).is_cash)
+                self.reevaluations.process_sale(updated.date, values["account_id"], values["asset_id"],
+                                                unit_line.unit_price)
+            return updated
         if kind == DocType.DIV:
             lines, counterparty = self._dividend_lines(values["account_id"], values["asset_id"], values["amount"])
             return self.transactions.repost(txn_id, date, lines, "", counterparty, notes)
@@ -125,7 +136,8 @@ class InvestmentService:
             gross = _money(abs(u.quantity) * u.unit_price)
             fees = abs(u.amount) - gross if t.type == DocType.BUY else gross - abs(u.amount)
             values.update(account_id=u.account_id, asset_id=u.asset_id, quantity=abs(u.quantity),
-                          price=u.unit_price, fees=_money(fees), total=abs(c.quantity), cash_account_id=c.account_id)
+                          price=u.unit_price, fees=_money(fees), total_fees=_money(fees),
+                          fees_included=True, total=abs(c.quantity), cash_account_id=c.account_id)
         elif t.type == DocType.DIV and cash:
             asset = self.assets.get_asset_by_code(cash[0].memo)
             values.update(account_id=cash[0].account_id, asset_id=asset.id, amount=cash[0].quantity)
@@ -142,11 +154,20 @@ class InvestmentService:
         day = fmt_date(as_of) if as_of and not isinstance(as_of, str) else (as_of or fmt_date(today()))
         state: dict[tuple[int, int], dict] = {}
         dividends: dict[tuple[int, str], Decimal] = {}
+        cashflows: list[tuple[str, Decimal]] = []
+        holding_flows: dict[tuple[int, int], list[tuple[str, Decimal]]] = {}
         for line in self.reporting.investment_lines(day, account_id):
             if line["type"] == "DIV":
                 key = (line["account_id"], line["memo"])
-                dividends[key] = dividends.get(key, ZERO) + from_e6(line["amount_base_e6"])
+                dividend = from_e6(line["amount_base_e6"])
+                dividends[key] = dividends.get(key, ZERO) + dividend
+                cashflows.append((line["date"], dividend))
+                asset = self.assets.get_asset_by_code(line["memo"])
+                holding_flows.setdefault((line["account_id"], asset.id), []).append((line["date"], dividend))
                 continue
+            flow = -from_e6(line["amount_base_e6"])
+            cashflows.append((line["date"], flow))
+            holding_flows.setdefault((line["account_id"], line["asset_id"]), []).append((line["date"], flow))
             s = state.setdefault((line["account_id"], line["asset_id"]),
                                  {"qty": ZERO, "cost": ZERO, "realized": ZERO})
             qty, amount = from_e6(line["quantity_e6"]), from_e6(line["amount_base_e6"])
@@ -166,6 +187,9 @@ class InvestmentService:
         for (acc_id, asset_id), s in state.items():
             account, asset = self.accounts.get(acc_id), self.assets.get_asset(asset_id)
             valuation = self.reporting.value_of(asset_id, s["qty"], day) if s["qty"] else None
+            holding_cashflows = holding_flows.get((acc_id, asset_id), [])
+            if s["qty"] and valuation and valuation.value is not None:
+                holding_cashflows = [*holding_cashflows, (day, valuation.value)]
             positions.append(Position(
                 account_id=acc_id, account_label=account.label, asset_id=asset_id, asset_code=asset.code,
                 asset_name=asset.name, asset_class=self.assets.display_name(asset.asset_class_id),
@@ -177,6 +201,7 @@ class InvestmentService:
                 price_source=valuation.source if valuation else "",
                 value=valuation.value if valuation and valuation.value is not None else (
                     None if s["qty"] else ZERO),  # full precision, like net worth; screens round
+                xirr=xirr(holding_cashflows, day),
             ))
         # dividends from something not (or no longer) held in that account still count
         for (acc_id, code), amount in dividends.items():
@@ -185,7 +210,9 @@ class InvestmentService:
                                       self.assets.display_name(asset.asset_class_id), EXPOSURE_LABELS[asset.exposure],
                                       asset.unit, ZERO, ZERO, ZERO, amount, None, None, "", ZERO))
         positions.sort(key=lambda p: (-(p.value or ZERO), p.asset_name))
-        return Portfolio(day, positions)
+        cashflows.extend((day, position.value)
+                         for position in positions if position.is_open and position.value is not None)
+        return Portfolio(day, positions, xirr(cashflows, day))
 
     def holding(self, account_id: int, asset_id: int, as_of=None) -> Decimal:
         for p in self.portfolio(as_of, account_id).positions:
@@ -199,21 +226,34 @@ class InvestmentService:
     # ======================================================================
     # Building lines
     # ======================================================================
-    def _trade(self, kind, date, account_id, asset_id, quantity, price, fees, cash_account_id, notes, total=None):
-        lines, counterparty = self._trade_lines(kind, account_id, asset_id, quantity, price, fees, cash_account_id, total)
-        return self.transactions.post(kind, date, lines, "", counterparty, notes)
+    def _trade(self, kind, date, account_id, asset_id, quantity, price, fees, cash_account_id, notes, total=None,
+               total_fees="0", fees_included=True):
+        lines, counterparty = self._trade_lines(kind, account_id, asset_id, quantity, price, fees, cash_account_id,
+                                                total, total_fees, fees_included)
+        txn = self.transactions.post(kind, date, lines, "", counterparty, notes)
+        if kind == DocType.SEL and self.reevaluations:
+            unit_line = next(line for line in lines if not self.assets.get_asset(line.asset_id).is_cash)
+            self.reevaluations.process_sale(txn.date, account_id, asset_id, unit_line.unit_price)
+        return txn
 
-    def _trade_lines(self, kind, account_id, asset_id, quantity, price, fees, cash_account_id, total=None):
+    def _trade_lines(self, kind, account_id, asset_id, quantity, price, fees, cash_account_id, total=None,
+                     total_fees="0", fees_included=True):
         account = self._holding_account(account_id)
         asset = self._investment(asset_id)
         cash_account = self._cash_account(account, cash_account_id)
         units = self._units(asset, quantity)
+        fee = check_places(to_decimal(total_fees if str(total_fees or "").strip() else "0", "fees"), 2, "fees")
+        if fee < ZERO:
+            raise ValidationError("Fees cannot be negative.", "fees")
         if total is not None:
-            gross = check_places(to_decimal(total, "total"), 2, "total")
-            if gross <= ZERO:
+            entered = check_places(to_decimal(total, "total"), 2, "total")
+            if entered <= ZERO:
                 raise ValidationError("Enter the total amount.", "total")
+            if fees_included:
+                gross = entered - fee if kind == DocType.BUY else entered + fee
+            else:
+                gross = entered
             unit_price = (gross / units).quantize(Decimal("0.000001"), rounding=ROUND_HALF_UP)
-            fee = ZERO
         else:
             unit_price = check_places(to_decimal(price, "price"), 6, "price")
             if unit_price <= ZERO:
@@ -227,12 +267,12 @@ class InvestmentService:
         memo = (f"{'Buy' if kind == DocType.BUY else 'Sell'} {_num(units)} × {asset.code} @ {_num(unit_price)}"
                 f"{fee_text}" if total is None else
                 f"{'Buy' if kind == DocType.BUY else 'Sell'} {_num(units)} × {asset.code} @ {_num(unit_price)}"
-                f" · {'total incl. fees' if kind == DocType.BUY else 'net total'} {fmt(gross)}")
+                f" · {'cash total' if fees_included else 'trade total'} {fmt(entered)}")
         if kind == DocType.BUY:
-            cost = gross if total is not None else gross + fee
+            cost = gross + fee
             return [PostingLine.cash(cash_account.id, cash_asset.id, -cost, Effect.INTERNAL, memo=memo),
                     PostingLine.units(account.id, asset.id, units, cost, Effect.INTERNAL, unit_price, memo)], asset.name
-        proceeds = gross if total is not None else gross - fee
+        proceeds = gross - fee
         if proceeds <= ZERO:
             raise ValidationError("After fees nothing would be received — check the price and fees.", "fees")
         return [PostingLine.units(account.id, asset.id, -units, -proceeds, Effect.INTERNAL, unit_price, memo),

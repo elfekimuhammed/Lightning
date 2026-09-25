@@ -416,9 +416,10 @@ class ReportingService:
         running = opening
         rows = []
         for r in lines:
-            amount = from_e6(r["quantity_e6"])
+            movement = from_e6(r["quantity_e6"])
+            amount = from_e6(r["amount_e6"]) if r["effect"] == "REVALUATION" else movement
             if running is not None:
-                running += amount
+                running += movement
             other_label = self.accounts.get(r["other_account_id"]).label if r["other_account_id"] else ""
             if r["type"] in ("BUY", "SEL") and r["memo"]:
                 category = r["memo"]

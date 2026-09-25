@@ -20,7 +20,7 @@ KINDS = {
     "dividend": ("Dividend", "Cash paid to you by an investment you hold."),
     "holding": ("Add a holding you already own", "Units you had when you started tracking, and what you paid in total."),
 }
-FIELDS = ("date", "account_id", "asset_id", "quantity", "price", "fees", "cash_account_id", "amount", "total_cost", "total",
+FIELDS = ("date", "account_id", "asset_id", "quantity", "price", "fees", "fees_included", "cash_account_id", "amount", "total_cost", "total",
           "notes", "is_others", "whom")
 
 
@@ -82,22 +82,27 @@ def _save(request: Request, kind: str, v: dict, txn_id: int | None = None):
         owner = party["name"]
     if txn_id:
         txn = inv.update(txn_id, date=v["date"], account_id=account, asset_id=asset, quantity=v["quantity"],
-                         price=v["price"], fees=v["fees"], total=v["total"], cash_account_id=cash, amount=v["amount"],
+                         price=v["price"], fees=v["fees"], total_fees=v["fees"],
+                         fees_included=v.get("fees_included", "1") != "0", total=v["total"], cash_account_id=cash, amount=v["amount"],
                          total_cost=v["total_cost"], notes=v["notes"])
     elif kind == "buy":
         if v["total"].strip():
-            txn = inv.buy_total(v["date"], account, asset, v["quantity"], v["total"], cash, v["notes"])
+            txn = inv.buy_total(v["date"], account, asset, v["quantity"], v["total"], cash, v["notes"],
+                                v["fees"], v.get("fees_included", "1") != "0")
         elif v["price"].strip():
             txn = inv.buy(v["date"], account, asset, v["quantity"], v["price"], v["fees"], cash, v["notes"])
         else:
-            txn = inv.buy_total(v["date"], account, asset, v["quantity"], v["total"], cash, v["notes"])
+            txn = inv.buy_total(v["date"], account, asset, v["quantity"], v["total"], cash, v["notes"],
+                                v["fees"], v.get("fees_included", "1") != "0")
     elif kind == "sell":
         if v["total"].strip():
-            txn = inv.sell_total(v["date"], account, asset, v["quantity"], v["total"], cash, v["notes"])
+            txn = inv.sell_total(v["date"], account, asset, v["quantity"], v["total"], cash, v["notes"],
+                                 v["fees"], v.get("fees_included", "1") != "0")
         elif v["price"].strip():
             txn = inv.sell(v["date"], account, asset, v["quantity"], v["price"], v["fees"], cash, v["notes"])
         else:
-            txn = inv.sell_total(v["date"], account, asset, v["quantity"], v["total"], cash, v["notes"])
+            txn = inv.sell_total(v["date"], account, asset, v["quantity"], v["total"], cash, v["notes"],
+                                 v["fees"], v.get("fees_included", "1") != "0")
     elif kind == "dividend":
         txn = inv.dividend(v["date"], account, asset, v["amount"], v["notes"])
     else:
@@ -248,7 +253,8 @@ async def prices(request: Request, error: str = ""):
         rows.append({"asset": asset, "held": held.get(asset.id), "price": valuation.price,
                      "price_date": valuation.price_date, "source": valuation.source})
     rows.sort(key=lambda r: (r["held"] is None, r["asset"].name))
-    return render(request, "investments/prices.html", rows=rows, day=day, error=error)
+    return render(request, "investments/prices.html", rows=rows, day=day, error=error,
+                  pending=c.reevaluations.pending_prices())
 
 
 @router.post("/prices")
@@ -259,7 +265,22 @@ async def save_prices(request: Request):
     values = {int(k[2:]): str(v) for k, v in form.items() if k.startswith("p_") and k[2:].isdigit()}
     try:
         count = c.assets.set_prices(day, values)
+        for key, raw in form.items():
+            if not key.startswith("rp_") or not str(raw).strip():
+                continue
+            asset_text, checkpoint = key[3:].split("_", 1)
+            c.reevaluations.record_manual_price(int(asset_text), checkpoint,
+                                                to_decimal(str(raw), "price"))
+            count += 1
+        c.reevaluations.process_due()
     except LightningError as exc:
         return redirect(f"/investments/prices?date={day}", exc.message)
-    return redirect("/investments", f"Saved {count} price{'s' if count != 1 else ''} for {day}." if count
+    return redirect("/investments", f"Saved {count} price input{'s' if count != 1 else ''}; reevaluation catch-up completed." if count
                     else "No prices entered.")
+
+
+@router.get("/reevaluations")
+async def reevaluations_page(request: Request):
+    c = container(request)
+    return render(request, "investments/reevaluations.html", rows=c.reevaluations.history(),
+                  pending=c.reevaluations.pending_prices())

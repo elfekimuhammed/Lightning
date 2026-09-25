@@ -37,7 +37,7 @@ class TestRecording:
         assert c.reporting.account_balance(accounts["cib"].id) == Decimal("40000")
         assert c.reporting.account_balance(accounts["thndr"].id) == Decimal("10000")
         summary = c.transactions.summarize(t)
-        assert summary.account_label.startswith("CIB-CUR-EGP") and summary.to_account_label.startswith("THNDR")
+        assert summary.account_label == "CIB Current" and summary.to_account_label == "THNDR"
 
     def test_atm_withdrawal_is_not_spending(self, setup, c):
         accounts, cats = setup
@@ -94,6 +94,28 @@ class TestEditingAndVoiding:
         assert c.reporting.account_balance(accounts["wallet"].id) == Decimal("1200")
         assert c.reporting.account_balance(accounts["thndr"].id) == Decimal("300")
 
+    def test_register_edit_preserves_transaction_description(self, setup, c):
+        accounts, cats = setup
+        bank, wallet = accounts["cib"], accounts["wallet"]
+        food = cats["EXP.PERSONAL.FOOD"].id
+        outflow = c.transactions.record_outflow("2026-09-25", bank.id, "450", food,
+                                                description="Weekly groceries")
+        edited = c.transactions.update_in_account(outflow.id, bank.id, "2026-09-25", "-500", food,
+                                                  counterparty="Carrefour")
+        assert edited.description == "Weekly groceries"
+
+        transfer = c.transactions.record_transfer("2026-09-25", bank.id, wallet.id, "100",
+                                                  description="Move savings")
+        edited_transfer = c.transactions.update_in_account(transfer.id, bank.id, "2026-09-25", "-200",
+                                                            other_account_id=wallet.id)
+        assert edited_transfer.description == "Move savings"
+
+        # Changing the register row's kind replaces its transaction, but keeps its description too.
+        changed_kind = c.transactions.update_in_account(outflow.id, bank.id, "2026-09-25", "-25",
+                                                         other_account_id=wallet.id)
+        assert changed_kind.type.value == "TRF"
+        assert changed_kind.description == "Weekly groceries"
+
     def test_void_and_restore(self, setup, c):
         accounts, cats = setup
         t = c.transactions.record_outflow("2026-09-25", accounts["cib"].id, "450", cats["EXP.PERSONAL.FOOD"].id)
@@ -104,6 +126,17 @@ class TestEditingAndVoiding:
             c.transactions.update_money(t.id, "2026-09-25", accounts["cib"].id, "1", cats["EXP.PERSONAL.FOOD"].id)
         c.transactions.restore(t.id)
         assert c.reporting.account_balance(accounts["cib"].id) == Decimal("49550")
+
+    def test_restore_rechecks_account_opening_date(self, setup, c):
+        accounts, cats = setup
+        account = accounts["cib"]
+        txn = c.transactions.record_outflow("2026-09-10", account.id, "25", cats["EXP.PERSONAL.FOOD"].id)
+        c.transactions.void(txn.id)
+        c.account_flows.update_account(account.id, account.name, "BANK", "2026-10-01", "50000")
+
+        with pytest.raises(ValidationError, match="before .* was opened"):
+            c.transactions.restore(txn.id)
+        assert c.transactions.get(txn.id).is_void
 
     def test_opening_balance_not_edited_as_a_transaction(self, setup, c):
         accounts, cats = setup
@@ -159,8 +192,8 @@ class TestRegister:
         assert inn.type == "IN"
         t1 = c.transactions.record_in_account(w, "2026-09-11", "-100", other_account_id=accounts["cib"].id)
         t2 = c.transactions.record_in_account(w, "2026-09-11", "300", other_account_id=accounts["cib"].id)
-        assert c.transactions.summarize(t1).to_account_label.startswith("CIB-CUR-EGP")
-        assert c.transactions.summarize(t2).account_label.startswith("CIB-CUR-EGP")
+        assert c.transactions.summarize(t1).to_account_label == "CIB Current"
+        assert c.transactions.summarize(t2).account_label == "CIB Current"
         assert c.reporting.account_balance(w) == Decimal("1200") - 50 + 20 - 100 + 300
 
     @pytest.mark.parametrize("amount,category,msg", [

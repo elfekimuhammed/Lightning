@@ -8,6 +8,7 @@ Effects:
 - OUTFLOW   value leaving your finances (groceries, fees)         -> needs an OUTFLOW category
 - INTERNAL  value moving inside your finances (transfers, buys)   -> must net to zero
 - OPENING   balance that existed before you started tracking      -> no category
+- REVALUATION system-generated value change                       -> zero units, amount is the account's return
 
 Net-worth equation (per period):
     closing = opening + inflows - outflows + revaluation + new balances added
@@ -41,7 +42,7 @@ class Effect(StrEnum):
 class PostingLine:
     account_id: int
     asset_id: int
-    quantity: Decimal  # signed units of the asset (for cash: the amount)
+    quantity: Decimal  # signed units (cash amount); REVALUATION deliberately has zero units
     effect: Effect
     unit_price: Decimal = ONE  # price or cost per unit, in the asset's currency
     fx_rate: Decimal = ONE  # asset currency -> base currency, fixed at transaction date

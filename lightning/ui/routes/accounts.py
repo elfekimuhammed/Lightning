@@ -11,7 +11,7 @@ from ..web import container, redirect, render
 
 router = APIRouter(prefix="/accounts")
 
-FIELDS = ("name", "account_type", "code", "last4", "notes")
+FIELDS = ("name", "account_type", "last4", "notes")
 
 
 def _form_context(request: Request, values: dict, account=None, error: LightningError | None = None):
@@ -57,7 +57,7 @@ async def create_account(request: Request):
         # transaction on its real date, including history predating account setup.
         account = c.account_flows.open_account(
             name=values["name"], account_type=values["account_type"],
-            opening_date="1900-01-01", opening_balance="0", code=values["code"],
+            opening_date="1900-01-01", opening_balance="0",
             last4=values["last4"], notes=values["notes"],
         )
     except LightningError as exc:
@@ -106,7 +106,7 @@ async def edit_account(request: Request, account_id: int):
     values = {
         "name": a.name, "account_type": a.account_type.value,
         "opening_date": a.opening_date, "opening_balance": str(c.account_flows.opening_of(a)),
-        "code": a.code, "last4": a.last4 or "",
+        "last4": a.last4 or "",
         "notes": a.notes,
     }
     return render(request, "accounts/form.html", **_form_context(request, values, account=a))
@@ -122,7 +122,7 @@ async def update_account(request: Request, account_id: int):
         account = c.account_flows.update_account(
             account_id, name=values["name"], account_type=values["account_type"],
             opening_date=account.opening_date, opening_balance=str(c.account_flows.opening_of(account)),
-            institution=account.institution, code=values["code"], last4=values["last4"], notes=values["notes"],
+            institution=account.institution, last4=values["last4"], notes=values["notes"],
         )
     except LightningError as exc:
         return render(request, "accounts/form.html", status_code=400,
