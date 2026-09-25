@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from datetime import timedelta
 
 from lightning.categories.domain import Category, Movement, Scope
 from lightning.categories.service import CategoryService
@@ -26,19 +27,19 @@ class BudgetService:
         self.reporting = reporting
 
     # ------------------------------------------------------------------ reading
-    def amounts_for(self, month: str) -> dict[int, tuple[Decimal | None, bool]]:
-        """Direct amount per category for a month: (amount or None, is it a this-month-only override)."""
+    def amounts_for(self, month: str) -> dict[int, tuple[Decimal | None, bool, int | None]]:
+        """Configured amount, one-off flag, and optional rolling-average period by category."""
         parse_month(month)
-        repeating: dict[int, Decimal | None] = {}
-        one_off: dict[int, Decimal | None] = {}
+        repeating: dict[int, tuple[Decimal | None, int | None]] = {}
+        one_off: dict[int, tuple[Decimal | None, int | None]] = {}
         for e in self.repo.entries_up_to(month):  # ordered by category, month
             if e.one_off:
-                one_off[e.category_id] = e.amount
+                one_off[e.category_id] = (e.amount, e.average_months)
             else:
-                repeating[e.category_id] = e.amount  # later months overwrite earlier ones
-        result = {cid: (amount, False) for cid, amount in repeating.items()}
-        result.update({cid: (amount, True) for cid, amount in one_off.items()})
-        return {cid: v for cid, v in result.items() if v[0] is not None}
+                repeating[e.category_id] = (e.amount, e.average_months)
+        result = {cid: (amount, False, period) for cid, (amount, period) in repeating.items()}
+        result.update({cid: (amount, True, period) for cid, (amount, period) in one_off.items()})
+        return {cid: v for cid, v in result.items() if v[0] is not None or v[2] is not None}
 
     def month_view(self, month: str) -> BudgetMonth:
         first, last = parse_month(month)
@@ -53,11 +54,15 @@ class BudgetService:
 
         actual: dict[int, Decimal] = {}
         budget: dict[int, Decimal | None] = {}
+        average_cache: dict[tuple[int, int], Decimal] = {}
         for c in reversed(cats):  # children before parents
             kids = children.get(c.id, [])
             actual[c.id] = spent.get(c.id, ZERO) + sum((actual[k] for k in kids), ZERO)
             if c.id in direct:
-                budget[c.id] = direct[c.id][0]
+                amount, _, period = direct[c.id]
+                if period:
+                    amount = self._rolling_average(c.id, month, period, children, average_cache)
+                budget[c.id] = amount
             else:
                 kid_budgets = [budget[k] for k in kids if budget[k] is not None]
                 budget[c.id] = sum(kid_budgets, ZERO) if kid_budgets else None
@@ -82,10 +87,10 @@ class BudgetService:
                 shows = False
             if not shows:
                 continue
-            amount, one_off = direct.get(c.id, (None, False))
+            amount, one_off, average_months = direct.get(c.id, (None, False, None))
             section.lines.append(BudgetLine(
                 category_id=c.id, code=c.code, name=c.name, depth=c.depth, direct=amount, one_off=one_off,
-                budget=budget[c.id], actual=actual[c.id], covered=covered,
+                average_months=average_months, budget=budget[c.id], actual=actual[c.id], covered=covered,
             ))
             kids_total = sum((budget[k] for k in children.get(c.id, []) if budget[k] is not None), ZERO)
             if amount is not None and kids_total > amount:
@@ -95,45 +100,81 @@ class BudgetService:
         return BudgetMonth(month, [s for s in sections.values() if s.lines], income, warnings)
 
     # ------------------------------------------------------------------ writing
-    def set_budget(self, category_id: int, month: str, amount: object, only_this_month: bool = False) -> bool:
-        """Set (or clear, with '') a budget. Returns True if anything changed."""
-        return self.save_month(month, {category_id: amount}, only_this_month) > 0
+    def set_budget(self, category_id: int, month: str, amount: object, only_this_month: bool = False,
+                   average_months: int | None = None) -> bool:
+        return self.save_month(month, {category_id: amount}, only_this_month,
+                               {category_id: average_months} if average_months else None) > 0
 
-    def save_month(self, month: str, amounts: dict[int, object], only_this_month: bool = False) -> int:
+    def save_month(self, month: str, amounts: dict[int, object], only_this_month: bool = False,
+                   average_months: dict[int, object] | None = None) -> int:
         """Save several budget cells at once (the budget page). Returns how many changed."""
         parse_month(month)
         current = self.amounts_for(month)
+        average_months = average_months or {}
         changed = 0
         with self.db.transaction():
             for category_id, raw in amounts.items():
                 category = self._budgetable(category_id)
-                value = self._parse(raw, category)
-                if current.get(category_id, (None, False))[0] == value:
+                period = self._average_period(average_months.get(category_id))
+                value = None if period else self._parse(raw, category)
+                old = current.get(category_id, (None, False, None))
+                if old[0] == value and old[2] == period:
                     continue
                 before = self._repeating_before(category_id, month)
+                desired = (value, period)
                 if only_this_month:
-                    if value == self._repeating_through(category_id, month):
+                    if desired == self._repeating_through(category_id, month):
                         self.repo.delete(category_id, month, one_off=True)
                     else:
-                        self.repo.upsert(category_id, month, True, value)
+                        self.repo.upsert(category_id, month, True, value, period)
                 else:
                     self.repo.delete(category_id, month, one_off=True)
-                    if value == before:
+                    if desired == before:
                         self.repo.delete(category_id, month, one_off=False)  # same as before: nothing to store
                     else:
-                        self.repo.upsert(category_id, month, False, value)
+                        self.repo.upsert(category_id, month, False, value, period)
                 changed += 1
         return changed
 
     # ------------------------------------------------------------------ helpers
-    def _repeating_before(self, category_id: int, month: str) -> Decimal | None:
+    def _repeating_before(self, category_id: int, month: str) -> tuple[Decimal | None, int | None]:
         rows = [e for e in self.repo.entries_up_to(month) if e.category_id == category_id and not e.one_off
                 and e.month < month]
-        return rows[-1].amount if rows else None
+        return (rows[-1].amount, rows[-1].average_months) if rows else (None, None)
 
-    def _repeating_through(self, category_id: int, month: str) -> Decimal | None:
+    def _repeating_through(self, category_id: int, month: str) -> tuple[Decimal | None, int | None]:
         rows = [e for e in self.repo.entries_up_to(month) if e.category_id == category_id and not e.one_off]
-        return rows[-1].amount if rows else None
+        return (rows[-1].amount, rows[-1].average_months) if rows else (None, None)
+
+    def _rolling_average(self, category_id: int, month: str, months: int,
+                         children: dict[int, list[int]], cache: dict[tuple[int, int], Decimal]) -> Decimal:
+        key = (category_id, months)
+        if key in cache:
+            return cache[key]
+        total = ZERO
+        cursor = parse_month(month)[0]
+        descendants = {category_id}
+        pending = [category_id]
+        while pending:
+            child_ids = children.get(pending.pop(), [])
+            descendants.update(child_ids)
+            pending.extend(child_ids)
+        for _ in range(months):
+            start, end = parse_month((cursor - timedelta(days=1)).strftime("%Y-%m"))
+            actual = self.reporting.money_out_by_category(start, end)
+            total += sum((actual.get(cid, ZERO) for cid in descendants), ZERO)
+            cursor = start
+        cache[key] = (total / months).quantize(Decimal("0.01"))
+        return cache[key]
+
+    @staticmethod
+    def _average_period(raw: object) -> int | None:
+        value = str(raw or "").strip()
+        if value in ("", "manual"):
+            return None
+        if value not in ("3", "6"):
+            raise ValidationError("Choose a 3-month or 6-month average, or enter a manual budget.", "budget")
+        return int(value)
 
     def _budgetable(self, category_id: int) -> Category:
         category = self.categories.get(category_id)

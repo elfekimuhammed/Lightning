@@ -57,6 +57,16 @@ class InvestmentService:
         """Buy units: cash leaves the paying account, the holding grows at cost (fees included)."""
         return self._trade(DocType.BUY, date, account_id, asset_id, quantity, price, fees, cash_account_id, notes)
 
+    def buy_total(self, date, account_id, asset_id, quantity, total, cash_account_id=None, notes=""):
+        """Buy units for a single all-in total; per-unit cost is derived from total / units."""
+        return self._trade(DocType.BUY, date, account_id, asset_id, quantity, None, "0", cash_account_id, notes,
+                           total=total)
+
+    def sell_total(self, date, account_id, asset_id, quantity, total, cash_account_id=None, notes=""):
+        """Sell units for a single net cash total after fees; per-unit proceeds are derived."""
+        return self._trade(DocType.SEL, date, account_id, asset_id, quantity, None, "0", cash_account_id, notes,
+                           total=total)
+
     def sell(self, date: str, account_id: int, asset_id: int, quantity, price, fees="0",
              cash_account_id: int | None = None, notes: str = "") -> Transaction:
         """Sell units: the holding shrinks, what you receive (after fees) arrives as cash."""
@@ -87,7 +97,7 @@ class InvestmentService:
         if kind in (DocType.BUY, DocType.SEL):
             lines, counterparty = self._trade_lines(kind, values["account_id"], values["asset_id"], values["quantity"],
                                                     values["price"], values.get("fees", "0"),
-                                                    values.get("cash_account_id"))
+                                                    values.get("cash_account_id"), total=values.get("total"))
             return self.transactions.repost(txn_id, date, lines, "", counterparty, notes)
         if kind == DocType.DIV:
             lines, counterparty = self._dividend_lines(values["account_id"], values["asset_id"], values["amount"])
@@ -115,7 +125,7 @@ class InvestmentService:
             gross = _money(abs(u.quantity) * u.unit_price)
             fees = abs(u.amount) - gross if t.type == DocType.BUY else gross - abs(u.amount)
             values.update(account_id=u.account_id, asset_id=u.asset_id, quantity=abs(u.quantity),
-                          price=u.unit_price, fees=_money(fees), cash_account_id=c.account_id)
+                          price=u.unit_price, fees=_money(fees), total=abs(c.quantity), cash_account_id=c.account_id)
         elif t.type == DocType.DIV and cash:
             asset = self.assets.get_asset_by_code(cash[0].memo)
             values.update(account_id=cash[0].account_id, asset_id=asset.id, amount=cash[0].quantity)
@@ -189,31 +199,40 @@ class InvestmentService:
     # ======================================================================
     # Building lines
     # ======================================================================
-    def _trade(self, kind, date, account_id, asset_id, quantity, price, fees, cash_account_id, notes):
-        lines, counterparty = self._trade_lines(kind, account_id, asset_id, quantity, price, fees, cash_account_id)
+    def _trade(self, kind, date, account_id, asset_id, quantity, price, fees, cash_account_id, notes, total=None):
+        lines, counterparty = self._trade_lines(kind, account_id, asset_id, quantity, price, fees, cash_account_id, total)
         return self.transactions.post(kind, date, lines, "", counterparty, notes)
 
-    def _trade_lines(self, kind, account_id, asset_id, quantity, price, fees, cash_account_id):
+    def _trade_lines(self, kind, account_id, asset_id, quantity, price, fees, cash_account_id, total=None):
         account = self._holding_account(account_id)
         asset = self._investment(asset_id)
         cash_account = self._cash_account(account, cash_account_id)
         units = self._units(asset, quantity)
-        unit_price = check_places(to_decimal(price, "price"), 6, "price")
-        if unit_price <= ZERO:
-            raise ValidationError("Enter the price per unit.", "price")
-        fee = check_places(to_decimal(fees if str(fees or "").strip() else "0", "fees"), 2, "fees")
-        if fee < ZERO:
-            raise ValidationError("Fees cannot be negative.", "fees")
-        gross = _money(units * unit_price)
+        if total is not None:
+            gross = check_places(to_decimal(total, "total"), 2, "total")
+            if gross <= ZERO:
+                raise ValidationError("Enter the total amount.", "total")
+            unit_price = (gross / units).quantize(Decimal("0.000001"), rounding=ROUND_HALF_UP)
+            fee = ZERO
+        else:
+            unit_price = check_places(to_decimal(price, "price"), 6, "price")
+            if unit_price <= ZERO:
+                raise ValidationError("Enter the price per unit.", "price")
+            fee = check_places(to_decimal(fees if str(fees or "").strip() else "0", "fees"), 2, "fees")
+            if fee < ZERO:
+                raise ValidationError("Fees cannot be negative.", "fees")
+            gross = _money(units * unit_price)
         cash_asset = self.assets.cash_asset(cash_account.currency)
         fee_text = f" + fee {fmt(fee)}" if kind == DocType.BUY and fee else (f" − fee {fmt(fee)}" if fee else "")
         memo = (f"{'Buy' if kind == DocType.BUY else 'Sell'} {_num(units)} × {asset.code} @ {_num(unit_price)}"
-                f"{fee_text}")
+                f"{fee_text}" if total is None else
+                f"{'Buy' if kind == DocType.BUY else 'Sell'} {_num(units)} × {asset.code} @ {_num(unit_price)}"
+                f" · {'total incl. fees' if kind == DocType.BUY else 'net total'} {fmt(gross)}")
         if kind == DocType.BUY:
-            cost = gross + fee
+            cost = gross if total is not None else gross + fee
             return [PostingLine.cash(cash_account.id, cash_asset.id, -cost, Effect.INTERNAL, memo=memo),
                     PostingLine.units(account.id, asset.id, units, cost, Effect.INTERNAL, unit_price, memo)], asset.name
-        proceeds = gross - fee
+        proceeds = gross if total is not None else gross - fee
         if proceeds <= ZERO:
             raise ValidationError("After fees nothing would be received — check the price and fees.", "fees")
         return [PostingLine.units(account.id, asset.id, -units, -proceeds, Effect.INTERNAL, unit_price, memo),

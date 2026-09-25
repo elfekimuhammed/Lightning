@@ -7,6 +7,7 @@ from lightning.core.errors import LightningError, NotFoundError
 from lightning.core.refs import DocType
 
 from ..web import container, redirect, render
+from ...assets.catalog import instruments
 
 router = APIRouter(prefix="/investments")
 
@@ -16,7 +17,7 @@ KINDS = {
     "dividend": ("Dividend", "Cash paid to you by an investment you hold."),
     "holding": ("Add a holding you already own", "Units you had when you started tracking, and what you paid in total."),
 }
-FIELDS = ("date", "account_id", "asset_id", "quantity", "price", "fees", "cash_account_id", "amount", "total_cost",
+FIELDS = ("date", "account_id", "asset_id", "quantity", "price", "fees", "cash_account_id", "amount", "total_cost", "total",
           "notes")
 
 
@@ -49,12 +50,12 @@ def _save(request: Request, kind: str, v: dict, txn_id: int | None = None):
     account, asset, cash = _int(v["account_id"]), _int(v["asset_id"]), _int(v["cash_account_id"])
     if txn_id:
         return inv.update(txn_id, date=v["date"], account_id=account, asset_id=asset, quantity=v["quantity"],
-                          price=v["price"], fees=v["fees"], cash_account_id=cash, amount=v["amount"],
+                          price=v["price"], fees=v["fees"], total=v["total"], cash_account_id=cash, amount=v["amount"],
                           total_cost=v["total_cost"], notes=v["notes"])
     if kind == "buy":
-        return inv.buy(v["date"], account, asset, v["quantity"], v["price"], v["fees"], cash, v["notes"])
+        return inv.buy_total(v["date"], account, asset, v["quantity"], v["total"], cash, v["notes"])
     if kind == "sell":
-        return inv.sell(v["date"], account, asset, v["quantity"], v["price"], v["fees"], cash, v["notes"])
+        return inv.sell_total(v["date"], account, asset, v["quantity"], v["total"], cash, v["notes"])
     if kind == "dividend":
         return inv.dividend(v["date"], account, asset, v["amount"], v["notes"])
     return inv.add_holding(account, asset, v["quantity"], v["total_cost"], v["date"] or None, v["notes"])
@@ -116,12 +117,14 @@ def _asset_form(request: Request, values: dict, asset=None, error: LightningErro
     c = container(request)
     return render(request, "investments/asset_form.html", status_code=status, values=values, asset=asset,
                   classes=c.assets.investment_classes(), error=error.message if error else "",
-                  error_field=(error.field or "") if error else "")
+                  error_field=(error.field or "") if error else "",
+                  catalogue=instruments() if asset is None else [])
 
 
 @router.get("/assets/new")
 async def new_asset(request: Request):
-    return _asset_form(request, {"class_code": request.query_params.get("class", "STOCK"), "karat": "21"})
+    return _asset_form(request, {"class_code": request.query_params.get("class", "STOCK"), "karat": "21",
+                                 "name": "", "symbol": "", "isin": "", "notes": ""})
 
 
 @router.post("/assets/new")

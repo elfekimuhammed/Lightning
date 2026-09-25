@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% from "partials/macros.html" import field, date_field %}
 {% block title %}{{ 'Edit account' if account else 'New account' }}{% endblock %}
-{% block heading %}<h1>{{ 'Edit ' ~ account.label if account else 'Add an account' }}</h1>
+{% block heading %}<h1>{{ 'Edit ' ~ account.name if account else 'Add an account' }}</h1>
 <div class="muted">An account is a place where money is held.</div>{% endblock %}
 {% block content %}
 <form method="post" class="card" style="max-width:760px">

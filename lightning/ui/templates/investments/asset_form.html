@@ -5,7 +5,16 @@
 <div class="muted">Something you can own units of: a stock, a fund, gold.</div>{% endblock %}
 {% block content %}
 <form method="post" class="card" style="max-width:640px" autocomplete="off">
-  {{ field('name', 'Name', values, error_field, placeholder='e.g. Commercial International Bank', attrs='required autofocus') }}
+  {% if not asset %}
+  <section class="field instrument-picker" aria-label="Find a stock or fund">
+    <label for="instrument-search">Find a stock or fund</label>
+    <input id="instrument-search" type="search" placeholder="Type a company, fund, or ticker (e.g. CIB or COMI)" autocomplete="off" aria-controls="instrument-results" aria-expanded="false" autofocus>
+    <div id="instrument-results" class="instrument-results" role="listbox" hidden></div>
+    <div id="instrument-selection" class="help" aria-live="polite">Search the local EGX and Thndr fund list, or enter details below.</div>
+  </section>
+  <script id="instrument-catalogue" type="application/json">{{ catalogue | tojson }}</script>
+  {% endif %}
+  {{ field('name', 'Name', values, error_field, placeholder='e.g. Commercial International Bank', attrs='required') }}
   <div class="row">
     <div class="field {{ 'has-error' if error_field == 'class_code' }}">
       <label for="class_code">Kind</label>
@@ -35,6 +44,6 @@
     <button class="btn primary">Save</button>
     <a class="btn" href="/investments">Cancel</a>
   </div>
-  {% if not asset %}<p class="muted small">The code is made from the kind and symbol, e.g. STK:COMI, FND:AZ-GOLD, GLD:21K. Shares are whole numbers, fund units allow 4 decimals, gold is in grams (3 decimals).</p>{% endif %}
+  {% if not asset %}<p class="muted small">Picking a result fills in its name, ticker, and type. You can still edit those details.</p>{% endif %}
 </form>
 {% endblock %}

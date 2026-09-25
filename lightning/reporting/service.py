@@ -354,7 +354,7 @@ class ReportingService:
             name = SIDEBAR_GROUPS[account.account_type]
             group = groups.setdefault(name, Group(name, name, ZERO))
             group.value += value
-            group.children.append(Group(account.code, account.label, value, id=account.id))
+            group.children.append(Group(account.code, account.name, value, id=account.id))
         order = list(dict.fromkeys(SIDEBAR_GROUPS.values()))
         return nw.total, sorted(groups.values(), key=lambda g: order.index(g.code))
 

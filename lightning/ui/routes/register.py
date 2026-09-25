@@ -33,7 +33,7 @@ def _lists(request: Request) -> dict:
     categories = []
     for movement, hint in ((Movement.OUTFLOW, "money out"), (Movement.INFLOW, "money in")):
         for cat in c.categories.pickable(movement):
-            categories.append((c.categories.display_name(cat.id), hint))
+            categories.append(c.categories.display_name(cat.id))
     accounts = c.accounts.list(active_only=True)
     payees = c.transactions.payee_suggestions()
     return {

@@ -26,6 +26,7 @@ class BudgetEntry:
     month: str  # yyyy-mm
     one_off: bool
     amount: Decimal | None  # None = no budget
+    average_months: int | None = None  # rolling average from prior complete months
 
 
 @dataclass
@@ -36,6 +37,7 @@ class BudgetLine:
     depth: int  # 1 = group (Personal), 2 = category (Food), 3 = sub-category
     direct: Decimal | None  # amount set on this line for the month (None = not set)
     one_off: bool  # the direct amount is a this-month-only override
+    average_months: int | None  # None = manual; 3/6 = auto budget from past spending
     budget: Decimal | None  # effective: direct, else sum of children's budgets, else None
     actual: Decimal  # money out, this line and everything under it
     covered: bool  # an ancestor has a budget, so this spending is inside a budget

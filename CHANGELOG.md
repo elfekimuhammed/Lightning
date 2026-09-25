@@ -4,9 +4,21 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 **How to log a change**
 
-- Add it under `## [Unreleased]
+- Add it under `## [Unreleased]`.
 
-_Nothing yet._
+### Added
+- Best-effort investment quote refresh runs when Lightning starts, saving supported Yahoo Finance quotes to
+  price history so portfolio values and unrealized gains recalculate from the newest quote. Stocks and funds
+  use their ticker with Yahoo's CA suffix; unsupported symbols keep their prior saved valuation.
+- Budget planning can use a rolling average of the previous 3 or 6 complete months of spending for a category
+  or group. The method repeats until changed; this-month-only overrides still work. Existing manual budgets remain.
+- Database migration `0007_budget_averages.sql` stores the selected calculation method.
+
+### Changed
+- Investment-account names now appear in the left sidebar without internal account codes.
+- Account codes no longer appear beneath account names in the sidebar or account register heading, or beside
+  account names in the account list and account edit heading. Account names are sufficient in these views.
+- Roadmap places searchable Egyptian investment catalogue before daily wealth history and return breakdowns.
 
 ---
 

@@ -24,7 +24,7 @@
       <label for="asset_id">Investment</label>
       <select id="asset_id" name="asset_id" required>
         <option value="">Choose…</option>
-        {% for a in assets %}<option value="{{ a.id }}" {{ 'selected' if values.asset_id == a.id|string }}>{{ a.name }} · {{ a.code }}</option>{% endfor %}
+        {% for a in assets %}<option value="{{ a.id }}" {{ 'selected' if values.asset_id == a.id|string }}>{{ a.name }}</option>{% endfor %}
       </select>
       <div class="help"><a href="/investments/assets/new?then={{ kind }}">+ New investment</a></div>
     </div>
@@ -33,11 +33,11 @@
   {% if kind in ('buy', 'sell') %}
   <div class="row">
     {{ date_field(values, error_field) }}
-    {{ field('quantity', 'Units', values, error_field, placeholder='e.g. 100 shares, 12.5 grams', attrs='inputmode="decimal" required') }}
+    {{ field('quantity', 'Units', values, error_field, placeholder='e.g. 100 shares, 12.5 grams', attrs='inputmode="decimal" required class="quantity-input"') }}
   </div>
   <div class="row">
-    {{ field('price', 'Price per unit (' ~ base ~ ')', values, error_field, placeholder='e.g. 95.50', attrs='inputmode="decimal" required') }}
-    {{ field('fees', 'Fees & commission', values, error_field, help=('Added to what the units cost.' if kind == 'buy' else 'Taken from what you receive.'), placeholder='0.00', attrs='inputmode="decimal"') }}
+    {{ field('total', 'Total paid, fees included (' ~ base ~ ')' if kind == 'buy' else 'Total received, after fees (' ~ base ~ ')', values, error_field, help=('Enter the full amount that left your cash account.' if kind == 'buy' else 'Enter the full amount that arrived in your cash account.'), placeholder='e.g. 10,000', attrs='inputmode="decimal" required class="money-input trade-total"') }}
+    <div class="field"><label>Price per unit ({{ base }})</label><input type="text" class="num unit-price-preview" readonly placeholder="Calculated from total ÷ units"><div class="help">Calculated automatically; fees are included in the total.</div></div>
   </div>
   <div class="field {{ 'has-error' if error_field == 'cash_account' }}">
     <label for="cash_account_id">{{ 'Paid from' if kind == 'buy' else 'Money goes to' }}</label>

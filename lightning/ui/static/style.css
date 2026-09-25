@@ -98,6 +98,11 @@ tr.total td { font-weight: 650; border-top: 2px solid var(--border); }
 /* forms */
 form.stack label, .field label { display: block; font-weight: 550; font-size: 13.5px; margin-bottom: 4px; }
 .field { margin-bottom: 14px; }
+.instrument-results { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); margin-top: 5px; max-height: 300px; overflow-y: auto; box-shadow: var(--shadow); }
+.instrument-result { display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%; padding: 10px 12px; border: 0; border-bottom: 1px solid var(--border); background: transparent; color: inherit; text-align: left; cursor: pointer; }
+.instrument-result:last-child { border-bottom: 0; }
+.instrument-result:hover, .instrument-result:focus-visible { background: var(--hover, #f1f5ff); outline: none; }
+.instrument-result small { color: var(--muted); white-space: nowrap; }
 .field .help { color: var(--muted); font-size: 12.5px; margin-top: 3px; }
 input[type=text], input[type=search], select, textarea {
   width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px;

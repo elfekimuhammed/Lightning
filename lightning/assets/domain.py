@@ -92,6 +92,7 @@ INVESTMENT_KINDS: dict[str, InvestmentKind] = {
     "STOCK": InvestmentKind("STK", "share", 0, Exposure.EQUITY, Liquidity.DAYS),
     "FUND.EQUITY": InvestmentKind("FND", "unit", 4, Exposure.EQUITY, Liquidity.DAYS),
     "FUND.MONEY_MARKET": InvestmentKind("FND", "unit", 4, Exposure.FIXED_INCOME, Liquidity.DAYS),
+    "FUND.FIXED_INCOME": InvestmentKind("FND", "unit", 4, Exposure.FIXED_INCOME, Liquidity.DAYS),
     "FUND.GOLD": InvestmentKind("FND", "unit", 4, Exposure.GOLD, Liquidity.DAYS),
     "FUND.OTHER": InvestmentKind("FND", "unit", 4, Exposure.OTHER, Liquidity.DAYS),
     "GOLD": InvestmentKind("GLD", "gram", 3, Exposure.GOLD, Liquidity.DAYS),

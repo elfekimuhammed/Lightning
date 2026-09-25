@@ -44,12 +44,16 @@ async def save_budget(request: Request):
     c = container(request)
     month = _month(request)
     form = await request.form()
-    amounts = {int(key[2:]): str(value) for key, value in form.items() if key.startswith("b_") and key[2:].isdigit()}
+    ids = {int(key[2:]) for key in form if key.startswith(("b_", "m_")) and key[2:].isdigit()}
+    amounts = {category_id: str(form.get(f"b_{category_id}", "")) for category_id in ids}
+    averages = {int(key[2:]): str(value) for key, value in form.items()
+                if key.startswith("m_") and key[2:].isdigit()}
     only = bool(form.get("only_this_month"))
     try:
-        changed = c.budgets.save_month(month, amounts, only_this_month=only)
+        changed = c.budgets.save_month(month, amounts, only_this_month=only, average_months=averages)
     except LightningError as exc:
-        return _page(request, month, values={f"b_{k}": v for k, v in amounts.items()}, error=exc.message,
+        values = {f"b_{k}": v for k, v in amounts.items()} | {f"m_{k}": v for k, v in averages.items()}
+        return _page(request, month, values=values, error=exc.message,
                      status_code=400)
     if not changed:
         return redirect(f"/budget?month={month}", "Nothing changed.")

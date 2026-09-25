@@ -28,6 +28,14 @@ def main(argv: list[str] | None = None) -> None:
     args = parser.parse_args(argv)
 
     container = build(args.db, backup_on_start=True)
+    from lightning.assets.market_data import refresh_market_prices
+
+    try:
+        updated = refresh_market_prices(container)
+        if updated:
+            print(f"Updated {updated} investment price{'s' if updated != 1 else ''}.")
+    except Exception:
+        print("Investment price refresh skipped; existing saved prices remain in use.", file=sys.stderr)
     app = create_app(container)
     url = f"http://127.0.0.1:{args.port}"
     print(f"Lightning is running at {url}  (data: {container.db.path})  — press Ctrl+C to stop.")

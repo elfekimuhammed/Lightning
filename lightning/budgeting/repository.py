@@ -24,18 +24,20 @@ class BudgetRepository:
         )
         return [
             BudgetEntry(r["id"], r["category_id"], r["month"], bool(r["one_off"]),
-                        None if r["amount_e6"] is None else from_e6(r["amount_e6"]))
+                        None if r["amount_e6"] is None else from_e6(r["amount_e6"]), r["average_months"])
             for r in rows
         ]
 
-    def upsert(self, category_id: int, month: str, one_off: bool, amount: Decimal | None) -> None:
+    def upsert(self, category_id: int, month: str, one_off: bool, amount: Decimal | None,
+               average_months: int | None = None) -> None:
         now = now_iso()
         self.db.execute(
-            "INSERT INTO budgets(category_id, month, one_off, amount_e6, created_at, updated_at)"
-            " VALUES (?,?,?,?,?,?)"
+            "INSERT INTO budgets(category_id, month, one_off, amount_e6, average_months, created_at, updated_at)"
+            " VALUES (?,?,?,?,?,?,?)"
             " ON CONFLICT(category_id, month, one_off) DO UPDATE SET amount_e6 = excluded.amount_e6,"
+            " average_months = excluded.average_months,"
             " updated_at = excluded.updated_at",
-            (category_id, month, int(one_off), None if amount is None else to_e6(amount), now, now),
+            (category_id, month, int(one_off), None if amount is None else to_e6(amount), average_months, now, now),
         )
 
     def delete(self, category_id: int, month: str, one_off: bool) -> None:

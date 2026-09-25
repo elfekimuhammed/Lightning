@@ -9,7 +9,7 @@
     <tbody>
     {% for acc, balance, count in rows %}
       <tr class="{{ 'void' if not acc.active }}">
-        <td><a href="/accounts/{{ acc.id }}">{{ acc.label }}</a>{% if not acc.active %} <span class="pill">inactive</span>{% endif %}</td>
+        <td><a href="/accounts/{{ acc.id }}">{{ acc.name }}</a>{% if not acc.active %} <span class="pill">inactive</span>{% endif %}</td>
         <td class="small">{{ acc.type_label }}</td>
         <td class="small">{{ acc.institution }}</td>
         <td class="num small">{{ count }}</td>

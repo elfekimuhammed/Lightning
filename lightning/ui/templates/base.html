@@ -24,9 +24,8 @@
       {% for g in sidebar_groups %}
         <div class="side-row side-group"><span>{{ g.label }}</span><span class="num">{{ g.value|money }}</span></div>
         {% for a in g.children %}
-        {% set name = a.label.split(' · ', 1) %}
         <a class="side-row side-account {{ 'active' if path == '/accounts/' ~ a.id or path.startswith('/accounts/' ~ a.id ~ '/') }}" href="/accounts/{{ a.id }}" title="{{ a.label }}">
-          <span class="side-name">{{ name[1] if name|length > 1 else a.label }}<small>{{ name[0] }}</small></span>
+          <span class="side-name">{{ a.label }}</span>
           <span class="num {{ 'neg' if a.value < 0 }}">{{ a.value|money }}</span></a>
         {% endfor %}
       {% endfor %}
