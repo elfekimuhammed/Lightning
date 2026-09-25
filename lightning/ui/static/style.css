@@ -103,6 +103,29 @@ form.stack label, .field label { display: block; font-weight: 550; font-size: 13
 .instrument-result:last-child { border-bottom: 0; }
 .instrument-result:hover, .instrument-result:focus-visible { background: var(--hover, #f1f5ff); outline: none; }
 .instrument-result small { color: var(--muted); white-space: nowrap; }
+.investment-entry-card { margin-bottom: 16px; }
+.investment-entry-heading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; margin-bottom: 12px; }
+.investment-entry-grid { display: grid; grid-template-columns: 118px minmax(180px, 2fr) minmax(110px, 1fr) minmax(150px, 1.2fr) minmax(140px, 1.1fr) auto; gap: 8px; align-items: end; }
+.investment-entry-grid .field { margin: 0; min-width: 0; }
+.investment-entry-grid input { width: 100%; min-width: 0; }
+.investment-entry-submit { min-height: 40px; }
+.investment-entry-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px; }
+.investment-entry-foot input { width: min(240px, 35%); }
+.investment-cash-source { margin: 10px 0 0; max-width: 360px; }
+.investment-entry-submit:disabled { opacity: .55; cursor: not-allowed; }
+@media (max-width: 1100px) {
+  .investment-entry-grid { grid-template-columns: minmax(180px, 2fr) minmax(110px, 1fr) minmax(145px, 1.2fr) minmax(135px, 1fr); }
+  .investment-entry-grid .field:first-child { grid-column: 1; }
+  .investment-entry-submit { grid-column: 4; justify-self: end; min-width: 90px; }
+}
+@media (max-width: 700px) {
+  .investment-entry-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .investment-entry-grid .instrument-picker { grid-column: 1 / -1; }
+  .investment-entry-submit { grid-column: 2; }
+  .investment-entry-foot { align-items: stretch; flex-direction: column; }
+  .investment-entry-foot input { width: 100%; }
+}
+
 .field .help { color: var(--muted); font-size: 12.5px; margin-top: 3px; }
 input[type=text], input[type=search], select, textarea {
   width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px;

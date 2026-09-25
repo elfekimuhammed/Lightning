@@ -36,11 +36,6 @@
 {% endblock %}
 
 {% block top_actions %}
-{% if can_invest %}
-<a class="btn small" href="/investments/new?kind=buy&account={{ account.id }}">Buy</a>
-<a class="btn small" href="/investments/new?kind=sell&account={{ account.id }}">Sell</a>
-<a class="btn small" href="/investments/new?kind=dividend&account={{ account.id }}">Dividend</a>
-{% endif %}
 {% if account %}
 <a class="btn small" href="/accounts/{{ account.id }}/edit">Edit account</a>
 {% if account.active %}<form method="post" action="/accounts/{{ account.id }}/deactivate"><button class="btn small danger">Deactivate</button></form>
@@ -59,6 +54,58 @@
 <datalist id="category-options">{% for name in category_options %}<option value="{{ name }}"></option>{% endfor %}</datalist>
 <form id="f-new" method="post" action="{{ post_url }}" autocomplete="off"></form>
 {% if edit_id is not none %}<form id="f-edit" method="post" action="{{ post_url }}/{{ edit_id }}" autocomplete="off"></form>{% endif %}
+
+{% if can_invest and account.active %}
+<div class="card investment-entry-card">
+  <div class="investment-entry-heading">
+    <b>Investment transaction</b>
+    <span class="muted small">positive units = buy · negative units = sell · leave units blank for a dividend</span>
+  </div>
+  <form method="post" action="/accounts/{{ account.id }}/investment-entry" class="investment-entry-form" autocomplete="off">
+    <input type="hidden" name="instrument_key" value="{{ investment_entry.get('instrument_key', '') }}">
+    <input type="hidden" name="instrument_label" value="{{ investment_entry.get('instrument_label', '') }}">
+    <input type="hidden" name="price_basis" value="{{ investment_entry.get('price_basis', 'total') }}">
+    <div class="investment-entry-grid">
+      <div class="field {{ 'has-error' if investment_error_field == 'date' }}">
+        <label for="investment-date">Date</label>
+        <input id="investment-date" type="text" name="date" value="{{ investment_entry.get('date', '') }}" placeholder="yyyy-mm-dd" pattern="\d{4}-\d{2}-\d{2}" required>
+      </div>
+      <div class="field instrument-picker {{ 'has-error' if investment_error_field == 'instrument' }}">
+        <label for="trade-instrument-search">Investment</label>
+        <input id="trade-instrument-search" type="search" value="{{ investment_entry.get('instrument_label', '') }}" placeholder="Type a name or ticker" autocomplete="off" aria-controls="trade-instrument-results" aria-expanded="false" required>
+        <div id="trade-instrument-results" class="instrument-results" role="listbox" hidden></div>
+        <div id="trade-position-hint" class="help" aria-live="polite"></div>
+      </div>
+      <div class="field {{ 'has-error' if investment_error_field == 'units' }}">
+        <label for="investment-units">Units</label>
+        <input id="investment-units" type="text" name="units" value="{{ investment_entry.get('units', '') }}" placeholder="e.g. 100 or -20" inputmode="decimal" class="money-input">
+      </div>
+      <div class="field {{ 'has-error' if investment_error_field == 'total' }}">
+        <label id="investment-total-label" for="investment-total">Total paid / received</label>
+        <input id="investment-total" type="text" name="total" value="{{ investment_entry.get('total', '') }}" placeholder="Total amount" inputmode="decimal" class="money-input">
+      </div>
+      <div class="field {{ 'has-error' if investment_error_field == 'unit_price' }}">
+        <label for="investment-unit-price">Price per unit</label>
+        <input id="investment-unit-price" type="text" name="unit_price" value="{{ investment_entry.get('unit_price', '') }}" placeholder="Or enter unit price" inputmode="decimal" class="money-input">
+      </div>
+      <button class="btn primary small investment-entry-submit">Add</button>
+    </div>
+    {% if cash_accounts %}
+    <div class="investment-cash-source field">
+      <label for="investment-cash-account">Paid from / received into</label>
+      <select id="investment-cash-account" name="cash_account_id"><option value="">Choose cash account…</option>
+        {% for a in cash_accounts %}<option value="{{ a.id }}" {{ 'selected' if investment_entry.get('cash_account_id') == a.id|string }}>{{ a.name }} · {{ a.currency }}</option>{% endfor %}
+      </select>
+    </div>
+    {% endif %}
+    <div class="investment-entry-foot">
+      <span id="investment-entry-hint" class="muted small">For a buy, total includes fees; for a sell, total is what you receive after fees. Enter either total or unit price.</span>
+      <input type="text" name="notes" value="{{ investment_entry.get('notes', '') }}" placeholder="Notes (optional)">
+    </div>
+  </form>
+  <script id="trade-instrument-catalogue" type="application/json">{{ trade_choices | tojson }}</script>
+</div>
+{% endif %}
 
 {% if holdings %}
 <div class="card holdings-strip">

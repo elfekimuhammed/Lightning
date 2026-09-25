@@ -149,7 +149,7 @@ async def edit_asset(request: Request, asset_id: int):
     if asset.is_cash:
         raise NotFoundError("That is a currency, not an investment.")
     values = {"name": asset.name, "class_code": c.assets.get_class(asset.asset_class_id).code,
-              "isin": asset.isin or "", "notes": asset.notes, "active": "1" if asset.active else ""}
+              "notes": asset.notes, "active": "1" if asset.active else ""}
     return _asset_form(request, values, asset=asset)
 
 
@@ -158,9 +158,9 @@ async def update_asset(request: Request, asset_id: int):
     c = container(request)
     asset = c.assets.get_asset(asset_id)
     form = await request.form()
-    values = {k: str(form.get(k, "")) for k in ("name", "class_code", "isin", "notes", "active")}
+    values = {k: str(form.get(k, "")) for k in ("name", "class_code", "notes", "active")}
     try:
-        asset = c.assets.update_investment(asset_id, values["name"], values["class_code"], values["isin"],
+        asset = c.assets.update_investment(asset_id, values["name"], values["class_code"], asset.isin or "",
                                            values["notes"], active=bool(values["active"]))
     except LightningError as exc:
         return _asset_form(request, values, asset=asset, error=exc, status=400)

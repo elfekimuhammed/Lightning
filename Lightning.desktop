@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Lightning
+Comment=Personal wealth management
+Path=/home/x/projects/Lightning
+Exec=/home/x/projects/Lightning/run.sh
+Icon=applications-finance
+Terminal=true
+Categories=Office;Finance;
+StartupNotify=true

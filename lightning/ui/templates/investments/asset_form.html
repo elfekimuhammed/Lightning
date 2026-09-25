@@ -27,15 +27,14 @@
     {% endif %}
   </div>
   {% if not asset %}
-  <div class="field">
-    <label for="karat">Gold karat <span class="muted small">(gold only)</span></label>
+  <div id="karat-field" class="field" {% if values.class_code != 'GOLD' %}hidden{% endif %}>
+    <label for="karat">Gold karat</label>
     <select id="karat" name="karat">{% for k in ['24', '22', '21', '18'] %}<option {{ 'selected' if values.karat == k }}>{{ k }}</option>{% endfor %}</select>
   </div>
   {% endif %}
   <details>
     <summary>More options</summary>
     <div style="margin-top:10px">
-      {{ field('isin', 'ISIN', values, error_field, placeholder='optional') }}
       <div class="field"><label for="notes">Notes</label><textarea id="notes" name="notes" rows="2">{{ values.notes }}</textarea></div>
       {% if asset %}<label class="small"><input type="checkbox" name="active" value="1" {{ 'checked' if values.active }}> Show in lists</label>{% endif %}
     </div>

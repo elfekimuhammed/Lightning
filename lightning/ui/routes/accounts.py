@@ -63,6 +63,16 @@ async def account_register(request: Request, account_id: int):
     return register.page(request, account_id)
 
 
+@router.post("/{account_id:int}/investment-entry")
+async def investment_entry(request: Request, account_id: int):
+    """Add a stock/fund trade or dividend inline from this account's register."""
+    result = await register.create_investment_entry(request, account_id)
+    if not isinstance(result, tuple):
+        return result
+    txn, _ = result
+    return redirect(f"/accounts/{account_id}?date={txn.date}", f"Saved {txn.ref}.")
+
+
 @router.post("/{account_id:int}/register")
 async def register_entry(request: Request, account_id: int):
     """Save one row typed into the register, then come back ready for the next one."""

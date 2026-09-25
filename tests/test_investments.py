@@ -264,3 +264,48 @@ class TestInvestmentPages:
         from fastapi.testclient import TestClient
         from lightning.ui.web import create_app
         assert TestClient(create_app(c)).get(path).status_code == 200
+
+
+def test_inline_investment_workflow(setup, c):
+    from fastapi.testclient import TestClient
+    from lightning.ui.web import create_app
+
+    accounts, _ = setup
+    thndr = accounts["thndr"]
+    c.transactions.record_transfer("2026-09-02", accounts["cib"].id, thndr.id, "5000")
+    client = TestClient(create_app(c))
+    register = client.get(f"/accounts/{thndr.id}")
+    assert register.status_code == 200
+    assert "trade-instrument-search" in register.text
+    assert "/investment-entry" in register.text
+
+    buy = client.post(f"/accounts/{thndr.id}/investment-entry", data={
+        "date": "2026-09-10", "instrument_key": "catalog:AALR",
+        "instrument_label": "General Co. for Land Reclamation Development & Reconstruction · AALR",
+        "units": "10", "total": "1050", "unit_price": "",
+        "price_basis": "total", "cash_account_id": "", "notes": "",
+    })
+    assert buy.status_code == 303
+    asset = c.assets.get_asset_by_code("STK:AALR")
+    assert c.investments.holding(thndr.id, asset.id) == D("10")
+
+    oversell = client.post(f"/accounts/{thndr.id}/investment-entry", data={
+        "date": "2026-09-11", "instrument_key": f"asset:{asset.id}",
+        "units": "-11", "total": "1200", "price_basis": "total",
+    })
+    assert oversell.status_code == 400
+    assert c.investments.holding(thndr.id, asset.id) == D("10")
+
+    sell = client.post(f"/accounts/{thndr.id}/investment-entry", data={
+        "date": "2026-09-12", "instrument_key": f"asset:{asset.id}",
+        "units": "-4", "total": "520", "price_basis": "total",
+    })
+    assert sell.status_code == 303
+    assert c.investments.holding(thndr.id, asset.id) == D("6")
+
+    dividend = client.post(f"/accounts/{thndr.id}/investment-entry", data={
+        "date": "2026-09-13", "instrument_key": f"asset:{asset.id}",
+        "units": "", "total": "50", "price_basis": "total",
+    })
+    assert dividend.status_code == 303
+    assert c.investments.holding(thndr.id, asset.id) == D("6")

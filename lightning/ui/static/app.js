@@ -68,6 +68,113 @@ document.querySelectorAll(".trade-total").forEach((total) => {
   update();
 });
 
+// Inline brokerage activity: pick an instrument, then sign units to buy or sell.
+const tradeCatalogueNode = document.getElementById("trade-instrument-catalogue");
+if (tradeCatalogueNode) {
+  const instruments = JSON.parse(tradeCatalogueNode.textContent || "[]");
+  const form = document.querySelector(".investment-entry-form");
+  const search = document.getElementById("trade-instrument-search");
+  const selectedKey = form.querySelector('[name="instrument_key"]');
+  const selectedLabel = form.querySelector('[name="instrument_label"]');
+  const results = document.getElementById("trade-instrument-results");
+  const units = document.getElementById("investment-units");
+  const total = document.getElementById("investment-total");
+  const unitPrice = document.getElementById("investment-unit-price");
+  const basis = form.querySelector('[name="price_basis"]');
+  const amountLabel = document.getElementById("investment-total-label");
+  const positionHint = document.getElementById("trade-position-hint");
+  const entryHint = document.getElementById("investment-entry-hint");
+  const addButton = form.querySelector(".investment-entry-submit");
+  let selected = instruments.find((item) => item.key === selectedKey.value) || null;
+  const number = (input) => {
+    const value = input.value.replace(/,/g, "").trim();
+    if (!value || value === "-" || value === "+") return null;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+  const formatted = (value, decimals = 6) => value > 0
+    ? new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: decimals }).format(value)
+    : "";
+  const sync = () => {
+    const qty = number(units);
+    const cashTotal = number(total);
+    const price = number(unitPrice);
+    if (qty === null) amountLabel.textContent = "Dividend amount";
+    else amountLabel.textContent = qty < 0 ? "Total received (after fees)" : "Total paid (fees included)";
+    if (qty !== null && Math.abs(qty) > 0) {
+      if (basis.value === "unit_price" && price !== null) total.value = formatted(Math.abs(qty) * price, 2);
+      else if (cashTotal !== null) unitPrice.value = formatted(cashTotal / Math.abs(qty));
+    }
+    let exceeds = false;
+    if (selected && qty !== null && qty < 0) {
+      const owned = Number(selected.holding || 0);
+      exceeds = Math.abs(qty) > owned;
+      positionHint.textContent = exceeds
+        ? `You have ${formatted(owned, selected.decimals)} ${selected.unit}(s); you cannot sell ${formatted(Math.abs(qty), selected.decimals)}.`
+        : `You hold ${formatted(owned, selected.decimals)} ${selected.unit}(s) here.`;
+    } else if (selected) {
+      positionHint.textContent = `You hold ${formatted(Number(selected.holding || 0), selected.decimals)} ${selected.unit}(s) here.`;
+    }
+    if (qty === null) entryHint.textContent = "Leave units blank to record a dividend. Enter the dividend total received.";
+    else entryHint.textContent = qty < 0
+      ? "For a sell, enter units with a minus sign; the total is what arrived after fees."
+      : "For a buy, enter positive units; the total paid includes fees.";
+    addButton.disabled = exceeds;
+  };
+  const renderResults = () => {
+    const query = search.value.trim().toLocaleLowerCase();
+    results.replaceChildren();
+    if (!query) { results.hidden = true; search.setAttribute("aria-expanded", "false"); return; }
+    const matches = instruments.filter((item) => `${item.name} ${item.ticker} ${item.kind}`
+      .toLocaleLowerCase().includes(query)).slice(0, 12);
+    if (!matches.length) {
+      const empty = document.createElement("div");
+      empty.className = "instrument-result";
+      empty.textContent = "No match in your list. Choose a listed stock or fund.";
+      results.append(empty);
+    }
+    matches.forEach((item) => {
+      const button = document.createElement("button");
+      button.type = "button"; button.className = "instrument-result"; button.setAttribute("role", "option");
+      const name = document.createElement("span"); name.textContent = item.name;
+      const ticker = document.createElement("small"); ticker.textContent = `${item.kind} · ${item.ticker}`;
+      button.append(name, ticker);
+      button.addEventListener("click", () => {
+        selected = item; selectedKey.value = item.key;
+        selectedLabel.value = `${item.name} · ${item.ticker}`;
+        search.value = selectedLabel.value;
+        results.hidden = true; search.setAttribute("aria-expanded", "false"); sync();
+      });
+      results.append(button);
+    });
+    results.hidden = false; search.setAttribute("aria-expanded", "true");
+  };
+  search.addEventListener("input", () => {
+    selected = null; selectedKey.value = ""; selectedLabel.value = "";
+    positionHint.textContent = "Choose an instrument from the results."; renderResults(); sync();
+  });
+  search.addEventListener("focus", renderResults);
+  units.addEventListener("input", sync);
+  total.addEventListener("input", () => { basis.value = "total"; sync(); });
+  unitPrice.addEventListener("input", () => { basis.value = "unit_price"; sync(); });
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest(".instrument-picker")) {
+      results.hidden = true; search.setAttribute("aria-expanded", "false");
+    }
+  });
+  if (selected) { search.value = selectedLabel.value || `${selected.name} · ${selected.ticker}`; }
+  sync();
+}
+
+// Only physical gold uses a karat selector; funds have fund units, not gold purity.
+const investmentClass = document.getElementById("class_code");
+const karatField = document.getElementById("karat-field");
+if (investmentClass && karatField) {
+  const syncKarat = () => { karatField.hidden = investmentClass.value !== "GOLD"; };
+  investmentClass.addEventListener("change", syncKarat);
+  syncKarat();
+}
+
 // Investment picker: filter the bundled EGX stock and Thndr fund catalogue.
 const catalogueNode = document.getElementById("instrument-catalogue");
 if (catalogueNode) {
@@ -79,7 +186,6 @@ if (catalogueNode) {
   const name = form.querySelector('[name="name"]');
   const kind = form.querySelector('[name="class_code"]');
   const symbol = form.querySelector('[name="symbol"]');
-  const isin = form.querySelector('[name="isin"]');
   const render = () => {
     const query = search.value.trim().toLocaleLowerCase(); results.replaceChildren();
     if (!query) { results.hidden = true; search.setAttribute("aria-expanded", "false"); return; }
@@ -88,7 +194,7 @@ if (catalogueNode) {
     matches.forEach((item) => {
       const button=document.createElement("button"); button.type="button"; button.className="instrument-result"; button.setAttribute("role","option");
       const label=document.createElement("span"); label.textContent=item.name; const ticker=document.createElement("small"); ticker.textContent=`${item.kind} · ${item.ticker}`; button.append(label,ticker);
-      button.addEventListener("click", () => { name.value=item.name; kind.value=item.class_code; if(symbol) symbol.value=item.ticker; if(isin) isin.value=item.isin||""; search.value=`${item.name} · ${item.ticker}`; results.hidden=true; search.setAttribute("aria-expanded","false"); selection.textContent=`Selected ${item.name} (${item.ticker}). Review the details, then save.`; }); results.append(button);
+      button.addEventListener("click", () => { name.value=item.name; kind.value=item.class_code; if(symbol) symbol.value=item.ticker; search.value=`${item.name} · ${item.ticker}`; results.hidden=true; search.setAttribute("aria-expanded","false"); selection.textContent=`Selected ${item.name} (${item.ticker}). Review the details, then save.`; }); results.append(button);
     }); results.hidden=false; search.setAttribute("aria-expanded","true");
   };
   search.addEventListener("input",render); search.addEventListener("focus",render);

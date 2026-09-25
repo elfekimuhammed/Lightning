@@ -8,7 +8,9 @@ with investments, market prices, reimbursements and budgets coming milestone by 
 **Windows:** double-click `run.bat`. The first run sets everything up (needs Python 3.11+ from
 python.org, with "Add python.exe to PATH" ticked). Your browser opens at `http://127.0.0.1:8765`.
 
-**macOS / Linux:** `./run.sh`
+**Linux:** double-click the **Lightning** icon on your Desktop. If your desktop asks, right-click it and choose **Allow Launching** once. The first run sets up the app, opens it in your browser, and keeps a terminal window open while it runs.
+
+**macOS:** from the project folder, run `./run.sh`.
 
 Options: `python -m lightning --db path\to\file.db --port 9000 --no-browser`
 
