@@ -8,12 +8,12 @@ Lightning is a **modular monolith**: one Python process, one SQLite file, module
 ui/            FastAPI + Jinja2 HTML. Calls services/workflows only. No SQL, no financial math.
 bootstrap.py   Composition root: builds the database and wires services together.
 workflows/     Actions spanning modules, each in ONE database transaction
-               (open account + opening balance, rename + search refresh, deactivate if zero).
+               (open account + opening balance, start-date guard, deactivate if zero).
 reporting/     Read-only: net worth, bridge, cash flow, spending, statements. Owns no tables.
 transactions/  Records, edits, voids and finds transactions (incl. one register row); the only ledger writer.
 accounts/      Where value is held.
 assets/ · categories/   What value is (asset classes, financial assets) · why money moved.
-integrations/  Market data (M4) and imports (M7): adapters that call services.
+budgeting/     Budget amounts per category × month; budget vs actual (actuals via reporting).
 database/      sqlite3 connection, SQL migrations, seed data, backup, audit, settings.
 core/          money · dates · codes · refs · posting rules. Depends on nothing.
 ```
@@ -49,19 +49,19 @@ from M3/M4 prices and FX move it.
 - Dates `TEXT 'yyyy-mm-dd'`; timestamps ISO with offset.
 - Money and quantities `INTEGER` × 1,000,000 (`_e6`), so `SUM()` is exact. Views `v_*` show decimals.
 - Nothing calculated is stored except `amount_base` (FX fixed at the transaction date) and
-  `search_text` (rebuilt on every edit/rename).
+  nothing else — search reads the tables directly.
 - Corrections edit in place and write `audit_log`; void keeps the record and excludes it from balances.
 
 ## Indexes
 
 `ledger_entries(account_id, date)`, `(asset_id, date)`, `(category_id, date)`, `(transaction_id)`;
 `transactions(date)`, `(type, date)`, `(status)`; unique `price_history(asset_id, date, source)`,
-`fx_rates(date, base, quote, source)`; FTS5 `transactions_fts(search_text)`.
+`fx_rates(date, base, quote, source)`.
 
 ## Adding things later without touching the core
 
 - **Investments (M3):** new financial assets and BUY/SEL/DIV documents → the same ledger lines with
   quantity and unit price. Valuation already reads `price_history`.
-- **Market data (M4):** implement `integrations.market_data.PriceProvider`; write to `price_history`.
+- **Market data (M4):** add an `integrations/market_data` package of price adapters that write `price_history`.
 - **Imports (M7):** parse a file → call `TransactionService.record_*` with `source=IMPORT`.
 - **Another UI:** call the same services; nothing in `ui/` is needed by the core.

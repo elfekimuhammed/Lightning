@@ -136,7 +136,7 @@ class CategoryService:
         active: bool = True,
         default_reimbursable: bool | None = None,
     ) -> list[int]:
-        """Update a category. Returns ids whose code or name changed (for search rebuild)."""
+        """Update a category (a code change carries over to its sub-categories). Returns the ids changed."""
         cat = self.get(category_id)
         name = (name or "").strip()
         if not name:

@@ -29,7 +29,6 @@ def _line(row: sqlite3.Row) -> LedgerLine:
         amount_base=from_e6(row["amount_base_e6"]),
         effect=Effect(row["effect"]),
         category_id=row["category_id"],
-        claim_id=row["claim_id"],
         memo=row["memo"],
     )
 
@@ -45,28 +44,43 @@ def _header(row: sqlite3.Row) -> Transaction:
         status=TxnStatus(row["status"]),
         source=TxnSource(row["source"]),
         notes=row["notes"],
-        search_text=row["search_text"],
         created_at=row["created_at"],
         updated_at=row["updated_at"],
     )
 
 
-def fts_query(text: str) -> str:
-    """User text -> safe FTS5 query: every word must match, as a prefix."""
-    terms = [t.replace('"', "") for t in re.findall(r"\S+", text or "")]
-    return " ".join(f'"{t}"*' for t in terms if t.strip())
+def _like(term: str) -> str:
+    """A user word -> a safe LIKE pattern (so % and _ are matched literally)."""
+    escaped = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return f"%{escaped}%"
+
+
+# One search word must appear somewhere in the transaction: its ref, date, payee, description, notes,
+# or on one of its lines — account code/name, category code/name, or the amount (e.g. 450.00).
+_TERM_SQL = (
+    "(t.ref LIKE ? ESCAPE '\\' OR t.date LIKE ? ESCAPE '\\' OR t.counterparty LIKE ? ESCAPE '\\'"
+    " OR t.description LIKE ? ESCAPE '\\' OR t.notes LIKE ? ESCAPE '\\'"
+    " OR EXISTS (SELECT 1 FROM ledger_entries s JOIN accounts a ON a.id = s.account_id"
+    " LEFT JOIN categories c ON c.id = s.category_id WHERE s.transaction_id = t.id AND ("
+    " a.code LIKE ? ESCAPE '\\' OR a.name LIKE ? ESCAPE '\\' OR c.code LIKE ? ESCAPE '\\'"
+    " OR c.name LIKE ? ESCAPE '\\' OR printf('%.2f', abs(s.amount_e6) / 1000000.0) LIKE ? ESCAPE '\\')))"
+)
+
+
+def search_terms(text: str) -> list[str]:
+    """'Carrefour 10,000' -> ['Carrefour', '10000']: every word must match; thousands separators ignored."""
+    terms = []
+    for word in re.findall(r"\S+", text or ""):
+        if re.fullmatch(r"[\d,.\-]+", word):
+            word = word.replace(",", "").lstrip("-")
+        if word:
+            terms.append(word)
+    return terms
 
 
 class TransactionRepository:
     def __init__(self, db: Database):
         self.db = db
-        self._fts: bool | None = None
-
-    @property
-    def has_fts(self) -> bool:
-        if self._fts is None:
-            self._fts = self.db.has_table("transactions_fts")
-        return self._fts
 
     # -- refs --------------------------------------------------------------
     def next_seq(self, prefix: str) -> int:
@@ -78,7 +92,7 @@ class TransactionRepository:
         now = now_iso()
         cur = self.db.execute(
             "INSERT INTO transactions(ref, type, date, description, counterparty, status, source,"
-            " notes, search_text, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            " notes, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
             (
                 t.ref,
                 t.type.value,
@@ -88,7 +102,6 @@ class TransactionRepository:
                 t.status.value,
                 t.source.value,
                 t.notes,
-                t.search_text,
                 now,
                 now,
             ),
@@ -113,15 +126,12 @@ class TransactionRepository:
             "UPDATE transactions SET status=?, updated_at=? WHERE id=?", (status.value, now_iso(), txn_id)
         )
 
-    def set_search_text(self, txn_id: int, text: str) -> None:
-        self.db.execute("UPDATE transactions SET search_text=? WHERE id=?", (text, txn_id))
-
     def _insert_lines(self, txn_id: int, date: str, lines: list[PostingLine]) -> None:
         for n, line in enumerate(lines, start=1):
             self.db.execute(
                 "INSERT INTO ledger_entries(transaction_id, line_no, date, account_id, asset_id,"
                 " quantity_e6, unit_price_e6, amount_e6, fx_rate_e6, amount_base_e6, effect,"
-                " category_id, claim_id, memo) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                " category_id, memo) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     txn_id,
                     n,
@@ -135,7 +145,6 @@ class TransactionRepository:
                     to_e6(line.amount_base),
                     line.effect.value,
                     line.category_id,
-                    line.claim_id,
                     line.memo,
                 ),
             )
@@ -187,15 +196,9 @@ class TransactionRepository:
         if f.date_to:
             where.append("t.date <= ?")
             params.append(f.date_to)
-        if f.search.strip():
-            query = fts_query(f.search)
-            if self.has_fts and query:
-                where.append("t.id IN (SELECT rowid FROM transactions_fts WHERE transactions_fts MATCH ?)")
-                params.append(query)
-            else:
-                for term in re.findall(r"\S+", f.search):
-                    where.append("t.search_text LIKE ?")
-                    params.append(f"%{term}%")
+        for term in search_terms(f.search):
+            where.append(_TERM_SQL)
+            params.extend([_like(term)] * 10)
         clause = " AND ".join(where)
         total = self.db.scalar(f"SELECT COUNT(*) FROM transactions t WHERE {clause}", tuple(params)) or 0
         rows = self.db.all(
@@ -207,21 +210,6 @@ class TransactionRepository:
         for t in txns:
             t.lines = lines[t.id]
         return txns, int(total)
-
-    def ids_touching_accounts(self, account_ids: list[int]) -> list[int]:
-        marks = ",".join("?" * len(account_ids))
-        rows = self.db.all(
-            f"SELECT DISTINCT transaction_id FROM ledger_entries WHERE account_id IN ({marks})", tuple(account_ids)
-        )
-        return [r[0] for r in rows]
-
-    def ids_touching_categories(self, category_ids: list[int]) -> list[int]:
-        marks = ",".join("?" * len(category_ids))
-        rows = self.db.all(
-            f"SELECT DISTINCT transaction_id FROM ledger_entries WHERE category_id IN ({marks})",
-            tuple(category_ids),
-        )
-        return [r[0] for r in rows]
 
     def opening_txn_id(self, account_id: int) -> int | None:
         return self.db.scalar(

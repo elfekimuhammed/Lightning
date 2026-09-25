@@ -29,8 +29,7 @@
 {% if account %}
 <h1>{{ account.name }} <span class="code muted" style="font-size:14px">{{ account.code }}</span></h1>
 <div class="big-balance {{ balance|tone }}">{{ balance|money }} <span class="muted small">{{ account.currency }}</span></div>
-<div class="muted small">{{ account.type_label }}{% if account.institution %} · {{ account.institution }}{% endif %} · shows under {{ group }}
-  {% if balance_all != balance %} · {{ balance_all|money }} including entries dated after today{% endif %}</div>
+<div class="muted small">{{ account.type_label }}{% if account.institution %} · {{ account.institution }}{% endif %} · shows under {{ group }}</div>
 {% else %}
 <h1>All accounts</h1>
 <div class="big-balance">{{ sidebar_total|money }} <span class="muted small">{{ base }}</span></div>

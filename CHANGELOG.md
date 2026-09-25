@@ -6,6 +6,12 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 - Add it under `## [Unreleased]
 
+_Nothing yet._
+
+---
+
+## [0.2.0] — 2026-09-25 — Register, budgeting, simplification
+
 ### Added
 - GitHub-ready: `.gitattributes` (keeps `run.bat` in Windows line endings), README section on cloning to
   another computer; `data/` stays out of Git so finances are never uploaded.
@@ -51,6 +57,16 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ### Fixed
 - An account's start date can no longer be moved after its first transaction (the review's gap #1).
+- **No more future dates:** transactions and account start dates cannot be after today, so every balance has
+  one meaning ("today"); the "including entries dated after today" note is gone. Scheduled payments will come
+  as recurring transactions (M7).
+
+### Removed (architecture simplification)
+- **Stored search text and the full-text index.** Search now reads transactions, accounts and categories
+  directly (ref, date, payee, description, notes, account, category, amount), so nothing derived is stored and
+  nothing can go stale. This also removes the search rebuild on renames and the whole category workflow.
+- `ledger_entries.claim_id` and `transactions.import_batch_id` (their milestones, M5 and M7, will add them),
+  the unused `DRAFT` status, and the empty `integrations/` placeholders.
 
 ### Removed
 - The separate Money out / Money in / Move money form pages and the old transactions list — the register replaces them.
@@ -67,10 +83,12 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
   cleared tick come with their milestones (M7 recurring, M7 import, M2 reconciliation), not as placeholders.
 - 2026-09-25 — Budgeting (owner): budget vs actual (no rollover), budgets at either level, repeat until changed,
   Personal and Work as separate sections. Actuals always come from the ledger; only budget amounts are stored.
-- Architecture review simplifications (drop full-text index and stored search text, unused columns,
-  `sort_order`, block future dates) are **proposed, not yet applied**.
+- 2026-09-25 — Architecture review simplifications applied (owner). Kept on purpose: price and asset fields
+  (M3 investments is next) and `sort_order` (keeps asset classes in a meaningful order, e.g. Liquid Cash first).
 
 ### Schema
+- `0006_simplify.sql` — drops the full-text index, its triggers and `transactions.search_text`,
+  `transactions.import_batch_id`, `ledger_entries.claim_id`. No financial data changes.
 - `0005_budgets.sql` — `budgets` (category × month × amount, repeating or this-month-only) and a readable `v_budgets` view.
 - `0004_bank_and_no_liabilities.sql` — savings accounts become BANK; every account's reporting group is reset
   from its type; unused Liabilities and Savings asset classes removed. Stops without changing anything if a

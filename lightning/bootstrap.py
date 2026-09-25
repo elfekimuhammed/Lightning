@@ -21,7 +21,6 @@ from lightning.database.settings import SettingsStore
 from lightning.reporting.service import ReportingService
 from lightning.transactions.service import TransactionService
 from lightning.workflows.accounts import AccountWorkflows
-from lightning.workflows.categories import CategoryWorkflows
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_DATA_DIR = PROJECT_ROOT / "data"
@@ -40,7 +39,6 @@ class Container:
     reporting: ReportingService
     budgets: BudgetService
     account_flows: AccountWorkflows
-    category_flows: CategoryWorkflows
 
     @property
     def base_currency(self) -> str:
@@ -78,5 +76,4 @@ def build(db_path: str | Path | None = None, backup_on_start: bool = False) -> C
         reporting=reporting,
         budgets=BudgetService(db, categories, reporting),
         account_flows=AccountWorkflows(db, accounts, transactions, reporting),
-        category_flows=CategoryWorkflows(db, categories, transactions),
     )

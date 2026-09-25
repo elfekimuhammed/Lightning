@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import calendar
+import os
 import re
 from datetime import date, datetime, timedelta
 
@@ -31,7 +32,9 @@ def fmt_date(value: date) -> str:
 
 
 def today() -> date:
-    return date.today()
+    """The current date. Tests can pin it with the LIGHTNING_TODAY environment variable (yyyy-mm-dd)."""
+    pinned = os.environ.get("LIGHTNING_TODAY")
+    return date.fromisoformat(pinned) if pinned else date.today()
 
 
 def now_iso() -> str:

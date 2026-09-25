@@ -1,10 +1,10 @@
 # Lightning — Project Overview (hand-off brief)
 
-> Status note: updated for the register, no-liabilities and plain-names changes (see CHANGELOG "Unreleased").
+> Status: version 0.2.0 (register, budgeting, simplification) — see CHANGELOG.
 
 > Read this first. It is written so that a developer — or an AI assistant starting a fresh session —
 > can understand what Lightning is, how it is built, why it is built that way, and how to extend it
-> without breaking it. Version described: **0.1.0 (M0 + M1), 2026-09-25**.
+> without breaking it. Version described: **0.2.0, 2026-09-25**.
 > Companion docs: `docs/ARCHITECTURE.md` (short form), `docs/GLOSSARY.md` (terms and codes),
 > `docs/MILESTONES.md` (plan), `CHANGELOG.md` (every change).
 
@@ -53,7 +53,7 @@ name** (`CIB-CUR-EGP · CIB Current`); **every change is logged in `CHANGELOG.md
 | Money | `decimal.Decimal`; stored as integers × 1,000,000 | Exact sums in SQL; floats forbidden |
 | Web UI | FastAPI + Jinja2 server-rendered HTML + ~40 lines of vanilla JS | "HTML first", no build step, works offline |
 | Server | uvicorn bound to `127.0.0.1` only | Never exposed to the network |
-| Search | SQLite FTS5 (optional migration) with `LIKE` fallback | Instant search across everything |
+| Search | Plain `LIKE` over transactions, accounts and categories at query time | Nothing derived to keep in sync; instant at personal scale |
 | Tests | pytest (102 tests), FastAPI TestClient | |
 | Architecture checks | import-linter (4 contracts in `pyproject.toml`) | Keeps module boundaries honest |
 | Launch | `run.bat` (Windows) / `run.sh` → `python -m lightning` | Double-click start; auto venv + install |
@@ -106,7 +106,6 @@ lightning.reporting       read-only reports; owns no tables
 lightning.transactions    records/edits/voids/finds transactions; the ONLY writer of the ledger
 lightning.accounts        where value is held
 lightning.assets | lightning.categories    (independent siblings) what value is | why money moved
-lightning.integrations    market-data + import adapters (stubs until M4/M7)
 lightning.database        connection, migrations, seed, backup, audit log, settings
 lightning.core            money, dates, codes, refs, posting rules — depends on NOTHING
 ```
@@ -148,7 +147,7 @@ Lightning/
 │  ├─ transactions/domain.py repository.py service.py
 │  ├─ reporting/   queries.py valuation.py service.py
 │  ├─ workflows/   accounts.py categories.py
-│  ├─ integrations/market_data/__init__.py (PriceProvider protocol) · imports/__init__.py
+│  ├─ budgeting/   domain.py repository.py service.py
 │  └─ ui/          web.py · routes/{dashboard,accounts,transactions,categories,settings}.py
 │                  templates/{base,not_found}.html + dashboard/ accounts/ transactions/ categories/
 │                  settings/ partials/macros.html · static/style.css app.js
@@ -201,7 +200,7 @@ Lightning/
 - Money/quantities/prices/rates are `INTEGER` ×1,000,000 in columns ending **`_e6`** (exact `SUM()`,
   numeric range filters). The `v_*` views show normal decimals for humans.
 - Only two calculated values are stored: `amount_base_e6` (FX fixed at transaction date) and
-  `search_text` (rebuilt on every edit/rename). Everything else is derived.
+  nothing else — everything is derived, including search.
 - Booleans are `INTEGER 0/1` with CHECKs; enums are TEXT with CHECK lists.
 - `PRAGMA foreign_keys = ON`. Deletes are avoided: accounts/categories are deactivated, transactions voided.
 
@@ -214,8 +213,8 @@ Lightning/
 | `financial_assets` | things you own a quantity of | `code`, `name`, `asset_class_id`, `currency`, `unit`, `quantity_decimals`, `is_cash`, `exposure` (CASH/EQUITY/GOLD/FIXED_INCOME/REAL_ESTATE/OTHER), `liquidity` (IMMEDIATE/DAYS/LOCKED), `purity_e6`, `isin`, `price_source` (YAHOO/GOLD_CALC/GOLD_LOCAL/MANUAL/NONE), `external_symbol`. Unique cash asset per currency. |
 | `accounts` | where value is held | `code`, `name`, `institution`, `account_type`, `currency`, **`cash_class_id`**, `opening_date`, `is_system`, `last4`, `active`, `sort_order`, `notes`. *No `opening_balance` column. No `nature` column (derived from type).* |
 | `categories` | tree of why money moved | `code`, `name`, `parent_id`, `movement` (INFLOW/OUTFLOW), `scope` (PERSONAL/WORK, outflows), `income_class` (HOUSEHOLD/INVESTMENT, inflows), `default_reimbursable`, `is_system`, `active` |
-| `transactions` | the documents | `ref` (unique), `type`, `date`, `description`, `counterparty`, `status` (DRAFT/POSTED/VOID), `source` (MANUAL/IMPORT/MARKET_DATA/SYSTEM), `import_batch_id`, `notes`, `search_text` |
-| `ledger_entries` | the effects — **source of truth** | `transaction_id`, `line_no`, `date` (copied for indexing), `account_id`, `asset_id`, `quantity_e6`, `unit_price_e6`, `amount_e6`, `fx_rate_e6`, `amount_base_e6`, `effect`, `category_id`, `claim_id` (M5), `memo`. CHECK: INFLOW/OUTFLOW ⇒ category. |
+| `transactions` | the documents | `ref` (unique), `type`, `date`, `description`, `counterparty`, `status` (POSTED/VOID), `source` (MANUAL/IMPORT/MARKET_DATA/SYSTEM), `notes` |
+| `ledger_entries` | the effects — **source of truth** | `transaction_id`, `line_no`, `date` (copied for indexing), `account_id`, `asset_id`, `quantity_e6`, `unit_price_e6`, `amount_e6`, `fx_rate_e6`, `amount_base_e6`, `effect`, `category_id`, `memo`. CHECK: INFLOW/OUTFLOW ⇒ category. |
 | `budgets` | budget amounts (0005) | `category_id`, `month` (yyyy-mm), `one_off`, `amount_e6` (NULL = no budget); unique (category, month, one_off) |
 | `price_history` | prices (filled from M3/M4) | `asset_id`, `date`, `price_e6`, `currency`, `source`; unique (asset, date, source) |
 | `fx_rates` | FX (M4) | `date`, `base`, `quote`, `rate_e6`, `source`; unique (date, base, quote, source) |
@@ -226,9 +225,8 @@ Lightning/
 `transactions(date)`, `(type,date)`, `(status)`; `accounts(account_type)`; `categories(parent_id)`;
 `financial_assets(asset_class_id)`; `price_history(asset_id,date)`; `audit_log(entity,entity_id)`.
 
-**Search (`0002_search.sql`, marked `-- @optional`):** FTS5 external-content table `transactions_fts` over
-`search_text` (tokenizer `unicode61 remove_diacritics 2`, so Arabic works), kept in sync by triggers. If FTS5
-is missing the migrator records it as SKIPPED and search falls back to `LIKE`.
+**Search:** no index table. Migration `0002_search.sql` once added a full-text index; `0006_simplify.sql`
+removed it together with the stored `search_text`. Migrations are never edited, so both stay in history.
 
 **Readable views (`0003_readable_views.sql`):** `v_ledger` (line ref, date, type, status, `code · name`
 account, asset, decimals, effect, category, description) and `v_balances` (posted balances per account/asset).
@@ -322,7 +320,7 @@ rate is returned as **unvalued** and listed on the dashboard — never silently 
   date)` (create/update/void the single OPN), `opening_balance`, `update_money`, `update_transfer` (edit in
   place, ref kept, audit logged), `void`, `restore` (re-validates accounts; one OPN per account), `get`,
   `get_by_ref`, `find(TxnFilter)` → `(summaries, total)`, `summarize`, `history`, `count_for_account`,
-  `rebuild_search*`, `build_search_text`, `full_text_search`.
+  `search_ids(text)`, `update_in_account`.
   Validation: account active; amount > 0 with ≤ asset decimals; category direction matches; transfer accounts
   differ and share currency; **date not before the account's opening date**; FX only for base currency (M1).
 - **ReportingService** — `holdings(as_of)`, `net_worth(as_of)` (total, by account, by
@@ -344,10 +342,8 @@ include_void, limit, offset`.
 
 - `AccountWorkflows.open_account(...)` — create account + opening balance (never negative).
 - `update_account(...)` refuses a start date after the account's first transaction.
-- `update_account(...)` — update fields, re-post opening balance (ref kept, date follows `opening_date`), and
-  rebuild search text if code/name changed.
+- `update_account(...)` — update fields and re-post the opening balance (ref kept, date follows `opening_date`).
 - `deactivate(id)` — refused unless the balance is exactly zero ("no hidden money"); `reactivate(id)`.
-- `CategoryWorkflows.update_category(...)` — update + rebuild search text of affected transactions.
 
 Why this layer exists: accounts can't import transactions (transactions depend on accounts), so actions that
 need both live one layer up. Database transactions nest via savepoints (`Database.transaction()`), so a
@@ -355,11 +351,11 @@ workflow calling several services commits or rolls back as a unit.
 
 ### 8.3 Search
 
-Each transaction stores a one-line summary, e.g.
-`2026-09-25 · OUT-2026-09-25-001 · Money out · CIB-CUR-EGP · CIB Current · EXP.PERSONAL.FOOD · Food & Groceries · -450.00 EGP 450.00 · Carrefour · Weekly groceries`
-(amount included with and without thousands separators; `VOID` appended when voided). User text is turned
-into a safe FTS5 query where every word must match as a prefix — so `carre`, `2026-09`, `10,000`, `10000`,
-`OUT-2026-09-25-001`, `طعمية` all work.
+Every word typed must appear somewhere in the transaction: ref, date, payee, description, notes, or on one
+of its lines — account code or name, category code or name, or the amount (`450.00`). Numbers ignore
+thousands separators (`10,000` = `10000`); `%` and `_` match literally. Nothing is stored for search, so a
+renamed account or category is found under its new name immediately. So `carre`, `2026-09`, `10,000`,
+`OUT-2026-09-25-001`, `groceries`, `طعمية` all work.
 
 ---
 
@@ -413,13 +409,13 @@ and adjusts the account form wording; **no financial logic in the browser**.
 | M2 | Reports & corrections | next | `ADJ` reconciliation ("wallet has 1,200, app says 1,450" → 250 to `EXP.UNACCOUNTED`); split transactions (multiple lines/categories); refunds = negative outflow in the original category; report pages; possibly month close |
 | M3 | Investments (manual) | | Create financial assets (`STK:`, `FND:`, `GLD:`); `BUY`/`SEL`/`DIV`/fees; holdings from lines; **average cost** (as THNDR shows), **buy fees capitalised into cost**; manual prices in `price_history`; `VAL` entries; realized vs unrealized gains (a cost-basis view, separate from the net-worth view); allocation by asset class and by `exposure` (a gold fund counts as gold exposure) |
 | M4 | Market data & FX | | `PriceProvider` adapters: Yahoo (EGX tickers with `.CA`, e.g. `COMI.CA`), gold parity (24K/gram = XAU/USD × USD/EGP ÷ 31.1035; 21K = 24K × 21/24), local Egyptian gold sites, manual, CSV; USD/EGP (`EGP=X`); daily pull on app start (+ optional Windows scheduled task ~16:00); store every source, manual wins; staleness shown; investing.com excluded (no API). Multi-currency accounts, `CNV` conversions, FX revaluation. Turn on `allow_foreign`. |
-| M5 | Reimbursements | | System account `SYS-RMB-EGP · Reimbursements Receivable`; "my employer will pay me back" tick → INTERNAL lines to the receivable (net worth unchanged, gross work spending still reported); claims with partial settlement and one payment covering several claims (`claim_id`); money lent to friends (receivable) |
+| M5 | Reimbursements | | System account `SYS-RMB-EGP · Reimbursements Receivable`; "my employer will pay me back" tick → INTERNAL lines to the receivable (net worth unchanged, gross work spending still reported); claims with partial settlement and one payment covering several claims (a `claim_id` column added in M5); money lent to friends (receivable) |
 | M6 | Deposits & gold details | | Each CD its own asset with `deposit_terms` (rate, start, maturity, payout); interest accrual vs payout; early break; gold workmanship fee (المصنعية) and buyback price; bonus shares, splits |
-| M7 | Imports & planning | | CSV/Excel/broker-statement importers calling services with `source=IMPORT` + `import_batch_id`; budgets (category × period); recurring transactions; target allocation and drift |
+| M7 | Imports & planning | | CSV/Excel/broker-statement importers calling services with `source=IMPORT` + an import batch id (added then); budgets (category × period); recurring transactions; target allocation and drift |
 | M8 | Polish | | Charts, settings, packaging/desktop wrapper (e.g. pywebview) |
 
 **Known limits in 0.1.0:** EGP-only accounts; one category per transaction; `PHYSICAL_ASSET` type hidden;
-future-dated transactions are allowed (balances display "as of today", future effect shown separately);
+dates after today are refused (transactions and account start dates);
 no delete of master data (deactivate instead).
 
 ---
@@ -443,7 +439,7 @@ no delete of master data (deactivate instead).
 | Plain sqlite3 + SQL files | Readable schema, fewer moving parts | SQLAlchemy + Alembic |
 | FastAPI + Jinja2 server-rendered HTML | "HTML first", logic stays in Python | Standalone JS app (would move logic to JS) |
 | Edit/void moved into M1 | App unusable without corrections | Keep in M2 |
-| Balances shown as of today | Consistent tiles vs statements when future-dated entries exist | All-time balances |
+| No future dates | Every balance has one meaning (today); scheduled payments come as recurring transactions (M7) | Allowing future dates with a second "after today" balance |
 
 ---
 

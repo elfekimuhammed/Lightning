@@ -39,7 +39,6 @@ class PostingLine:
     unit_price: Decimal = ONE  # price or cost per unit, in the asset's currency
     fx_rate: Decimal = ONE  # asset currency -> base currency, fixed at transaction date
     category_id: int | None = None
-    claim_id: int | None = None
     memo: str = ""
     amount: Decimal = field(default=ZERO)  # quantity x unit_price (asset currency)
     amount_base: Decimal = field(default=ZERO)  # amount x fx_rate (base currency, EGP)

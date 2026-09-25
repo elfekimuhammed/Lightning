@@ -1,7 +1,6 @@
 """Account workflows — actions that span modules, each in ONE database transaction.
 
 - Opening an account also records its opening balance (as an OPN transaction).
-- Renaming an account refreshes the search text of its transactions.
 - An account can only be deactivated once its balance is zero (no hidden money).
 """
 
@@ -60,13 +59,11 @@ class AccountWorkflows:
                 "opening_date",
             )
         with self.db.transaction():
-            account, renamed = self.accounts.update(account_id, name=name, institution=institution,
+            account, _ = self.accounts.update(account_id, name=name, institution=institution,
                                                     account_type=account_type, opening_date=opening_date,
                                                     code=code, last4=last4, notes=notes)
             self.transactions.set_opening_balance(account.id, self.parse_opening(opening_balance),
                                                   account.opening_date)
-            if renamed:
-                self.transactions.rebuild_search_for_accounts([account.id])
         return account
 
     def deactivate(self, account_id: int) -> Account:

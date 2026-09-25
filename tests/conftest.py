@@ -1,6 +1,11 @@
 from __future__ import annotations
 
+import os
+
 import pytest
+
+# Tests use dates across 2026; pin "today" so future-date rules don't depend on when they run.
+os.environ["LIGHTNING_TODAY"] = "2026-12-31"
 
 from lightning.bootstrap import Container, build
 

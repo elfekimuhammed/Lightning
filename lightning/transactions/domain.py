@@ -15,7 +15,6 @@ from lightning.core.refs import DOC_LABELS, DocType, line_ref
 
 
 class TxnStatus(StrEnum):
-    DRAFT = "DRAFT"
     POSTED = "POSTED"
     VOID = "VOID"
 
@@ -42,7 +41,6 @@ class LedgerLine:
     amount_base: Decimal
     effect: Effect
     category_id: int | None
-    claim_id: int | None
     memo: str
 
 
@@ -57,7 +55,6 @@ class Transaction:
     status: TxnStatus
     source: TxnSource
     notes: str
-    search_text: str
     created_at: str
     updated_at: str
     lines: list[LedgerLine] = field(default_factory=list)

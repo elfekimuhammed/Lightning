@@ -87,7 +87,6 @@ def page(request: Request, account_id: int | None, entry: dict | None = None, ed
         account=account,
         group=c.accounts.reporting_group(account) if account else "",
         balance=c.reporting.account_balance(account_id, today()) if account else None,
-        balance_all=c.reporting.account_balance(account_id) if account else None,
         rows=rows, choices=choices(request), accounts=c.accounts.list(active_only=True),
         payees={p: f"cat:{cid}" for p, cid in c.transactions.payee_suggestions().items()},
         entry=entry or {"date": qp.get("date") or fmt_date(today()), "account_id": qp.get("new_acct", "")},

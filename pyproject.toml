@@ -31,7 +31,6 @@ layers = [
     "lightning.transactions",
     "lightning.accounts",
     "lightning.assets | lightning.categories",
-    "lightning.integrations",
     "lightning.database",
     "lightning.core",
 ]

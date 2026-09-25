@@ -70,9 +70,8 @@ async def update_category(request: Request, category_id: int):
     form = await request.form()
     values = {k: str(form.get(k, "")) for k in ("name", "code", "active", "default_reimbursable")}
     try:
-        c.category_flows.update_category(category_id, values["name"], values["code"] or None,
-                                         active=bool(values["active"]),
-                                         default_reimbursable=bool(values["default_reimbursable"]))
+        c.categories.update(category_id, values["name"], values["code"] or None, active=bool(values["active"]),
+                            default_reimbursable=bool(values["default_reimbursable"]))
     except LightningError as exc:
         return render(request, "categories/form.html", status_code=400, parent=parent,
                       parent_name=c.categories.display_name(parent.id) if parent else "", category=cat,

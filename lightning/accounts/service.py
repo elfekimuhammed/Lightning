@@ -10,7 +10,7 @@ from dataclasses import replace
 
 from lightning.assets.service import AssetService
 from lightning.core.codes import validate_account_code
-from lightning.core.dates import fmt_date, parse_date
+from lightning.core.dates import fmt_date, parse_date, today
 from lightning.core.errors import ConflictError, NotFoundError, ValidationError
 from lightning.database.connection import Database
 
@@ -95,7 +95,7 @@ class AccountService:
             account_type=account_type,
             currency=currency,
             cash_class_id=self._cash_class_id(account_type),
-            opening_date=fmt_date(parse_date(opening_date, "opening_date")),
+            opening_date=self._start(opening_date),
             is_system=False,
             last4=self._last4(last4),
             active=True,
@@ -133,7 +133,7 @@ class AccountService:
             institution=(institution or "").strip(),
             account_type=account_type,
             cash_class_id=self._cash_class_id(account_type),
-            opening_date=fmt_date(parse_date(opening_date, "opening_date")),
+            opening_date=self._start(opening_date),
             last4=self._last4(last4),
             notes=(notes or "").strip(),
         )
@@ -148,6 +148,13 @@ class AccountService:
         return self.get(account_id)
 
     # -- helpers -----------------------------------------------------------
+    @staticmethod
+    def _start(value: str) -> str:
+        day = parse_date(value, "opening_date")
+        if day > today():
+            raise ValidationError("An account cannot start in the future.", "opening_date")
+        return fmt_date(day)
+
     @staticmethod
     def _type(value: AccountType | str) -> AccountType:
         try:

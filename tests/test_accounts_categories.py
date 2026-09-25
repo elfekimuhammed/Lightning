@@ -86,7 +86,11 @@ class TestAccounts:
         with pytest.raises(ValidationError):
             c.account_flows.open_account("Bank", "BANK", "2026-09-01", last4="4111111111111111")
 
-    def test_rename_refreshes_search(self, setup, c):
+    def test_account_cannot_start_in_the_future(self, c):
+        with pytest.raises(ValidationError, match="future"):
+            c.account_flows.open_account("Bank", "BANK", "2027-01-01")
+
+    def test_rename_is_found_by_search_immediately(self, setup, c):
         accounts, cats = setup
         c.transactions.record_outflow("2026-09-10", accounts["cib"].id, "10", cats["EXP.PERSONAL.FOOD"].id)
         c.account_flows.update_account(accounts["cib"].id, "Main Bank", "BANK", "2026-09-01", "50000",
@@ -116,7 +120,7 @@ class TestCategories:
         personal = c.categories.get_by_code("EXP.PERSONAL")
         pets = c.categories.create(personal.id, "Pets")
         vet = c.categories.create(pets.id, "Vet")
-        c.category_flows.update_category(pets.id, "Pets", "ANIMALS")
+        c.categories.update(pets.id, "Pets", "ANIMALS")
         assert c.categories.get(vet.id).code == "EXP.PERSONAL.ANIMALS.VET"
 
     def test_roots_and_system_categories_are_protected(self, c):

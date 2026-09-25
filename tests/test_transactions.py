@@ -64,6 +64,11 @@ class TestRecording:
         with pytest.raises(ValidationError, match="two different"):
             c.transactions.record_transfer("2026-09-10", accounts["cib"].id, accounts["cib"].id, "5")
 
+    def test_future_dates_are_blocked(self, setup, c):
+        accounts, cats = setup
+        with pytest.raises(ValidationError, match="future"):
+            c.transactions.record_outflow("2027-01-01", accounts["cib"].id, "5", cats["EXP.PERSONAL.FOOD"].id)
+
     def test_date_rules(self, setup, c):
         accounts, cats = setup
         with pytest.raises(ValidationError, match="yyyy-mm-dd"):
@@ -95,7 +100,7 @@ class TestEditingAndVoiding:
         t = c.transactions.record_outflow("2026-09-25", accounts["cib"].id, "450", cats["EXP.PERSONAL.FOOD"].id)
         c.transactions.void(t.id)
         assert c.reporting.account_balance(accounts["cib"].id) == Decimal("50000")
-        assert ids(c, search="VOID")[1] == 0 and ids(c, search="VOID", include_void=True)[1] == 1
+        assert ids(c, search="450")[1] == 0 and ids(c, search="450", include_void=True)[1] == 1
         with pytest.raises(ValidationError, match="Restore"):
             c.transactions.update_money(t.id, "2026-09-25", accounts["cib"].id, "1", cats["EXP.PERSONAL.FOOD"].id)
         c.transactions.restore(t.id)
@@ -133,10 +138,15 @@ class TestSearch:
         assert ids(c, date_from="2026-10-01", date_to="2026-10-31")[1] == 1
         assert ids(c, category_ids=[cats["EXP.PERSONAL.FOOD"].id])[1] == 2
 
-    def test_like_fallback_when_no_fts(self, data, c):
-        c.transactions.repo._fts = False
-        assert ids(c, search="carrefour")[1] == 1
-        assert ids(c, search="2026-09")[1] == 5
+    def test_special_characters_are_literal(self, data, c):
+        accounts, cats = data
+        c.transactions.record_outflow("2026-10-05", accounts["cib"].id, "5", cats["EXP.PERSONAL.FOOD"].id,
+                                      "50% off_sale")
+        assert ids(c, search="50%")[1] == 1 and ids(c, search="%")[1] == 1 and ids(c, search="_")[1] == 1
+
+    def test_search_by_category_name_and_notes(self, data, c):
+        assert ids(c, search="groceries")[1] == 2  # "Food & Groceries" category name
+        assert ids(c, search="personal food")[1] == 2
 
 
 class TestRegister:

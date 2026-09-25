@@ -2,6 +2,7 @@
 
 Every write goes through ``validate_posting`` (core/ledger.py) before it is saved.
 Edits happen in place — the ref never changes — and the audit log keeps before/after.
+Search reads transactions, accounts and categories directly, so nothing derived is stored.
 """
 
 from __future__ import annotations
@@ -14,7 +15,7 @@ from lightning.accounts.service import AccountService
 from lightning.assets.service import AssetService
 from lightning.categories.domain import Movement
 from lightning.categories.service import CategoryService
-from lightning.core.dates import fmt_date, parse_date
+from lightning.core.dates import fmt_date, parse_date, today
 from lightning.core.errors import NotFoundError, ValidationError
 from lightning.core.ledger import Effect, PostingLine, validate_posting
 from lightning.core.money import ONE, ZERO, check_places, fmt, to_decimal
@@ -198,7 +199,6 @@ class TransactionService:
         with self.db.transaction():
             self.repo.set_status(t.id, TxnStatus.VOID)
             self.audit.record("transaction", t.id, "void", reason or f"Voided {t.ref}")
-            self._refresh_search(t.id)
         return self.get(txn_id)
 
     def restore(self, txn_id: int) -> Transaction:
@@ -215,7 +215,6 @@ class TransactionService:
                 self.accounts.require_usable(line.account_id)
             self.repo.set_status(t.id, TxnStatus.POSTED)
             self.audit.record("transaction", t.id, "restore", f"Restored {t.ref}")
-            self._refresh_search(t.id)
         return self.get(txn_id)
 
     # ======================================================================
@@ -243,10 +242,6 @@ class TransactionService:
     def earliest_activity(self, account_id: int) -> str | None:
         """Date of the account's first posted transaction other than its opening balance."""
         return self.repo.earliest_activity(account_id)
-
-    @property
-    def full_text_search(self) -> bool:
-        return self.repo.has_fts
 
     def history(self, txn_id: int) -> list[dict]:
         return self.audit.history("transaction", txn_id)
@@ -285,34 +280,6 @@ class TransactionService:
             to_account_id=to_account_id,
             category_id=category_id,
         )
-
-    # ======================================================================
-    # Search text
-    # ======================================================================
-    def rebuild_search(self, txn_ids: list[int]) -> None:
-        with self.db.transaction():
-            for txn_id in txn_ids:
-                self._refresh_search(txn_id)
-
-    def rebuild_search_for_accounts(self, account_ids: list[int]) -> None:
-        self.rebuild_search(self.repo.ids_touching_accounts(account_ids))
-
-    def rebuild_search_for_categories(self, category_ids: list[int]) -> None:
-        self.rebuild_search(self.repo.ids_touching_categories(category_ids))
-
-    def build_search_text(self, t: Transaction) -> str:
-        """2026-09-25 · OUT-2026-09-25-003 · CIB-CUR-EGP CIB Current · EXP.PERSONAL.FOOD Food · -450.00 EGP · ..."""
-        s = self.summarize(t)
-        parts = [t.date, t.ref, s.type_label]
-        parts.append(s.account_label + (f" → {s.to_account_label}" if s.to_account_label else ""))
-        if s.category_id:
-            parts.append(f"{s.category_code} {s.category_label}")
-        plain = f"{abs(s.amount):.2f}"  # without thousands separators, so "10000" matches too
-        parts.append(f"{fmt(s.amount, signed=t.type in (DocType.IN, DocType.OUT))} {s.currency} {plain}")
-        parts.extend(p for p in (t.counterparty, t.description, t.notes) if p)
-        if t.is_void:
-            parts.append("VOID")
-        return " · ".join(p for p in parts if p)
 
     # ======================================================================
     # Internals
@@ -354,10 +321,9 @@ class TransactionService:
                 id=0, ref=ref, type=doc_type, date=fmt_date(day),
                 description=(description or "").strip(), counterparty=(counterparty or "").strip(),
                 status=TxnStatus.POSTED, source=source, notes=(notes or "").strip(),
-                search_text="", created_at="", updated_at="",
+                created_at="", updated_at="",
             )
             txn_id = self.repo.insert(header, lines)
-            self._refresh_search(txn_id)
         return self.get(txn_id)
 
     def _update(self, current: Transaction, day, lines: list[PostingLine], description: str, counterparty: str,
@@ -372,7 +338,6 @@ class TransactionService:
             after = self.get(current.id)
             self.audit.record("transaction", current.id, "edit", f"Edited {current.ref}",
                               before=self._snapshot(current), after=self._snapshot(after))
-            self._refresh_search(current.id)
         return self.get(current.id)
 
     def _editable(self, txn_id: int, allowed: set[DocType]) -> Transaction:
@@ -385,11 +350,11 @@ class TransactionService:
             raise ValidationError(f"{t.type_label} transactions cannot be edited here.")
         return t
 
-    def _refresh_search(self, txn_id: int) -> None:
-        self.repo.set_search_text(txn_id, self.build_search_text(self.get(txn_id)))
-
     def _check_date(self, date: str, accounts: list[Account]):
         day = parse_date(date)
+        if day > today():
+            raise ValidationError(
+                f"{fmt_date(day)} is in the future. Record transactions on or after the day they happen.", "date")
         for account in accounts:
             if fmt_date(day) < account.opening_date:
                 raise ValidationError(
@@ -413,6 +378,4 @@ class TransactionService:
 
     @staticmethod
     def _snapshot(t: Transaction) -> dict:
-        data = asdict(t)
-        data.pop("search_text", None)
-        return data
+        return asdict(t)
