@@ -8,6 +8,7 @@ Rules:
 
 from __future__ import annotations
 
+import re
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
 from .errors import ValidationError
@@ -31,9 +32,14 @@ def to_decimal(value: object, field: str = "amount") -> Decimal:
     elif isinstance(value, int):
         result = Decimal(value)
     elif isinstance(value, str):
-        cleaned = value.strip().replace(",", "").replace(" ", "").replace("−", "-")
+        cleaned = value.strip().replace("−", "-")
         if cleaned == "":
             raise ValidationError("Enter an amount.", field)
+        if re.fullmatch(r"[+-]?\d{1,3},\d{1,2}", cleaned):
+            raise ValidationError("Use a dot for decimals, for example 12.5.", field)
+        if not re.fullmatch(r"[+-]?(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d+)?", cleaned):
+            raise ValidationError(f"'{value}' is not a valid number. Use commas only as thousands separators.", field)
+        cleaned = cleaned.replace(",", "")
         try:
             result = Decimal(cleaned)
         except InvalidOperation:
@@ -44,6 +50,8 @@ def to_decimal(value: object, field: str = "amount") -> Decimal:
         raise ValidationError("Enter a number.", field)
     if not result.is_finite():
         raise ValidationError("Enter a finite number.", field)
+    if abs(result) >= Decimal("1000000000000"):
+        raise ValidationError("That amount is too large.", field)
     return result
 
 

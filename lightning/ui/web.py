@@ -20,7 +20,7 @@ UI_DIR = Path(__file__).parent
 templates = Jinja2Templates(directory=str(UI_DIR / "templates"))
 
 
-def _money(value, signed: bool = False, places: int = 2) -> str:
+def _money(value, signed: bool = False, places: int = 0) -> str:
     return fmt(value if value is None or isinstance(value, Decimal) else Decimal(str(value)), places, signed)
 
 

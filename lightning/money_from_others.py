@@ -7,7 +7,7 @@ from decimal import Decimal
 from lightning.accounts.service import AccountService
 from lightning.core.dates import now_iso, parse_date
 from lightning.core.errors import ValidationError
-from lightning.core.money import ZERO, from_e6, to_e6
+from lightning.core.money import ZERO, check_places, from_e6, to_decimal, to_e6
 from lightning.database.connection import Database
 
 
@@ -17,6 +17,7 @@ class MoneyFromOthersService:
 
     def record(self, day: str, owner: str, account_id: int, amount: Decimal, notes: str = "",
                transaction_id: int | None = None) -> None:
+        amount = check_places(to_decimal(amount, "amount"), 2, "amount")
         account = self.accounts.require_usable(account_id)
         parsed = parse_date(day).isoformat()
         if not owner.strip():
@@ -31,6 +32,7 @@ class MoneyFromOthersService:
     def sync_transaction(self, transaction_id: int, day: str, owner: str | None, account_id: int,
                          amount: Decimal, notes: str = "") -> None:
         """Keep the exclusion entry in step with a tagged register transaction."""
+        amount = check_places(to_decimal(amount, "amount"), 2, "amount")
         self.db.execute("DELETE FROM money_from_others WHERE transaction_id=?", (transaction_id,))
         if not owner or amount == ZERO:
             return

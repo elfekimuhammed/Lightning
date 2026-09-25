@@ -4,7 +4,7 @@ from decimal import Decimal
 
 from fastapi import APIRouter, Request
 
-from lightning.core.dates import fmt_date, today
+from lightning.core.dates import fmt_date, parse_date, today
 from lightning.core.errors import LightningError, NotFoundError
 from lightning.core.refs import DocType
 from lightning.core.money import ZERO, to_decimal
@@ -244,7 +244,11 @@ async def update_asset(request: Request, asset_id: int):
 @router.get("/prices")
 async def prices(request: Request, error: str = ""):
     c = container(request)
-    day = request.query_params.get("date") or fmt_date(today())
+    raw_day = request.query_params.get("date")
+    try:
+        day = fmt_date(parse_date(raw_day)) if raw_day else fmt_date(today())
+    except LightningError as exc:
+        day, error = fmt_date(today()), exc.message
     portfolio = c.investments.portfolio(day)
     held = {p.asset_id: p for p in portfolio.open}
     rows = []

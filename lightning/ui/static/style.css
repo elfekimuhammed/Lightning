@@ -4,6 +4,7 @@
   --ink-300: #AFC2D3; --ink-200: #DCE7F1; --ink-100: #EDF3F9; --ink-50: #F4F8FC;
   --sky-50: #EEF7FE; --sky-100: #D8EEFC; --sky-200: #B3DDF8; --sky-300: #7FC6F2;
   --sky-400: #45A9E8; --sky-500: #1E8FD8; --sky-600: #0F74BA; --sky-700: #0B5C95;
+  --azure-500: #007FFF; --azure-600: #0066CC;
   --mint-50: #E7F8F0; --mint-100: #D0F4E6; --mint-200: #A3E8CD; --mint-300: #6AD6AE;
   --mint-400: #34BF8C; --mint-500: #16A673; --mint-700: #0B6E4C;
   --teal-400: #1FB5A8; --teal-600: #0C7A86; --coral-600: #B8382F; --coral-50: #FDEEEC;
@@ -11,11 +12,11 @@
   --grad-mist: radial-gradient(900px 480px at 0% 0%, rgba(127,198,242,.20), transparent 60%), radial-gradient(700px 420px at 100% 0%, rgba(106,214,174,.14), transparent 60%), linear-gradient(180deg,#F4F8FC 0%,#F7FBFA 100%);
   --grad-dawn: linear-gradient(135deg,#D8EEFC 0%,#E3F4F6 55%,#D0F4E6 100%);
   --grad-horizon: linear-gradient(135deg,#45A9E8 0%,#1FB5A8 55%,#34BF8C 100%);
-  --grad-tide: linear-gradient(135deg,#0F74BA 0%,#0C7A86 100%);
+  --grad-tide: linear-gradient(135deg,#007FFF 0%,#0C7A86 100%);
   --grad-glow: linear-gradient(135deg,#E7F8F0 0%,#EEF7FE 100%);
   --bg: var(--grad-mist); --surface: #FFFFFF; --surface-2: var(--ink-50);
   --border: var(--ink-200); --text: var(--ink-900); --muted: var(--ink-500);
-  --accent: var(--sky-600); --accent-soft: var(--sky-50); --pos: var(--mint-700);
+  --accent: var(--azure-500); --accent-soft: #E6F2FF; --pos: var(--mint-700);
   --neg: var(--coral-600); --warn-bg: var(--amber-50); --warn: var(--amber-700); --ok-bg: var(--mint-50);
   --radius: 14px; --shadow: 0 1px 2px rgba(11,34,57,.04), 0 8px 24px -6px rgba(11,34,57,.08);
   color-scheme: light;
@@ -23,7 +24,7 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #091827; --surface: #102438; --surface-2: #173149; --border: #2B4962;
-    --text: #F4F8FC; --muted: #AFC2D3; --accent: #7FC6F2; --accent-soft: #173D5A;
+    --text: #F4F8FC; --muted: #AFC2D3; --accent: #66B5FF; --accent-soft: #123D67;
     --pos: #6AD6AE; --neg: #F08B83; --warn-bg: #41351B; --warn: #F2C66B; --ok-bg: #153A31;
     --shadow: none; color-scheme: dark;
   }
@@ -37,7 +38,7 @@ body {
   font-feature-settings: "cv11", "ss01";
 }
 a { color: var(--accent); text-decoration: none; }
-a:hover { color: var(--sky-700); text-decoration: underline; }
+a:hover { color: var(--azure-600); text-decoration: underline; }
 h1, h2, h3 { font-family: "Plus Jakarta Sans", "Inter", system-ui, sans-serif; color: var(--text); }
 h1 { font-size: 28px; line-height: 1.3; margin: 0 0 4px; letter-spacing: -.02em; }
 h2 { font-size: 20px; line-height: 1.4; margin: 0 0 12px; letter-spacing: -.01em; }
@@ -72,7 +73,7 @@ code, .code { font-family: "JetBrains Mono", ui-monospace, "Cascadia Mono", Cons
 .btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); background: var(--surface);
   color: var(--text); padding: 9px 16px; border-radius: 999px; font: 500 15px/1 "Inter", sans-serif; cursor: pointer; transition: filter 120ms ease, background 120ms ease, box-shadow 120ms ease; }
 .btn:hover { background: var(--surface-2); text-decoration: none; }
-.btn.primary { background: var(--grad-tide); border-color: transparent; color: #fff; box-shadow: 0 6px 16px -6px rgba(15,116,186,.45); }
+.btn.primary { background: var(--grad-tide); border-color: transparent; color: #fff; box-shadow: 0 6px 16px -6px rgba(0,127,255,.48); }
 .btn.primary:hover { filter: brightness(1.05); }
 .btn.danger { color: var(--neg); }
 .btn.small { padding: 4px 9px; font-size: 13px; }
@@ -213,6 +214,8 @@ a.side-row:hover { background: var(--surface-2); text-decoration: none; }
 .ledger td:first-child input[type=checkbox], .ledger th:first-child input[type=checkbox] { width: auto; margin: 0; }
 .ledger th.select-visible-header { cursor: pointer; user-select: none; }
 .ledger table { table-layout: fixed; }
+.ledger th.action-heading, .ledger td:last-child { width: 88px; min-width: 88px; }
+.ledger tr.add-row td:last-child { text-align: center; }
 .ledger td { padding: 8px 8px; overflow: hidden; text-overflow: ellipsis; }
 .ledger tr.add-row td { padding: 8px 4px 4px; border-bottom: 0; }
 .ledger tr.add-row input, .ledger tr.add-row select { padding: 7px 8px; font-size: 14px; width: 100%; border-radius: 6px; }

@@ -127,16 +127,10 @@
         <label for="investment-unit-price">Price per unit</label>
         <input id="investment-unit-price" type="text" name="unit_price" value="{{ investment_entry.get('unit_price', '') }}" placeholder="Or enter unit price" inputmode="decimal" class="money-input">
       </div>
-      <div class="field">
+      <div class="field"><label><input id="investment-fees-included" type="checkbox" name="fees_included" value="0" data-fees-excluded {{ 'checked' if investment_entry.get('fees_included') == '0' }}> Fees are excluded from the total</label></div>
+      <div class="field" id="investment-fees-field" {{ 'hidden' if investment_entry.get('fees_included') != '0' }}>
         <label for="investment-fees">Fees</label>
         <input id="investment-fees" type="text" name="fees" value="{{ investment_entry.get('fees', '') }}" placeholder="0.00" inputmode="decimal" class="money-input">
-      </div>
-      <div class="field">
-        <label for="investment-fees-included">Fee handling</label>
-        <select id="investment-fees-included" name="fees_included">
-          <option value="1" {{ 'selected' if investment_entry.get('fees_included', '1') != '0' }}>Total includes fees</option>
-          <option value="0" {{ 'selected' if investment_entry.get('fees_included') == '0' }}>Total excludes fees (add them separately)</option>
-        </select>
       </div>
       <button class="btn primary small investment-entry-submit">Add</button>
     </div>
@@ -188,13 +182,14 @@
   </div>
   <table>
     <colgroup>
-      <col style="width:42px"><col style="width:118px">{% if show_account %}<col style="width:16%">{% endif %}
-      <col style="width:18%"><col style="width:18%"><col style="width:16%"><col>
-      <col style="width:130px">{% if with_balance %}<col style="width:120px">{% endif %}<col style="width:72px">
+      <col style="width:42px"><col style="width:100px">{% if show_account %}<col style="width:14%">{% endif %}
+      <col style="width:{{ '16%' if show_account else '20%' }}"><col style="width:{{ '16%' if show_account else '20%' }}">
+      <col class="whom-column" style="width:0"><col><col style="width:120px">
+      {% if with_balance %}<col style="width:120px">{% endif %}<col style="width:88px">
     </colgroup>
     <thead><tr>
       <th id="select-visible-header" class="select-visible-header" title="Select or clear all visible transactions"><input id="select-visible" type="checkbox" aria-label="Select all visible transactions"></th><th>Date</th>{% if show_account %}<th>Account</th>{% endif %}<th>Counterparty</th><th>Category</th><th class="whom-head" {{ 'hidden' if not custody_present }}>Whom</th><th>Notes</th>
-      <th class="num">Amount</th>{% if with_balance %}<th class="num">Balance</th>{% endif %}<th></th>
+      <th class="num">Amount</th>{% if with_balance %}<th class="num">Balance</th>{% endif %}<th class="action-heading">Action</th>
     </tr></thead>
     <tbody>
     {% if not account or account.active %}

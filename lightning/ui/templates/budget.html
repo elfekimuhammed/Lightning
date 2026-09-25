@@ -41,7 +41,7 @@
       {% set mode = 'm_' ~ line.category_id %}
       <tr class="{{ 'budget-group' if line.depth == 1 }}">
         <td class="indent-{{ line.depth - 1 }}">{{ line.name }}{% if line.one_off %} <span class="pill" title="Set for {{ month }} only">this month</span>{% endif %}</td>
-        <td><input type="text" name="{{ key }}" inputmode="decimal" class="num budget-amount" value="{{ values.get(key, line.direct|money if line.direct is not none else '') }}" placeholder="{{ ('Auto · ' ~ line.budget|money) if line.average_months and line.budget is not none else (('= ' ~ line.budget|money) if line.direct is none and line.budget is not none else ('inside group' if line.covered else '—')) }}" {{ 'disabled' if line.average_months }}><input type="hidden" class="budget-mode" name="{{ mode }}" value="{{ line.average_months or 'manual' }}"></td>
+        <td><input type="text" name="{{ key }}" inputmode="decimal" class="num budget-amount" value="{{ values.get(key, line.direct|money(False, 2) if line.direct is not none else '') }}" placeholder="{{ ('Auto · ' ~ line.budget|money) if line.average_months and line.budget is not none else (('= ' ~ line.budget|money) if line.direct is none and line.budget is not none else ('inside group' if line.covered else '—')) }}" {{ 'disabled' if line.average_months }}><input type="hidden" class="budget-mode" name="{{ mode }}" value="{{ line.average_months or 'manual' }}"></td>
         <td class="num"><a href="/transactions?q={{ line.code|urlencode }}&month={{ month }}" title="Show these transactions">{{ line.actual|money }}</a></td>
         <td class="num {{ 'neg' if line.over }}">{{ line.remaining|money if line.remaining is not none }}</td>
         <td>{% if line.budget %}

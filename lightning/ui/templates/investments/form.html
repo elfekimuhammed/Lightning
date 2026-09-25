@@ -36,11 +36,13 @@
     {{ field('quantity', 'Units', values, error_field, placeholder='e.g. 100 shares, 12.5 grams', attrs='inputmode="decimal" required class="quantity-input"') }}
   </div>
   <div class="row">
-    {{ field('total', 'Total paid / received (' ~ base ~ ')', values, error_field, help='Choose below whether this amount includes fees.', placeholder='e.g. 10,000', attrs='inputmode="decimal" required class="money-input trade-total"') }}
+    {{ field('total', 'Total paid / received (' ~ base ~ ')', values, error_field, help='Tick only if fees are excluded from this total.', placeholder='e.g. 10,000', attrs='inputmode="decimal" required class="money-input trade-total"') }}
     <div class="field"><label>Price per unit ({{ base }})</label><input type="text" class="num unit-price-preview" readonly placeholder="Calculated from total ÷ units"><div class="help">Calculated automatically from the trade value and fee choice.</div></div>
   </div>
-  {{ field('fees', 'Fees (' ~ base ~ ')', values, error_field, placeholder='0.00', attrs='inputmode="decimal" class="money-input"') }}
-  <div class="field"><label for="fees_included">Fee handling</label><select id="fees_included" name="fees_included"><option value="1" {{ 'selected' if values.get('fees_included', '1') != '0' }}>Total includes fees</option><option value="0" {{ 'selected' if values.get('fees_included') == '0' }}>Total excludes fees (add separately)</option></select></div>
+  <div class="field"><label><input type="checkbox" name="fees_included" value="0" data-fees-excluded {{ 'checked' if values.get('fees_included') == '0' }}> Fees are excluded from the total</label></div>
+  <div data-fees-field {{ 'hidden' if values.get('fees_included') != '0' }}>
+    {{ field('fees', 'Fees (' ~ base ~ ')', values, error_field, placeholder='e.g. 25', attrs='inputmode="decimal" class="money-input"') }}
+  </div>
   <div class="field {{ 'has-error' if error_field == 'cash_account' }}">
     <label for="cash_account_id">{{ 'Paid from' if kind == 'buy' else 'Money goes to' }}</label>
     <select id="cash_account_id" name="cash_account_id">

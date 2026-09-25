@@ -94,6 +94,7 @@ document.querySelectorAll(".category-input").forEach((category) => {
   const row = category.closest("tr");
   const cell = row?.querySelector(".whom-cell");
   const header = document.querySelector(".whom-head");
+  const whomColumn = document.querySelector(".whom-column");
   const counterparty = row?.querySelector(".counterparty-input");
   const ledger = category.closest(".ledger");
   const internalAccounts = JSON.parse(ledger?.dataset.accounts || "[]");
@@ -104,7 +105,9 @@ document.querySelectorAll(".category-input").forEach((category) => {
     const isTransfer = target.startsWith("↔") || internalAccounts.includes(target);
     const visible = isCustody || isTransfer;
     cell.hidden = !visible;
-    if (header && visible) header.hidden = false;
+    const anyVisible = document.querySelector(".whom-cell:not([hidden])");
+    if (header) header.hidden = !anyVisible;
+    if (whomColumn) whomColumn.style.width = anyVisible ? "12%" : "0px";
     const input = cell.querySelector("input");
     if (input) {
       input.disabled = !visible;
@@ -192,12 +195,18 @@ document.querySelectorAll(".trade-total").forEach((total) => {
   const preview = form?.querySelector(".unit-price-preview");
   if (!quantity || !preview) return;
   const feeInput = form.querySelector('[name="fees"]');
-  const feeChoice = form.querySelector('[name="fees_included"]');
+  const feeChoice = form.querySelector('[data-fees-excluded]');
+  const feeField = form.querySelector('[data-fees-field]');
+  const syncFeeField = () => {
+    if (!feeChoice || !feeField) return;
+    feeField.hidden = !feeChoice.checked;
+    if (feeInput) feeInput.disabled = !feeChoice.checked;
+  };
   const update = () => {
     const units = Number(quantity.value.replace(/,/g, ""));
     const amount = Number(total.value.replace(/,/g, ""));
     const fee = Number((feeInput?.value || "0").replace(/,/g, "")) || 0;
-    const included = feeChoice?.value !== "0";
+    const included = !feeChoice?.checked;
     const gross = amount + (included ? (form.dataset.tradeKind === "buy" ? -fee : fee) : 0);
     preview.value = units > 0 && gross > 0
       ? new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 }).format(gross / units)
@@ -206,7 +215,8 @@ document.querySelectorAll(".trade-total").forEach((total) => {
   quantity.addEventListener("input", update);
   total.addEventListener("input", update);
   feeInput?.addEventListener("input", update);
-  feeChoice?.addEventListener("change", update);
+  feeChoice?.addEventListener("change", () => { syncFeeField(); update(); });
+  syncFeeField();
   update();
 });
 
@@ -223,7 +233,8 @@ if (tradeCatalogueNode) {
   const total = document.getElementById("investment-total");
   const unitPrice = document.getElementById("investment-unit-price");
   const fees = document.getElementById("investment-fees");
-  const feesIncluded = document.getElementById("investment-fees-included");
+  const feesExcluded = document.getElementById("investment-fees-included");
+  const feesField = document.getElementById("investment-fees-field");
   const basis = form.querySelector('[name="price_basis"]');
   const amountLabel = document.getElementById("investment-total-label");
   const positionHint = document.getElementById("trade-position-hint");
@@ -244,7 +255,9 @@ if (tradeCatalogueNode) {
     const cashTotal = number(total);
     const price = number(unitPrice);
     const fee = number(fees) || 0;
-    const included = feesIncluded?.value !== "0";
+    const included = !feesExcluded?.checked;
+    if (feesField) feesField.hidden = !feesExcluded?.checked;
+    if (fees) fees.disabled = !feesExcluded?.checked;
     if (qty === null) amountLabel.textContent = "Dividend amount";
     else amountLabel.textContent = qty < 0 ? "Total received" : "Total paid";
     if (qty !== null && Math.abs(qty) > 0) {
@@ -309,7 +322,7 @@ if (tradeCatalogueNode) {
   total.addEventListener("input", () => { basis.value = "total"; sync(); });
   unitPrice.addEventListener("input", () => { basis.value = "unit_price"; sync(); });
   fees?.addEventListener("input", sync);
-  feesIncluded?.addEventListener("change", sync);
+  feesExcluded?.addEventListener("change", sync);
   document.addEventListener("click", (event) => {
     if (!event.target.closest(".instrument-picker")) {
       results.hidden = true; search.setAttribute("aria-expanded", "false");
@@ -466,10 +479,13 @@ if (ledger) {
         category.disabled = isTransfer;
         category.placeholder = isTransfer ? "Transfer — no category needed" : "Category — type to search";
         if (isTransfer) category.value = "";
-        else if (!category.value && known[counterparty.value]) {
-          category.value = known[counterparty.value];
-          category.dispatchEvent(new Event("input", { bubbles: true }));
-          category.dataset.autofilled = "true";
+        else if (!category.value) {
+          const knownName = parties.find((name) => name.toLocaleLowerCase() === counterparty.value.trim().toLocaleLowerCase());
+          if (knownName && known[knownName]) {
+            category.value = known[knownName];
+            category.dispatchEvent(new Event("input", { bubbles: true }));
+            category.dataset.autofilled = "true";
+          }
         }
       }
     };

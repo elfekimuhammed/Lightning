@@ -214,6 +214,10 @@ def _resolve(request: Request, row_account: int | None, values: dict):
 
     category_text = values["category"].strip()
     category_choice = _int(values.get("category_choice"))
+    if not category_text and category_choice is None and party and party.get("default_category_id"):
+        default_category_id = int(party["default_category_id"])
+        if default_category_id in {item.id for item in c.categories.pickable()}:
+            category_choice = default_category_id
     if category_choice is not None:
         category = c.categories.get(category_choice)
         if category.id not in {item.id for item in c.categories.pickable()}:

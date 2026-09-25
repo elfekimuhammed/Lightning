@@ -48,6 +48,8 @@ def parse_month(value: str, field: str = "month") -> tuple[date, date]:
     if not _MONTH_RE.match(text):
         raise ValidationError("Use the month format yyyy-mm, e.g. 2026-09.", field)
     year, month = int(text[:4]), int(text[5:7])
+    if not 1900 <= year <= 9998:
+        raise ValidationError("Choose a month from 1900 through 9998.", field)
     if not 1 <= month <= 12:
         raise ValidationError(f"{text} is not a valid month.", field)
     return date(year, month, 1), date(year, month, calendar.monthrange(year, month)[1])

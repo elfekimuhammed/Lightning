@@ -19,7 +19,10 @@ async def list_categories(request: Request):
 @router.get("/new")
 async def new_category(request: Request):
     c = container(request)
-    parent = c.categories.get(int(request.query_params.get("parent", "0") or 0))
+    parent_text = request.query_params.get("parent", "0") or "0"
+    if not parent_text.isdigit():
+        return redirect("/categories", "Choose a valid parent category.")
+    parent = c.categories.get(int(parent_text))
     return render(request, "categories/form.html", parent=parent, parent_name=c.categories.display_name(parent.id),
                   category=None, values={"name": "", "code": "", "active": "1",
                                          "default_reimbursable": "1" if parent.default_reimbursable else ""})

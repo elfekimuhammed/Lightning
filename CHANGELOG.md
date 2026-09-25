@@ -8,6 +8,14 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### Fixed
+- Monthly investment checkpoints now detect changed historical trades and prices, void superseded system journals, and rebuild linked return entries; sale-day checkpoints value remaining units at the forced sale price.
+- Counterparty default categories now resolve regardless of capitalization, and the all-accounts register reserves a separate, labeled action column for Add.
+- Money entry rejects ambiguous decimal commas, exponent/underscore notation, and amounts too large for safe storage. New ledger money/base totals are limited to cents; app money displays round to whole currency units while entry fields retain cents.
+- Invalid month, investment-price date, and category-parent URL values now receive safe validation instead of overflowing or raising a server error.
+- Investment fee details stay hidden unless the user ticks “Fees are excluded from the total”; the select menu is removed.
+- Account management is now directly reachable from the sidebar, including inactive accounts.
+
 ### Added
 - Activity-ledger categories organized as Personal, Work, or Investment, with up to one user-defined detail level below each broad activity category; money direction no longer determines the category tree.
 - Transaction multi-select and right-click delete actions, with audit-preserving deletion and restore.

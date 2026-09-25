@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import calendar
+import hashlib
+import json
 from datetime import date, timedelta
 from decimal import Decimal
 
@@ -14,7 +16,7 @@ from lightning.core.money import ONE, ZERO, from_e6, to_e6
 from lightning.core.refs import DocType
 from lightning.database.connection import Database
 from lightning.reporting.service import ReportingService
-from lightning.transactions.domain import TxnSource
+from lightning.transactions.domain import TxnSource, TxnStatus
 from lightning.transactions.service import TransactionService
 
 
@@ -40,11 +42,12 @@ class ReevaluationService:
                 events.add((fmt_date(month_end), "MONTH_END"))
             cursor = date(cursor.year + (cursor.month == 12), 1 if cursor.month == 12 else cursor.month + 1, 1)
         events.update((row["date"], row["reason"]) for row in self.db.all(
-            "SELECT date,reason FROM reevaluation_periods WHERE status='PENDING'"))
+            "SELECT date,reason FROM reevaluation_periods WHERE status='PENDING' OR reason='SALE'"))
         completed = 0
         for day, reason in sorted(events, key=lambda item: (item[0], item[1] != "SALE")):
             if reason == "MONTH_END" and self.db.scalar(
-                    "SELECT 1 FROM reevaluation_periods WHERE date=? AND reason='SALE' AND status='POSTED'", (day,)):
+                    "SELECT 1 FROM reevaluation_periods p WHERE date=? AND reason='SALE' AND status='POSTED' "
+                    "AND EXISTS (SELECT 1 FROM reevaluation_entries e WHERE e.period_id=p.id)", (day,)):
                 continue
             focus = forced = None
             if reason == "SALE":
@@ -55,8 +58,6 @@ class ReevaluationService:
                     (day,))
                 focus = {(r["account_id"], r["asset_id"]) for r in sale_rows}
                 forced = {r["asset_id"]: from_e6(r["unit_price_e6"]) for r in sale_rows}
-                if not focus:
-                    continue
             if self.process_date(day, reason, fetch_price=fetch_price, focus=focus, forced_prices=forced):
                 completed += 1
             else:
@@ -84,13 +85,26 @@ class ReevaluationService:
             self.db.execute("INSERT INTO reevaluation_periods(date,reason,status,created_at) VALUES(?,?, 'PENDING',?) "
                             "ON CONFLICT(date,reason) DO NOTHING", (day, reason, now_iso()))
             period_id = self.db.scalar("SELECT id FROM reevaluation_periods WHERE date=? AND reason=?", (day, reason))
-            if self.db.scalar("SELECT status FROM reevaluation_periods WHERE id=?", (period_id,)) == "POSTED":
+            source_hash = self._source_hash(day, reason, forced_prices)
+            status = self.db.scalar("SELECT status FROM reevaluation_periods WHERE id=?", (period_id,))
+            saved_hash = self.db.scalar("SELECT source_hash FROM reevaluation_periods WHERE id=?", (period_id,))
+            if status == "POSTED" and saved_hash == source_hash:
                 return True
+            if status == "POSTED":
+                linked = self.db.all("SELECT transaction_id FROM reevaluation_account_posts WHERE period_id=?",
+                                     (period_id,))
+                for row in linked:
+                    txn_id = int(row["transaction_id"])
+                    self.transactions.repo.set_status(txn_id, TxnStatus.VOID)
+                    self.transactions.audit.record("transaction", txn_id, "void",
+                                                   f"Rebuilt changed reevaluation checkpoint {day}")
+                self.db.execute("DELETE FROM reevaluation_account_posts WHERE period_id=?", (period_id,))
+                self.db.execute("UPDATE reevaluation_periods SET status='PENDING' WHERE id=?", (period_id,))
             self.db.execute("DELETE FROM reevaluation_entries WHERE period_id=?", (period_id,))
             rows = self.reporting.q.holdings(day)
             positions = {(r["account_id"], r["asset_id"]): int(r["quantity_e6"])
                          for r in rows if int(r["quantity_e6"] or 0)}
-            if focus:
+            if focus is not None:
                 for key in focus:
                     positions.setdefault(key, 0)
                 positions = {k: v for k, v in positions.items() if k in focus}
@@ -115,8 +129,14 @@ class ReevaluationService:
                     continue
                 price, source = found
                 units = from_e6(units_e6)
-                valuation = self.reporting.value_of(asset_id, units, day)
-                if valuation.value is None:
+                if forced is not None:
+                    fx = self.reporting.valuer._fx(asset.currency, day)
+                    value = (units * price * fx).quantize(Decimal("0.01")) if fx is not None else None
+                else:
+                    value = self.reporting.value_of(asset_id, units, day).value
+                    if value is not None:
+                        value = value.quantize(Decimal("0.01"))
+                if value is None:
                     incomplete = True
                     self.db.execute(
                         "INSERT INTO reevaluation_entries(period_id,account_id,asset_id,units_e6,price_e6,currency,"
@@ -137,12 +157,12 @@ class ReevaluationService:
                     params.append(flow_start)
                 flows = from_e6(self.db.scalar(flow_sql, tuple(params)) or 0)
                 prior_value = from_e6(prior["value_base_e6"]) if prior else ZERO
-                ret = valuation.value - prior_value - flows
+                ret = (value - prior_value - flows).quantize(Decimal("0.01"))
                 self.db.execute(
                     "INSERT INTO reevaluation_entries(period_id,account_id,asset_id,units_e6,price_e6,currency,"
                     "value_base_e6,return_base_e6,price_source,needs_price) VALUES(?,?,?,?,?,?,?,?,?,0)",
                     (period_id, account_id, asset_id, units_e6, to_e6(price), asset.currency,
-                     to_e6(valuation.value), to_e6(ret), source))
+                     to_e6(value), to_e6(ret), source))
                 account_returns[account_id] = account_returns.get(account_id, ZERO) + ret
             if incomplete:
                 return False
@@ -165,8 +185,27 @@ class ReevaluationService:
                 self.db.execute("UPDATE reevaluation_entries SET journal_transaction_id=? "
                                 "WHERE period_id=? AND account_id=?",
                                 (journal.id, period_id, account_id))
-            self.db.execute("UPDATE reevaluation_periods SET status='POSTED' WHERE id=?", (period_id,))
+            self.db.execute("UPDATE reevaluation_periods SET status='POSTED',source_hash=? WHERE id=?",
+                            (source_hash, period_id))
         return True
+
+    def _source_hash(self, day: str, reason: str, forced_prices: dict[int, Decimal] | None) -> str:
+        """Fingerprint posted investment activity and dated inputs that can affect this checkpoint."""
+        activity = [tuple(row) for row in self.db.all(
+            "SELECT le.date,le.account_id,le.asset_id,le.quantity_e6,le.unit_price_e6,le.amount_base_e6,"
+            "t.type,t.status FROM ledger_entries le JOIN transactions t ON t.id=le.transaction_id "
+            "JOIN financial_assets a ON a.id=le.asset_id WHERE a.is_cash=0 AND le.date<=? "
+            "ORDER BY le.date,le.account_id,le.asset_id,t.id,le.line_no", (day,))]
+        prices = [tuple(row) for row in self.db.all(
+            "SELECT p.asset_id,p.date,p.price_e6,p.currency,p.source FROM price_history p "
+            "JOIN financial_assets a ON a.id=p.asset_id WHERE a.is_cash=0 AND p.date<=? "
+            "ORDER BY p.asset_id,p.date,p.source", (day,))]
+        fx = [tuple(row) for row in self.db.all(
+            "SELECT date,base,quote,rate_e6,source FROM fx_rates WHERE date<=? ORDER BY date,base,quote,source",
+            (day,))]
+        forced = sorted((int(asset_id), str(price)) for asset_id, price in (forced_prices or {}).items())
+        payload = json.dumps([reason, activity, prices, fx, forced], separators=(",", ":"), default=str)
+        return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
     def _price(self, asset_id: int, day: str):
         found = self.reporting.valuer._price(self.reporting.assets.get_asset(asset_id), day)

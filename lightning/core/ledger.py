@@ -73,7 +73,7 @@ class PostingLine:
             category_id=category_id,
             memo=memo,
             amount=amount,
-            amount_base=_round6(amount * fx_rate),
+            amount_base=_round2(amount * fx_rate),
         )
 
     @staticmethod
@@ -97,7 +97,7 @@ class PostingLine:
             effect=effect,
             memo=memo,
             amount=amount,
-            amount_base=_round6(amount * fx_rate),
+            amount_base=_round2(amount * fx_rate),
             is_cash=False,
         )
 
@@ -106,10 +106,10 @@ class PostingLine:
                     memo: str = "Investment revaluation") -> "PostingLine":
         """Value-only adjustment: no cash movement and no units added or removed."""
         return PostingLine(account_id, cash_asset_id, ZERO, Effect.REVALUATION, ONE, fx_rate,
-                           memo=memo, amount=amount, amount_base=_round6(amount * fx_rate), is_cash=True)
+                           memo=memo, amount=amount, amount_base=_round2(amount * fx_rate), is_cash=True)
 
-def _round6(value: Decimal) -> Decimal:
-    return value.quantize(Decimal("0.000001"))
+def _round2(value: Decimal) -> Decimal:
+    return value.quantize(Decimal("0.01"))
 
 
 def validate_posting(lines: list[PostingLine]) -> None:
@@ -121,15 +121,16 @@ def validate_posting(lines: list[PostingLine]) -> None:
         if line.quantity == ZERO and line.effect != Effect.REVALUATION:
             raise ValidationError(f"Line {i}: amount cannot be zero.", "amount")
         for name in ("quantity", "unit_price", "fx_rate", "amount", "amount_base"):
-            if decimal_places(getattr(line, name)) > 6:
-                raise ValidationError(f"Line {i}: {name} has more than 6 decimal places.")
+            places = 2 if name in {"amount", "amount_base"} else 6
+            if decimal_places(getattr(line, name)) > places:
+                raise ValidationError(f"Line {i}: {name} has more than {places} decimal places.")
         if line.unit_price < ZERO or line.fx_rate <= ZERO:
             raise ValidationError(f"Line {i}: price and exchange rate must be positive.")
         if line.is_cash and line.effect != Effect.REVALUATION and (line.unit_price != ONE or line.amount != line.quantity):
             raise ValidationError(f"Line {i}: a cash line's amount must equal its quantity.")
         if not line.is_cash and line.amount != ZERO and (line.amount > ZERO) != (line.quantity > ZERO):
             raise ValidationError(f"Line {i}: units in must cost money; units out must return money.")
-        if line.amount_base != _round6(line.amount * line.fx_rate):
+        if line.amount_base != _round2(line.amount * line.fx_rate):
             raise ValidationError(f"Line {i}: base amount must equal amount x exchange rate.")
         if line.effect in (Effect.INFLOW, Effect.OUTFLOW) and line.category_id is None:
             raise ValidationError(f"Line {i}: money in and money out need a category.", "category")
