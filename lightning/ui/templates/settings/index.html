@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+{% block heading %}<h1>Settings</h1>{% endblock %}
+{% block content %}
+<div class="grid g2">
+  <div class="card">
+    <h2>Your data</h2>
+    <table>
+      <tr><td class="muted">Base currency</td><td>{{ base }}</td></tr>
+      <tr><td class="muted">Database file</td><td class="code small">{{ db_path }}</td></tr>
+      <tr><td class="muted">Search</td><td>{{ search_mode }}</td></tr>
+    </table>
+    <p class="small muted">All your data lives in that one file. A backup is made automatically each time the app starts.</p>
+    <form method="post" action="/settings/backup"><button class="btn primary">Back up now</button></form>
+    {% if backups %}
+    <h3>Recent backups</h3>
+    <ul class="small code">{% for b in backups %}<li>{{ b }}</li>{% endfor %}</ul>
+    {% endif %}
+  </div>
+  <div class="card">
+    <h2>Asset classes</h2>
+    <p class="small muted">What your wealth is made of. Investments (stocks, funds, gold) arrive in M3.</p>
+    <table>
+      {% for c in classes %}<tr><td class="indent-{{ c.depth }}">{{ c.name }}</td><td class="code muted">{{ c.code }}</td></tr>{% endfor %}
+    </table>
+    <h3>Financial assets</h3>
+    <table>
+      {% for a in assets %}<tr><td>{{ a.name }}</td><td class="code muted">{{ a.code }}</td></tr>{% endfor %}
+    </table>
+  </div>
+</div>
+{% endblock %}

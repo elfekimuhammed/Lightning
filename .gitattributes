@@ -1,0 +1,5 @@
+# Keep Windows launchers with Windows line endings and shell scripts with Unix ones
+* text=auto
+*.bat text eol=crlf
+*.sh text eol=lf
+*.db binary

@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import amount, txn_table %}
+{% block title %}Overview{% endblock %}
+{% block heading %}
+<h1>Overview</h1>
+<form method="get" class="filters small">
+  <span class="muted">Month</span>
+  <input type="text" name="month" value="{{ month }}" placeholder="yyyy-mm" pattern="\d{4}-\d{2}" style="min-width:100px;width:100px">
+  <button class="btn small">Show</button>
+</form>
+{% endblock %}
+{% block content %}
+<div class="grid g4">
+  <div class="card tile"><div class="label">Net worth</div><div class="value {{ net_worth.total|tone }}">{{ net_worth.total|money }}</div><div class="sub">{{ base }} · as of {{ as_of }}</div></div>
+  <div class="card tile"><div class="label">Money in · {{ month }}</div><div class="value pos">{{ cash_flow.inflows|money }}</div><div class="sub">{{ base }}</div></div>
+  <div class="card tile"><div class="label">Money out · {{ month }}</div><div class="value neg">{{ cash_flow.outflows|money }}</div><div class="sub">{{ base }}</div></div>
+  <div class="card tile"><div class="label">Left over · {{ month }}</div><div class="value {{ cash_flow.net|tone }}">{{ cash_flow.net|money(True) }}</div>
+    <div class="sub">money in minus money out</div></div>
+</div>
+
+{% if net_worth.unvalued %}
+<div class="flash error" style="margin-top:16px">Some holdings have no price yet and are not counted: {{ net_worth.unvalued|join('; ') }}</div>
+{% endif %}
+
+<div class="grid g2" style="margin-top:16px">
+  <div class="card">
+    <h2>What your wealth is made of</h2>
+    {% set biggest = namespace(v=0) %}
+    {% for g in net_worth.by_class %}{% if abs(g.value) > biggest.v %}{% set biggest.v = abs(g.value) %}{% endif %}{% endfor %}
+    <table>
+      <tbody>
+      {% for g in net_worth.by_class %}
+        <tr><td><b>{{ g.label }}</b></td><td class="num">{{ amount(g.value) }}</td></tr>
+        {% for ch in g.children %}
+        <tr><td class="indent-1 small">{{ ch.label }}
+          <div class="bartrack"><div class="bar {{ 'neg' if ch.value < 0 }}" style="width:{{ (abs(ch.value) / biggest.v * 100) if biggest.v else 0 }}%"></div></div></td>
+          <td class="num small">{{ amount(ch.value) }}</td></tr>
+        {% endfor %}
+      {% else %}
+        <tr><td class="empty">Nothing yet.</td></tr>
+      {% endfor %}
+      <tr class="total"><td>Net worth</td><td class="num">{{ amount(net_worth.total, base) }}</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>Net-worth bridge · {{ month }}</h2>
+    <table class="bridge">
+      <tr><td>Opening net worth ({{ bridge.date_from }})</td><td class="num">{{ bridge.opening|money }}</td></tr>
+      <tr><td>+ Money in</td><td class="num pos">{{ bridge.inflows|money(True) }}</td></tr>
+      <tr><td>− Money out</td><td class="num neg">{{ (-bridge.outflows)|money }}</td></tr>
+      <tr><td>± Revaluation</td><td class="num">{{ bridge.revaluation|money(True) }}</td></tr>
+      <tr><td>+ New balances added</td><td class="num">{{ bridge.new_balances|money(True) }}</td></tr>
+      <tr class="total"><td>Closing net worth ({{ bridge.date_to }})</td><td class="num">{{ amount(bridge.closing, base) }}</td></tr>
+    </table>
+    {% if bridge.difference != 0 %}<div class="flash error" style="margin-top:10px">Check: the bridge is off by {{ bridge.difference|money }}. Please report this.</div>
+    {% else %}<p class="muted small">Transfers between your accounts never change net worth. Checks out to 0.00.</p>{% endif %}
+  </div>
+</div>
+
+<div class="grid g2" style="margin-top:16px">
+  <div class="card">
+    <h2>Accounts</h2>
+    <table>
+      {% for acc, value in net_worth.by_account %}
+      <tr><td><a href="/accounts/{{ acc.id }}">{{ acc.label }}</a><div class="muted small">{{ acc.type_label }}</div></td>
+          <td class="num">{{ amount(value) }}</td></tr>
+      {% endfor %}
+    </table>
+    <div style="margin-top:10px"><a class="btn small" href="/accounts/new">Add account</a></div>
+  </div>
+  <div class="card">
+    <h2>Spending · {{ month }}</h2>
+    {% if spending %}
+    {% set top = spending[0].value %}
+    <table>
+      {% for g in spending %}
+      <tr><td class="small">{{ g.label }}<div class="bartrack"><div class="bar neg" style="width:{{ (g.value / top * 100) if top else 0 }}%"></div></div></td>
+          <td class="num small">{{ g.value|money }}</td></tr>
+      {% endfor %}
+    </table>
+    <p class="muted small">Personal {{ cash_flow.personal_outflows|money }} · Work {{ cash_flow.work_outflows|money }}</p>
+    {% else %}<div class="empty">No spending recorded this month.</div>{% endif %}
+  </div>
+</div>
+
+<div class="card" style="margin-top:16px">
+  <h2>Budget · {{ month }} <a class="small" href="/budget?month={{ month }}" style="font-weight:400">open →</a></h2>
+  {% if budget.budget %}
+  <table>
+    {% for s in budget.sections %}
+    <tr><td>{{ s.name }}</td>
+        <td style="width:45%"><div class="bartrack"><div class="bar {{ 'neg' if s.actual > s.budget }}" style="width:{{ [((s.actual / s.budget * 100) if s.budget else 0), 100]|min }}%"></div></div></td>
+        <td class="num small">{{ s.actual|money }} of {{ s.budget|money }}</td>
+        <td class="num small {{ s.remaining|tone }}">{{ s.remaining|money }} left</td></tr>
+    {% endfor %}
+  </table>
+  {% else %}<div class="muted small">No budget yet — <a href="/budget">set one</a> for your monthly spending.</div>{% endif %}
+</div>
+
+<div class="card" style="margin-top:16px">
+  <h2>Last 6 months</h2>
+  <table>
+    <thead><tr><th>Month</th><th class="num">Money in</th><th class="num">Money out</th><th class="num">Net</th></tr></thead>
+    {% for m in trend %}
+    <tr><td class="code"><a href="/?month={{ m.month }}">{{ m.month }}</a></td><td class="num">{{ m.inflows|money }}</td><td class="num">{{ m.outflows|money }}</td><td class="num {{ m.net|tone }}">{{ m.net|money(True) }}</td></tr>
+    {% endfor %}
+  </table>
+</div>
+
+<div class="card" style="margin-top:16px">
+  <h2>Recent transactions</h2>
+  {{ txn_table(recent) }}
+  <div style="margin-top:10px"><a href="/transactions">All accounts →</a></div>
+</div>
+{% endblock %}

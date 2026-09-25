@@ -1,0 +1,93 @@
+"""SQL for the categories table. Only this module touches it."""
+
+from __future__ import annotations
+
+import sqlite3
+
+from lightning.core.dates import now_iso
+from lightning.database.connection import Database
+
+from .domain import Category, IncomeClass, Movement, Scope
+
+
+def _row(row: sqlite3.Row) -> Category:
+    return Category(
+        id=row["id"],
+        code=row["code"],
+        name=row["name"],
+        parent_id=row["parent_id"],
+        movement=Movement(row["movement"]),
+        scope=Scope(row["scope"]) if row["scope"] else None,
+        income_class=IncomeClass(row["income_class"]) if row["income_class"] else None,
+        default_reimbursable=bool(row["default_reimbursable"]),
+        is_system=bool(row["is_system"]),
+        active=bool(row["active"]),
+        sort_order=row["sort_order"],
+    )
+
+
+class CategoryRepository:
+    def __init__(self, db: Database):
+        self.db = db
+
+    def list(self) -> list[Category]:
+        return [_row(r) for r in self.db.all("SELECT * FROM categories ORDER BY sort_order, code")]
+
+    def get(self, category_id: int) -> Category | None:
+        row = self.db.one("SELECT * FROM categories WHERE id = ?", (category_id,))
+        return _row(row) if row else None
+
+    def get_by_code(self, code: str) -> Category | None:
+        row = self.db.one("SELECT * FROM categories WHERE code = ?", (code,))
+        return _row(row) if row else None
+
+    def code_exists(self, code: str, exclude_id: int | None = None) -> bool:
+        return (
+            self.db.scalar(
+                "SELECT 1 FROM categories WHERE code = ? AND id IS NOT ?", (code, exclude_id)
+            )
+            is not None
+        )
+
+    def next_sort_order(self) -> int:
+        return (self.db.scalar("SELECT MAX(sort_order) FROM categories") or 0) + 1
+
+    def insert(self, c: Category) -> int:
+        now = now_iso()
+        cur = self.db.execute(
+            "INSERT INTO categories(code, name, parent_id, movement, scope, income_class,"
+            " default_reimbursable, is_system, active, sort_order, created_at, updated_at)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+            (
+                c.code,
+                c.name,
+                c.parent_id,
+                c.movement.value,
+                c.scope.value if c.scope else None,
+                c.income_class.value if c.income_class else None,
+                int(c.default_reimbursable),
+                int(c.is_system),
+                int(c.active),
+                c.sort_order,
+                now,
+                now,
+            ),
+        )
+        return int(cur.lastrowid)
+
+    def update(self, c: Category) -> None:
+        self.db.execute(
+            "UPDATE categories SET code=?, name=?, scope=?, income_class=?, default_reimbursable=?,"
+            " active=?, sort_order=?, updated_at=? WHERE id=?",
+            (
+                c.code,
+                c.name,
+                c.scope.value if c.scope else None,
+                c.income_class.value if c.income_class else None,
+                int(c.default_reimbursable),
+                int(c.active),
+                c.sort_order,
+                now_iso(),
+                c.id,
+            ),
+        )

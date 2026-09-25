@@ -1,0 +1,46 @@
+{% macro amount(value, currency='', signed=False) -%}
+<span class="num {{ value|tone }}">{{ value|money(signed) }}{% if currency %} <span class="muted small">{{ currency }}</span>{% endif %}</span>
+{%- endmacro %}
+
+{% macro txn_table(rows, show_account=True, empty='No transactions yet.') -%}
+{% if rows %}
+<table>
+  <thead><tr><th>Date</th><th>Ref</th><th>What</th>{% if show_account %}<th>Account</th>{% endif %}<th>Category</th><th class="num">Amount</th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+    <tr class="{{ 'void' if r.status == 'VOID' }}">
+      <td class="code">{{ r.date }}</td>
+      <td><a class="code" href="/transactions/{{ r.id }}">{{ r.ref }}</a></td>
+      <td>{{ r.description or r.counterparty or r.type_label }}{% if r.counterparty and r.description %} <span class="muted small">· {{ r.counterparty }}</span>{% endif %}
+        {% if r.status == 'VOID' %}<span class="pill void">void</span>{% endif %}</td>
+      {% if show_account %}<td class="small">{{ r.account_label }}{% if r.to_account_label %} → {{ r.to_account_label }}{% endif %}</td>{% endif %}
+      <td class="small">{% if r.category_label %}{{ r.category_label }}{% else %}<span class="pill {{ r.type }}">{{ r.type_label }}</span>{% endif %}</td>
+      <td class="num">{% if r.type == 'TRF' %}<span class="num">{{ r.amount|money }}</span>{% else %}{{ amount(r.amount, '', True) }}{% endif %}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="empty">{{ empty }}</div>
+{% endif %}
+{%- endmacro %}
+
+{% macro field(name, label, values, error_field, help='', placeholder='', cls='', attrs='') -%}
+<div class="field {{ cls }} {{ 'has-error' if error_field == name }}">
+  <label for="{{ name }}">{{ label }}</label>
+  <input type="text" id="{{ name }}" name="{{ name }}" value="{{ values.get(name, '') }}" placeholder="{{ placeholder }}" {{ attrs|safe }}>
+  {% if help %}<div class="help">{{ help }}</div>{% endif %}
+</div>
+{%- endmacro %}
+
+{% macro date_field(values, error_field, name='date', label='Date') -%}
+<div class="field {{ 'has-error' if error_field == name }}">
+  <label for="{{ name }}">{{ label }} <span class="muted small">yyyy-mm-dd</span></label>
+  <input type="text" id="{{ name }}" name="{{ name }}" value="{{ values.get(name, '') }}" placeholder="2026-12-31"
+         pattern="\d{4}-\d{2}-\d{2}" inputmode="numeric" autocomplete="off" required>
+  <div class="quick">
+    <button class="btn small" data-date="0" data-target="{{ name }}">Today</button>
+    <button class="btn small" data-date="1" data-target="{{ name }}">Yesterday</button>
+  </div>
+</div>
+{%- endmacro %}

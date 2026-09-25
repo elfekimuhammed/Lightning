@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import amount %}
+{% block title %}{{ txn.ref }}{% endblock %}
+{% block heading %}<h1 class="code" style="font-size:20px">{{ txn.ref }}</h1>
+<div class="muted">{{ txn.type_label }} · {{ txn.date }}{% if txn.is_void %} · <span class="pill void">void</span>{% endif %}</div>{% endblock %}
+{% block content %}
+<div class="grid g2">
+  <div class="card">
+    <h2>{{ txn.description or summary.counterparty or txn.type_label }}</h2>
+    <table>
+      <tr><td class="muted">Amount</td><td class="num">{% if txn.type == 'TRF' %}{{ summary.amount|money }} {{ summary.currency }}{% else %}{{ amount(summary.amount, summary.currency, True) }}{% endif %}</td></tr>
+      {% if txn.type == 'TRF' %}
+      <tr><td class="muted">From</td><td>{{ summary.account_label }}</td></tr>
+      <tr><td class="muted">To</td><td>{{ summary.to_account_label }}</td></tr>
+      {% else %}
+      <tr><td class="muted">Account</td><td>{{ summary.account_label }}</td></tr>
+      {% if summary.category_label %}<tr><td class="muted">Category</td><td>{{ summary.category_label }}</td></tr>{% endif %}
+      {% endif %}
+      {% if txn.counterparty %}<tr><td class="muted">{{ 'Paid to' if txn.type == 'OUT' else 'From' }}</td><td>{{ txn.counterparty }}</td></tr>{% endif %}
+      {% if txn.notes %}<tr><td class="muted">Notes</td><td>{{ txn.notes }}</td></tr>{% endif %}
+      <tr><td class="muted">Recorded</td><td class="small">{{ txn.created_at }}{% if txn.updated_at != txn.created_at %} · updated {{ txn.updated_at }}{% endif %}</td></tr>
+    </table>
+    <div class="actions" style="margin-top:14px">
+      {% if not txn.is_void %}
+        {% if txn.type == 'OPN' %}<a class="btn" href="/accounts/{{ lines[0].account_id }}/edit">Change opening balance</a>
+        {% else %}<a class="btn" href="/accounts/{{ lines[0].account_id }}?edit={{ txn.id }}&acct={{ lines[0].account_id }}">Edit in register</a>{% endif %}
+        <form method="post" action="/transactions/{{ txn.id }}/void"><button class="btn danger">Void</button></form>
+      {% else %}
+        <form method="post" action="/transactions/{{ txn.id }}/restore"><button class="btn">Restore</button></form>
+      {% endif %}
+    </div>
+  </div>
+  <div class="card">
+    <h2>History</h2>
+    {% if history %}
+    <table>{% for h in history %}<tr><td class="small code">{{ h.at }}</td><td class="small">{{ h.summary or h.action }}</td></tr>{% endfor %}</table>
+    {% else %}<div class="muted small">No changes since it was recorded.</div>{% endif %}
+  </div>
+</div>
+<div class="card" style="margin-top:16px">
+  <details>
+    <summary>Ledger lines — how this transaction affects balances</summary>
+    <table style="margin-top:10px">
+      <thead><tr><th>Line</th><th>Account</th><th>Asset</th><th>Effect</th><th>Category</th><th class="num">Quantity</th><th class="num">Value ({{ base }})</th></tr></thead>
+      {% for l in lines %}
+      <tr><td class="code">{{ l.ref }}</td><td class="small">{{ l.account }}</td><td class="code">{{ l.asset }}</td><td><span class="pill">{{ l.effect }}</span></td>
+          <td class="small">{{ l.category }}</td><td class="num">{{ l.quantity|money(True) }}</td><td class="num">{{ l.amount_base|money(True) }}</td></tr>
+      {% endfor %}
+    </table>
+  </details>
+</div>
+{% endblock %}

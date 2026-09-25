@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import amount %}
+{% block title %}Accounts{% endblock %}
+{% block heading %}<h1>Accounts</h1><div class="muted">Where your money is held.</div>{% endblock %}
+{% block content %}
+<div class="card">
+  <table>
+    <thead><tr><th>Account</th><th>Type</th><th>Institution</th><th class="num">Transactions</th><th class="num">Balance</th></tr></thead>
+    <tbody>
+    {% for acc, balance, count in rows %}
+      <tr class="{{ 'void' if not acc.active }}">
+        <td><a href="/accounts/{{ acc.id }}">{{ acc.label }}</a>{% if not acc.active %} <span class="pill">inactive</span>{% endif %}</td>
+        <td class="small">{{ acc.type_label }}</td>
+        <td class="small">{{ acc.institution }}</td>
+        <td class="num small">{{ count }}</td>
+        <td class="num">{{ amount(balance, acc.currency) }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="5" class="empty">No accounts yet.</td></tr>
+    {% endfor %}
+    {% if rows %}
+      <tr class="total"><td colspan="4">Net worth</td><td class="num">{{ amount(net_worth.total, base) }}</td></tr>
+    {% endif %}
+    </tbody>
+  </table>
+  <div style="margin-top:12px"><a class="btn primary" href="/accounts/new">Add account</a></div>
+</div>
+{% endblock %}

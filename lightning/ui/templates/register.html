@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}{{ account.label if account else 'All accounts' }}{% endblock %}
+
+{% macro row_inputs(form_id, v, is_edit) -%}
+  <td><input form="{{ form_id }}" type="text" name="date" value="{{ v.get('date', '') }}" placeholder="yyyy-mm-dd"
+             pattern="\d{4}-\d{2}-\d{2}" title="yyyy-mm-dd" required class="{{ 'bad' if error_field == 'date' }}"></td>
+  {% if show_account %}
+  <td><select form="{{ form_id }}" name="account_id" required class="{{ 'bad' if error_field == 'account' }}">
+        <option value="">Account…</option>
+        {% for a in accounts %}<option value="{{ a.id }}" {{ 'selected' if v.get('account_id') == a.id|string }}>{{ a.label }}</option>{% endfor %}
+      </select></td>
+  {% endif %}
+  <td><input form="{{ form_id }}" type="text" name="payee" value="{{ v.get('payee', '') }}" placeholder="Payee" list="payees"
+             class="payee-input" {{ '' if is_edit else 'id=payee' }} {{ 'autofocus' if is_edit or edit_id is none }}></td>
+  <td><input form="{{ form_id }}" type="text" name="notes" value="{{ v.get('notes', '') }}" placeholder="Notes"></td>
+  <td><select form="{{ form_id }}" name="choice" required class="choice-input {{ 'bad' if error_field in ('category', 'to_account', 'from_account') }}">
+        <option value="">Category…</option>
+        {% for group, options in choices %}
+        <optgroup label="{{ group }}">
+          {% for value, label in options %}<option value="{{ value }}" {{ 'selected' if v.get('choice') == value }}>{{ label }}</option>{% endfor %}
+        </optgroup>
+        {% endfor %}
+      </select></td>
+  <td><input form="{{ form_id }}" type="text" name="payment" value="{{ v.get('payment', '') }}" placeholder="Payment" inputmode="decimal" class="num {{ 'bad' if error_field == 'amount' }}"></td>
+  <td><input form="{{ form_id }}" type="text" name="deposit" value="{{ v.get('deposit', '') }}" placeholder="Deposit" inputmode="decimal" class="num {{ 'bad' if error_field == 'amount' }}"></td>
+{%- endmacro %}
+
+{% block heading %}
+{% if account %}
+<h1>{{ account.name }} <span class="code muted" style="font-size:14px">{{ account.code }}</span></h1>
+<div class="big-balance {{ balance|tone }}">{{ balance|money }} <span class="muted small">{{ account.currency }}</span></div>
+<div class="muted small">{{ account.type_label }}{% if account.institution %} · {{ account.institution }}{% endif %} · shows under {{ group }}
+  {% if balance_all != balance %} · {{ balance_all|money }} including entries dated after today{% endif %}</div>
+{% else %}
+<h1>All accounts</h1>
+<div class="big-balance">{{ sidebar_total|money }} <span class="muted small">{{ base }}</span></div>
+{% endif %}
+{% endblock %}
+
+{% block top_actions %}
+{% if account %}
+<a class="btn small" href="/accounts/{{ account.id }}/edit">Edit account</a>
+{% if account.active %}<form method="post" action="/accounts/{{ account.id }}/deactivate"><button class="btn small danger">Deactivate</button></form>
+{% else %}<form method="post" action="/accounts/{{ account.id }}/reactivate"><button class="btn small">Reactivate</button></form>{% endif %}
+{% endif %}
+{% endblock %}
+
+{% block content %}
+{% set ncols = 7 + (1 if show_account else 0) + (1 if account and not q else 0) %}
+<div class="toolbar">
+  <button class="btn small" type="button" data-focus="payee">+ Add New</button>
+  <form method="get" class="toolbar-filters">
+    <input type="search" name="q" value="{{ q }}" placeholder="Search payee, notes, category, amount…">
+    <input type="text" name="month" value="{{ month }}" placeholder="yyyy-mm" pattern="\d{4}-\d{2}" title="Month, yyyy-mm" class="month-input">
+    <button class="btn small">Filter</button>
+    {% if q or month %}<a class="btn small" href="{{ base_url }}">Clear</a>{% endif %}
+  </form>
+</div>
+
+<form id="f-new" method="post" action="{{ post_url }}" autocomplete="off"></form>
+{% if edit_id is not none %}
+<form id="f-edit" method="post" action="{{ post_url }}/{{ edit_id }}" autocomplete="off"></form>
+{% endif %}
+<datalist id="payees">{% for p in payees %}<option value="{{ p }}">{% endfor %}</datalist>
+
+<div class="card register" data-payees='{{ payees|tojson }}'>
+  <table>
+    <colgroup>
+      <col style="width:118px">{% if show_account %}<col style="width:17%">{% endif %}
+      <col style="width:17%"><col><col style="width:21%">
+      <col style="width:112px"><col style="width:112px">{% if account and not q %}<col style="width:118px">{% endif %}<col style="width:84px">
+    </colgroup>
+    <thead><tr>
+      <th>Date</th>{% if show_account %}<th>Account</th>{% endif %}<th>Payee</th><th>Notes</th><th>Category</th>
+      <th class="num">Payment</th><th class="num">Deposit</th>{% if account and not q %}<th class="num">Balance</th>{% endif %}<th></th>
+    </tr></thead>
+    <tbody>
+    {% if not account or account.active %}
+    <tr class="entry">
+      {{ row_inputs('f-new', entry, False) }}
+      {% if account and not q %}<td></td>{% endif %}
+      <td><button form="f-new" class="btn primary small" title="Enter also saves">Add</button></td>
+    </tr>
+    {% endif %}
+
+    {% for r in rows %}
+      {% if edit_id == r.txn_id and edit_acct == r.account_id %}
+      <tr class="entry editing">
+        {{ row_inputs('f-edit', edit, True) }}
+        {% if account and not q %}<td class="num muted">{{ r.balance|money if r.balance is not none }}</td>{% endif %}
+        <td class="row-actions">
+          <button form="f-edit" class="btn primary small">Save</button>
+        </td>
+      </tr>
+      <tr class="edit-bar"><td colspan="{{ ncols }}">
+        <a href="{{ base_url }}{{ '?' ~ keep_qs if keep_qs }}" class="btn small" data-cancel>Cancel</a>
+        <form method="post" action="/transactions/{{ r.txn_id }}/void?back={{ base_url|urlencode }}" style="display:inline">
+          <button class="btn small danger">Void</button></form>
+        <a class="btn small" href="/transactions/{{ r.txn_id }}">Details &amp; history</a>
+        <span class="muted small code">{{ r.ref }}</span>
+      </td></tr>
+      {% else %}
+      {% if r.type == 'OPN' %}{% set href = '/accounts/' ~ r.account_id ~ '/edit' %}
+      {% else %}{% set href = base_url ~ '?edit=' ~ r.txn_id ~ '&acct=' ~ r.account_id ~ ('&' ~ keep_qs if keep_qs) %}{% endif %}
+      <tr class="clickable" data-href="{{ href }}" title="{{ r.ref }} — click to edit">
+        <td class="code">{{ r.date }}</td>
+        {% if show_account %}<td class="small">{{ r.account_label }}</td>{% endif %}
+        <td>{{ r.payee or r.description or r.type_label }}</td>
+        <td class="small muted">{{ r.notes }}{% if r.payee and r.description and r.type != 'OPN' %} {{ r.description }}{% endif %}</td>
+        <td class="small">{{ r.category_label }}</td>
+        <td class="num">{{ r.payment|money if r.payment }}</td>
+        <td class="num pos">{{ r.deposit|money if r.deposit }}</td>
+        {% if account and not q %}<td class="num">{{ r.balance|money }}</td>{% endif %}
+        <td></td>
+      </tr>
+      {% endif %}
+    {% else %}
+      <tr><td colspan="{{ ncols }}" class="empty">{{ 'Nothing matches.' if q or month else 'No transactions yet — type the first one in the row above.' }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% if account and account.notes %}<div class="card" style="margin-top:16px"><h2>Notes</h2>{{ account.notes }}</div>{% endif %}
+{% endblock %}

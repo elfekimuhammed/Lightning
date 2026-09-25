@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import field %}
+{% block title %}{{ 'Edit category' if category else 'New category' }}{% endblock %}
+{% block heading %}<h1>{{ ('Edit ' ~ category.name) if category else 'New category' }}</h1>
+{% if parent_name %}<div class="muted">Inside {{ parent_name }}</div>{% endif %}{% endblock %}
+{% block content %}
+<form method="post" class="card" style="max-width:620px">
+  {{ field('name', 'Name', values, error_field, placeholder='e.g. Pets', attrs='required autofocus') }}
+  {% if (category and category.movement == 'OUTFLOW') or (not category and parent and parent.movement == 'OUTFLOW') %}
+  <label class="small" style="display:flex;gap:6px;align-items:center;margin-bottom:12px">
+    <input type="checkbox" name="default_reimbursable" value="1" {{ 'checked' if values.default_reimbursable }}> Usually paid back by an employer (used from M5)</label>
+  {% endif %}
+  {% if category %}
+  <label class="small" style="display:flex;gap:6px;align-items:center;margin-bottom:12px">
+    <input type="checkbox" name="active" value="1" {{ 'checked' if values.active }} {{ 'disabled' if category.is_system }}> Show in lists (unticked: hidden from forms, kept in history)</label>
+  {% if category.is_system %}<input type="hidden" name="active" value="1">{% endif %}
+  {% endif %}
+  <details {{ 'open' if error_field == 'code' }}>
+    <summary>Code (for search and exports)</summary>
+    <div style="margin-top:10px">
+    {{ field('code', 'Code', values, error_field, help=('Created from the name if left empty. Needed when the name is not in Latin letters.'), placeholder='created for you') }}
+    </div>
+  </details>
+  <div class="actions" style="margin-top:12px">
+    <button class="btn primary">Save</button>
+    <a class="btn" href="/categories">Cancel</a>
+  </div>
+</form>
+{% endblock %}

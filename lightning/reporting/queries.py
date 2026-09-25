@@ -1,0 +1,112 @@
+"""Read-only SQL for reports.
+
+Reporting owns no tables; it reads the ledger (and later prices/FX) directly for speed.
+Only POSTED transactions count. All sums are over exact integer (_e6) columns.
+"""
+
+from __future__ import annotations
+
+from lightning.database.connection import Database
+
+POSTED = "JOIN transactions t ON t.id = le.transaction_id AND t.status = 'POSTED'"
+
+
+class ReportQueries:
+    def __init__(self, db: Database):
+        self.db = db
+
+    def holdings(self, as_of: str) -> list[dict]:
+        rows = self.db.all(
+            f"SELECT le.account_id, le.asset_id, SUM(le.quantity_e6) AS quantity_e6,"
+            f" SUM(le.amount_base_e6) AS cost_base_e6"
+            f" FROM ledger_entries le {POSTED} WHERE le.date <= ?"
+            f" GROUP BY le.account_id, le.asset_id",
+            (as_of,),
+        )
+        return [dict(r) for r in rows]
+
+    def flows_by_holding(self, date_from: str, date_to: str) -> list[dict]:
+        rows = self.db.all(
+            f"SELECT le.account_id, le.asset_id, SUM(le.quantity_e6) AS quantity_e6,"
+            f" SUM(le.amount_base_e6) AS amount_base_e6"
+            f" FROM ledger_entries le {POSTED} WHERE le.date BETWEEN ? AND ?"
+            f" GROUP BY le.account_id, le.asset_id",
+            (date_from, date_to),
+        )
+        return [dict(r) for r in rows]
+
+    def effect_totals(self, date_from: str, date_to: str) -> dict[str, int]:
+        rows = self.db.all(
+            f"SELECT le.effect, SUM(le.amount_base_e6) AS total"
+            f" FROM ledger_entries le {POSTED} WHERE le.date BETWEEN ? AND ? GROUP BY le.effect",
+            (date_from, date_to),
+        )
+        return {r["effect"]: int(r["total"] or 0) for r in rows}
+
+    def category_totals(self, date_from: str, date_to: str) -> list[dict]:
+        rows = self.db.all(
+            f"SELECT le.category_id, le.effect, SUM(le.amount_base_e6) AS total"
+            f" FROM ledger_entries le {POSTED}"
+            f" WHERE le.date BETWEEN ? AND ? AND le.category_id IS NOT NULL"
+            f" AND le.effect IN ('INFLOW','OUTFLOW') GROUP BY le.category_id, le.effect",
+            (date_from, date_to),
+        )
+        return [dict(r) for r in rows]
+
+    def monthly_effects(self, date_from: str, date_to: str) -> list[dict]:
+        rows = self.db.all(
+            f"SELECT substr(le.date, 1, 7) AS month, le.effect, SUM(le.amount_base_e6) AS total"
+            f" FROM ledger_entries le {POSTED} WHERE le.date BETWEEN ? AND ?"
+            f" GROUP BY month, le.effect ORDER BY month",
+            (date_from, date_to),
+        )
+        return [dict(r) for r in rows]
+
+    def account_quantity(self, account_id: int, as_of: str | None = None, before: str | None = None) -> int:
+        sql = f"SELECT SUM(le.quantity_e6) FROM ledger_entries le {POSTED} WHERE le.account_id = ?"
+        params: list = [account_id]
+        if as_of:
+            sql += " AND le.date <= ?"
+            params.append(as_of)
+        if before:
+            sql += " AND le.date < ?"
+            params.append(before)
+        return int(self.db.scalar(sql, tuple(params)) or 0)
+
+    def statement_lines(self, account_id: int | None, date_from: str, date_to: str) -> list[dict]:
+        """Posted ledger lines for one account (or every account when account_id is None)."""
+        where = "le.date BETWEEN ? AND ?"
+        params: list = [date_from, date_to]
+        if account_id is not None:
+            where = "le.account_id = ? AND " + where
+            params.insert(0, account_id)
+        rows = self.db.all(
+            f"SELECT le.date, le.account_id, le.quantity_e6, le.effect, le.category_id, le.memo,"
+            f" t.id AS txn_id, t.ref, t.type, t.description, t.counterparty, t.notes,"
+            f" (SELECT o.account_id FROM ledger_entries o WHERE o.transaction_id = t.id"
+            f"  AND o.account_id != le.account_id LIMIT 1) AS other_account_id"
+            f" FROM ledger_entries le {POSTED}"
+            f" WHERE {where}"
+            f" ORDER BY le.date, t.id, le.line_no",
+            tuple(params),
+        )
+        return [dict(r) for r in rows]
+
+    def latest_price(self, asset_id: int, as_of: str) -> dict | None:
+        row = self.db.one(
+            "SELECT price_e6, currency, date, source FROM price_history WHERE asset_id = ? AND date <= ?"
+            " ORDER BY date DESC, CASE source WHEN 'MANUAL' THEN 0 ELSE 1 END LIMIT 1",
+            (asset_id, as_of),
+        )
+        return dict(row) if row else None
+
+    def latest_fx(self, base: str, quote: str, as_of: str) -> dict | None:
+        row = self.db.one(
+            "SELECT rate_e6, date, source FROM fx_rates WHERE base = ? AND quote = ? AND date <= ?"
+            " ORDER BY date DESC, CASE source WHEN 'MANUAL' THEN 0 ELSE 1 END LIMIT 1",
+            (base, quote, as_of),
+        )
+        return dict(row) if row else None
+
+    def first_entry_date(self) -> str | None:
+        return self.db.scalar(f"SELECT MIN(le.date) FROM ledger_entries le {POSTED}")

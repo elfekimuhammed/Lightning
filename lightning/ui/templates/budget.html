@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Budget {{ month }}{% endblock %}
+{% block heading %}
+<h1>Budget</h1>
+<div class="month-nav">
+  <a class="btn small" href="/budget?month={{ prev_month }}" title="Previous month">‹</a>
+  <b class="code">{{ month }}</b>
+  <a class="btn small" href="/budget?month={{ next_month }}" title="Next month">›</a>
+  {% if month != this_month %}<a class="small" href="/budget">This month</a>{% endif %}
+</div>
+{% endblock %}
+{% block content %}
+<div class="grid g4">
+  <div class="card tile"><div class="label">Budgeted</div><div class="value">{{ view.budget|money }}</div><div class="sub">{{ base }} · money out</div></div>
+  <div class="card tile"><div class="label">Spent</div><div class="value">{{ view.actual|money }}</div>
+    <div class="sub">{% if view.budget %}{{ ((view.actual / view.budget * 100)|round|int) }}% of budget{% else %}no budget set{% endif %}</div></div>
+  <div class="card tile"><div class="label">Remaining</div><div class="value {{ view.remaining|tone }}">{{ view.remaining|money }}</div>
+    <div class="sub">{% if view.unbudgeted %}{{ view.unbudgeted|money }} spent without a budget{% else %}budgeted minus spent{% endif %}</div></div>
+  <div class="card tile"><div class="label">Money in</div><div class="value pos">{{ view.income|money }}</div>
+    <div class="sub">{{ (view.income - view.budget)|money(True) }} after the full budget</div></div>
+</div>
+
+{% for w in view.warnings %}<div class="flash error" style="margin-top:12px">{{ w }}</div>{% endfor %}
+
+<form method="post" action="/budget?month={{ month }}" autocomplete="off">
+  {% for section in view.sections %}
+  <div class="card budget" style="margin-top:16px">
+    <div class="budget-head">
+      <h2>{{ section.name }}</h2>
+      <div class="small muted">Budget <b>{{ section.budget|money }}</b> · Spent <b>{{ section.actual|money }}</b> ·
+        Remaining <b class="{{ section.remaining|tone }}">{{ section.remaining|money }}</b>
+        {% if section.unbudgeted %} · <span title="Spending in categories with no budget on them or above them">{{ section.unbudgeted|money }} without a budget</span>{% endif %}</div>
+    </div>
+    <table>
+      <colgroup><col><col style="width:150px"><col style="width:120px"><col style="width:120px"><col style="width:26%"></colgroup>
+      <thead><tr><th>Category</th><th class="num">Budget</th><th class="num">Spent</th><th class="num">Remaining</th><th></th></tr></thead>
+      <tbody>
+      {% for line in section.lines %}
+      {% set key = 'b_' ~ line.category_id %}
+      <tr class="{{ 'budget-group' if line.depth == 1 }}">
+        <td class="indent-{{ line.depth - 1 }}">{{ line.name }}{% if line.one_off %} <span class="pill" title="Set for {{ month }} only">this month</span>{% endif %}</td>
+        <td><input type="text" name="{{ key }}" inputmode="decimal" class="num"
+                   value="{{ values.get(key, line.direct|money if line.direct is not none else '') }}"
+                   placeholder="{{ ('= ' ~ line.budget|money) if line.direct is none and line.budget is not none else ('inside ' ~ 'group' if line.covered else '—') }}"></td>
+        <td class="num"><a href="/transactions?q={{ line.code|urlencode }}&month={{ month }}" title="Show these transactions">{{ line.actual|money }}</a></td>
+        <td class="num {{ 'neg' if line.over }}">{{ line.remaining|money if line.remaining is not none }}</td>
+        <td>{% if line.budget %}
+          <div class="bartrack" title="{{ line.used_pct }}% used"><div class="bar {{ 'neg' if line.over }}" style="width:{{ [line.used_pct, 100]|min }}%"></div></div>
+          <div class="small muted">{{ line.used_pct }}%</div>{% endif %}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card empty" style="margin-top:16px">No money-out categories yet.</div>
+  {% endfor %}
+
+  <div class="card budget-save">
+    <label class="small"><input type="checkbox" name="only_this_month" value="1"> Apply my changes to {{ month }} only</label>
+    <span class="muted small">Otherwise they apply from {{ month }} onward, until you change them again.</span>
+    <button class="btn primary">Save budget</button>
+  </div>
+</form>
+<p class="muted small">A group budget (e.g. Personal) is the ceiling for everything in it; budgets on its categories are part of it.
+A group without its own amount shows the total of its categories (“= …”). Leave a box empty for no budget.</p>
+{% endblock %}

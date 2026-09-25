@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Welcome{% endblock %}
+{% block heading %}<h1>Welcome to Lightning</h1><div class="muted">Your money, in one place.</div>{% endblock %}
+{% block content %}
+<div class="card" style="max-width:720px">
+  <h2>Let's start with your accounts</h2>
+  <p>An <b>account</b> is a place where money is held — your wallet, a bank account, a CD, THNDR.
+     Add each one with what it holds today. Then open an account and type transactions straight into it.</p>
+  <ol>
+    <li>Add your accounts and today's balances.</li>
+    <li>Open an account from the left and type transactions straight into it.</li>
+    <li>Watch your net worth on this dashboard.</li>
+  </ol>
+  <div class="actions">
+    <a class="btn primary" href="/accounts/new?type=BANK">Add a bank account</a>
+    <a class="btn" href="/accounts/new?type=CASH">Add a cash wallet</a>
+    <a class="btn" href="/accounts/new?type=BROKERAGE">Add THNDR / brokerage</a>
+  </div>
+</div>
+{% endblock %}

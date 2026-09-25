@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Lightning{% endblock %} · Lightning</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <a class="brand" href="/">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z"/></svg>
+      Lightning
+    </a>
+    <nav class="nav">
+      {% for href, label in [("/", "Overview"), ("/budget", "Budget"), ("/categories", "Categories"), ("/settings", "Settings")] %}
+        <a href="{{ href }}" class="{{ 'active' if (href == '/' and path == '/') or (href != '/' and path.startswith(href)) }}">{{ label }}</a>
+      {% endfor %}
+    </nav>
+    <div class="side-accounts">
+      <a class="side-row side-total {{ 'active' if path.startswith('/transactions') }}" href="/transactions">
+        <span>All accounts</span><span class="num">{{ sidebar_total|money }}</span></a>
+      {% for g in sidebar_groups %}
+        <div class="side-row side-group"><span>{{ g.label }}</span><span class="num">{{ g.value|money }}</span></div>
+        {% for a in g.children %}
+        {% set name = a.label.split(' · ', 1) %}
+        <a class="side-row side-account {{ 'active' if path == '/accounts/' ~ a.id or path.startswith('/accounts/' ~ a.id ~ '/') }}" href="/accounts/{{ a.id }}" title="{{ a.label }}">
+          <span class="side-name">{{ name[1] if name|length > 1 else a.label }}<small>{{ name[0] }}</small></span>
+          <span class="num {{ 'neg' if a.value < 0 }}">{{ a.value|money }}</span></a>
+        {% endfor %}
+      {% endfor %}
+      <a class="side-add" href="/accounts/new">+ Add account</a>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="topbar"><div>{% block heading %}{% endblock %}</div><div class="actions">{% block top_actions %}{% endblock %}</div></div>
+    {% if msg %}<div class="flash">{{ msg }}</div>{% endif %}
+    {% if error %}<div class="flash error">{{ error }}</div>{% endif %}
+    {% block content %}{% endblock %}
+  </main>
+</div>
+<script src="/static/app.js"></script>
+</body>
+</html>

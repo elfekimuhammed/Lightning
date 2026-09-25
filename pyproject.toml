@@ -1,0 +1,74 @@
+[project]
+name = "lightning"
+version = "0.1.0"
+description = "Personal finance: accounts, cash flow, investments and net worth in one place."
+requires-python = ">=3.11"
+dependencies = ["fastapi>=0.115", "uvicorn>=0.30", "jinja2>=3.1", "python-multipart>=0.0.9"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "httpx>=0.27", "import-linter>=2.1"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+# ---------------------------------------------------------------------------
+# Architecture rules, checked by `lint-imports` (and by tests/test_architecture.py)
+# ---------------------------------------------------------------------------
+[tool.importlinter]
+root_package = "lightning"
+
+[[tool.importlinter.contracts]]
+name = "Layers: each layer may only import the layers below it"
+type = "layers"
+layers = [
+    "lightning.main",
+    "lightning.ui",
+    "lightning.bootstrap",
+    "lightning.workflows",
+    "lightning.budgeting",
+    "lightning.reporting",
+    "lightning.transactions",
+    "lightning.accounts",
+    "lightning.assets | lightning.categories",
+    "lightning.integrations",
+    "lightning.database",
+    "lightning.core",
+]
+
+[[tool.importlinter.contracts]]
+name = "The UI never touches SQL or repositories directly"
+type = "forbidden"
+source_modules = ["lightning.ui"]
+forbidden_modules = [
+    "lightning.database",
+    "lightning.accounts.repository",
+    "lightning.assets.repository",
+    "lightning.categories.repository",
+    "lightning.transactions.repository",
+    "lightning.budgeting.repository",
+    "lightning.reporting.queries",
+]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "Modules use each other's services, never each other's repositories"
+type = "forbidden"
+source_modules = [
+    "lightning.transactions",
+    "lightning.reporting",
+    "lightning.workflows",
+]
+forbidden_modules = [
+    "lightning.accounts.repository",
+    "lightning.assets.repository",
+    "lightning.categories.repository",
+]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "Workflows and reporting never write through the transactions repository"
+type = "forbidden"
+source_modules = ["lightning.workflows", "lightning.reporting", "lightning.budgeting"]
+forbidden_modules = ["lightning.transactions.repository"]
+allow_indirect_imports = true
