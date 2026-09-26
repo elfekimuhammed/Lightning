@@ -136,12 +136,13 @@ class CategoryService:
         root = self.get(category_id)
         return [c for c in self.repo.list() if c.code.startswith(root.code + ".")]
 
-    def require(self, category_id: int | None, movement: Movement, allow_system: bool = False) -> Category:
+    def require(self, category_id: int | None, movement: Movement, allow_system: bool = False,
+                allow_inactive: bool = False) -> Category:
         """Validate that a category can be used for this direction of money."""
         if category_id is None:
             raise ValidationError("Choose a category.", "category")
         cat = self.get(category_id)
-        if not cat.active:
+        if not cat.active and not allow_inactive:
             raise ValidationError(f"{cat.label} is inactive.", "category")
         if cat.is_root or (cat.is_system and not allow_system):
             raise ValidationError("Choose a more specific category than the top level.", "category")

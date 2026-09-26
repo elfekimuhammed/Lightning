@@ -47,11 +47,15 @@ class AccountService:
         wanted = " ".join((text or "").split()).casefold()
         if not wanted:
             return None
+        matches = []
         for account in self.repo.list(active_only=True):
             if wanted in (account.label.casefold(), account.code.casefold(), account.name.casefold(),
                           f"{account.code} · {account.name}".casefold()):
-                return account
-        return None
+                matches.append(account)
+        if len(matches) > 1:
+            raise ValidationError("More than one account has that name. Choose its code from the account picker.",
+                                  "counterparty")
+        return matches[0] if matches else None
 
     def require_usable(self, account_id: int | None, field: str = "account") -> Account:
         if account_id is None:
@@ -84,6 +88,7 @@ class AccountService:
         name = (name or "").strip()
         if not name:
             raise ValidationError("Enter an account name.", "name")
+        self._ensure_unique_name(name)
         account_type = self._type(account_type)
         currency = (currency or self.base_currency).strip().upper()
         self.assets.cash_asset(currency)  # currency must exist
@@ -133,6 +138,7 @@ class AccountService:
         name = (name or "").strip()
         if not name:
             raise ValidationError("Enter an account name.", "name")
+        self._ensure_unique_name(name, exclude_id=account_id)
         account_type = self._type(account_type)
         new_code = validate_account_code(code) if code and code.strip() else current.code
         if self.repo.code_exists(new_code, exclude_id=current.id):
@@ -151,6 +157,11 @@ class AccountService:
         with self.db.transaction():
             self.repo.update(updated)
         return self.get(account_id), (new_code != current.code or name != current.name)
+
+    def _ensure_unique_name(self, name: str, exclude_id: int | None = None) -> None:
+        wanted = name.casefold()
+        if any(account.id != exclude_id and account.name.casefold() == wanted for account in self.repo.list()):
+            raise ConflictError("An account with this name already exists. Choose a different name.", "name")
 
     def set_active(self, account_id: int, active: bool) -> Account:
         account = self.get(account_id)

@@ -31,7 +31,10 @@ async def new_category(request: Request):
 @router.post("/new")
 async def create_category(request: Request):
     c = container(request)
-    parent = c.categories.get(int(request.query_params.get("parent", "0") or 0))
+    parent_text = request.query_params.get("parent", "0") or "0"
+    if not parent_text.isdigit():
+        return redirect("/categories", "Choose a valid parent category.")
+    parent = c.categories.get(int(parent_text))
     form = await request.form()
     values = {k: str(form.get(k, "")) for k in ("name", "code", "default_reimbursable")}
     similar = c.categories.suggestions(values["name"], parent.id)

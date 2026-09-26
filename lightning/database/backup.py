@@ -28,7 +28,7 @@ def backup(db: Database, folder: str | Path, keep: int = 30) -> Path | None:
         db.conn.backup(dest)
     finally:
         dest.close()
-    backups = sorted(folder.glob("lightning_*.db"))
+    backups = sorted(folder.glob("lightning_*.db"), key=lambda p: p.stat().st_mtime)
     for old in backups[:-keep] if keep > 0 else []:
         old.unlink(missing_ok=True)
     return target

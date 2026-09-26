@@ -10,6 +10,8 @@ from lightning.core.dates import now_iso
 from lightning.core.errors import ConflictError, NotFoundError, ValidationError
 from lightning.database.connection import Database
 
+MAX_ALIASES_PER_COUNTERPARTY = 10
+
 
 def normalize(value: str) -> str:
     """Normalize harmless spelling differences without erasing meaningful words."""
@@ -34,6 +36,22 @@ class CounterpartyService:
 
     def get(self, counterparty_id: int):
         return self.db.one("SELECT * FROM counterparties WHERE id=?", (counterparty_id,))
+
+    def aliases_for(self, counterparty_id: int):
+        return self.db.all(
+            "SELECT id,alias FROM counterparty_aliases WHERE counterparty_id=? ORDER BY alias COLLATE NOCASE",
+            (counterparty_id,),
+        )
+
+    def search_names(self):
+        """Canonical names and confirmed aliases offered by smart-search pickers."""
+        rows = self.db.all(
+            "SELECT name AS value FROM counterparties WHERE active=1 "
+            "UNION SELECT a.alias AS value FROM counterparty_aliases a "
+            "JOIN counterparties c ON c.id=a.counterparty_id WHERE c.active=1 "
+            "ORDER BY value COLLATE NOCASE"
+        )
+        return [row["value"] for row in rows]
 
     def list_active(self):
         """Counterparties available in picker controls, in display order."""
@@ -83,17 +101,55 @@ class CounterpartyService:
         key = normalize(alias)
         if not key:
             raise ValidationError("Enter the spelling to remember.", "alias")
+        if not self.get(counterparty_id):
+            raise NotFoundError("Counterparty not found.")
         if self.resolve(alias):
             existing = self.resolve(alias)
             if existing["id"] == counterparty_id:
                 return
             raise ConflictError(f"“{alias}” is already linked to {existing['name']}.", "alias")
         with self.db.transaction():
+            alias_count = self.db.scalar(
+                "SELECT COUNT(*) FROM counterparty_aliases WHERE counterparty_id=?", (counterparty_id,)
+            )
+            if int(alias_count or 0) >= MAX_ALIASES_PER_COUNTERPARTY:
+                raise ValidationError(f"A counterparty can have at most {MAX_ALIASES_PER_COUNTERPARTY} aliases.", "alias")
             self.db.execute(
                 "INSERT INTO counterparty_aliases(counterparty_id,alias,normalized_alias,created_at) "
                 "VALUES (?,?,?,?)", (counterparty_id, alias, key, now_iso())
             )
             self._link_historical(counterparty_id, alias)
+
+    def rename_alias(self, counterparty_id: int, alias_id: int, alias: str) -> None:
+        alias = " ".join((alias or "").split())
+        key = normalize(alias)
+        if not key:
+            raise ValidationError("Enter the spelling to remember.", "alias")
+        row = self.db.one(
+            "SELECT id FROM counterparty_aliases WHERE id=? AND counterparty_id=?", (alias_id, counterparty_id)
+        )
+        if not row:
+            raise NotFoundError("Alias not found.")
+        existing = self.resolve(alias)
+        if existing and existing["id"] != counterparty_id:
+            raise ConflictError(f"“{alias}” is already linked to {existing['name']}.", "alias")
+        duplicate = self.db.one(
+            "SELECT id FROM counterparty_aliases WHERE normalized_alias=? AND id<>?", (key, alias_id)
+        )
+        if duplicate or (existing and normalize(existing["name"]) == key):
+            raise ConflictError(f"“{alias}” is already saved for this counterparty.", "alias")
+        self.db.execute(
+            "UPDATE counterparty_aliases SET alias=?,normalized_alias=? WHERE id=? AND counterparty_id=?",
+            (alias, key, alias_id, counterparty_id),
+        )
+        self._link_historical(counterparty_id, alias)
+
+    def remove_alias(self, counterparty_id: int, alias_id: int) -> None:
+        cur = self.db.execute(
+            "DELETE FROM counterparty_aliases WHERE id=? AND counterparty_id=?", (alias_id, counterparty_id)
+        )
+        if cur.rowcount != 1:
+            raise NotFoundError("Alias not found.")
 
     def _link_historical(self, counterparty_id: int, alias: str) -> None:
         target = self.get(counterparty_id)

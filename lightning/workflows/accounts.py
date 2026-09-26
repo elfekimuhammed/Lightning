@@ -8,10 +8,10 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from lightning.accounts.domain import Account
+from lightning.accounts.domain import Account, INVESTMENT_ACCOUNT_TYPES
 from lightning.accounts.service import AccountService
 from lightning.core.errors import ConflictError, ValidationError
-from lightning.core.dates import fmt_date, parse_date
+from lightning.core.dates import fmt_date, parse_date, today
 from lightning.core.money import ZERO, fmt, to_decimal
 from lightning.database.connection import Database
 from lightning.reporting.service import ReportingService
@@ -39,18 +39,22 @@ class AccountWorkflows:
 
     def open_account(self, name: str, account_type: str, opening_date: str, opening_balance: object = "0",
                      institution: str = "", currency: str | None = None, code: str | None = None,
-                     last4: str | None = None, notes: str = "") -> Account:
+                     last4: str | None = None, notes: str = "",
+                     opening_balance_date: str | None = None) -> Account:
         with self.db.transaction():
             amount = self.parse_opening(opening_balance)
+            balance_day = parse_date(opening_balance_date or opening_date, "opening_balance_date")
+            if balance_day > today():
+                raise ValidationError("The starting balance date cannot be in the future.", "opening_balance_date")
             account = self.accounts.create(name=name, account_type=account_type, opening_date=opening_date,
                                            institution=institution, currency=currency, code=code,
                                            last4=last4, notes=notes)
-            self.transactions.set_opening_balance(account.id, amount, account.opening_date)
+            self.transactions.set_opening_balance(account.id, amount, fmt_date(balance_day))
         return account
 
     def update_account(self, account_id: int, name: str, account_type: str, opening_date: str,
                        opening_balance: object = "0", institution: str = "", code: str | None = None,
-                       last4: str | None = None, notes: str = "") -> Account:
+                       last4: str | None = None, notes: str = "", opening_balance_date: str | None = None) -> Account:
         first = self.transactions.earliest_activity(account_id)
         new_start = fmt_date(parse_date(opening_date, "opening_date"))
         if first and new_start > first:
@@ -58,12 +62,28 @@ class AccountWorkflows:
                 f"This account already has transactions from {first}. The start date must be on or before that.",
                 "opening_date",
             )
+        balance_day = fmt_date(parse_date(opening_balance_date or opening_date, "opening_balance_date"))
+        if parse_date(balance_day) > today():
+            raise ValidationError("The starting balance date cannot be in the future.", "opening_balance_date")
+        if first and balance_day > first:
+            raise ValidationError(
+                f"The starting balance date must be on or before the first transaction ({first}).",
+                "opening_balance_date",
+            )
+        current = self.accounts.get(account_id)
+        if current.account_type in INVESTMENT_ACCOUNT_TYPES and account_type not in {t.value for t in INVESTMENT_ACCOUNT_TYPES}:
+            holdings = [h for h in self.reporting.holdings("9999-12-31")[0] if h.account.id == account_id]
+            if holdings:
+                raise ConflictError(
+                    "This account still holds investments. Sell or move them before changing its type.",
+                    "account_type",
+                )
         with self.db.transaction():
             account, _ = self.accounts.update(account_id, name=name, institution=institution,
                                                     account_type=account_type, opening_date=opening_date,
                                                     code=code, last4=last4, notes=notes)
             self.transactions.set_opening_balance(account.id, self.parse_opening(opening_balance),
-                                                  account.opening_date)
+                                                  balance_day)
         return account
 
     def deactivate(self, account_id: int) -> Account:

@@ -14,7 +14,7 @@ from fastapi import Request
 from lightning.accounts.domain import INVESTMENT_ACCOUNT_TYPES
 from lightning.assets.catalog import instruments as catalog_instruments
 from lightning.core.codes import slug
-from lightning.core.dates import fmt_date, parse_month, today
+from lightning.core.dates import fmt_date, parse_date, parse_month, today
 from lightning.core.errors import LightningError, ValidationError
 from lightning.core.money import ZERO, to_decimal
 from lightning.core.refs import DocType
@@ -38,10 +38,15 @@ def _lists(request: Request) -> dict:
                    "label": c.categories.display_name(cat.id)} for cat in c.categories.pickable()]
     categories.sort(key=lambda row: (row["parent"].casefold(), row["name"].casefold(), row["id"]))
     accounts = c.accounts.list(active_only=True)
-    cp_rows = c.counterparties.list_active()
-    counterparty_options = [row["name"] for row in cp_rows]
-    counterparty_categories = {row["name"]: c.categories.display_name(row["default_category_id"])
-                               for row in cp_rows if row["default_category_id"]}
+    counterparty_options = c.counterparties.search_names()
+    counterparty_categories = {}
+    for name in counterparty_options:
+        party = c.counterparties.resolve(name)
+        # Keep every saved Counterparty available to the register picker;
+        # the default category is optional and only affects autofill.
+        counterparty_categories[name] = None
+        if party and party["default_category_id"]:
+            counterparty_categories[name] = c.categories.display_name(party["default_category_id"])
     return {
         "category_choices": categories,
         "account_options": [a.name for a in accounts],
@@ -110,7 +115,17 @@ def page(request: Request, account_id: int | None, entry: dict | None = None, ed
     account = c.accounts.get(account_id) if account_id else None
     q, month = qp.get("q", "").strip(), qp.get("month", "").strip()
     date_from, date_to = FAR_PAST, FAR_FUTURE
-    if month:
+    from_query, to_query = qp.get("date_from", "").strip(), qp.get("date_to", "").strip()
+    if from_query or to_query:
+        try:
+            if not from_query or not to_query:
+                raise ValidationError("Choose both start and end dates.")
+            date_from, date_to = fmt_date(parse_date(from_query)), fmt_date(parse_date(to_query))
+            if date_to < date_from:
+                raise ValidationError("End date must be on or after the start date.")
+        except ValidationError as exc:
+            error, from_query, to_query = error or exc.message, "", ""
+    elif month:
         try:
             first, last = parse_month(month)
             date_from, date_to = fmt_date(first), fmt_date(last)
@@ -142,7 +157,7 @@ def page(request: Request, account_id: int | None, entry: dict | None = None, ed
         picked = next((item for item in trade_choices if item["key"] == investment_entry["instrument_key"]), None)
         if picked:
             investment_entry["instrument_label"] = f"{picked['name']} · {picked['ticker']}"
-    keep = {k: v for k, v in (("q", q), ("month", month)) if v}
+    keep = {k: v for k, v in (("q", q), ("month", month), ("date_from", from_query), ("date_to", to_query)) if v}
     base_url = (f"/accounts/{account_id}" if account_id else "/transactions")
     return render(
         request, "register.html", status_code=status_code,
@@ -162,7 +177,7 @@ def page(request: Request, account_id: int | None, entry: dict | None = None, ed
         custody_present=any(custody_owners.values()),
         entry=entry or {"date": qp.get("date") or fmt_date(today()), "account_id": qp.get("new_acct", "")},
         edit_id=edit_id if edit_values is not None else None, edit_acct=edit_acct, edit=edit_values or {},
-        q=q, month=month, base_url=base_url, keep_qs=urlencode(keep),
+        q=q, month=month, date_from=from_query, date_to=to_query, base_url=base_url, keep_qs=urlencode(keep),
         post_url=(f"/accounts/{account_id}/register" if account_id else "/transactions/register"),
         show_account=account is None, error=error, error_field=error_field,
         counterparty_matches=_counterparty_matches(c, (entry or {}).get("counterparty", "")),
@@ -226,12 +241,29 @@ def _resolve(request: Request, row_account: int | None, values: dict):
         exact = [item for item in c.categories.pickable()
                  if category_text.casefold() in {item.name.casefold(), c.categories.display_name(item.id).casefold(),
                                                  item.code.casefold()}]
+        if not exact:
+            exact = [item for item in c.categories.tree(active_only=False)
+                     if not item.is_root and item.depth == 2 and item.code.startswith("EXP.")
+                     and category_text.casefold() in {item.name.casefold(), c.categories.display_name(item.id).casefold(),
+                                                      item.code.casefold()}]
         if len(exact) == 1:
             category = exact[0]
         elif len(exact) > 1 or c.categories.suggestions(category_text):
             raise ValidationError("Review similar categories and choose the one you mean.", "category_review")
         else:
-            category = c.categories.find_by_text(category_text)
+            try:
+                category = c.categories.find_by_text(category_text)
+            except ValidationError:
+                # System categories are intentionally absent from the picker,
+                # but an imported row must be editable without changing its
+                # category first.
+                system = [item for item in c.categories.tree(active_only=True)
+                          if item.is_system and category_text.casefold() in {
+                              item.name.casefold(), c.categories.display_name(item.id).casefold(),
+                              item.code.casefold()}]
+                if len(system) != 1:
+                    raise
+                category = system[0]
     return None, category.id, canonical
 
 
@@ -250,7 +282,7 @@ async def create(request: Request, account_id: int | None):
             amount = to_decimal(entry["amount"], "amount")
             if other_id:
                 source, target = (other_id, row_account) if amount > ZERO else (row_account, other_id)
-                owner = _transfer_custody_owner(c, entry, source, txn.date)
+                owner = _transfer_custody_owner(c, entry)
                 c.money_from_others.sync_transfer(txn.id, txn.date, owner, source, target, abs(amount), entry["notes"])
             else:
                 owner = _custody_owner(c, entry, category)
@@ -278,7 +310,7 @@ async def update(request: Request, account_id: int | None, txn_id: int):
             amount = to_decimal(values["amount"], "amount")
             if other_id:
                 source, target = (other_id, row_account) if amount > ZERO else (row_account, other_id)
-                owner = _transfer_custody_owner(c, values, source, txn.date)
+                owner = _transfer_custody_owner(c, values)
                 c.money_from_others.sync_transfer(txn.id, txn.date, owner, source, target, abs(amount), values["notes"])
             else:
                 owner = _custody_owner(c, values, category)
@@ -302,19 +334,16 @@ def _custody_owner(c, values: dict, category) -> str | None:
     return party["name"]
 
 
-def _transfer_custody_owner(c, values: dict, source_id: int, day: str) -> str | None:
-    """Use Whom when supplied; infer it only when that source account has one owner."""
+def _transfer_custody_owner(c, values: dict) -> str | None:
+    """Transfer custody only when the user explicitly identifies its owner."""
     name = values.get("whom", "").strip()
+    if name.casefold() in {"self", "me", "my money", "my own money"}:
+        return None
     if name:
         party = c.counterparties.resolve(name)
         if not party or not party["active"]:
             raise ValidationError("Choose an active saved Counterparty in Whom.", "whom")
         return party["name"]
-    owners = c.money_from_others.cash_owners_for_account(source_id, day)
-    if len(owners) == 1:
-        return owners[0]["owner"]
-    if len(owners) > 1:
-        raise ValidationError("Choose whose money is being transferred in Whom.", "whom")
     return None
 
 
@@ -324,7 +353,7 @@ async def create_investment_entry(request: Request, account_id: int):
     account = c.accounts.get(account_id)
     form = await request.form()
     values = {key: str(form.get(key, "")).strip() for key in
-              ("date", "instrument_key", "units", "total", "unit_price", "price_basis", "fees",
+              ("date", "instrument_key", "trade_action", "units", "total", "unit_price", "price_basis", "fees",
                "fees_included", "cash_account_id", "notes", "whom")}
     values["instrument_label"] = str(form.get("instrument_label", ""))
     values["is_others"] = "1" if form.get("is_others") else ""
@@ -334,14 +363,23 @@ async def create_investment_entry(request: Request, account_id: int):
         key = values["instrument_key"]
         if not key:
             raise ValidationError("Type a stock or fund and choose it from the results.", "instrument")
-        units = to_decimal(values["units"], "units") if values["units"] else None
+        action = values["trade_action"] or "buy"
+        if action not in {"buy", "sell", "dividend"}:
+            raise ValidationError("Choose Buy, Sell, or Dividend.", "trade_action")
+        units = to_decimal(values["units"], "units") if values["units"] and action != "dividend" else None
+        if units is not None and units < ZERO:
+            raise ValidationError("Enter units as a positive quantity; choose Sell for a sale.", "units")
+        if units is not None and action == "sell":
+            units = -units
         signed_units = units or ZERO
         total = values["total"]
         unit_price = values["unit_price"]
-        if units is None and not total:
+        if (action == "dividend" or units is None) and not total:
             raise ValidationError("Enter a dividend amount, or add units for a buy or sell.", "total")
+        if action != "dividend" and units is None:
+            raise ValidationError("Enter the number of units.", "units")
         if units == ZERO:
-            raise ValidationError("Units must be positive for a buy or negative for a sell.", "units")
+            raise ValidationError("Units must be greater than zero.", "units")
         ticker_row = None
         asset = None
         with c.db.transaction():

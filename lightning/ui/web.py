@@ -4,12 +4,13 @@ from __future__ import annotations
 
 from decimal import Decimal
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from lightning.bootstrap import Container
 from lightning.core.dates import fmt_date, month_of, today
@@ -68,17 +69,29 @@ def redirect(url: str, msg: str = "") -> RedirectResponse:
 
 
 def create_app(c: Container) -> FastAPI:
-    from .routes import accounts, bank_imports, budget, categories, counterparties, dashboard, investments, settings, transactions
+    from .routes import accounts, bank_imports, birdview, budget, categories, counterparties, dashboard, investments, reserves, settings, transactions
 
     app = FastAPI(title="Lightning", docs_url=None, redoc_url=None, openapi_url=None)
     app.state.container = c
+    app.add_middleware(TrustedHostMiddleware,
+                       allowed_hosts=["localhost", "127.0.0.1", "[::1]", "testserver"])
+
+    @app.middleware("http")
+    async def same_origin_posts(request: Request, call_next):
+        if request.method == "POST":
+            host = request.headers.get("host", "").lower()
+            for header in ("origin", "referer"):
+                value = request.headers.get(header)
+                if value and urlsplit(value).netloc.lower() != host:
+                    return PlainTextResponse("Cross-origin form submission blocked.", status_code=403)
+        return await call_next(request)
 
     @app.get("/__health", include_in_schema=False)
     async def health():
         return PlainTextResponse("lightning-ok")
 
     app.mount("/static", StaticFiles(directory=str(UI_DIR / "static")), name="static")
-    for module in (dashboard, accounts, bank_imports, transactions, budget, investments, counterparties, categories, settings):
+    for module in (dashboard, accounts, bank_imports, birdview, transactions, budget, investments, reserves, counterparties, categories, settings):
         app.include_router(module.router)
 
     @app.exception_handler(NotFoundError)

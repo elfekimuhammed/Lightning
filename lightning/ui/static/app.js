@@ -29,7 +29,7 @@ document.addEventListener("submit", (event) => {
   form.dataset.submitting = "true";
   const buttons = [...form.querySelectorAll("button")];
   if (form.id) buttons.push(...document.querySelectorAll(`[form="${form.id}"][type="submit"], [form="${form.id}"]:not([type])`));
-  buttons.forEach((button) => { button.disabled = true; });
+  buttons.forEach((button) => { if (button !== event.submitter) button.disabled = true; });
 });
 
 // Select rows, use the right-click menu, and soft-delete one or many transactions.
@@ -43,10 +43,12 @@ if (ledger) {
   const selectedIds = () => visibleChecks().filter((box) => box.checked).map((box) => box.value);
   const syncSelection = () => {
     const selected = selectedIds();
-    tools.hidden = selected.length === 0;
-    count.textContent = `${selected.length} selected`;
-    selectAll.checked = visibleChecks().length > 0 && visibleChecks().every((box) => box.checked);
-    selectAll.indeterminate = selected.length > 0 && !selectAll.checked;
+    if (tools) tools.hidden = selected.length === 0;
+    if (count) count.textContent = `${selected.length} selected`;
+    if (selectAll) {
+      selectAll.checked = visibleChecks().length > 0 && visibleChecks().every((box) => box.checked);
+      selectAll.indeterminate = selected.length > 0 && !selectAll.checked;
+    }
     if (menu && !menu.hidden) menu.querySelector("[data-context-delete]").textContent =
       selected.length > 1 ? `Delete ${selected.length} selected` : "Delete transaction";
   };
@@ -104,10 +106,10 @@ document.querySelectorAll(".category-input").forEach((category) => {
     const target = counterparty?.value.trim() || "";
     const isTransfer = target.startsWith("↔") || internalAccounts.includes(target);
     const visible = isCustody || isTransfer;
-    cell.hidden = !visible;
-    const anyVisible = document.querySelector(".whom-cell:not([hidden])");
-    if (header) header.hidden = !anyVisible;
-    if (whomColumn) whomColumn.style.width = anyVisible ? "12%" : "0px";
+    cell.classList.toggle("is-hidden", !visible);
+    const anyVisible = document.querySelector(".whom-cell:not(.is-hidden)");
+    if (header) header.classList.toggle("is-hidden", !anyVisible);
+    if (whomColumn) whomColumn.style.width = "12%";
     const input = cell.querySelector("input");
     if (input) {
       input.disabled = !visible;
@@ -147,8 +149,8 @@ document.querySelectorAll(".import-category").forEach((category) => {
   if (!cell) return;
   const sync = () => {
     const visible = /money held for others/i.test(category.selectedOptions[0]?.textContent || "");
-    cell.hidden = !visible;
-    if (header && visible) header.hidden = false;
+    cell.classList.toggle("is-hidden", !visible);
+    if (header) header.classList.toggle("is-hidden", !document.querySelector(".import-whom-cell:not(.is-hidden)"));
     const input = cell.querySelector("input");
     if (input) input.disabled = !visible;
   };
@@ -230,6 +232,8 @@ if (tradeCatalogueNode) {
   const selectedLabel = form.querySelector('[name="instrument_label"]');
   const results = document.getElementById("trade-instrument-results");
   const units = document.getElementById("investment-units");
+  const unitsField = document.getElementById("investment-units-field");
+  const action = document.getElementById("investment-action");
   const total = document.getElementById("investment-total");
   const unitPrice = document.getElementById("investment-unit-price");
   const fees = document.getElementById("investment-fees");
@@ -247,18 +251,27 @@ if (tradeCatalogueNode) {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : null;
   };
-  const formatted = (value, decimals = 6) => value > 0
-    ? new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: decimals }).format(value)
-    : "";
+  const formatted = (value, decimals = 6) => {
+    if (!(value > 0)) return "";
+    const maximumFractionDigits = Math.max(0, Number.isFinite(decimals) ? decimals : 6);
+    const minimumFractionDigits = Math.min(2, maximumFractionDigits);
+    return new Intl.NumberFormat(undefined, { minimumFractionDigits, maximumFractionDigits }).format(value);
+  };
   const sync = () => {
-    const qty = number(units);
+    const actionKind = action?.value || "buy";
+    const rawQty = number(units);
+    const qty = actionKind === "dividend" || rawQty === null ? null : (actionKind === "sell" ? -rawQty : rawQty);
     const cashTotal = number(total);
     const price = number(unitPrice);
     const fee = number(fees) || 0;
     const included = !feesExcluded?.checked;
-    if (feesField) feesField.hidden = !feesExcluded?.checked;
-    if (fees) fees.disabled = !feesExcluded?.checked;
-    if (qty === null) amountLabel.textContent = "Dividend amount";
+    const isDividend = actionKind === "dividend";
+    if (unitsField) unitsField.hidden = isDividend;
+    units.disabled = isDividend;
+    if (feesField) feesField.hidden = isDividend || !feesExcluded?.checked;
+    if (fees) fees.disabled = isDividend || !feesExcluded?.checked;
+    if (unitPrice) unitPrice.disabled = isDividend;
+    if (qty === null) amountLabel.textContent = "Dividend amount received";
     else amountLabel.textContent = qty < 0 ? "Total received" : "Total paid";
     if (qty !== null && Math.abs(qty) > 0) {
       if (basis.value === "unit_price" && price !== null) {
@@ -270,7 +283,7 @@ if (tradeCatalogueNode) {
       }
     }
     let exceeds = false;
-    if (selected && qty !== null && qty < 0) {
+    if (selected && actionKind === "sell" && qty !== null) {
       const owned = Number(selected.holding || 0);
       exceeds = Math.abs(qty) > owned;
       positionHint.textContent = exceeds
@@ -279,10 +292,10 @@ if (tradeCatalogueNode) {
     } else if (selected) {
       positionHint.textContent = `You hold ${formatted(Number(selected.holding || 0), selected.decimals)} ${selected.unit}(s) here.`;
     }
-    if (qty === null) entryHint.textContent = "Leave units blank to record a dividend. Enter the dividend total received.";
-    else entryHint.textContent = qty < 0
-      ? "Enter units with a minus sign. Choose whether the sale total includes the fee below."
-      : "Enter positive units. Fees are tracked separately and included in your cost basis.";
+    if (isDividend) entryHint.textContent = "Enter the amount received. This is recorded as investment income.";
+    else entryHint.textContent = actionKind === "sell"
+      ? "Enter the number of units sold. Choose whether the sale total includes fees below."
+      : "Enter the number of units bought. Fees are included in your cost basis.";
     addButton.disabled = exceeds;
   };
   const renderResults = () => {
@@ -319,6 +332,7 @@ if (tradeCatalogueNode) {
   });
   search.addEventListener("focus", renderResults);
   units.addEventListener("input", sync);
+  action?.addEventListener("change", sync);
   total.addEventListener("input", () => { basis.value = "total"; sync(); });
   unitPrice.addEventListener("input", () => { basis.value = "unit_price"; sync(); });
   fees?.addEventListener("input", sync);
@@ -512,7 +526,7 @@ if (ledger) {
       const internal = accounts.filter((name) => name.toLocaleLowerCase().includes(query)).slice(0, 8);
       const saved = parties.filter((name) => name.toLocaleLowerCase().includes(query)).slice(0, 8);
       addGroup("Your accounts · internal transfers", internal, "Internal");
-      addGroup("People & businesses", saved, "Counterparty");
+      addGroup("People & businesses", saved, "External");
       if (!internal.length && !saved.length) {
         const empty = document.createElement("div"); empty.className = "counterparty-group-title";
         empty.textContent = "No saved match · press Enter to review this new name"; results.append(empty);

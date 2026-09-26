@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Deleted transactions{% endblock %}
+{% block heading %}
+<h1>Deleted transactions</h1>
+<div class="muted">Deleted entries stay here so you can restore them.</div>
+{% endblock %}
+{% block top_actions %}<a class="btn small" href="/transactions">Back to transactions</a>{% endblock %}
+{% block content %}
+<section class="card">
+  {% if rows %}
+  <table>
+    <thead><tr><th>Date</th><th>Reference</th><th>What</th><th>Account</th><th>Category</th><th class="num">Amount</th><th></th></tr></thead>
+    <tbody>
+    {% for row in rows %}
+      <tr class="void">
+        <td class="code">{{ row.date }}</td>
+        <td><a class="code" href="/transactions/{{ row.id }}">{{ row.ref }}</a></td>
+        <td>{{ row.description or row.counterparty or row.type_label }}</td>
+        <td class="small">{{ row.account_label }}{% if row.to_account_label %} → {{ row.to_account_label }}{% endif %}</td>
+        <td class="small">{{ row.category_label or row.type_label }}</td>
+        <td class="num">{{ row.amount|money(True) }} {{ row.currency }}</td>
+        <td><form method="post" action="/transactions/{{ row.id }}/restore"><button class="btn small">Restore</button></form></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">No deleted transactions.</div>
+  {% endif %}
+</section>
+{% endblock %}

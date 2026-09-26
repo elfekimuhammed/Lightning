@@ -14,16 +14,18 @@ router = APIRouter(prefix="/budget")
 
 def _month(request: Request) -> str:
     month = request.query_params.get("month") or month_of(today())
-    try:
-        parse_month(month)
-    except ValidationError:
-        month = month_of(today())
+    parse_month(month)
     return month
 
 
 def _neighbours(month: str) -> tuple[str, str]:
     first, last = parse_month(month)
-    return month_of(first - timedelta(days=1)), month_of(last + timedelta(days=1))
+    previous = month_of(first - timedelta(days=1))
+    try:
+        following = month_of(last + timedelta(days=1))
+    except OverflowError:
+        following = month
+    return previous, following
 
 
 def _page(request: Request, month: str, values: dict | None = None, error: str = "", status_code: int = 200):
@@ -36,13 +38,20 @@ def _page(request: Request, month: str, values: dict | None = None, error: str =
 
 @router.get("")
 async def budget_page(request: Request):
-    return _page(request, _month(request))
+    try:
+        month = _month(request)
+    except ValidationError:
+        return redirect("/budget", "That month is invalid. Use YYYY-MM, for example 2026-09.")
+    return _page(request, month)
 
 
 @router.post("")
 async def save_budget(request: Request):
     c = container(request)
-    month = _month(request)
+    try:
+        month = _month(request)
+    except ValidationError:
+        return redirect("/budget", "That month is invalid. Use YYYY-MM, for example 2026-09.")
     form = await request.form()
     ids = {int(key[2:]) for key in form if key.startswith(("b_", "m_")) and key[2:].isdigit()}
     amounts = {category_id: str(form.get(f"b_{category_id}", "")) for category_id in ids}

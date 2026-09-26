@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Reconcile {{ account.name }}{% endblock %}
+{% block heading %}<div class="acct-title"><h1>Reconcile {{ account.name }}</h1></div><div class="muted small">Match cleared transactions to a statement balance.</div>{% endblock %}
+{% block top_actions %}<a class="btn small" href="/accounts/{{ account.id }}">Back to account</a>{% endblock %}
+{% block content %}
+<section class="card reconcile-summary">
+  <form method="get" action="/accounts/{{ account.id }}/reconcile" class="reconcile-controls">
+    <label>Statement date<input type="date" name="date" value="{{ through }}" required></label>
+    <label>Statement closing balance<input type="text" name="balance" value="{{ balance_input }}" placeholder="e.g. 12,500.00" inputmode="decimal"></label>
+    <button class="btn primary">Compare</button>
+  </form>
+  {% if error %}<p class="flash error">{{ error }}</p>{% endif %}
+  <div class="reconcile-figures">
+    <div><span class="muted small">Cleared balance</span><b>{{ summary.cleared_balance|money }}</b></div>
+    <div><span class="muted small">Difference</span><b class="{{ summary.difference|tone if summary.difference is not none else 'muted' }}">{{ summary.difference|money(True) if summary.difference is not none else 'Enter statement balance' }}</b></div>
+    <div><span class="muted small">Uncleared items</span><b>{{ summary.uncleared_count }}</b></div>
+  </div>
+  {% if summary.reconciled %}<p class="flash">Reconciled through {{ through }}. The cleared balance matches the statement.</p>
+  {% elif summary.difference is not none %}<p class="muted small">Clear the transactions shown on your statement. A zero difference means the account matches.</p>{% endif %}
+</section>
+<section class="card reconcile-lines">
+  <h2>Transactions through {{ through }}</h2>
+  <div class="table-scroll"><table>
+    <thead><tr><th>Status</th><th>Date</th><th>Counterparty</th><th>Category</th><th class="num">Amount</th><th></th></tr></thead>
+    <tbody>
+    {% for line in lines %}
+    <tr>
+      <td>{% if line.cleared or line.type == 'OPN' %}<span class="pill cleared">Cleared</span>{% else %}<span class="pill">Uncleared</span>{% endif %}</td>
+      <td class="code">{{ line.date }}</td>
+      <td>{{ line.counterparty or line.description or ('Opening balance' if line.type == 'OPN' else line.ref) }}</td>
+      <td class="small muted">{{ line.memo or line.type }}</td>
+      <td class="num {{ line.amount|tone }}">{{ line.amount|money(True) }}</td>
+      <td>{% if line.type != 'OPN' %}<form method="post" action="/accounts/{{ account.id }}/reconcile">
+        <input type="hidden" name="date" value="{{ through }}"><input type="hidden" name="balance" value="{{ balance_input }}">
+        <input type="hidden" name="line_id" value="{{ line.line_id }}">
+        {% if line.cleared %}<button class="btn small" name="action" value="unclear">Mark uncleared</button>
+        {% else %}<button class="btn small" name="action" value="clear">Clear</button>{% endif %}
+      </form>{% endif %}</td>
+    </tr>
+    {% else %}<tr><td colspan="6" class="empty">No cash transactions on or before this date.</td></tr>{% endfor %}
+    </tbody>
+  </table></div>
+</section>
+{% endblock %}

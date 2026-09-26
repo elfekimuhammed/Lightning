@@ -66,6 +66,23 @@ class TransactionService:
         day, lines = self._money_lines(Movement.OUTFLOW, date, account_id, amount, category_id, allow_system_category)
         return self._create(DocType.OUT, day, lines, description, counterparty, notes, source)
 
+    def record_refund(self, date: str, account_id: int, amount, category_id: int, description: str = "",
+                      counterparty: str = "", notes: str = "", source: TxnSource = TxnSource.MANUAL) -> Transaction:
+        """Money returned for a purchase; record it against the original expense category."""
+        account = self.accounts.require_usable(account_id)
+        day = self._check_date(date, [account])
+        asset = self.assets.cash_asset(account.currency)
+        value = self._positive_amount(amount, asset.quantity_decimals)
+        category_obj = self.categories.get(category_id)
+        category = self.categories.require(category_id, Movement.OUTFLOW, allow_system=category_obj.is_system)
+        if category.movement != Movement.OUTFLOW:
+            raise ValidationError("Choose an expense category for a refund.", "category")
+        if category.code == "EXP.PERSONAL.CUSTODY":
+            raise ValidationError("Money held for others cannot be recorded as an expense refund.", "category")
+        line = PostingLine.cash(account.id, asset.id, value, Effect.OUTFLOW, category.id,
+                                memo="Refund", fx_rate=self._fx(account))
+        return self._create(DocType.IN, day, [line], description or "Refund", counterparty, notes, source)
+
     def record_transfer(self, date: str, from_account_id: int, to_account_id: int, amount,
                         description: str = "", notes: str = "",
                         source: TxnSource = TxnSource.MANUAL) -> Transaction:
@@ -89,6 +106,9 @@ class TransactionService:
         if kind == DocType.OUT:
             return self.record_outflow(date, account_id, -value, category_id, description=description,
                                        counterparty=counterparty, notes=notes)
+        if self.categories.get(category_id).movement == Movement.OUTFLOW:
+            return self.record_refund(date, account_id, value, category_id, description=description,
+                                      counterparty=counterparty, notes=notes)
         return self.record_inflow(date, account_id, value, category_id, description=description,
                                   counterparty=counterparty, notes=notes)
 
@@ -116,8 +136,28 @@ class TransactionService:
             if kind == DocType.TRF:
                 src, dst = (account_id, other_account_id) if value < 0 else (other_account_id, account_id)
                 return self.update_transfer(current.id, date, src, dst, abs(value), current.description, notes)
+            if kind == DocType.IN and self.categories.get(category_id).movement == Movement.OUTFLOW:
+                return self.update_refund(current.id, date, account_id, abs(value), category_id,
+                                          current.description, counterparty, notes)
             return self.update_money(current.id, date, account_id, abs(value), category_id,
                                      current.description, counterparty, notes)
+
+    def update_refund(self, txn_id: int, date: str, account_id: int, amount, category_id: int,
+                      description: str = "", counterparty: str = "", notes: str = "") -> Transaction:
+        current = self._editable(txn_id, {DocType.IN})
+        account = self.accounts.require_usable(account_id)
+        day = self._check_date(date, [account])
+        asset = self.assets.cash_asset(account.currency)
+        value = self._positive_amount(amount, asset.quantity_decimals)
+        category_obj = self.categories.get(category_id)
+        category = self.categories.require(category_id, Movement.OUTFLOW, allow_system=category_obj.is_system)
+        if category.movement != Movement.OUTFLOW:
+            raise ValidationError("Choose an expense category for a refund.", "category")
+        if category.code == "EXP.PERSONAL.CUSTODY":
+            raise ValidationError("Money held for others cannot be recorded as an expense refund.", "category")
+        line = PostingLine.cash(account.id, asset.id, value, Effect.OUTFLOW, category.id,
+                                memo="Refund", fx_rate=self._fx(account))
+        return self._update(current, day, [line], description or "Refund", counterparty, notes)
 
     def _register_kind(self, amount: object, category_id: int | None, other_account_id: int | None):
         value = to_decimal(amount, "amount")
@@ -202,8 +242,48 @@ class TransactionService:
                      description: str = "", counterparty: str = "", notes: str = "") -> Transaction:
         current = self._editable(txn_id, {DocType.IN, DocType.OUT})
         movement = Movement.INFLOW if current.type == DocType.IN else Movement.OUTFLOW
-        day, lines = self._money_lines(movement, date, account_id, amount, category_id)
+        category = self.categories.get(category_id)
+        unchanged_category = any(line.category_id == category_id for line in current.lines)
+        day, lines = self._money_lines(movement, date, account_id, amount, category_id,
+                                       allow_system_category=category.is_system,
+                                       allow_inactive_category=unchanged_category)
         return self._update(current, day, lines, description, counterparty, notes)
+
+    def update_expense_split(self, txn_id: int, allocations: list[tuple[int, object]]) -> Transaction:
+        """Replace an expense's category allocation while preserving its total cash movement."""
+        current = self._editable(txn_id, {DocType.OUT})
+        cash_lines = [line for line in current.lines if self.assets.get_asset(line.asset_id).is_cash]
+        if len(cash_lines) != len(current.lines) or not cash_lines:
+            raise ValidationError("Only ordinary cash expenses can be split.")
+        account_ids = {line.account_id for line in cash_lines}
+        if len(account_ids) != 1:
+            raise ValidationError("This expense cannot be split across accounts.")
+        total = -sum((line.quantity for line in cash_lines), ZERO)
+        if any(self.categories.get(line.category_id).code == "EXP.PERSONAL.CUSTODY"
+               for line in cash_lines if line.category_id):
+            raise ValidationError("Money held for others cannot be split as a personal expense.")
+        parsed: list[tuple[int, Decimal]] = []
+        for category_id, raw_amount in allocations:
+            amount = to_decimal(raw_amount, "split_amount")
+            if amount <= ZERO:
+                raise ValidationError("Each split amount must be greater than zero.", "split_amount")
+            category = self.categories.require(category_id, Movement.OUTFLOW)
+            if category.movement != Movement.OUTFLOW:
+                raise ValidationError("Choose an expense category for each split row.", "split_category_id")
+            if category.code == "EXP.PERSONAL.CUSTODY":
+                raise ValidationError("Money held for others cannot be split as a personal expense.")
+            parsed.append((category.id, amount))
+        if not parsed:
+            raise ValidationError("Add at least one category and amount.")
+        if sum((amount for _, amount in parsed), ZERO) != total:
+            raise ValidationError(f"Split amounts must add up to the transaction total ({fmt(total)}).", "split_amount")
+        account_id = next(iter(account_ids))
+        account = self.accounts.require_usable(account_id)
+        asset = self.assets.cash_asset(account.currency)
+        lines = [PostingLine.cash(account_id, asset.id, -amount, Effect.OUTFLOW, category_id,
+                                 fx_rate=self._fx(account)) for category_id, amount in parsed]
+        return self._update(current, parse_date(current.date), lines, current.description, current.counterparty,
+                            current.notes)
 
     def update_transfer(self, txn_id: int, date: str, from_account_id: int, to_account_id: int, amount,
                         description: str = "", notes: str = "") -> Transaction:
@@ -335,12 +415,13 @@ class TransactionService:
     # Internals
     # ======================================================================
     def _money_lines(self, movement: Movement, date: str, account_id: int, amount, category_id: int,
-                     allow_system_category: bool = False):
+                     allow_system_category: bool = False, allow_inactive_category: bool = False):
         account = self.accounts.require_usable(account_id)
         day = self._check_date(date, [account])
         asset = self.assets.cash_asset(account.currency)
         value = self._positive_amount(amount, asset.quantity_decimals)
-        category = self.categories.require(category_id, movement, allow_system=allow_system_category)
+        category = self.categories.require(category_id, movement, allow_system=allow_system_category,
+                                           allow_inactive=allow_inactive_category)
         signed = value if movement == Movement.INFLOW else -value
         effect = Effect.INFLOW if movement == Movement.INFLOW else Effect.OUTFLOW
         lines = [PostingLine.cash(account.id, asset.id, signed, effect, category.id, fx_rate=self._fx(account))]
@@ -374,8 +455,9 @@ class TransactionService:
                 status=TxnStatus.POSTED, source=source, notes=(notes or "").strip(),
                 created_at="", updated_at="",
             )
-            canonical = self.counterparties.resolve(header.counterparty) if header.counterparty else None
-            if header.counterparty and not canonical:
+            preserve_investment_name = doc_type in {DocType.BUY, DocType.SEL, DocType.DIV, DocType.OPN}
+            canonical = None if preserve_investment_name else (self.counterparties.resolve(header.counterparty) if header.counterparty else None)
+            if header.counterparty and not canonical and not preserve_investment_name:
                 if self.counterparties.suggestions(header.counterparty):
                     raise ValidationError("This Counterparty resembles a saved one. Confirm reuse or explicitly create it.", "counterparty")
                 canonical_id = self.counterparties.create(header.counterparty)
@@ -393,8 +475,9 @@ class TransactionService:
                 current, date=fmt_date(day), description=(description or "").strip(),
                 counterparty=(counterparty or "").strip(), notes=(notes or "").strip(),
             )
-            canonical = self.counterparties.resolve(updated.counterparty) if updated.counterparty else None
-            if updated.counterparty and not canonical:
+            preserve_investment_name = current.type in {DocType.BUY, DocType.SEL, DocType.DIV, DocType.OPN}
+            canonical = None if preserve_investment_name else (self.counterparties.resolve(updated.counterparty) if updated.counterparty else None)
+            if updated.counterparty and not canonical and not preserve_investment_name:
                 if self.counterparties.suggestions(updated.counterparty):
                     raise ValidationError("This Counterparty resembles a saved one. Confirm reuse or explicitly create it.", "counterparty")
                 canonical_id = self.counterparties.create(updated.counterparty)

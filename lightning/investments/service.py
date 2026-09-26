@@ -230,6 +230,12 @@ class InvestmentService:
                total_fees="0", fees_included=True):
         lines, counterparty = self._trade_lines(kind, account_id, asset_id, quantity, price, fees, cash_account_id,
                                                 total, total_fees, fees_included)
+        if kind == DocType.BUY and cash_account_id in (None, "", 0):
+            account = self.accounts.get(account_id)
+            cash = next(line for line in lines if self.assets.get_asset(line.asset_id).is_cash)
+            if account.account_type == AccountType.BROKERAGE and self.reporting.account_balance(account.id, date) < -cash.quantity:
+                raise ValidationError("There is not enough brokerage cash for this purchase. Fund the account first.",
+                                      "cash_account")
         txn = self.transactions.post(kind, date, lines, "", counterparty, notes)
         if kind == DocType.SEL and self.reevaluations:
             unit_line = next(line for line in lines if not self.assets.get_asset(line.asset_id).is_cash)
@@ -254,6 +260,8 @@ class InvestmentService:
             else:
                 gross = entered
             unit_price = (gross / units).quantize(Decimal("0.000001"), rounding=ROUND_HALF_UP)
+            if gross <= ZERO:
+                raise ValidationError("Fees must be lower than the total paid.", "fees")
         else:
             unit_price = check_places(to_decimal(price, "price"), 6, "price")
             if unit_price <= ZERO:

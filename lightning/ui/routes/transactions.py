@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Request
 
+from lightning.transactions.domain import TxnFilter, TxnStatus
+
 from lightning.core.errors import LightningError
 
 from . import register
@@ -21,12 +23,21 @@ async def all_accounts(request: Request):
     return register.page(request, None)
 
 
+@router.get("/transactions/deleted")
+async def deleted_transactions(request: Request):
+    c = container(request)
+    rows, _ = c.transactions.find(TxnFilter(include_void=True, limit=1000))
+    deleted = [row for row in rows if row.status == TxnStatus.VOID]
+    return render(request, "transactions/deleted.html", rows=deleted)
+
+
 @router.post("/transactions/register")
 async def all_accounts_entry(request: Request):
     result = await register.create(request, None)
     if not isinstance(result, tuple):
         return result
     txn, entry = result
+    container(request).reserves.auto_link_transaction(txn.id)
     return redirect(f"/transactions?date={txn.date}&new_acct={entry['account_id']}", f"Saved {txn.ref}.")
 
 
@@ -36,7 +47,9 @@ async def all_accounts_update(request: Request, txn_id: int):
     if not isinstance(result, tuple):
         return result
     txn, _ = result
-    return redirect("/transactions", f"Saved {txn.ref}.")
+    container(request).reserves.auto_link_transaction(txn.id)
+    message = f"Saved as {txn.ref}. The original transaction is kept in history." if txn.id != txn_id else f"Saved {txn.ref}."
+    return redirect("/transactions", message)
 
 
 @router.get("/transactions/{txn_id:int}")
@@ -51,13 +64,63 @@ async def transaction_detail(request: Request, txn_id: int):
             effect=line.effect.value, category=c.categories.get(line.category_id).label if line.category_id else "",
             memo=line.memo,
         ))
+    can_split = txn.type.value == "OUT" and bool(txn.lines) and all(
+        c.assets.get_asset(line.asset_id).is_cash for line in txn.lines)
+    expense_categories = [{"id": cat.id, "label": c.categories.display_name(cat.id)}
+                          for cat in c.categories.pickable() if cat.movement.value == "OUTFLOW"]
+    split_lines = [{"category_id": line.category_id, "amount": -line.quantity}
+                   for line in txn.lines if line.category_id is not None]
     return render(request, "transactions/detail.html", txn=txn, summary=c.transactions.summarize(txn),
-                  lines=lines, history=c.transactions.history(txn_id))
+                  lines=lines, history=c.transactions.history(txn_id), can_split=can_split,
+                  expense_categories=expense_categories, split_lines=split_lines,
+                  reserve_links=c.reserves.links_for_transaction(txn_id), reserves=c.reserves.list_active())
+
+
+@router.post("/transactions/{txn_id:int}/split")
+async def update_transaction_split(request: Request, txn_id: int):
+    c = container(request)
+    form = await request.form()
+    category_ids, amounts = form.getlist("split_category_id"), form.getlist("split_amount")
+    allocations = []
+    try:
+        for category_id, amount in zip(category_ids, amounts):
+            if not str(category_id).strip() and not str(amount).strip():
+                continue
+            if not str(category_id).strip() or not str(amount).strip():
+                raise LightningError("Choose a category and amount for every split row.")
+            allocations.append((int(category_id), str(amount)))
+        txn = c.transactions.update_expense_split(txn_id, allocations)
+    except (ValueError, LightningError) as exc:
+        msg = exc.message if isinstance(exc, LightningError) else "Choose a valid category for each split row."
+        return redirect(f"/transactions/{txn_id}", msg)
+    return redirect(f"/transactions/{txn_id}", f"Updated {txn.ref} category split.")
+
+
+@router.post("/transactions/{txn_id:int}/reserve")
+async def link_transaction_reserve(request: Request, txn_id: int):
+    c = container(request)
+    form = await request.form()
+    action = str(form.get("action", "link"))
+    try:
+        reserve_id = int(str(form.get("reserve_id", "")))
+        if action == "unlink":
+            c.reserves.unlink_expense(reserve_id, txn_id)
+            return redirect(f"/transactions/{txn_id}", "Removed the payment from its reserve.")
+        if action != "link":
+            raise LightningError("Choose a valid reserve action.")
+        c.reserves.set_expense_link(reserve_id, txn_id, str(form.get("amount", "")))
+    except (ValueError, LightningError) as exc:
+        msg = exc.message if isinstance(exc, LightningError) else "Choose a reserve."
+        return redirect(f"/transactions/{txn_id}", msg)
+    return redirect(f"/transactions/{txn_id}", "Assigned this payment to its reserve.")
 
 
 @router.post("/transactions/{txn_id:int}/void")
 async def void_transaction(request: Request, txn_id: int):
-    txn = container(request).transactions.void(txn_id)
+    try:
+        txn = container(request).transactions.void(txn_id)
+    except LightningError as exc:
+        return redirect(_back(request, f"/transactions/{txn_id}"), exc.message)
     return redirect(_back(request, f"/transactions/{txn.id}"), f"{txn.ref} is void — it no longer counts.")
 
 

@@ -20,7 +20,7 @@
   </details>
   <div class="actions" style="margin-top:12px">
     <button class="btn primary">Save</button>
-    {% if not category.is_system and category.depth >= 2 %}
+    {% if category and not category.is_system and category.depth >= 2 %}
     {% if category.active %}<button class="btn" name="active" value="0" formnovalidate>Archive</button>
     {% else %}<button class="btn" name="active" value="1" formnovalidate>Activate</button>{% endif %}
     {% endif %}

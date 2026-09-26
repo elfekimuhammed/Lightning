@@ -22,7 +22,20 @@
       <div class="help">Other currencies arrive with exchange rates (M4).</div>
     </div>
   </div>
-  <p class="help">Add your first transaction after creating the account. Its date and amount establish your history—no separate opening balance is needed.</p>
+  <section class="card" style="background:var(--surface-2);box-shadow:none;margin:14px 0">
+    <h2>Starting balance</h2>
+    <p class="muted small">Enter what this account held when you started tracking it. This sets the opening balance; it is not counted as income. Leave it blank if you’ll import or enter the opening activity separately.</p>
+    <div class="row">
+      <div class="field {{ 'has-error' if error_field == 'opening_balance' }}">
+        <label for="opening_balance">Balance ({{ account.currency if account else base }})</label>
+        <input id="opening_balance" name="opening_balance" type="text" inputmode="decimal" value="{{ values.opening_balance or '' }}" placeholder="0.00">
+      </div>
+      <div class="field {{ 'has-error' if error_field == 'opening_balance_date' }}">
+        <label for="opening_balance_date">As of</label>
+        <input id="opening_balance_date" name="opening_balance_date" type="text" value="{{ values.opening_balance_date or today }}" placeholder="yyyy-mm-dd" pattern="\d{4}-\d{2}-\d{2}" required>
+      </div>
+    </div>
+  </section>
   <div class="field" id="account-type-guidance" data-account-type="{{ values.account_type }}">
     <div class="help" id="account-type-help"></div>
   </div>
@@ -47,7 +60,7 @@
   const help = document.getElementById('account-type-help');
   if (!type || !help) return;
   const update = () => {
-    if (type.value === 'DEPOSIT') help.textContent = 'Certificate / time deposit: include the term, annual return, and maturity date in Notes. You can record the deposit as your first transaction.';
+    if (type.value === 'DEPOSIT') help.textContent = 'Certificate / time deposit: include the term, annual return, and maturity date in Notes.';
     else if (type.value === 'PHYSICAL_ASSET') help.textContent = 'Gold purity belongs to the gold holding itself, so choose its karat when you add the gold investment. This account can hold physical assets.';
     else help.textContent = '';
   };

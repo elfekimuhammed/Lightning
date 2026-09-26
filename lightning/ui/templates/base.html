@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Lightning{% endblock %} · Lightning</title>
   <link rel="stylesheet" href="/static/fonts/fonts.css">
-  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/style.css?v=7">
 </head>
 <body>
 <div class="shell">
@@ -15,9 +15,19 @@
       Lightning
     </a>
     <nav class="nav">
-      {% for href, label in [("/", "Overview"), ("/budget", "Budget"), ("/investments", "Investments"), ("/money-from-others", "Money from others"), ("/counterparties", "Counterparties"), ("/categories", "Categories"), ("/settings", "Settings")] %}
-        <a href="{{ href }}" class="{{ 'active' if (href == '/' and path == '/') or (href != '/' and path.startswith(href)) }}">{{ label }}</a>
+      {% for href, label, icon in [("/", "Overview", "overview"), ("/birdview", "Birdview", "overview"), ("/budget", "Budget", "budget"), ("/reserves", "Reserves", "budget"), ("/money-from-others", "People", "people")] %}
+        <a href="{{ href }}" class="{{ 'active' if (href == '/' and path == '/') or (href != '/' and path.startswith(href)) }}">
+          <span class="nav-icon nav-icon--{{ icon }}" aria-hidden="true">
+            {% if icon == 'overview' %}<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+            {% elif icon == 'budget' %}<svg viewBox="0 0 24 24"><path d="M12 3v9h9"/><path d="M20.5 15A9 9 0 1 1 9 3.5"/></svg>
+            {% elif icon == 'investments' %}<svg viewBox="0 0 24 24"><path d="M3 20V4"/><path d="m4 16 5-5 4 3 7-8"/><path d="M15 6h5v5"/></svg>
+            {% else %}<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.2 2.7-5 6-5s6 1.8 6 5"/><circle cx="18" cy="9" r="2"/><path d="M17 15c2.5.2 4 1.7 4 4"/></svg>{% endif %}
+          </span><span>{{ label }}</span>
+        </a>
       {% endfor %}
+      <div class="nav-spacer"></div>
+      <a href="/categories" class="{{ 'active' if path.startswith('/categories') }}"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="m4 7 8-4 8 4-8 4-8-4Z"/><path d="m4 12 8 4 8-4"/><path d="m4 17 8 4 8-4"/></svg></span><span>Categories</span></a>
+      <a href="/settings" class="{{ 'active' if path.startswith('/settings') }}"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="2"/><circle cx="15" cy="17" r="2"/></svg></span><span>Settings</span></a>
     </nav>
     <div class="side-accounts">
       <a class="side-row side-total {{ 'active' if path.startswith('/transactions') }}" href="/transactions">
@@ -41,6 +51,6 @@
     {% block content %}{% endblock %}
   </main>
 </div>
-<script src="/static/app.js?v=5"></script>
+<script src="/static/app.js?v=6"></script>
 </body>
 </html>

@@ -18,8 +18,33 @@
 <div class="card" style="margin-top:14px">
   <h2>Saved Counterparties <span class="muted small">{{ parties|length }}</span></h2>
   {% if parties %}
-  <table><thead><tr><th>Name</th><th>Suggested category</th></tr></thead><tbody>
-    {% for party in parties %}<tr><td>{{ party.name }}</td><td class="muted small">{{ category_labels.get(party.default_category_id, '—') if party.default_category_id else '—' }}</td></tr>{% endfor %}
+  <table><thead><tr><th>Name and aliases</th><th>Suggested category</th></tr></thead><tbody>
+    {% for party in parties %}<tr><td>
+      <strong>{{ party.name }}</strong>
+      {% set aliases = aliases_by_id.get(party.id, []) %}
+      {% if aliases %}<div class="alias-list muted small">{% for item in aliases %}
+        <form method="post" action="/counterparties" class="alias-row">
+          <input type="hidden" name="counterparty_action" value="rename_alias">
+          <input type="hidden" name="counterparty_id" value="{{ party.id }}">
+          <input type="hidden" name="alias_id" value="{{ item.id }}">
+          <input type="text" name="alias" value="{{ item.alias }}" aria-label="Alias for {{ party.name }}">
+          <button class="btn small" title="Save alias">Save</button>
+        </form>
+        <form method="post" action="/counterparties" class="alias-remove">
+          <input type="hidden" name="counterparty_action" value="remove_alias">
+          <input type="hidden" name="counterparty_id" value="{{ party.id }}">
+          <input type="hidden" name="alias_id" value="{{ item.id }}">
+          <button class="btn small danger" aria-label="Remove alias {{ item.alias }}">Remove</button>
+        </form>
+      {% endfor %}</div>{% endif %}
+      <div class="muted small">{{ aliases|length }} of {{ alias_limit }} aliases</div>
+      {% if aliases|length < alias_limit %}<form method="post" action="/counterparties" class="alias-add">
+        <input type="hidden" name="counterparty_action" value="add_alias">
+        <input type="hidden" name="counterparty_id" value="{{ party.id }}">
+        <input type="text" name="alias" placeholder="Add a merchant spelling" required aria-label="Add alias for {{ party.name }}">
+        <button class="btn small">Add alias</button>
+      </form>{% endif %}
+    </td><td class="muted small">{{ category_labels.get(party.default_category_id, '—') if party.default_category_id else '—' }}</td></tr>{% endfor %}
   </tbody></table>
   {% else %}<p class="muted">No saved counterparties yet.</p>{% endif %}
 </div>

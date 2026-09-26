@@ -33,7 +33,13 @@ def _date(value: str) -> str:
 
 def _amount(value: str) -> str:
     try:
-        amount = Decimal((value or "").strip().replace(",", ""))
+        text = (value or "").strip().replace(" ", "")
+        if "," in text and ("." not in text or text.rfind(",") > text.rfind(".")):
+            tail = text.rsplit(",", 1)[1]
+            text = text.replace(".", "").replace(",", ".") if len(tail) == 2 else text.replace(",", "")
+        else:
+            text = text.replace(",", "")
+        amount = Decimal(text)
         if not amount.is_finite() or amount == 0:
             raise InvalidOperation
         return format(amount, "f")
@@ -55,6 +61,8 @@ def decode_csv(data: bytes) -> tuple[list[str], list[dict[str, str]]]:
         headers = [str(h or "").strip() for h in (reader.fieldnames or [])]
         if not headers or any(not h for h in headers):
             raise ValidationError("The CSV needs a header row with column names.", "file")
+        if len(set(headers)) != len(headers):
+            raise ValidationError("CSV headers must be unique; rename duplicate columns and try again.", "file")
         rows = []
         for line, row in enumerate(reader, start=2):
             if len(rows) >= MAX_ROWS:
@@ -66,10 +74,11 @@ def decode_csv(data: bytes) -> tuple[list[str], list[dict[str, str]]]:
 
 
 class BankImportService:
-    def __init__(self, db, accounts, categories, counterparties, transactions, money_from_others=None):
+    def __init__(self, db, accounts, categories, counterparties, transactions, money_from_others=None, reserves=None):
         self.db, self.accounts, self.categories = db, accounts, categories
         self.counterparties, self.transactions = counterparties, transactions
         self.money_from_others = money_from_others
+        self.reserves = reserves
 
     def stage(self, account_id: int, filename: str, data: bytes, mapping: dict[str, str] | None = None, invert_amount: bool = False):
         self.accounts.require_usable(account_id)
@@ -77,14 +86,17 @@ class BankImportService:
         old = self.db.one("SELECT id,status FROM bank_import_batches WHERE account_id=? AND file_hash=?",
                           (account_id, digest))
         if old:
-            return int(old["id"]), True
+            if old["status"] == "POSTED":
+                return int(old["id"]), True
+            with self.db.transaction():
+                self.db.execute("DELETE FROM bank_import_rows WHERE batch_id=?", (old["id"],))
+                self.db.execute("DELETE FROM bank_import_batches WHERE id=?", (old["id"],))
         headers, raw_rows = decode_csv(data)
         header_signature = hashlib.sha256(json.dumps(headers, ensure_ascii=False).encode()).hexdigest()
         saved = self.db.one("SELECT mapping_json,invert_amount FROM bank_import_column_maps WHERE account_id=? AND header_signature=?",
                             (account_id, header_signature))
         if mapping is None and saved:
             mapping = json.loads(saved["mapping_json"])
-            invert_amount = bool(saved["invert_amount"])
         mapping = mapping or {key: key for key in (*REQUIRED, *OPTIONAL) if key in headers}
         missing = [key for key in REQUIRED if mapping.get(key) not in headers]
         if missing:
@@ -105,7 +117,7 @@ class BankImportService:
             stored.append((raw, parsed))
         now = now_iso()
         with self.db.transaction():
-            if saved is None and mapping and (any(mapping.get(key) != key for key in REQUIRED) or invert_amount):
+            if mapping and (saved is not None or any(mapping.get(key) != key for key in REQUIRED) or invert_amount):
                 self.db.execute("INSERT INTO bank_import_column_maps(account_id,header_signature,mapping_json,invert_amount,created_at,updated_at) "
                                 "VALUES (?,?,?,?,?,?) ON CONFLICT(account_id,header_signature) DO UPDATE SET "
                                 "mapping_json=excluded.mapping_json,invert_amount=excluded.invert_amount,updated_at=excluded.updated_at",
@@ -166,6 +178,20 @@ class BankImportService:
         if parsed["Reference"] or parsed["_errors"]:
             return False
         amount = Decimal(parsed["Amount"])
+        targets = self.db.all("SELECT id FROM accounts WHERE active=1 AND lower(name)=lower(?)",
+                              (parsed["Counterparty"].strip(),))
+        target = targets[0] if len(targets) == 1 else None
+        if target:
+            transfer = self.db.scalar(
+                "SELECT 1 FROM transactions t "
+                "JOIN ledger_entries mine ON mine.transaction_id=t.id AND mine.account_id=? "
+                "JOIN ledger_entries other ON other.transaction_id=t.id AND other.account_id=? "
+                "WHERE t.status='POSTED' AND t.type='TRF' AND t.date=? "
+                "AND mine.amount_e6=? AND other.amount_e6=? LIMIT 1",
+                (account_id, target["id"], parsed["Date"], int(-amount * 1_000_000), int(amount * 1_000_000)),
+            )
+            if transfer:
+                return True
         row = self.db.one(
             "SELECT 1 FROM transactions t JOIN ledger_entries l ON l.transaction_id=t.id "
             "WHERE t.status='POSTED' AND t.date=? AND t.counterparty=? AND l.account_id=? "
@@ -203,7 +229,11 @@ class BankImportService:
                 except ValueError as exc:
                     raise ValidationError(f"CSV row {row['_line']}: {exc}", "row") from None
                 notes = str(decision.get("notes", row["Notes"])).strip()
-                target = next((a for a in accounts if a.name.casefold() == cp_text.casefold()), None)
+                account_matches = [a for a in accounts if a.name.casefold() == cp_text.casefold()]
+                if len(account_matches) > 1:
+                    raise ValidationError(f"CSV row {row['_line']}: account name is ambiguous; use a unique name.",
+                                          "counterparty")
+                target = account_matches[0] if account_matches else None
                 counterparty_id = decision.get("counterparty_id") or (row["_counterparty_id"] if cp_text == row["Counterparty"] else None)
                 if cp_text and not counterparty_id:
                     exact = self.counterparties.resolve(cp_text)
@@ -214,7 +244,7 @@ class BankImportService:
                     counterparty_id = int(choice.split(":", 1)[1])
                 elif choice == "unlinked":
                     counterparty_id = None
-                elif choice == "new" or (cp_text and not counterparty_id and not similar):
+                elif choice == "new":
                     name = str(decision.get("new_counterparty", cp_text)).strip()
                     if name:
                         counterparty_id = self.counterparties.create(name, alias=cp_text or None)
@@ -248,18 +278,27 @@ class BankImportService:
                     category = self.categories.get(int(category_id))
                     owner = None
                     if category.code == "EXP.PERSONAL.CUSTODY":
-                        party = self.counterparties.resolve(str(decision.get("whom", "")))
+                        whom = str(decision.get("whom", "")).strip()
+                        if whom.casefold() in {"self", "me", "my money", "my own money"}:
+                            party = None
+                        else:
+                            party = self.counterparties.resolve(whom)
                         if not party or not party["active"]:
-                            raise ValidationError(f"CSV row {row['_line']}: choose a saved active Counterparty in Whom.", "whom")
-                        owner = party["name"]
-                    fn = self.transactions.record_outflow if amount < 0 else self.transactions.record_inflow
+                            if whom.casefold() not in {"self", "me", "my money", "my own money"}:
+                                raise ValidationError(f"CSV row {row['_line']}: choose a saved active Counterparty in Whom.", "whom")
+                        else:
+                            owner = party["name"]
                     canonical = self.counterparties.get(int(counterparty_id)) if counterparty_id else None
                     linked_name = canonical["name"] if canonical else ("" if similar or choice == "unlinked" else cp_text)
                     kwargs = {"source": TxnSource.IMPORT, "counterparty": linked_name, "notes": notes}
                     if amount < 0:
-                        txn = fn(day, batch["account_id"], abs(amount), int(category_id), allow_system_category=True, **kwargs)
+                        txn = self.transactions.record_outflow(day, batch["account_id"], abs(amount), int(category_id),
+                                                              allow_system_category=True, **kwargs)
+                    elif category.movement == Movement.OUTFLOW:
+                        txn = self.transactions.record_refund(day, batch["account_id"], amount, int(category_id), **kwargs)
                     else:
-                        txn = fn(day, batch["account_id"], amount, int(category_id), allow_system_category=True, **kwargs)
+                        txn = self.transactions.record_inflow(day, batch["account_id"], amount, int(category_id),
+                                                             allow_system_category=True, **kwargs)
                     if owner and self.money_from_others:
                         self.money_from_others.sync_transaction(txn.id, txn.date, owner, batch["account_id"], amount, notes)
                     if counterparty_id:
@@ -267,6 +306,8 @@ class BankImportService:
                                         (int(counterparty_id), txn.id))
                 self.db.execute("UPDATE bank_import_rows SET status='POSTED',transaction_id=? WHERE id=?",
                                 (txn.id, row_id))
+                if self.reserves:
+                    self.reserves.auto_link_transaction(txn.id)
             self.db.execute("UPDATE bank_import_rows SET status='SKIPPED' WHERE batch_id=? AND status='REVIEW'", (batch_id,))
             self.db.execute("UPDATE bank_import_batches SET status='POSTED',posted_at=? WHERE id=?",
                             (now_iso(), batch_id))

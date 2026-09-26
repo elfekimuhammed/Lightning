@@ -18,12 +18,12 @@ router = APIRouter()
 @router.get("/")
 async def dashboard(request: Request):
     c = container(request)
-    month = request.query_params.get("month") or month_of(today())
+    requested_month = request.query_params.get("month")
+    month = requested_month or month_of(today())
     try:
         first, last = parse_month(month)
     except ValidationError:
-        month = month_of(today())
-        first, last = parse_month(month)
+        return redirect("/", "That month is invalid. Use YYYY-MM, for example 2026-09.")
     as_of = min(last, today()) if first <= today() else last
     accounts = c.accounts.list()
     if not accounts:
@@ -38,6 +38,7 @@ async def dashboard(request: Request):
         net_worth=net_worth,
         custody_total=c.reporting.money_from_others_total(as_of),
         custody_by_account=c.reporting.custody_value_by_account(as_of),
+        owners=c.reporting.money_from_others_by_owner(as_of),
         # everything on the page is measured to the same day: today in the current month, else month end
         cash_flow=c.reporting.cash_flow(first, as_of),
         bridge=c.reporting.bridge(first, as_of),

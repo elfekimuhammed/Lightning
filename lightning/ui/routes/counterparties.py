@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Request
 
 from lightning.core.errors import LightningError, ValidationError
+from lightning.counterparties import MAX_ALIASES_PER_COUNTERPARTY
 
 from ..web import container, redirect, render
 
@@ -15,7 +16,9 @@ async def list_counterparties(request: Request):
     parties = c.counterparties.list_active()
     categories = c.categories.pickable()
     return render(request, "counterparties.html", parties=parties, categories=categories,
-                  category_labels={item.id: c.categories.display_name(item.id) for item in categories})
+                  category_labels={item.id: c.categories.display_name(item.id) for item in categories},
+                  aliases_by_id={party["id"]: c.counterparties.aliases_for(party["id"]) for party in parties},
+                  alias_limit=MAX_ALIASES_PER_COUNTERPARTY)
 
 
 @router.post("")
@@ -25,6 +28,9 @@ async def create_counterparty(request: Request):
     name = str(form.get("name", "")).strip()
     raw_category_id = str(form.get("default_category_id", "")).strip()
     action = str(form.get("counterparty_action", ""))
+    counterparty_id = str(form.get("counterparty_id", "")).strip()
+    alias_id = str(form.get("alias_id", "")).strip()
+    alias = str(form.get("alias", "")).strip()
     categories = c.categories.pickable()
     parties = c.counterparties.list_active()
     category_labels = {item.id: c.categories.display_name(item.id) for item in categories}
@@ -32,7 +38,25 @@ async def create_counterparty(request: Request):
         category_id = int(raw_category_id) if raw_category_id else None
         if category_id is not None and category_id not in {item.id for item in categories}:
             raise ValidationError("Choose one of the suggested categories.")
-        if action == "create":
+        if action == "add_alias":
+            selected = c.counterparties.get(int(counterparty_id))
+            if not selected:
+                raise ValidationError("Choose a saved counterparty.")
+            c.counterparties.add_alias(int(counterparty_id), alias)
+            return redirect("/counterparties", f"Added alias for {selected['name']}.")
+        elif action == "rename_alias":
+            selected = c.counterparties.get(int(counterparty_id))
+            if not selected:
+                raise ValidationError("Choose a saved counterparty.")
+            c.counterparties.rename_alias(int(counterparty_id), int(alias_id), alias)
+            return redirect("/counterparties", f"Updated alias for {selected['name']}.")
+        elif action == "remove_alias":
+            selected = c.counterparties.get(int(counterparty_id))
+            if not selected:
+                raise ValidationError("Choose a saved counterparty.")
+            c.counterparties.remove_alias(int(counterparty_id), int(alias_id))
+            return redirect("/counterparties", f"Removed alias from {selected['name']}.")
+        elif action == "create":
             c.counterparties.create(name, category_id)
         elif action.startswith("existing:"):
             selected_id = int(action.split(":", 1)[1])
@@ -56,10 +80,14 @@ async def create_counterparty(request: Request):
             return render(request, "counterparties.html", parties=parties, categories=categories,
                           category_labels=category_labels, entered_name=name,
                           entered_category_id=raw_category_id, similar_counterparties=matches,
+                          aliases_by_id={party["id"]: c.counterparties.aliases_for(party["id"]) for party in parties},
+                          alias_limit=MAX_ALIASES_PER_COUNTERPARTY,
                           exact_existing=bool(resolved), review_required=True)
     except (ValueError, LightningError) as exc:
         return render(request, "counterparties.html", status_code=400, parties=parties, categories=categories,
                       category_labels=category_labels,
+                      aliases_by_id={party["id"]: c.counterparties.aliases_for(party["id"]) for party in parties},
+                      alias_limit=MAX_ALIASES_PER_COUNTERPARTY,
                       error=str(exc) if isinstance(exc, ValueError) else exc.message,
                       entered_name=name, entered_category_id=raw_category_id)
     return redirect("/counterparties", f"Saved {name}.")

@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 from decimal import Decimal
 
-from lightning.accounts.domain import SIDEBAR_GROUPS, Account
+from lightning.accounts.domain import SIDEBAR_GROUPS, Account, AccountType
 from lightning.accounts.service import AccountService
 from lightning.assets.service import AssetService
 from lightning.categories.domain import CategoryFamily, IncomeClass, Scope
@@ -205,6 +205,14 @@ class ReportingService:
             by_class.append(Group("CUSTODY", "Less: money from others", -custody))
         return NetWorth(day, total, accounts_sorted, by_class, unvalued)
 
+    def owned_liquid_cash(self, as_of: date | str) -> Decimal:
+        """Cash owned in wallets and bank accounts; excludes custody balances and locked assets."""
+        return sum((self.owned_account_value(account.id, as_of) for account in self.accounts.list(active_only=True)
+                    if account.account_type in {AccountType.CASH, AccountType.BANK}), ZERO)
+
+    def first_activity_date(self) -> str | None:
+        return self.q.first_entry_date()
+
     def money_from_others_total(self, as_of: date | str) -> Decimal:
         return self._money_from_others_value(as_of)[0]
 
@@ -328,35 +336,79 @@ class ReportingService:
         for row in self.q.category_totals(start, end):
             amount = from_e6(row["total"])
             cat = self.categories.get(row["category_id"])
-            if row["effect"] == "INFLOW":
+            if row["effect"] == "INFLOW" and cat.income_class is not None:
                 inflow += amount
                 if cat.family == CategoryFamily.INVESTMENT or cat.income_class == IncomeClass.INVESTMENT:
                     investment += amount
                 else:
                     household += amount
             else:
-                outflow -= amount
+                # A refund uses the expense category and effect, but a positive
+                # amount base: subtract it from spending rather than show income.
+                signed_outflow = -amount if row["effect"] == "OUTFLOW" else amount
+                outflow += signed_outflow
                 if cat.family == CategoryFamily.INVESTMENT:
-                    investment_out -= amount
+                    investment_out += signed_outflow
                 elif cat.family == CategoryFamily.WORK or cat.scope == Scope.WORK:
-                    work -= amount
+                    work += signed_outflow
                 else:
-                    personal -= amount
+                    personal += signed_outflow
         return CashFlow(start, end, inflow, household, investment, outflow, personal, work, investment_out)
 
     def money_out_by_category(self, date_from: date | str, date_to: date | str) -> dict[int, Decimal]:
         """Money out per category (positive; refunds reduce it), for the category itself only."""
         start, end = self._day(date_from), self._day(date_to)
-        return {row["category_id"]: -from_e6(row["total"])
-                for row in self.q.category_totals(start, end) if row["effect"] == "OUTFLOW"}
+        totals: dict[int, Decimal] = {}
+        for row in self.q.category_totals(start, end):
+            totals[row["category_id"]] = totals.get(row["category_id"], ZERO) - from_e6(row["total"])
+        return totals
+
+    def money_in_by_category(self, date_from: date | str, date_to: date | str) -> list[Group]:
+        """Income by category, excluding custody and expense refunds."""
+        start, end = self._day(date_from), self._day(date_to)
+        totals: dict[int, Decimal] = {}
+        for row in self.q.category_totals(start, end):
+            if row["effect"] != "INFLOW":
+                continue
+            category = self.categories.get(row["category_id"])
+            if category.income_class is not None:
+                totals[category.id] = totals.get(category.id, ZERO) + from_e6(row["total"])
+        groups = []
+        for category_id, value in sorted(totals.items(), key=lambda item: -item[1]):
+            category = self.categories.get(category_id)
+            groups.append(Group(category.code, self.categories.display_name(category_id), value))
+        return groups
+
+    def monthly_flow_between(self, date_from: date | str, date_to: date | str) -> list[dict]:
+        """Income and net expenses grouped by month for an exact date range."""
+        first, last = self._day(date_from), self._day(date_to)
+        cursor = first.replace(day=1)
+        data: dict[str, dict] = {}
+        while cursor <= last:
+            key = cursor.strftime("%Y-%m")
+            month_end = (cursor.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
+            data[key] = {"month": key, "inflows": ZERO, "outflows": ZERO,
+                         "date_from": fmt_date(max(first, cursor)), "date_to": fmt_date(min(last, month_end))}
+            if cursor.year == 9999 and cursor.month == 12:
+                break
+            cursor = (cursor.replace(day=28) + timedelta(days=4)).replace(day=1)
+        for row in self.q.monthly_effects(first, last):
+            if row["month"] not in data:
+                continue
+            amount = from_e6(row["total"])
+            if row["effect"] == "INFLOW":
+                data[row["month"]]["inflows"] += amount
+            elif row["effect"] == "OUTFLOW":
+                data[row["month"]]["outflows"] -= amount
+        for item in data.values():
+            item["net"] = item["inflows"] - item["outflows"]
+        return list(data.values())
 
     def spending_by_category(self, date_from: date | str, date_to: date | str, depth: int = 2) -> list[Group]:
         """Outflows rolled up to a tree depth (1 = Personal/Work, 2 = Food, Transport, ...)."""
         start, end = self._day(date_from), self._day(date_to)
         groups: dict[str, Group] = {}
         for row in self.q.category_totals(start, end):
-            if row["effect"] != "OUTFLOW":
-                continue
             cat = self.categories.get(row["category_id"])
             parts = cat.code.split(".")
             code = ".".join(parts[: depth + 1])
@@ -375,6 +427,8 @@ class ReportingService:
         while cursor <= last:
             key = cursor.strftime("%Y-%m")
             data[key] = {"month": key, "inflows": ZERO, "outflows": ZERO}
+            if cursor.year == 9999 and cursor.month == 12:
+                break
             cursor = (cursor.replace(day=28) + timedelta(days=4)).replace(day=1)
         for row in self.q.monthly_effects(fmt_date(first), fmt_date(last)):
             if row["month"] not in data:
@@ -421,7 +475,9 @@ class ReportingService:
             if running is not None:
                 running += movement
             other_label = self.accounts.get(r["other_account_id"]).label if r["other_account_id"] else ""
-            if r["type"] in ("BUY", "SEL") and r["memo"]:
+            if r["memo"].startswith("Split · "):
+                category = r["memo"]
+            elif r["type"] in ("BUY", "SEL") and r["memo"]:
                 category = r["memo"]
             elif r["category_id"]:
                 category = self.categories.display_name(r["category_id"])

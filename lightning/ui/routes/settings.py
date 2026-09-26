@@ -11,7 +11,7 @@ router = APIRouter(prefix="/settings")
 async def settings_page(request: Request):
     c = container(request)
     folder = c.data_dir / "backups"
-    backups = sorted(folder.glob("lightning_*.db"), reverse=True)[:10] if folder.exists() else []
+    backups = sorted(folder.glob("lightning_*.db"), key=lambda p: p.stat().st_mtime, reverse=True)[:10] if folder.exists() else []
     return render(request, "settings/index.html", db_path=c.db.path, backups=[b.name for b in backups],
                   classes=c.assets.list_classes(), assets=c.assets.list_assets())
 

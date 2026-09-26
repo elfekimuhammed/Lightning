@@ -11,7 +11,7 @@ from ..web import container, redirect, render
 
 router = APIRouter(prefix="/accounts")
 
-FIELDS = ("name", "account_type", "last4", "notes")
+FIELDS = ("name", "account_type", "last4", "notes", "opening_balance", "opening_balance_date")
 
 
 def _form_context(request: Request, values: dict, account=None, error: LightningError | None = None):
@@ -43,7 +43,8 @@ async def list_accounts(request: Request):
 
 @router.get("/new")
 async def new_account(request: Request):
-    values = {"account_type": request.query_params.get("type", "BANK")}
+    values = {"account_type": request.query_params.get("type", "BANK"), "opening_balance": "",
+              "opening_balance_date": today().isoformat()}
     return render(request, "accounts/form.html", **_form_context(request, values))
 
 
@@ -57,7 +58,8 @@ async def create_account(request: Request):
         # transaction on its real date, including history predating account setup.
         account = c.account_flows.open_account(
             name=values["name"], account_type=values["account_type"],
-            opening_date="1900-01-01", opening_balance="0",
+            opening_date="1900-01-01", opening_balance=values["opening_balance"],
+            opening_balance_date=values["opening_balance_date"],
             last4=values["last4"], notes=values["notes"],
         )
     except LightningError as exc:
@@ -70,6 +72,42 @@ async def account_register(request: Request, account_id: int):
     return register.page(request, account_id)
 
 
+@router.get("/{account_id:int}/reconcile")
+async def reconcile_account(request: Request, account_id: int):
+    c = container(request)
+    account = c.accounts.get(account_id)
+    through = str(request.query_params.get("date", today().isoformat()))
+    raw_balance = str(request.query_params.get("balance", ""))
+    error = ""
+    try:
+        through = c.reconciliation.validate_date(through)
+        statement_balance = c.reconciliation.parse_statement_balance(raw_balance) if raw_balance.strip() else None
+    except LightningError as exc:
+        statement_balance, error = None, exc.message
+    return render(request, "accounts/reconcile.html", account=account, through=through,
+                  balance_input=raw_balance, lines=c.reconciliation.lines(account_id, through),
+                  summary=c.reconciliation.summary(account_id, through, statement_balance), error=error)
+
+
+@router.post("/{account_id:int}/reconcile")
+async def update_reconciliation(request: Request, account_id: int):
+    c = container(request)
+    form = await request.form()
+    try:
+        through = c.reconciliation.validate_date(str(form.get("date", "")))
+        raw_balance = str(form.get("balance", ""))
+        action = str(form.get("action", ""))
+        line_id = int(str(form.get("line_id", "")))
+        if action not in {"clear", "unclear"}:
+            raise LightningError("Choose whether to clear or mark uncleared this transaction.")
+        c.reconciliation.set_cleared(account_id, line_id, action == "clear")
+    except (ValueError, LightningError) as exc:
+        msg = exc.message if isinstance(exc, LightningError) else "Choose a transaction to update."
+        return redirect(f"/accounts/{account_id}/reconcile", msg)
+    from urllib.parse import urlencode
+    return redirect(f"/accounts/{account_id}/reconcile?{urlencode({'date': through, 'balance': raw_balance})}")
+
+
 @router.post("/{account_id:int}/investment-entry")
 async def investment_entry(request: Request, account_id: int):
     """Add a stock/fund trade or dividend inline from this account's register."""
@@ -77,6 +115,8 @@ async def investment_entry(request: Request, account_id: int):
     if not isinstance(result, tuple):
         return result
     txn, _ = result
+    c = container(request)
+    c.reserves.auto_link_transaction(txn.id)
     return redirect(f"/accounts/{account_id}?date={txn.date}", f"Saved {txn.ref}.")
 
 
@@ -96,16 +136,23 @@ async def register_update(request: Request, account_id: int, txn_id: int):
     if not isinstance(result, tuple):
         return result
     txn, _ = result
-    return redirect(f"/accounts/{account_id}", f"Saved {txn.ref}.")
+    c = container(request)
+    c.reserves.auto_link_transaction(txn.id)
+    message = f"Saved as {txn.ref}. The original transaction is kept in history." if txn.id != txn_id else f"Saved {txn.ref}."
+    return redirect(f"/accounts/{account_id}", message)
 
 
 @router.get("/{account_id:int}/edit")
 async def edit_account(request: Request, account_id: int):
     c = container(request)
     a = c.accounts.get(account_id)
+    opening_id = c.transactions.opening_txn_id(account_id)
+    opening_txn = c.transactions.get(opening_id) if opening_id else None
+    first_activity = c.transactions.earliest_activity(account_id)
     values = {
         "name": a.name, "account_type": a.account_type.value,
         "opening_date": a.opening_date, "opening_balance": str(c.account_flows.opening_of(a)),
+        "opening_balance_date": opening_txn.date if opening_txn else (first_activity or today().isoformat()),
         "last4": a.last4 or "",
         "notes": a.notes,
     }
@@ -123,6 +170,7 @@ async def update_account(request: Request, account_id: int):
             account_id, name=values["name"], account_type=values["account_type"],
             opening_date=account.opening_date, opening_balance=str(c.account_flows.opening_of(account)),
             institution=account.institution, last4=values["last4"], notes=values["notes"],
+            opening_balance_date=values["opening_balance_date"],
         )
     except LightningError as exc:
         return render(request, "accounts/form.html", status_code=400,

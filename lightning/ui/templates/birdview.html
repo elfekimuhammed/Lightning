@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Birdview{% endblock %}
+{% block heading %}<div class="acct-title"><h1>Birdview</h1></div><div class="muted small">Your assets, planned cash, income, and spending</div>{% endblock %}
+{% block top_actions %}<a class="btn primary small" href="/transactions">＋ Add transaction</a>{% endblock %}
+{% block content %}
+<form method="get" action="/birdview" class="birdview-period card">
+  <label>View<select name="period" id="birdview-period">
+    <option value="all" {{ 'selected' if period == 'all' }}>All time</option>
+    <option value="year" {{ 'selected' if period == 'year' }}>Yearly</option>
+    <option value="month" {{ 'selected' if period == 'month' }}>Monthly</option>
+    <option value="custom" {{ 'selected' if period == 'custom' }}>Custom timeline</option>
+  </select></label>
+  <label class="period-year" hidden>Year<input type="number" name="year" min="1900" max="9999" value="{{ year }}"></label>
+  <label class="period-month" hidden>Month<input type="month" name="month" value="{{ month }}"></label>
+  <label class="period-custom" hidden>From<input type="date" name="date_from" value="{{ custom_from }}"></label>
+  <label class="period-custom" hidden>To<input type="date" name="date_to" value="{{ custom_to }}"></label>
+  <button class="btn">Apply</button>
+  <span class="muted small">{{ date_from }} to {{ date_to }}</span>
+</form>
+<script>
+const periodSelect = document.getElementById("birdview-period");
+function updatePeriodFields() {
+  const selected = periodSelect.value;
+  document.querySelectorAll(".period-year,.period-month,.period-custom").forEach((field) => { field.hidden = true; });
+  document.querySelector(`.period-${selected}`)?.removeAttribute("hidden");
+  if (selected === "custom") document.querySelectorAll(".period-custom").forEach((field) => { field.hidden = false; });
+}
+periodSelect?.addEventListener("change", updatePeriodFields);
+updatePeriodFields();
+</script>
+
+<section class="birdview-assets">
+  <div class="card birdview-total"><div class="label">Estimated assets</div><div class="birdview-total-value">{{ asset_total|money }} <span>{{ base }}</span></div>
+    <div class="muted small">As of {{ as_of }} · owned assets only</div>
+    <div class="asset-equation"><span>Owned liquid cash</span><b>{{ cash|money }}</b></div>
+    <div class="asset-equation"><span>Investment assets × {{ factor }}%</span><b>{{ (investments * factor / 100)|money }}</b></div>
+    <div class="asset-equation"><span>Net worth at full value</span><b>{{ net_worth.total|money }}</b></div>
+    <div class="asset-equation muted"><span>Undiscounted investment assets</span><b>{{ investments|money }}</b></div>
+    <form method="post" action="/birdview/settings" class="factor-form">
+      <label>Investment liquidation factor (%)<input type="number" name="factor" min="0" max="100" step="0.1" value="{{ factor }}"></label>
+      <button class="btn small">Save</button>
+    </form>
+  </div>
+  <div class="card birdview-cash"><div class="label">Cash available to spend</div><div class="birdview-total-value {{ reserve_summary.free_cash|tone }}">{{ reserve_summary.free_cash|money }}</div>
+    <div class="muted small">Owned liquid cash less assigned reserves</div>
+    <div class="asset-equation"><span>Owned liquid cash</span><b>{{ cash|money }}</b></div>
+    <div class="asset-equation"><span>Set aside for plans</span><b>−{{ reserve_summary.allocated|money }}</b></div>
+    <div class="reserve-mini-list">{% for reserve in reserves[:4] %}<div><span>{{ reserve.name }}</span><b>{{ reserve.effective_allocated|money }}</b></div>{% else %}<div class="muted small">No cash assigned yet.</div>{% endfor %}</div>
+    <a class="btn small" href="/reserves">Manage reserves →</a>
+  </div>
+</section>
+{% if net_worth.unvalued %}<div class="flash error">Some holdings have no valuation and may be missing from your position: {{ net_worth.unvalued|join('; ') }}</div>{% endif %}
+
+<section class="grid g2 birdview-cashflow">
+  <div class="card"><div class="label">Income</div><div class="tile value pos">{{ cash_flow.inflows|money(True) }}</div><div class="muted small">For selected timeline</div></div>
+  <div class="card"><div class="label">Expenses</div><div class="tile value neg">{{ cash_flow.outflows|money(True) }}</div><div class="muted small">Refunds reduce category spending · for selected timeline</div></div>
+</section>
+{% if previous %}<section class="card birdview-comparison">
+  <h2>Compared with the previous period</h2><p class="muted small">{{ previous_label }}</p>
+  <div class="comparison-values">
+    <div><span>Income</span><b class="{{ (cash_flow.inflows - previous.inflows)|tone }}">{{ (cash_flow.inflows - previous.inflows)|money(True) }}</b><small class="muted">{{ previous.inflows|money }} before</small></div>
+    <div><span>Expenses</span><b class="{{ (cash_flow.outflows - previous.outflows)|tone }}">{{ (cash_flow.outflows - previous.outflows)|money(True) }}</b><small class="muted">{{ previous.outflows|money }} before</small></div>
+  </div>
+</section>{% endif %}
+
+<section class="grid g2 birdview-detail">
+  <div class="card"><h2>Income by category</h2>
+    {% for group in income %}<a class="birdview-bar-row birdview-drilldown" href="/transactions?q={{ group.code|urlencode }}&amp;date_from={{ date_from }}&amp;date_to={{ date_to }}"><div><span>{{ group.label }}</span><b>{{ group.value|money }}</b></div><div class="bartrack"><div class="bar income" style="width:{{ (group.value / largest_income * 100) if largest_income else 0 }}%"></div></div></a>
+    {% else %}<p class="empty">No income in this timeline.</p>{% endfor %}
+  </div>
+  <div class="card"><h2>Monthly cash flow</h2><p class="muted small">Showing {{ monthly_flow|length }} month(s){% if date_from < chart_start %}, most recent 24 months{% endif %}.</p>
+    {% for item in monthly_flow %}<a class="monthly-flow-row birdview-drilldown" href="/transactions?date_from={{ item.date_from }}&amp;date_to={{ item.date_to }}"><span class="code">{{ item.month }}</span><div class="monthly-flow-bars"><div class="bartrack"><div class="bar income" style="width:{{ (item.inflows / largest_month * 100) if largest_month else 0 }}%"></div></div><div class="bartrack"><div class="bar expense" style="width:{{ (item.outflows / largest_month * 100) if largest_month else 0 }}%"></div></div></div><span class="num">{{ item.net|money(True) }}</span></a>
+    {% else %}<p class="empty">No transactions in this timeline.</p>{% endfor %}
+    <div class="small muted">Income · Expenses</div>
+  </div>
+</section>
+<section class="grid g2 birdview-detail">
+  <div class="card"><h2>Expense breakdown</h2>
+    {% for group in spending %}<a class="birdview-bar-row birdview-drilldown" href="/transactions?q={{ group.code|urlencode }}&amp;date_from={{ date_from }}&amp;date_to={{ date_to }}"><div><span>{{ group.label }}</span><b>{{ group.value|money }}</b></div><div class="bartrack"><div class="bar" style="width:{{ (group.value / largest_expense * 100) if largest_expense else 0 }}%"></div></div></a>
+    {% else %}<p class="empty">No expenses in this timeline.</p>{% endfor %}
+  </div>
+  <div class="card"><div class="card-heading"><h2>Investment breakdown</h2><a href="/investments">Manage holdings →</a></div>
+    <div class="investment-return-summary"><div><span class="muted small">Capital held</span><b>{{ portfolio_cost|money }}</b></div><div><span class="muted small">Unrealized return</span><b class="{{ portfolio_unrealized|tone }}">{{ portfolio_unrealized|money(True) }}</b></div><div><span class="muted small">Realized gains</span><b>{{ realized_return|money(True) }}</b></div><div><span class="muted small">Dividends</span><b>{{ dividend_return|money(True) }}</b></div><div><span class="muted small">Total return</span><b class="{{ portfolio_return|tone }}">{{ portfolio_return|money(True) }}</b></div></div>
+    {% for group in investment_classes %}<details class="investment-group">
+      <summary><span>{{ group.name }}</span><b>{{ group.value|money }}</b><span class="muted small">Capital {{ group.capital|money }} · Total return {{ group.returns|money(True) }}</span></summary>
+      {% for holding in group.items %}<div class="investment-holding"><span>{{ holding.name }} <small class="muted">{{ holding.account }}</small></span><b>{{ holding.value|money }}</b><span class="muted small">Capital {{ holding.capital|money }} · Unrealized {{ holding.unrealized|money(True) }} · Realized {{ holding.realized|money(True) }} · Dividends {{ holding.dividends|money(True) }}</span></div>{% endfor %}
+    </details>{% else %}<p class="empty">No investment holdings yet.</p>{% endfor %}
+  </div>
+</section>
+<p class="muted small birdview-note">Money held for others is excluded from the asset and cash figures above. Reserves remain part of your assets; assigning them changes only cash available to spend. Period controls affect income and expense analysis; the position is current as of {{ as_of }}.</p>
+{% endblock %}

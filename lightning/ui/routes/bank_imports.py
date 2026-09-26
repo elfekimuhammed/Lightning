@@ -75,6 +75,7 @@ async def preview(request: Request, account_id: int, batch_id: int):
     counterparties = c.counterparties.list_active()
     return render(request, "bank_import_preview.html", account=c.accounts.get(account_id), batch=batch, rows=rows,
                   categories=categories, counterparties=counterparties,
+                  counterparty_search_names=c.counterparties.search_names(),
                   summary=c.bank_imports.summary(batch_id))
 
 
@@ -98,7 +99,8 @@ async def confirm(request: Request, account_id: int, batch_id: int):
                     "amount": form.get(f"amount_{row_id}", row["Amount"]),
                     "notes": form.get(f"notes_{row_id}", row["Notes"]),
                     "whom": whom,
-                    "counterparty_choice": form.get(f"counterparty_choice_{row_id}", "")}
+                    "counterparty_choice": form.get(f"counterparty_choice_{row_id}", ""),
+                    "remember_category": form.get(f"remember_category_{row_id}") == "on"}
         selected = decision["counterparty_choice"]
         if selected.startswith("existing:"):
             decision["counterparty_id"] = int(selected.split(":", 1)[1])
@@ -119,9 +121,12 @@ async def confirm(request: Request, account_id: int, batch_id: int):
             category_choice = str(form.get(f"category_{row_id}", ""))
             row["_category_id"] = int(category_choice) if category_choice.isdigit() else None
             row["_counterparty_choice"] = str(form.get(f"counterparty_choice_{row_id}", ""))
+            row["_remember_category"] = form.get(f"remember_category_{row_id}") == "on"
+            row["_skip"] = form.get(f"skip_{row_id}") == "on"
         counterparties = c.counterparties.list_active()
         return render(request, "bank_import_preview.html", account=c.accounts.get(account_id), batch=batch, rows=rows,
                       categories=_categories(c), counterparties=counterparties,
+                      counterparty_search_names=c.counterparties.search_names(),
                       summary=c.bank_imports.summary(batch_id), error=exc.message, status_code=400)
     return redirect(f"/accounts/{account_id}?date={rows[0]['Date'] if rows else ''}",
                     f"Import complete: {count['posted']} posted, {count['skipped']} skipped, {count['duplicates']} duplicates.")

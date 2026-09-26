@@ -23,6 +23,8 @@ from lightning.database.settings import SettingsStore
 from lightning.investments.service import InvestmentService
 from lightning.money_from_others import MoneyFromOthersService
 from lightning.reporting.service import ReportingService
+from lightning.reconciliation import ReconciliationService
+from lightning.reserves import CashReserveService
 from lightning.reevaluations import ReevaluationService
 from lightning.transactions.service import TransactionService
 from lightning.workflows.accounts import AccountWorkflows
@@ -44,6 +46,8 @@ class Container:
     accounts: AccountService
     transactions: TransactionService
     reporting: ReportingService
+    reconciliation: ReconciliationService
+    reserves: CashReserveService
     reevaluations: ReevaluationService
     money_from_others: MoneyFromOthersService
     budgets: BudgetService
@@ -74,8 +78,9 @@ def build(db_path: str | Path | None = None, backup_on_start: bool = False) -> C
     accounts = AccountService(db, assets, base)
     transactions = TransactionService(db, accounts, assets, categories, audit, base)
     counterparties = CounterpartyService(db)
+    reserves = CashReserveService(db)
     money_from_others = MoneyFromOthersService(db, accounts)
-    bank_imports = BankImportService(db, accounts, categories, counterparties, transactions, money_from_others)
+    bank_imports = BankImportService(db, accounts, categories, counterparties, transactions, money_from_others, reserves)
     reporting = ReportingService(db, accounts, assets, categories, base, money_from_others)
     reevaluations = ReevaluationService(db, accounts, transactions, reporting)
     return Container(
@@ -90,6 +95,8 @@ def build(db_path: str | Path | None = None, backup_on_start: bool = False) -> C
         accounts=accounts,
         transactions=transactions,
         reporting=reporting,
+        reconciliation=ReconciliationService(db),
+        reserves=reserves,
         reevaluations=reevaluations,
         money_from_others=money_from_others,
         budgets=BudgetService(db, categories, reporting),

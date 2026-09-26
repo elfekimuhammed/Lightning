@@ -9,6 +9,11 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 ## [Unreleased]
 
 ### Fixed
+- Account setup now records an optional starting balance as an opening entry on an explicit date, so it is not reported as income; the welcome steps explain this flow.
+- The all-accounts register has a deleted-transactions page with direct restore actions, and changing a transaction's kind explains that the original reference remains in history.
+- Investment quick entry now asks for Buy, Sell, or Dividend and takes positive units for both buys and sells.
+- CSV review counts uncategorized rows before posting, and register labels clarify that the field is for who money went to or came from.
+
 - Monthly investment checkpoints now detect changed historical trades and prices, void superseded system journals, and rebuild linked return entries; sale-day checkpoints value remaining units at the forced sale price.
 - Counterparty default categories now resolve regardless of capitalization, and the all-accounts register reserves a separate, labeled action column for Add.
 - Money entry rejects ambiguous decimal commas, exponent/underscore notation, and amounts too large for safe storage. New ledger money/base totals are limited to cents; app money displays round to whole currency units while entry fields retain cents.
@@ -17,6 +22,12 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - Account management is now directly reachable from the sidebar, including inactive accounts.
 
 ### Added
+- Birdview replaces Investments in the main navigation with current owned assets, a configurable investment liquidation factor, cash reserves/free cash, income and spending timelines, and capital/return breakdowns by investment type and holding.
+- Cash reserves for emergency funds and planned projects, with recurring due dates, optional Counterparty matching, payment links, and free-cash calculations; custody transactions never auto-link.
+- Statement reconciliation lets users mark cash transactions cleared and compare the cleared balance with a statement amount.
+- Expense transactions can be split across categories, and refunds reduce spending in the original expense category instead of inflating income.
+- Confirmed Counterparty aliases are manageable from the Counterparties page, capped at 10 per Counterparty, and offered in register and CSV search.
+- CSV review can remember a confirmed category for future transactions from that Counterparty.
 - Activity-ledger categories organized as Personal, Work, or Investment, with up to one user-defined detail level below each broad activity category; money direction no longer determines the category tree.
 - Transaction multi-select and right-click delete actions, with audit-preserving deletion and restore.
 - "Money from others" custody entries tied to an account and owner; outstanding balances are excluded from net worth and reconciled in the net-worth bridge.

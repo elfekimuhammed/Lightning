@@ -40,8 +40,8 @@ class ReportQueries:
         rows = self.db.all(
             f"SELECT le.effect, SUM(le.amount_base_e6) AS total"
             f" FROM ledger_entries le {POSTED} WHERE le.date BETWEEN ? AND ?"
-            " AND COALESCE(le.category_id,0) NOT IN (SELECT id FROM categories WHERE code='EXP.PERSONAL.CUSTODY')"
-            " AND NOT EXISTS (SELECT 1 FROM money_from_others m WHERE m.transaction_id=t.id)"
+            " AND (COALESCE(le.category_id,0) NOT IN (SELECT id FROM categories WHERE code='EXP.PERSONAL.CUSTODY')"
+            " OR EXISTS (SELECT 1 FROM money_from_others m WHERE m.transaction_id=t.id))"
             " GROUP BY le.effect",
             (date_from, date_to),
         )
@@ -90,13 +90,15 @@ class ReportQueries:
             where = "le.account_id = ? AND " + where
             params.insert(0, account_id)
         rows = self.db.all(
-            f"SELECT le.date, le.account_id, le.quantity_e6, le.amount_e6, le.effect, le.category_id, le.memo,"
+            f"SELECT le.date, le.account_id, SUM(le.quantity_e6) AS quantity_e6, SUM(le.amount_e6) AS amount_e6,"
+            f" MAX(le.effect) AS effect, CASE WHEN COUNT(*)=1 THEN MAX(le.category_id) END AS category_id,"
+            f" CASE WHEN COUNT(*)=1 THEN MAX(le.memo) ELSE 'Split · ' || COUNT(DISTINCT le.category_id) || ' categories' END AS memo,"
             f" t.id AS txn_id, t.ref, t.type, t.description, t.counterparty, t.notes,"
             f" (SELECT o.account_id FROM ledger_entries o WHERE o.transaction_id = t.id"
             f"  AND o.account_id != le.account_id LIMIT 1) AS other_account_id"
             f" FROM ledger_entries le {POSTED}"
             f" WHERE {where}"
-            f" ORDER BY le.date, t.id, le.line_no",
+            f" GROUP BY le.date,le.account_id,t.id ORDER BY le.date, t.id",
             tuple(params),
         )
         return [dict(r) for r in rows]
@@ -153,4 +155,5 @@ class ReportQueries:
         return dict(row) if row else None
 
     def first_entry_date(self) -> str | None:
-        return self.db.scalar(f"SELECT MIN(le.date) FROM ledger_entries le {POSTED}")
+        # Opening balances anchor an account; they are not activity for the All time view.
+        return self.db.scalar(f"SELECT MIN(le.date) FROM ledger_entries le {POSTED} WHERE t.type<>'OPN'")

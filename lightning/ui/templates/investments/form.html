@@ -68,7 +68,7 @@
   </div>
   {% endif %}
 
-  <div class="field investment-owner-flag"><label><input type="checkbox" name="is_others" value="1" {{ 'checked' if values.is_others }}> This investment is for someone else</label></div>
+  <div class="field investment-owner-flag"><label><input type="checkbox" name="is_others" value="1" {{ 'checked' if values.is_others }}> Held for someone else</label></div>
   <div class="field investment-owner-field" {{ 'hidden' if not values.is_others }}>
     <label for="investment-whom">Whom</label>
     <input id="investment-whom" type="text" name="whom" value="{{ values.whom }}" list="counterparty-options" placeholder="Choose a saved Counterparty">
