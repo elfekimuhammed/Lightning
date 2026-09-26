@@ -41,20 +41,26 @@ class BudgetLine:
     budget: Decimal | None  # effective: direct, else sum of children's budgets, else None
     actual: Decimal  # money out, this line and everything under it
     covered: bool  # an ancestor has a budget, so this spending is inside a budget
+    opening_carryover: Decimal = ZERO
+    carryover_enabled: bool = False
 
     @property
     def remaining(self) -> Decimal | None:
-        return None if self.budget is None else self.budget - self.actual
+        return None if self.budget is None else self.budget + self.opening_carryover - self.actual
+
+    @property
+    def available(self) -> Decimal | None:
+        return None if self.budget is None else self.budget + self.opening_carryover
 
     @property
     def used_pct(self) -> int | None:
-        if not self.budget:
+        if not self.available:
             return None
-        return int((self.actual / self.budget * 100).to_integral_value())
+        return int((self.actual / self.available * 100).to_integral_value())
 
     @property
     def over(self) -> bool:
-        return self.budget is not None and self.actual > self.budget
+        return self.available is not None and self.actual > self.available
 
 
 @dataclass
@@ -77,7 +83,11 @@ class BudgetSection:
 
     @property
     def remaining(self) -> Decimal:
-        return self.budget - self.actual
+        return self.available - self.actual
+
+    @property
+    def available(self) -> Decimal:
+        return sum((g.available or ZERO for g in self.groups), ZERO)
 
 
 
@@ -98,7 +108,11 @@ class BudgetMonth:
 
     @property
     def remaining(self) -> Decimal:
-        return self.budget - self.actual
+        return self.available - self.actual
+
+    @property
+    def available(self) -> Decimal:
+        return sum((s.available for s in self.sections), ZERO)
 
     @property
     def unbudgeted(self) -> Decimal:

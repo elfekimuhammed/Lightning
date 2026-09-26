@@ -47,9 +47,13 @@ class TestMoney:
 
 
 class TestDates:
-    def test_iso_only(self):
+    def test_iso_and_day_first_dates(self, monkeypatch):
+        monkeypatch.setenv("LIGHTNING_TODAY", "2026-09-26")
         assert dates.parse_date("2026-12-31") == date(2026, 12, 31)
-        for bad in ["31/12/2026", "2026-2-3", "2026-02-30", "", "2026/12/31"]:
+        assert dates.parse_date("31/1") == date(2026, 1, 31)
+        assert dates.parse_date("31/01/2026") == date(2026, 1, 31)
+        assert dates.parse_date("31/1/26") == date(2026, 1, 31)
+        for bad in ["2026-02-30", "31/2", "", "2026/12/31", "13/13"]:
             with pytest.raises(ValidationError):
                 dates.parse_date(bad)
 

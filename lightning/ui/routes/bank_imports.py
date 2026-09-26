@@ -3,15 +3,53 @@ from __future__ import annotations
 import base64
 from fastapi import APIRouter, Request
 
-from lightning.bank_imports import OPTIONAL, REQUIRED, decode_csv
+from lightning.bank_imports import OPTIONAL, REQUIRED, SEPARATE_AMOUNT_FIELDS, decode_csv
 from lightning.core.errors import LightningError, ValidationError
+from lightning.core.money import fmt
 
 from ..web import container, redirect, render
 
 router = APIRouter(prefix="/accounts")
 
+
+def _budget_import_feedback(c, batch_id: int) -> str:
+    _, rows = c.bank_imports.preview(batch_id)
+    by_month: dict[str, set[int]] = {}
+    for row in rows:
+        if row.get("_status") != "POSTED" or not row.get("_transaction_id"):
+            continue
+        txn = c.transactions.get(int(row["_transaction_id"]))
+        for line in txn.lines:
+            if line.category_id and line.effect.value == "OUTFLOW":
+                by_month.setdefault(txn.date[:7], set()).add(line.category_id)
+    impacts = []
+    for month, category_ids in by_month.items():
+        view = c.budgets.month_view(month)
+        budget_lines = {line.category_id: line for section in view.sections for line in section.lines}
+        for category_id in category_ids:
+            line = budget_lines.get(category_id)
+            if line:
+                shown = line
+                if shown.remaining is None and shown.covered:
+                    parent = c.categories.get(category_id).parent_id
+                    while parent:
+                        ancestor = budget_lines.get(parent)
+                        if ancestor and ancestor.remaining is not None:
+                            shown = ancestor
+                            break
+                        parent = c.categories.get(parent).parent_id
+                status = (f"{fmt(shown.remaining)} {c.base_currency} left" if shown.remaining is not None
+                          else ("inside a group limit" if line.covered else "unplanned"))
+                impacts.append(f"{line.name} ({status})")
+    return f" Budget · {', '.join(impacts[:3])}." if impacts else ""
+
 def _categories(c):
     return [{"id": cat.id, "label": c.categories.display_name(cat.id)} for cat in c.categories.pickable()]
+
+
+def _review_form_max_fields(row_count: int) -> int:
+    # Each row has fewer than 12 submitted fields; leave room for form metadata.
+    return max(1_000, row_count * 12 + 100)
 
 
 @router.get("/{account_id:int}/import")
@@ -31,15 +69,12 @@ async def upload(request: Request, account_id: int):
     data = await upload_file.read()
     try:
         headers, _ = decode_csv(data)
-        try:
-            batch_id, repeated = c.bank_imports.stage(account_id, upload_file.filename, data,
-                                                       invert_amount=form.get("invert_amount") == "on")
-        except ValidationError as exc:
-            if exc.field == "mapping":
-                return render(request, "bank_import_map.html", account=c.accounts.get(account_id), headers=headers,
-                              payload=base64.b64encode(data).decode("ascii"), filename=upload_file.filename,
-                              required=REQUIRED, optional=OPTIONAL)
-            raise
+        mapping = c.bank_imports.suggested_mapping(account_id, headers)
+        return render(request, "bank_import_map.html", account=c.accounts.get(account_id), headers=headers,
+                      payload=base64.b64encode(data).decode("ascii"), filename=upload_file.filename,
+                      required=REQUIRED, optional=OPTIONAL, amount_fields=SEPARATE_AMOUNT_FIELDS,
+                      suggested_amount_model=mapping.get("amount_model", "SINGLE"), mapping=mapping,
+                      invert_amount=mapping.get("amount_sign") == "invert")
     except LightningError as exc:
         return render(request, "bank_import_upload.html", account=c.accounts.get(account_id), error=exc.message, status_code=400)
     if repeated:
@@ -51,13 +86,27 @@ async def upload(request: Request, account_id: int):
 async def map_columns(request: Request, account_id: int):
     c = container(request)
     form = await request.form()
+    headers = []
+    data = b""
+    mapping = {}
+    filename = str(form.get("filename", "statement.csv"))
     try:
         data = base64.b64decode(str(form.get("payload", "")), validate=True)
-        mapping = {key: str(form.get(f"map_{key}", "")) for key in (*REQUIRED, *OPTIONAL)}
+        headers, _ = decode_csv(data)
+        amount_model = str(form.get("amount_model", "SINGLE"))
+        mapping = {"amount_model": amount_model}
+        selected_amount_fields = REQUIRED if amount_model == "SINGLE" else ("Date", *SEPARATE_AMOUNT_FIELDS)
+        mapping.update({key: str(form.get(f"map_{key}", "")) for key in (*selected_amount_fields, *OPTIONAL)})
         mapping = {key: value for key, value in mapping.items() if value}
-        batch_id, repeated = c.bank_imports.stage(account_id, str(form.get("filename", "statement.csv")), data, mapping,
+        batch_id, repeated = c.bank_imports.stage(account_id, filename, data, mapping,
                                                      invert_amount=form.get("amount_sign") == "invert")
     except (ValueError, LightningError) as exc:
+        if isinstance(exc, ValidationError) and exc.field == "mapping":
+            return render(request, "bank_import_map.html", account=c.accounts.get(account_id), headers=headers,
+                          payload=base64.b64encode(data).decode("ascii"), filename=filename,
+                          required=REQUIRED, optional=OPTIONAL, amount_fields=SEPARATE_AMOUNT_FIELDS,
+                          suggested_amount_model=mapping.get("amount_model", "SINGLE"), mapping=mapping,
+                          invert_amount=form.get("amount_sign") == "invert", error=exc.message, status_code=400)
         msg = exc.message if isinstance(exc, LightningError) else "The uploaded statement could not be read. Upload it again."
         return render(request, "bank_import_upload.html", account=c.accounts.get(account_id), error=msg, status_code=400)
     if repeated:
@@ -85,7 +134,9 @@ async def confirm(request: Request, account_id: int, batch_id: int):
     batch, rows = c.bank_imports.preview(batch_id)
     if batch["account_id"] != account_id:
         return redirect(f"/accounts/{account_id}", "Import batch not found for this account.")
-    form = await request.form()
+    # Starlette defaults to 1,000 form fields. The review has several editable
+    # controls per imported row, so size the parser budget to this staged batch.
+    form = await request.form(max_fields=_review_form_max_fields(len(rows)))
     decisions = {}
     for row in rows:
         row_id = row["_import_row_id"]
@@ -128,5 +179,6 @@ async def confirm(request: Request, account_id: int, batch_id: int):
                       categories=_categories(c), counterparties=counterparties,
                       counterparty_search_names=c.counterparties.search_names(),
                       summary=c.bank_imports.summary(batch_id), error=exc.message, status_code=400)
+    feedback = _budget_import_feedback(c, batch_id)
     return redirect(f"/accounts/{account_id}?date={rows[0]['Date'] if rows else ''}",
-                    f"Import complete: {count['posted']} posted, {count['skipped']} skipped, {count['duplicates']} duplicates.")
+                    f"Import complete: {count['posted']} posted, {count['skipped']} skipped, {count['duplicates']} duplicates.{feedback}")

@@ -117,7 +117,8 @@ async def investment_entry(request: Request, account_id: int):
     txn, _ = result
     c = container(request)
     c.reserves.auto_link_transaction(txn.id)
-    return redirect(f"/accounts/{account_id}?date={txn.date}", f"Saved {txn.ref}.")
+    feedback = register._budget_feedback(container(request), txn)
+    return redirect(f"/accounts/{account_id}?date={txn.date}", f"Saved {txn.ref}. {feedback}".strip())
 
 
 @router.post("/{account_id:int}/register")
@@ -127,7 +128,8 @@ async def register_entry(request: Request, account_id: int):
     if not isinstance(result, tuple):
         return result  # the page again, with the error
     txn, _ = result
-    return redirect(f"/accounts/{account_id}?date={txn.date}", f"Saved {txn.ref}.")
+    feedback = register._budget_feedback(container(request), txn)
+    return redirect(f"/accounts/{account_id}?date={txn.date}", f"Saved {txn.ref}. {feedback}".strip())
 
 
 @router.post("/{account_id:int}/register/{txn_id:int}")
@@ -139,6 +141,7 @@ async def register_update(request: Request, account_id: int, txn_id: int):
     c = container(request)
     c.reserves.auto_link_transaction(txn.id)
     message = f"Saved as {txn.ref}. The original transaction is kept in history." if txn.id != txn_id else f"Saved {txn.ref}."
+    message = f"{message} {register._budget_feedback(container(request), txn)}".strip()
     return redirect(f"/accounts/{account_id}", message)
 
 

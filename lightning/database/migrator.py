@@ -45,12 +45,36 @@ def migrate(db: Database) -> list[str]:
         status = "APPLIED"
         try:
             conn.executescript(f"BEGIN;\n{sql}\nCOMMIT;")
-        except sqlite3.OperationalError:
+        except sqlite3.OperationalError as exc:
             if conn.in_transaction:
                 conn.execute("ROLLBACK")
-            if not optional:
+            # SQLite can leave an ALTER TABLE behind if an older process was
+            # interrupted after the DDL but before schema_migrations was
+            # updated.  Treat an already-present ADD COLUMN as applied and
+            # rerun the rest of that migration.
+            duplicate = re.search(r"duplicate column name: (\w+)", str(exc), re.IGNORECASE)
+            add_column = re.search(r"ALTER TABLE\s+(\w+)\s+ADD COLUMN\s+(\w+)", sql, re.IGNORECASE)
+            if duplicate and add_column and duplicate.group(1).casefold() == add_column.group(2).casefold():
+                table, column = add_column.groups()
+                columns = {row[1].casefold() for row in conn.execute(f"PRAGMA table_info({table})")}
+                if column.casefold() in columns:
+                    remaining = re.sub(r"ALTER TABLE\s+\w+\s+ADD COLUMN\s+\w+[^;]*;", "", sql,
+                                       count=1, flags=re.IGNORECASE)
+                    # The interrupted migration may also have completed its
+                    # follow-up index before the process died.
+                    index_match = re.search(r"CREATE INDEX\s+(\w+)", remaining, re.IGNORECASE)
+                    if index_match and conn.execute(
+                        "SELECT 1 FROM sqlite_master WHERE type='index' AND name=?", (index_match.group(1),)
+                    ).fetchone():
+                        remaining = re.sub(r"CREATE INDEX\s+\w+[^;]*;", "", remaining,
+                                           count=1, flags=re.IGNORECASE)
+                    conn.executescript(f"BEGIN;\n{remaining}\nCOMMIT;")
+                else:
+                    raise
+            elif not optional:
                 raise
-            status = "SKIPPED"
+            else:
+                status = "SKIPPED"
         conn.execute(
             "INSERT INTO schema_migrations(version, name, status, applied_at) VALUES (?,?,?,?)",
             (version, name, status, now_iso()),

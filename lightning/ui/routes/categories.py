@@ -94,3 +94,46 @@ async def delete_category(request: Request, category_id: int):
         return redirect("/categories", exc.message)
     message = "Category has history or is in use, so it was archived." if archived else "Category deleted."
     return redirect("/categories", message)
+
+
+@router.post("/bulk-action")
+async def category_bulk_action(request: Request):
+    c = container(request)
+    form = await request.form()
+    action = str(form.get("action", ""))
+    raw_ids = form.getlist("category_ids")
+    single_id = str(form.get("category_id", "")).strip()
+    if single_id:
+        raw_ids.append(single_id)
+    try:
+        if action not in {"activate", "archive", "delete"}:
+            raise LightningError("Choose Activate, Archive, or Delete.")
+        category_ids = sorted({int(value) for value in raw_ids if str(value).isdigit()})
+        if not category_ids:
+            raise LightningError("Select at least one L2 category.")
+        categories = [c.categories.get(category_id) for category_id in category_ids]
+        if any(category.is_root or category.is_system or category.depth < 2 for category in categories):
+            raise LightningError("Only L2 categories can be managed here.")
+        activated = archived = deleted = 0
+        for category in categories:
+            if action == "activate":
+                if not category.active:
+                    c.categories.update(category.id, category.name, active=True)
+                activated += 1
+            elif action == "archive":
+                if category.active:
+                    c.categories.update(category.id, category.name, active=False)
+                archived += 1
+            elif c.categories.delete_or_archive(category.id):
+                archived += 1
+            else:
+                deleted += 1
+        if action == "activate":
+            message = f"Activated {activated} categor{'y' if activated == 1 else 'ies'}."
+        elif action == "archive":
+            message = f"Archived {archived} categor{'y' if archived == 1 else 'ies'}."
+        else:
+            message = f"Deleted {deleted}; archived {archived} categor{'y' if deleted + archived == 1 else 'ies'}."
+    except (ValueError, LightningError) as exc:
+        message = exc.message if isinstance(exc, LightningError) else "Select valid categories."
+    return redirect("/categories", message)

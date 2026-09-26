@@ -1,365 +1,177 @@
-# Lightning — Project Overview (hand-off brief)
+# Lightning — Project Overview
 
-> Read this first. It explains what Lightning is, how it is built, why, and how to extend it without breaking
-> it — written so a developer or an AI assistant starting a fresh session can pick up immediately.
-> **Version described: 0.3.0 (2026-09-25).** Companion docs: `CHANGELOG.md` (every change), `docs/GLOSSARY.md`
-> (terms and codes), `docs/ARCHITECTURE.md` (short form), `docs/MILESTONES.md` (plan).
+## Document status
 
----
+- **Last updated:** 2026-09-26
+- **Document revision:** 2026-09-26.2
+- **App version:** 0.3.0 (`lightning/__init__.py`); `pyproject.toml` still reports 0.1.0 and needs correction at the next release/package update.
+- **Role:** product purpose, current workflows, user questions, and delivery roadmap. [Architecture](ARCHITECTURE.md) owns calculation contracts; [Glossary](GLOSSARY.md) owns terminology.
 
-## 1. What Lightning is
+## Product purpose
 
-A **local, single-user personal-finance app** in Python: accounts, money in/out, transfers, a monthly budget,
-investments (stocks, funds, gold) and net worth — in one system, on one SQLite file.
+Lightning is a local-first personal wealth-management app for Egyptians. It helps people understand where money is held, what it is invested in, how spending compares with plans, and how owned wealth changes over time. The main workflow is deliberately simple: record or import activity, resolve unclear Counterparties/categories, then use analysis to understand patterns and build savings goals.
 
-**Owner and context.** Built for El Feki (GL architect / finance lead, Egypt). Base currency **EGP**. Typical
-accounts: cash wallet, CIB current, QNB savings, bank CDs, a THNDR brokerage account, gold at home. Design borrows
-accounting practice (document → journal lines, opening entries, receivables) but no accounting jargon is shown.
+The model separates two questions: **Account — where is value held?** (CIB, Cash wallet, THNDR, gold at home) and **Financial asset — what value is held?** (EGP cash, COMI shares, fund units, gold grams, supported deposits).
 
-**The central idea — two separate questions, never merged:**
+Product priorities: simplest useful workflow and fewer clicks; consistent terminology; durable, searchable data; clean code boundaries; and broad coverage of normal personal-finance cases. Avoid expensive AI calls for deterministic app features. Calculations, matching, monthly price processing, and categorization defaults should be ordinary code, not AI calls.
 
-1. **Where is the wealth held?** → **Accounts** (Cash at hand, CIB Current, THNDR, Gold at home).
-2. **What does it consist of?** → **Financial assets** (EGP cash, COMI shares, AZ Gold Fund units, 21K gold grams).
+## Decisions that must stay consistent
 
-THNDR is a *brokerage account*; its **holdings** (cash, stocks, funds) are what it contains.
+- There is **one main transaction ledger**. Account registers, all-account view, budget actuals, investments, Birdview, and analysis are filtered or computed views of it.
+- The **reevaluation ledger** is valuation detail, not another activity ledger. Its per-asset checkpoint rows link to one aggregated `VAL` journal per account in the main ledger.
+- Accounts are locations; financial assets are what is held; asset classes group assets; categories describe activity; Counterparty identifies the other side; `Whom` attributes ownership of money held for someone else.
+- Category L1 is **Personal / Work / Investment**; L2 is broad; L3 stays empty until users choose to add detail. Categories follow activity, not money direction.
+- Counterparty names are canonical. Similar spellings are suggestions requiring deliberate selection or explicit creation—never silently merge or create duplicates.
+- Other people's money stays in the full account/holding balance but is attributed to its owner and excluded from the user's owned totals/net worth. It is not income/expense or a receivable. **Liabilities and money owed to the user are out of scope.**
+- Ordinary screens show names, not account codes. Codes and IDs are for internal identity, linking, import, and search.
+- Summary amounts display rounded to whole currency units; inputs retain cents. New money entries are validated to two decimals; `_e6` storage remains exact.
+- Dates are stored canonically as ISO `yyyy-mm-dd`. User entry accepts `31/1` (current year), `31/1/2026`, or `2026-01-31`; numeric day/month is day-first and accepted input normalizes to ISO.
+- An account's stored opening/tracking date does not block historical activity. Users can add, edit, import, or restore transactions dated before it; the opening balance remains its own dated ledger entry.
+- Keep lists alphabetical. Used categories cannot be physically deleted; archive instead. Archived categories are not selectable for new transactions.
+- Reserves are plans for already-owned cash, not transactions or budget limits. Emergency Fund is a permanent main section and reports its size as multiples of completed six-month average salary.
+- The Linux desktop workflow starts the local server and opens `http://127.0.0.1:8765` manually in Firefox. The Windows launcher exists but its end-to-end setup and operation still need a native Windows verification pass; it currently opens the default browser.
+- Update this overview when the owner asks. Record shipped changes in `CHANGELOG.md`; do not bump the version unless actually releasing.
 
-**Owner's priorities (they drive every decision):** (1) ease of use — anyone can use it, no debit/credit words;
-(2) defined terminology; (3) good data structure and indexing, human-readable identifiers; (4) good code
-structure; (5) workflows that cover normal cases.
+## Technology and local operation
 
-**Standing rules:** dates are always `yyyy-mm-dd`; an **account code is always shown with its name**
-(`CIB-CUR-EGP · CIB Current`); screens use plain names for categories and asset classes; **every change is logged
-in `CHANGELOG.md`**; **no liabilities** (credit cards, loans, installments are out of scope by owner decision).
-
-**Status:** 0.3.0 = M0 foundation, M1 cash & bank, account register, budgeting, architecture simplification,
-M3 investments. Next: M4 market data (see §11).
-
----
-
-## 2. Technology
-
-| Concern | Choice | Why |
-|---|---|---|
-| Language | Python ≥ 3.11 | `StrEnum`, modern typing |
-| Storage | SQLite, one file `data/lightning.db` | Local, easy backup |
-| DB access | Plain `sqlite3` + numbered `.sql` migrations | Readable schema, few dependencies |
-| Money | `decimal.Decimal`; stored as integers × 1,000,000 (`_e6`) | Exact sums; floats forbidden |
-| UI | FastAPI + Jinja2 server-rendered HTML + small vanilla JS | No build step, works offline |
-| Server | uvicorn on `127.0.0.1` only | Never exposed to the network |
-| Search | `LIKE` over transactions/accounts/categories at query time | Nothing derived to keep in sync |
-| Tests | pytest — **151 tests** incl. two randomized reconciliation tests | |
-| Architecture checks | import-linter, 4 contracts (`pyproject.toml`) | Module boundaries enforced |
-| Launch | `run.bat` / `run.sh` → `python -m lightning` | Double-click; creates venv, installs, opens browser |
-| Code hosting | Private GitHub repo `elfekimuhammed/Lightning`; `data/` git-ignored | Run on PC and laptop |
-
-Runtime deps: `fastapi`, `uvicorn`, `jinja2`, `python-multipart`. Dev: `pytest`, `httpx`, `import-linter`.
-
----
-
-## 3. Terminology
-
-| Term | Meaning | Example |
-|---|---|---|
-| **Account** | A place where value is held | `CIB-CUR-EGP · CIB Current` |
-| **Financial asset** | A thing you own units of: a currency or an **investment** | `CASH:EGP`, `STK:COMI`, `GLD:21K` |
-| **Asset class** | Editable tree of what wealth is | Liquid Cash › Bank Balance, Funds › Gold Fund |
-| **Exposure** | What an investment really tracks, through its wrapper | a gold fund → Gold |
-| **Holding / position** | Units of one asset in one account — always calculated | THNDR holds 150 COMI |
-| **Category** | Editable tree of *why* money moved | Personal › Food & Groceries |
-| **Transaction** | The document you see and edit | `OUT-2026-09-25-001` |
-| **Ledger line** | One effect of a transaction on one account + asset | `OUT-2026-09-25-001/1` |
-| **Money in / out** | Value entering / leaving your finances (needs a category) | Salary / groceries |
-| **Transfer** | Money between two of your accounts; never income or spending | CIB → THNDR |
-| **Buy / Sell** | Converting cash into units / units into cash; net worth unchanged at the moment of the trade | |
-| **Dividend** | Cash paid by an investment (money in, investment income) | |
-| **Revaluation** | Value change with no money moving (prices) | COMI 92 → 98 |
-| **Cost basis / average cost** | What the units you hold cost (incl. buy fees) / per unit | |
-| **Realized / unrealized gain** | Locked in by a sell / on paper for units still held | |
-| **Opening balance** | Cash an account held when tracking started (`OPN`) | |
-| **Holding I already own** | Units held when tracking started, with total cost (`OPN` per holding) | |
-| **Budget** | Monthly amount for a money-out category or group | Food 6,000 |
-| **Net worth** | Everything owned (no debts tracked) | |
-| **Void** | Cancelled, kept for history, excluded from balances | |
-
-"Category" (why money moved) and "asset class" (what wealth is) are deliberately different words.
-
----
-
-## 4. Architecture — a modular monolith
-
-### 4.1 Layers (top may import below, never the reverse — enforced)
-
-```
-lightning.main            entry: backup → migrate → seed → serve; opens the browser
-lightning.ui              FastAPI routes, Jinja2 templates, static CSS/JS — calls services only
-lightning.bootstrap       composition root: builds Database, wires services (Container)
-lightning.workflows       multi-module actions in ONE db transaction (open account + opening balance, …)
-lightning.budgeting       budgets per category × month; budget vs actual
-lightning.investments     buy/sell/dividend/holdings → builds lines, posts via transactions; positions
-lightning.reporting       read-only: net worth, bridge, cash flow, register, valuation; owns no tables
-lightning.transactions    the ONLY writer of the ledger; register rows; search
-lightning.accounts        where value is held
-lightning.assets | lightning.categories    what value is (classes, assets, prices) | why money moved
-lightning.database        connection, migrations, seed, backup, audit log, settings
-lightning.core            money, dates, codes, refs, posting rules — depends on nothing
-```
-
-Each business module: `domain.py` (dataclasses/enums), `repository.py` (its own tables' SQL), `service.py`
-(public API). Reporting also has `queries.py` (read-only SQL) and `valuation.py`.
-
-### 4.2 Contracts (`lint-imports`, also run by `tests/test_architecture.py`)
-
-1. Layers as above. 2. The UI never imports `database`, any `*.repository` or `reporting.queries`.
-3. transactions / reporting / workflows / budgeting / investments never import other modules' repositories.
-4. workflows / reporting / budgeting / investments never import `transactions.repository`.
-Plus tests: no `float(` in financial modules; no SQL text in UI Python files.
-
-### 4.3 File map
-
-```
-Lightning/
-├─ run.bat · run.sh · requirements*.txt · pyproject.toml · .gitignore · .gitattributes
-├─ README.md · CHANGELOG.md · docs/ (PROJECT_OVERVIEW, ARCHITECTURE, GLOSSARY, MILESTONES)
-├─ data/                   runtime only, git-ignored: lightning.db + backups/
-├─ lightning/
-│  ├─ core/          errors money dates codes refs ledger
-│  ├─ database/      connection migrator seed backup audit settings · migrations/0001…0006
-│  ├─ assets/ categories/ accounts/ transactions/ budgeting/   domain · repository · service
-│  ├─ investments/   domain · service
-│  ├─ reporting/     queries · valuation · service
-│  ├─ workflows/     accounts
-│  ├─ ui/            web.py · routes/{dashboard,accounts,register,transactions,budget,investments,categories,settings}
-│  │                 templates/{base,register,budget,not_found}.html + accounts/ categories/ dashboard/
-│  │                 investments/ settings/ transactions/ partials/ · static/{style.css,app.js}
-│  ├─ bootstrap.py · main.py · __main__.py · __init__.py (__version__)
-└─ tests/            core, database, accounts_categories, transactions, reporting, budgeting, investments,
-                     ui, architecture, changelog
-```
-
----
-
-## 5. The financial core (`lightning/core/`)
-
-| File | Responsibility |
+| Area | Choice |
 |---|---|
-| `errors.py` | `LightningError(message, field)` → `ValidationError`, `NotFoundError`, `ConflictError` — plain-language, UI-safe |
-| `money.py` | `to_decimal` (accepts `1,250.50`, rejects floats), `check_places`, `to_e6`/`from_e6`, `fmt` |
-| `dates.py` | strict `parse_date`, `parse_month`, `today()` (tests pin it with env `LIGHTNING_TODAY`) |
-| `codes.py` | code validation; `slug()` keeps whole words (`Cash at hand` → `CASH-AT-HAND`) |
-| `refs.py` | `DocType` (`OPN IN OUT TRF CNV BUY SEL DIV VAL ADJ`), `format_ref`, `line_ref` |
-| `ledger.py` | `Effect`, `PostingLine` (`.cash()`, `.units()`), **`validate_posting()`** |
+| Runtime | Python 3.11+, FastAPI, Uvicorn |
+| UI | Jinja2 server-rendered HTML, vanilla JS/CSS; no frontend build |
+| Persistence | One local SQLite file in `data/`, ordered SQL migrations, local backups |
+| Financial precision | `Decimal` in Python, scaled integers (`_e6`) in SQLite; no binary floats in financial logic |
+| Quality | pytest and `import-linter` boundaries |
+| Network | Local-only server bound to `127.0.0.1` |
 
-**Posting rules:** ≥ 1 line; no zero-quantity line; ≤ 6 decimals; `amount_base = amount × fx`;
-**cash lines**: amount = quantity, unit price 1; **investment lines**: quantity = units, unit price = trade price,
-amount = cost (buy, incl. fees) or proceeds (sell, net of fees), sign of amount = sign of units;
-INFLOW/OUTFLOW need a category, OPENING none; **INTERNAL lines net to zero**.
+On Linux run `./run.sh`, then open `http://127.0.0.1:8765` in Firefox. Windows has `run.bat`, but support is provisional until the Windows readiness milestone below passes. Startup performs backups/migrations and processes due investment checkpoints. Keep the process running while using the app. Financial data is local and is not committed to Git; syncing code does not sync the database.
 
-| Effect | Meaning | Cash flow? | Net worth? |
-|---|---|---|---|
-| INFLOW | value enters | yes | yes |
-| OUTFLOW | value leaves | yes | yes |
-| INTERNAL | moves inside (transfers, buys, sells) | no | no (nets to zero) |
-| OPENING | pre-existing cash or holding | no | yes ("new balances added") |
+## Current user workflows
 
----
+- **Accounts and ledger:** open an account with a starting balance or enter first activity; signed money movements and transfers; edit, void/restore, multi-select/delete, search, and statement reconciliation.
+- **Counterparties/categories:** dedicated Counterparty management, aliases/default categories, Personal/Work/Investment L1 and broad L2 categories, alphabetized explicit selection, and per-category or bulk activate/archive/delete actions (used categories archive instead of being erased).
+- **CSV import:** stage CSV for supported account types; map either one signed amount column or separate inflow/outflow columns. Separate columns merge into one signed Amount (inflow positive, outflow negative) before inline review. Resolve uncertain Counterparties/categories and post valid rows when optional metadata is incomplete. Similar names are suggestions, not automatic merges.
+- **Budget:** a suggested first plan or one broad limit, monthly status and attention items, manual or rolling-average category/group limits, optional spending-limit carryover, and a past-month review. Budget limits are separate from cash reserves. Focused single-category adjustment remains a workflow improvement.
+- **Investments:** create/search assets, record buy/sell/dividend inside the brokerage account, enter total or unit price, and view current valuation/ownership/returns in the investment overview. Account codes are hidden in ordinary UI.
+- **Valuation:** startup processes due month-end checkpoints; supported sources may fetch prices, otherwise missing historical prices require user input. A sale forces a sale-day checkpoint. Detail links to one generated account journal in the main ledger.
+- **Money from others:** custody owner attribution for funds/assets held in tracked accounts, with full account balance and user's owned share distinguished.
+- **Birdview/reserves:** current owned wealth, liquidity/reserves, and broad cash-flow/asset views. Emergency Fund is fixed; other reserves are separate plan rows and do not themselves move cash.
 
-## 6. Data model
-
-**Conventions:** internal integer ids; readable **codes** for master data (editable); **refs**
-`TYPE-yyyy-mm-dd-NNN` for documents (never change, even if the date is edited); dates TEXT `yyyy-mm-dd`;
-money/quantities/prices INTEGER `_e6`; only `amount_base_e6` (FX fixed at the date) is a stored derivation;
-deactivate/void instead of delete; `PRAGMA foreign_keys = ON`.
-
-| Table | Purpose | Key columns |
-|---|---|---|
-| `settings` | key/value | `base_currency = EGP` |
-| `asset_classes` | tree of what wealth is | `code`, `name`, `parent_id`, `sort_order`, `active` |
-| `financial_assets` | currencies and investments | `code`, `name`, `asset_class_id`, `currency`, `unit`, `quantity_decimals`, `is_cash`, `exposure`, `liquidity`, `purity_e6`, `isin`, `price_source`, `external_symbol`, `active`, `notes` |
-| `accounts` | where value is held | `code`, `name`, `institution`, `account_type`, `currency`, `cash_class_id` (always from type), `opening_date`, `last4`, `active`, `sort_order`, `notes` |
-| `categories` | why money moved | `code`, `name`, `parent_id`, `movement`, `scope` (PERSONAL/WORK), `income_class` (HOUSEHOLD/INVESTMENT), `default_reimbursable`, `is_system`, `active` |
-| `transactions` | documents | `ref`, `type`, `date`, `description`, `counterparty` (the "To"), `status` (POSTED/VOID), `source`, `notes` |
-| `ledger_entries` | **source of truth** | `transaction_id`, `line_no`, `date`, `account_id`, `asset_id`, `quantity_e6`, `unit_price_e6`, `amount_e6`, `fx_rate_e6`, `amount_base_e6`, `effect`, `category_id`, `memo` |
-| `price_history` | prices | `asset_id`, `date`, `price_e6`, `currency`, `source` (MANUAL now); unique (asset, date, source) |
-| `fx_rates` | FX (M4) | `date`, `base`, `quote`, `rate_e6`, `source` |
-| `budgets` | budget amounts | `category_id`, `month`, `one_off`, `amount_e6` (NULL = no budget) |
-| `audit_log` | before/after of edits, voids, restores | `entity`, `entity_id`, `action`, `summary`, JSON |
-
-**Indexes:** ledger `(account_id,date)`, `(asset_id,date)`, `(category_id,date)`, `(transaction_id)`;
-transactions `(date)`, `(type,date)`, `(status)`; prices `(asset_id,date)`; budgets `(category_id,month)`.
-**Views:** `v_ledger`, `v_balances`, `v_budgets` (readable decimals and `code · name`).
-**Migrations:** `0001` schema · `0002` full-text index (later removed) · `0003` views · `0004` bank = savings,
-no liabilities · `0005` budgets · `0006` simplification. Never edit an applied migration — add a new one.
-
-**Account types** (offered): Cash wallet (CSH, → Liquid Cash › Physical Cash) · Bank account, current or savings
-(CUR, → Bank Balance) · Certificate / time deposit (CD, → Deposits › CDs) · Brokerage (BRK, cash → Brokerage Cash)
-· Physical asset e.g. gold at home (PHY) · Money owed to me (RCV) · Other (OTH). Brokerage, physical-asset and
-other accounts can hold investments. Cash is classified by the account; investments by their own class.
-
-**Seed data** (idempotent, never overwrites edits): asset classes (Liquid Cash › Physical/Bank/Brokerage;
-Deposits › CDs; Stocks; Funds › Equity/Money Market/Gold/Other; Gold; Other Investments; Money Owed to You),
-cash assets EGP USD EUR GBP SAR AED, and a category tree (Income incl. Investment Income › Interest/Dividends;
-Expenses › Personal, Work (reimbursable by default), Fees & Charges, Taxes; system "Unaccounted" categories).
-
----
-
-## 7. Ledger, valuation and the net-worth equation
-
-| What happens | Doc | Lines |
-|---|---|---|
-| Open CIB with 50,000 | `OPN` | CIB CASH:EGP +50,000 OPENING |
-| Groceries −450 | `OUT` | CIB −450 OUTFLOW · Personal › Food |
-| Salary +42,000 | `IN` | CIB +42,000 INFLOW · Salary |
-| CIB → THNDR 30,000 | `TRF` | CIB −30,000 INTERNAL · THNDR +30,000 INTERNAL |
-| Buy 150 COMI @ 92.40, fee 45 | `BUY` | THNDR CASH −13,905 INTERNAL · THNDR STK:COMI +150 (cost 13,905, price 92.40) INTERNAL |
-| Sell 50 COMI @ 110, fee 25 | `SEL` | THNDR STK:COMI −50 (proceeds 5,475) INTERNAL · THNDR CASH +5,475 INTERNAL |
-| Dividend 180 | `DIV` | THNDR CASH +180 INFLOW · Investment Income › Dividends (memo `STK:COMI`) |
-| Gold 12.5 g @ 3,950 + 1,800 from CIB | `BUY` | CIB CASH −51,175 · Gold at home GLD:21K +12.5 g (cost 51,175) |
-| Fund units already owned | `OPN` | THNDR FND:AZ-MM +3,000 units (cost 3,150) OPENING |
-
-**Valuation** (`reporting/valuation.py`): value = units × price × FX. Price = the newest of a **typed price** and
-the **last buy/sell price** (typed wins the same day); holdings entered as already owned fall back to **cost**
-until priced. Cash = its amount. Anything unpriced is listed as "unvalued", never silently zero.
-
-**Positions** (`investments.service.portfolio`) walk each holding's lines oldest-first: units in add cost; units
-out remove average cost × units; a sell's realized gain = proceeds − cost removed. Unrealized = value − cost.
-Total return = unrealized + realized + dividends. Nothing is stored.
-
-**Net-worth equation** (per period):
-`closing = opening + money in − money out + revaluation + new balances added`.
-Revaluation is computed per holding: value change − net flows into it (base cash is always 0). Trades net to
-zero, so their gains show as revaluation. `difference` must be 0.00 — it equals the net of INTERNAL lines, so it
-checks the ledger for real (shown on the Overview, asserted by tests).
-
-**Invariants enforced:** INTERNAL lines net to zero; a holding never below zero units at any date (sell, edit,
-void, restore); no dates after today; nothing before an account's start date; start date can't move past the
-first transaction; opening balances ≥ 0; an account deactivates only with zero cash and no holdings.
-
----
-
-## 8. Services (public APIs)
-
-- **AssetService** — classes (`list_classes`, `display_name`, `root_of`), assets (`get_asset`, `cash_asset`,
-  `investments`, `investment_classes`), **`create_investment(name, class_code, symbol, karat, isin, notes)`**,
-  `update_investment`, **`set_price(asset, date, price)`**, `set_prices(date, {asset: price})`, `price_history`.
-- **CategoryService** — `tree`, `pickable`, `groups`, `display_name`, **`find_by_text(text)`** (full name, short
-  name, unique part or code; asks "Which one?" when ambiguous), `require`, `create`, `update` (code change cascades).
-- **AccountService** — `list`, `get`, `get_by_code`, **`find_by_text`**, `require_usable`, `create`, `update`,
-  `set_active`, `reporting_group`. Only EGP until M4 (`allow_foreign`).
-- **TransactionService** — `record_inflow/outflow/transfer`, **`record_in_account(account, date, amount±,
-  category | other_account, to, notes)`** and `update_in_account` (register rows; a kind change voids and
-  re-records so the ref prefix stays true), **`post()` / `repost()`** for documents built by other modules,
-  `set_opening_balance` (cash), `opening_txn_id(account, asset?)`, `update_money`, `update_transfer`, `void`,
-  `restore`, `get`, `get_by_ref`, `find(TxnFilter)`, `search_ids`, `payee_suggestions`, `summarize`, `history`.
-- **InvestmentService** — **`buy`, `sell`** (account, asset, units, price, fees, cash account — default the
-  broker itself), **`dividend`**, **`add_holding`** (units + total cost), `update(txn, …)`, `values_of(txn)`
-  (prefill), **`portfolio(as_of, account?)`** → positions and totals, `holding`, `investment_accounts`.
-- **ReportingService** — `net_worth`, `holdings`, `account_balance` (cash), `account_value` (cash + holdings),
-  `bridge`, `bridge_for_month`, `cash_flow`, `spending_by_category`, `money_out_by_category`, `monthly_trend`,
-  `statement`, **`register(account?, from, to, txn_ids?)`** (cash lines, newest first), `sidebar`,
-  `investment_lines`, `value_of`.
-- **BudgetService** — `month_view(month)` (Personal and Work sections; direct / effective budget, actual, remaining,
-  unbudgeted, warnings), `save_month`, `set_budget`, `amounts_for`. Repeat until changed; "this month only".
-- **AccountWorkflows** — `open_account`, `update_account` (guards the start date), `deactivate`, `reactivate`.
-
-**Search:** every typed word must appear in the ref, date, To, description, notes, or a line's account
-code/name, category code/name or amount; thousands separators ignored; `%`/`_` literal.
-
----
-
-## 9. The HTML UI
-
-**Layout:** sidebar with Overview · Budget · Investments · Categories · Settings, then **All accounts** total and
-accounts grouped by kind (Cash & bank · Deposits · Investments · Other) with values (name + code).
-
-**Account page = register** (`/accounts/{id}`), Lightning's own design:
-- header: name + code; **Cash · Holdings · Total**; Buy / Sell / Dividend for investment accounts; Holdings strip.
-- **quick-add row**: Date · **To** · **Category** · Notes · **Amount** → Enter saves.
-  - **Amount is signed**: `-450` money out, `1200` money in.
-  - **To**: who the money went to or came from. Typing or picking **one of your accounts makes it a transfer**
-    (Category is disabled). A To used before fills in its last category.
-  - **Category**: type to search a list (HTML datalist), not a dropdown.
-- rows newest first, coloured edge by kind, date shown once per day, running balance; click a row to edit in place
-  (Save · Cancel/Esc · Void · Details & history). Buys/sells/dividends open the investment form.
-- `/transactions` = all accounts in one register (extra Account column).
-
-**Other pages:** Overview (`/`: net worth, money in/out, left over, wealth by asset class, bridge with 0.00 check,
-budget card, spending, 6-month trend, recent) · Budget (`/budget`) · **Investments** (`/investments`: totals,
-holdings with avg cost, price source "last trade"/"at cost", unrealized; allocation by class and exposure; sold-out
-positions) · `/investments/new?kind=buy|sell|dividend|holding` · `/investments/{txn}/edit` ·
-`/investments/assets/new|{id}/edit` · `/investments/prices` · Categories (groups with chips) · Settings
-(backups) · `/transactions/{id}` detail with ledger lines and history · `/t/{ref}`.
-
-Errors re-render forms (HTTP 400) with the message, the field highlighted and typed values kept.
-`app.js` only fills dates, opens rows, and links To ↔ Category — no financial logic in the browser.
-
----
-
-## 10. Running, data, sync
-
-- `.\run.bat` (PowerShell needs `.\`) → `http://127.0.0.1:8765`. Options `--db PATH --port N --no-browser`.
-- Backups on every start (`data/backups/lightning_yyyy-mm-dd_HHMM.db`, newest 30) and "Back up now".
-- **PC ↔ laptop:** code via GitHub (`git pull` before, `git add/commit/push` after). Data is **not** in Git; each
-  computer has its own `data/lightning.db` unless both start with `--db` pointing at a synced file (e.g. OneDrive),
-  used on one computer at a time.
-- When Claude edits the PC folder, commit and push from the PC; the laptop only pulls. Files Claude removes must be
-  removed with `git rm` (Claude cannot delete files in the folder).
-
----
-
-## 11. Roadmap
-
-| # | Milestone | Status |
-|---|---|---|
-| M0 · M1 | Foundation · cash & bank | ✅ 0.1.0 |
-| B | Budgeting | ✅ 0.2.0 |
-| M3 | Investments (manual) | ✅ 0.3.0 |
-| **M4** | **Market data & FX** — daily prices (Yahoo `.CA` symbols, e.g. `COMI.CA`), gold parity (24K/g = XAU/USD × USD/EGP ÷ 31.1035; 21K = 24K × 21/24) and local Egyptian gold prices, USD/EGP, multi-currency accounts, `CNV` conversions, FX revaluation; price_source + external_symbol already on assets | next |
-| M2 | Reconciliation (`ADJ` to Unaccounted), split transactions, refunds (negative money out in the original category), report pages | |
-| M5 | Reimbursements: "employer pays me back" → receivable, claims with partial settlement; money lent to friends | |
-| M6 | CD lifecycle and interest, gold workmanship fee and buyback price, bonus shares and splits | |
-| M7 | Imports (CSV/Excel/broker statements), recurring transactions, target allocation | |
-| M8 | Charts, packaging | |
-
----
-
-## 12. Decisions log
-
-| Decision | Reason |
-|---|---|
-| Accounts ≠ financial assets | Where vs what; a brokerage holds many assets |
-| One ledger under documents; balances, holdings, gains, search all derived | One source of truth |
-| Readable codes + refs that never change; no mutable data in ids | Human-readable, safe edits |
-| `_e6` integers, `Decimal` everywhere | Exact money |
-| Cash class follows the account type; no manual picker | Owner found the picker unreadable |
-| No liabilities; savings = bank account | Owner decisions |
-| Edit in place + audit log; void instead of delete | Ease of use with a trail |
-| No future dates | One meaning for every balance |
-| LIKE search at query time, no index | Nothing stale; instant at personal scale |
-| Register: signed Amount, "To" (an account = transfer), typed categories, own design | Owner feedback |
-| Budget vs actual, either level, repeat until changed, Personal/Work sections | Owner choices |
-| Average cost; buy fees into cost; sell fees reduce proceeds | THNDR style (owner) |
-| Trades net to zero at cost/proceeds; gains appear as revaluation | Keeps the net-worth equation exact |
-| Valuation: typed price → last trade price → cost | Always a value, source shown |
-| Register lists cash only; holdings shown separately | Balances never mix units and money |
-| Plain `sqlite3`, FastAPI + Jinja2 HTML | Simple, readable, logic stays in Python |
-
----
-
-## 13. Rules for every change
-
-1. **Log it in `CHANGELOG.md`** under `## [Unreleased]`; on release rename to `## [x.y.z] — yyyy-mm-dd — …` and
-   bump `lightning/__init__.py`. `tests/test_changelog.py` fails if a version or migration is missing.
-2. Schema change = a new migration file + a Schema line in the changelog.
-3. Money is `Decimal` (`to_e6`/`from_e6` only); dates `yyyy-mm-dd` via `core.dates`.
-4. Show account codes with names; screens use plain names for categories and asset classes.
-5. Only `TransactionService` writes the ledger, always through `validate_posting` (other modules use `post()`).
-6. UI calls services/workflows only — no SQL, no financial math. Run `lint-imports`.
-7. Multi-module action → a workflow (or a module above the ones it uses) inside `db.transaction()`.
-8. Add tests; keep both randomized reconciliation tests green (`bridge.difference == 0`).
-9. Plain language in the UI; errors say what to do next.
+## Code map
 
 ```
-.\run.bat                     # start
-python -m pytest              # 151 tests
-lint-imports                  # 4 contracts
+lightning/core/             dates, money, codes, refs, errors, posting rules
+lightning/database/         SQLite, migrations, seed, backup, audit/settings
+lightning/accounts/         account identities and rules
+lightning/assets/           financial assets/classes, EGX catalogue, prices
+lightning/categories/       Personal/Work/Investment category tree
+lightning/transactions/     only writer of main-ledger postings
+lightning/investments/      trades, positions and investment calculations
+lightning/reevaluations.py  monthly detail and linked account-level VAL journal
+lightning/money_from_others.py  custody ownership attribution
+lightning/budgeting/        monthly plans and rolling average methods
+lightning/reserves.py       emergency fund and other reserve plans
+lightning/bank_imports.py   CSV staging/review/posting
+lightning/reconciliation.py cleared items and statement comparison
+lightning/reporting/        read-only queries and derived reporting
+lightning/workflows/        atomic cross-module account workflows
+lightning/ui/               FastAPI routes, templates, static JS/CSS
 ```
+
+## Questions and screen ownership
+
+| User question | Screen today | Next useful action |
+|---|---|---|
+| How am I doing today? | Overview shows current owned value, this month's flows, budget, and recent activity. | Open Birdview for the composition or the relevant account for a transaction. |
+| What is mine and how much cash is free? | Birdview shows owned liquid cash, investments, reserves, and an estimated liquidation value. | Open an account, holding, or reserve. |
+| Where did money come from or go? | Birdview has all-time/year/month/custom income and expense views and transaction links. | Inspect the supporting transactions. |
+| Am I following my spending plan? | Budget shows monthly available limit, spent, room, attention items, category status, and carryover. | Inspect category transactions or edit a limit. |
+| What happened in this account? | Account register shows balances and activity. | Record, correct, import, or find an account transaction. |
+| How did owned wealth change over time? | A current position and backend bridge exist. The Birdview period filter currently affects flows, not historical position. | Historical owned-value series and an explainable period bridge are planned. |
+| How are investments performing? | Holdings, costs, returns, and XIRR exist in the investment management view; Birdview has capital and return breakdowns. | Owned-only XIRR and valuation quality in Birdview remain planned. |
+
+All owned-position, budget-actual, and performance views must exclude transactions and balances marked as money from others. Internal transfers do not create income or expense. Refunds reduce spending in their original category.
+
+## Customer workflow and UI decisions
+
+The intended path is **understand on Overview → explain on Birdview or Budget → record in an account → review exceptions at import**. The account is the natural place to add a transaction because its source account is known. Overview and Birdview are analytical screens, so their current generic Add buttons should be removed. All-account transactions remains a search/history workspace.
+
+| Screen | Current friction | Intended hierarchy and action |
+|---|---|---|
+| Overview | Generic Add, decorative bars that resemble history, month arrows with identical destinations, and a “Ready to invest” claim based only on monthly inflow less outflow. | Current owned position and free cash; this month's recorded activity and budget; at most three actual attention items; recent activity. Every number links to its explanation. Do not show investability or a forecast without a defined calculation. |
+| Birdview | Current asset position sits below a page-wide period selector; discounted assets lead while full owned value is secondary. | Full owned position, owned cash, free cash after reserves, and investment value first. Show liquidation-factor estimate as a secondary scenario. Put period controls inside income/spending analysis. Keep holdings and reserves links beside their breakdowns. |
+| Account | Four duplicate balance figures on a normal cash wallet; maintenance buttons compete with entry; a crowded inline entry row explains signed amounts and transfers in one paragraph. | One meaningful balance, with total/held-for-others/owned bridge only where needed. Primary Add transaction action with account preselected and Money out / Money in / Transfer choices; ledger below for history. Import is secondary; edit, reconciliation, and deactivation move to an account menu. |
+| Budget | Full edit grid remains the main route for many adjustments. | First plan in one action, then monthly status, short attention list, one-category action, and a past-month review. Full grid remains advanced. “Room in plan” is never cash available. |
+| Reserves | Creation exposes many optional fields at once. | Start with purpose and amount; ask for due date, recurrence, and counterparty matching only when useful. Birdview free cash opens this explanation. |
+| Import | Review exposes many editable fields on every row. | Lead with Ready to post, Needs a decision, and Possible duplicates; expand row editing for exceptions. |
+
+The supplied UI screenshots show Overview and Birdview reaching the same 400,050 EGP total with different cash/investment splits. That discrepancy must be diagnosed before presenting a shared asset chart. The first figure to trust is the owned total with an as-of date; every breakdown must reconcile to it.
+
+## Budget customer flow
+
+Budget answers: **What did I plan to spend, what has happened, and where should I act?** A budget limit changes the spending plan only. A reserve assigns already-owned cash and reduces free cash; the two are never added together or substituted for each other.
+
+1. **First visit:** with useful prior spending, preview suggested fixed monthly limits from previous complete months, then let the user accept or adjust them. With sparse history, ask for one broad Personal limit. Opening Budget alone never saves a plan. Work appears when used.
+2. **Ordinary month:** open on available limit, spent, room in plan, separate free cash, and a small set of over-limit or uncovered-spending items. Category rows lead to transactions and adjustment. Detailed manual/3- or 6-month-average controls live under Edit full plan.
+3. **Transaction/import feedback:** show category impact near the saved entry and offer Add to plan when uncovered, without blocking posting.
+4. **Month review:** show planned, spent, overspent, and unused room. Optional carryover raises a later spending limit only; it does not move cash. Historical edits recalculate later derived carryover.
+
+The first-plan, monthly status, feedback, optional carryover, and basic past-month review are implemented. A focused one-category adjustment and stronger links from attention items to the exact causes still need refinement. See the calculation contract in [Architecture](ARCHITECTURE.md#budget-and-reserve-contract).
+
+## Delivery roadmap
+
+| Milestone | State at this revision | Outcome or next work |
+|---|---|---|
+| M0–M1 Foundation and cash accounts | Shipped | Ledger, opening balances, account registers, transfers, edit/void, search. |
+| B Budget foundation | Shipped | Monthly category/group limits, manual and rolling averages. |
+| B.1 Budget customer flow | Partly shipped | Finish focused category adjustment and inspect setup/attention/feedback with real user data. Optional carryover is spending-limit-only. |
+| M2 Reports and corrections | Partial | Reconciliation, splits, and refunds exist; balance adjustments, report pages, and month close remain. Reconciliation is not a primary workflow priority. |
+| M3 Manual investments | Shipped | Assets, trades, dividends, prices, holdings, gains, allocation, investment management XIRR. |
+| M3.1 Instrument catalogue | Partial | Local catalogue search/prefill exists; coverage and identifier quality need evaluation. |
+| UI workflow overhaul | Planned | Follow the bounded tasks below; avoid a single broad rewrite. |
+| Windows readiness | Planned, launcher exists | Verify native Windows setup and all core workflows; harden Python selection, dependency installation, time-zone data, and failure messages. |
+| M3.2 Birdview history/performance | Planned after base UI | Historical owned position, selected-period change bridge, valuation quality, owned-only XIRR. |
+| M4 Market data and FX | Planned | Wider price coverage, currency conversion, multi-currency accounts, FX revaluation. |
+| M6 Deposits and gold details | Planned | CD lifecycle, local gold costs and buyback, corporate actions. |
+| M7 Planning and imports | Partial | CSV import and reserves exist; manual-entry/import matching, review inbox, recurring transactions, and dated cash outlook remain. Forecasting follows a solid base. |
+
+Credit cards, loans, other liabilities, and receivables/money owed to the user are out of scope by owner decision. Money held for others is tracked separately. Bank connections and device sync depend on provider and deployment choices.
+
+### Small UI tasks for Luna
+
+Each task should leave the app usable, include a concise before/after workflow description, and verify empty, cash, custody, and investment-account states. Keep financial calculation changes in separately reviewed work.
+
+| Order | Task | Acceptance point |
+|---|---|---|
+| 0 | Diagnose Overview/Birdview cash and investment split; define shared owned-position components and as-of date. | Both screens reconcile to the same breakdown, or a reproducible calculation fix is specified. |
+| 1 | Remove Overview Add, fake trend, misleading investability/savings claims, and broken month arrows. | No generic entry or unsupported claim remains on Overview. |
+| 2 | Condense account header and move maintenance controls. | One balance on normal cash accounts; ownership bridge only with custody; Add transaction is primary. |
+| 3 | Replace inline register entry with an account-scoped Money out / Money in / Transfer flow. | A user can record all three without signed-amount instructions; ledger stays readable. |
+| 4 | Rebuild Overview as a short current snapshot. | Owned position, free cash, monthly status, genuine attention, and recent activity have clear drilldowns. |
+| 5 | Separate Birdview's current position from selected-period activity. | Period filter no longer appears to change today's assets; full owned value leads; liquidation scenario is secondary. |
+| 6 | Shorten reserve creation. | Purpose and amount suffice for a simple reserve; free-cash effect is visible. |
+| 7 | Make import review exception-first. | Ready rows can be posted without scanning all fields; duplicates and unresolved rows are prominent. |
+| 8 | Clean navigation and user-facing terminology. | Home, Budget, Birdview, Accounts are clear; advanced screens stay accessible; no L1/L2 jargon. |
+| B.1 follow-up | Finish focused Budget adjustment and review its first-use flow. | One category can be changed without opening the full grid; parent/group effect is clear. |
+
+After the base is coherent, prioritize import matching and a review inbox; then build the dated cash outlook. Do not turn current free cash into a future-balance prediction.
+
+## Windows readiness milestone
+
+Lightning is a Python/FastAPI/SQLite local web app, so the product code does not need a Windows rewrite. `run.bat` already creates a virtual environment and starts `python -m lightning`. That launcher and the full workflow have not been verified on a native Windows machine in this repository. Treat Windows as **provisional**, not as shipped support.
+
+1. **Startup:** make `run.bat` choose Python 3.11+ deliberately, stop with a useful message if environment creation or dependency installation fails, and avoid reinstalling packages on every launch unless requirements changed. Preserve a visible terminal/error log when startup fails.
+2. **Time zones:** include the `tzdata` dependency required for reliable `ZoneInfo("Africa/Cairo")` use on Windows, then verify quote dates and month-end valuation dates.
+3. **Data and file paths:** test a fresh checkout in a normal user-writable folder, a path containing spaces, and a custom `--db` location. Confirm SQLite migrations, backups, CSV import/export, templates, fonts, and the local instrument catalogue. Decide on a per-user data directory before producing a machine-wide installer; the current default database is under the project folder.
+4. **Native Windows smoke test:** use a clean Windows 10/11 environment with Python 3.11+; launch by double-click, complete setup, create accounts, post/edit/restore transactions, import a CSV, create a budget and reserve, record an investment, restart, and restore from a backup. Test another launch while the server is already running and an occupied port.
+5. **Distribution:** after that test passes, publish a Windows setup guide and choose between a simple source checkout plus launcher or a packaged installer. Packaging is a later convenience, not a prerequisite for a usable Windows version.
+
+Acceptance: a new Windows user can install prerequisites, double-click the launcher, open the local app, retain data across restarts, and complete core money workflows without using a shell. The same cross-platform test suite stays green, and Windows-specific results are recorded before claiming support.
+
+## Working agreements
+
+1. Check `git status` first and preserve existing user changes and personal data.
+2. Keep business rules in Python services/workflows; cross-module writes belong in one DB transaction.
+3. Schema changes require a new migration; never rewrite an applied migration.
+4. Test the changed workflow and invariants; check import boundaries and `git diff --check`.
+5. Log implementation changes under `Unreleased`; version/release headings change only when shipping.
+6. Update this overview, architecture, or glossary when the owner asks, keeping all three consistent.

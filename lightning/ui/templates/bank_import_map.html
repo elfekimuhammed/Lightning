@@ -3,12 +3,40 @@
 {% block heading %}<div class="acct-title"><h1>Match your columns</h1></div><p class="muted">{{ account.name }} · {{ filename }}</p>{% endblock %}
 {% block content %}
 <section class="card form-card">
-  <p>Your CSV headers differ from Lightning’s. Map them once for this upload; your original file is unchanged.</p>
+  <p>We matched the columns we could. Check the suggestions and adjust them before reviewing transactions. For statements with two amount columns, choose which means money in and which means money out; we’ll combine them into one signed Amount. Your original file is unchanged.</p>
+  {% if error %}<p class="flash error">{{ error }}</p>{% endif %}
   <form method="post" action="/accounts/{{ account.id }}/import/map">
     <input type="hidden" name="payload" value="{{ payload }}"><input type="hidden" name="filename" value="{{ filename }}">
-    {% for key in required %}<label>{{ key }} <select name="map_{{ key }}" required><option value="">Choose column…</option>{% for h in headers %}<option value="{{ h }}">{{ h }}</option>{% endfor %}</select></label>{% endfor %}
-    {% for key in optional %}<label>{{ key }} <select name="map_{{ key }}"><option value="">Not in file</option>{% for h in headers %}<option value="{{ h }}">{{ h }}</option>{% endfor %}</select></label>{% endfor %}
+    <label>Date <select name="map_Date" required><option value="">Choose date column…</option>{% for h in headers %}<option value="{{ h }}" {{ 'selected' if mapping.get('Date') == h }}> {{ h }}</option>{% endfor %}</select></label>
+    <fieldset class="import-amount-model">
+      <legend>How does this statement show amounts?</legend>
+      <label><input type="radio" name="amount_model" value="SINGLE" {{ 'checked' if suggested_amount_model == 'SINGLE' }}> One signed amount column</label>
+      <div data-amount-fields="SINGLE"><label>Amount column <select name="map_Amount"><option value="">Choose amount column…</option>{% for h in headers %}<option value="{{ h }}" {{ 'selected' if mapping.get('Amount') == h }}>{{ h }}</option>{% endfor %}</select></label>
+        <label><input type="checkbox" name="amount_sign" value="invert" {{ 'checked' if invert_amount }}> Reverse its sign (money out is currently positive)</label></div>
+      <label><input type="radio" name="amount_model" value="SEPARATE" {{ 'checked' if suggested_amount_model == 'SEPARATE' }}> Separate money-in and money-out columns</label>
+      <div data-amount-fields="SEPARATE"><label>Money in (inflow) column <select name="map_Inflow"><option value="">Choose inflow column…</option>{% for h in headers %}<option value="{{ h }}" {{ 'selected' if mapping.get('Inflow') == h }}>{{ h }}</option>{% endfor %}</select></label>
+        <label>Money out (outflow) column <select name="map_Outflow"><option value="">Choose outflow column…</option>{% for h in headers %}<option value="{{ h }}" {{ 'selected' if mapping.get('Outflow') == h }}>{{ h }}</option>{% endfor %}</select></label>
+        <p class="muted small">A populated inflow becomes positive; a populated outflow becomes negative. Leave the other column blank or zero for each row.</p></div>
+    </fieldset>
+    {% for key in optional %}<label>{{ key }} <select name="map_{{ key }}"><option value="">Not in file</option>{% for h in headers %}<option value="{{ h }}" {{ 'selected' if mapping.get(key) == h }}>{{ h }}</option>{% endfor %}</select></label>{% endfor %}
     <div class="actions"><button class="btn primary">Preview rows</button><a class="btn" href="/accounts/{{ account.id }}/import">Cancel</a></div>
   </form>
 </section>
+<script>
+(() => {
+  const form = document.querySelector('.import-amount-model');
+  if (!form) return;
+  const sync = () => {
+    const selected = form.querySelector('[name="amount_model"]:checked')?.value || 'SINGLE';
+    form.querySelectorAll('[data-amount-fields]').forEach((group) => {
+      const active = group.dataset.amountFields === selected;
+      group.hidden = !active;
+      group.querySelectorAll('select').forEach((field) => { field.required = active; field.disabled = !active; });
+      group.querySelectorAll('input[type="checkbox"]').forEach((field) => { field.disabled = !active; });
+    });
+  };
+  form.addEventListener('change', sync);
+  sync();
+})();
+</script>
 {% endblock %}

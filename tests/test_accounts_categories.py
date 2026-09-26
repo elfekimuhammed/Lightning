@@ -3,7 +3,7 @@ from decimal import Decimal
 import pytest
 
 from lightning.categories.domain import Movement
-from lightning.core.errors import ConflictError, ValidationError
+from lightning.core.errors import ConflictError, NotFoundError, ValidationError
 from lightning.transactions.domain import TxnFilter
 
 
@@ -48,12 +48,11 @@ class TestAccounts:
         a = c.account_flows.update_account(a.id, "QNB Savings", "BANK", "2026-09-01", "100")
         assert c.assets.get_class(a.cash_class_id).code == "CASH.BANK"
 
-    def test_start_date_cannot_move_past_existing_transactions(self, setup, c):
+    def test_account_start_date_does_not_limit_existing_transactions(self, setup, c):
         accounts, cats = setup
         c.transactions.record_outflow("2026-09-10", accounts["wallet"].id, "5", cats["EXP.PERSONAL.FOOD"].id)
-        with pytest.raises(ValidationError, match="2026-09-10"):
-            c.account_flows.update_account(accounts["wallet"].id, "Wallet", "CASH", "2026-09-11", "1200")
-        c.account_flows.update_account(accounts["wallet"].id, "Wallet", "CASH", "2026-09-10", "1200")
+        c.account_flows.update_account(accounts["wallet"].id, "Wallet", "CASH", "2026-09-11", "1200",
+                                       opening_balance_date="2026-09-01")
 
     def test_editing_opening_balance_and_date(self, c):
         a = c.account_flows.open_account("Bank", "BANK", "2026-09-01", "100")
@@ -127,6 +126,41 @@ class TestCategories:
     def test_category_suggestions_flag_near_duplicates(self, c):
         matches = c.categories.suggestions("Food and Groceries", c.categories.get_by_code("EXP.PERSONAL").id)
         assert matches and matches[0][0].code == "EXP.PERSONAL.FOOD"
+
+    def test_bulk_category_actions_archive_activate_and_delete(self, c, monkeypatch):
+        import asyncio
+        from lightning.ui.routes import categories as category_routes
+
+        personal = c.categories.get_by_code("EXP.PERSONAL")
+        first = c.categories.create(personal.id, "Bulk Test A")
+        second = c.categories.create(personal.id, "Bulk Test B")
+
+        class Form(dict):
+            def getlist(self, key):
+                value = self.get(key, [])
+                return value if isinstance(value, list) else [value]
+
+        class Request:
+            def __init__(self, form):
+                self.data = form
+
+            async def form(self):
+                return self.data
+
+        monkeypatch.setattr(category_routes, "container", lambda _request: c)
+        monkeypatch.setattr(category_routes, "redirect", lambda path, message: (path, message))
+        response = asyncio.run(category_routes.category_bulk_action(Request(Form(
+            action="archive", category_ids=[str(first.id), str(second.id)]))))
+        assert response[0] == "/categories"
+        assert not c.categories.get(first.id).active and not c.categories.get(second.id).active
+
+        asyncio.run(category_routes.category_bulk_action(Request(Form(
+            action="activate", category_ids=[str(first.id), str(second.id)]))))
+        assert c.categories.get(first.id).active and c.categories.get(second.id).active
+
+        asyncio.run(category_routes.category_bulk_action(Request(Form(action="delete", category_id=str(first.id)))))
+        with pytest.raises(NotFoundError):
+            c.categories.get(first.id)
 
     def test_roots_and_system_categories_are_protected(self, c):
         with pytest.raises(ValidationError):

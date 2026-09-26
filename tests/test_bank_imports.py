@@ -4,12 +4,41 @@ from lightning.bank_imports import decode_csv
 from lightning.transactions.domain import TxnSource
 
 
+def _upload_and_map(client, account_id, filename, data, mapping, amount_model="SINGLE"):
+    import re
+    response = client.post(f"/accounts/{account_id}/import",
+                           files={"file": (filename, data, "text/csv")}, follow_redirects=False)
+    assert response.status_code == 200 and "Match your columns" in response.text
+    payload = re.search(r'name="payload" value="([^"]+)"', response.text).group(1)
+    values = {"payload": payload, "filename": filename, "amount_model": amount_model}
+    values.update({f"map_{key}": value for key, value in mapping.items()})
+    return client.post(f"/accounts/{account_id}/import/map", data=values, follow_redirects=False)
+
+
 def test_parser_supports_utf8_bom_grouped_amounts_and_column_mapping():
     # Quoted thousands-grouped numbers are valid CSV values.
     data = "\ufeffWhen,Merchant,Net\n25/09/2026,Café,\"-1,200.50\"\n".encode()
     headers, rows = decode_csv(data)
     assert headers == ["When", "Merchant", "Net"]
     assert rows[0]["Net"] == "-1,200.50"
+
+
+def test_parser_accepts_statements_with_more_than_ten_thousand_rows():
+    lines = ["Date,Amount"] + [f"2026-09-25,{index + 1}" for index in range(10_001)]
+    _, rows = decode_csv(("\n".join(lines) + "\n").encode())
+    assert len(rows) == 10_001
+
+
+def test_suggested_mapping_uses_canonical_headers_and_bank_aliases(c, setup):
+    account_id = setup[0]["cib"].id
+    suggest = c.bank_imports.suggested_mapping
+    standard = suggest(account_id, ["Date", "Counterparty", "Amount", "Notes"])
+    assert standard["Date"] == "Date" and standard["Amount"] == "Amount"
+    assert standard["Counterparty"] == "Counterparty" and standard["Notes"] == "Notes"
+    bank = suggest(account_id, ["Transaction Date", "Credit", "Debit", "Description"])
+    assert bank["Date"] == "Transaction Date"
+    assert bank["Inflow"] == "Credit" and bank["Outflow"] == "Debit"
+    assert bank["amount_model"] == "SEPARATE"
 
 
 def test_import_stages_posts_and_same_file_is_idempotent(c, setup):
@@ -45,6 +74,58 @@ def test_import_works_for_non_bank_accounts_and_missing_optional_columns(c, setu
     assert c.reporting.account_balance(wallet_id) == 1200 - 25
 
 
+def test_separate_inflow_and_outflow_columns_become_one_signed_amount(c, setup):
+    accounts, _ = setup
+    account_id = accounts["cib"].id
+    data = (b"When,Credit,Debit\n"
+            b"2026-09-22,1250.50,\n"
+            b"2026-09-23,,400\n")
+    batch_id, repeated = c.bank_imports.stage(
+        account_id, "two-columns.csv", data,
+        {"amount_model": "SEPARATE", "Date": "When", "Inflow": "Credit", "Outflow": "Debit"},
+    )
+    assert not repeated
+    _, rows = c.bank_imports.preview(batch_id)
+    assert [row["Amount"] for row in rows] == ["1250.50", "-400"]
+    result = c.bank_imports.confirm(batch_id, {row["_import_row_id"]: {} for row in rows})
+    assert result["posted"] == 2
+    assert c.reporting.account_balance(account_id) == 50000 + 1250.50 - 400
+    assert [row["type"] for row in c.db.all(
+        "SELECT type FROM transactions WHERE source='IMPORT' ORDER BY date DESC")] == ["OUT", "IN"]
+
+
+def test_two_column_row_with_both_directions_needs_correction(c, setup):
+    accounts, _ = setup
+    batch_id, _ = c.bank_imports.stage(
+        accounts["cib"].id, "ambiguous.csv", b"Date,Credit,Debit\n2026-09-22,100,50\n",
+        {"amount_model": "SEPARATE", "Date": "Date", "Inflow": "Credit", "Outflow": "Debit"},
+    )
+    _, rows = c.bank_imports.preview(batch_id)
+    assert rows[0]["_errors"] == ["A row cannot have both an inflow and an outflow amount."]
+
+
+def test_ui_maps_two_amount_columns_and_previews_signed_amounts(c, setup):
+    from fastapi.testclient import TestClient
+    from lightning.ui.web import create_app
+    accounts, _ = setup
+    client = TestClient(create_app(c))
+    account_id = accounts["cib"].id
+    data = b"When,Credit,Debit\n2026-09-22,100,\n2026-09-23,,25\n"
+    response = client.post(f"/accounts/{account_id}/import", files={"file": ("statement.csv", data, "text/csv")},
+                           follow_redirects=False)
+    assert response.status_code == 200 and "Money in (inflow) column" in response.text
+    import re
+    payload = re.search(r'name="payload" value="([^"]+)"', response.text).group(1)
+    mapped = client.post(f"/accounts/{account_id}/import/map", data={
+        "payload": payload, "filename": "statement.csv", "amount_model": "SEPARATE",
+        "map_Date": "When", "map_Inflow": "Credit", "map_Outflow": "Debit",
+    }, follow_redirects=False)
+    assert mapped.status_code == 303
+    batch_id = int(mapped.headers["location"].rsplit("/", 1)[-1])
+    _, rows = c.bank_imports.preview(batch_id)
+    assert [row["Amount"] for row in rows] == ["100", "-25"]
+
+
 def test_reference_duplicate_is_flagged_and_not_posted(c, setup):
     accounts, cats = setup
     first = b"Date,Counterparty,Amount,Category,Reference\n2026-09-20,Kiosk,-5,Food & Groceries,REF-X\n"
@@ -74,7 +155,8 @@ def test_ui_upload_review_and_post(c, setup):
     client = TestClient(create_app(c))
     account_id = accounts["cib"].id
     csv = b"Date,Counterparty,Amount\n2026-09-22,Shop,-14\n"
-    upload = client.post(f"/accounts/{account_id}/import", files={"file": ("month.csv", csv, "text/csv")}, follow_redirects=False)
+    upload = _upload_and_map(client, account_id, "month.csv", csv,
+                             {"Date": "Date", "Amount": "Amount", "Counterparty": "Counterparty"})
     assert upload.status_code == 303
     preview = client.get(upload.headers["location"])
     assert preview.status_code == 200 and "Post rows" in preview.text and 'name="amount_' in preview.text
@@ -97,7 +179,8 @@ def test_ui_allows_incomplete_rows_and_defaults_category(c, setup):
     client = TestClient(create_app(c))
     account_id = accounts["cib"].id
     csv = b"Date,Counterparty,Amount\n2026-09-22,New Shop,-14\n"
-    upload = client.post(f"/accounts/{account_id}/import", files={"file": ("m.csv", csv, "text/csv")}, follow_redirects=False)
+    upload = _upload_and_map(client, account_id, "m.csv", csv,
+                             {"Date": "Date", "Amount": "Amount", "Counterparty": "Counterparty"})
     batch_id = int(upload.headers["location"].rsplit("/", 1)[-1])
     _, rows = c.bank_imports.preview(batch_id)
     row_id = rows[0]["_import_row_id"]
@@ -110,6 +193,54 @@ def test_ui_allows_incomplete_rows_and_defaults_category(c, setup):
     txn = c.db.one("SELECT counterparty FROM transactions WHERE source='IMPORT'")
     assert txn["counterparty"] == ""
     assert c.db.scalar("SELECT c.code FROM ledger_entries l JOIN categories c ON c.id=l.category_id JOIN transactions t ON t.id=l.transaction_id WHERE t.source='IMPORT'") == "EXP.UNACCOUNTED"
+
+
+def test_review_form_field_budget_scales_with_import_rows():
+    from lightning.ui.routes.bank_imports import _review_form_max_fields
+    assert _review_form_max_fields(170) > 1_000
+    assert _review_form_max_fields(10) == 1_000
+
+
+def test_import_confirm_parses_more_than_one_thousand_form_fields(c, setup):
+    import asyncio
+    from urllib.parse import urlencode
+    from starlette.applications import Starlette
+    from starlette.requests import Request
+    from lightning.ui.routes.bank_imports import confirm
+    accounts, _ = setup
+    account_id = accounts["cib"].id
+    data = ("Date,Amount\n" + "".join(f"2026-09-22,{n + 1}\n" for n in range(292))).encode()
+    batch_id, _ = c.bank_imports.stage(account_id, "large-review.csv", data)
+    _, rows = c.bank_imports.preview(batch_id)
+    fields = {}
+    for row in rows:
+        row_id = row["_import_row_id"]
+        fields.update({f"date_{row_id}": "2026-09-22", f"amount_{row_id}": row["Amount"],
+                       f"counterparty_{row_id}": "", f"counterparty_choice_{row_id}": "",
+                       f"category_{row_id}": "", f"notes_{row_id}": "",
+                       f"whom_{row_id}": "", f"skip_{row_id}": "on"})
+    body = urlencode(fields).encode()
+    sent = False
+
+    async def receive():
+        nonlocal sent
+        if sent:
+            return {"type": "http.disconnect"}
+        sent = True
+        return {"type": "http.request", "body": body, "more_body": False}
+
+    app = Starlette()
+    app.state.container = c
+    path = f"/accounts/{account_id}/import/{batch_id}/confirm"
+    request = Request({"type": "http", "http_version": "1.1", "method": "POST", "scheme": "http",
+                       "path": path, "raw_path": path.encode(), "query_string": b"", "root_path": "",
+                       "headers": [(b"host", b"testserver"),
+                                   (b"content-type", b"application/x-www-form-urlencoded")],
+                       "server": ("testserver", 80), "client": ("testclient", 50000), "app": app}, receive)
+    response = asyncio.run(confirm(request, account_id, batch_id))
+    assert response.status_code == 303
+    assert c.db.scalar("SELECT COUNT(*) FROM bank_import_rows WHERE batch_id=? AND status='SKIPPED'",
+                       (batch_id,)) == 292
 
 
 def test_ui_maps_nonstandard_headers_once_and_can_reverse_sign(c, setup):

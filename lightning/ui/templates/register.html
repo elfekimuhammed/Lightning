@@ -2,8 +2,8 @@
 {% block title %}{{ account.name if account else 'All accounts' }}{% endblock %}
 
 {% macro inputs(form_id, v, is_edit) -%}
-  <td><input form="{{ form_id }}" type="text" name="date" value="{{ v.get('date', '') }}" placeholder="yyyy-mm-dd"
-             pattern="\d{4}-\d{2}-\d{2}" title="yyyy-mm-dd" required class="{{ 'bad' if error_field == 'date' }}"></td>
+  <td><input form="{{ form_id }}" type="text" name="date" value="{{ v.get('date', '') }}" placeholder="31/1"
+             inputmode="numeric" autocomplete="off" data-smart-date title="For example 31/1 or 2026-01-31" required class="{{ 'bad' if error_field == 'date' }}"></td>
   {% if show_account %}
   <td><select form="{{ form_id }}" name="account_id" required class="{{ 'bad' if error_field == 'account' }}">
         <option value="">Account…</option>
@@ -104,7 +104,7 @@
     <div class="investment-entry-grid">
       <div class="field {{ 'has-error' if investment_error_field == 'date' }}">
         <label for="investment-date">Date</label>
-        <input id="investment-date" type="text" name="date" value="{{ investment_entry.get('date', '') }}" placeholder="yyyy-mm-dd" pattern="\d{4}-\d{2}-\d{2}" required>
+        <input id="investment-date" type="text" name="date" value="{{ investment_entry.get('date', '') }}" placeholder="31/1" inputmode="numeric" data-smart-date title="For example 31/1 or 2026-01-31" required>
       </div>
       <div class="field instrument-picker {{ 'has-error' if investment_error_field == 'instrument' }}">
         <label for="trade-instrument-search">Investment</label>

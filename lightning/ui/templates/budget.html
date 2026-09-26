@@ -10,59 +10,121 @@
 </div>
 {% endblock %}
 {% block content %}
-<div class="grid g4">
-  <div class="card tile"><div class="label">Budgeted</div><div class="value">{{ view.budget|money }}</div><div class="sub">{{ base }} · money out</div></div>
-  <div class="card tile"><div class="label">Spent</div><div class="value">{{ view.actual|money }}</div>
-    <div class="sub">{% if view.budget %}{{ ((view.actual / view.budget * 100)|round|int) }}% of budget{% else %}no budget set{% endif %}</div></div>
-  <div class="card tile"><div class="label">Remaining</div><div class="value {{ view.remaining|tone }}">{{ view.remaining|money }}</div>
-    <div class="sub">{% if view.unbudgeted %}{{ view.unbudgeted|money }} spent without a budget{% else %}budgeted minus spent{% endif %}</div></div>
-  <div class="card tile"><div class="label">Money in</div><div class="value pos">{{ view.income|money }}</div>
-    <div class="sub">{{ (view.income - view.budget)|money(True) }} after the full budget</div></div>
+{% if not has_plan %}
+<section class="card budget-setup">
+  {% if suggestions %}
+  <div class="card-heading"><div><span class="eyebrow">A first plan</span><h2>Start with your recent spending</h2></div></div>
+  <p class="muted">These suggestions use the previous three complete months. Accept them as fixed monthly limits; they will not change unless you choose to update them.</p>
+  <form method="post" action="/budget/setup?month={{ month }}">
+    <div class="budget-suggestion-list">
+      {% for category_id, (label, amount) in suggestions.items() %}
+      <label class="budget-suggestion"><span>{{ label }}</span><span class="suggestion-average">3-month average</span>
+        <input type="text" name="suggest_{{ category_id }}" value="{{ amount|money(False, 2) }}" inputmode="decimal" aria-label="Suggested limit for {{ label }}">
+      </label>
+      {% endfor %}
+    </div>
+    <button class="btn primary">Use this plan</button>
+  </form>
+  {% else %}
+  <div class="card-heading"><div><span class="eyebrow">A first plan</span><h2>Choose one monthly spending limit</h2></div></div>
+  <p class="muted">There is not enough recent spending history for useful suggestions yet. Start with one broad Personal limit. You can add category limits later.</p>
+  {% if personal_group %}<form method="post" action="/budget/setup?month={{ month }}" class="budget-first-limit">
+    <input type="hidden" name="group_id" value="{{ personal_group }}">
+    <label for="broad_limit">Personal spending limit</label>
+    <div class="actions"><input id="broad_limit" name="broad_limit" inputmode="decimal" placeholder="Monthly amount" required><button class="btn primary">Create plan</button></div>
+  </form>{% else %}<a class="btn primary" href="/categories">Create an outflow category first</a>{% endif %}
+  {% endif %}
+</section>
+{% else %}
+<div class="grid g4 budget-summary">
+  <div class="card tile"><div class="label">Available limit</div><div class="value">{{ view.available|money }}</div><div class="sub">Monthly limits{% if view.available != view.budget %} plus opening carryover{% endif %}</div></div>
+  <div class="card tile"><div class="label">Spent</div><div class="value">{{ view.actual|money }}</div><div class="sub">Posted spending this month</div></div>
+  <div class="card tile"><div class="label">Room in plan</div><div class="value {{ view.remaining|tone }}">{{ view.remaining|money }}</div><div class="sub">Available limit minus spending</div></div>
+  <div class="card tile"><div class="label">Free cash today</div><div class="value">{{ free_cash|money }}</div><div class="sub">Separate from budget limits · <a href="/birdview">Birdview</a></div></div>
 </div>
+<p class="muted small budget-note">A positive room in your plan is a spending limit, not cash set aside.</p>
 
 {% for w in view.warnings %}<div class="flash error" style="margin-top:12px">{{ w }}</div>{% endfor %}
 
-<form method="post" action="/budget?month={{ month }}" autocomplete="off">
-  <div class="card budget-save" style="justify-content:flex-start"><span class="small">Set every category from recent spending:</span><button class="btn" type="button" data-budget-all="3">Calculate all · 3 months</button><button class="btn" type="button" data-budget-all="6">Calculate all · 6 months</button></div>
-  {% for section in view.sections %}
-  <div class="card budget" style="margin-top:16px">
-    <div class="budget-head">
-      <h2>{{ section.name }}</h2>
-      <div class="small muted">Budget <b>{{ section.budget|money }}</b> · Spent <b>{{ section.actual|money }}</b> ·
-        Remaining <b class="{{ section.remaining|tone }}">{{ section.remaining|money }}</b>
-        {% if section.unbudgeted %} · <span title="Spending in categories with no budget on them or above them">{{ section.unbudgeted|money }} without a budget</span>{% endif %}</div>
-    </div>
-    <table>
-      <colgroup><col><col style="width:150px"><col style="width:120px"><col style="width:120px"><col style="width:26%"><col style="width:220px"></colgroup>
-      <thead><tr><th>Category</th><th class="num">Budget</th><th class="num">Spent</th><th class="num">Remaining</th><th></th><th class="num">Set budget</th></tr></thead>
-      <tbody>
-      {% for line in section.lines %}
-      {% set key = 'b_' ~ line.category_id %}
-      {% set mode = 'm_' ~ line.category_id %}
-      <tr class="{{ 'budget-group' if line.depth == 1 }}">
-        <td class="indent-{{ line.depth - 1 }}">{{ line.name }}{% if line.one_off %} <span class="pill" title="Set for {{ month }} only">this month</span>{% endif %}</td>
-        <td><input type="text" name="{{ key }}" inputmode="decimal" class="num budget-amount" value="{{ values.get(key, line.direct|money(False, 2) if line.direct is not none else '') }}" placeholder="{{ ('Auto · ' ~ line.budget|money) if line.average_months and line.budget is not none else (('= ' ~ line.budget|money) if line.direct is none and line.budget is not none else ('inside group' if line.covered else '—')) }}" {{ 'disabled' if line.average_months }}><input type="hidden" class="budget-mode" name="{{ mode }}" value="{{ line.average_months or 'manual' }}"></td>
-        <td class="num"><a href="/transactions?q={{ line.code|urlencode }}&month={{ month }}" title="Show these transactions">{{ line.actual|money }}</a></td>
-        <td class="num {{ 'neg' if line.over }}">{{ line.remaining|money if line.remaining is not none }}</td>
-        <td>{% if line.budget %}
-          <div class="bartrack" title="{{ line.used_pct }}% used"><div class="bar {{ 'neg' if line.over }}" style="width:{{ [line.used_pct, 100]|min }}%"></div></div>
-          <div class="small muted">{{ line.used_pct }}%</div>{% endif %}</td>
-        <td class="budget-actions"><button class="btn small" type="button" data-budget-mode="3">3 mo</button><button class="btn small" type="button" data-budget-mode="6">6 mo</button><button class="btn small" type="button" data-budget-mode="manual">Manual</button></td>
-      </tr>
-      {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  {% else %}
-  <div class="card empty" style="margin-top:16px">No money-out categories yet.</div>
-  {% endfor %}
+<section class="card budget-attention">
+  <div class="card-heading"><div><span class="eyebrow">This month</span><h2>Needs attention</h2></div><a class="btn small" href="#category-plan">View plan</a></div>
+  {% set attention = namespace(count=0) %}
+  {% for section in view.sections %}{% for line in section.lines %}
+    {% if line.over or (line.actual > 0 and not line.covered and line.budget is none) %}
+      {% set attention.count = attention.count + 1 %}
+      <a class="budget-attention-row" href="/transactions?q={{ line.code|urlencode }}&month={{ month }}">
+        <span><b>{{ line.name }}</b><small>{{ 'Over limit' if line.over else 'Spending without a limit' }} · {{ line.actual|money }} spent</small></span>
+        <span class="num {{ 'neg' if line.over }}">{% if line.budget is not none %}{{ line.remaining|money }} left{% else %}Review spending{% endif %} →</span>
+      </a>
+    {% endif %}
+  {% endfor %}{% endfor %}
+  {% if not attention.count %}<p class="muted">Nothing needs attention right now. Any spending outside a limit will appear here.</p>{% endif %}
+</section>
 
-  <div class="card budget-save">
-    <label class="small"><input type="checkbox" name="only_this_month" value="1"> Apply my changes to {{ month }} only</label>
-    <span class="muted small">Otherwise they apply from {{ month }} onward, until you change them again.</span>
-    <button class="btn primary">Save budget</button>
+<section class="card budget-plan" id="category-plan">
+  <div class="card-heading"><div><span class="eyebrow">{{ month }}</span><h2>Category plan</h2></div><span class="muted small">Money in this month: {{ view.income|money }}</span></div>
+  {% for section in view.sections %}
+  <div class="budget-section-status">
+    <div class="budget-head"><h3>{{ section.name }}</h3><div class="small muted">Available <b>{{ section.available|money }}</b> · Spent <b>{{ section.actual|money }}</b> · Room <b class="{{ section.remaining|tone }}">{{ section.remaining|money }}</b>
+      {% if section.unbudgeted %} · {{ section.unbudgeted|money }} without a limit{% endif %}</div></div>
+    <div class="budget-status-list">
+    {% for line in section.lines %}{% if line.depth > 1 or line.direct is not none %}
+      <div class="budget-status-row">
+        <div class="budget-status-name indent-{{ line.depth - 1 }}"><b>{{ line.name }}</b>{% if line.one_off %}<span class="pill">this month</span>{% endif %}
+          {% if line.opening_carryover %}<small>Limit {{ line.budget|money }} + {{ line.opening_carryover|money }} carried in</small>{% elif line.direct is not none %}<small>Monthly limit {{ line.budget|money }}</small>{% elif line.covered %}<small>Inside group limit</small>{% else %}<small>No covering limit</small>{% endif %}</div>
+        <span class="num">{{ line.actual|money }} spent</span>
+        <span class="num {{ 'neg' if line.over }}">{{ line.remaining|money if line.remaining is not none else '—' }}</span>
+        {% if line.available %}<div class="progress"><span class="{{ 'over' if line.over }}" style="width:{{ [line.used_pct, 100]|min }}%"></span></div>{% else %}<div></div>{% endif %}
+      </div>
+    {% endif %}{% endfor %}
+    </div>
   </div>
-</form>
-<p class="muted small">A group budget (e.g. Personal) is the ceiling for everything in it; budgets on its categories are part of it.
-A group without its own amount shows the total of its categories (“= …”). Leave a box empty for no budget.</p>
+  {% else %}<div class="empty">No money-out categories yet.</div>{% endfor %}
+</section>
+
+<details class="card budget-carryover">
+  <summary>Optional carryover settings</summary>
+  <p class="muted small">Carryover adds unused room to a future spending limit. It never sets aside cash or changes free cash. Overspending stays in its original month.</p>
+  <form method="post" action="/budget/carryover?month={{ month }}">
+    {% for section in view.sections %}{% for line in section.lines if line.direct is not none or line.carryover_enabled %}
+    <label class="carryover-option"><span><b>{{ line.name }}</b><small>Unused room can raise next month's limit</small></span>
+      <input type="hidden" name="carryvalue_{{ line.category_id }}" value="0">
+      <input type="checkbox" name="carryon_{{ line.category_id }}" value="1" {{ 'checked' if line.carryover_enabled }} aria-label="Enable carryover for {{ line.name }}">
+    </label>
+    {% endfor %}{% endfor %}
+    <button class="btn small primary">Save carryover choices</button>
+  </form>
+</details>
+
+{% if month < this_month %}
+<section class="card budget-month-review">
+  <div class="card-heading"><div><span class="eyebrow">Month review</span><h2>{{ month }} at a glance</h2></div></div>
+  <p class="muted">{{ view.actual|money }} spent against {{ view.available|money }} available in the plan, leaving {{ view.remaining|money }}. Historical transaction or limit edits recalculate these figures.</p>
+  {% for section in view.sections %}{% for line in section.lines if line.carryover_enabled and line.direct is not none %}
+    <div class="carryover-option"><span><b>{{ line.name }}</b><small>Room at month end</small></span><span class="num">{{ [line.remaining, 0]|max|money }}{% if line.remaining < 0 %} · overspent{% endif %}</span></div>
+  {% endfor %}{% endfor %}
+</section>
+{% endif %}
+
+<details class="card budget-editor">
+  <summary>Edit full plan</summary>
+  <p class="muted small">Manual and rolling-average limits. A group limit is the ceiling for its categories.</p>
+  <form id="budget-editor-form" method="post" action="/budget?month={{ month }}" autocomplete="off">
+    <div class="card budget-save"><span class="small">Set categories from recent spending:</span><button class="btn small" type="button" data-budget-all="3">Calculate all · 3 months</button><button class="btn small" type="button" data-budget-all="6">Calculate all · 6 months</button></div>
+    {% for section in view.sections %}
+    <div class="budget-editor-section"><h3>{{ section.name }}</h3>
+      <table><thead><tr><th>Category</th><th class="num">Limit</th><th class="num">Spent</th><th class="num">Room</th><th class="num">Set limit</th></tr></thead><tbody>
+      {% for line in section.lines %}
+      {% set key = 'b_' ~ line.category_id %}{% set mode = 'm_' ~ line.category_id %}
+      <tr class="{{ 'budget-group' if line.depth == 1 }}"><td class="indent-{{ line.depth - 1 }}">{{ line.name }}</td>
+        <td><input type="text" name="{{ key }}" inputmode="decimal" class="num budget-amount" value="{{ values.get(key, line.direct|money(False, 2) if line.direct is not none else '') }}" placeholder="{{ ('Auto · ' ~ line.budget|money) if line.average_months and line.budget is not none else (('= ' ~ line.budget|money) if line.direct is none and line.budget is not none else ('inside group' if line.covered else '—')) }}" {{ 'disabled' if line.average_months }}><input type="hidden" class="budget-mode" name="{{ mode }}" value="{{ line.average_months or 'manual' }}"></td>
+        <td class="num"><a href="/transactions?q={{ line.code|urlencode }}&month={{ month }}">{{ line.actual|money }}</a></td><td class="num">{{ line.remaining|money if line.remaining is not none }}</td>
+        <td class="budget-actions"><button class="btn small" type="button" data-budget-mode="3">3 mo</button><button class="btn small" type="button" data-budget-mode="6">6 mo</button><button class="btn small" type="button" data-budget-mode="manual">Manual</button></td></tr>
+      {% endfor %}</tbody></table>
+    </div>
+    {% endfor %}
+    <div class="card budget-save"><label class="small"><input type="checkbox" name="only_this_month" value="1"> Apply changes to {{ month }} only</label><span class="muted small">Otherwise, limits repeat from this month onward.</span><button class="btn primary">Save full plan</button></div>
+  </form>
+</details>
+{% endif %}
 {% endblock %}

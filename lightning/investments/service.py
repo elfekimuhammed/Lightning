@@ -89,7 +89,7 @@ class InvestmentService:
         if self.transactions.opening_txn_id(account.id, asset.id):
             raise ConflictError(f"{account.label} already has a starting amount of {asset.name} — edit that one.")
         lines = self._holding_lines(account, asset, quantity, total_cost)
-        return self.transactions.post(DocType.OPN, date or account.opening_date, lines,
+        return self.transactions.post(DocType.OPN, date or fmt_date(today()), lines,
                                       f"Starting holding — {asset.name}", asset.name, notes)
 
     def update(self, txn_id: int, **values) -> Transaction:

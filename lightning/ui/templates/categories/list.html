@@ -2,17 +2,58 @@
 {% block title %}Categories{% endblock %}
 {% block heading %}<h1>Categories</h1><div class="muted">L1 is the activity. L2 is the broad category. L3 is not used.</div>{% endblock %}
 {% block content %}
+<form id="category-bulk-form" method="post" action="/categories/bulk-action" data-category-bulk>
+  <div class="category-bulk-toolbar">
+    <label><input id="select-all-categories" type="checkbox"> Select all L2</label>
+    <span id="category-selection-count" class="muted small">0 selected</span>
+    <button class="btn small" name="action" value="activate">Activate</button>
+    <button class="btn small" name="action" value="archive">Archive</button>
+    <button class="btn small danger" name="action" value="delete">Delete</button>
+  </div>
+</form>
 <div class="grid g2">
   {% for group, items in groups %}
   <div class="card">
     <div class="cat-group-head"><a href="/categories/{{ group.id }}/edit" class="{{ 'muted' if not group.active }}"><span class="level-tag">L1</span><h2>{{ group.name }}</h2></a></div>
     <ul class="category-tree">
       {% for c in items %}
-      <li class="category-tree-item {{ 'off' if not c.active }}"><span class="level-tag">L2</span><a href="/categories/{{ c.id }}/edit">{{ c.name }}</a>{% if not c.active %}<span class="small muted">Archived</span>{% endif %}</li>
+      <li class="category-tree-item category-manage-item {{ 'off' if not c.active }}">
+        <input type="checkbox" class="category-select" name="category_ids" value="{{ c.id }}" form="category-bulk-form" aria-label="Select {{ c.name }}">
+        <span class="level-tag">L2</span><a href="/categories/{{ c.id }}/edit">{{ c.name }}</a>{% if not c.active %}<span class="small muted">Archived</span>{% endif %}
+        <form method="post" action="/categories/bulk-action" class="category-row-actions" data-category-row-action>
+          <input type="hidden" name="category_id" value="{{ c.id }}">
+          <button class="btn small" name="action" value="activate" title="Activate" aria-label="Activate {{ c.name }}" {{ 'disabled' if c.active }}>Act</button>
+          <button class="btn small" name="action" value="archive" title="Archive" aria-label="Archive {{ c.name }}" {{ 'disabled' if not c.active }}>Arch</button>
+          <button class="btn small danger" name="action" value="delete" title="Delete (archives if in use)" aria-label="Delete {{ c.name }}">Del</button>
+        </form>
+      </li>
       {% endfor %}
     </ul>
     <div style="margin-top:12px"><a class="btn small" href="/categories/new?parent={{ group.id }}">+ Add L2 category</a></div>
   </div>
   {% endfor %}
 </div>
+<script>
+(() => {
+  const checks = [...document.querySelectorAll('.category-select')];
+  const all = document.getElementById('select-all-categories');
+  const count = document.getElementById('category-selection-count');
+  const sync = () => {
+    const selected = checks.filter((box) => box.checked).length;
+    count.textContent = `${selected} selected`;
+    all.checked = checks.length > 0 && selected === checks.length;
+    all.indeterminate = selected > 0 && selected < checks.length;
+  };
+  all?.addEventListener('change', () => { checks.forEach((box) => { box.checked = all.checked; }); sync(); });
+  checks.forEach((box) => box.addEventListener('change', sync));
+  document.querySelectorAll('[data-category-row-action]').forEach((form) => form.addEventListener('submit', (event) => {
+    if (event.submitter?.value === 'delete' && !window.confirm('Delete this category? If it has history or is in use, it will be archived instead.')) event.preventDefault();
+  }));
+  document.querySelector('[data-category-bulk]')?.addEventListener('submit', (event) => {
+    if (!checks.some((box) => box.checked)) { event.preventDefault(); window.alert('Select at least one category first.'); return; }
+    if (event.submitter?.value === 'delete' && !window.confirm('Delete selected categories? Categories in use will be archived instead.')) event.preventDefault();
+  });
+  sync();
+})();
+</script>
 {% endblock %}

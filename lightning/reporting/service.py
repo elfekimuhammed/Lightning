@@ -381,7 +381,7 @@ class ReportingService:
 
     def monthly_flow_between(self, date_from: date | str, date_to: date | str) -> list[dict]:
         """Income and net expenses grouped by month for an exact date range."""
-        first, last = self._day(date_from), self._day(date_to)
+        first, last = parse_date(date_from), parse_date(date_to)
         cursor = first.replace(day=1)
         data: dict[str, dict] = {}
         while cursor <= last:

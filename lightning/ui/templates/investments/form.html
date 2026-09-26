@@ -40,9 +40,15 @@
     <div class="field"><label>Price per unit ({{ base }})</label><input type="text" class="num unit-price-preview" readonly placeholder="Calculated from total ÷ units"><div class="help">Calculated automatically from the trade value and fee choice.</div></div>
   </div>
   <div class="field"><label><input type="checkbox" name="fees_included" value="0" data-fees-excluded {{ 'checked' if values.get('fees_included') == '0' }}> Fees are excluded from the total</label></div>
+  {% if txn and values.get('fees_included') != '0' %}
+  <div class="field muted">Recorded fees included in total: <b>{{ values.fees|money(False, 2) }}</b>
+    <input type="hidden" name="fees" value="{{ values.fees }}">
+  </div>
+  {% else %}
   <div data-fees-field {{ 'hidden' if values.get('fees_included') != '0' }}>
     {{ field('fees', 'Fees (' ~ base ~ ')', values, error_field, placeholder='e.g. 25', attrs='inputmode="decimal" class="money-input"') }}
   </div>
+  {% endif %}
   <div class="field {{ 'has-error' if error_field == 'cash_account' }}">
     <label for="cash_account_id">{{ 'Paid from' if kind == 'buy' else 'Money goes to' }}</label>
     <select id="cash_account_id" name="cash_account_id">
@@ -62,9 +68,9 @@
     {{ field('total_cost', 'What you paid in total (' ~ base ~ ')', values, error_field, help='Your cost basis — THNDR shows it as average cost × units.', attrs='inputmode="decimal" required') }}
   </div>
   <div class="field {{ 'has-error' if error_field == 'date' }}">
-    <label for="date">As of <span class="muted small">yyyy-mm-dd</span></label>
-    <input type="text" id="date" name="date" value="{{ values.date }}" placeholder="the account's start date" pattern="\d{4}-\d{2}-\d{2}">
-    <div class="help">Leave empty to use the date the account starts.</div>
+    <label for="date">As of <span class="muted small">e.g. 31/1</span></label>
+    <input type="text" id="date" name="date" value="{{ values.date }}" placeholder="31/1" inputmode="numeric" data-smart-date>
+    <div class="help">Choose when you want this existing holding to enter your tracked history.</div>
   </div>
   {% endif %}
 

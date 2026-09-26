@@ -35,9 +35,13 @@
 
 {% macro date_field(values, error_field, name='date', label='Date') -%}
 <div class="field {{ 'has-error' if error_field == name }}">
-  <label for="{{ name }}">{{ label }} <span class="muted small">yyyy-mm-dd</span></label>
-  <input type="text" id="{{ name }}" name="{{ name }}" value="{{ values.get(name, '') }}" placeholder="2026-12-31"
-         pattern="\d{4}-\d{2}-\d{2}" inputmode="numeric" autocomplete="off" required>
+  <label for="{{ name }}">{{ label }} <span class="muted small">e.g. 31/1 or 2026-01-31</span></label>
+  <span class="iso-date-control">
+    <input type="text" id="{{ name }}" name="{{ name }}" value="{{ values.get(name, '') }}" placeholder="31/1"
+           inputmode="numeric" autocomplete="off" data-smart-date required>
+    <input class="date-picker-native" type="date" data-date-picker-for="{{ name }}" tabindex="-1" aria-hidden="true">
+    <button class="btn small date-picker-button" type="button" data-open-date-picker="{{ name }}" aria-label="Choose date">▦</button>
+  </span>
   <div class="quick">
     <button class="btn small" data-date="0" data-target="{{ name }}">Today</button>
     <button class="btn small" data-date="1" data-target="{{ name }}">Yesterday</button>

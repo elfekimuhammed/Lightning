@@ -55,21 +55,9 @@ class AccountWorkflows:
     def update_account(self, account_id: int, name: str, account_type: str, opening_date: str,
                        opening_balance: object = "0", institution: str = "", code: str | None = None,
                        last4: str | None = None, notes: str = "", opening_balance_date: str | None = None) -> Account:
-        first = self.transactions.earliest_activity(account_id)
-        new_start = fmt_date(parse_date(opening_date, "opening_date"))
-        if first and new_start > first:
-            raise ValidationError(
-                f"This account already has transactions from {first}. The start date must be on or before that.",
-                "opening_date",
-            )
         balance_day = fmt_date(parse_date(opening_balance_date or opening_date, "opening_balance_date"))
         if parse_date(balance_day) > today():
             raise ValidationError("The starting balance date cannot be in the future.", "opening_balance_date")
-        if first and balance_day > first:
-            raise ValidationError(
-                f"The starting balance date must be on or before the first transaction ({first}).",
-                "opening_balance_date",
-            )
         current = self.accounts.get(account_id)
         if current.account_type in INVESTMENT_ACCOUNT_TYPES and account_type not in {t.value for t in INVESTMENT_ACCOUNT_TYPES}:
             holdings = [h for h in self.reporting.holdings("9999-12-31")[0] if h.account.id == account_id]

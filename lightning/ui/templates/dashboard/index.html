@@ -56,7 +56,7 @@
     {% else %}<div class="empty">No transactions yet.</div>{% endfor %}
   </div>
   <div class="card budget-card"><div class="card-heading"><h2>This month's budget</h2><a href="/budget?month={{ month }}">Open →</a></div>
-    {% for s in budget.sections[:4] %}<div class="budget-row"><div><b>{{ s.name }}</b><span class="muted small">{{ s.remaining|money }} left of {{ s.budget|money }}</span></div><div class="progress"><span class="{{ 'over' if s.actual > s.budget else '' }}" style="width:{{ [((s.actual / s.budget * 100) if s.budget else 0), 100]|min }}%"></span></div></div>
+    {% for s in budget.sections[:4] %}<div class="budget-row"><div><b>{{ s.name }}</b><span class="muted small">{{ s.remaining|money }} left of {{ s.available|money }}</span></div><div class="progress"><span class="{{ 'over' if s.actual > s.available else '' }}" style="width:{{ [((s.actual / s.available * 100) if s.available else 0), 100]|min }}%"></span></div></div>
     {% else %}<div class="empty">No budget set yet.</div>{% endfor %}
   </div>
 </section>

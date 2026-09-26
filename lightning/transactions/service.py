@@ -70,7 +70,7 @@ class TransactionService:
                       counterparty: str = "", notes: str = "", source: TxnSource = TxnSource.MANUAL) -> Transaction:
         """Money returned for a purchase; record it against the original expense category."""
         account = self.accounts.require_usable(account_id)
-        day = self._check_date(date, [account])
+        day = self._check_date(date)
         asset = self.assets.cash_asset(account.currency)
         value = self._positive_amount(amount, asset.quantity_decimals)
         category_obj = self.categories.get(category_id)
@@ -146,7 +146,7 @@ class TransactionService:
                       description: str = "", counterparty: str = "", notes: str = "") -> Transaction:
         current = self._editable(txn_id, {DocType.IN})
         account = self.accounts.require_usable(account_id)
-        day = self._check_date(date, [account])
+        day = self._check_date(date)
         asset = self.assets.cash_asset(account.currency)
         value = self._positive_amount(amount, asset.quantity_decimals)
         category_obj = self.categories.get(category_id)
@@ -183,9 +183,11 @@ class TransactionService:
     def post(self, doc_type: DocType, date: str, lines: list[PostingLine], description: str = "",
              counterparty: str = "", notes: str = "", source: TxnSource = TxnSource.MANUAL) -> Transaction:
         """Record any document from lines built by another module (investments). Same rules as everything else:
-        accounts usable, date not in the future nor before an account opened, lines valid, holdings never below zero.
+        accounts usable, date not in the future, lines valid, holdings never below zero.
         """
-        day = self._check_date(date, [self.accounts.require_usable(i) for i in {ln.account_id for ln in lines}])
+        for account_id in {ln.account_id for ln in lines}:
+            self.accounts.require_usable(account_id)
+        day = self._check_date(date)
         validate_posting(lines)
         return self._create(doc_type, day, lines, description, counterparty, notes, source)
 
@@ -195,7 +197,9 @@ class TransactionService:
         current = self.get(txn_id)
         if current.is_void:
             raise ValidationError("Restore this transaction before editing it.")
-        day = self._check_date(date, [self.accounts.require_usable(i) for i in {ln.account_id for ln in lines}])
+        for account_id in {ln.account_id for ln in lines}:
+            self.accounts.require_usable(account_id)
+        day = self._check_date(date)
         validate_posting(lines)
         return self._update(current, day, lines, description, counterparty, notes)
 
@@ -334,10 +338,9 @@ class TransactionService:
                     raise ValidationError("This account already has another opening balance for that.")
         with self.db.transaction():
             # re-validate against today's rules (accounts may have been deactivated)
-            accounts = []
             for line in t.lines:
-                accounts.append(self.accounts.require_usable(line.account_id))
-            self._check_date(t.date, accounts)
+                self.accounts.require_usable(line.account_id)
+            self._check_date(t.date)
             self.repo.set_status(t.id, TxnStatus.POSTED)
             self._check_holdings(t.lines)
             self.audit.record("transaction", t.id, "restore", f"Restored {t.ref}")
@@ -417,7 +420,7 @@ class TransactionService:
     def _money_lines(self, movement: Movement, date: str, account_id: int, amount, category_id: int,
                      allow_system_category: bool = False, allow_inactive_category: bool = False):
         account = self.accounts.require_usable(account_id)
-        day = self._check_date(date, [account])
+        day = self._check_date(date)
         asset = self.assets.cash_asset(account.currency)
         value = self._positive_amount(amount, asset.quantity_decimals)
         category = self.categories.require(category_id, movement, allow_system=allow_system_category,
@@ -435,7 +438,7 @@ class TransactionService:
             raise ValidationError("Choose two different accounts.", "to_account")
         if src.currency != dst.currency:
             raise ValidationError("Both accounts must use the same currency (exchanges arrive in M4).", "to_account")
-        day = self._check_date(date, [src, dst])
+        day = self._check_date(date)
         asset = self.assets.cash_asset(src.currency)
         value = self._positive_amount(amount, asset.quantity_decimals)
         lines = [
@@ -515,18 +518,11 @@ class TransactionService:
                     f"{account.label} would hold less than zero {asset.name} on {on}. "
                     "Check the quantities and dates of buys and sells.", "quantity")
 
-    def _check_date(self, date: str, accounts: list[Account]):
+    def _check_date(self, date: str):
         day = parse_date(date)
         if day > today():
             raise ValidationError(
                 f"{fmt_date(day)} is in the future. Record transactions on or after the day they happen.", "date")
-        for account in accounts:
-            if fmt_date(day) < account.opening_date:
-                raise ValidationError(
-                    f"{fmt_date(day)} is before {account.label} was opened ({account.opening_date}). "
-                    "Its opening balance already covers that period — or move the opening date earlier.",
-                    "date",
-                )
         return day
 
     @staticmethod

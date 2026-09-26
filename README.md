@@ -1,7 +1,7 @@
 # Lightning
 
-Personal finance in one place: accounts, money in and out, transfers, and net worth —
-with investments, market prices, reimbursements and budgets coming milestone by milestone.
+Personal finance in one place: accounts, money in and out, transfers, budgets,
+investments, cash reserves, and owned wealth. Historical wealth analysis and a dated cash outlook are planned.
 
 ## Start it
 
@@ -43,10 +43,11 @@ the app on one computer at a time.
 
 1. **Add your accounts** with today's balances.
 2. Open an account and type transactions straight into its register (Counterparty · Category · Amount).
-3. To import a monthly statement, open a **bank account** and choose **Import CSV**. Use `Date`, `Counterparty`,
+3. To import a statement, open the relevant **account** and choose **Import CSV**. Use `Date`, `Counterparty`,
    and signed `Amount` columns (negative = spending); `Category`, `Notes`, and `Reference` are optional. Review
    the preview to map aliases and categories before confirming—the app does not post until you confirm.
-4. The **Dashboard** shows net worth, what it's made of, the month's bridge, spending and trends.
+4. **Overview** shows today's position and recent activity. **Birdview** explains cash, investments, reserves,
+   income, and spending. **Budget** shows the monthly spending plan and its remaining limit.
 
 Search finds anything: `carrefour`, `2026-09`, `450`, `CIB-CUR-EGP`, `OUT-2026-09-25-003`.
 
@@ -61,5 +62,4 @@ lint-imports              # architecture contracts
 - [docs/PROJECT_OVERVIEW.md](docs/PROJECT_OVERVIEW.md) — start here: the full hand-off brief
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — structure, rules, data model
 - [docs/GLOSSARY.md](docs/GLOSSARY.md) — what every term and code means
-- [docs/MILESTONES.md](docs/MILESTONES.md) — the plan
 - [CHANGELOG.md](CHANGELOG.md) — every change, every time

@@ -4,9 +4,10 @@
 {% block content %}
 {% if batch.status == 'POSTED' %}<div class="card"><b>Import complete.</b> {{ summary.posted }} posted · {{ summary.skipped }} skipped · {{ summary.duplicates }} duplicates. Re-uploading this file will not create duplicates.</div>
 {% else %}
-<form method="post" action="/accounts/{{ account.id }}/import/{{ batch.id }}/confirm">
+<form id="import-review-form" method="post" action="/accounts/{{ account.id }}/import/{{ batch.id }}/confirm">
   <section class="card ledger">
-    <h2>Review and edit rows</h2><p class="muted small">Edit anything that needs fixing directly in its row. Date and amount must be valid. Similar Counterparty names are suggestions, not automatic matches.</p>
+    <div class="actions import-review-top-actions"><h2>Review and edit rows</h2><button class="btn primary" type="submit" form="import-review-form">Post rows</button></div>
+    <p class="muted small">Edit anything that needs fixing directly in its row. Date and amount must be valid. Similar Counterparty names are suggestions, not automatic matches.</p>
     {% set uncategorized = namespace(count=0) %}
     {% for row in rows %}{% if not row._category_id %}{% set uncategorized.count = uncategorized.count + 1 %}{% endif %}{% endfor %}
     {% if uncategorized.count %}<p class="flash">{{ uncategorized.count }} row(s) have no category. Choose one, or leave them uncategorized; those rows won’t appear in category analysis.</p>{% endif %}
@@ -14,7 +15,7 @@
     {% for r in rows %}
     <tr>
       <td>{{ r._line }}</td>
-      <td><input type="text" name="date_{{ r._import_row_id }}" value="{{ r.Date }}" placeholder="yyyy-mm-dd" aria-label="Date"></td>
+      <td><input type="text" name="date_{{ r._import_row_id }}" value="{{ r.Date }}" placeholder="31/1" inputmode="numeric" data-smart-date title="For example 31/1 or 2026-01-31" aria-label="Date"></td>
       <td><input type="text" name="counterparty_{{ r._import_row_id }}" value="{{ r.Counterparty }}" list="counterparties-{{ r._import_row_id }}" placeholder="Optional" aria-label="Counterparty">
         <datalist id="counterparties-{{ r._import_row_id }}">{% for name in counterparty_search_names %}<option value="{{ name }}">{% endfor %}</datalist>
         {% if r._suggestions %}<span class="muted small">Possible matches: {% for name, score in r._suggestions %}{{ name }}{% if not loop.last %}, {% endif %}{% endfor %}</span>{% endif %}</td>

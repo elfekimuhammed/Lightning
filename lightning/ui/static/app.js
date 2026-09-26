@@ -12,6 +12,47 @@ document.addEventListener("click", (e) => {
   input.value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 });
 
+// Date fields accept ISO, day/month/year, and day/month (current year), then normalize to ISO.
+const isoDate = (value) => {
+  const text = value.trim();
+  let year, month, day;
+  let match = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (match) [, year, month, day] = match;
+  else {
+    match = text.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2}|\d{4}))?$/);
+    if (!match) return null;
+    [, day, month, year] = match;
+    if (!year) year = String(new Date().getFullYear());
+    else if (year.length === 2) year = `20${year}`;
+  }
+  const y = Number(year), m = Number(month), d = Number(day);
+  const check = new Date(Date.UTC(y, m - 1, d));
+  if (check.getUTCFullYear() !== y || check.getUTCMonth() !== m - 1 || check.getUTCDate() !== d) return null;
+  return `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+};
+document.querySelectorAll("[data-smart-date]").forEach((input) => {
+  input.addEventListener("input", () => input.setCustomValidity(""));
+  input.addEventListener("blur", () => {
+    if (!input.value.trim()) return;
+    const normalized = isoDate(input.value);
+    if (normalized) { input.value = normalized; input.setCustomValidity(""); }
+    else input.setCustomValidity("Enter a real date like 31/1, 31/1/2026, or 2026-01-31.");
+  });
+});
+document.querySelectorAll("[data-open-date-picker]").forEach((button) => {
+  button.addEventListener("click", () => {
+    const field = document.querySelector(`[data-date-picker-for="${button.dataset.openDatePicker}"]`);
+    const text = document.getElementById(button.dataset.openDatePicker);
+    if (!field || !text) return;
+    const normalized = isoDate(text.value);
+    field.value = normalized || "";
+    try { field.showPicker(); } catch { field.focus(); field.click(); }
+    field.addEventListener("change", () => {
+      if (field.value) { text.value = field.value; text.dispatchEvent(new Event("input", { bubbles: true })); }
+    }, { once: true });
+  });
+});
+
 // Register: click a row to edit it in place.
 document.addEventListener("click", (e) => {
   const row = e.target.closest("tr[data-href]");
@@ -553,7 +594,7 @@ if (ledger) {
 }
 
 // Budget: one-click averages, per-category overrides, and typing means manual.
-const budgetForm = document.querySelector('form[action^="/budget"]');
+const budgetForm = document.querySelector("#budget-editor-form");
 if (budgetForm) {
   const setMode = (row, value) => {
     const mode = row.querySelector(".budget-mode");

@@ -28,8 +28,11 @@ class ReevaluationService:
     def process_due(self, fetch_price=None) -> int:
         """Record every elapsed month-end in chronological order; incomplete periods await user prices."""
         first = self.db.scalar(
-            "SELECT MIN(le.date) FROM ledger_entries le JOIN transactions t ON t.id=le.transaction_id "
-            "JOIN financial_assets a ON a.id=le.asset_id WHERE t.status='POSTED' AND a.is_cash=0")
+            "SELECT MIN(day) FROM ("
+            "SELECT MIN(le.date) AS day FROM ledger_entries le JOIN transactions t ON t.id=le.transaction_id "
+            "JOIN financial_assets a ON a.id=le.asset_id WHERE t.status='POSTED' AND a.is_cash=0 "
+            "UNION ALL SELECT MIN(date) AS day FROM reevaluation_periods"
+            ") WHERE day IS NOT NULL")
         if not first:
             return 0
         first_day = parse_date(first)
@@ -41,8 +44,11 @@ class ReevaluationService:
             if month_end <= last_day:
                 events.add((fmt_date(month_end), "MONTH_END"))
             cursor = date(cursor.year + (cursor.month == 12), 1 if cursor.month == 12 else cursor.month + 1, 1)
+        # Revisit every existing checkpoint as well as newly due month ends. This
+        # matters when the last trade is voided: there are no current holdings to
+        # seed the date range, but old VAL journals still need to be voided.
         events.update((row["date"], row["reason"]) for row in self.db.all(
-            "SELECT date,reason FROM reevaluation_periods WHERE status='PENDING' OR reason='SALE'"))
+            "SELECT date,reason FROM reevaluation_periods"))
         completed = 0
         for day, reason in sorted(events, key=lambda item: (item[0], item[1] != "SALE")):
             if reason == "MONTH_END" and self.db.scalar(

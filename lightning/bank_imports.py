@@ -6,45 +6,60 @@ import csv
 import hashlib
 import io
 import json
-from datetime import datetime
 from decimal import Decimal, InvalidOperation
 
 from lightning.categories.domain import Movement
-from lightning.core.dates import now_iso
+from lightning.core.dates import now_iso, parse_date
 from lightning.core.errors import ConflictError, NotFoundError, ValidationError
 from lightning.core.refs import DocType
 from lightning.transactions.domain import TxnSource
 
 REQUIRED = ("Date", "Amount")
 OPTIONAL = ("Counterparty", "Category", "Notes", "Reference")
+SEPARATE_AMOUNT_FIELDS = ("Inflow", "Outflow")
 MAX_BYTES = 5 * 1024 * 1024
-MAX_ROWS = 10000
 
 
 def _date(value: str) -> str:
-    value = (value or "").strip()
-    for fmt in ("%Y-%m-%d", "%d/%m/%Y"):
-        try:
-            return datetime.strptime(value, fmt).date().isoformat()
-        except ValueError:
-            pass
-    raise ValueError("Use yyyy-mm-dd or dd/mm/yyyy.")
+    try:
+        return parse_date(value).isoformat()
+    except ValidationError as exc:
+        raise ValueError(exc.message) from None
 
 
-def _amount(value: str) -> str:
+def _decimal_amount(value: str) -> Decimal:
     try:
         text = (value or "").strip().replace(" ", "")
+        if not text:
+            return Decimal("0")
         if "," in text and ("." not in text or text.rfind(",") > text.rfind(".")):
             tail = text.rsplit(",", 1)[1]
             text = text.replace(".", "").replace(",", ".") if len(tail) == 2 else text.replace(",", "")
         else:
             text = text.replace(",", "")
         amount = Decimal(text)
-        if not amount.is_finite() or amount == 0:
+        if not amount.is_finite():
             raise InvalidOperation
-        return format(amount, "f")
+        return amount
     except (InvalidOperation, ValueError):
-        raise ValueError("Enter a non-zero amount; use a minus sign for money out.") from None
+        raise ValueError("Enter a valid number.") from None
+
+
+def _amount(value: str) -> str:
+    amount = _decimal_amount(value)
+    if amount == 0:
+        raise ValueError("Enter a non-zero amount; use a minus sign for money out.")
+    return format(amount, "f")
+
+
+def _separate_amount(inflow: str, outflow: str) -> str:
+    incoming, outgoing = _decimal_amount(inflow), _decimal_amount(outflow)
+    if incoming and outgoing:
+        raise ValueError("A row cannot have both an inflow and an outflow amount.")
+    if not incoming and not outgoing:
+        raise ValueError("Enter an amount in either the inflow or outflow column.")
+    signed = abs(incoming) if incoming else -abs(outgoing)
+    return format(signed, "f")
 
 
 def decode_csv(data: bytes) -> tuple[list[str], list[dict[str, str]]]:
@@ -65,8 +80,6 @@ def decode_csv(data: bytes) -> tuple[list[str], list[dict[str, str]]]:
             raise ValidationError("CSV headers must be unique; rename duplicate columns and try again.", "file")
         rows = []
         for line, row in enumerate(reader, start=2):
-            if len(rows) >= MAX_ROWS:
-                raise ValidationError("A statement can contain at most 10,000 rows.", "file")
             rows.append({h: str(row.get(h, "") or "").strip() for h in headers} | {"__line__": str(line)})
         return headers, rows
     except csv.Error as exc:
@@ -79,6 +92,38 @@ class BankImportService:
         self.counterparties, self.transactions = counterparties, transactions
         self.money_from_others = money_from_others
         self.reserves = reserves
+
+    def suggested_mapping(self, account_id: int, headers: list[str]) -> dict[str, str]:
+        """Return saved or best-effort column matches for the reviewable map step."""
+        signature = hashlib.sha256(json.dumps(headers, ensure_ascii=False).encode()).hexdigest()
+        saved = self.db.one("SELECT mapping_json,invert_amount FROM bank_import_column_maps WHERE account_id=? AND header_signature=?",
+                            (account_id, signature))
+        if saved:
+            return json.loads(saved["mapping_json"]) | {"amount_sign": "invert" if saved["invert_amount"] else "normal"}
+        normalized = {header: " ".join("".join(ch.lower() if ch.isalnum() else " " for ch in header).split())
+                      for header in headers}
+        aliases = {
+            "Date": ("date", "transaction date", "posting date", "booking date", "value date"),
+            "Amount": ("amount", "transaction amount", "net amount", "value"),
+            "Inflow": ("inflow", "money in", "credit", "credits", "deposit", "deposits"),
+            "Outflow": ("outflow", "money out", "debit", "debits", "withdrawal", "withdrawals"),
+            "Counterparty": ("counterparty", "merchant", "payee", "beneficiary", "party", "name"),
+            "Category": ("category", "type"),
+            "Notes": ("notes", "memo", "narrative", "details", "description"),
+            "Reference": ("reference", "ref", "transaction id", "transaction reference"),
+        }
+        result = {}
+        for target, names in aliases.items():
+            found = next((header for header, name in normalized.items() if name in names), None)
+            if found:
+                result[target] = found
+        if "Amount" in result:
+            result["amount_model"] = "SINGLE"
+        elif "Inflow" in result and "Outflow" in result and result["Inflow"] != result["Outflow"]:
+            result["amount_model"] = "SEPARATE"
+        else:
+            result["amount_model"] = "SINGLE"
+        return result
 
     def stage(self, account_id: int, filename: str, data: bytes, mapping: dict[str, str] | None = None, invert_amount: bool = False):
         self.accounts.require_usable(account_id)
@@ -97,17 +142,33 @@ class BankImportService:
                             (account_id, header_signature))
         if mapping is None and saved:
             mapping = json.loads(saved["mapping_json"])
-        mapping = mapping or {key: key for key in (*REQUIRED, *OPTIONAL) if key in headers}
-        missing = [key for key in REQUIRED if mapping.get(key) not in headers]
+        if mapping is None:
+            if all(key in headers for key in SEPARATE_AMOUNT_FIELDS) and "Amount" not in headers:
+                mapping = {"amount_model": "SEPARATE", "Date": "Date", "Inflow": "Inflow", "Outflow": "Outflow"}
+            else:
+                mapping = {"amount_model": "SINGLE"} | {key: key for key in (*REQUIRED, *OPTIONAL) if key in headers}
+        amount_model = str(mapping.get("amount_model") or
+                           ("SEPARATE" if any(mapping.get(key) for key in SEPARATE_AMOUNT_FIELDS) else "SINGLE"))
+        if amount_model not in {"SINGLE", "SEPARATE"}:
+            raise ValidationError("Choose one amount column or separate inflow/outflow columns.", "mapping")
+        fields = ("Date", *SEPARATE_AMOUNT_FIELDS, *OPTIONAL) if amount_model == "SEPARATE" else (*REQUIRED, *OPTIONAL)
+        missing = [key for key in (("Date", *SEPARATE_AMOUNT_FIELDS) if amount_model == "SEPARATE" else REQUIRED)
+                   if mapping.get(key) not in headers]
+        if amount_model == "SEPARATE" and mapping.get("Inflow") == mapping.get("Outflow"):
+            missing.append("different inflow and outflow columns")
         if missing:
-            raise ValidationError("Map these required columns to continue: " + ", ".join(missing), "mapping")
+            raise ValidationError(
+                "Map Date and either a signed Amount column or two different columns for Inflow and Outflow.", "mapping")
         stored = []
         for raw in raw_rows:
-            parsed = {key: raw.get(mapping.get(key, ""), "") for key in (*REQUIRED, *OPTIONAL)}
+            parsed = {key: raw.get(mapping.get(key, ""), "") for key in fields}
+            for key in ("Amount", *SEPARATE_AMOUNT_FIELDS):
+                parsed.setdefault(key, "")
             errors = []
             try:
                 parsed["Date"] = _date(parsed["Date"])
-                parsed["Amount"] = _amount(parsed["Amount"])
+                parsed["Amount"] = (_separate_amount(parsed["Inflow"], parsed["Outflow"])
+                                     if amount_model == "SEPARATE" else _amount(parsed["Amount"]))
                 if invert_amount:
                     parsed["Amount"] = format(-Decimal(parsed["Amount"]), "f")
             except ValueError as exc:
@@ -117,11 +178,14 @@ class BankImportService:
             stored.append((raw, parsed))
         now = now_iso()
         with self.db.transaction():
-            if mapping and (saved is not None or any(mapping.get(key) != key for key in REQUIRED) or invert_amount):
+            canonical_fields = ("Date", *SEPARATE_AMOUNT_FIELDS, *OPTIONAL) if amount_model == "SEPARATE" else (*REQUIRED, *OPTIONAL)
+            if mapping and (saved is not None or amount_model == "SEPARATE"
+                            or any(mapping.get(key) != key for key in canonical_fields if mapping.get(key)) or invert_amount):
                 self.db.execute("INSERT INTO bank_import_column_maps(account_id,header_signature,mapping_json,invert_amount,created_at,updated_at) "
                                 "VALUES (?,?,?,?,?,?) ON CONFLICT(account_id,header_signature) DO UPDATE SET "
                                 "mapping_json=excluded.mapping_json,invert_amount=excluded.invert_amount,updated_at=excluded.updated_at",
-                                (account_id, header_signature, json.dumps(mapping), int(invert_amount), now, now))
+                                (account_id, header_signature, json.dumps(mapping | {"amount_model": amount_model}),
+                                 int(invert_amount), now, now))
             cur = self.db.execute(
                 "INSERT INTO bank_import_batches(account_id,file_hash,file_name,status,created_at) "
                 "VALUES (?,?,?,'REVIEW',?)", (account_id, digest, filename[:255], now)
@@ -160,6 +224,7 @@ class BankImportService:
             parsed["_category_id"] = self._category_for(parsed, cp)
             parsed["_import_row_id"] = row["id"]
             parsed["_status"] = row["status"]
+            parsed["_transaction_id"] = row["transaction_id"]
             result.append(parsed)
         return batch, result
 

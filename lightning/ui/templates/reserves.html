@@ -1,4 +1,12 @@
 {% extends "base.html" %}
+{% macro date_control(name, value, control_id) -%}
+<span class="iso-date-control">
+  <input id="{{ control_id }}" type="text" name="{{ name }}" value="{{ value or '' }}" placeholder="31/1"
+         inputmode="numeric" title="Date such as 31/1 or 2026-01-31" data-smart-date>
+  <input class="date-picker-native" type="date" data-date-picker-for="{{ control_id }}" tabindex="-1" aria-hidden="true">
+  <button class="btn small date-picker-button" type="button" data-open-date-picker="{{ control_id }}" aria-label="Choose date">▦</button>
+</span>
+{%- endmacro %}
 {% block title %}Cash reserves{% endblock %}
 {% block heading %}<div class="acct-title"><h1>Cash reserves</h1></div><div class="muted small">Assign cash to emergencies and upcoming plans.</div>{% endblock %}
 {% block content %}
@@ -8,46 +16,65 @@
   <div><span class="muted small">Assigned to reserves</span><b>{{ summary.allocated|money }}</b></div>
   <div><span class="muted small">Free cash</span><b class="{{ summary.free_cash|tone }}">{{ summary.free_cash|money }}</b></div>
 </section>
-<div class="grid g2 reserve-grid">
-  {% for reserve in reserves %}
-  <section class="card reserve-card">
-    <div class="reserve-title"><div><span class="pill">{{ 'Emergency fund' if reserve.kind == 'EMERGENCY' else 'Project' }}</span><h2>{{ reserve.name }}</h2></div>
-      {% if reserve.due_date %}<span class="muted small">Due {{ reserve.due_date }}{% if reserve.recurrence != 'NONE' %} · repeats {{ reserve.recurrence|lower }}{% endif %}</span>{% endif %}</div>
-    <div class="reserve-progress"><div><b>{{ reserve.allocated|money }}</b><span class="muted"> toward {{ reserve.target|money }}</span></div>
-      {% if reserve.spent %}<div class="muted small">{{ reserve.spent|money }} paid · {{ reserve.effective_allocated|money }} still set aside</div>{% endif %}
-      <div class="bartrack"><div class="bar" style="width:{{ reserve.progress }}%"></div></div>
-      <div class="muted small">{{ reserve.remaining|money }} still needed</div></div>
-    <form method="post" action="/reserves/{{ reserve.id }}/allocate" class="reserve-allocate">
-      <label>Cash assigned<input type="text" name="allocated" value="{{ reserve.allocated }}" inputmode="decimal" required></label>
-      <button class="btn small">Save assigned cash</button>
-    </form>
-    <details class="reserve-edit"><summary>Edit plan</summary>
-      <form method="post" action="/reserves/{{ reserve.id }}/edit" class="stack">
-        <label>Name<input type="text" name="name" value="{{ reserve.name }}" required></label>
-        <label>Target amount<input type="text" name="target" value="{{ reserve.target }}" inputmode="decimal" required></label>
-        <label>Due date<input type="date" name="due_date" value="{{ reserve.due_date or '' }}"></label>
-        <label>Repeat<select name="recurrence"><option value="NONE" {{ 'selected' if reserve.recurrence == 'NONE' }}>Does not repeat</option><option value="WEEKLY" {{ 'selected' if reserve.recurrence == 'WEEKLY' }}>Weekly</option><option value="MONTHLY" {{ 'selected' if reserve.recurrence == 'MONTHLY' }}>Monthly</option><option value="YEARLY" {{ 'selected' if reserve.recurrence == 'YEARLY' }}>Yearly</option></select></label>
-        <label>Match counterparty<select name="counterparty_id"><option value="">Manual matching</option>{% for party in counterparties %}<option value="{{ party.id }}" {{ 'selected' if reserve.counterparty_id == party.id }}>Automatically match {{ party.name }}</option>{% endfor %}</select></label>
-        <button class="btn small">Save plan</button>
-      </form>
-    </details>
-    <form method="post" action="/reserves/{{ reserve.id }}/complete" class="reserve-complete">
-      <button class="btn small" title="Complete this plan and release its assigned cash">Mark complete</button>
-    </form>
-  </section>
-  {% else %}<section class="card empty">No active reserves yet. Add an emergency fund or your next planned expense.</section>{% endfor %}
-</div>
+<section class="card emergency-fund">
+  <div class="emergency-heading"><div><span class="pill">Always included</span><h2>Emergency fund</h2>
+    <p class="muted small">A permanent section for money set aside for emergencies. Its type and name cannot be changed.</p></div>
+    <div class="emergency-multiple">
+      {% if salary_average > 0 %}<b>{{ '%.1f'|format(salary_months or 0) }} months</b><span>of average salary</span>
+      {% else %}<b>—</b><span>salary average unavailable</span>{% endif %}
+    </div>
+  </div>
+  <div class="emergency-stats">
+    <div><span class="muted small">Reserved for emergencies</span><b>{{ (emergency.effective_allocated if emergency else 0)|money }}</b></div>
+    <div><span class="muted small">6-month average salary</span><b>{{ salary_average|money }}</b><small class="muted">{{ salary_period }} · {{ (salary_average * 6)|money }} six-month target</small></div>
+  </div>
+  {% if salary_average <= 0 %}<p class="muted small">Categorize salary deposits as Work › Salary to calculate this benchmark.</p>{% endif %}
+  <form method="post" action="/reserves/emergency" class="emergency-form">
+    <label>Cash reserved<input class="money-input" type="text" name="allocated" value="{{ emergency.allocated|money(False, 2) if emergency else '0.00' }}" inputmode="decimal" required></label>
+    <button class="btn primary">Save emergency fund</button>
+  </form>
+</section>
+
+<section class="card reserve-list">
+  <div class="card-heading"><div><h2>Other reserves</h2><p class="muted small">Separate plans for known future expenses. These do not change your net worth.</p></div></div>
+  <div class="table-wrap"><table class="reserve-table">
+    <thead><tr><th>Reserve</th><th class="num">Target</th><th>Cash assigned</th><th>Due</th><th>Progress</th><th>Actions</th></tr></thead>
+    <tbody>
+    {% for reserve in reserves %}<tr>
+      <td><b>{{ reserve.name }}</b>{% if reserve.spent %}<div class="muted small">{{ reserve.spent|money }} spent</div>{% endif %}</td>
+      <td class="num">{{ reserve.target|money }}</td>
+      <td><form method="post" action="/reserves/{{ reserve.id }}/allocate" class="reserve-allocate">
+        <input class="money-input" type="text" name="allocated" value="{{ reserve.allocated|money(False, 2) }}" inputmode="decimal" aria-label="Cash assigned to {{ reserve.name }}" required>
+        <button class="btn small">Save</button>
+      </form></td>
+      <td>{% if reserve.due_date %}{{ reserve.due_date }}{% else %}<span class="muted">—</span>{% endif %}{% if reserve.recurrence != 'NONE' %}<div class="muted small">{{ reserve.recurrence|lower }}</div>{% endif %}</td>
+      <td><div class="reserve-row-progress"><div class="bartrack"><div class="bar" style="width:{{ reserve.progress }}%"></div></div><span class="small muted">{{ reserve.remaining|money }} remaining</span></div></td>
+      <td><details class="reserve-edit"><summary>Edit</summary>
+        <form method="post" action="/reserves/{{ reserve.id }}/edit" class="stack">
+          <label>Name<input type="text" name="name" value="{{ reserve.name }}" required></label>
+          <label>Target amount<input class="money-input" type="text" name="target" value="{{ reserve.target|money(False, 2) }}" inputmode="decimal" required></label>
+          <label>Due date{{ date_control('due_date', reserve.due_date, 'reserve-due-' ~ reserve.id) }}</label>
+          <label>Repeat<select name="recurrence"><option value="NONE" {{ 'selected' if reserve.recurrence == 'NONE' }}>Does not repeat</option><option value="WEEKLY" {{ 'selected' if reserve.recurrence == 'WEEKLY' }}>Weekly</option><option value="MONTHLY" {{ 'selected' if reserve.recurrence == 'MONTHLY' }}>Monthly</option><option value="YEARLY" {{ 'selected' if reserve.recurrence == 'YEARLY' }}>Yearly</option></select></label>
+          <label>Match counterparty<select name="counterparty_id"><option value="">Manual matching</option>{% for party in counterparties %}<option value="{{ party.id }}" {{ 'selected' if reserve.counterparty_id == party.id }}>Automatically match {{ party.name }}</option>{% endfor %}</select></label>
+          <button class="btn small">Save plan</button>
+        </form>
+      </details>
+      <form method="post" action="/reserves/{{ reserve.id }}/complete" class="reserve-complete"><button class="btn small">Complete</button></form></td>
+    </tr>
+    {% else %}<tr><td colspan="6" class="empty">No other reserves yet. Add one below.</td></tr>{% endfor %}
+    </tbody>
+  </table></div>
+</section>
 <section class="card reserve-create">
   <h2>Add a reserve</h2>
   <p class="muted small">A reserve is a plan for cash you already own. Recording a payment remains a separate transaction.</p>
   <form method="post" action="/reserves" class="reserve-create-form">
     <label>Name<input type="text" name="name" placeholder="e.g. Rent" required></label>
-    <label>Type<select name="kind"><option value="PROJECT">Project</option><option value="EMERGENCY">Emergency fund</option></select></label>
-    <label>Target amount<input type="text" name="target" inputmode="decimal" required></label>
-    <label>Due date<input type="date" name="due_date"></label>
+    <label>Target amount<input class="money-input" type="text" name="target" inputmode="decimal" placeholder="e.g. 20,000" required></label>
+    <label>Due date{{ date_control('due_date', '', 'reserve-due-new') }}</label>
     <label>Repeat<select name="recurrence"><option value="NONE">Does not repeat</option><option value="WEEKLY">Weekly</option><option value="MONTHLY">Monthly</option><option value="YEARLY">Yearly</option></select></label>
     <label>Match counterparty<select name="counterparty_id"><option value="">Manual matching</option>{% for party in counterparties %}<option value="{{ party.id }}">Automatically match {{ party.name }}</option>{% endfor %}</select></label>
-    <label>Cash assigned<input type="text" name="allocated" inputmode="decimal" value="0"></label>
+    <label>Cash assigned<input class="money-input" type="text" name="allocated" inputmode="decimal" value="0.00"></label>
     <button class="btn primary">Add reserve</button>
   </form>
 </section>

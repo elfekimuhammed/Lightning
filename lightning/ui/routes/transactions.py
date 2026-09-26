@@ -38,7 +38,9 @@ async def all_accounts_entry(request: Request):
         return result
     txn, entry = result
     container(request).reserves.auto_link_transaction(txn.id)
-    return redirect(f"/transactions?date={txn.date}&new_acct={entry['account_id']}", f"Saved {txn.ref}.")
+    feedback = register._budget_feedback(container(request), txn)
+    return redirect(f"/transactions?date={txn.date}&new_acct={entry['account_id']}",
+                    f"Saved {txn.ref}. {feedback}".strip())
 
 
 @router.post("/transactions/register/{txn_id:int}")
@@ -48,7 +50,10 @@ async def all_accounts_update(request: Request, txn_id: int):
         return result
     txn, _ = result
     container(request).reserves.auto_link_transaction(txn.id)
-    message = f"Saved as {txn.ref}. The original transaction is kept in history." if txn.id != txn_id else f"Saved {txn.ref}."
+    message = (f"Saved as {txn.ref}. The original transaction is kept in history." if txn.id != txn_id
+               else f"Saved {txn.ref}.")
+    feedback = register._budget_feedback(container(request), txn)
+    message = f"{message} {feedback}".strip()
     return redirect("/transactions", message)
 
 
@@ -70,9 +75,35 @@ async def transaction_detail(request: Request, txn_id: int):
                           for cat in c.categories.pickable() if cat.movement.value == "OUTFLOW"]
     split_lines = [{"category_id": line.category_id, "amount": -line.quantity}
                    for line in txn.lines if line.category_id is not None]
+    budget_impacts = []
+    expense_lines = [line for line in txn.lines if line.category_id and line.effect.value == "OUTFLOW"]
+    if expense_lines and not txn.is_void:
+        budget_month = c.budgets.month_view(txn.date[:7])
+        budget_by_id = {line.category_id: line for section in budget_month.sections for line in section.lines}
+        seen_categories = set()
+        for posting in expense_lines:
+            if posting.category_id in seen_categories:
+                continue
+            seen_categories.add(posting.category_id)
+            budget_line = budget_by_id.get(posting.category_id)
+            if budget_line:
+                shown = budget_line
+                if shown.remaining is None and shown.covered:
+                    parent = c.categories.get(posting.category_id).parent_id
+                    while parent:
+                        ancestor = budget_by_id.get(parent)
+                        if ancestor and ancestor.remaining is not None:
+                            shown = ancestor
+                            break
+                        parent = c.categories.get(parent).parent_id
+                budget_impacts.append({"name": budget_line.name, "remaining": budget_line.remaining,
+                                       "covered_by": shown.name if shown is not budget_line else "",
+                                       "covered_remaining": shown.remaining if shown is not budget_line else None,
+                                       "month": txn.date[:7]})
     return render(request, "transactions/detail.html", txn=txn, summary=c.transactions.summarize(txn),
                   lines=lines, history=c.transactions.history(txn_id), can_split=can_split,
                   expense_categories=expense_categories, split_lines=split_lines,
+                  budget_impacts=budget_impacts,
                   reserve_links=c.reserves.links_for_transaction(txn_id), reserves=c.reserves.list_active())
 
 

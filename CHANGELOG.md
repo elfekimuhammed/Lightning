@@ -9,6 +9,10 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 ## [Unreleased]
 
 ### Fixed
+- CSV uploads now pause at a prefilled field-mapping step before row review; review submissions scale Starlette's form-field limit to the staged rows, and Post rows is available above and below the list.
+- Revaluation checkpoints are revisited after investment trades are voided, preserving fee details during trade edits, and record-level money values retain cents. Static asset versions are bumped with UI changes.
+- Database migrations `0012_custody_transaction_links.sql`, `0013_reevaluation_ledger.sql`, `0014_preserve_category_codes.sql`, `0015_reevaluation_source_hash.sql`, `0016_reconciliation.sql`, `0017_cash_reserves.sql`, `0018_reserve_spending.sql`, `0019_recurring_reserves.sql`, `0020_reserve_counterparty.sql`, and `0021_budget_carryover.sql` are tracked here.
+- Date fields now accept day/month input such as `31/1`, infer the current year, and normalize to ISO; CSV rows accept the same format.
 - Account setup now records an optional starting balance as an opening entry on an explicit date, so it is not reported as income; the welcome steps explain this flow.
 - The all-accounts register has a deleted-transactions page with direct restore actions, and changing a transaction's kind explains that the original reference remains in history.
 - Investment quick entry now asks for Buy, Sell, or Dividend and takes positive units for both buys and sells.
@@ -22,6 +26,16 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - Account management is now directly reachable from the sidebar, including inactive accounts.
 
 ### Added
+- CSV imports are no longer capped by row count (the 5 MB file-size limit remains).
+- Documented the native Windows readiness milestone and current launcher, time-zone, and data-location gaps in the three canonical docs; Windows support remains unverified.
+- CSV import now supports either one signed amount column or separate inflow/outflow columns; mapped statement rows merge into a single signed Amount before review.
+- Categories can be selected individually or in bulk for activate/archive/delete actions; deleting a category with history or references archives it instead.
+- Consolidated the budget workflow, UI audit/tasks, user-question map, and milestone roadmap into the three canonical docs; added last-updated, document-revision, and app-version metadata to each.
+- Split the UI workflow audit into ordered, bounded implementation tasks for Luna, with acceptance criteria and a separate check for the conflicting asset breakdowns.
+- Budget now starts with a history-based plan preview or one broad limit, then opens on monthly status with attention items, free-cash context, transaction feedback, and optional spending-limit carryover.
+- Audited the customer workflow and UI hierarchy across Overview, Birdview, Accounts, Budget, Reserves, and import; documented which controls to remove, relocate, or keep and a phased UI redesign.
+- Defined the budget customer-flow milestone: one-action plan setup, everyday status and transaction feedback, optional spending-limit carryover, and a month review; cash reserves remain separate from budget limits.
+- Documented the user questions Lightning should answer, the follow-up drilldowns for each, and the next Birdview history/performance milestone, including the role and limits of XIRR.
 - Birdview replaces Investments in the main navigation with current owned assets, a configurable investment liquidation factor, cash reserves/free cash, income and spending timelines, and capital/return breakdowns by investment type and holding.
 - Cash reserves for emergency funds and planned projects, with recurring due dates, optional Counterparty matching, payment links, and free-cash calculations; custody transactions never auto-link.
 - Statement reconciliation lets users mark cash transactions cleared and compare the cleared balance with a statement amount.
@@ -45,6 +59,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - Database migration `0007_budget_averages.sql` stores the selected calculation method.
 
 ### Changed
+- Account opening dates no longer restrict historical transaction entry, editing, or restoration; valid past-dated activity can be added at any time.
 - Removed "Money owed to me"/receivable accounts from the active account model and choices; the app has no receivables workflow.
 - CSV import review no longer requires a separate Counterparties resolution screen; corrections are made on the transaction rows.
 - Investment-account names now appear in the left sidebar without internal account codes.

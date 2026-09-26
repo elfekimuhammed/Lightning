@@ -135,7 +135,7 @@ async def new_trade(request: Request):
     kind = kind if kind in KINDS else "buy"
     qp = request.query_params
     values = {k: "" for k in FIELDS}
-    values.update(date="" if kind == "holding" else fmt_date(today()), account_id=qp.get("account", ""),
+    values.update(date=fmt_date(today()), account_id=qp.get("account", ""),
                   asset_id=qp.get("asset", ""))
     return _form(request, kind, values)
 

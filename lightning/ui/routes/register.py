@@ -16,7 +16,7 @@ from lightning.assets.catalog import instruments as catalog_instruments
 from lightning.core.codes import slug
 from lightning.core.dates import fmt_date, parse_date, parse_month, today
 from lightning.core.errors import LightningError, ValidationError
-from lightning.core.money import ZERO, to_decimal
+from lightning.core.money import ZERO, fmt, to_decimal
 from lightning.core.refs import DocType
 
 from ..web import container, render
@@ -68,6 +68,37 @@ def _counterparty_matches(c, value: str):
 def _category_matches(c, value: str):
     return [{"id": category.id, "name": c.categories.display_name(category.id), "score": score}
             for category, score in c.categories.suggestions(value)]
+
+
+def _budget_feedback(c, txn) -> str:
+    if txn.status.value != "POSTED":
+        return ""
+    budget_effect_lines = [line for line in txn.lines if line.category_id and line.effect.value == "OUTFLOW"]
+    if not budget_effect_lines:
+        return ""
+    month = txn.date[:7]
+    view = c.budgets.month_view(month)
+    by_id = {line.category_id: line for section in view.sections for line in section.lines}
+    impacts = []
+    seen = set()
+    for line in budget_effect_lines:
+        if not line.category_id or line.category_id not in by_id or line.category_id in seen:
+            continue
+        seen.add(line.category_id)
+        budget_line = by_id[line.category_id]
+        shown = budget_line
+        if shown.remaining is None and shown.covered:
+            parent = c.categories.get(line.category_id).parent_id
+            while parent:
+                ancestor = by_id.get(parent)
+                if ancestor and ancestor.remaining is not None:
+                    shown = ancestor
+                    break
+                parent = c.categories.get(parent).parent_id
+        label = budget_line.name if shown is budget_line else f"inside {shown.name}"
+        impacts.append(f"{label}: " + (f"{fmt(shown.remaining)} {c.base_currency} left this month"
+                                       if shown.remaining is not None else "no covering limit"))
+    return "Budget · " + "; ".join(impacts[:2]) if impacts else ""
 
 
 def _trade_choices(c, account, positions) -> list[dict]:

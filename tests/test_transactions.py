@@ -68,12 +68,11 @@ class TestRecording:
         with pytest.raises(ValidationError, match="future"):
             c.transactions.record_outflow("2027-01-01", accounts["cib"].id, "5", cats["EXP.PERSONAL.FOOD"].id)
 
-    def test_date_rules(self, setup, c):
+    def test_historical_transactions_are_not_limited_by_account_start_date(self, setup, c):
         accounts, cats = setup
-        with pytest.raises(ValidationError, match="yyyy-mm-dd"):
-            c.transactions.record_outflow("25/09/2026", accounts["cib"].id, "5", cats["EXP.PERSONAL.FOOD"].id)
-        with pytest.raises(ValidationError, match="before"):
-            c.transactions.record_outflow("2026-08-31", accounts["cib"].id, "5", cats["EXP.PERSONAL.FOOD"].id)
+        txn = c.transactions.record_outflow("2026-08-31", accounts["cib"].id, "5",
+                                             cats["EXP.PERSONAL.FOOD"].id)
+        assert txn.date == "2026-08-31"
 
 
 class TestEditingAndVoiding:
@@ -127,16 +126,13 @@ class TestEditingAndVoiding:
         c.transactions.restore(t.id)
         assert c.reporting.account_balance(accounts["cib"].id) == Decimal("49550")
 
-    def test_restore_rechecks_account_opening_date(self, setup, c):
+    def test_restore_allows_transaction_before_account_opening_date(self, setup, c):
         accounts, cats = setup
         account = accounts["cib"]
-        txn = c.transactions.record_outflow("2026-09-10", account.id, "25", cats["EXP.PERSONAL.FOOD"].id)
+        txn = c.transactions.record_outflow("2026-08-31", account.id, "25", cats["EXP.PERSONAL.FOOD"].id)
         c.transactions.void(txn.id)
-        c.account_flows.update_account(account.id, account.name, "BANK", "2026-10-01", "50000")
-
-        with pytest.raises(ValidationError, match="before .* was opened"):
-            c.transactions.restore(txn.id)
-        assert c.transactions.get(txn.id).is_void
+        c.transactions.restore(txn.id)
+        assert not c.transactions.get(txn.id).is_void
 
     def test_opening_balance_not_edited_as_a_transaction(self, setup, c):
         accounts, cats = setup

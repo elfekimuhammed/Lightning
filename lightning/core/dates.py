@@ -1,4 +1,4 @@
-"""Dates are always ISO ``yyyy-mm-dd`` — in storage, on screen, in files."""
+"""Store dates as ISO ``yyyy-mm-dd`` while accepting helpful day-first user input."""
 
 from __future__ import annotations
 
@@ -9,7 +9,8 @@ from datetime import date, datetime, timedelta
 
 from .errors import ValidationError
 
-_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+_ISO_DATE_RE = re.compile(r"^(\d{4})-(\d{1,2})-(\d{1,2})$")
+_DAY_FIRST_DATE_RE = re.compile(r"^(\d{1,2})/(\d{1,2})(?:/(\d{2}|\d{4}))?$")
 _MONTH_RE = re.compile(r"^\d{4}-\d{2}$")
 
 
@@ -19,10 +20,20 @@ def parse_date(value: object, field: str = "date") -> date:
     if isinstance(value, date):
         return value
     text = str(value or "").strip()
-    if not _DATE_RE.match(text):
-        raise ValidationError("Use the date format yyyy-mm-dd, e.g. 2026-12-31.", field)
+    match = _ISO_DATE_RE.fullmatch(text)
+    if match:
+        year, month, day = map(int, match.groups())
+    else:
+        match = _DAY_FIRST_DATE_RE.fullmatch(text)
+        if not match:
+            raise ValidationError(
+                "Enter a date like 2026-01-31, 31/01/2026, or 31/1 (current year).", field
+            )
+        day, month = map(int, match.groups()[:2])
+        year_text = match.group(3)
+        year = (2000 + int(year_text) if len(year_text) == 2 else int(year_text)) if year_text else today().year
     try:
-        return date.fromisoformat(text)
+        return date(year, month, day)
     except ValueError:
         raise ValidationError(f"{text} is not a real calendar date.", field) from None
 

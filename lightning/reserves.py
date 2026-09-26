@@ -38,6 +38,23 @@ class CashReserveService:
             raise NotFoundError("Reserve not found.")
         return self._row(row)
 
+    def set_emergency_fund(self, amount, salary_target=ZERO):
+        """Set the reserved cash for the fixed Emergency Fund section."""
+        value = to_decimal(amount, "allocated")
+        if value < ZERO:
+            raise ValidationError("Reserved cash cannot be negative.", "allocated")
+        target = max(to_decimal(salary_target, "target"), value, Decimal("0.01"))
+        active = self.db.one("SELECT id FROM cash_reserves WHERE kind='EMERGENCY' AND status='ACTIVE'")
+        if not active and value == ZERO:
+            raise ValidationError("Enter the amount you have reserved for emergencies.", "allocated")
+        with self.db.transaction():
+            if active:
+                self.db.execute("UPDATE cash_reserves SET target_e6=?,updated_at=? WHERE id=?",
+                                (to_e6(target), now_iso(), active["id"]))
+                return self.allocate(int(active["id"]), value)
+            reserve = self.create("Emergency Fund", target, "EMERGENCY")
+            return self.allocate(reserve["id"], value)
+
     def create(self, name: str, target, kind: str = "PROJECT", due_date: str | None = None,
                recurrence: str = "NONE", counterparty_id: int | None = None):
         name = " ".join((name or "").split())
@@ -46,6 +63,8 @@ class CashReserveService:
         kind = str(kind or "PROJECT").upper()
         if kind not in {"PROJECT", "EMERGENCY"}:
             raise ValidationError("Choose an emergency fund or project.", "kind")
+        if kind == "EMERGENCY":
+            name = "Emergency Fund"
         recurrence = self._recurrence(recurrence, kind, due_date)
         target_value = to_decimal(target, "target")
         if target_value <= ZERO:
@@ -71,6 +90,8 @@ class CashReserveService:
     def update(self, reserve_id: int, name: str, target, due_date: str | None, recurrence: str | None = None,
                counterparty_id: int | None = None):
         reserve = self.get(reserve_id)
+        if reserve["kind"] == "EMERGENCY":
+            raise ValidationError("The Emergency Fund is managed in its dedicated section.")
         name = " ".join((name or "").split())
         if not name:
             raise ValidationError("Enter a name for this reserve.", "name")
@@ -216,12 +237,16 @@ class CashReserveService:
 
     def complete(self, reserve_id: int):
         reserve = self.get(reserve_id)
+        if reserve["kind"] == "EMERGENCY":
+            raise ValidationError("The Emergency Fund cannot be completed or archived.")
         self.db.execute("UPDATE cash_reserves SET status='COMPLETE',updated_at=? WHERE id=?",
                         (now_iso(), reserve_id))
         return self.get(reserve_id)
 
     def delete(self, reserve_id: int):
-        self.get(reserve_id)
+        reserve = self.get(reserve_id)
+        if reserve["kind"] == "EMERGENCY":
+            raise ValidationError("The Emergency Fund cannot be deleted.")
         self.db.execute("DELETE FROM cash_reserves WHERE id=?", (reserve_id,))
 
     @staticmethod
