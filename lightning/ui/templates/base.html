@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Lightning{% endblock %} · Lightning</title>
   <link rel="stylesheet" href="/static/fonts/fonts.css">
-  <link rel="stylesheet" href="/static/style.css?v=10">
+  <link rel="stylesheet" href="/static/style.css?v=13">
 </head>
 <body>
 <div class="shell">
@@ -28,11 +28,13 @@
       <div class="nav-spacer"></div>
       <a href="/categories" class="{{ 'active' if path.startswith('/categories') }}"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="m4 7 8-4 8 4-8 4-8-4Z"/><path d="m4 12 8 4 8-4"/><path d="m4 17 8 4 8-4"/></svg></span><span>Categories</span></a>
       <a href="/settings" class="{{ 'active' if path.startswith('/settings') }}"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="2"/><circle cx="15" cy="17" r="2"/></svg></span><span>Settings</span></a>
+      <a href="/checks" class="{{ 'active' if path.startswith('/checks') }}"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/><circle cx="12" cy="12" r="10"/></svg></span><span>Integrity checks</span></a>
     </nav>
     <div class="side-accounts">
       <a class="side-row side-total {{ 'active' if path.startswith('/transactions') }}" href="/transactions">
         <span>All accounts</span><span class="num">{{ sidebar_total|money }}</span></a>
       <div class="side-row side-owned-total"><span>What you own</span><span class="num">{{ sidebar_owned_total|money }}</span></div>
+      <div class="side-row side-held-total"><span>Money held for others</span><span class="num">{{ (sidebar_total - sidebar_owned_total)|money }}</span></div>
       {% for g in sidebar_groups %}
         <div class="side-row side-group"><span>{{ g.label }}</span><span class="num">{{ g.value|money }}</span></div>
         {% for a in g.children %}
@@ -52,6 +54,6 @@
     {% block content %}{% endblock %}
   </main>
 </div>
-<script src="/static/app.js?v=10"></script>
+<script src="/static/app.js?v=11"></script>
 </body>
 </html>

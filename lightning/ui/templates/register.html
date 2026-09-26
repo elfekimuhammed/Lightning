@@ -36,17 +36,17 @@
 {% if account %}
 <div class="acct-title"><h1>{{ account.name }}</h1></div>
 <div class="acct-figures">
-  <div><span class="muted small">Cash</span><b class="{{ balance|tone }}">{{ balance|money }}</b></div>
-  <div><span class="muted small">Cash you own</span><b>{{ owned_cash|money }}</b></div>
-  <div><span class="muted small">Total balance</span><b>{{ account_value|money }}</b></div>
-  <div><span class="muted small">Your share</span><b>{{ owned_account_value|money }}</b></div>
+  <div><span class="muted small">Total</span><b>{{ account_value|money }}</b><small class="muted">100.00% of total</small></div>
+  <div><span class="muted small">Yours</span><b>{{ account_owned_value|money }}</b><small class="muted">{{ ((account_owned_value / account_value * 100) if account_value else 0)|money }}% of total</small></div>
+  <div><span class="muted small">Held for others</span><b>{{ account_held_value|money }}</b><small class="muted">{{ ((account_held_value / account_value * 100) if account_value else 0)|money }}% of total</small></div>
   <span class="muted small">{{ account.currency }} · {{ account.type_label }}</span>
 </div>
 {% else %}
 <div class="acct-title"><h1>All accounts</h1></div>
 <div class="acct-figures">
-  <div><span class="muted small">All accounts</span><b>{{ sidebar_total|money }}</b></div>
-  <div><span class="muted small">What you own</span><b>{{ sidebar_owned_total|money }}</b></div>
+  <div><span class="muted small">Total</span><b>{{ sidebar_total|money }}</b><small class="muted">100.00% of total</small></div>
+  <div><span class="muted small">What you own</span><b>{{ sidebar_owned_total|money }}</b><small class="muted">{{ ((sidebar_owned_total / sidebar_total * 100) if sidebar_total else 0)|money }}% of total</small></div>
+  <div><span class="muted small">Held for others</span><b>{{ (sidebar_total - sidebar_owned_total)|money }}</b><small class="muted">{{ (((sidebar_total - sidebar_owned_total) / sidebar_total * 100) if sidebar_total else 0)|money }}% of total</small></div>
   <span class="muted small">{{ base }}</span>
 </div>
 {% endif %}
@@ -73,6 +73,20 @@
 {% if edit_id is not none %}<form id="f-edit" method="post" action="{{ post_url }}/{{ edit_id }}" autocomplete="off"></form>{% endif %}
 {% set review_form_id = 'f-edit' if edit_id is not none else 'f-new' %}
 {% if entry.get('counterparty_choice') and review_mode != 'counterparty' %}<input form="{{ review_form_id }}" type="hidden" name="counterparty_choice" value="{{ entry.counterparty_choice }}">{% endif %}
+{% if account and account.account_type.value == 'BROKERAGE' %}
+<section class="card account-asset-breakdown">
+  <div class="strip-head"><b>By asset class</b><span class="muted small">Level 2 · largest share first</span></div>
+  {% if account_asset_breakdown %}<div class="table-scroll"><table>
+    <thead><tr><th>Asset class</th><th class="num">Total</th><th class="num">Yours</th><th class="num">Held for others</th></tr></thead>
+    <tbody>{% for row in account_asset_breakdown %}<tr>
+      <td>{{ row.name }}</td>
+      <td class="num"><span>{{ row.total|money }}</span><small class="weight-note">{{ row.weight_total|money }}% of total</small></td>
+      <td class="num"><span>{{ row.yours|money }}</span><small class="weight-note">{{ row.weight_yours|money }}% of yours</small></td>
+      <td class="num"><span>{{ row.held|money }}</span><small class="weight-note">{{ row.weight_held|money }}% of held</small></td>
+    </tr>{% endfor %}</tbody>
+  </table></div>{% else %}<p class="muted small">No valued assets in this account yet.</p>{% endif %}
+</section>
+{% endif %}
 {% if review_mode %}
 <div class="review-backdrop">
   <section class="review-dialog" role="dialog" aria-modal="true" aria-labelledby="register-review-title">
@@ -116,18 +130,14 @@
         <div id="trade-instrument-results" class="instrument-results" role="listbox" hidden></div>
         <div id="trade-position-hint" class="help" aria-live="polite"></div>
       </div>
-      <div class="field">
-        <label for="investment-action">Action</label>
-        <select id="investment-action" name="trade_action">
-          <option value="buy" {{ 'selected' if investment_entry.get('trade_action', 'buy') == 'buy' }}>Buy</option>
-          <option value="sell" {{ 'selected' if investment_entry.get('trade_action') == 'sell' }}>Sell</option>
-          <option value="dividend" {{ 'selected' if investment_entry.get('trade_action') == 'dividend' }}>Dividend</option>
-        </select>
-      </div>
-      <label class="field investment-owner-flag"><span>Ownership</span><span><input type="checkbox" name="is_others" value="1" {{ 'checked' if investment_entry.get('is_others') }}> Held for someone else</span></label>
-      <div class="field investment-owner-field" {{ 'hidden' if not investment_entry.get('is_others') }}>
-        <label for="investment-whom">Whom</label>
-        <input id="investment-whom" type="text" name="whom" value="{{ investment_entry.get('whom', '') }}" list="counterparty-options" placeholder="Choose a saved Counterparty">
+      <div class="investment-action-control">
+        <span class="muted small">Action</span>
+        <input id="investment-action" type="hidden" name="trade_action" value="{{ investment_entry.get('trade_action', 'buy') }}">
+        <div class="investment-action-buttons" role="group" aria-label="Investment action">
+          {% for value, label in [('buy', 'Buy'), ('sell', 'Sell'), ('dividend', 'Dividend')] %}
+          <button type="button" class="investment-action-button action-{{ value }} {{ 'is-active' if investment_entry.get('trade_action', 'buy') == value }}" data-trade-action="{{ value }}" aria-pressed="{{ 'true' if investment_entry.get('trade_action', 'buy') == value else 'false' }}">{{ label }}</button>
+          {% endfor %}
+        </div>
       </div>
       <div class="field {{ 'has-error' if investment_error_field == 'units' }}" id="investment-units-field">
         <label for="investment-units">Units</label>
@@ -137,11 +147,11 @@
         <label id="investment-total-label" for="investment-total">Total paid / received</label>
         <input id="investment-total" type="text" name="total" value="{{ investment_entry.get('total', '') }}" placeholder="Total amount" inputmode="decimal" class="money-input">
       </div>
-      <div class="field {{ 'has-error' if investment_error_field == 'unit_price' }}">
-        <label for="investment-unit-price">Price per unit</label>
+      <div class="field {{ 'has-error' if investment_error_field == 'unit_price' }}" id="investment-price-field">
+        <label for="investment-unit-price" id="investment-price-label">Price per unit</label>
         <input id="investment-unit-price" type="text" name="unit_price" value="{{ investment_entry.get('unit_price', '') }}" placeholder="Or enter unit price" inputmode="decimal" class="money-input">
       </div>
-      <div class="field"><label><input id="investment-fees-included" type="checkbox" name="fees_included" value="0" data-fees-excluded {{ 'checked' if investment_entry.get('fees_included') == '0' }}> Fees are excluded from the total</label></div>
+      <div class="field investment-fees-toggle" id="investment-fees-toggle-field"><label><input id="investment-fees-included" type="checkbox" name="fees_included" value="0" data-fees-excluded {{ 'checked' if investment_entry.get('fees_included') == '0' }}> Fees are excluded from the total</label></div>
       <div class="field" id="investment-fees-field" {{ 'hidden' if investment_entry.get('fees_included') != '0' }}>
         <label for="investment-fees">Fees</label>
         <input id="investment-fees" type="text" name="fees" value="{{ investment_entry.get('fees', '') }}" placeholder="0.00" inputmode="decimal" class="money-input">
@@ -157,8 +167,17 @@
     </div>
     {% endif %}
   <div class="investment-entry-foot">
-      <span id="investment-entry-hint" class="muted small">Enter fees separately. Choose whether your total includes or excludes them.</span>
-      <input type="text" name="notes" value="{{ investment_entry.get('notes', '') }}" placeholder="Notes (optional)">
+      <div class="investment-ownership-area">
+        <label class="investment-owner-flag"><input type="checkbox" name="is_others" value="1" {{ 'checked' if investment_entry.get('is_others') }}> Money held for someone else</label>
+        <div class="field investment-owner-field" {{ 'hidden' if not investment_entry.get('is_others') }}>
+          <label for="investment-whom">Whom</label>
+          <input id="investment-whom" type="text" name="whom" value="{{ investment_entry.get('whom', '') }}" list="counterparty-options" placeholder="Choose a saved Counterparty">
+        </div>
+      </div>
+      <div class="investment-notes-area">
+        <span id="investment-entry-hint" class="muted small">Enter fees separately. Choose whether your total includes or excludes them.</span>
+        <input type="text" name="notes" value="{{ investment_entry.get('notes', '') }}" placeholder="Notes (optional)">
+      </div>
     </div>
     <div class="small"><a href="/investments/new?kind=holding&account={{ account.id }}">Add an existing holding</a></div>
   </form>

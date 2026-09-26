@@ -19,41 +19,44 @@
   <h2>Saved Counterparties <span class="muted small">{{ parties|length }}</span></h2>
   {% if parties %}
   <table><thead><tr><th>Counterparty and aliases</th><th>Suggested category</th><th>Actions</th></tr></thead><tbody>
-    {% for party in parties %}<tr class="{{ 'muted' if not party.active }}"><td>
-      <form method="post" action="/counterparties" class="counterparty-edit">
+    {% for party in parties %}{% set aliases = aliases_by_id.get(party.id, []) %}{% set edit_form = 'counterparty-edit-' ~ party.id %}
+    <tr class="{{ 'muted' if not party.active }}"><td>
+      <div class="counterparty-one-line">
+      <form id="{{ edit_form }}" method="post" action="/counterparties" class="counterparty-name-edit">
         <input type="hidden" name="counterparty_action" value="rename">
         <input type="hidden" name="counterparty_id" value="{{ party.id }}">
         <input type="text" name="name" value="{{ party.name }}" aria-label="Counterparty name">
-        <select name="default_category_id" aria-label="Suggested category">
-          <option value="">No default</option>{% for category in categories %}<option value="{{ category.id }}" {{ 'selected' if party.default_category_id == category.id }}>{{ category_labels[category.id] }}</option>{% endfor %}
-        </select>
         <button class="btn small">Save</button>
       </form>
-      {% if not party.active %}<span class="small muted">Archived</span>{% endif %}
-      {% set aliases = aliases_by_id.get(party.id, []) %}
-      {% if aliases %}<div class="alias-list muted small">{% for item in aliases %}
+      {% if aliases|length < alias_limit %}<div class="alias-entry">
+        <form method="post" action="/counterparties" class="alias-add">
+          <input type="hidden" name="counterparty_action" value="add_alias">
+          <input type="hidden" name="counterparty_id" value="{{ party.id }}">
+          <input type="text" name="alias" placeholder="Add alias…" required aria-label="Add alias for {{ party.name }}">
+          <button class="alias-submit" aria-label="Save alias">Save alias</button>
+        </form>
+        <div class="alias-enter-hint" role="status">Press Enter to save alias</div>
+      </div>{% else %}<span class="muted small">Alias limit reached</span>{% endif %}
+      {% if aliases %}<details class="alias-details"><summary>{{ aliases|length }} aliases</summary><div class="alias-list muted small">{% for item in aliases %}
         <form method="post" action="/counterparties" class="alias-row">
           <input type="hidden" name="counterparty_action" value="rename_alias">
           <input type="hidden" name="counterparty_id" value="{{ party.id }}">
           <input type="hidden" name="alias_id" value="{{ item.id }}">
           <input type="text" name="alias" value="{{ item.alias }}" aria-label="Alias for {{ party.name }}">
-          <button class="btn small" title="Save alias">Save</button>
+          <button class="btn small" title="Save alias" aria-label="Save alias">Save</button>
         </form>
         <form method="post" action="/counterparties" class="alias-remove">
           <input type="hidden" name="counterparty_action" value="remove_alias">
           <input type="hidden" name="counterparty_id" value="{{ party.id }}">
           <input type="hidden" name="alias_id" value="{{ item.id }}">
-          <button class="btn small danger" aria-label="Remove alias {{ item.alias }}">Remove</button>
+          <button class="btn small danger" aria-label="Remove alias {{ item.alias }}">×</button>
         </form>
-      {% endfor %}</div>{% endif %}
-      <div class="muted small">{{ aliases|length }} of {{ alias_limit }} aliases</div>
-      {% if aliases|length < alias_limit %}<form method="post" action="/counterparties" class="alias-add">
-        <input type="hidden" name="counterparty_action" value="add_alias">
-        <input type="hidden" name="counterparty_id" value="{{ party.id }}">
-        <input type="text" name="alias" placeholder="Add a merchant spelling" required aria-label="Add alias for {{ party.name }}">
-        <button class="btn small">Add alias</button>
-      </form>{% endif %}
-    </td><td class="muted small">{{ category_labels.get(party.default_category_id, '—') if party.default_category_id else '—' }}</td>
+      {% endfor %}</div></details>{% endif %}
+      {% if not party.active %}<span class="small muted">Archived</span>{% endif %}
+      </div>
+    </td><td><select form="{{ edit_form }}" name="default_category_id" aria-label="Suggested category">
+      <option value="">No default</option>{% for category in categories %}<option value="{{ category.id }}" {{ 'selected' if party.default_category_id == category.id }}>{{ category_labels[category.id] }}</option>{% endfor %}
+    </select> <button class="btn small" form="{{ edit_form }}">Save</button></td>
     <td><div class="counterparty-actions">
       {% if not party.active %}<form method="post" action="/counterparties"><input type="hidden" name="counterparty_id" value="{{ party.id }}"><button class="btn small" name="counterparty_action" value="activate">Activate</button></form>{% endif %}
       <form method="post" action="/counterparties" data-counterparty-delete><input type="hidden" name="counterparty_id" value="{{ party.id }}"><button class="btn small danger" name="counterparty_action" value="delete">Delete</button></form>

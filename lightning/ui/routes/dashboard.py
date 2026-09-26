@@ -29,6 +29,7 @@ async def dashboard(request: Request):
     if not accounts:
         return render(request, "dashboard/welcome.html")
     net_worth = c.reporting.net_worth(as_of)
+    integrity_checks = c.integrity.checks(as_of)
     recent, _ = c.transactions.find(TxnFilter(limit=8))
     return render(
         request,
@@ -36,6 +37,9 @@ async def dashboard(request: Request):
         month=month,
         as_of=fmt_date(as_of),
         net_worth=net_worth,
+        integrity_checks=integrity_checks,
+        integrity_passed=sum(check.status == "PASS" for check in integrity_checks),
+        integrity_attention=sum(check.status != "PASS" for check in integrity_checks),
         custody_total=c.reporting.money_from_others_total(as_of),
         custody_by_account=c.reporting.custody_value_by_account(as_of),
         owners=c.reporting.money_from_others_by_owner(as_of),

@@ -3,14 +3,16 @@
 from __future__ import annotations
 
 import csv
+import difflib
 import hashlib
 import io
 import json
+import re
 from decimal import Decimal, InvalidOperation
 
 from lightning.categories.domain import Movement
 from lightning.core.dates import now_iso, parse_date
-from lightning.core.errors import ConflictError, NotFoundError, ValidationError
+from lightning.core.errors import ConflictError, LightningError, NotFoundError, ValidationError
 from lightning.core.refs import DocType
 from lightning.transactions.domain import TxnSource
 
@@ -18,6 +20,13 @@ REQUIRED = ("Date", "Amount")
 OPTIONAL = ("Counterparty", "Category", "Notes", "Reference")
 SEPARATE_AMOUNT_FIELDS = ("Inflow", "Outflow")
 MAX_BYTES = 5 * 1024 * 1024
+
+
+class _ImportReviewRequired(Exception):
+    """Abort the whole import while returning row-level validation errors."""
+
+    def __init__(self, errors):
+        self.errors = errors
 
 
 def _date(value: str) -> str:
@@ -231,11 +240,51 @@ class BankImportService:
             parsed["_reference_duplicate"] = ref_duplicate
             parsed["_similarity_warning"] = self._similarity_warning(batch["account_id"], parsed)
             parsed["_category_id"] = self._category_for(parsed, cp)
+            parsed["_transfer_target_suggestion"] = self._transfer_target_suggestion(
+                batch["account_id"], parsed["Notes"])
+            category = self.categories.get(parsed["_category_id"]) if parsed["_category_id"] else None
+            parsed["_is_custody"] = bool(category and category.code == "EXP.PERSONAL.CUSTODY")
+            # Keep the canonical owner ready in the form: the user may choose
+            # the custody category during review rather than in the CSV.
+            parsed["_whom"] = cp["name"] if cp and cp["active"] else ""
             parsed["_import_row_id"] = row["id"]
             parsed["_status"] = row["status"]
             parsed["_transaction_id"] = row["transaction_id"]
             result.append(parsed)
         return batch, result
+
+    def _transfer_target_suggestion(self, source_account_id: int, notes: str):
+        """Suggest an internal destination only when the note explicitly describes a transfer."""
+        destination = re.search(r"\b(?:transfer(?:red)?|send|sent|payment)\s+(?:to|into)\s+(.+)",
+                                notes or "", re.IGNORECASE)
+        if not destination:
+            return None
+
+        def compact(value):
+            return "".join(character.casefold() for character in value if character.isalnum())
+
+        tokens = re.findall(r"[\w]+", destination.group(1), re.UNICODE)
+        candidates = []
+        accounts = [account for account in self.accounts.list(active_only=True)
+                    if account.id != source_account_id]
+        for account in accounts:
+            name = compact(account.name)
+            if not name:
+                continue
+            score = 0.0
+            for start in range(len(tokens)):
+                for width in range(1, min(4, len(tokens) - start) + 1):
+                    phrase = compact(" ".join(tokens[start:start + width]))
+                    if phrase == name:
+                        score = 1.0
+                    elif min(len(phrase), len(name)) >= 4:
+                        score = max(score, difflib.SequenceMatcher(None, phrase, name).ratio())
+            if score >= 0.8:
+                candidates.append((score, account))
+        candidates.sort(key=lambda match: (-match[0], match[1].name.casefold()))
+        if not candidates or (len(candidates) > 1 and candidates[0][0] - candidates[1][0] < 0.08):
+            return None
+        return candidates[0][1].name
 
     def _category_for(self, parsed, counterparty):
         if parsed["Category"]:
@@ -286,99 +335,141 @@ class BankImportService:
         _, rows = self.preview(batch_id)
         row_by_id = {r["_import_row_id"]: r for r in rows}
         accounts = self.accounts.list(active_only=True)
-        with self.db.transaction():
-            for row_id, decision in decisions.items():
-                row = row_by_id.get(int(row_id))
-                if not row:
-                    continue
-                if decision.get("skip"):
-                    skip_status = "DUPLICATE" if row["_reference_duplicate"] or row["_similarity_warning"] else "SKIPPED"
-                    self.db.execute("UPDATE bank_import_rows SET status=? WHERE id=?", (skip_status, row_id))
-                    continue
-                if self.db.scalar("SELECT status FROM bank_import_rows WHERE id=?", (row_id,)) != "REVIEW":
-                    continue
-                cp_text = str(decision.get("counterparty", row["Counterparty"])).strip()
-                try:
-                    day = _date(str(decision.get("date", row["Date"])))
-                    amount = Decimal(_amount(str(decision.get("amount", row["Amount"]))))
-                except ValueError as exc:
-                    raise ValidationError(f"CSV row {row['_line']}: {exc}", "row") from None
-                notes = str(decision.get("notes", row["Notes"])).strip()
-                account_matches = [a for a in accounts if a.name.casefold() == cp_text.casefold()]
-                if len(account_matches) > 1:
-                    raise ValidationError(f"CSV row {row['_line']}: account name is ambiguous; use a unique name.",
-                                          "counterparty")
-                target = account_matches[0] if account_matches else None
-                counterparty_id = decision.get("counterparty_id") or (row["_counterparty_id"] if cp_text == row["Counterparty"] else None)
-                if cp_text and not counterparty_id:
-                    exact = self.counterparties.resolve(cp_text)
-                    counterparty_id = exact["id"] if exact else None
-                similar = self.counterparties.suggestions(cp_text) if cp_text and not counterparty_id else []
-                choice = str(decision.get("counterparty_choice", ""))
-                if choice.startswith("existing:"):
-                    counterparty_id = int(choice.split(":", 1)[1])
-                elif choice == "unlinked":
-                    counterparty_id = None
-                elif choice == "new":
-                    name = str(decision.get("new_counterparty", cp_text)).strip()
-                    if name:
-                        counterparty_id = self.counterparties.create(name, alias=cp_text or None)
-                if counterparty_id and cp_text and not target:
-                    self.counterparties.add_alias(int(counterparty_id), cp_text)
-                category_id = None if decision.get("force_uncategorized") else (decision.get("category_id") or row["_category_id"])
-                if category_id:
-                    category_id = int(category_id)
+        def posting_order(item):
+            row_id, decision = item
+            row = row_by_id.get(int(row_id), {})
+            try:
+                day = _date(str(decision.get("date", row.get("Date", ""))))
+            except ValueError:
+                day = "9999-12-31"
+            return day, int(row.get("_line", 0))
+
+        errors = {}
+        try:
+            with self.db.transaction():
+                # Custody debits depend on earlier credits. Statements often arrive
+                # newest-first, so post in date order rather than CSV display order.
+                for row_id, decision in sorted(decisions.items(), key=posting_order):
+                    row = row_by_id.get(int(row_id))
+                    if not row or self.db.scalar("SELECT status FROM bank_import_rows WHERE id=?", (row_id,)) != "REVIEW":
+                        continue
+                    if decision.get("skip"):
+                        skip_status = "DUPLICATE" if row["_reference_duplicate"] or row["_similarity_warning"] else "SKIPPED"
+                        self.db.execute("UPDATE bank_import_rows SET status=? WHERE id=?", (skip_status, row_id))
+                        continue
+                    try:
+                        with self.db.transaction():
+                            self._post_import_row(batch, row_id, decision, row, accounts)
+                    except LightningError as exc:
+                        errors[int(row_id)] = exc.message
+                if errors:
+                    # Validation used temporary postings to check dependent rows;
+                    # roll all of them back so this CSV remains completely unposted.
+                    raise _ImportReviewRequired(errors)
+                remaining = self.db.scalar(
+                    "SELECT COUNT(*) FROM bank_import_rows WHERE batch_id=? AND status='REVIEW'", (batch_id,))
+                if not remaining:
+                    self.db.execute("UPDATE bank_import_batches SET status='POSTED',posted_at=? WHERE id=?",
+                                    (now_iso(), batch_id))
+        except _ImportReviewRequired as exc:
+            errors = exc.errors
+        return self.summary(batch_id) | {"errors": errors}
+
+    def _post_import_row(self, batch, row_id, decision, row, accounts):
+        cp_text = str(decision.get("counterparty", row["Counterparty"])).strip()
+        try:
+            day = _date(str(decision.get("date", row["Date"])))
+            amount = Decimal(_amount(str(decision.get("amount", row["Amount"]))))
+        except ValueError as exc:
+            raise ValidationError(f"CSV row {row['_line']}: {exc}", "row") from None
+        notes = str(decision.get("notes", row["Notes"])).strip()
+        account_matches = [a for a in accounts if a.name.casefold() == cp_text.casefold()]
+        if len(account_matches) > 1:
+            raise ValidationError(f"CSV row {row['_line']}: account name is ambiguous; use a unique name.",
+                                  "counterparty")
+        target = account_matches[0] if account_matches else None
+        counterparty_id = decision.get("counterparty_id") or (row["_counterparty_id"] if cp_text == row["Counterparty"] else None)
+        if cp_text and not counterparty_id:
+            exact = self.counterparties.resolve(cp_text)
+            counterparty_id = exact["id"] if exact else None
+        similar = self.counterparties.suggestions(cp_text) if cp_text and not counterparty_id else []
+        choice = str(decision.get("counterparty_choice", ""))
+        if choice.startswith("existing:"):
+            counterparty_id = int(choice.split(":", 1)[1])
+        elif choice == "unlinked":
+            counterparty_id = None
+        elif choice == "new":
+            name = str(decision.get("new_counterparty", cp_text)).strip()
+            if name:
+                counterparty_id = self.counterparties.create(name, alias=cp_text or None)
+        if counterparty_id and cp_text and not target:
+            self.counterparties.add_alias(int(counterparty_id), cp_text)
+        category_id = None if decision.get("force_uncategorized") else (decision.get("category_id") or row["_category_id"])
+        if category_id:
+            category_id = int(category_id)
+        else:
+            fallback_code = "EXP.UNACCOUNTED" if amount < 0 else "INC.UNACCOUNTED"
+            category_id = self.categories.repo.get_by_code(fallback_code).id
+        if decision.get("remember_category") and counterparty_id and category_id:
+            self.counterparties.set_default_category(int(counterparty_id), int(category_id))
+        canonical = self.counterparties.get(int(counterparty_id)) if counterparty_id else None
+        if target:
+            txn = self.transactions.record_transfer(
+                day, batch["account_id"] if amount < 0 else target.id,
+                target.id if amount < 0 else batch["account_id"], abs(amount),
+                notes=notes, source=TxnSource.IMPORT,
+            )
+            category = self.categories.get(int(category_id)) if category_id else None
+            if category and category.code == "EXP.PERSONAL.CUSTODY" and self.money_from_others:
+                whom = str(decision.get("whom", "")).strip() or (
+                    canonical["name"] if canonical and canonical["active"] else "")
+                party = None if whom.casefold() in {"self", "me", "my money", "my own money"} else (
+                    self.counterparties.resolve(whom) if whom else None)
+                if whom and whom.casefold() not in {"self", "me", "my money", "my own money"} \
+                        and (not party or not party["active"]):
+                    raise ValidationError(f"CSV row {row['_line']}: choose a saved active Counterparty in Whom.",
+                                          "whom")
+                owner = party["name"] if party else None
+                source_id, target_id = ((batch["account_id"], target.id) if amount < 0
+                                        else (target.id, batch["account_id"]))
+                self.money_from_others.sync_transfer(txn.id, day, owner, source_id, target_id,
+                                                    abs(amount), notes)
+        else:
+            movement = Movement.OUTFLOW if amount < 0 else Movement.INFLOW
+            self.categories.require(int(category_id), movement, allow_system=True)
+            category = self.categories.get(int(category_id))
+            owner = None
+            if category.code == "EXP.PERSONAL.CUSTODY":
+                whom = str(decision.get("whom", "")).strip() or (
+                    canonical["name"] if canonical and canonical["active"] else "")
+                if whom.casefold() in {"self", "me", "my money", "my own money"}:
+                    party = None
                 else:
-                    fallback_code = "EXP.UNACCOUNTED" if amount < 0 else "INC.UNACCOUNTED"
-                    category_id = self.categories.repo.get_by_code(fallback_code).id
-                if decision.get("remember_category") and counterparty_id and category_id:
-                    self.counterparties.set_default_category(int(counterparty_id), int(category_id))
-                if target:
-                    txn = self.transactions.record_transfer(
-                        day, batch["account_id"] if amount < 0 else target.id,
-                        target.id if amount < 0 else batch["account_id"], abs(amount),
-                        notes=notes, source=TxnSource.IMPORT,
-                    )
+                    party = self.counterparties.resolve(whom)
+                if not party or not party["active"]:
+                    if whom.casefold() not in {"self", "me", "my money", "my own money"}:
+                        raise ValidationError(f"CSV row {row['_line']}: choose a saved active Counterparty in Whom.", "whom")
                 else:
-                    movement = Movement.OUTFLOW if amount < 0 else Movement.INFLOW
-                    self.categories.require(int(category_id), movement, allow_system=True)
-                    category = self.categories.get(int(category_id))
-                    owner = None
-                    if category.code == "EXP.PERSONAL.CUSTODY":
-                        whom = str(decision.get("whom", "")).strip()
-                        if whom.casefold() in {"self", "me", "my money", "my own money"}:
-                            party = None
-                        else:
-                            party = self.counterparties.resolve(whom)
-                        if not party or not party["active"]:
-                            if whom.casefold() not in {"self", "me", "my money", "my own money"}:
-                                raise ValidationError(f"CSV row {row['_line']}: choose a saved active Counterparty in Whom.", "whom")
-                        else:
-                            owner = party["name"]
-                    canonical = self.counterparties.get(int(counterparty_id)) if counterparty_id else None
-                    linked_name = canonical["name"] if canonical else ("" if similar or choice == "unlinked" else cp_text)
-                    kwargs = {"source": TxnSource.IMPORT, "counterparty": linked_name, "notes": notes}
-                    if amount < 0:
-                        txn = self.transactions.record_outflow(day, batch["account_id"], abs(amount), int(category_id),
-                                                              allow_system_category=True, **kwargs)
-                    elif category.movement == Movement.OUTFLOW:
-                        txn = self.transactions.record_refund(day, batch["account_id"], amount, int(category_id), **kwargs)
-                    else:
-                        txn = self.transactions.record_inflow(day, batch["account_id"], amount, int(category_id),
-                                                             allow_system_category=True, **kwargs)
-                    if owner and self.money_from_others:
-                        self.money_from_others.sync_transaction(txn.id, txn.date, owner, batch["account_id"], amount, notes)
-                    if counterparty_id:
-                        self.db.execute("UPDATE transactions SET counterparty_id=? WHERE id=?",
-                                        (int(counterparty_id), txn.id))
-                self.db.execute("UPDATE bank_import_rows SET status='POSTED',transaction_id=? WHERE id=?",
-                                (txn.id, row_id))
-                if self.reserves:
-                    self.reserves.auto_link_transaction(txn.id)
-            self.db.execute("UPDATE bank_import_rows SET status='SKIPPED' WHERE batch_id=? AND status='REVIEW'", (batch_id,))
-            self.db.execute("UPDATE bank_import_batches SET status='POSTED',posted_at=? WHERE id=?",
-                            (now_iso(), batch_id))
-        return self.summary(batch_id)
+                    owner = party["name"]
+            linked_name = canonical["name"] if canonical else ("" if similar or choice == "unlinked" else cp_text)
+            kwargs = {"source": TxnSource.IMPORT, "counterparty": linked_name, "notes": notes}
+            if amount < 0:
+                txn = self.transactions.record_outflow(day, batch["account_id"], abs(amount), int(category_id),
+                                                      allow_system_category=True, **kwargs)
+            elif category.movement == Movement.OUTFLOW:
+                txn = self.transactions.record_refund(day, batch["account_id"], amount, int(category_id), **kwargs)
+            else:
+                txn = self.transactions.record_inflow(day, batch["account_id"], amount, int(category_id),
+                                                     allow_system_category=True, **kwargs)
+            if owner and self.money_from_others:
+                self.money_from_others.sync_transaction(txn.id, txn.date, owner, batch["account_id"], amount, notes)
+            if counterparty_id:
+                self.db.execute("UPDATE transactions SET counterparty_id=? WHERE id=?",
+                                (int(counterparty_id), txn.id))
+        self.db.execute("UPDATE bank_import_rows SET status='POSTED',transaction_id=? WHERE id=?",
+                        (txn.id, row_id))
+        if self.reserves:
+            self.reserves.auto_link_transaction(txn.id)
 
     def summary(self, batch_id: int) -> dict[str, int]:
         counts = {row["status"]: row["n"] for row in self.db.all(

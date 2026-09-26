@@ -27,6 +27,8 @@
 
 {% if net_worth.unvalued %}<div class="flash error" style="margin-top:16px">Some holdings have no price yet and are not counted: {{ net_worth.unvalued|join('; ') }}</div>{% endif %}
 
+<a class="card integrity-summary-link {{ 'integrity-summary-link--issue' if integrity_attention }}" href="/checks?date={{ as_of }}"><span><b>Ledger integrity</b><small>{{ integrity_passed }} checks passed{% if integrity_attention %} · {{ integrity_attention }} need attention{% else %} · reports reconcile{% endif %}</small></span><span>Review checks →</span></a>
+
 <section class="grid g3 overview-tiles">
   <div class="card tile"><div class="label">Money in</div><div class="value pos">{{ cash_flow.inflows|money(True) }}</div><div class="sub">Salary, dividends</div></div>
   <div class="card tile"><div class="label">Money out</div><div class="value neg">{{ cash_flow.outflows|money(True) }}</div><div class="sub">This month</div></div>

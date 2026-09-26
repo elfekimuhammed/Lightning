@@ -11,7 +11,7 @@ from urllib.parse import urlencode
 
 from fastapi import Request
 
-from lightning.accounts.domain import INVESTMENT_ACCOUNT_TYPES
+from lightning.accounts.domain import AccountType, INVESTMENT_ACCOUNT_TYPES
 from lightning.assets.catalog import instruments as catalog_instruments
 from lightning.core.codes import slug
 from lightning.core.dates import fmt_date, parse_date, parse_month, today
@@ -178,10 +178,15 @@ def page(request: Request, account_id: int | None, entry: dict | None = None, ed
                 "amount": str(row.amount),
                 "whom": c.money_from_others.transaction_owner(row.txn_id),
             }
-    holdings, account_value = [], None
+    holdings, account_value, account_owned_value, account_held_value = [], None, None, None
+    account_asset_breakdown = []
     if account:
         holdings = c.investments.portfolio(fmt_date(today()), account.id).open
         account_value = c.reporting.account_value(account.id, today())
+        account_owned_value = c.reporting.owned_account_value(account.id, today())
+        account_held_value = account_value - account_owned_value
+        if account.account_type == AccountType.BROKERAGE:
+            account_asset_breakdown = c.reporting.account_asset_class_breakdown(account.id, today())
     can_invest = bool(account and account.account_type in INVESTMENT_ACCOUNT_TYPES)
     trade_choices = _trade_choices(c, account, holdings)
     investment_entry = investment_entry or {"date": fmt_date(today()), "instrument_key": "", "units": "",
@@ -196,11 +201,9 @@ def page(request: Request, account_id: int | None, entry: dict | None = None, ed
         request, "register.html", status_code=status_code,
         account=account,
         group=c.accounts.reporting_group(account) if account else "",
-        balance=c.reporting.account_balance(account_id, today()) if account else None,
-        owned_cash=(c.reporting.account_balance(account_id, today()) -
-                    c.money_from_others.cash_total_for_account(account_id, fmt_date(today()))) if account else None,
-        account_value=account_value, holdings=holdings,
-        owned_account_value=c.reporting.owned_account_value(account_id, today()) if account else None,
+        account_value=account_value, account_owned_value=account_owned_value,
+        account_held_value=account_held_value, account_asset_breakdown=account_asset_breakdown,
+        holdings=holdings,
         can_invest=can_invest, trade_choices=trade_choices,
         investment_entry=investment_entry, investment_error_field=investment_error_field,
         cash_accounts=[a for a in c.accounts.list(active_only=True) if account and a.id != account.id]
@@ -484,9 +487,6 @@ async def create_investment_entry(request: Request, account_id: int):
                 cash_line = next((line for line in txn.lines if c.assets.get_asset(line.asset_id).is_cash), None)
                 if cash_line:
                     cash_amount = cash_line.quantity
-                    if cash_amount < ZERO:
-                        available = c.money_from_others.cash_balance(owner, cash_line.account_id, txn.date)
-                        cash_amount = -min(abs(cash_amount), max(available, ZERO))
                     c.money_from_others.sync_transaction(txn.id, txn.date, owner, cash_line.account_id,
                                                          cash_amount, values["notes"])
     except LightningError as exc:

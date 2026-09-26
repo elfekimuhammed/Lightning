@@ -179,6 +179,29 @@ async def confirm(request: Request, account_id: int, batch_id: int):
                       categories=_categories(c), counterparties=counterparties,
                       counterparty_search_names=c.counterparties.search_names(),
                       summary=c.bank_imports.summary(batch_id), error=exc.message, status_code=400)
+    if count.get("errors"):
+        batch, review_rows = c.bank_imports.preview(batch_id)
+        for row in review_rows:
+            row_id = row["_import_row_id"]
+            row["Date"] = str(form.get(f"date_{row_id}", row["Date"]))
+            row["Counterparty"] = str(form.get(f"counterparty_{row_id}", row["Counterparty"]))
+            row["Amount"] = str(form.get(f"amount_{row_id}", row["Amount"]))
+            row["Notes"] = str(form.get(f"notes_{row_id}", row["Notes"]))
+            row["_whom"] = str(form.get(f"whom_{row_id}", row.get("_whom", "")))
+            category_choice = str(form.get(f"category_{row_id}", ""))
+            row["_category_id"] = int(category_choice) if category_choice.isdigit() else None
+            row["_counterparty_choice"] = str(form.get(f"counterparty_choice_{row_id}", ""))
+            row["_remember_category"] = form.get(f"remember_category_{row_id}") == "on"
+            row["_skip"] = form.get(f"skip_{row_id}") == "on"
+            row["_row_error"] = count["errors"].get(int(row_id))
+            row["_hide_row"] = not bool(row["_row_error"])
+        counterparties = c.counterparties.list_active()
+        msg = (f"Nothing was imported. {len(count['errors'])} row(s) need attention. "
+               "Only rows with problems are shown; other rows remain in the review and their edits are kept.")
+        return render(request, "bank_import_preview.html", account=c.accounts.get(account_id), batch=batch,
+                      rows=review_rows, categories=_categories(c), counterparties=counterparties,
+                      counterparty_search_names=c.counterparties.search_names(),
+                      summary=c.bank_imports.summary(batch_id), msg=msg)
     feedback = _budget_import_feedback(c, batch_id)
     return redirect(f"/accounts/{account_id}?date={rows[0]['Date'] if rows else ''}",
                     f"Import complete: {count['posted']} posted, {count['skipped']} skipped, {count['duplicates']} duplicates.{feedback}")

@@ -51,6 +51,7 @@ def test_sidebar_separates_gross_account_balances_from_what_you_own(setup, c):
 
     assert all_accounts == Decimal("57200")
     assert owned == Decimal("56200")
+    assert all_accounts - owned == Decimal("1000")
     assert sum((group.value for group in groups), ZERO) == all_accounts
     assert all(group.code != "CUSTODY" for group in groups)
 

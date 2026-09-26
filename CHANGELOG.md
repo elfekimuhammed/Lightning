@@ -37,6 +37,8 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - Consolidated the budget workflow, UI audit/tasks, user-question map, and milestone roadmap into the three canonical docs; added last-updated, document-revision, and app-version metadata to each.
 - Split the UI workflow audit into ordered, bounded implementation tasks for Luna, with acceptance criteria and a separate check for the conflicting asset breakdowns.
 - Budget now starts with a history-based plan preview or one broad limit, then opens on monthly status with attention items, free-cash context, transaction feedback, and optional spending-limit carryover.
+- Added read-only integrity checks for gross versus owned/custody balances, account-level ownership splits, expense and budget totals, reserves, and the net-worth bridge; missing valuations are shown as incomplete.
+- Corrected budget actuals so income categories no longer reduce reported money-out totals.
 - Audited the customer workflow and UI hierarchy across Overview, Birdview, Accounts, Budget, Reserves, and import; documented which controls to remove, relocate, or keep and a phased UI redesign.
 - Defined the budget customer-flow milestone: one-action plan setup, everyday status and transaction feedback, optional spending-limit carryover, and a month review; cash reserves remain separate from budget limits.
 - Documented the user questions Lightning should answer, the follow-up drilldowns for each, and the next Birdview history/performance milestone, including the role and limits of XIRR.

@@ -187,16 +187,39 @@ document.querySelectorAll(".import-category").forEach((category) => {
   const row = category.closest("tr");
   const cell = row?.querySelector(".import-whom-cell");
   const header = document.querySelector(".import-whom-head");
+  const savedCounterparty = row?.querySelector('[name^="counterparty_choice_"]');
+  const whom = cell?.querySelector("input");
   if (!cell) return;
   const sync = () => {
     const visible = /money held for others/i.test(category.selectedOptions[0]?.textContent || "");
     cell.classList.toggle("is-hidden", !visible);
     if (header) header.classList.toggle("is-hidden", !document.querySelector(".import-whom-cell:not(.is-hidden)"));
-    const input = cell.querySelector("input");
-    if (input) input.disabled = !visible;
+    if (whom) {
+      whom.disabled = !visible;
+      if (visible && !whom.value.trim() && savedCounterparty?.value.startsWith("existing:")) {
+        whom.value = savedCounterparty.selectedOptions[0]?.dataset.name || "";
+      }
+    }
   };
   category.addEventListener("change", sync);
+  savedCounterparty?.addEventListener("change", sync);
   sync();
+});
+
+// A transfer suggestion inferred from explicit note text is always opt-in.
+document.querySelectorAll(".import-transfer-suggestion").forEach((button) => {
+  button.addEventListener("click", () => {
+    const row = button.closest("tr");
+    const counterparty = row?.querySelector('[name^="counterparty_"]');
+    if (!row || !counterparty) return;
+    counterparty.value = button.dataset.target || "";
+    const choice = row.querySelector('[name^="counterparty_choice_"]');
+    if (choice) choice.value = "";
+    const whom = row.querySelector('[name^="whom_"]');
+    if (whom && !whom.disabled && button.dataset.owner) whom.value = button.dataset.owner;
+    button.textContent = `Transfer to ${counterparty.value} selected`;
+    button.disabled = true;
+  });
 });
 
 // Register: Escape cancels an edit.
@@ -292,6 +315,8 @@ if (tradeCatalogueNode) {
   const fees = document.getElementById("investment-fees");
   const feesExcluded = document.getElementById("investment-fees-included");
   const feesField = document.getElementById("investment-fees-field");
+  const feesToggleField = document.getElementById("investment-fees-toggle-field");
+  const priceField = document.getElementById("investment-price-field");
   const basis = form.querySelector('[name="price_basis"]');
   const amountLabel = document.getElementById("investment-total-label");
   const positionHint = document.getElementById("trade-position-hint");
@@ -320,10 +345,19 @@ if (tradeCatalogueNode) {
     const fee = number(fees) || 0;
     const included = !feesExcluded?.checked;
     const isDividend = actionKind === "dividend";
+    form.classList.toggle("is-dividend", isDividend);
+    form.querySelectorAll("[data-trade-action]").forEach((button) => {
+      const active = button.dataset.tradeAction === actionKind;
+      button.classList.toggle("is-active", active);
+      button.setAttribute("aria-pressed", active ? "true" : "false");
+    });
     if (unitsField) unitsField.hidden = isDividend;
     units.disabled = isDividend;
+    if (priceField) priceField.hidden = isDividend;
     if (feesField) feesField.hidden = isDividend || !feesExcluded?.checked;
+    if (feesToggleField) feesToggleField.hidden = isDividend;
     if (fees) fees.disabled = isDividend || !feesExcluded?.checked;
+    if (feesExcluded) feesExcluded.disabled = isDividend;
     if (unitPrice) unitPrice.disabled = isDividend;
     if (qty === null) amountLabel.textContent = "Dividend amount received";
     else amountLabel.textContent = qty < 0 ? "Total received" : "Total paid";
@@ -414,6 +448,12 @@ if (tradeCatalogueNode) {
   search.addEventListener("focus", renderResults);
   units.addEventListener("input", sync);
   action?.addEventListener("change", sync);
+  form.querySelectorAll("[data-trade-action]").forEach((button) => {
+    button.addEventListener("click", () => {
+      action.value = button.dataset.tradeAction;
+      action.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+  });
   total.addEventListener("input", () => { basis.value = "total"; sync(); });
   unitPrice.addEventListener("input", () => { basis.value = "unit_price"; sync(); });
   fees?.addEventListener("input", sync);

@@ -70,7 +70,7 @@ def redirect(url: str, msg: str = "") -> RedirectResponse:
 
 
 def create_app(c: Container) -> FastAPI:
-    from .routes import accounts, bank_imports, birdview, budget, categories, counterparties, dashboard, investments, reserves, settings, transactions
+    from .routes import accounts, bank_imports, birdview, budget, categories, counterparties, dashboard, integrity, investments, reserves, settings, transactions
 
     app = FastAPI(title="Lightning", docs_url=None, redoc_url=None, openapi_url=None)
     app.state.container = c
@@ -92,7 +92,7 @@ def create_app(c: Container) -> FastAPI:
         return PlainTextResponse("lightning-ok")
 
     app.mount("/static", StaticFiles(directory=str(UI_DIR / "static")), name="static")
-    for module in (dashboard, accounts, bank_imports, birdview, transactions, budget, investments, reserves, counterparties, categories, settings):
+    for module in (dashboard, accounts, bank_imports, birdview, transactions, budget, investments, reserves, integrity, counterparties, categories, settings):
         app.include_router(module.router)
 
     @app.exception_handler(NotFoundError)

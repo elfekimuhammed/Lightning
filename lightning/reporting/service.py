@@ -360,6 +360,8 @@ class ReportingService:
         start, end = self._day(date_from), self._day(date_to)
         totals: dict[int, Decimal] = {}
         for row in self.q.category_totals(start, end):
+            if row["effect"] != "OUTFLOW":
+                continue
             totals[row["category_id"]] = totals.get(row["category_id"], ZERO) - from_e6(row["total"])
         return totals
 
@@ -518,6 +520,59 @@ class ReportingService:
         """Cash plus holdings at market value."""
         holdings, _ = self.holdings(as_of)
         return sum((h.value or ZERO for h in holdings if h.account.id == account_id), ZERO)
+
+    def account_asset_class_breakdown(self, account_id: int, as_of: date | str) -> list[dict]:
+        """Brokerage value, ownership and weight grouped by level-2 asset class."""
+        account = self.accounts.get(account_id)
+        day = self._day(as_of)
+        groups: dict[int, dict] = {}
+
+        def level_two(class_id: int):
+            asset_class = self.assets.get_class(class_id)
+            while asset_class.parent_id is not None:
+                parent = self.assets.get_class(asset_class.parent_id)
+                if parent.parent_id is None:
+                    break
+                asset_class = parent
+            return asset_class
+
+        def add(class_id: int, value: Decimal, held: Decimal = ZERO):
+            asset_class = level_two(class_id)
+            group = groups.setdefault(asset_class.id, {"code": asset_class.code, "name": asset_class.name,
+                                                        "total": ZERO, "held": ZERO})
+            group["total"] += value
+            group["held"] += held
+
+        holdings, _ = self.holdings(day)
+        for holding in holdings:
+            if holding.account.id == account_id:
+                add(self.assets.get_class_by_code(holding.asset_class_code).id, holding.value or ZERO)
+
+        cash_amount = self.money_from_others.cash_total_for_account(account_id, day)
+        if cash_amount:
+            cash_value = self.valuer.value(self.assets.cash_asset(account.currency), cash_amount, day).value
+            if cash_value is not None:
+                add(account.cash_class_id, ZERO, cash_value)
+        for position in self.money_from_others.investment_positions(day):
+            if position["account_id"] != account_id:
+                continue
+            asset = self.assets.get_asset(position["asset_id"])
+            held_value = self.valuer.value(asset, position["units"], day).value
+            if held_value is not None:
+                add(asset.asset_class_id, ZERO, held_value)
+
+        total = self.account_value(account_id, day)
+        held_total = sum((group["held"] for group in groups.values()), ZERO)
+        yours_total = total - held_total
+        result = []
+        for group in groups.values():
+            yours = group["total"] - group["held"]
+            result.append({"code": group["code"], "name": group["name"], "total": group["total"],
+                           "held": group["held"], "yours": yours,
+                           "weight_total": group["total"] / total * 100 if total else ZERO,
+                           "weight_yours": yours / yours_total * 100 if yours_total else ZERO,
+                           "weight_held": group["held"] / held_total * 100 if held_total else ZERO})
+        return sorted(result, key=lambda group: (-group["total"], group["name"].casefold()))
 
     def first_date(self) -> str | None:
         return self.q.first_entry_date()

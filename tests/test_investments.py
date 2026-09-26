@@ -50,6 +50,31 @@ class TestAssets:
 
 
 class TestTrades:
+    def test_brokerage_breakdown_groups_level_two_classes_by_weight_and_ownership(self, inv):
+        c, accounts, _, stock, gold_fund = inv
+        account_id = accounts["thndr"].id
+        buy_stock = c.investments.buy_total("2026-09-10", account_id, stock.id, "10", "1000")
+        c.money_from_others.sync_investment(buy_stock.id, buy_stock.date, "Dad", account_id, stock.id, D("4"))
+        c.investments.buy_total("2026-09-11", account_id, gold_fund.id, "20", "2000")
+        c.assets.set_price(stock.id, "2026-09-30", "110")
+        c.assets.set_price(gold_fund.id, "2026-09-30", "120")
+        c.money_from_others.record("2026-09-12", "Dad", account_id, D("500"))
+
+        rows = c.reporting.account_asset_class_breakdown(account_id, "2026-09-30")
+        by_name = {row["name"]: row for row in rows}
+
+        assert [row["name"] for row in rows] == ["Brokerage Cash", "Gold Fund", "Stocks"]
+        assert by_name["Brokerage Cash"]["total"] == D("27000")
+        assert by_name["Brokerage Cash"]["held"] == D("500")
+        assert by_name["Stocks"]["total"] == D("1100")
+        assert by_name["Stocks"]["held"] == D("440")
+        assert by_name["Gold Fund"]["total"] == D("2400")
+        assert sum((row["total"] for row in rows), D("0")) == c.reporting.account_value(account_id, "2026-09-30")
+        assert sum((row["held"] for row in rows), D("0")) == D("940")
+        assert sum((row["weight_total"] for row in rows), D("0")) == D("100")
+        assert sum((row["weight_yours"] for row in rows), D("0")) == D("100")
+        assert sum((row["weight_held"] for row in rows), D("0")) == D("100")
+
     def test_fees_can_be_added_outside_the_entered_trade_total(self, inv):
         c, accounts, _, comi, _ = inv
         account = accounts["thndr"].id

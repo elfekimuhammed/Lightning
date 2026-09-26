@@ -53,6 +53,8 @@ Core posting invariants: internal lines net to zero; external inflows/outflows h
 - **Who:** `counterparties` are canonical people, businesses, institutions, and the other side of ledger activity. `whom` is a separate custody-owner attribution for money belonging to someone else.
 - **Balances and analytics:** holdings, cash balances, budget actuals, ownership shares, gains, and net worth are calculated from posted ledger effects plus dated prices/custody metadata.
 
+The read-only Integrity checks compare gross account values with asset-class reports, verify `owned net worth + money held for others = gross account values` overall and per account, compare categorized outflows with reported spending and budget actuals, verify reserves against owned liquid cash, and close the month-to-date net-worth bridge. Missing valuations mark affected comparisons incomplete rather than green. These checks diagnose report/subledger mismatches; they never adjust posted entries.
+
 IDs are internal relational keys. Stable refs identify transactions; readable codes identify master records internally and for imports/search. Ordinary screens show names, not account codes. Source CSV spellings are retained during review; possible Counterparty matches are suggestions, never silent merges. Users can correct fields inline and post rows with safe incomplete metadata.
 
 ## Search and identity contract

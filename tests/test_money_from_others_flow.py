@@ -51,17 +51,84 @@ def test_csv_import_can_tag_held_for_others_with_whom(c):
     c.counterparties.create("Dad")
     batch_id, repeated = c.bank_imports.stage(
         bank.id, "statement.csv",
-        b"Date,Amount,Counterparty,Category,Notes\n2026-09-10,300,Transfer from Dad,,Family money\n",
+        b"Date,Amount,Counterparty,Category,Notes\n2026-09-10,300,Dad,,Family money\n",
     )
     assert not repeated
     _, rows = c.bank_imports.preview(batch_id)
+    assert rows[0]["_whom"] == "Dad"
     result = c.bank_imports.confirm(batch_id, {
         rows[0]["_import_row_id"]: {"date": "2026-09-10", "amount": "300", "counterparty": "Dad",
-                                   "category_id": category.id, "whom": "Dad"}
+                                   "category_id": category.id}
     })
     assert result["posted"] == 1
     assert c.reporting.account_balance(bank.id) == Decimal("1300")
     assert c.reporting.owned_account_value(bank.id, "2026-09-30") == Decimal("1000")
+
+
+def test_import_uses_transfer_note_suggestion_and_posts_custody_rows_chronologically(c, setup):
+    accounts, _ = setup
+    source, target = accounts["cib"], accounts["thndr"]
+    category = c.categories.get_by_code("EXP.PERSONAL.CUSTODY")
+    c.counterparties.create("Dad")
+    # Banks commonly export newest first. Dad's receipt must post before the
+    # later transfer, even though the transfer appears first in the CSV.
+    batch_id, _ = c.bank_imports.stage(
+        source.id, "reverse-order.csv",
+        b"Date,Counterparty,Category,Notes,Amount\n"
+        b"2026-09-15,Dad,Personal > Money Held for Others,Transfer to thundr,-10000\n"
+        b"2026-09-10,Dad,Personal > Money Held for Others,Received from Dad,9900\n",
+    )
+    _, rows = c.bank_imports.preview(batch_id)
+    transfer_row = next(row for row in rows if row["Amount"] == "-10000")
+    assert transfer_row["_transfer_target_suggestion"] == target.name
+    decisions = {}
+    for row in rows:
+        if row is transfer_row:
+            decisions[row["_import_row_id"]] = {
+                "counterparty": target.name, "category_id": category.id, "whom": "Dad"
+            }
+        else:
+            decisions[row["_import_row_id"]] = {
+                "counterparty": "Dad", "category_id": category.id, "whom": "Dad"
+            }
+    result = c.bank_imports.confirm(batch_id, decisions)
+    assert result["posted"] == 2
+    assert c.money_from_others.cash_balance("Dad", source.id, "2026-09-30") == 0
+    # Only the held amount follows Dad to THNDR; the EGP 100 difference is
+    # still part of the account transfer, but belongs to the account owner.
+    assert c.money_from_others.cash_balance("Dad", target.id, "2026-09-30") == Decimal("9900")
+
+
+def test_import_posts_valid_rows_and_keeps_only_failed_rows_in_review(c):
+    bank = c.account_flows.open_account("CIB", "BANK", "2026-09-01", "1000")
+    custody = c.categories.get_by_code("EXP.PERSONAL.CUSTODY")
+    c.counterparties.create("Dad")
+    batch_id, _ = c.bank_imports.stage(
+        bank.id, "partial.csv",
+        b"Date,Amount,Counterparty,Category,Notes\n"
+        b"2026-09-10,-20,Shop,,Groceries\n"
+        b"2026-09-11,-500,Dad,Personal > Money Held for Others,Return\n",
+    )
+    _, rows = c.bank_imports.preview(batch_id)
+    failed = next(row for row in rows if row["Counterparty"] == "Dad")
+    result = c.bank_imports.confirm(batch_id, {
+        row["_import_row_id"]: {"category_id": custody.id, "whom": "Dad"}
+        if row is failed else {}
+        for row in rows
+    })
+    assert result["posted"] == 0
+    assert "more than the money currently held" in result["errors"][failed["_import_row_id"]]
+    assert c.db.scalar("SELECT status FROM bank_import_batches WHERE id=?", (batch_id,)) == "REVIEW"
+    statuses = c.db.all("SELECT status FROM bank_import_rows WHERE batch_id=? ORDER BY row_number", (batch_id,))
+    assert [row["status"] for row in statuses] == ["REVIEW", "REVIEW"]
+    assert c.reporting.account_balance(bank.id) == Decimal("1000")
+
+    retried = c.bank_imports.confirm(batch_id, {
+        row["_import_row_id"]: {"skip": True} if row is failed else {}
+        for row in rows
+    })
+    assert retried["posted"] == 1 and retried["skipped"] == 1 and not retried["errors"]
+    assert c.db.scalar("SELECT status FROM bank_import_batches WHERE id=?", (batch_id,)) == "POSTED"
 
 
 def test_internal_transfer_moves_custody_cash_without_double_counting(c, setup):
@@ -84,3 +151,27 @@ def test_internal_transfer_moves_custody_cash_without_double_counting(c, setup):
     c.money_from_others.sync_investment(purchase.id, purchase.date, dad, target.id, asset.id, Decimal("10"))
     c.money_from_others.sync_transaction(purchase.id, purchase.date, dad, target.id, Decimal("-1000"))
     assert c.reporting.money_from_others_total("2026-09-30") == Decimal("1000")
+
+
+def test_someone_else_cannot_buy_investments_without_cash_in_the_funding_account(c, setup):
+    accounts, _ = setup
+    brokerage = accounts["thndr"]
+    c.transactions.record_transfer("2026-09-05", accounts["cib"].id, brokerage.id, "5000")
+    stock = c.assets.create_investment("Test stock", "STOCK", "TEST")
+    c.money_from_others.record("2026-09-09", "Dad", brokerage.id, Decimal("500"))
+
+    with pytest.raises(ValidationError, match="more than the money currently held for Dad"):
+        with c.db.transaction():
+            trade = c.investments.buy_total("2026-09-10", brokerage.id, stock.id, "10", "1000")
+            c.money_from_others.sync_investment(trade.id, trade.date, "Dad", brokerage.id, stock.id, Decimal("10"))
+            c.money_from_others.sync_transaction(trade.id, trade.date, "Dad", brokerage.id, Decimal("-1000"))
+    assert c.investments.holding(brokerage.id, stock.id) == 0
+    assert c.money_from_others.cash_balance("Dad", brokerage.id, "2026-09-30") == Decimal("500")
+
+    c.money_from_others.record("2026-09-09", "Dad", brokerage.id, Decimal("500"))
+    with c.db.transaction():
+        trade = c.investments.buy_total("2026-09-10", brokerage.id, stock.id, "10", "1000")
+        c.money_from_others.sync_investment(trade.id, trade.date, "Dad", brokerage.id, stock.id, Decimal("10"))
+        c.money_from_others.sync_transaction(trade.id, trade.date, "Dad", brokerage.id, Decimal("-1000"))
+    assert c.investments.holding(brokerage.id, stock.id) == Decimal("10")
+    assert c.money_from_others.cash_balance("Dad", brokerage.id, "2026-09-30") == 0

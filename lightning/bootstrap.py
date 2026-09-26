@@ -21,6 +21,7 @@ from lightning.database.migrator import migrate
 from lightning.database.seed import seed
 from lightning.database.settings import SettingsStore
 from lightning.investments.service import InvestmentService
+from lightning.integrity import IntegrityService
 from lightning.money_from_others import MoneyFromOthersService
 from lightning.reporting.service import ReportingService
 from lightning.reconciliation import ReconciliationService
@@ -53,6 +54,7 @@ class Container:
     budgets: BudgetService
     investments: InvestmentService
     account_flows: AccountWorkflows
+    integrity: IntegrityService
 
     @property
     def base_currency(self) -> str:
@@ -82,6 +84,7 @@ def build(db_path: str | Path | None = None, backup_on_start: bool = False) -> C
     money_from_others = MoneyFromOthersService(db, accounts)
     bank_imports = BankImportService(db, accounts, categories, counterparties, transactions, money_from_others, reserves)
     reporting = ReportingService(db, accounts, assets, categories, base, money_from_others)
+    budgets = BudgetService(db, categories, reporting)
     reevaluations = ReevaluationService(db, accounts, transactions, reporting)
     return Container(
         db=db,
@@ -99,7 +102,8 @@ def build(db_path: str | Path | None = None, backup_on_start: bool = False) -> C
         reserves=reserves,
         reevaluations=reevaluations,
         money_from_others=money_from_others,
-        budgets=BudgetService(db, categories, reporting),
+        budgets=budgets,
         investments=InvestmentService(db, accounts, assets, categories, transactions, reporting, reevaluations),
         account_flows=AccountWorkflows(db, accounts, transactions, reporting),
+        integrity=IntegrityService(reporting, reserves, budgets),
     )
