@@ -26,8 +26,9 @@
       <td><input type="text" name="notes_{{ r._import_row_id }}" value="{{ r.Notes }}" aria-label="Notes"></td>
       <td><input class="num" type="text" name="amount_{{ r._import_row_id }}" value="{{ r.Amount }}" aria-label="Signed amount"></td>
       <td>{% if r._errors %}<span class="neg">Check date/amount before posting</span>{% endif %}
-          {% if r._reference_duplicate %}<span class="neg">Duplicate reference — skipped</span>
-          {% else %}<label><input type="checkbox" name="skip_{{ r._import_row_id }}" {{ 'checked' if r.get('_skip') or r._similarity_warning }}> Skip</label>{% if r._similarity_warning %}<span class="muted small">Possible duplicate; review</span>{% endif %}{% endif %}</td>
+          {% if r._reference_duplicate %}<span class="neg">Reference may be duplicated — review before posting</span>{% endif %}
+          {% if r._similarity_warning %}<span class="muted small">May match an active transaction or the other side of a transfer</span>{% endif %}
+          <label><input type="checkbox" name="skip_{{ r._import_row_id }}" {{ 'checked' if r.get('_skip') or r._similarity_warning or r._reference_duplicate }}> Skip</label></td>
     </tr>
     {% endfor %}
     </tbody></table></div>

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from collections import defaultdict
 
 from fastapi import APIRouter, Request
 
@@ -52,8 +53,20 @@ async def portfolio(request: Request):
     owned_value = p.value - custody_value
     owned_cost = p.cost_basis - custody_cost
     owned_unrealized = owned_value - owned_cost
-    return render(request, "investments/index.html", p=p, by_class=p.allocation("asset_class"),
-                  by_exposure=p.allocation("exposure"), accounts=c.investments.investment_accounts(),
+    class_totals = defaultdict(lambda: {"total": ZERO, "yours": ZERO, "others": ZERO})
+    for holding in p.open:
+        # Show the leaf (L2) of the asset-class hierarchy, not repeated full paths.
+        category = holding.asset_class.split(" › ")[-1]
+        total = holding.value or ZERO
+        yours = own_by_holding.get(f"{holding.account_id}:{holding.asset_id}", total)
+        row = class_totals[category]
+        row["total"] += total
+        row["yours"] += yours
+        row["others"] += total - yours
+    asset_class_rows = sorted(class_totals.items(), key=lambda item: (-item[1]["total"], item[0].casefold()))
+    available_capital = p.cost_basis + p.realized + p.unrealized
+    return render(request, "investments/index.html", p=p, asset_class_rows=asset_class_rows,
+                  available_capital=available_capital, accounts=c.investments.investment_accounts(),
                   has_assets=bool(c.assets.investments(active_only=True)), owned_value=owned_value,
                   owned_cost=owned_cost, owned_unrealized=owned_unrealized, custody_units=custody,
                   own_by_holding=own_by_holding)

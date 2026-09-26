@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Lightning{% endblock %} · Lightning</title>
   <link rel="stylesheet" href="/static/fonts/fonts.css">
-  <link rel="stylesheet" href="/static/style.css?v=8">
+  <link rel="stylesheet" href="/static/style.css?v=10">
 </head>
 <body>
 <div class="shell">
@@ -15,7 +15,7 @@
       Lightning
     </a>
     <nav class="nav">
-      {% for href, label, icon in [("/", "Overview", "overview"), ("/birdview", "Birdview", "overview"), ("/budget", "Budget", "budget"), ("/reserves", "Reserves", "budget"), ("/money-from-others", "People", "people")] %}
+      {% for href, label, icon in [("/", "Overview", "overview"), ("/birdview", "Birdview", "overview"), ("/budget", "Budget", "budget"), ("/reserves", "Reserves", "budget"), ("/money-from-others", "Money from others", "people"), ("/counterparties", "Counterparties", "people")] %}
         <a href="{{ href }}" class="{{ 'active' if (href == '/' and path == '/') or (href != '/' and path.startswith(href)) }}">
           <span class="nav-icon nav-icon--{{ icon }}" aria-hidden="true">
             {% if icon == 'overview' %}<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
@@ -32,6 +32,7 @@
     <div class="side-accounts">
       <a class="side-row side-total {{ 'active' if path.startswith('/transactions') }}" href="/transactions">
         <span>All accounts</span><span class="num">{{ sidebar_total|money }}</span></a>
+      <div class="side-row side-owned-total"><span>What you own</span><span class="num">{{ sidebar_owned_total|money }}</span></div>
       {% for g in sidebar_groups %}
         <div class="side-row side-group"><span>{{ g.label }}</span><span class="num">{{ g.value|money }}</span></div>
         {% for a in g.children %}
@@ -51,6 +52,6 @@
     {% block content %}{% endblock %}
   </main>
 </div>
-<script src="/static/app.js?v=7"></script>
+<script src="/static/app.js?v=10"></script>
 </body>
 </html>

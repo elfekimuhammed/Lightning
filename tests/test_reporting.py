@@ -42,6 +42,19 @@ def test_money_from_others_is_deducted_and_reconciles_bridge(setup, c):
     assert c.reporting.bridge("2026-09-20", "2026-09-30").difference == 0
 
 
+def test_sidebar_separates_gross_account_balances_from_what_you_own(setup, c):
+    accounts, cats = setup
+    c.transactions.record_inflow("2026-09-20", accounts["cib"].id, "1000", cats["EXP.WORK.SALARY"].id)
+    c.money_from_others.record("2026-09-20", "Dad", accounts["cib"].id, Decimal("1000"))
+
+    all_accounts, owned, groups = c.reporting.sidebar("2026-09-30")
+
+    assert all_accounts == Decimal("57200")
+    assert owned == Decimal("56200")
+    assert sum((group.value for group in groups), ZERO) == all_accounts
+    assert all(group.code != "CUSTODY" for group in groups)
+
+
 def test_bridge_example(setup, c):
     accounts, cats = setup
     c.transactions.record_inflow("2026-10-01", accounts["cib"].id, "20000", cats["EXP.WORK.SALARY"].id)

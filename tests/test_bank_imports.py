@@ -41,7 +41,7 @@ def test_suggested_mapping_uses_canonical_headers_and_bank_aliases(c, setup):
     assert bank["amount_model"] == "SEPARATE"
 
 
-def test_import_stages_posts_and_same_file_is_idempotent(c, setup):
+def test_import_stages_posts_and_same_file_can_be_reviewed_again(c, setup):
     accounts, cats = setup
     data = ("\ufeffDate,Counterparty,Amount,Category,Notes,Reference\n"
             "2026-09-20,Talabaat,-125,Food & Groceries,late meal,R-100\n").encode()
@@ -58,7 +58,13 @@ def test_import_stages_posts_and_same_file_is_idempotent(c, setup):
     assert transaction["source"] == TxnSource.IMPORT.value
     assert transaction["counterparty_id"] == c.counterparties.resolve("Talabaat")["id"]
     duplicate_batch, repeated = c.bank_imports.stage(accounts["cib"].id, "september.csv", data)
-    assert duplicate_batch == batch_id and repeated
+    assert duplicate_batch != batch_id and not repeated
+    _, duplicate_rows = c.bank_imports.preview(duplicate_batch)
+    assert duplicate_rows[0]["_reference_duplicate"]
+    duplicate = c.bank_imports.confirm(duplicate_batch, {
+        duplicate_rows[0]["_import_row_id"]: {"skip": True}
+    })
+    assert duplicate["duplicates"] == 1
     assert c.reporting.account_balance(accounts["cib"].id) == 50000 - 125
 
 
@@ -136,8 +142,51 @@ def test_reference_duplicate_is_flagged_and_not_posted(c, setup):
     second_id, _ = c.bank_imports.stage(accounts["cib"].id, "two.csv", second)
     _, rows = c.bank_imports.preview(second_id)
     assert rows[0]["_reference_duplicate"]
-    assert c.bank_imports.confirm(second_id, {rows[0]["_import_row_id"]: {}})["duplicates"] == 1
+    assert c.bank_imports.confirm(second_id, {rows[0]["_import_row_id"]: {"skip": True}})["duplicates"] == 1
     assert c.reporting.account_balance(accounts["cib"].id) == 49995
+
+
+def test_duplicate_can_be_explicitly_approved(c, setup):
+    accounts, _ = setup
+    data = b"Date,Counterparty,Amount,Reference\n2026-09-20,Shop,-5,REF-APPROVE\n"
+    first_id, _ = c.bank_imports.stage(accounts["cib"].id, "first.csv", data)
+    _, first_rows = c.bank_imports.preview(first_id)
+    c.bank_imports.confirm(first_id, {first_rows[0]["_import_row_id"]: {}})
+    second_id, _ = c.bank_imports.stage(accounts["cib"].id, "second.csv", data)
+    _, rows = c.bank_imports.preview(second_id)
+    assert rows[0]["_reference_duplicate"]
+    result = c.bank_imports.confirm(second_id, {rows[0]["_import_row_id"]: {}})
+    assert result["posted"] == 1 and result["duplicates"] == 0
+
+
+def test_deleted_transaction_does_not_trigger_duplicate_and_same_file_can_be_reimported(c, setup):
+    accounts, _ = setup
+    data = b"Date,Counterparty,Amount,Reference\n2026-09-20,Shop,-5,REF-VOID\n"
+    first_id, _ = c.bank_imports.stage(accounts["cib"].id, "same.csv", data)
+    _, first_rows = c.bank_imports.preview(first_id)
+    c.bank_imports.confirm(first_id, {first_rows[0]["_import_row_id"]: {}})
+    txn_id = c.db.scalar("SELECT transaction_id FROM bank_import_rows WHERE batch_id=?", (first_id,))
+    c.transactions.void(txn_id, "test deletion")
+
+    second_id, repeated = c.bank_imports.stage(accounts["cib"].id, "same.csv", data)
+    assert second_id != first_id and not repeated
+    _, second_rows = c.bank_imports.preview(second_id)
+    assert not second_rows[0]["_reference_duplicate"]
+    assert c.bank_imports.confirm(second_id, {second_rows[0]["_import_row_id"]: {}})["posted"] == 1
+
+
+def test_other_account_statement_flags_the_matching_transfer(c):
+    nbe = c.account_flows.open_account("NBE", "BANK", "2026-09-01", "50000")
+    cib = c.account_flows.open_account("CIB", "BANK", "2026-09-01", "50000")
+    first_id, _ = c.bank_imports.stage(
+        nbe.id, "nbe.csv", b"Date,Counterparty,Amount\n2026-08-30,CIB,-100\n")
+    _, first_rows = c.bank_imports.preview(first_id)
+    c.bank_imports.confirm(first_id, {first_rows[0]["_import_row_id"]: {}})
+
+    second_id, _ = c.bank_imports.stage(
+        cib.id, "cib.csv", b"Date,Counterparty,Amount\n2026-08-30,NBE,100\n")
+    _, second_rows = c.bank_imports.preview(second_id)
+    assert second_rows[0]["_similarity_warning"] is True
 
 
 def test_malformed_rows_are_previewed_and_can_be_skipped(c, setup):

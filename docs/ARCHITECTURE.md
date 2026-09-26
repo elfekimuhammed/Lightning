@@ -3,7 +3,7 @@
 ## Document status
 
 - **Last updated:** 2026-09-26
-- **Document revision:** 2026-09-26.2
+- **Document revision:** 2026-09-26.3
 - **App version:** 0.3.0 (`lightning/__init__.py`); packaging metadata in `pyproject.toml` still says 0.1.0.
 - **Role:** module boundaries and financial calculation contracts. Product workflow and roadmap live in [Project Overview](PROJECT_OVERVIEW.md); term definitions live in [Glossary](GLOSSARY.md).
 
@@ -54,6 +54,16 @@ Core posting invariants: internal lines net to zero; external inflows/outflows h
 - **Balances and analytics:** holdings, cash balances, budget actuals, ownership shares, gains, and net worth are calculated from posted ledger effects plus dated prices/custody metadata.
 
 IDs are internal relational keys. Stable refs identify transactions; readable codes identify master records internally and for imports/search. Ordinary screens show names, not account codes. Source CSV spellings are retained during review; possible Counterparty matches are suggestions, never silent merges. Users can correct fields inline and post rows with safe incomplete metadata.
+
+## Search and identity contract
+
+Search is read-only retrieval; choosing a result is an explicit user action. Keep a single application-layer matcher for navigation and named entities, with per-surface scopes. Its result should include stable entity ID, type, display name, contextual subtitle, rank, and match reason. Use canonical Counterparty identities and their confirmed aliases; never store a fuzzy score as an alias or silently merge records. The existing limit of ten confirmed aliases per Counterparty remains.
+
+Candidate order: exact ID/code/ref or name; normalized name; confirmed alias; prefix/word/substring; typo suggestion. Normalize Unicode, case, whitespace, punctuation, and limited script-specific marks for candidate retrieval. Preserve canonical text for display and identity; do not flatten meaningful distinctions or treat cross-script transliteration as a proven identity. [RapidFuzz](https://rapidfuzz.github.io/RapidFuzz/Usage/process.html) provides local similarity ranking and score cutoffs; calibrate cutoffs with real names, especially short ones, rather than using one threshold for every entity. Do not run fuzzy matching on amounts, dates, or short account codes.
+
+Existing transaction SQL `LIKE` remains useful for exact literal filters, but searching by a matched Counterparty alias should use its canonical ID to find linked historical transactions. Similar account, category, and investment matches should resolve to their IDs before filtering ledger rows. When a page offers all entity types, group results by type so an own account cannot be mistaken for an external Counterparty. The transfer destination and custody owner must always be explicitly selected; a fuzzy match never changes posting type or beneficial ownership automatically. CSV suggestions likewise remain unposted until the user confirms.
+
+Start with bounded local candidate lists and a small result limit. If size or measured latency later requires an index, evaluate SQLite FTS5 for candidate retrieval while retaining the same ranking and confirmation contract. Keep all query and identity logic in Python services; the UI only renders candidates and submits selected IDs.
 
 ## Position and reporting contract
 

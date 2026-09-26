@@ -9,6 +9,9 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 ## [Unreleased]
 
 ### Fixed
+- Counterparty management is now linked in the sidebar; canonical names and aliases can be edited, and delete removes unused records or archives records referenced by transaction history.
+- Re-uploading a previously imported CSV creates a new review attempt; duplicate matches are warnings users may skip or explicitly approve, and voided/deleted transactions no longer count as active duplicates.
+- Cross-account transfer matching now compares signs from the imported account's point of view, flagging the opposite statement leg as a likely duplicate.
 - CSV uploads now pause at a prefilled field-mapping step before row review; review submissions scale Starlette's form-field limit to the staged rows, and Post rows is available above and below the list.
 - Revaluation checkpoints are revisited after investment trades are voided, preserving fee details during trade edits, and record-level money values retain cents. Static asset versions are bumped with UI changes.
 - Database migrations `0012_custody_transaction_links.sql`, `0013_reevaluation_ledger.sql`, `0014_preserve_category_codes.sql`, `0015_reevaluation_source_hash.sql`, `0016_reconciliation.sql`, `0017_cash_reserves.sql`, `0018_reserve_spending.sql`, `0019_recurring_reserves.sql`, `0020_reserve_counterparty.sql`, and `0021_budget_carryover.sql` are tracked here.
@@ -26,6 +29,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - Account management is now directly reachable from the sidebar, including inactive accounts.
 
 ### Added
+- Defined a consistent, typo-tolerant search workflow and identity-safety contract across Lightning in the three canonical docs, using an existing open-source matcher for candidate ranking.
 - CSV imports are no longer capped by row count (the 5 MB file-size limit remains).
 - Documented the native Windows readiness milestone and current launcher, time-zone, and data-location gaps in the three canonical docs; Windows support remains unverified.
 - CSV import now supports either one signed amount column or separate inflow/outflow columns; mapped statement rows merge into a single signed Amount before review.

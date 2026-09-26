@@ -18,13 +18,13 @@
     <a class="btn" href="/accounts/new?type=PHYSICAL_ASSET">Add gold at home</a></div></div>
 {% else %}
 <div class="grid g4">
-  <div class="card tile"><div class="label">Total value</div><div class="value">{{ p.value|money }}</div><div class="sub">You own {{ owned_value|money }} · {{ base }}</div></div>
-  <div class="card tile"><div class="label">Invested (cost)</div><div class="value">{{ p.cost_basis|money }}</div><div class="sub">Your part {{ owned_cost|money }}</div></div>
-  <div class="card tile"><div class="label">Unrealized</div><div class="value {{ p.unrealized|tone }}">{{ p.unrealized|money(True) }}</div>
+  <div class="card tile"><div class="label">Injections</div><div class="value">{{ p.cost_basis|money }}</div><div class="sub">Cost basis of current holdings · Yours {{ owned_cost|money }}</div></div>
+  <div class="card tile"><div class="label">Realized gains</div><div class="value {{ p.realized|tone }}">{{ p.realized|money(True) }}</div><div class="sub">Gains/losses from assets sold</div></div>
+  <div class="card tile"><div class="label">Unrealized gains</div><div class="value {{ p.unrealized|tone }}">{{ p.unrealized|money(True) }}</div>
     <div class="sub">Your part {{ owned_unrealized|money(True) }}{% if owned_cost %} · {{ (owned_unrealized / owned_cost * 100)|round(1) }}% on cost{% endif %}</div></div>
-  <div class="card tile"><div class="label">Total return</div><div class="value {{ p.total_return|tone }}">{{ p.total_return|money(True) }}</div>
-    <div class="sub">realized {{ p.realized|money(True) }} · dividends {{ p.dividends|money }}</div>
-    <div class="sub">XIRR, annualized (all holdings): {{ (p.xirr * 100)|round(2) ~ '%' if p.xirr is not none else '—' }}</div></div>
+  <div class="card tile"><div class="label">Available capital</div><div class="value">{{ available_capital|money }}</div>
+    <div class="sub">Injections + realized gains + unrealized gains</div>
+    <div class="sub">Dividends tracked separately: {{ p.dividends|money }} · XIRR {{ (p.xirr * 100)|round(2) ~ '%' if p.xirr is not none else '—' }}</div></div>
 </div>
 
 <div class="card wide" style="margin-top:16px">
@@ -66,19 +66,16 @@
 </div>
 
 {% if p.open %}
-<div class="grid g2" style="margin-top:16px">
-  {% for title, rows in [("By asset class", by_class), ("By exposure", by_exposure)] %}
-  <div class="card">
-    <h2>{{ title }}</h2>
-    <table>
-      {% for name, value, share in rows %}
-      <tr><td class="small">{{ name }}<div class="bartrack"><div class="bar" style="width:{{ share }}%"></div></div></td>
-          <td class="num small">{{ value|money }}</td><td class="num small">{{ share|round(1) }}%</td></tr>
-      {% endfor %}
-    </table>
-    {% if title == "By exposure" %}<p class="muted small">Exposure looks through the wrapper: a gold fund counts as gold.</p>{% endif %}
-  </div>
-  {% endfor %}
+<div class="card" style="margin-top:16px">
+  <h2>Investment value by asset class</h2>
+  <table>
+    <thead><tr><th>L2 asset class</th><th class="num">Total</th><th class="num">Yours</th><th class="num">Others</th></tr></thead>
+    <tbody>
+    {% for name, row in asset_class_rows %}
+      <tr><td>{{ name }}</td><td class="num">{{ row.total|money }}</td><td class="num">{{ row.yours|money }}</td><td class="num">{{ row.others|money }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
 </div>
 {% endif %}
 

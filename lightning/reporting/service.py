@@ -491,9 +491,8 @@ class ReportingService:
                 self.accounts.get(r["account_id"]).label, r["category_id"], r["other_account_id"], other_label))
         return rows
 
-    def sidebar(self, as_of: date | str) -> tuple[Decimal, list[Group]]:
-        """All-accounts total and active accounts grouped by kind (Cash & bank, Deposits, Investments, Other).
-        An account's value includes its holdings at market value."""
+    def sidebar(self, as_of: date | str) -> tuple[Decimal, Decimal, list[Group]]:
+        """Gross active-account balances, owned net worth, and accounts grouped by kind."""
         nw = self.net_worth(as_of)
         groups: dict[str, Group] = {}
         for account, value in nw.by_account:
@@ -503,12 +502,9 @@ class ReportingService:
             group = groups.setdefault(name, Group(name, name, ZERO))
             group.value += value
             group.children.append(Group(account.code, account.name, value, id=account.id))
-        custody = self.money_from_others_total(as_of)
-        if custody:
-            groups["CUSTODY"] = Group("CUSTODY", "Money from others", -custody)
         order = list(dict.fromkeys(SIDEBAR_GROUPS.values()))
-        order.append("CUSTODY")
-        return nw.total, sorted(groups.values(), key=lambda g: order.index(g.code))
+        gross_total = sum((value for account, value in nw.by_account if account.active), ZERO)
+        return gross_total, nw.total, sorted(groups.values(), key=lambda g: order.index(g.code))
 
     def investment_lines(self, as_of: date | str, account_id: int | None = None) -> list[dict]:
         """Posted lines of investments (and dividends), oldest first — the input for positions."""

@@ -210,17 +210,29 @@ document.querySelectorAll(".money-input").forEach((input) => {
   input.addEventListener("input", () => {
     const before = input.value;
     const caret = input.selectionStart ?? before.length;
-    const digitsBeforeCaret = before.slice(0, caret).replace(/[^0-9]/g, "").length;
-    const raw = before.replace(/,/g, "").replace(/[^0-9.\-]/g, "");
+    const clean = (value) => {
+      const filtered = value.replace(/,/g, "").replace(/[^0-9.\-]/g, "");
+      const sign = filtered.startsWith("-") ? "-" : "";
+      const unsigned = filtered.replace(/-/g, "");
+      const decimalAt = unsigned.indexOf(".");
+      const normalized = decimalAt < 0
+        ? unsigned
+        : unsigned.slice(0, decimalAt) + "." + unsigned.slice(decimalAt + 1).replace(/\./g, "");
+      return sign + normalized;
+    };
+    const raw = clean(before);
+    const charactersBeforeCaret = clean(before.slice(0, caret)).length;
     const sign = raw.startsWith("-") ? "-" : "";
     const unsigned = raw.replace(/-/g, "");
-    const [whole = "", ...fraction] = unsigned.split(".");
+    const decimalAt = unsigned.indexOf(".");
+    const whole = decimalAt < 0 ? unsigned : unsigned.slice(0, decimalAt);
+    const fraction = decimalAt < 0 ? null : unsigned.slice(decimalAt + 1);
     const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-    input.value = sign + grouped + (fraction.length ? "." + fraction.join("") : (unsigned.endsWith(".") ? "." : ""));
+    input.value = sign + grouped + (fraction !== null ? "." + fraction : "");
     if (document.activeElement === input) {
-      let seen = 0, next = (sign && caret > 0) ? 1 : 0;
-      while (next < input.value.length && seen < digitsBeforeCaret) {
-        if (/\d/.test(input.value[next])) seen++;
+      let seen = 0, next = 0;
+      while (next < input.value.length && seen < charactersBeforeCaret) {
+        if (input.value[next] !== ",") seen++;
         next++;
       }
       input.setSelectionRange(next, next);
@@ -286,6 +298,7 @@ if (tradeCatalogueNode) {
   const entryHint = document.getElementById("investment-entry-hint");
   const addButton = form.querySelector(".investment-entry-submit");
   let selected = instruments.find((item) => item.key === selectedKey.value) || null;
+  let activeResult = 0;
   const number = (input) => {
     const value = input.value.replace(/,/g, "").trim();
     if (!value || value === "-" || value === "+") return null;
@@ -345,28 +358,55 @@ if (tradeCatalogueNode) {
     if (!query) { results.hidden = true; search.setAttribute("aria-expanded", "false"); return; }
     const matches = instruments.filter((item) => `${item.name} ${item.ticker} ${item.kind}`
       .toLocaleLowerCase().includes(query)).slice(0, 12);
+    activeResult = 0;
     if (!matches.length) {
       const empty = document.createElement("div");
       empty.className = "instrument-result";
       empty.textContent = "No match in your list. Choose a listed stock or fund.";
       results.append(empty);
     }
-    matches.forEach((item) => {
+    matches.forEach((item, index) => {
       const button = document.createElement("button");
       button.type = "button"; button.className = "instrument-result"; button.setAttribute("role", "option");
+      button.setAttribute("aria-selected", index === activeResult ? "true" : "false");
+      if (index === activeResult) button.classList.add("is-active");
       const name = document.createElement("span"); name.textContent = item.name;
       const ticker = document.createElement("small"); ticker.textContent = `${item.kind} · ${item.ticker}`;
       button.append(name, ticker);
-      button.addEventListener("click", () => {
+      const choose = () => {
         selected = item; selectedKey.value = item.key;
         selectedLabel.value = `${item.name} · ${item.ticker}`;
         search.value = selectedLabel.value;
         results.hidden = true; search.setAttribute("aria-expanded", "false"); sync();
-      });
+      };
+      button.addEventListener("click", choose);
+      button.dataset.instrumentIndex = String(index);
       results.append(button);
     });
     results.hidden = false; search.setAttribute("aria-expanded", "true");
   };
+  search.addEventListener("keydown", (event) => {
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      if (results.hidden) renderResults();
+      const options = [...results.querySelectorAll('[role="option"]')];
+      if (!options.length) return;
+      event.preventDefault();
+      activeResult = (activeResult + (event.key === "ArrowDown" ? 1 : -1) + options.length) % options.length;
+      options.forEach((option, index) => {
+        option.classList.toggle("is-active", index === activeResult);
+        option.setAttribute("aria-selected", index === activeResult ? "true" : "false");
+      });
+    } else if (event.key === "Enter") {
+      // Enter in the typeahead chooses a result; it must not submit the trade
+      // form with an uncommitted, display-only instrument name.
+      event.preventDefault();
+      const options = [...results.querySelectorAll('[role="option"]')];
+      if (options.length) options[Math.min(activeResult, options.length - 1)].click();
+      else renderResults();
+    } else if (event.key === "Escape" && !results.hidden) {
+      event.preventDefault(); results.hidden = true; search.setAttribute("aria-expanded", "false");
+    }
+  });
   search.addEventListener("input", () => {
     selected = null; selectedKey.value = ""; selectedLabel.value = "";
     positionHint.textContent = "Choose an instrument from the results."; renderResults(); sync();
@@ -462,8 +502,13 @@ if (categoryCatalogueNode) {
           option.textContent = item.name;
           option.addEventListener("mousedown", (event) => event.preventDefault());
           option.addEventListener("click", () => {
-            input.value = item.label;
+            input.value = item.name;
             input.dispatchEvent(new Event("input", { bubbles: true }));
+            input.dataset.autofilled = "false";
+            const choice = document.createElement("input");
+            choice.type = "hidden"; choice.name = "category_choice"; choice.value = String(item.id);
+            choice.setAttribute("form", formId);
+            input.closest(".category-picker").append(choice);
             closeCategoryResults(input, results);
           });
           results.append(option);
@@ -484,6 +529,7 @@ if (categoryCatalogueNode) {
     };
     input.addEventListener("input", () => {
       document.querySelector(`input[type="hidden"][form="${formId}"][name="category_choice"]`)?.remove();
+      input.dataset.autofilled = "false";
       render();
     });
     input.addEventListener("focus", render);
@@ -507,6 +553,7 @@ if (categoryCatalogueNode) {
       } else if (event.key === "Enter" && !results.hidden && options.length) {
         event.preventDefault();
         options[activeIndex < 0 ? 0 : activeIndex].click();
+        document.querySelector(`[name="notes"][form="${formId}"]`)?.focus();
       }
     });
     input.addEventListener("blur", () => setTimeout(() => closeCategoryResults(input, results), 120));
@@ -536,10 +583,15 @@ if (ledger) {
         if (isTransfer) category.value = "";
         else if (!category.value) {
           const knownName = parties.find((name) => name.toLocaleLowerCase() === counterparty.value.trim().toLocaleLowerCase());
-          if (knownName && known[knownName]) {
-            category.value = known[knownName];
+          const savedCategory = knownName ? known[knownName] : null;
+          if (savedCategory?.id && savedCategory?.name) {
+            category.value = savedCategory.name;
             category.dispatchEvent(new Event("input", { bubbles: true }));
             category.dataset.autofilled = "true";
+            const choice = document.createElement("input");
+            choice.type = "hidden"; choice.name = "category_choice"; choice.value = String(savedCategory.id);
+            choice.setAttribute("form", form);
+            category.closest(".category-picker").append(choice);
           }
         }
       }
@@ -585,7 +637,17 @@ if (ledger) {
       delete category.dataset.autofilled;
     });
     counterparty.addEventListener("focus", renderResults);
-    counterparty.addEventListener("keydown", (event) => { if (event.key === "Escape") closeResults(); });
+    counterparty.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") closeResults();
+      else if (event.key === "Enter" && !results.hidden) {
+        const first = results.querySelector(".counterparty-option");
+        if (first) {
+          event.preventDefault();
+          first.click();
+          category?.focus();
+        }
+      }
+    });
     sync();
   });
   document.addEventListener("click", (event) => {

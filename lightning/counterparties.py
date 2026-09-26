@@ -57,6 +57,53 @@ class CounterpartyService:
         """Counterparties available in picker controls, in display order."""
         return self.db.all("SELECT id,name,default_category_id FROM counterparties WHERE active=1 ORDER BY name COLLATE NOCASE")
 
+    def list_all(self):
+        """All saved Counterparties for management, including archived entries."""
+        return self.db.all("SELECT id,name,default_category_id,active FROM counterparties ORDER BY name COLLATE NOCASE")
+
+    def rename(self, counterparty_id: int, name: str, default_category_id: int | None = None) -> None:
+        name = " ".join((name or "").split())
+        key = normalize(name)
+        if not key:
+            raise ValidationError("Enter a counterparty name.", "counterparty")
+        current = self.get(counterparty_id)
+        if not current:
+            raise NotFoundError("Counterparty not found.")
+        collision = self.resolve(name)
+        if collision and int(collision["id"]) != counterparty_id:
+            raise ConflictError(f"{name} already matches another saved counterparty.", "counterparty")
+        old_name = current["name"]
+        with self.db.transaction():
+            # Once an alias becomes the canonical name, keep just the canonical entry.
+            self.db.execute("DELETE FROM counterparty_aliases WHERE counterparty_id=? AND normalized_alias=?",
+                            (counterparty_id, key))
+            self.db.execute("UPDATE counterparties SET name=?,normalized_name=?,default_category_id=?,updated_at=? WHERE id=?",
+                            (name, key, default_category_id, now_iso(), counterparty_id))
+            self.db.execute("UPDATE transactions SET counterparty=? WHERE counterparty_id=?",
+                            (name, counterparty_id))
+            self._link_historical(counterparty_id, name)
+            if normalize(old_name) != key:
+                self.add_alias(counterparty_id, old_name)
+
+    def set_active(self, counterparty_id: int, active: bool) -> None:
+        cur = self.db.execute("UPDATE counterparties SET active=?,updated_at=? WHERE id=?",
+                              (int(active), now_iso(), counterparty_id))
+        if cur.rowcount != 1:
+            raise NotFoundError("Counterparty not found.")
+
+    def delete_or_archive(self, counterparty_id: int) -> bool:
+        """Delete an unused record; archive one referenced by transaction history. Returns archived."""
+        if not self.get(counterparty_id):
+            raise NotFoundError("Counterparty not found.")
+        used = self.db.scalar("SELECT 1 FROM transactions WHERE counterparty_id=? LIMIT 1", (counterparty_id,))
+        if used:
+            self.set_active(counterparty_id, False)
+            return True
+        with self.db.transaction():
+            self.db.execute("DELETE FROM counterparty_aliases WHERE counterparty_id=?", (counterparty_id,))
+            self.db.execute("DELETE FROM counterparties WHERE id=?", (counterparty_id,))
+        return False
+
     def suggestions(self, value: str, limit: int = 3) -> list[tuple[str, float]]:
         """Rank likely matches for a human to confirm; suggestions are never auto-merged."""
         key = normalize(value)

@@ -46,7 +46,8 @@ def _lists(request: Request) -> dict:
         # the default category is optional and only affects autofill.
         counterparty_categories[name] = None
         if party and party["default_category_id"]:
-            counterparty_categories[name] = c.categories.display_name(party["default_category_id"])
+            category = c.categories.get(party["default_category_id"])
+            counterparty_categories[name] = {"id": category.id, "name": category.name}
     return {
         "category_choices": categories,
         "account_options": [a.name for a in accounts],
@@ -172,7 +173,8 @@ def page(request: Request, account_id: int | None, entry: dict | None = None, ed
             edit_values = {
                 "date": row.date, "account_id": str(row.account_id), "notes": row.notes,
                 "counterparty": row.other_account_label if row.type == DocType.TRF else (row.counterparty or ""),
-                "category": row.category_label if row.category_id else "",
+                "category": c.categories.get(row.category_id).name if row.category_id else "",
+                "category_choice": str(row.category_id) if row.category_id else "",
                 "amount": str(row.amount),
                 "whom": c.money_from_others.transaction_owner(row.txn_id),
             }

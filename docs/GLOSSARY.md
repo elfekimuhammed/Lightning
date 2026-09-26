@@ -3,7 +3,7 @@
 ## Document status
 
 - **Last updated:** 2026-09-26
-- **Document revision:** 2026-09-26.1
+- **Document revision:** 2026-09-26.2
 - **App version:** 0.3.0 (`lightning/__init__.py`); `pyproject.toml` packaging metadata remains at 0.1.0.
 - **Role:** canonical product and technical terms. Current workflow and roadmap live in [Project Overview](PROJECT_OVERVIEW.md); calculation contracts live in [Architecture](ARCHITECTURE.md).
 
@@ -22,6 +22,8 @@ This is Lightning's canonical language for product, database, code, and UI. Use 
 | **Activity** | The broad reason/kind of a transaction, represented by its category family. It is independent of whether money came in or went out. | Personal, Work, Investment |
 | **Category** | A label for the activity behind a transaction. Categories do not describe the counterparty, account, or owned asset. | Personal → Food & Groceries |
 | **Counterparty** | The canonical person, business, institution, or own account on the other side of a transaction. A saved canonical name can have confirmed aliases; close matches are suggestions and require an explicit user decision. | Talabat, employer, CIB |
+| **Confirmed alias** | User-approved alternative spelling attached to one canonical Counterparty; up to ten per Counterparty. A typo suggestion is not an alias until confirmed. | “Talbat” saved for Talabat |
+| **Search suggestion** | A ranked possible match shown to help recover from spelling mistakes; it never silently chooses an identity, transfer, category, or custody owner. | “Did you mean Talabat?” |
 | **Whom / owner** | Who actually owns funds/assets held in the user's account. Separate from Counterparty: one identifies transaction context, the other identifies beneficial owner/custody. | Dad owns part of THNDR cash |
 | **Transaction** | A dated user or system event shown in the main ledger. | 450 EGP Talabat payment |
 | **Main ledger** | The single activity ledger from which account registers, all-transaction view, budget actuals, and reporting are derived. | Register filtered to CIB |

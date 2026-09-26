@@ -13,7 +13,7 @@ router = APIRouter(prefix="/counterparties")
 @router.get("")
 async def list_counterparties(request: Request):
     c = container(request)
-    parties = c.counterparties.list_active()
+    parties = c.counterparties.list_all()
     categories = c.categories.pickable()
     return render(request, "counterparties.html", parties=parties, categories=categories,
                   category_labels={item.id: c.categories.display_name(item.id) for item in categories},
@@ -32,13 +32,26 @@ async def create_counterparty(request: Request):
     alias_id = str(form.get("alias_id", "")).strip()
     alias = str(form.get("alias", "")).strip()
     categories = c.categories.pickable()
-    parties = c.counterparties.list_active()
+    parties = c.counterparties.list_all()
     category_labels = {item.id: c.categories.display_name(item.id) for item in categories}
     try:
         category_id = int(raw_category_id) if raw_category_id else None
         if category_id is not None and category_id not in {item.id for item in categories}:
             raise ValidationError("Choose one of the suggested categories.")
-        if action == "add_alias":
+        if action == "rename":
+            selected = c.counterparties.get(int(counterparty_id))
+            c.counterparties.rename(int(counterparty_id), name, category_id)
+            return redirect("/counterparties", f"Updated {selected['name']}.")
+        elif action == "activate":
+            c.counterparties.set_active(int(counterparty_id), True)
+            return redirect("/counterparties", "Counterparty activated.")
+        elif action == "delete":
+            selected = c.counterparties.get(int(counterparty_id))
+            archived = c.counterparties.delete_or_archive(int(counterparty_id))
+            message = (f"{selected['name']} is in transaction history, so it was archived."
+                       if archived else f"Deleted {selected['name']} and its aliases.")
+            return redirect("/counterparties", message)
+        elif action == "add_alias":
             selected = c.counterparties.get(int(counterparty_id))
             if not selected:
                 raise ValidationError("Choose a saved counterparty.")
@@ -84,6 +97,7 @@ async def create_counterparty(request: Request):
                           alias_limit=MAX_ALIASES_PER_COUNTERPARTY,
                           exact_existing=bool(resolved), review_required=True)
     except (ValueError, LightningError) as exc:
+        parties = c.counterparties.list_all()
         return render(request, "counterparties.html", status_code=400, parties=parties, categories=categories,
                       category_labels=category_labels,
                       aliases_by_id={party["id"]: c.counterparties.aliases_for(party["id"]) for party in parties},

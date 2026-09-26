@@ -3,7 +3,7 @@
 ## Document status
 
 - **Last updated:** 2026-09-26
-- **Document revision:** 2026-09-26.2
+- **Document revision:** 2026-09-26.3
 - **App version:** 0.3.0 (`lightning/__init__.py`); `pyproject.toml` still reports 0.1.0 and needs correction at the next release/package update.
 - **Role:** product purpose, current workflows, user questions, and delivery roadmap. [Architecture](ARCHITECTURE.md) owns calculation contracts; [Glossary](GLOSSARY.md) owns terminology.
 
@@ -129,6 +129,7 @@ The first-plan, monthly status, feedback, optional carryover, and basic past-mon
 | M3.1 Instrument catalogue | Partial | Local catalogue search/prefill exists; coverage and identifier quality need evaluation. |
 | UI workflow overhaul | Planned | Follow the bounded tasks below; avoid a single broad rewrite. |
 | Windows readiness | Planned, launcher exists | Verify native Windows setup and all core workflows; harden Python selection, dependency installation, time-zone data, and failure messages. |
+| Search consistency | Planned | One typo-tolerant ranking contract across navigation, accounts, people, counterparties, categories, investments, reserves, and transactions. |
 | M3.2 Birdview history/performance | Planned after base UI | Historical owned position, selected-period change bridge, valuation quality, owned-only XIRR. |
 | M4 Market data and FX | Planned | Wider price coverage, currency conversion, multi-currency accounts, FX revaluation. |
 | M6 Deposits and gold details | Planned | CD lifecycle, local gold costs and buyback, corporate actions. |
@@ -154,6 +155,27 @@ Each task should leave the app usable, include a concise before/after workflow d
 | B.1 follow-up | Finish focused Budget adjustment and review its first-use flow. | One category can be changed without opening the full grid; parent/group effect is clear. |
 
 After the base is coherent, prioritize import matching and a review inbox; then build the dated cash outlook. Do not turn current free cash into a future-balance prediction.
+
+## Search experience milestone
+
+The user may type an imperfect name, such as “overiveiw” for Overview, a mistyped account, or a merchant spelling absent from its saved aliases. Search should help them recover without changing financial identity or transaction meaning on their behalf.
+
+**Current state:** Counterparties have up to ten confirmed aliases and close-name suggestions; categories also suggest similar names. Account lookup requires an exact name/label/code. Register and investment pickers mostly filter by substring, while transaction history uses literal word matches. People/custody and Counterparty management have no consistent page search. There is no site-wide search for destinations and records.
+
+**Intended experience:** A site-wide search entry (keyboard shortcut and visible affordance) finds pages, accounts, people who own tracked money, counterparties, categories, holdings/instruments, reserves, and transactions. Results are grouped by type and labeled with enough context to choose safely: e.g. “CIB · bank account” versus “CIB · Counterparty,” or “Dad · money held for others.” Each existing picker uses the same ranking and typo fallback, scoped to valid choices for that task. A zero-result state offers close matches and a clear create action only where creation makes sense.
+
+Rank exact name/code/ref first, then normalized spelling, confirmed alias, prefix/word/substring, and finally close spelling. Show why a close result appeared (“similar spelling” or “saved alias”). A mistaken spelling must **never** silently create or merge a Counterparty, choose a custody owner, turn an entry into a transfer, or post an imported transaction. Short account codes, amounts, dates, and transaction refs need exact or structured matching rather than fuzzy guesses.
+
+Use the open-source [RapidFuzz](https://github.com/rapidfuzz/RapidFuzz) library for typo ranking rather than building a new string-matching algorithm. Keep the existing canonical-name/alias rules and SQLite search for exact filters; a shared application service composes them. Check Windows installation as part of the Windows milestone because RapidFuzz has a native component. If the corpus outgrows local candidate ranking, consider SQLite FTS5 as a later retrieval optimization, not a first feature.
+
+### Search tasks for Luna
+
+1. **Search contract and examples:** capture common misspellings, Arabic/English variants, aliases, duplicate names across entity types, short codes, and ambiguous account-versus-Counterparty cases. Agree on ranking and visible labels before changing pickers.
+2. **Shared matching service:** normalize harmless case, spacing, punctuation, and script-specific marks; rank exact, alias, prefix, token, substring, and RapidFuzz suggestions. Return entity IDs, type, label, context, and match reason. Do not auto-select from fuzzy matches.
+3. **Scoped pickers:** apply the shared service to account transfer selection, Counterparty and custody-owner selection, categories, and investment instruments. A chosen option carries its ID; typed text alone is not an identity decision when ambiguous.
+4. **Search pages and global entry:** add a visible global search for destinations/records and compact search controls for Accounts, People, Counterparties, Reserves, and investment lists. Group and label results; support keyboard and screen-reader selection.
+5. **Transaction history and import:** preserve exact date, amount, and ref filters; let name queries find transactions through matched Counterparty aliases, account IDs, and category IDs. Reuse suggestions in CSV review, requiring confirmation before linking. Keep import matching of duplicate transactions a separate later workflow.
+6. **Verification:** test zero results, near ties, 1–2 character queries, Arabic and English text, large histories, archived records, custody exclusions, and transfer safety. Measure response time on a realistic local database. Windows installation is a required release check for the new dependency.
 
 ## Windows readiness milestone
 

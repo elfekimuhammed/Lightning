@@ -45,7 +45,7 @@ def render(request: Request, name: str, status_code: int = 200, **context) -> HT
     context.setdefault("msg", request.query_params.get("msg", ""))
     context.setdefault("error", "")
     context.setdefault("error_field", "")
-    total, groups = c.reporting.sidebar(today())
+    total, owned_total, groups = c.reporting.sidebar(today())
     return templates.TemplateResponse(
         request,
         name,
@@ -55,6 +55,7 @@ def render(request: Request, name: str, status_code: int = 200, **context) -> HT
             "this_month": month_of(today()),
             "path": request.url.path,
             "sidebar_total": total,
+            "sidebar_owned_total": owned_total,
             "sidebar_groups": groups,
             **context,
         },

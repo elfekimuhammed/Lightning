@@ -128,14 +128,22 @@ class BankImportService:
     def stage(self, account_id: int, filename: str, data: bytes, mapping: dict[str, str] | None = None, invert_amount: bool = False):
         self.accounts.require_usable(account_id)
         digest = hashlib.sha256(data).hexdigest()
-        old = self.db.one("SELECT id,status FROM bank_import_batches WHERE account_id=? AND file_hash=?",
-                          (account_id, digest))
-        if old:
-            if old["status"] == "POSTED":
-                return int(old["id"]), True
-            with self.db.transaction():
-                self.db.execute("DELETE FROM bank_import_rows WHERE batch_id=?", (old["id"],))
-                self.db.execute("DELETE FROM bank_import_batches WHERE id=?", (old["id"],))
+        attempts = self.db.all("SELECT id,status,file_hash FROM bank_import_batches WHERE account_id=? "
+                               "AND (file_hash=? OR file_hash LIKE ?) ORDER BY id DESC",
+                               (account_id, digest, digest + "#%"))
+        file_hash = digest
+        if attempts:
+            old = attempts[0]
+            if old["status"] == "REVIEW":
+                file_hash = old["file_hash"]
+            else:
+                # Preserve every posted import attempt, but let an intentional
+                # re-upload go through review again (including duplicate flags).
+                file_hash = f"{digest}#{len(attempts) + 1}"
+            if old["status"] == "REVIEW":
+                with self.db.transaction():
+                    self.db.execute("DELETE FROM bank_import_rows WHERE batch_id=?", (old["id"],))
+                    self.db.execute("DELETE FROM bank_import_batches WHERE id=?", (old["id"],))
         headers, raw_rows = decode_csv(data)
         header_signature = hashlib.sha256(json.dumps(headers, ensure_ascii=False).encode()).hexdigest()
         saved = self.db.one("SELECT mapping_json,invert_amount FROM bank_import_column_maps WHERE account_id=? AND header_signature=?",
@@ -188,7 +196,7 @@ class BankImportService:
                                  int(invert_amount), now, now))
             cur = self.db.execute(
                 "INSERT INTO bank_import_batches(account_id,file_hash,file_name,status,created_at) "
-                "VALUES (?,?,?,'REVIEW',?)", (account_id, digest, filename[:255], now)
+                "VALUES (?,?,?,'REVIEW',?)", (account_id, file_hash, filename[:255], now)
             )
             batch_id = int(cur.lastrowid)
             for raw, parsed in stored:
@@ -212,7 +220,8 @@ class BankImportService:
             parsed = record["parsed"]
             ref_duplicate = bool(row["bank_reference"] and (row["bank_reference"] in seen_refs or self.db.scalar(
                 "SELECT 1 FROM bank_import_rows r JOIN bank_import_batches b ON b.id=r.batch_id "
-                "WHERE b.account_id=? AND r.bank_reference=? AND b.id<>? AND r.status IN ('POSTED','DUPLICATE') LIMIT 1",
+                "JOIN transactions t ON t.id=r.transaction_id AND t.status='POSTED' "
+                "WHERE b.account_id=? AND r.bank_reference=? AND b.id<>? AND r.status='POSTED' LIMIT 1",
                 (batch["account_id"], row["bank_reference"], batch_id))))
             if row["bank_reference"]:
                 seen_refs.add(row["bank_reference"])
@@ -253,7 +262,10 @@ class BankImportService:
                 "JOIN ledger_entries other ON other.transaction_id=t.id AND other.account_id=? "
                 "WHERE t.status='POSTED' AND t.type='TRF' AND t.date=? "
                 "AND mine.amount_e6=? AND other.amount_e6=? LIMIT 1",
-                (account_id, target["id"], parsed["Date"], int(-amount * 1_000_000), int(amount * 1_000_000)),
+                # The imported row is from this account's point of view. If it
+                # is the other side of an existing transfer, its signed amount
+                # must match this account's existing ledger line exactly.
+                (account_id, target["id"], parsed["Date"], int(amount * 1_000_000), int(-amount * 1_000_000)),
             )
             if transfer:
                 return True
@@ -279,11 +291,9 @@ class BankImportService:
                 row = row_by_id.get(int(row_id))
                 if not row:
                     continue
-                if row["_reference_duplicate"]:
-                    self.db.execute("UPDATE bank_import_rows SET status='DUPLICATE' WHERE id=?", (row_id,))
-                    continue
                 if decision.get("skip"):
-                    self.db.execute("UPDATE bank_import_rows SET status='SKIPPED' WHERE id=?", (row_id,))
+                    skip_status = "DUPLICATE" if row["_reference_duplicate"] or row["_similarity_warning"] else "SKIPPED"
+                    self.db.execute("UPDATE bank_import_rows SET status=? WHERE id=?", (skip_status, row_id))
                     continue
                 if self.db.scalar("SELECT status FROM bank_import_rows WHERE id=?", (row_id,)) != "REVIEW":
                     continue
@@ -323,14 +333,6 @@ class BankImportService:
                     category_id = self.categories.repo.get_by_code(fallback_code).id
                 if decision.get("remember_category") and counterparty_id and category_id:
                     self.counterparties.set_default_category(int(counterparty_id), int(category_id))
-                if row["Reference"]:
-                    duplicate_ref = self.db.scalar(
-                        "SELECT 1 FROM bank_import_rows r JOIN bank_import_batches b ON b.id=r.batch_id "
-                        "WHERE b.account_id=? AND r.bank_reference=? AND r.id<>? AND r.status IN ('POSTED','DUPLICATE') LIMIT 1",
-                        (batch["account_id"], row["Reference"], row_id))
-                    if duplicate_ref:
-                        self.db.execute("UPDATE bank_import_rows SET status='DUPLICATE' WHERE id=?", (row_id,))
-                        continue
                 if target:
                     txn = self.transactions.record_transfer(
                         day, batch["account_id"] if amount < 0 else target.id,
