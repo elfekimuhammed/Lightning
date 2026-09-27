@@ -6,7 +6,7 @@
   <h2 data-popup-title>{{ title }}</h2>
   <p class="muted">Record one account activity. Enter a positive amount; choose Money out, Money in, or Transfer.</p>
   {% if error %}<div class="flash error" role="alert">{{ error }}</div>{% endif %}
-  <form method="post" action="{{ action }}">
+  <form method="post" action="{{ action }}" {% if txn_id %}data-popup-autosave{% endif %}>
     <input type="hidden" name="return_to" value="{{ return_to }}">
     {% if txn_id %}<input type="hidden" name="account_id" value="{{ values.account_id }}">{% endif %}
     <div class="transaction-choice-grid" role="group" aria-label="Transaction type">
@@ -31,7 +31,7 @@
         <label for="popup-to-account">Transfer to</label>
         <select id="popup-to-account" name="to_account_id">
           <option value="">Choose an account</option>
-          {% for a in accounts if a.id != account.id %}<option value="{{ a.id }}" {{ 'selected' if values.to_account_id == a.id|string }}>{{ a.label }}</option>{% endfor %}
+          {% for a in accounts if a.id != account.id and a.account_type.value in ('CASH','BANK','DEPOSIT','BROKERAGE') and a.currency == account.currency %}<option value="{{ a.id }}" {{ 'selected' if values.to_account_id == a.id|string }}>{{ a.label }}</option>{% endfor %}
         </select>
       </div>
       <div class="field money-only {{ 'has-error' if error_field == 'category' }}" {{ 'hidden' if values.kind == 'transfer' }}>
@@ -43,7 +43,8 @@
         {% if error_field == 'category' %}<small class="field-error">Choose a category.</small>{% endif %}
       </div>
       <div class="field money-only {{ 'has-error' if error_field == 'counterparty' }}" {{ 'hidden' if values.kind == 'transfer' }}>
-        <label for="popup-counterparty">Counterparty</label>
+        <label for="popup-counterparty-search">Search counterparty</label>
+        <input id="popup-counterparty-search" type="search" placeholder="Find a person or business" autocomplete="off" data-option-filter="popup-counterparty">
         <select id="popup-counterparty" name="counterparty_id">
           <option value="">Choose a saved Counterparty (optional)</option>
           {% for person in counterparties %}<option value="{{ person.id }}" {{ 'selected' if values.counterparty_id == person.id|string }}>{{ person.name }}</option>{% endfor %}
@@ -52,18 +53,19 @@
       </div>
     </div>
     <div class="field">
-      <label for="popup-owner">Owned by</label>
+      <label for="popup-owner-search">Owned by</label>
+      <input id="popup-owner-search" type="search" placeholder="Search saved owners" autocomplete="off" data-owner-filter="popup-owner">
       <select id="popup-owner" name="owner_id"><option value="">You</option>
-        {% for person in counterparties %}<option value="{{ person.id }}" {{ 'selected' if values.owner_id == person.id|string }}>{{ person.name }}</option>{% endfor %}
+        {% for person in owners %}<option value="{{ person.id }}" {{ 'selected' if values.owner_id == person.id|string }}>{{ person.name }}</option>{% endfor %}
       </select>
-      <small class="muted">Leave blank if you own this money.</small>
+      <small class="muted">Leave blank if you own this money. Add a person from Money from others first.</small>
     </div>
     <div class="field"><label for="popup-notes">Notes <span class="muted">(optional)</span></label><input id="popup-notes" name="notes" value="{{ values.notes }}"></div>
     <div class="transaction-effect" data-transaction-effect role="status" aria-live="polite"></div>
-    <p class="small muted" data-popup-status aria-live="polite"></p>
+    <p class="small muted inline-save-status" data-popup-status aria-live="polite"></p>
     <div class="popup-actions">
       <button type="button" class="btn" data-popup-close>Cancel</button>
-      <button type="submit" class="btn primary">{{ 'Save changes' if txn_id else 'Save transaction' }}</button>
+      {% if not txn_id %}<button type="submit" class="btn primary">Add transaction</button>{% endif %}
     </div>
   </form>
 </section>

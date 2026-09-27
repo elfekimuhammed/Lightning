@@ -83,7 +83,7 @@ lightning/ui/               FastAPI routes, templates, static JS/CSS
 
 | User question | Screen today | Next useful action |
 |---|---|---|
-| How am I doing today? | Overview shows current owned value, this month's flows, budget, and recent activity. | Open Birdview for the composition or the relevant account for a transaction. |
+| Where do I stand? | Overview shows owned value at the selected period end, owned cash after dated reserve assignments, income and spending for the exact period, and current attention items. | Open Birdview for analysis, Budget for spending plans, Reserves for assigned cash, or an account for a transaction. |
 | What is mine and how much cash is free? | Birdview shows owned liquid cash, investments, reserves, and an estimated liquidation value. | Open an account, holding, or reserve. |
 | Where did money come from or go? | Birdview has all-time/year/month/custom income and expense views and transaction links. | Inspect the supporting transactions. |
 | Am I following my spending plan? | Budget shows monthly available limit, spent, room, attention items, category status, and carryover. | Inspect category transactions or edit a limit. |
@@ -95,15 +95,15 @@ All owned-position, budget-actual, and performance views must exclude transactio
 
 ## Customer workflow and UI decisions
 
-The intended path is **understand on Overview → explain on Birdview or Budget → record in an account → review exceptions at import**. The account is the natural place to add a transaction because its source account is known. Overview and Birdview are analytical screens, so their current generic Add buttons should be removed. All-account transactions remains a search/history workspace.
+The intended path is **understand on Overview → explain on Birdview, Budget, or Reserves → record in an account → review exceptions at import**. Overview is a status screen across All time, YTD, Monthly, and Custom ranges; it does not own analysis, plans, reserve management, or transaction entry. All-account transactions remains a search/history workspace.
 
 | Screen | Current friction | Intended hierarchy and action |
 |---|---|---|
-| Overview | Generic Add, decorative bars that resemble history, month arrows with identical destinations, and a “Ready to invest” claim based only on monthly inflow less outflow. | Current owned position and free cash; this month's recorded activity and budget; at most three actual attention items; recent activity. Every number links to its explanation. Do not show investability or a forecast without a defined calculation. |
+| Overview | Previously mixed analysis, reserve details, budget plan, and transaction history into the status screen. | Owned position at the range end, change from the prior position where reliable, cash available after dated reserve assignments, income/outflow bars for the selected range, and up to three current actionable attention items. |
 | Birdview | Current asset position sits below a page-wide period selector; discounted assets lead while full owned value is secondary. | Full owned position, owned cash, free cash after reserves, and investment value first. Show liquidation-factor estimate as a secondary scenario. Put period controls inside income/spending analysis. Keep holdings and reserves links beside their breakdowns. |
 | Account | Four duplicate balance figures on a normal cash wallet; maintenance buttons compete with entry; a crowded inline entry row explains signed amounts and transfers in one paragraph. | One meaningful balance, with total/held-for-others/owned bridge only where needed. Primary Add transaction action with account preselected and Money out / Money in / Transfer choices; ledger below for history. Import is secondary; edit, reconciliation, and deactivation move to an account menu. |
 | Budget | Full edit grid remains the main route for many adjustments. | First plan in one action, then monthly status, short attention list, one-category action, and a past-month review. Full grid remains advanced. “Room in plan” is never cash available. |
-| Reserves | Creation exposes many optional fields at once. | Start with purpose and amount; ask for due date, recurrence, and counterparty matching only when useful. Birdview free cash opens this explanation. |
+| Reserves | Creation exposes many optional fields at once. | Start with purpose and amount; ask for due date, recurrence, and counterparty matching only when useful. Overview and Birdview cash-available figures link to this workflow. |
 | Import | Review exposes many editable fields on every row. | Lead with Ready to post, Needs a decision, and Possible duplicates; expand row editing for exceptions. |
 
 The supplied UI screenshots show Overview and Birdview reaching the same 400,050 EGP total with different cash/investment splits. That discrepancy must be diagnosed before presenting a shared asset chart. The first figure to trust is the owned total with an as-of date; every breakdown must reconcile to it.
@@ -150,7 +150,7 @@ Each task should leave the app usable, include a concise before/after workflow d
 | 1 | Remove Overview Add, fake trend, misleading investability/savings claims, and broken month arrows. | No generic entry or unsupported claim remains on Overview. |
 | 2 | Condense account header and move maintenance controls. | One balance on normal cash accounts; ownership bridge only with custody; Add transaction is primary. |
 | 3 | Replace inline register entry with an account-scoped Money out / Money in / Transfer flow. | A user can record all three without signed-amount instructions; ledger stays readable. |
-| 4 | Rebuild Overview as a short current snapshot. | Owned position, free cash, monthly status, genuine attention, and recent activity have clear drilldowns. |
+| 4 | Rebuild Overview as a short period-aware status screen. | Shared All time/YTD/Monthly/Custom ranges; owned position, cash available, period flows, and current attention have clear drilldowns. |
 | 5 | Separate Birdview's current position from selected-period activity. | Period filter no longer appears to change today's assets; full owned value leads; liquidation scenario is secondary. |
 | 6 | Shorten reserve creation. | Purpose and amount suffice for a simple reserve; free-cash effect is visible. |
 | 7 | Make import review exception-first. | Ready rows can be posted without scanning all fields; duplicates and unresolved rows are prominent. |

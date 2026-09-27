@@ -10,7 +10,7 @@
   {% endfor %}
 </div>
 {% endif %}
-<form method="post" class="card investment-ownership-form" data-trade-kind="{{ kind }}" style="max-width:780px" autocomplete="off">
+<form method="post" class="card investment-ownership-form" data-trade-kind="{{ kind }}" {% if txn %}data-autosave-existing{% endif %} style="max-width:780px" autocomplete="off">
   <div class="row">
     <div class="field {{ 'has-error' if error_field == 'account' }}">
       <label for="account_id">{{ 'Received into' if kind == 'dividend' else 'Held in' }}</label>
@@ -74,15 +74,15 @@
   </div>
   {% endif %}
 
-  <div class="field investment-owner-flag"><label><input type="checkbox" name="is_others" value="1" {{ 'checked' if values.is_others }}> Held for someone else</label></div>
-  <div class="field investment-owner-field" {{ 'hidden' if not values.is_others }}>
-    <label for="investment-whom">Whom</label>
-    <input id="investment-whom" type="text" name="whom" value="{{ values.whom }}" list="counterparty-options" placeholder="Choose a saved Counterparty">
+  <div class="field investment-owner-field">
+    <label for="investment-owner-search">Owned by</label>
+    <input id="investment-owner-search" type="search" placeholder="Search saved owners" autocomplete="off" data-owner-filter="investment-owner">
+    <select id="investment-owner" name="owner_id"><option value="">You</option>{% for person in owners %}<option value="{{ person.id }}" {{ 'selected' if values.owner_id == person.id|string }}>{{ person.name }}</option>{% endfor %}</select>
+    <small class="muted">Choose who owns these shares or units.</small>
   </div>
-  <datalist id="counterparty-options">{% for party in counterparties %}<option value="{{ party.name }}"></option>{% endfor %}</datalist>
   <div class="field"><label for="notes">Notes</label><textarea id="notes" name="notes" rows="2">{{ values.notes }}</textarea></div>
   <div class="actions">
-    <button class="btn primary">Save</button>
+    {% if txn %}<span class="inline-save-status" role="status" aria-live="polite"></span>{% else %}<button class="btn primary">Record {{ kind }}</button>{% endif %}
     <a class="btn" href="/investments">Cancel</a>
     {% if txn %}<a class="btn" href="/transactions/{{ txn.id }}">Details &amp; history</a>{% endif %}
   </div>

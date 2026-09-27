@@ -7,7 +7,7 @@ import calendar
 from datetime import date, timedelta
 from decimal import Decimal
 
-from lightning.core.dates import now_iso
+from lightning.core.dates import now_iso, today
 from lightning.core.errors import ConflictError, NotFoundError, ValidationError
 from lightning.core.money import ZERO, from_e6, to_decimal, to_e6
 from lightning.database.connection import Database
@@ -25,6 +25,14 @@ class CashReserveService:
             "CASE r.kind WHEN 'EMERGENCY' THEN 0 ELSE 1 END,r.due_date IS NULL,r.due_date,r.name COLLATE NOCASE"
         )]
 
+    def list_completed(self):
+        return [self._row(row) for row in self.db.all(
+            "SELECT r.*,(SELECT COALESCE(SUM(l.amount_e6),0) FROM reserve_transaction_links l "
+            "JOIN transactions t ON t.id=l.transaction_id WHERE l.reserve_id=r.id AND t.status='POSTED') AS spent_e6 "
+            "FROM cash_reserves r WHERE r.status='COMPLETE' AND r.kind!='EMERGENCY' "
+            "ORDER BY r.due_date DESC,r.id DESC LIMIT 100"
+        )]
+
     def cash_summary(self, owned_liquid_cash: Decimal):
         allocated = ZERO
         for row in self.list_active():
@@ -32,11 +40,47 @@ class CashReserveService:
         return {"owned_liquid_cash": owned_liquid_cash, "allocated": allocated,
                 "free_cash": owned_liquid_cash - allocated}
 
+    def allocation_at(self, as_of: str):
+        """Return active effective assignments at a date, or None if history is incomplete."""
+        total = ZERO
+        for reserve in self.db.all("SELECT reserve_id AS id,created_date FROM reserve_allocation_history GROUP BY reserve_id,created_date"):
+            created = reserve["created_date"]
+            if created > as_of:
+                continue
+            first = self.db.one("SELECT effective_date FROM reserve_allocation_history WHERE reserve_id=? ORDER BY effective_date,id LIMIT 1",
+                                (reserve["id"],))
+            if not first or first["effective_date"] > as_of:
+                return None
+            row = self.db.one("SELECT allocated_e6,status FROM reserve_allocation_history WHERE reserve_id=? AND effective_date<=? ORDER BY effective_date DESC,id DESC LIMIT 1",
+                              (reserve["id"], as_of))
+            if row and row["status"] == "ACTIVE":
+                spent = int(self.db.scalar(
+                    "SELECT COALESCE(SUM(l.amount_e6),0) FROM reserve_transaction_links l "
+                    "JOIN transactions t ON t.id=l.transaction_id WHERE l.reserve_id=? AND t.status='POSTED' AND t.date<=?",
+                    (reserve["id"], as_of)) or 0)
+                total += max(from_e6(row["allocated_e6"]) - from_e6(spent), ZERO)
+        return total
+
+    def _record_allocation(self, reserve_id: int):
+        row = self.db.one("SELECT allocated_e6,status,created_at FROM cash_reserves WHERE id=?", (reserve_id,))
+        if row and self.db.has_table("reserve_allocation_history"):
+            self.db.execute("INSERT INTO reserve_allocation_history(reserve_id,created_date,effective_date,allocated_e6,status) VALUES(?,?,?,?,?)",
+                            (reserve_id, str(row["created_at"])[:10], today().isoformat(), row["allocated_e6"], row["status"]))
+
     def get(self, reserve_id: int):
         row = self.db.one("SELECT * FROM cash_reserves WHERE id=?", (reserve_id,))
         if not row:
             raise NotFoundError("Reserve not found.")
         return self._row(row)
+
+    def links_for_reserve(self, reserve_id: int):
+        """Posted transactions reconciled to this reserve, newest first."""
+        return self.db.all(
+            "SELECT t.id,t.ref,t.date,t.counterparty,l.amount_e6 "
+            "FROM reserve_transaction_links l JOIN transactions t ON t.id=l.transaction_id "
+            "WHERE l.reserve_id=? AND t.status='POSTED' ORDER BY t.date DESC,t.id DESC",
+            (reserve_id,),
+        )
 
     def set_emergency_fund(self, amount, salary_target=ZERO):
         """Set the reserved cash for the fixed Emergency Fund section."""
@@ -56,7 +100,8 @@ class CashReserveService:
             return self.allocate(reserve["id"], value)
 
     def create(self, name: str, target, kind: str = "PROJECT", due_date: str | None = None,
-               recurrence: str = "NONE", counterparty_id: int | None = None):
+               recurrence: str = "NONE", counterparty_id: int | None = None,
+               category_id: int | None = None):
         name = " ".join((name or "").split())
         if not name:
             raise ValidationError("Enter a name for this reserve.", "name")
@@ -71,14 +116,16 @@ class CashReserveService:
             raise ValidationError("Enter a target greater than zero.", "target")
         day = self._date(due_date) if due_date else None
         self._validate_counterparty(counterparty_id)
+        self._validate_category(category_id)
         now = now_iso()
         try:
             cur = self.db.execute(
-                "INSERT INTO cash_reserves(name,kind,target_e6,due_date,created_at,updated_at,recurrence,recurrence_day,counterparty_id) "
-                "VALUES (?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO cash_reserves(name,kind,target_e6,due_date,created_at,updated_at,recurrence,recurrence_day,counterparty_id,category_id) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?)",
                 (name, kind, to_e6(target_value), day, now, now, recurrence,
-                 date.fromisoformat(day).day if day and recurrence != "NONE" else None, counterparty_id),
+                 date.fromisoformat(day).day if day and recurrence != "NONE" else None, counterparty_id, category_id),
             )
+            self._record_allocation(int(cur.lastrowid))
         except sqlite3.IntegrityError:
             if kind == "EMERGENCY" and self.db.scalar(
                 "SELECT 1 FROM cash_reserves WHERE kind='EMERGENCY' AND status='ACTIVE'"
@@ -88,7 +135,7 @@ class CashReserveService:
         return self.get(int(cur.lastrowid))
 
     def update(self, reserve_id: int, name: str, target, due_date: str | None, recurrence: str | None = None,
-               counterparty_id: int | None = None):
+               counterparty_id: int | None = None, category_id: int | None = None):
         reserve = self.get(reserve_id)
         if reserve["kind"] == "EMERGENCY":
             raise ValidationError("The Emergency Fund is managed in its dedicated section.")
@@ -102,11 +149,12 @@ class CashReserveService:
         recurrence = self._recurrence(recurrence if recurrence is not None else reserve["recurrence"],
                                       reserve["kind"], day)
         self._validate_counterparty(counterparty_id)
+        self._validate_category(category_id)
         recurrence_day = (date.fromisoformat(day).day if day != reserve["due_date"] else
                           (reserve.get("recurrence_day") or date.fromisoformat(day).day)) if day and recurrence != "NONE" else None
         self.db.execute(
-            "UPDATE cash_reserves SET name=?,target_e6=?,due_date=?,recurrence=?,recurrence_day=?,counterparty_id=?,updated_at=? WHERE id=?",
-            (name, to_e6(target_value), day, recurrence, recurrence_day, counterparty_id, now_iso(), reserve_id),
+            "UPDATE cash_reserves SET name=?,target_e6=?,due_date=?,recurrence=?,recurrence_day=?,counterparty_id=?,category_id=?,updated_at=? WHERE id=?",
+            (name, to_e6(target_value), day, recurrence, recurrence_day, counterparty_id, category_id, now_iso(), reserve_id),
         )
         return self.get(reserve.id)
 
@@ -128,6 +176,7 @@ class CashReserveService:
             "UPDATE cash_reserves SET allocated_e6=?,updated_at=? WHERE id=? AND status='ACTIVE'",
             (to_e6(value), now_iso(), reserve_id),
         )
+        self._record_allocation(reserve_id)
         return next((item for item in self.list_active() if item["id"] == reserve_id), self.get(reserve_id))
 
     def set_expense_link(self, reserve_id: int, transaction_id: int, amount):
@@ -144,7 +193,8 @@ class CashReserveService:
         txn = self.db.one("SELECT id,status,type FROM transactions WHERE id=?", (transaction_id,))
         if not txn or txn["status"] != "POSTED" or txn["type"] != "OUT":
             raise ValidationError("Choose a posted expense transaction.")
-        if self.db.scalar("SELECT 1 FROM money_from_others WHERE transaction_id=?", (transaction_id,)):
+        if self.db.scalar("SELECT 1 FROM money_from_others WHERE transaction_id=?", (transaction_id,)) or self.db.scalar(
+                "SELECT 1 FROM ledger_entries WHERE transaction_id=? AND owner_id IS NOT NULL", (transaction_id,)):
             raise ValidationError("Money held for others cannot be assigned to your reserve.")
         total_e6 = int(self.db.scalar(
             "SELECT COALESCE(-SUM(le.quantity_e6),0) FROM ledger_entries le "
@@ -185,17 +235,21 @@ class CashReserveService:
             if next_due:
                 self.db.execute("UPDATE cash_reserves SET status='COMPLETE',updated_at=? WHERE id=?",
                                 (now_iso(), reserve_id))
-                self.create(reserve["name"], reserve["target"], "PROJECT", next_due,
-                            reserve["recurrence"], reserve["counterparty_id"])
+                self._record_allocation(reserve_id)
+                following = self.create(reserve["name"], reserve["target"], "PROJECT", next_due,
+                                         reserve["recurrence"], reserve["counterparty_id"], reserve.get("category_id"))
+                carry_forward = max(int(reserve["allocated_e6"]) - total_spent, 0)
+                if carry_forward:
+                    self.allocate(following["id"], from_e6(carry_forward))
 
     def auto_link_transaction(self, transaction_id: int) -> int:
         transaction = self.db.one(
             "SELECT id,counterparty_id,type,status FROM transactions WHERE id=?", (transaction_id,)
         )
-        if not transaction or transaction["type"] != "OUT" or transaction["status"] != "POSTED" \
-                or not transaction["counterparty_id"]:
+        if not transaction or transaction["type"] != "OUT" or transaction["status"] != "POSTED":
             return 0
-        if self.db.scalar("SELECT 1 FROM money_from_others WHERE transaction_id=?", (transaction_id,)):
+        if self.db.scalar("SELECT 1 FROM money_from_others WHERE transaction_id=?", (transaction_id,)) or self.db.scalar(
+                "SELECT 1 FROM ledger_entries WHERE transaction_id=? AND owner_id IS NOT NULL", (transaction_id,)):
             return 0
         if self.db.scalar("SELECT 1 FROM reserve_transaction_links WHERE transaction_id=?", (transaction_id,)):
             return 0
@@ -206,20 +260,23 @@ class CashReserveService:
         ) or 0)
         if remaining <= 0:
             return 0
-        targets = self.db.all(
-            "SELECT id FROM cash_reserves WHERE status='ACTIVE' AND counterparty_id=? "
-            "ORDER BY due_date IS NULL,due_date,id", (transaction["counterparty_id"],)
-        )
-        linked = 0
-        for row in targets:
-            reserve = next((item for item in self.list_active() if item["id"] == row["id"]), None)
-            if not reserve or reserve["effective_allocated"] <= ZERO or remaining <= 0:
-                continue
-            amount_e6 = min(remaining, to_e6(reserve["effective_allocated"]))
-            self.set_expense_link(reserve["id"], transaction_id, from_e6(amount_e6))
-            remaining -= amount_e6
-            linked += 1
-        return linked
+        categories = {int(row["category_id"]) for row in self.db.all(
+            "SELECT DISTINCT category_id FROM ledger_entries WHERE transaction_id=? AND category_id IS NOT NULL",
+            (transaction_id,))}
+        targets = [row for row in self.db.all(
+            "SELECT id,counterparty_id,category_id FROM cash_reserves WHERE status='ACTIVE' "
+            "ORDER BY due_date IS NULL,due_date,id")
+            if (transaction["counterparty_id"] is not None and row["counterparty_id"] == transaction["counterparty_id"])
+            or (row["category_id"] is not None and row["category_id"] in categories)]
+        # Multiple plausible plans need a human choice; never split a payment silently.
+        if len(targets) != 1:
+            return -1 if len(targets) > 1 else 0
+        reserve = next((item for item in self.list_active() if item["id"] == targets[0]["id"]), None)
+        if not reserve or reserve["effective_allocated"] <= ZERO:
+            return 0
+        amount_e6 = min(remaining, to_e6(reserve["effective_allocated"]))
+        self.set_expense_link(reserve["id"], transaction_id, from_e6(amount_e6))
+        return 1
 
     def unlink_expense(self, reserve_id: int, transaction_id: int):
         self.db.execute("DELETE FROM reserve_transaction_links WHERE reserve_id=? AND transaction_id=?",
@@ -239,14 +296,19 @@ class CashReserveService:
         reserve = self.get(reserve_id)
         if reserve["kind"] == "EMERGENCY":
             raise ValidationError("The Emergency Fund cannot be completed or archived.")
+        if reserve["effective_allocated"] > ZERO:
+            raise ValidationError("Unassign or move the remaining cash before completing this reserve.")
         self.db.execute("UPDATE cash_reserves SET status='COMPLETE',updated_at=? WHERE id=?",
                         (now_iso(), reserve_id))
+        self._record_allocation(reserve_id)
         return self.get(reserve_id)
 
     def delete(self, reserve_id: int):
         reserve = self.get(reserve_id)
         if reserve["kind"] == "EMERGENCY":
             raise ValidationError("The Emergency Fund cannot be deleted.")
+        self.db.execute("INSERT INTO reserve_allocation_history(reserve_id,created_date,effective_date,allocated_e6,status) VALUES(?,?,?,?,?)",
+                        (reserve_id, str(reserve["created_at"])[:10], today().isoformat(), reserve["allocated_e6"], "DELETED"))
         self.db.execute("DELETE FROM cash_reserves WHERE id=?", (reserve_id,))
 
     @staticmethod
@@ -284,6 +346,12 @@ class CashReserveService:
             "SELECT 1 FROM counterparties WHERE id=? AND active=1", (counterparty_id,)
         ):
             raise ValidationError("Choose an active saved Counterparty.", "counterparty_id")
+
+    def _validate_category(self, category_id: int | None) -> None:
+        if category_id is not None and not self.db.scalar(
+                "SELECT 1 FROM categories WHERE id=? AND movement='OUTFLOW' AND active=1 AND is_system=0",
+                (category_id,)):
+            raise ValidationError("Choose an active spending category.", "category_id")
 
     @staticmethod
     def _next_due(reserve) -> str | None:

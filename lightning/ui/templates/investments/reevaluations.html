@@ -5,16 +5,16 @@
 {% block content %}
 {% if pending %}<div class="card" style="margin-bottom:14px"><b>{{ pending|length }} price input(s) needed.</b> <a href="/investments/prices">Review missing prices</a></div>{% endif %}
 <div class="card wide">
-  <table><thead><tr><th>Date</th><th>Type</th><th>Investment</th><th>Account</th><th class="num">Units</th><th class="num">Price</th><th>Source</th><th class="num">Return</th><th>Main journal</th></tr></thead>
+  <table><thead><tr><th>Date</th><th>Type</th><th>Investment</th><th>Account</th><th>Owned by</th><th class="num">Units</th><th class="num">Price</th><th>Source</th><th class="num">Return</th><th>Main journal</th></tr></thead>
   {% for row in rows %}<tr>
     <td>{{ row.date }}</td><td>{{ 'Sale-day' if row.reason == 'SALE' else 'Month-end' }}</td>
-    <td>{{ row.asset_name }}</td><td>{{ row.account_name }}</td>
+    <td>{{ row.asset_name }}</td><td>{{ row.account_name }}</td><td>{{ row.owner_name or 'You' }}</td>
     <td class="num">{{ row.units_e6|money(False, 4) }}</td>
     <td class="num">{{ row.price_e6|money(False, 4) if row.price_e6 is not none else 'Needed' }}</td>
     <td>{{ row.price_source or '—' }}</td>
     <td class="num {{ row.return_base_e6|tone if row.return_base_e6 is not none else '' }}">{{ row.return_base_e6|money(True) if row.return_base_e6 is not none else '—' }}</td>
     <td>{% if row.ref %}<a href="/transactions/{{ row.journal_transaction_id }}">{{ row.ref }}</a>{% elif row.needs_price %}<span class="muted">Waiting for price</span>{% else %}<span class="muted">No change</span>{% endif %}</td>
-  </tr>{% else %}<tr><td colspan="9" class="empty">No reevaluations yet. The first monthly checkpoint is created on app start after prices are available.</td></tr>{% endfor %}
+  </tr>{% else %}<tr><td colspan="10" class="empty">No reevaluations yet. The first monthly checkpoint is created on app start after prices are available.</td></tr>{% endfor %}
   </table>
 </div>
 {% endblock %}

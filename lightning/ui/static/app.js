@@ -696,6 +696,31 @@ if (ledger) {
   });
 }
 
+// Existing investment transactions save a complete valid edit on field commit.
+document.querySelectorAll("form[data-autosave-existing]").forEach((form) => {
+  const status = form.querySelector(".inline-save-status");
+  let saved = new URLSearchParams(new FormData(form)).toString(), busy = false;
+  const save = async () => {
+    const data = new URLSearchParams(new FormData(form)), next = data.toString();
+    if (busy || next === saved || !form.reportValidity()) return;
+    busy = true; status.textContent = "Saving…";
+    try {
+      const response = await fetch(form.action || location.href, { method: "POST", body: data,
+        headers: { "X-Requested-With": "fetch" } });
+      if (!response.ok) throw Error((await response.text()) || "Could not save. Correct the value and retry.");
+      saved = next; status.textContent = "Saved";
+    } catch (error) { status.textContent = error.message || "Could not save. Correct the value and retry."; }
+    finally { busy = false; }
+  };
+  form.querySelectorAll("input,select,textarea").forEach((field) => {
+    field.addEventListener("change", () => save());
+    field.addEventListener("blur", save);
+    field.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && field.tagName !== "TEXTAREA") { event.preventDefault(); save(); }
+    });
+  });
+});
+
 // Budget: one-click averages, per-category overrides, and typing means manual.
 const budgetForm = document.querySelector("#budget-editor-form");
 if (budgetForm) {
@@ -732,6 +757,36 @@ if (typeSelect) {
     if (target) target.textContent = groups[typeSelect.value] || "";
   });
 }
+
+// Bank import: filter the canonical Counterparty chooser as the user types.
+document.querySelectorAll("[data-owner-filter]").forEach((search) => {
+  const select = document.getElementById(search.dataset.ownerFilter);
+  if (!select) return;
+  search.addEventListener("input", () => {
+    const query = search.value.trim().toLocaleLowerCase();
+    Array.from(select.options).forEach((option) => {
+      option.hidden = option.value !== "" && !option.textContent.toLocaleLowerCase().includes(query);
+    });
+    if (select.selectedOptions[0]?.hidden) select.value = "";
+  });
+  select.addEventListener("change", () => { search.value = ""; });
+});
+document.addEventListener("input", (event) => {
+  const search = event.target.closest("[data-option-filter]");
+  if (!search) return;
+  const select = document.getElementById(search.dataset.optionFilter);
+  if (!select) return;
+  const query = search.value.trim().toLocaleLowerCase();
+  Array.from(select.options).forEach((option) => {
+    option.hidden = option.value !== "" && !option.textContent.toLocaleLowerCase().includes(query);
+  });
+  if (select.selectedOptions[0]?.hidden) select.value = "";
+});
+document.addEventListener("change", (event) => {
+  if (!(event.target instanceof HTMLSelectElement)) return;
+  const search = document.querySelector(`[data-option-filter="${CSS.escape(event.target.id)}"]`);
+  if (search) search.value = "";
+});
 
 // Bank import: filter the canonical Counterparty chooser as the user types.
 document.querySelectorAll("[data-counterparty-filter]").forEach((search) => {
@@ -820,6 +875,58 @@ document.querySelectorAll("[data-counterparty-filter]").forEach((search) => {
       };
       type.addEventListener("change", update); update();
     }
+    content.querySelectorAll("[data-karat-reference]").forEach((select) => {
+      if (select.dataset.popupKaratReady) return;
+      select.dataset.popupKaratReady = "1";
+      const karat = content.querySelector("#karat");
+      const filter = () => {
+        const selected = select.value;
+        let kept = false;
+        [...select.options].forEach((option) => {
+          const match = !option.value || option.dataset.karat === karat?.value;
+          option.hidden = !match; option.disabled = !match;
+          if (option.value === selected && match) kept = true;
+        });
+        if (!kept) select.value = "";
+      };
+      karat?.addEventListener("change", filter); filter();
+    });
+    content.querySelectorAll("[data-popup-autosave]").forEach((form) => {
+      if (form.dataset.popupAutosaveReady) return;
+      form.dataset.popupAutosaveReady = "1";
+      const status = form.querySelector("[data-autosave-status],.inline-save-status");
+      let saved = new URLSearchParams(new FormData(form)).toString();
+      let busy = false;
+      const save = async () => {
+        const data = new URLSearchParams(new FormData(form));
+        const next = data.toString();
+        if (busy || next === saved || !form.reportValidity()) return;
+        busy = true;
+        if (status) status.textContent = "Saving…";
+        let succeeded = false;
+        try {
+          const response = await fetch(form.action || location.href, { method: "POST", body: data,
+            headers: { "X-Requested-With": "fetch" } });
+          if (!response.ok) throw Error((await response.text()) || "Could not save. Correct the value and retry.");
+          saved = next;
+          succeeded = true;
+          if (status) status.textContent = "Saved";
+          if (new URLSearchParams(new FormData(form)).toString() === saved) dirty = false;
+        } catch (error) {
+          if (status) status.textContent = error.message || "Could not save. Correct the value and retry.";
+        } finally {
+          busy = false;
+          if (succeeded && new URLSearchParams(new FormData(form)).toString() !== saved) queueMicrotask(save);
+        }
+      };
+      form.querySelectorAll("input,select,textarea").forEach((field) => {
+        field.addEventListener("change", () => queueMicrotask(save));
+        field.addEventListener("blur", save);
+        field.addEventListener("keydown", (event) => {
+          if (event.key === "Enter" && field.tagName !== "TEXTAREA") { event.preventDefault(); save(); }
+        });
+      });
+    });
   };
   const initTransactionForm = () => {
     const root = content.querySelector("[data-transaction-form]");
@@ -840,6 +947,8 @@ document.querySelectorAll("[data-counterparty-filter]").forEach((search) => {
         option.hidden = option.value !== "" && option.dataset.movement !== (kind === "out" ? "OUTFLOW" : "INFLOW");
         if (option.hidden && option.selected) category.value = "";
       });
+      if (category) { category.disabled = kind === "transfer"; category.required = kind !== "transfer"; }
+      if (destination) destination.required = kind === "transfer";
       const value = Number((amount.value || "").replaceAll(",", ""));
       const shown = Number.isFinite(value) && value > 0 ? new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(value) : "…";
       const account = root.dataset.accountName, currency = root.dataset.currency;
@@ -931,6 +1040,14 @@ document.querySelectorAll("[data-counterparty-filter]").forEach((search) => {
       } else {
         const msg = new URL(response.url).searchParams.get("msg");
         const goToResponse = form.dataset.popupReturn === "response";
+        const keepInPopup = form.dataset.popupReturn === "popup";
+        if (keepInPopup) {
+          const doc = new DOMParser().parseFromString(text, "text/html");
+          show(extract(doc), doc.title);
+          activePopupUrl = response.url;
+          history.pushState({ lightningPopup: true, baseUrl, baseScroll }, "", response.url);
+          return;
+        }
         const next = new URL(goToResponse ? response.url : baseUrl, location.href);
         close(false);
         history.replaceState(null, "", next.pathname + next.search + next.hash);

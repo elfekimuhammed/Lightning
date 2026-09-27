@@ -3,15 +3,30 @@ from __future__ import annotations
 from datetime import date, timedelta
 from decimal import Decimal
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Response
 
 from lightning.core.dates import today
 from lightning.core.errors import LightningError
-from lightning.core.money import ZERO
+from lightning.core.money import ZERO, from_e6
+from lightning.core.money import to_decimal
+from lightning.transactions.domain import TxnFilter
+from lightning.core.refs import DocType
+from lightning.categories.domain import Movement
 
 from ..web import container, redirect, render
 
 router = APIRouter(prefix="/reserves")
+
+
+def _allocate(c, reserve_id: int, amount: str):
+    current = c.reserves.get(reserve_id)
+    value = to_decimal(amount, "allocated")
+    cash = c.reporting.owned_liquid_cash(today())
+    assigned = c.reserves.cash_summary(cash)["allocated"]
+    next_effective = max(value - current["spent"], ZERO)
+    if assigned - current["effective_allocated"] + next_effective > cash:
+        raise LightningError("Assigned reserves cannot exceed your owned liquid cash.")
+    return c.reserves.allocate(reserve_id, value)
 
 
 def _context(request: Request, error: str = ""):
@@ -30,11 +45,22 @@ def _context(request: Request, error: str = ""):
                 salary_total += group.value
     average_salary = salary_total / Decimal(6)
     salary_months = (emergency["effective_allocated"] / average_salary) if emergency and average_salary else None
-    return {"reserves": [item for item in reserves if item["kind"] != "EMERGENCY"],
+    listed = [item for item in reserves if item["kind"] != "EMERGENCY"]
+    for item in listed:
+        item["payments"] = [row | {"amount": from_e6(row["amount_e6"])}
+                            for row in c.reserves.links_for_reserve(item["id"])]
+    # Completed dated rows are payment occurrences; undated project goals remain
+    # a separate savings-goal workflow.
+    completed = [item for item in c.reserves.list_completed() if item.get("due_date")]
+    for item in completed:
+        item["payments"] = [row | {"amount": from_e6(row["amount_e6"])}
+                            for row in c.reserves.links_for_reserve(item["id"])]
+    return {"reserves": listed, "completed_reserves": completed,
             "emergency": emergency, "salary_average": average_salary, "salary_months": salary_months,
             "salary_period": f"{first_month.strftime('%b %Y')}–{last_month.strftime('%b %Y')}",
             "summary": c.reserves.cash_summary(cash), "error": error,
-            "counterparties": c.counterparties.list_active()}
+            "counterparties": c.counterparties.list_active(),
+            "categories": c.categories.pickable(Movement.OUTFLOW)}
 
 
 @router.get("")
@@ -51,11 +77,14 @@ async def create_reserve(request: Request):
             reserve = c.reserves.create(str(form.get("name", "")), str(form.get("target", "")),
                                         "PROJECT", str(form.get("due_date", "")) or None,
                                         str(form.get("recurrence", "NONE")),
-                                        int(str(form.get("counterparty_id", ""))) if str(form.get("counterparty_id", "")).isdigit() else None)
+                                        int(str(form.get("counterparty_id", ""))) if form.get("match_by") == "counterparty" and str(form.get("counterparty_id", "")).isdigit() else None,
+                                        int(str(form.get("category_id", ""))) if form.get("match_by") == "category" and str(form.get("category_id", "")).isdigit() else None)
             allocated = str(form.get("allocated", "")).strip()
             if allocated:
-                c.reserves.allocate(reserve["id"], allocated)
+                _allocate(c, reserve["id"], allocated)
     except LightningError as exc:
+        if request.headers.get("X-Requested-With") == "fetch":
+            return Response(exc.message, status_code=400, media_type="text/plain")
         return render(request, "reserves.html", status_code=400, **_context(request, exc.message))
     return redirect("/reserves", f"Created {reserve['name']}.")
 
@@ -66,9 +95,20 @@ async def save_emergency_fund(request: Request):
     form = await request.form()
     try:
         salary_target = _context(request)["salary_average"] * 6
-        reserve = c.reserves.set_emergency_fund(str(form.get("allocated", "")), salary_target)
+        amount = str(form.get("allocated", ""))
+        existing = next((row for row in c.reserves.list_active() if row["kind"] == "EMERGENCY"), None)
+        assigned = c.reserves.cash_summary(c.reporting.owned_liquid_cash(today()))["allocated"]
+        value = to_decimal(amount, "allocated")
+        old_effective = existing["effective_allocated"] if existing else ZERO
+        if assigned - old_effective + value > c.reporting.owned_liquid_cash(today()):
+            raise LightningError("Assigned reserves cannot exceed your owned liquid cash.")
+        reserve = c.reserves.set_emergency_fund(amount, salary_target)
     except LightningError as exc:
+        if request.headers.get("X-Requested-With") == "fetch":
+            return Response(exc.message, status_code=400, media_type="text/plain")
         return render(request, "reserves.html", status_code=400, **_context(request, exc.message))
+    if request.headers.get("X-Requested-With") == "fetch":
+        return Response("Saved", status_code=204)
     return redirect("/reserves", f"Saved Emergency Fund: {reserve['allocated']} reserved.")
 
 
@@ -80,9 +120,14 @@ async def edit_reserve(request: Request, reserve_id: int):
         reserve = c.reserves.update(reserve_id, str(form.get("name", "")), str(form.get("target", "")),
                                     str(form.get("due_date", "")) or None,
                                     str(form.get("recurrence", "NONE")),
-                                    int(str(form.get("counterparty_id", ""))) if str(form.get("counterparty_id", "")).isdigit() else None)
+                                    int(str(form.get("counterparty_id", ""))) if form.get("match_by") == "counterparty" and str(form.get("counterparty_id", "")).isdigit() else None,
+                                    int(str(form.get("category_id", ""))) if form.get("match_by") == "category" and str(form.get("category_id", "")).isdigit() else None)
     except LightningError as exc:
+        if request.headers.get("X-Requested-With") == "fetch":
+            return Response(exc.message, status_code=400, media_type="text/plain")
         return redirect("/reserves", exc.message)
+    if request.headers.get("X-Requested-With") == "fetch":
+        return Response("Saved", status_code=204)
     return redirect("/reserves", f"Saved {reserve['name']}.")
 
 
@@ -91,9 +136,13 @@ async def allocate_reserve(request: Request, reserve_id: int):
     c = container(request)
     form = await request.form()
     try:
-        reserve = c.reserves.allocate(reserve_id, str(form.get("allocated", "")))
+        reserve = _allocate(c, reserve_id, str(form.get("allocated", "")))
     except LightningError as exc:
+        if request.headers.get("X-Requested-With") == "fetch":
+            return Response(exc.message, status_code=400, media_type="text/plain")
         return redirect("/reserves", exc.message)
+    if request.headers.get("X-Requested-With") == "fetch":
+        return Response("Saved", status_code=204)
     return redirect("/reserves", f"Updated cash assigned to {reserve['name']}.")
 
 
@@ -104,3 +153,24 @@ async def complete_reserve(request: Request, reserve_id: int):
     except LightningError as exc:
         return redirect("/reserves", exc.message)
     return redirect("/reserves", f"Completed {reserve['name']}; its assigned cash is free again.")
+
+
+@router.get("/{reserve_id:int}/payments")
+async def reserve_payments(request: Request, reserve_id: int):
+    c = container(request)
+    reserve = c.reserves.get(reserve_id)
+    payments, _ = c.transactions.find(TxnFilter(types=[DocType.OUT], limit=100))
+    return render(request, "reserve_payments.html", reserve=reserve, payments=payments)
+
+
+@router.post("/{reserve_id:int}/payments")
+async def link_reserve_payment(request: Request, reserve_id: int):
+    c = container(request)
+    form = await request.form()
+    try:
+        txn_id = int(str(form.get("transaction_id", "")))
+        c.reserves.set_expense_link(reserve_id, txn_id, str(form.get("amount", "")))
+    except (ValueError, LightningError) as exc:
+        message = exc.message if isinstance(exc, LightningError) else "Choose a posted expense."
+        return redirect(f"/reserves/{reserve_id}/payments", message)
+    return redirect("/reserves", "Payment linked; funded and paid amounts have been updated.")

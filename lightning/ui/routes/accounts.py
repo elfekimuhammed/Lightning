@@ -85,6 +85,7 @@ def _transaction_popup_context(request, account, values, action, error=None, txn
                 accounts=c.accounts.list(active_only=True),
                 categories=[cat for cat in c.categories.pickable()],
                 counterparties=c.counterparties.list_active(),
+                owners=c.counterparties.list_owners(),
                 return_to=str(values.get("return_to") or f"/accounts/{account.id}"),
                 error=error.message if error else "", error_field=error.field if error else "")
 
@@ -150,8 +151,10 @@ async def save_transaction_popup(request: Request, account_id: int):
             else:
                 txn = c.transactions.record_inflow(day, account_id, amount, category_id,
                                                   counterparty=counterparty, notes=values["notes"], owner_id=owner_id)
-        c.reserves.auto_link_transaction(txn.id)
+        matched_reserve = c.reserves.auto_link_transaction(txn.id)
         feedback = register._budget_feedback(c, txn)
+        if matched_reserve < 0:
+            feedback = (feedback + " Several reserves could match; choose the reserve on the Reserves page.").strip()
         return redirect(values["return_to"], f"Saved {txn.ref}. {feedback}".strip())
     except (LightningError, ValueError) as exc:
         error = exc if isinstance(exc, LightningError) else ValidationError("Choose valid values for this transaction.")

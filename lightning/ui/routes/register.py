@@ -223,6 +223,7 @@ def page(request: Request, account_id: int | None, entry: dict | None = None, ed
         entry=entry or {"date": qp.get("date") or fmt_date(today()), "account_id": qp.get("new_acct", "")},
         edit_id=edit_id if edit_values is not None else None, edit_acct=edit_acct, edit=edit_values or {},
         q=q, month=month, date_from=from_query, date_to=to_query, base_url=base_url, keep_qs=urlencode(keep),
+        search_suggestions=c.counterparties.suggestions(q, limit=3) if q else [],
         post_url=(f"/accounts/{account_id}/register" if account_id else "/transactions/register"),
         show_account=account is None, error=error, error_field=error_field,
         counterparty_matches=_counterparty_matches(c, (entry or {}).get("counterparty", "")),

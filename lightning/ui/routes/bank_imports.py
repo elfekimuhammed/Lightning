@@ -150,6 +150,7 @@ async def confirm(request: Request, account_id: int, batch_id: int):
                     "amount": form.get(f"amount_{row_id}", row["Amount"]),
                     "notes": form.get(f"notes_{row_id}", row["Notes"]),
                     "whom": whom,
+                    "owner_choice": form.get(f"owner_choice_{row_id}", ""),
                     "counterparty_choice": form.get(f"counterparty_choice_{row_id}", ""),
                     "remember_category": form.get(f"remember_category_{row_id}") == "on"}
         selected = decision["counterparty_choice"]
@@ -169,6 +170,7 @@ async def confirm(request: Request, account_id: int, batch_id: int):
             row["Amount"] = str(form.get(f"amount_{row_id}", row["Amount"]))
             row["Notes"] = str(form.get(f"notes_{row_id}", row["Notes"]))
             row["_whom"] = str(form.get(f"whom_{row_id}", ""))
+            row["_owner_choice"] = str(form.get(f"owner_choice_{row_id}", ""))
             category_choice = str(form.get(f"category_{row_id}", ""))
             row["_category_id"] = int(category_choice) if category_choice.isdigit() else None
             row["_counterparty_choice"] = str(form.get(f"counterparty_choice_{row_id}", ""))
@@ -188,6 +190,7 @@ async def confirm(request: Request, account_id: int, batch_id: int):
             row["Amount"] = str(form.get(f"amount_{row_id}", row["Amount"]))
             row["Notes"] = str(form.get(f"notes_{row_id}", row["Notes"]))
             row["_whom"] = str(form.get(f"whom_{row_id}", row.get("_whom", "")))
+            row["_owner_choice"] = str(form.get(f"owner_choice_{row_id}", ""))
             category_choice = str(form.get(f"category_{row_id}", ""))
             row["_category_id"] = int(category_choice) if category_choice.isdigit() else None
             row["_counterparty_choice"] = str(form.get(f"counterparty_choice_{row_id}", ""))
@@ -203,5 +206,10 @@ async def confirm(request: Request, account_id: int, batch_id: int):
                       counterparty_search_names=c.counterparties.search_names(),
                       summary=c.bank_imports.summary(batch_id), msg=msg)
     feedback = _budget_import_feedback(c, batch_id)
-    return redirect(f"/accounts/{account_id}?date={rows[0]['Date'] if rows else ''}",
-                    f"Import complete: {count['posted']} posted, {count['skipped']} skipped, {count['duplicates']} duplicates.{feedback}")
+    if count.get("ambiguous_reserves"):
+        feedback += f" {count['ambiguous_reserves']} row(s) could match multiple reserves; review them on the Reserves page."
+    batch, result_rows = c.bank_imports.preview(batch_id)
+    return render(request, "bank_import_preview.html", account=c.accounts.get(account_id), batch=batch,
+                  rows=result_rows, categories=_categories(c), counterparties=c.counterparties.list_active(),
+                  counterparty_search_names=c.counterparties.search_names(), summary=count,
+                  msg=f"Import complete: {count['posted']} posted, {count['skipped']} skipped, {count['duplicates']} duplicates.{feedback}")

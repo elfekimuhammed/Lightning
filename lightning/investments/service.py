@@ -82,6 +82,9 @@ class InvestmentService:
     def dividend(self, date: str, account_id: int, asset_id: int, amount, notes: str = "",
                  owner_id: int | None = None) -> Transaction:
         """A cash dividend from an investment, received into the account (money in: Investment Income)."""
+        account = self.accounts.require_usable(account_id)
+        if account.account_type != AccountType.BROKERAGE:
+            raise ValidationError("Dividends can only be recorded in a brokerage account.", "account")
         lines, counterparty = self._dividend_lines(account_id, asset_id, amount)
         if owner_id is not None:
             lines = [replace(line, owner_id=owner_id) for line in lines]
@@ -92,6 +95,7 @@ class InvestmentService:
         """Units you already owned when you started tracking, with what you paid for them in total."""
         account = self._holding_account(account_id)
         asset = self._investment(asset_id)
+        self._validate_asset_account(account, asset)
         if self.transactions.opening_txn_id(account.id, asset.id):
             raise ConflictError(f"{account.label} already has a starting amount of {asset.name} — edit that one.")
         lines = self._holding_lines(account, asset, quantity, total_cost)
@@ -119,7 +123,7 @@ class InvestmentService:
             if kind == DocType.SEL and self.reevaluations:
                 unit_line = next(line for line in lines if not self.assets.get_asset(line.asset_id).is_cash)
                 self.reevaluations.process_sale(updated.date, values["account_id"], values["asset_id"],
-                                                unit_line.unit_price)
+                                                unit_line.unit_price, owner_id=owner_id)
             return updated
         if kind == DocType.DIV:
             lines, counterparty = self._dividend_lines(values["account_id"], values["asset_id"], values["amount"])
@@ -129,6 +133,7 @@ class InvestmentService:
         if kind == DocType.OPN and self._is_holding_opening(current):
             account = self._holding_account(values["account_id"])
             asset = self._investment(values["asset_id"])
+            self._validate_asset_account(account, asset)
             existing = self.transactions.opening_txn_id(account.id, asset.id, exclude_id=txn_id)
             if existing:
                 raise ConflictError(f"{account.label} already has a starting amount of {asset.name}.")
@@ -257,22 +262,18 @@ class InvestmentService:
             if cash_line.account_id != holding_account.id:
                 raise ValidationError("Brokerage purchases must use cash already in that brokerage account.",
                                       "cash_account")
-        if kind == DocType.BUY and cash_account_id in (None, "", 0):
-            account = self.accounts.get(account_id)
-            cash = next(line for line in lines if self.assets.get_asset(line.asset_id).is_cash)
-            if account.account_type == AccountType.BROKERAGE and self.reporting.account_balance(account.id, date) < -cash.quantity:
-                raise ValidationError("There is not enough brokerage cash for this purchase. Fund the account first.",
-                                      "cash_account")
         txn = self.transactions.post(kind, date, lines, "", counterparty, notes)
         if kind == DocType.SEL and self.reevaluations:
             unit_line = next(line for line in lines if not self.assets.get_asset(line.asset_id).is_cash)
-            self.reevaluations.process_sale(txn.date, account_id, asset_id, unit_line.unit_price)
+            self.reevaluations.process_sale(txn.date, account_id, asset_id, unit_line.unit_price,
+                                            owner_id=owner_id)
         return txn
 
     def _trade_lines(self, kind, account_id, asset_id, quantity, price, fees, cash_account_id, total=None,
                      total_fees="0", fees_included=True):
         account = self._holding_account(account_id)
         asset = self._investment(asset_id)
+        self._validate_asset_account(account, asset)
         cash_account = self._cash_account(account, cash_account_id)
         units = self._units(asset, quantity)
         fee = check_places(to_decimal(total_fees if str(total_fees or "").strip() else "0", "fees"), 2, "fees")
@@ -315,7 +316,10 @@ class InvestmentService:
 
     def _dividend_lines(self, account_id, asset_id, amount):
         account = self.accounts.require_usable(account_id)
+        if account.account_type != AccountType.BROKERAGE:
+            raise ValidationError("Dividends can only be recorded in a brokerage account.", "account")
         asset = self._investment(asset_id)
+        self._validate_asset_account(account, asset)
         value = check_places(to_decimal(amount, "amount"), 2, "amount")
         if value <= ZERO:
             raise ValidationError("Enter the dividend you received.", "amount")
@@ -342,6 +346,19 @@ class InvestmentService:
                 f"{account.label} is a {account.type_label.lower()}. Investments are held in a brokerage, "
                 "physical-asset or other account.", "account")
         return account
+
+    def _validate_asset_account(self, account: Account, asset):
+        root_code = self.assets.get_class(asset.asset_class_id).root_code
+        if root_code in {"STOCK", "FUND"} and account.account_type != AccountType.BROKERAGE:
+            raise ValidationError("Stocks and funds can only be traded in a brokerage account.", "account")
+        item = self.db.one("SELECT account_id FROM physical_items WHERE asset_id=?", (asset.id,)) \
+            if self.db.has_table("physical_items") else None
+        if item and (account.account_type != AccountType.PHYSICAL_ASSET or item["account_id"] != account.id):
+            raise ValidationError("This physical item can only be traded in its registered physical-asset account.",
+                                  "account")
+        legacy_gram_gold = asset.exposure.value == "GOLD" and asset.unit == "gram"
+        if account.account_type == AccountType.PHYSICAL_ASSET and not item and not legacy_gram_gold:
+            raise ValidationError("Choose an item registered in this physical-asset account.", "asset")
 
     def _cash_account(self, account: Account, cash_account_id) -> Account:
         if cash_account_id in (None, "", 0):

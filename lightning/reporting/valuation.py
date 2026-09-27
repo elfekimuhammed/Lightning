@@ -36,7 +36,7 @@ class Valuer:
         if asset.is_cash:
             price, price_date, source = ONE, None, "CASH"
         else:
-            item = self.q.db.one("SELECT net_gold_grams_e6,reference_asset_id,account_id FROM physical_items WHERE asset_id=?",
+            item = self.q.db.one("SELECT net_gold_grams_e6,reference_asset_id,account_id,karat FROM physical_items WHERE asset_id=?",
                                  (asset.id,)) if self.q.db.has_table("physical_items") else None
             if item:
                 reference = self.q.latest_price(item["reference_asset_id"], day)
@@ -50,7 +50,12 @@ class Valuer:
                     return Valuation(value, unit, manual["date"], "", "MANUAL")
                 if reference:
                     grams = Decimal(item["net_gold_grams_e6"]) / Decimal(1_000_000)
-                    price = from_e6(reference["price_e6"]) * grams
+                    purity = self.q.db.scalar("SELECT purity_e6 FROM financial_assets WHERE id=?",
+                                              (item["reference_asset_id"],))
+                    reference_purity = from_e6(purity) if purity is not None else None
+                    item_purity = Decimal(item["karat"]) / Decimal(24)
+                    purity_adjustment = item_purity if reference_purity == ONE else ONE
+                    price = from_e6(reference["price_e6"]) * grams * purity_adjustment
                     fx = self._fx(asset.currency, day)
                     if fx is None:
                         return Valuation(None, price, reference_date,

@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import asdict, replace
 from decimal import Decimal
 
-from lightning.accounts.domain import Account
+from lightning.accounts.domain import Account, AccountType
 from lightning.accounts.service import AccountService
 from lightning.assets.service import AssetService
 from lightning.categories.domain import Movement
@@ -69,7 +69,8 @@ class TransactionService:
         return self._create(DocType.OUT, day, lines, description, counterparty, notes, source)
 
     def record_refund(self, date: str, account_id: int, amount, category_id: int, description: str = "",
-                      counterparty: str = "", notes: str = "", source: TxnSource = TxnSource.MANUAL) -> Transaction:
+                      counterparty: str = "", notes: str = "", source: TxnSource = TxnSource.MANUAL,
+                      owner_id: int | None = None) -> Transaction:
         """Money returned for a purchase; record it against the original expense category."""
         account = self.accounts.require_usable(account_id)
         day = self._check_date(date)
@@ -82,7 +83,7 @@ class TransactionService:
         if category.code == "EXP.PERSONAL.CUSTODY":
             raise ValidationError("Money held for others cannot be recorded as an expense refund.", "category")
         line = PostingLine.cash(account.id, asset.id, value, Effect.OUTFLOW, category.id,
-                                memo="Refund", fx_rate=self._fx(account))
+                                memo="Refund", fx_rate=self._fx(account), owner_id=owner_id)
         return self._create(DocType.IN, day, [line], description or "Refund", counterparty, notes, source)
 
     def record_transfer(self, date: str, from_account_id: int, to_account_id: int, amount,
@@ -112,7 +113,7 @@ class TransactionService:
                                        counterparty=counterparty, notes=notes, owner_id=owner_id)
         if self.categories.get(category_id).movement == Movement.OUTFLOW:
             return self.record_refund(date, account_id, value, category_id, description=description,
-                                      counterparty=counterparty, notes=notes)
+                                      counterparty=counterparty, notes=notes, owner_id=owner_id)
         return self.record_inflow(date, account_id, value, category_id, description=description,
                                   counterparty=counterparty, notes=notes, owner_id=owner_id)
 
@@ -139,15 +140,13 @@ class TransactionService:
                                               counterparty, notes, current.description, owner_id)
             if kind == DocType.TRF:
                 src, dst = (account_id, other_account_id) if value < 0 else (other_account_id, account_id)
-                updated = self.update_transfer(current.id, date, src, dst, abs(value), current.description, notes)
-                return self.set_transaction_owner(updated.id, owner_id)
+                return self.update_transfer(current.id, date, src, dst, abs(value), current.description, notes,
+                                            owner_id=owner_id)
             if kind == DocType.IN and self.categories.get(category_id).movement == Movement.OUTFLOW:
-                updated = self.update_refund(current.id, date, account_id, abs(value), category_id,
-                                             current.description, counterparty, notes)
-                return self.set_transaction_owner(updated.id, owner_id)
-            updated = self.update_money(current.id, date, account_id, abs(value), category_id,
-                                        current.description, counterparty, notes)
-            return self.set_transaction_owner(updated.id, owner_id)
+                return self.update_refund(current.id, date, account_id, abs(value), category_id,
+                                          current.description, counterparty, notes, owner_id=owner_id)
+            return self.update_money(current.id, date, account_id, abs(value), category_id,
+                                     current.description, counterparty, notes, owner_id=owner_id)
 
     def set_transaction_owner(self, txn_id: int, owner_id: int | None) -> Transaction:
         """Assign the transaction's selected owner to each of its ledger lines."""
@@ -163,7 +162,8 @@ class TransactionService:
         return self.get(txn_id)
 
     def update_refund(self, txn_id: int, date: str, account_id: int, amount, category_id: int,
-                      description: str = "", counterparty: str = "", notes: str = "") -> Transaction:
+                      description: str = "", counterparty: str = "", notes: str = "",
+                      owner_id: int | None = None) -> Transaction:
         current = self._editable(txn_id, {DocType.IN})
         account = self.accounts.require_usable(account_id)
         day = self._check_date(date)
@@ -176,7 +176,7 @@ class TransactionService:
         if category.code == "EXP.PERSONAL.CUSTODY":
             raise ValidationError("Money held for others cannot be recorded as an expense refund.", "category")
         line = PostingLine.cash(account.id, asset.id, value, Effect.OUTFLOW, category.id,
-                                memo="Refund", fx_rate=self._fx(account))
+                                memo="Refund", fx_rate=self._fx(account), owner_id=owner_id)
         return self._update(current, day, [line], description or "Refund", counterparty, notes)
 
     def _register_kind(self, amount: object, category_id: int | None, other_account_id: int | None):
@@ -194,7 +194,24 @@ class TransactionService:
     def search_ids(self, text: str) -> set[int]:
         """Transaction ids matching a search (posted ones)."""
         txns, _ = self.repo.list(TxnFilter(search=text, limit=100000))
-        return {t.id for t in txns}
+        ids = {t.id for t in txns}
+        resolved = self.counterparties.resolve(text)
+        if resolved:
+            rows = self.repo.db.all(
+                "SELECT id FROM transactions WHERE status!='VOID' AND counterparty_id=?",
+                (resolved["id"],),
+            )
+            ids.update(int(row["id"]) for row in rows)
+        # Include likely counterparty spellings so a near miss such as "Talbt"
+        # still finds transactions, while exposing a human-confirmed suggestion.
+        for name, _score in self.counterparties.suggestions(text, limit=5):
+            rows = self.repo.db.all(
+                "SELECT id FROM transactions WHERE status!='VOID' AND "
+                "(counterparty_id=(SELECT id FROM counterparties WHERE name=?) OR counterparty LIKE ?)",
+                (name, f"%{name}%"),
+            )
+            ids.update(int(row["id"]) for row in rows)
+        return ids
 
     def counterparty_suggestions(self) -> dict[str, int]:
         """Previously used counterparties and their most recent category."""
@@ -236,7 +253,8 @@ class TransactionService:
                 owner = self.db.one("SELECT id FROM counterparties WHERE id=? AND active=1", (line.owner_id,))
                 if not owner:
                     raise ValidationError("Choose an active saved owner.", "owner_id")
-            if (line.owner_id is not None or not asset.is_cash or
+            if ((line.owner_id is not None and line.quantity != ZERO) or not asset.is_cash or
+                    (asset.is_cash and line.quantity < ZERO) or
                     (force_brokerage_cash and line.effect == Effect.INTERNAL and
                      account.account_type.value == "BROKERAGE")):
                 keys.add((line.account_id, line.asset_id, line.owner_id))
@@ -311,7 +329,8 @@ class TransactionService:
     # Editing, voiding
     # ======================================================================
     def update_money(self, txn_id: int, date: str, account_id: int, amount, category_id: int,
-                     description: str = "", counterparty: str = "", notes: str = "") -> Transaction:
+                     description: str = "", counterparty: str = "", notes: str = "",
+                     owner_id: int | None = None) -> Transaction:
         current = self._editable(txn_id, {DocType.IN, DocType.OUT})
         movement = Movement.INFLOW if current.type == DocType.IN else Movement.OUTFLOW
         category = self.categories.get(category_id)
@@ -319,6 +338,7 @@ class TransactionService:
         day, lines = self._money_lines(movement, date, account_id, amount, category_id,
                                        allow_system_category=category.is_system,
                                        allow_inactive_category=unchanged_category)
+        lines = [replace(line, owner_id=owner_id) for line in lines]
         return self._update(current, day, lines, description, counterparty, notes)
 
     def update_expense_split(self, txn_id: int, allocations: list[tuple[int, object]]) -> Transaction:
@@ -358,9 +378,10 @@ class TransactionService:
                             current.notes)
 
     def update_transfer(self, txn_id: int, date: str, from_account_id: int, to_account_id: int, amount,
-                        description: str = "", notes: str = "") -> Transaction:
+                        description: str = "", notes: str = "", owner_id: int | None = None) -> Transaction:
         current = self._editable(txn_id, {DocType.TRF})
         day, lines = self._transfer_lines(date, from_account_id, to_account_id, amount)
+        lines = [replace(line, owner_id=owner_id) for line in lines]
         return self._update(current, day, lines, description, "", notes)
 
     def void(self, txn_id: int, reason: str = "") -> Transaction:
@@ -504,6 +525,9 @@ class TransactionService:
         dst = self.accounts.require_usable(to_id, "to_account")
         if src.id == dst.id:
             raise ValidationError("Choose two different accounts.", "to_account")
+        cash_accounts = {AccountType.CASH, AccountType.BANK, AccountType.DEPOSIT, AccountType.BROKERAGE}
+        if src.account_type not in cash_accounts or dst.account_type not in cash_accounts:
+            raise ValidationError("Transfers can only move cash between wallets, banks, deposits, and brokerage accounts.", "to_account")
         if src.currency != dst.currency:
             raise ValidationError("Both accounts must use the same currency (exchanges arrive in M4).", "to_account")
         day = self._check_date(date)

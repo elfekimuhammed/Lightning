@@ -1,66 +1,53 @@
 {% extends "base.html" %}
-{% from "partials/macros.html" import amount %}
 {% block title %}Overview{% endblock %}
 {% block heading %}<h1>Overview</h1>{% endblock %}
-{% block top_actions %}
-<form method="get" class="month-picker small"><a href="/?month={{ month }}" aria-label="Previous month">‹</a><label for="month">{{ month }}</label><a href="/?month={{ month }}" aria-label="Next month">›</a></form>
-<a class="btn primary" href="/transactions">＋ Add</a>
-{% endblock %}
+{% block top_actions %}{% endblock %}
 {% block content %}
+<form method="get" class="overview-period" id="overview-period">
+  <label>Period<select name="period" id="overview-period-select">
+    <option value="all" {{ 'selected' if period.key == 'all' }}>All time</option>
+    <option value="ytd" {{ 'selected' if period.key == 'ytd' }}>YTD</option>
+    <option value="month" {{ 'selected' if period.key == 'month' }}>Monthly</option>
+    <option value="custom" {{ 'selected' if period.key == 'custom' }}>Custom</option>
+  </select></label>
+  <label class="overview-month" hidden>Month<input type="month" name="month" value="{{ month }}"></label>
+  <label class="overview-custom" hidden>From<input type="date" name="date_from" max="{{ today }}" value="{{ request.query_params.get('date_from', '') }}"></label>
+  <label class="overview-custom" hidden>To<input type="date" name="date_to" max="{{ today }}" value="{{ request.query_params.get('date_to', '') }}"></label>
+  <span class="muted small" role="status" aria-live="polite">{{ range_label }}</span>
+</form>
+{% if period_error %}<p class="flash error">{{ period_error }}</p>{% endif %}
+{% set period_query = request.url.query %}
 <section class="overview-hero-grid">
-  <div class="card wealth-hero">
-    <div class="label">What you own</div>
+  <a class="card wealth-hero" data-popup-open href="/explain/owned?{{ period_query }}">
+    <span class="label">{{ 'Known owned value' if net_worth.unvalued else 'What you own' }}</span>
     <div class="wealth-total">{{ net_worth.total|money }} <span>{{ base }}</span></div>
-    <div class="small hero-meta">as of {{ as_of }} · <b class="pos">{{ cash_flow.net|money(True) }}</b> this month</div>
-    <div class="hero-chart" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
-    <div class="hero-breakdown"><span>Net worth · In your accounts</span><b>{{ net_worth.total|money }}</b></div>
-    {% if custody_total %}<div class="hero-breakdown"><span>Held for others</span><b class="muted">−{{ custody_total|money }}</b></div>{% endif %}
-  </div>
-  <div class="card saved-card">
-    <div class="label">Saved this month</div>
-    {% set savings_rate = ((cash_flow.net / cash_flow.inflows * 100) if cash_flow.inflows else 0) %}
-    <div class="saved-total">{{ savings_rate|round(1) }}<span>%</span></div>
-    <div class="small muted">{{ cash_flow.net|money }} of {{ cash_flow.inflows|money }} that came in</div>
-    {% if cash_flow.net > 0 %}<span class="status-pill">Ready to invest · {{ cash_flow.net|money }}</span>{% endif %}
-  </div>
+    <div class="small hero-meta">Position as of {{ as_of }}</div>
+    <div class="overview-change">{{ change_label }}: <b class="{{ 'neg' if change is not none and change < 0 else 'pos' if change is not none and change > 0 }}">{{ change|money(True) if change is not none else 'Change unavailable' }}</b>{% if change is none %}<small>{{ change_reason }}</small>{% endif %}</div>
+    <span class="small">Account contributions and valuation details →</span>
+  </a>
+  <a class="card saved-card" data-popup-open href="/explain/free-cash?{{ period_query }}">
+    <span class="label">Cash available to spend</span>
+    {% if reserve_summary is none %}<div class="saved-total">Historical free cash unavailable</div><div class="small muted">Reserve assignments for this date cannot be reconstructed.</div>
+    {% else %}<div class="saved-total">{{ reserve_summary.free_cash|money }} {{ base }}</div>
+      <div class="overview-equation">Eligible cash {{ reserve_summary.eligible_cash|money }} − Assigned to reserves {{ reserve_summary.allocated|money }} = <b>{{ reserve_summary.free_cash|money }}</b></div>
+      {% if reserve_summary.shortfall %}<div class="small neg">Shortfall {{ reserve_summary.shortfall|money }} {{ base }}</div>{% endif %}
+      <div class="small muted">Brokerage cash {{ brokerage_cash|money }} {{ base }} is included in owned wealth and held separately from spendable cash.</div>
+    {% endif %}
+  </a>
 </section>
-
-{% if net_worth.unvalued %}<div class="flash error" style="margin-top:16px">Some holdings have no price yet and are not counted: {{ net_worth.unvalued|join('; ') }}</div>{% endif %}
-
-<a class="card integrity-summary-link {{ 'integrity-summary-link--issue' if integrity_attention }}" href="/checks?date={{ as_of }}"><span><b>Ledger integrity</b><small>{{ integrity_passed }} checks passed{% if integrity_attention %} · {{ integrity_attention }} need attention{% else %} · reports reconcile{% endif %}</small></span><span>Review checks →</span></a>
-
-<section class="grid g3 overview-tiles">
-  <div class="card tile"><div class="label">Money in</div><div class="value pos">{{ cash_flow.inflows|money(True) }}</div><div class="sub">Salary, dividends</div></div>
-  <div class="card tile"><div class="label">Money out</div><div class="value neg">{{ cash_flow.outflows|money }}</div><div class="sub">This month</div></div>
-  <div class="card tile"><div class="label">Invested</div><div class="value">{{ cash_flow.investment_outflows|money }}</div><div class="sub">Moved into investments</div></div>
+<section class="card overview-flow">
+  <div class="card-heading"><h2>During this period</h2><a data-popup-open href="/explain/flow?{{ period_query }}">How these figures are calculated →</a></div>
+  {% set scale = [cash_flow.inflows, abs(cash_flow.outflows), 1]|max %}
+  <a class="overview-flow-row" data-popup-open href="/explain/flow?{{ period_query }}"><span>Money in</span><span class="overview-track"><i class="overview-bar overview-bar-in" style="width:{{ (cash_flow.inflows / scale * 100) if cash_flow.inflows > 0 else 0 }}%"></i></span><b>{{ cash_flow.inflows|money }} {{ base }}</b></a>
+  <a class="overview-flow-row" data-popup-open href="/explain/flow?{{ period_query }}"><span>Money out</span><span class="overview-track"><i class="overview-bar overview-bar-out" style="width:{{ (abs(cash_flow.outflows) / scale * 100) if cash_flow.outflows != 0 else 0 }}%"></i></span><b>{{ cash_flow.outflows|money(True) }} {{ base }}</b></a>
+  <p class="overview-net">Net income less spending <b>{{ cash_flow.net|money(True) }} {{ base }}</b></p>
 </section>
-
-<section class="grid g2 overview-sections">
-  <div class="card wealth-card">
-    <div class="card-heading"><h2>Where your wealth is</h2><a href="/birdview">Birdview →</a></div>
-    {% set biggest = namespace(v=0) %}{% for g in net_worth.by_class %}{% if abs(g.value) > biggest.v %}{% set biggest.v = abs(g.value) %}{% endif %}{% endfor %}
-    <div class="wealth-list">
-      {% for g in net_worth.by_class %}
-      <div class="wealth-row"><span class="wealth-dot wealth-dot--{{ loop.index0 % 4 }}"></span><span class="wealth-name">{{ g.label }}</span><span class="num">{{ g.value|money }}</span><span class="muted small">{{ ((g.value / net_worth.total * 100)|round(0) if net_worth.total else 0) }}%</span></div>
-      {% else %}<div class="empty">Nothing yet.</div>{% endfor %}
-    </div>
-  </div>
-  <div class="card people-card">
-    <div class="card-heading"><h2>Money from others</h2><a href="/money-from-others">People →</a></div>
-    {% for row in owners[:3] %}<div class="person-row"><span class="avatar">{{ row.owner[:1]|upper }}</span><span class="person-main"><b>{{ row.owner }}</b><small>You're holding it · {{ row.account_name }}</small></span><span class="num">{{ row.amount|money }}</span></div>
-    {% else %}<div class="empty">No money from others recorded.</div>{% endfor %}
-  </div>
+<section class="card overview-attention">
+  <div class="card-heading"><h2>Needs attention now</h2><span class="muted small">Current items, independent of the selected period</span></div>
+  {% for item in attention %}<a class="overview-attention-row" data-popup-open href="{{ item.href }}"><span><b>{{ item.label }}</b><small>{{ item.detail }}</small></span><span>Resolve →</span></a>
+  {% else %}<p class="muted">No items need attention.</p>{% endfor %}
 </section>
-
-<section class="grid g2 overview-sections">
-  <div class="card recent-card"><div class="card-heading"><h2>Recent</h2><a href="/transactions">See all →</a></div>
-    {% for r in recent[:5] %}<a class="recent-row" href="/transactions/{{ r.id }}"><span class="recent-avatar {{ 'recent-avatar--in' if r.amount > 0 else '' }}">{{ '↙' if r.amount > 0 else '↗' }}</span><span class="person-main"><b>{{ r.counterparty or r.description or r.type_label }}</b><small>{{ r.category_label or r.type_label }}{% if r.account_label %} · {{ r.account_label }}{% endif %}</small></span><span class="recent-amount {{ 'pos' if r.amount > 0 else '' }}">{{ r.amount|money(True) }}<small>{{ r.date }}</small></span></a>
-    {% else %}<div class="empty">No transactions yet.</div>{% endfor %}
-  </div>
-  <div class="card budget-card"><div class="card-heading"><h2>This month's budget</h2><a href="/budget?month={{ month }}">Open →</a></div>
-    {% for s in budget.sections[:4] %}<div class="budget-row"><div><b>{{ s.name }}</b><span class="muted small">{{ s.remaining|money }} left of {{ s.available|money }}</span></div><div class="progress"><span class="{{ 'over' if s.actual > s.available else '' }}" style="width:{{ [((s.actual / s.available * 100) if s.available else 0), 100]|min }}%"></span></div></div>
-    {% else %}<div class="empty">No budget set yet.</div>{% endfor %}
-  </div>
-</section>
-<p class="muted small dashboard-check">Transfers between your accounts never change net worth. Checks out to {{ bridge.difference|money }}.</p>
+<script>
+(()=>{const form=document.getElementById('overview-period'),select=document.getElementById('overview-period-select');if(!form||!select)return;const month=form.querySelector('.overview-month'),custom=form.querySelectorAll('.overview-custom');const update=()=>{month.hidden=select.value!=='month';custom.forEach(x=>x.hidden=select.value!=='custom')};update();select.addEventListener('change',()=>{update();if(select.value!=='custom')form.requestSubmit()});form.querySelectorAll('input').forEach(input=>input.addEventListener('change',()=>{const fields=[...form.querySelectorAll('.overview-custom input')];if(select.value!=='custom'||fields.every(f=>f.value))form.requestSubmit()}));})();
+</script>
 {% endblock %}

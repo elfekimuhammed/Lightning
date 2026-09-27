@@ -57,8 +57,8 @@
 {% if account %}
 {% if account.active and account.account_type.value != 'PHYSICAL_ASSET' %}<a class="btn primary" data-popup-open href="/accounts/{{ account.id }}/transaction/new">Add transaction</a>{% endif %}
 <a class="btn small" href="/accounts/{{ account.id }}/reconcile">Reconcile</a>
-<a class="btn small" href="/accounts/{{ account.id }}/import">Import CSV</a>
-<a class="btn small" href="/accounts/{{ account.id }}/edit">Edit account</a>
+<a class="btn small" data-popup-open href="/accounts/{{ account.id }}/import">Import CSV</a>
+<a class="btn small" data-popup-open href="/accounts/{{ account.id }}/edit">Edit account</a>
 {% if account.active %}<form method="post" action="/accounts/{{ account.id }}/deactivate"><button class="btn small danger">Deactivate</button></form>
 {% else %}<form method="post" action="/accounts/{{ account.id }}/reactivate"><button class="btn small">Reactivate</button></form>{% endif %}
 {% endif %}
@@ -70,7 +70,7 @@
 
 {% if account and request.query_params.get('welcome') %}
 <section class="card account-next-step"><b>Next step</b><p class="muted">{% if account.account_type.value == 'BROKERAGE' %}Add cash to this brokerage account before recording a buy.{% elif account.account_type.value == 'PHYSICAL_ASSET' %}Add a named item such as a gold ring.{% else %}Record your first Money out, Money in, or Transfer activity.{% endif %}</p>
-{% if account.account_type.value == 'PHYSICAL_ASSET' %}<a class="btn primary" href="/accounts/{{ account.id }}/items/new">Add physical item</a>{% else %}<a class="btn primary" data-popup-open href="/accounts/{{ account.id }}/transaction/new">{% if account.account_type.value == 'BROKERAGE' %}Fund brokerage cash{% else %}Add transaction{% endif %}</a>{% endif %}
+{% if account.account_type.value == 'PHYSICAL_ASSET' %}<a class="btn primary" data-popup-open href="/accounts/{{ account.id }}/items/new">Add physical item</a>{% else %}<a class="btn primary" data-popup-open href="/accounts/{{ account.id }}/transaction/new">{% if account.account_type.value == 'BROKERAGE' %}Fund brokerage cash{% else %}Add transaction{% endif %}</a>{% endif %}
 </section>
 {% endif %}
 
@@ -207,13 +207,14 @@
 {% endif %}
 
 <div class="toolbar">
-  <form method="get" class="toolbar-filters">
+  <form method="get" class="toolbar-filters" data-auto-filter>
     <input type="search" name="q" value="{{ q }}" placeholder="Search: counterparty, notes, category, amount, ref…">
     <input type="text" name="month" value="{{ month }}" placeholder="yyyy-mm" pattern="\d{4}-\d{2}" title="Month, yyyy-mm" class="month-input">
-    <button class="btn small">Filter</button>
     {% if q or month %}<a class="btn small" href="{{ base_url }}">Clear</a>{% endif %}
   </form>
+  {% if search_suggestions %}<div class="muted small">Did you mean {% for name, score in search_suggestions %}<a href="{{ base_url }}?q={{ name|urlencode }}">{{ name }}</a>{% if not loop.last %} · {% endif %}{% endfor %}?</div>{% endif %}
 </div>
+<script>(()=>{const form=document.querySelector('[data-auto-filter]');if(!form)return;const search=form.elements.q,month=form.elements.month;let timer;search?.addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(()=>form.requestSubmit(),350)});month?.addEventListener('change',()=>form.requestSubmit());search?.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();clearTimeout(timer);form.requestSubmit()}})})();</script>
 
 <div class="card ledger" data-counterparties='{{ counterparty_categories|tojson }}' data-accounts='{{ account_options|tojson }}'>
   <div class="selection-tools" id="selection-tools" hidden>
@@ -238,7 +239,7 @@
       {% if r.type == 'TRF' %}{% set kind = 'transfer' %}{% elif r.type in ('BUY', 'SEL', 'DIV') %}{% set kind = 'invest' %}{% elif r.type == 'OPN' %}{% set kind = 'opening' %}{% endif %}
       {% if edit_id == r.txn_id and edit_acct == r.account_id %}
       <tr class="add-row editing">
-        <td></td>
+        <td><a class="small" data-popup-open href="/transactions/{{ r.txn_id }}?popup=1" aria-label="Open transaction details">Details</a></td>
         {{ inputs('f-edit', edit, True) }}
         {% if with_balance %}<td class="num muted">{{ r.balance|money if r.balance is not none }}</td>{% endif %}
         <td><button form="f-edit" class="btn primary small">Save</button></td>

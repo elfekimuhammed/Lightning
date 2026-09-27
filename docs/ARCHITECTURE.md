@@ -84,12 +84,12 @@ Start with bounded local candidate lists and a small result limit. If size or me
 ## Position and reporting contract
 
 - **Owned position / net worth within Lightning's scope:** the user's share of tracked cash and investment assets, excluding outstanding value held for others. Liabilities and receivables are not modeled. An account's full ledger balance may therefore exceed the user's owned share.
-- **Free cash today:** owned liquid cash minus the effective amounts assigned to active cash reserves. It is a current allocation measure, not a forecast or permission to spend all of it.
+- **Cash available to spend at a date:** owned bank and wallet cash at that date, less effective assignments to active cash reserves at that date. It may be negative; the deficit is a reserve shortfall. Brokerage cash remains owned wealth but is not immediately spendable. Reserve allocation history begins at the recorded baseline; dates before reconstructible history are unavailable rather than using today's assignment.
 - **Estimated liquidatable assets:** owned liquid cash plus owned investment assets multiplied by the user's liquidation factor. This is a scenario estimate, not full owned position, a sale quote, or free cash.
 - **Period income/spending:** posted external activity in the selected date range. Internal transfers and investment purchases are not income or expense; refunds reduce their original expense category. Custody activity is excluded from owned analysis.
 - **Investment return:** remaining holdings' market value less remaining cost, plus realized gains and dividends. The current portfolio and management XIRR must not be assumed owned-only until historical custody cash flows are verified.
 
-Overview and Birdview should share one dated owned-position breakdown. The screenshots accompanying the UI review show a 400,050 EGP total on both pages but conflicting cash/investment splits. Treat that as an unresolved reconciliation task; do not hide the discrepancy by adjusting labels or charts alone. Missing or stale investment prices need explicit states and dates.
+Overview and Birdview share the date-range parser. Overview positions are valued at the selected range end; its period change compares that value with the owned position immediately before the range. All time compares with the first recorded position. A missing valuation makes the headline a known-value subtotal, and an unreliable baseline makes the change unavailable. This change is tracked wealth movement, not investment return. Missing or stale investment prices need explicit states and dates.
 
 ### Birdview history and performance, planned
 

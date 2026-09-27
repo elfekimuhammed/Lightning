@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from decimal import Decimal, InvalidOperation
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Response
 
 from lightning.accounts.domain import AccountType
 from lightning.core.dates import fmt_date, today
 from lightning.core.errors import LightningError
-from lightning.core.money import ZERO, from_e6, to_decimal
+from lightning.core.money import ZERO, from_e6
 
 from ..web import container, redirect, render
 
@@ -25,9 +25,16 @@ def _references(c, account, karat=None):
             karat = int(karat)
         except (TypeError, ValueError):
             return []
-    return [asset for asset in c.assets.investments(active_only=True)
+    rows = [asset for asset in c.assets.investments(active_only=True)
             if asset.exposure.value == "GOLD" and asset.currency == account.currency and asset.purity is not None
             and (karat is None or asset.purity == Decimal(karat) / Decimal(24))]
+    seen, unique = set(), []
+    for asset in rows:
+        key = (asset.purity, asset.currency, asset.unit, asset.name.casefold())
+        if key not in seen:
+            seen.add(key)
+            unique.append(asset)
+    return unique
 
 
 def account_page(request: Request, account_id: int):
@@ -54,10 +61,9 @@ def account_page(request: Request, account_id: int):
     total = c.reporting.account_value(account_id, today())
     owned = c.reporting.owned_account_value(account_id, today())
     rows = c.reporting.register(account_id, "1900-01-01", "9999-12-31")
-    trade_details = {row["transaction_id"]: dict(row) | {
-        "workmanship_cost": from_e6(row["workmanship_cost_e6"])} for row in c.db.all(
-            "SELECT d.* FROM physical_item_trade_details d JOIN physical_items p ON p.asset_id=d.asset_id "
-            "WHERE p.account_id=?", (account_id,))}
+    trade_details = {row["transaction_id"]: row | {
+        "workmanship_cost": from_e6(row["workmanship_cost_e6"])}
+        for row in c.physical_items.trade_details_for_account(account_id)}
     return render(request, "physical_account.html", account=account, items=items,
                   other_holdings=other_holdings, total=total, owned=owned, held=total-owned,
                   account_asset_breakdown=c.reporting.account_asset_class_breakdown(account_id, today()),
@@ -87,7 +93,7 @@ async def create_item(request: Request, account_id: int):
     except (ValueError, LightningError) as exc:
         error = exc if isinstance(exc, LightningError) else LightningError("Choose a karat and matching price reference.")
         return render(request, "physical_item_form.html", status_code=400, account=account, item=None,
-                      references=_references(c, account, values.get("karat")), values=values,
+                      references=_references(c, account), values=values,
                       error=error.message, error_field=error.field or "")
     return redirect(f"/accounts/{account_id}", "Item created. Record a purchase or add what you already own.")
 
@@ -104,7 +110,7 @@ async def edit_item(request: Request, account_id: int, asset_id: int):
               "karat": str(item["karat"]), "reference_asset_id": str(item["reference_asset_id"]),
               "details": item["details"]}
     return render(request, "physical_item_form.html", account=account, item=item,
-                  references=_references(c, account, item["karat"]), values=values)
+                  references=_references(c, account), values=values)
 
 
 @router.post("/accounts/{account_id:int}/items/{asset_id:int}/edit")
@@ -117,11 +123,16 @@ async def save_item(request: Request, account_id: int, asset_id: int):
     try:
         c.physical_items.update(asset_id, values["name"], values["kind"], values["weight"],
                                 int(values["karat"]), int(values["reference_asset_id"]), values["details"])
+        c.reevaluations.process_due()
     except (ValueError, LightningError) as exc:
         error = exc if isinstance(exc, LightningError) else LightningError("Choose a karat and matching price reference.")
+        if request.headers.get("X-Requested-With") == "fetch":
+            return Response(error.message, status_code=400, media_type="text/plain")
         return render(request, "physical_item_form.html", status_code=400, account=account,
-                      item=c.physical_items.get(asset_id), references=_references(c, account, values.get("karat")),
+                      item=c.physical_items.get(asset_id), references=_references(c, account),
                       values=values, error=error.message, error_field=error.field or "")
+    if request.headers.get("X-Requested-With") == "fetch":
+        return Response("Saved", status_code=204)
     return redirect(f"/accounts/{account_id}", "Item details saved; current reference-based value reflects the new weight or karat.")
 
 
@@ -177,6 +188,7 @@ async def value_item(request: Request, account_id: int, asset_id: int):
             raise LightningError("That item belongs to another account.")
         c.physical_items.record_valuation(asset_id, str(form.get("date", fmt_date(today()))),
                                           str(form.get("value", "")), str(form.get("notes", "")))
+        c.reevaluations.process_due()
     except (ValueError, InvalidOperation, LightningError) as exc:
         msg = exc.message if isinstance(exc, LightningError) else "Enter a valid value and date."
         return redirect(f"/accounts/{account_id}", msg)

@@ -16,17 +16,19 @@
   </form>
 </div>
 <div class="card" style="margin-top:14px">
-  <h2>Saved Counterparties <span class="muted small">{{ parties|length }}</span></h2>
+  <h2>Saved Counterparties <span class="muted small">{{ parties|length }} of {{ total_parties }}</span></h2>
+  <form method="get" action="/counterparties" class="toolbar-filters" data-counterparty-search><input type="search" name="q" value="{{ query }}" placeholder="Search names and aliases" autocomplete="off">{% if query %}<a class="btn small" href="/counterparties">Clear</a>{% endif %}</form>
+  {% if search_suggestions %}<p class="muted small">Did you mean {% for name, score in search_suggestions %}<a href="/counterparties?q={{ name|urlencode }}">{{ name }}</a>{% if not loop.last %} · {% endif %}{% endfor %}?</p>{% endif %}
   {% if parties %}
   <table><thead><tr><th>Counterparty and aliases</th><th>Suggested category</th><th>Actions</th></tr></thead><tbody>
     {% for party in parties %}{% set aliases = aliases_by_id.get(party.id, []) %}{% set edit_form = 'counterparty-edit-' ~ party.id %}
     <tr class="{{ 'muted' if not party.active }}"><td>
       <div class="counterparty-one-line">
-      <form id="{{ edit_form }}" method="post" action="/counterparties" class="counterparty-name-edit">
+      <form id="{{ edit_form }}" method="post" action="/counterparties" class="counterparty-name-edit" data-counterparty-autosave>
         <input type="hidden" name="counterparty_action" value="rename">
         <input type="hidden" name="counterparty_id" value="{{ party.id }}">
         <input type="text" name="name" value="{{ party.name }}" aria-label="Counterparty name">
-        <button class="btn small">Save</button>
+        <span class="inline-save-status" role="status" aria-live="polite"></span>
       </form>
       {% if aliases|length < alias_limit %}<div class="alias-entry">
         <form method="post" action="/counterparties" class="alias-add">
@@ -38,12 +40,12 @@
         <div class="alias-enter-hint" role="status">Press Enter to save alias</div>
       </div>{% else %}<span class="muted small">Alias limit reached</span>{% endif %}
       {% if aliases %}<details class="alias-details"><summary>{{ aliases|length }} aliases</summary><div class="alias-list muted small">{% for item in aliases %}
-        <form method="post" action="/counterparties" class="alias-row">
+        <form method="post" action="/counterparties" class="alias-row" data-counterparty-autosave>
           <input type="hidden" name="counterparty_action" value="rename_alias">
           <input type="hidden" name="counterparty_id" value="{{ party.id }}">
           <input type="hidden" name="alias_id" value="{{ item.id }}">
           <input type="text" name="alias" value="{{ item.alias }}" aria-label="Alias for {{ party.name }}">
-          <button class="btn small" title="Save alias" aria-label="Save alias">Save</button>
+          <span class="inline-save-status" role="status" aria-live="polite"></span>
         </form>
         <form method="post" action="/counterparties" class="alias-remove">
           <input type="hidden" name="counterparty_action" value="remove_alias">
@@ -54,9 +56,9 @@
       {% endfor %}</div></details>{% endif %}
       {% if not party.active %}<span class="small muted">Archived</span>{% endif %}
       </div>
-    </td><td><select form="{{ edit_form }}" name="default_category_id" aria-label="Suggested category">
+    </td><td><select form="{{ edit_form }}" name="default_category_id" aria-label="Suggested category" data-submit-on-change>
       <option value="">No default</option>{% for category in categories %}<option value="{{ category.id }}" {{ 'selected' if party.default_category_id == category.id }}>{{ category_labels[category.id] }}</option>{% endfor %}
-    </select> <button class="btn small" form="{{ edit_form }}">Save</button></td>
+    </select></td>
     <td><div class="counterparty-actions">
       {% if not party.active %}<form method="post" action="/counterparties"><input type="hidden" name="counterparty_id" value="{{ party.id }}"><button class="btn small" name="counterparty_action" value="activate">Activate</button></form>{% endif %}
       <form method="post" action="/counterparties" data-counterparty-delete><input type="hidden" name="counterparty_id" value="{{ party.id }}"><button class="btn small danger" name="counterparty_action" value="delete">Delete</button></form>
@@ -84,6 +86,9 @@
 </div>
 {% endif %}
 <script>
+document.querySelectorAll('[data-counterparty-autosave]').forEach(form=>{const input=form.querySelector('input[type=text]'),status=form.querySelector('.inline-save-status');let prior=input.value,busy=false;const save=()=>{if(!input.value.trim()||input.value===prior||busy)return;form.requestSubmit()};input.addEventListener('blur',save);input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();save()}});form.addEventListener('submit',async event=>{event.preventDefault();if(busy)return;busy=true;status.textContent='Saving…';try{const response=await fetch(form.action,{method:'POST',body:new FormData(form),headers:{'X-Requested-With':'fetch'}});if(!response.ok){const html=await response.text(),doc=new DOMParser().parseFromString(html,'text/html');throw Error(doc.querySelector('.flash.error,.error')?.textContent?.trim()||'Could not save. Correct the value and retry.')}prior=input.value;status.textContent='Saved'}catch(error){status.textContent=error.message}finally{busy=false}})});
+document.querySelectorAll('[data-submit-on-change]').forEach(input=>input.addEventListener('change',()=>input.form.requestSubmit()));
+(()=>{const form=document.querySelector('[data-counterparty-search]'),input=form?.elements.q;let timer;input?.addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(()=>form.requestSubmit(),300)});input?.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();clearTimeout(timer);form.requestSubmit()}})})();
 document.querySelectorAll('[data-counterparty-delete]').forEach((form) => form.addEventListener('submit', (event) => {
   if (!window.confirm('Delete this Counterparty? If it has transaction history, it will be archived instead.')) event.preventDefault();
 }));

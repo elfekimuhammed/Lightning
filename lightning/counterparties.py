@@ -57,6 +57,13 @@ class CounterpartyService:
         """Counterparties available in picker controls, in display order."""
         return self.db.all("SELECT id,name,default_category_id FROM counterparties WHERE active=1 ORDER BY name COLLATE NOCASE")
 
+    def list_owners(self):
+        """People already recorded as owners on ledger lines; merchants stay out of owner pickers."""
+        return self.db.all(
+            "SELECT DISTINCT c.id,c.name,c.default_category_id FROM counterparties c "
+            "JOIN ledger_entries le ON le.owner_id=c.id WHERE c.active=1 ORDER BY c.name COLLATE NOCASE"
+        )
+
     def list_all(self):
         """All saved Counterparties for management, including archived entries."""
         return self.db.all("SELECT id,name,default_category_id,active FROM counterparties ORDER BY name COLLATE NOCASE")

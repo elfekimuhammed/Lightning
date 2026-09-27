@@ -35,8 +35,8 @@ class PhysicalItemService:
         if weight <= 0:
             raise ValidationError("Net gold weight per piece must be greater than zero.", "weight")
         ref = self.assets.get_asset(int(reference_asset_id))
-        if ref.exposure.value != "GOLD" or ref.purity != Decimal(karat) / Decimal(24):
-            raise ValidationError(f"Choose a {karat}K gold price reference.", "reference_asset_id")
+        if ref.exposure.value != "GOLD" or ref.purity not in (Decimal(1), Decimal(karat) / Decimal(24)):
+            raise ValidationError(f"Choose a 24K or {karat}K gold price reference.", "reference_asset_id")
         if ref.currency != account.currency:
             raise ValidationError("The price reference must use this account's currency.", "reference_asset_id")
         now = now_iso()
@@ -73,8 +73,8 @@ class PhysicalItemService:
             raise ValidationError("Choose 18K, 21K, 22K, or 24K.", "karat")
         ref = self.assets.get_asset(int(reference_asset_id))
         account = self.accounts.require_usable(old["account_id"])
-        if ref.exposure.value != "GOLD" or ref.purity != Decimal(karat) / Decimal(24) or ref.currency != account.currency:
-            raise ValidationError(f"Choose a matching {karat}K gold price reference in {account.currency}.",
+        if ref.exposure.value != "GOLD" or ref.purity not in (Decimal(1), Decimal(karat) / Decimal(24)) or ref.currency != account.currency:
+            raise ValidationError(f"Choose a 24K or {karat}K gold price reference in {account.currency}.",
                                   "reference_asset_id")
         before = self._snapshot(asset_id)
         after = {"name": name, "kind": kind, "grams_per_piece": str(weight), "karat": karat,
@@ -120,6 +120,11 @@ class PhysicalItemService:
                         "VALUES(?,?,?,?,?) ON CONFLICT(transaction_id) DO UPDATE SET asset_id=excluded.asset_id,"
                         "action=excluded.action,workmanship_cost_e6=excluded.workmanship_cost_e6,notes=excluded.notes",
                         (transaction_id, asset_id, action, to_e6(cost), (notes or "").strip()))
+
+    def trade_details_for_account(self, account_id: int) -> list[dict]:
+        return [dict(row) for row in self.db.all(
+            "SELECT d.* FROM physical_item_trade_details d JOIN physical_items p ON p.asset_id=d.asset_id "
+            "WHERE p.account_id=?", (account_id,))]
 
     def _snapshot(self, asset_id: int) -> dict:
         item = self.get(asset_id)

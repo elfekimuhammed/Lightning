@@ -34,6 +34,16 @@ def test_item_value_uses_matching_karat_price_once_and_cost_stays_separate(c):
     assert position.cost_basis == Decimal("4200")
 
 
+def test_18k_item_can_use_24k_price_through_fine_gold_weight(c):
+    physical = c.account_flows.open_account("Gold at home", "PHYSICAL_ASSET", "2026-01-01", "0")
+    reference = c.assets.get_asset_by_code("REF:GLD-24K")
+    c.assets.set_price(reference.id, "2026-09-01", "1000")
+    item_id = c.physical_items.create(physical.id, "18K ring", "Ring", "4", 18, reference.id)
+    c.investments.add_holding(physical.id, item_id, "1", "2500", "2026-09-01")
+    position = c.investments.portfolio("2026-09-01", physical.id).open[0]
+    assert position.value == Decimal("3000")  # 4g × 18/24 × 1,000
+
+
 def test_manual_item_valuation_and_metadata_edit_are_audited(c):
     physical, cash, reference, item_id = setup_ring(c)
     c.investments.add_holding(physical.id, item_id, "1", "3500", "2026-09-01")

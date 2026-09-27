@@ -22,7 +22,7 @@ KINDS = {
     "holding": ("Add a holding you already own", "Units you had when you started tracking, and what you paid in total."),
 }
 FIELDS = ("date", "account_id", "asset_id", "quantity", "price", "fees", "fees_included", "cash_account_id", "amount", "total_cost", "total",
-          "notes", "is_others", "whom")
+          "notes", "owner_id")
 
 
 def _int(value) -> int | None:
@@ -79,7 +79,7 @@ def _form(request: Request, kind: str, values: dict, txn=None, error: LightningE
                   hint=KINDS[kind][1], values=values, txn=txn,
                   holding_accounts=c.investments.investment_accounts(), all_accounts=c.accounts.list(active_only=True),
                   assets=c.assets.investments(active_only=True),
-                  counterparties=c.counterparties.list_active(),
+                  counterparties=c.counterparties.list_active(), owners=c.counterparties.list_owners(),
                   error=error.message if error else "", error_field=(error.field or "") if error else "")
 
 
@@ -87,12 +87,11 @@ def _save(request: Request, kind: str, v: dict, txn_id: int | None = None):
     c = container(request)
     inv = c.investments
     account, asset, cash = _int(v["account_id"]), _int(v["asset_id"]), _int(v["cash_account_id"])
-    owner = None
-    if v.get("is_others"):
-        party = c.counterparties.resolve(v.get("whom", ""))
+    owner = _int(v.get("owner_id"))
+    if owner:
+        party = c.counterparties.get(owner)
         if not party or not party["active"]:
-            raise LightningError("Choose an active saved Counterparty in Whom.", "whom")
-        owner = party["id"]
+            raise LightningError("Choose an active saved owner.", "owner_id")
     if txn_id:
         txn = inv.update(txn_id, date=v["date"], account_id=account, asset_id=asset, quantity=v["quantity"],
                          price=v["price"], fees=v["fees"], total_fees=v["fees"],
@@ -161,8 +160,8 @@ async def edit_trade(request: Request, txn_id: int):
         return redirect(f"/transactions/{txn_id}", "This is not an investment transaction.")
     values.update({k: ("" if v is None else str(v)) for k, v in found.items()})
     owner = c.money_from_others.investment_transaction_owner(txn_id)
-    values["is_others"] = "1" if owner else ""
-    values["whom"] = owner
+    party = c.counterparties.resolve(owner) if owner else None
+    values["owner_id"] = str(party["id"]) if party else ""
     return _form(request, found["kind"], values, txn=txn)
 
 

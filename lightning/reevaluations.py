@@ -58,19 +58,20 @@ class ReevaluationService:
             focus = forced = None
             if reason == "SALE":
                 sale_rows = self.db.all(
-                    "SELECT le.account_id,le.asset_id,le.unit_price_e6 FROM ledger_entries le "
+                    "SELECT le.account_id,le.asset_id,le.owner_id,le.unit_price_e6 FROM ledger_entries le "
                     "JOIN transactions t ON t.id=le.transaction_id JOIN financial_assets a ON a.id=le.asset_id "
                     "WHERE t.status='POSTED' AND t.type='SEL' AND t.date=? AND a.is_cash=0 AND le.quantity_e6<0",
                     (day,))
-                focus = {(r["account_id"], r["asset_id"]) for r in sale_rows}
-                forced = {r["asset_id"]: from_e6(r["unit_price_e6"]) for r in sale_rows}
+                focus = {(r["account_id"], r["asset_id"], r["owner_id"]) for r in sale_rows}
+                forced = {(r["asset_id"], r["owner_id"]): from_e6(r["unit_price_e6"]) for r in sale_rows}
             if self.process_date(day, reason, fetch_price=fetch_price, focus=focus, forced_prices=forced):
                 completed += 1
             else:
                 break
         return completed
 
-    def process_sale(self, day: str, account_id: int, asset_id: int, price: Decimal) -> bool:
+    def process_sale(self, day: str, account_id: int, asset_id: int, price: Decimal,
+                     owner_id: int | None = None) -> bool:
         """Force an asset checkpoint at its sale price on the sale date."""
         if self.db.scalar("SELECT 1 FROM reevaluation_periods WHERE status='PENDING' AND date<? LIMIT 1", (day,)):
             with self.db.transaction():
@@ -78,12 +79,12 @@ class ReevaluationService:
                                 "VALUES(?,'SALE','PENDING',?) ON CONFLICT(date,reason) DO NOTHING",
                                 (day, now_iso()))
             return False
-        return self.process_date(day, "SALE", fetch_price=None, focus={(account_id, asset_id)},
-                                 forced_prices={asset_id: price})
+        return self.process_date(day, "SALE", fetch_price=None, focus={(account_id, asset_id, owner_id)},
+                                 forced_prices={(asset_id, owner_id): price})
 
     def process_date(self, day: str | date, reason: str, fetch_price=None,
-                     focus: set[tuple[int, int]] | None = None,
-                     forced_prices: dict[int, Decimal] | None = None) -> bool:
+                     focus: set[tuple[int, int, int | None]] | None = None,
+                     forced_prices: dict[tuple[int, int | None], Decimal] | None = None) -> bool:
         day = fmt_date(parse_date(day))
         if reason not in {"MONTH_END", "SALE"}:
             raise ValidationError("Unknown reevaluation checkpoint.")
@@ -107,20 +108,24 @@ class ReevaluationService:
                 self.db.execute("DELETE FROM reevaluation_account_posts WHERE period_id=?", (period_id,))
                 self.db.execute("UPDATE reevaluation_periods SET status='PENDING' WHERE id=?", (period_id,))
             self.db.execute("DELETE FROM reevaluation_entries WHERE period_id=?", (period_id,))
-            rows = self.reporting.q.holdings(day)
-            positions = {(r["account_id"], r["asset_id"]): int(r["quantity_e6"])
-                         for r in rows if int(r["quantity_e6"] or 0)}
+            rows = self.db.all("SELECT le.account_id,le.asset_id,le.owner_id,SUM(le.quantity_e6) quantity_e6 "
+                               "FROM ledger_entries le JOIN transactions t ON t.id=le.transaction_id "
+                               "JOIN financial_assets a ON a.id=le.asset_id "
+                               "WHERE t.status='POSTED' AND le.date<=? AND a.is_cash=0 "
+                               "GROUP BY le.account_id,le.asset_id,le.owner_id HAVING SUM(le.quantity_e6)<>0", (day,))
+            positions = {(r["account_id"], r["asset_id"], r["owner_id"]): int(r["quantity_e6"]) for r in rows}
             if focus is not None:
                 for key in focus:
                     positions.setdefault(key, 0)
                 positions = {k: v for k, v in positions.items() if k in focus}
             incomplete = False
-            account_returns: dict[int, Decimal] = {}
-            for (account_id, asset_id), units_e6 in sorted(positions.items()):
+            account_returns: dict[tuple[int, int | None], Decimal] = {}
+            for (account_id, asset_id, owner_id), units_e6 in sorted(
+                    positions.items(), key=lambda item: (item[0][0], item[0][1], item[0][2] or 0)):
                 asset = self.reporting.assets.get_asset(asset_id)
                 if asset.is_cash:
                     continue
-                forced = (forced_prices or {}).get(asset_id)
+                forced = (forced_prices or {}).get((asset_id, owner_id))
                 found = (forced, "TRADE") if forced is not None else self._price(asset_id, day)
                 if found is None and fetch_price:
                     found = fetch_price(asset, day)
@@ -130,8 +135,9 @@ class ReevaluationService:
                 if not found:
                     incomplete = True
                     self.db.execute(
-                        "INSERT INTO reevaluation_entries(period_id,account_id,asset_id,units_e6,currency,needs_price) "
-                        "VALUES(?,?,?,?,?,1)", (period_id, account_id, asset_id, units_e6, asset.currency))
+                        "INSERT INTO reevaluation_entries(period_id,account_id,asset_id,owner_id,units_e6,currency,needs_price) "
+                        "VALUES(?,?,?,?,?,?,1)",
+                        (period_id, account_id, asset_id, owner_id, units_e6, asset.currency))
                     continue
                 price, source = found
                 units = from_e6(units_e6)
@@ -145,19 +151,21 @@ class ReevaluationService:
                 if value is None:
                     incomplete = True
                     self.db.execute(
-                        "INSERT INTO reevaluation_entries(period_id,account_id,asset_id,units_e6,price_e6,currency,"
-                        "price_source,needs_price) VALUES(?,?,?,?,?,?,?,1)",
-                        (period_id, account_id, asset_id, units_e6, to_e6(price), asset.currency, source))
+                        "INSERT INTO reevaluation_entries(period_id,account_id,asset_id,owner_id,units_e6,price_e6,currency,"
+                        "price_source,needs_price) VALUES(?,?,?,?,?,?,?,?,1)",
+                        (period_id, account_id, asset_id, owner_id, units_e6, to_e6(price), asset.currency, source))
                     continue
                 prior = self.db.one(
                     "SELECT e.value_base_e6,p.date FROM reevaluation_entries e JOIN reevaluation_periods p "
-                    "ON p.id=e.period_id WHERE e.account_id=? AND e.asset_id=? AND p.date<? AND e.needs_price=0 "
-                    "ORDER BY p.date DESC,p.id DESC LIMIT 1", (account_id, asset_id, day))
+                    "ON p.id=e.period_id WHERE e.account_id=? AND e.asset_id=? AND e.owner_id IS ? "
+                    "AND p.date<? AND e.needs_price=0 ORDER BY p.date DESC,p.id DESC LIMIT 1",
+                    (account_id, asset_id, owner_id, day))
                 flow_start = fmt_date(parse_date(prior["date"]) + timedelta(days=1)) if prior else None
                 flow_sql = "SELECT COALESCE(SUM(amount_base_e6),0) FROM ledger_entries le JOIN transactions t " \
                            "ON t.id=le.transaction_id WHERE t.status='POSTED' AND le.account_id=? AND le.asset_id=? " \
                            "AND le.date<=?"
-                params: list = [account_id, asset_id, day]
+                flow_sql += " AND le.owner_id IS ?"
+                params: list = [account_id, asset_id, day, owner_id]
                 if flow_start:
                     flow_sql += " AND le.date>=?"
                     params.append(flow_start)
@@ -165,24 +173,30 @@ class ReevaluationService:
                 prior_value = from_e6(prior["value_base_e6"]) if prior else ZERO
                 ret = (value - prior_value - flows).quantize(Decimal("0.01"))
                 self.db.execute(
-                    "INSERT INTO reevaluation_entries(period_id,account_id,asset_id,units_e6,price_e6,currency,"
-                    "value_base_e6,return_base_e6,price_source,needs_price) VALUES(?,?,?,?,?,?,?,?,?,0)",
-                    (period_id, account_id, asset_id, units_e6, to_e6(price), asset.currency,
+                    "INSERT INTO reevaluation_entries(period_id,account_id,asset_id,owner_id,units_e6,price_e6,currency,"
+                    "value_base_e6,return_base_e6,price_source,needs_price) VALUES(?,?,?,?,?,?,?,?,?,?,0)",
+                    (period_id, account_id, asset_id, owner_id, units_e6, to_e6(price), asset.currency,
                      to_e6(value), to_e6(ret), source))
-                account_returns[account_id] = account_returns.get(account_id, ZERO) + ret
+                owner_key = (account_id, owner_id)
+                account_returns[owner_key] = account_returns.get(owner_key, ZERO) + ret
             if incomplete:
                 return False
-            for account_id, amount_base in sorted(account_returns.items()):
+            for account_id in sorted({key[0] for key in account_returns}):
                 account = self.accounts.get(account_id)
                 cash_asset = self.reporting.assets.cash_asset(account.currency)
                 fx = self.reporting.valuer._fx(account.currency, day)
                 if fx is None:
                     return False
-                amount = amount_base / fx
+                owner_lines = [PostingLine.revaluation(
+                    account_id, cash_asset.id, amount_base / fx, fx,
+                    f"Investment revaluation · {reason.lower()}", owner_id=owner_id)
+                    for (row_account, owner_id), amount_base in sorted(
+                        account_returns.items(), key=lambda item: (item[0][0], item[0][1] or 0))
+                    if row_account == account_id]
+                amount_base = sum((value for (row_account, _), value in account_returns.items()
+                                   if row_account == account_id), ZERO)
                 journal = self.transactions.post(
-                    DocType.VAL, day,
-                    [PostingLine.revaluation(account_id, cash_asset.id, amount, fx,
-                                             f"Investment revaluation · {reason.lower()}")],
+                    DocType.VAL, day, owner_lines,
                     description="Investment revaluation", counterparty="", notes=f"System-generated · {reason}",
                     source=TxnSource.SYSTEM)
                 self.db.execute("INSERT INTO reevaluation_account_posts(period_id,account_id,transaction_id,"
@@ -195,10 +209,10 @@ class ReevaluationService:
                             (source_hash, period_id))
         return True
 
-    def _source_hash(self, day: str, reason: str, forced_prices: dict[int, Decimal] | None) -> str:
+    def _source_hash(self, day: str, reason: str, forced_prices: dict | None) -> str:
         """Fingerprint posted investment activity and dated inputs that can affect this checkpoint."""
         activity = [tuple(row) for row in self.db.all(
-            "SELECT le.date,le.account_id,le.asset_id,le.quantity_e6,le.unit_price_e6,le.amount_base_e6,"
+            "SELECT le.date,le.account_id,le.asset_id,le.owner_id,le.quantity_e6,le.unit_price_e6,le.amount_base_e6,"
             "t.type,t.status FROM ledger_entries le JOIN transactions t ON t.id=le.transaction_id "
             "JOIN financial_assets a ON a.id=le.asset_id WHERE a.is_cash=0 AND le.date<=? "
             "ORDER BY le.date,le.account_id,le.asset_id,t.id,le.line_no", (day,))]
@@ -209,11 +223,29 @@ class ReevaluationService:
         fx = [tuple(row) for row in self.db.all(
             "SELECT date,base,quote,rate_e6,source FROM fx_rates WHERE date<=? ORDER BY date,base,quote,source",
             (day,))]
-        forced = sorted((int(asset_id), str(price)) for asset_id, price in (forced_prices or {}).items())
-        payload = json.dumps([reason, activity, prices, fx, forced], separators=(",", ":"), default=str)
+        forced = sorted((str(asset_id), str(owner_id), str(price))
+                        for (asset_id, owner_id), price in (forced_prices or {}).items())
+        physical, manual = [], []
+        if self.db.has_table("physical_items"):
+            physical = [tuple(row) for row in self.db.all(
+                "SELECT p.asset_id,p.account_id,p.item_kind,p.net_gold_grams_e6,p.karat,p.reference_asset_id,a.name "
+                "FROM physical_items p JOIN financial_assets a ON a.id=p.asset_id ORDER BY p.asset_id")]
+            manual = [tuple(row) for row in self.db.all(
+                "SELECT asset_id,date,quantity_e6,total_value_e6 FROM physical_item_valuations "
+                "WHERE date<=? ORDER BY asset_id,date,id", (day,))]
+        payload = json.dumps([reason, activity, prices, fx, forced, physical, manual],
+                             separators=(",", ":"), default=str)
         return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
     def _price(self, asset_id: int, day: str):
+        if self.db.has_table("physical_items") and self.db.scalar(
+                "SELECT 1 FROM physical_items WHERE asset_id=?", (asset_id,)):
+            valuation = self.reporting.valuer.value(self.reporting.assets.get_asset(asset_id), Decimal(1), day)
+            if valuation.value is None or valuation.source == "COST" or not valuation.price_date:
+                return None
+            if (parse_date(day) - parse_date(valuation.price_date)).days > 10:
+                return None
+            return valuation.price, valuation.source
         found = self.reporting.valuer._price(self.reporting.assets.get_asset(asset_id), day)
         if not found or found[2] == "COST":
             return None
@@ -232,10 +264,12 @@ class ReevaluationService:
     def history(self, limit: int = 300) -> list[dict]:
         rows = self.db.all(
             "SELECT p.date,p.reason,p.status,e.account_id,a.name AS account_name,e.asset_id,f.name AS asset_name,"
+            "e.owner_id,c.name AS owner_name,"
             "e.units_e6,e.price_e6,e.currency,e.value_base_e6,e.return_base_e6,e.price_source,e.needs_price,"
             "e.journal_transaction_id,t.ref FROM reevaluation_entries e "
             "JOIN reevaluation_periods p ON p.id=e.period_id JOIN accounts a ON a.id=e.account_id "
-            "JOIN financial_assets f ON f.id=e.asset_id LEFT JOIN transactions t ON t.id=e.journal_transaction_id "
+            "JOIN financial_assets f ON f.id=e.asset_id LEFT JOIN counterparties c ON c.id=e.owner_id "
+            "LEFT JOIN transactions t ON t.id=e.journal_transaction_id "
             "ORDER BY p.date DESC,a.name,f.name LIMIT ?", (limit,))
         return [dict(row) | {key: (from_e6(row[key]) if row[key] is not None else None)
                              for key in ("units_e6", "price_e6", "value_base_e6", "return_base_e6")}
@@ -243,9 +277,15 @@ class ReevaluationService:
 
     def record_manual_price(self, asset_id: int, day: str, price: Decimal, fetch_price=None) -> int:
         self.reporting.assets.set_price(asset_id, day, price, source="REEVALUATION_MANUAL")
+        reference_items = (" OR e.asset_id IN (SELECT asset_id FROM physical_items WHERE reference_asset_id=?)"
+                           if self.db.has_table("physical_items") else "")
+        params = [asset_id]
+        if reference_items:
+            params.append(asset_id)
+        params.append(day)
         periods = self.db.all("SELECT DISTINCT p.date,p.reason FROM reevaluation_periods p "
-                              "JOIN reevaluation_entries e ON e.period_id=p.id WHERE e.asset_id=? AND p.date>=? "
-                              "AND p.status='PENDING' ORDER BY p.date,p.id", (asset_id, day))
+                              "JOIN reevaluation_entries e ON e.period_id=p.id WHERE (e.asset_id=?" +
+                              reference_items + ") AND p.date>=? ORDER BY p.date,p.id", tuple(params))
         done = 0
         for period in periods:
             done += bool(self.process_date(period["date"], period["reason"], fetch_price))

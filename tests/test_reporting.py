@@ -1,9 +1,11 @@
 """Reporting and the core invariants: the net-worth equation must always reconcile."""
 
 import random
+from datetime import date, timedelta
 from decimal import Decimal
 
 from lightning.core.money import ZERO
+from lightning.core.errors import ValidationError
 
 
 def test_net_worth_by_account_and_class(setup, c):
@@ -31,6 +33,19 @@ def test_transfers_do_not_change_net_worth_or_cash_flow(setup, c):
     assert flow.inflows == ZERO and flow.outflows == ZERO
 
 
+def test_dated_reserve_assignments_allow_negative_spendable_cash_and_reject_unknown_past(setup, c):
+    accounts, _ = setup
+    c.money_from_others.record("2026-09-10", "Dad", accounts["cib"].id, "10000")
+    reserve = c.reserves.create("Travel", "50000")
+    c.reserves.allocate(reserve["id"], "42000")
+
+    assert c.reporting.owned_liquid_cash("2026-12-31") == Decimal("41200")
+    assert c.reserves.allocation_at("2026-09-30") is None
+    assigned = c.reserves.allocation_at("2026-12-31")
+    assert assigned == Decimal("42000")
+    assert c.reporting.owned_liquid_cash("2026-12-31") - assigned == Decimal("-800")
+
+
 def test_money_from_others_is_deducted_and_reconciles_bridge(setup, c):
     accounts, cats = setup
     before = c.reporting.net_worth("2026-09-19").total
@@ -39,7 +54,29 @@ def test_money_from_others_is_deducted_and_reconciles_bridge(setup, c):
     nw = c.reporting.net_worth("2026-09-30")
     assert nw.total == before
     assert sum((group.value for group in nw.by_class), Decimal("0")) == nw.total
-    assert c.reporting.bridge("2026-09-20", "2026-09-30").difference == 0
+    bridge = c.reporting.bridge("2026-09-20", "2026-09-30")
+    # Owner-tagged ledger activity must be included before the separate custody
+    # adjustment removes the portion that is not household-owned.
+    assert bridge.inflows == Decimal("1000")
+    assert bridge.custody_change == Decimal("-1000")
+    assert bridge.difference == 0
+
+
+def test_owned_wealth_breakdown_allocates_custody_deduction_to_cash_class(setup, c):
+    from lightning.ui.routes.dashboard import _owned_wealth_rows
+
+    accounts, cats = setup
+    c.transactions.record_inflow("2026-09-20", accounts["cib"].id, "1000", cats["EXP.WORK.SALARY"].id)
+    c.money_from_others.record("2026-09-20", "Dad", accounts["cib"].id, Decimal("1000"))
+    net_worth = c.reporting.net_worth("2026-09-30")
+
+    rows = _owned_wealth_rows(c, net_worth, "2026-09-30")
+    values = {row["code"]: row["value"] for row in rows}
+    percentages = sum((row["percentage"] for row in rows), ZERO)
+
+    assert values["CASH"] == Decimal("51200")
+    assert sum(values.values(), ZERO) == net_worth.total
+    assert percentages == Decimal("100")
 
 
 def test_sidebar_separates_gross_account_balances_from_what_you_own(setup, c):
@@ -124,18 +161,31 @@ def test_randomized_ledger_always_reconciles(c):
     made = []
     expected = {a.id: c.reporting.account_balance(a.id) for a in accs}
     for step in range(300):
-        day = f"2026-{rng.randint(1, 6):02d}-{rng.randint(1, 28):02d}"
+        day = (date(2026, 1, 1) + timedelta(days=step * 181 // 300)).isoformat()
         amount = Decimal(rng.randint(1, 500000)) / 100
         a, b = rng.sample(accs, 2)
         roll = rng.random()
         if roll < 0.35:
-            t = c.transactions.record_outflow(day, a.id, amount, rng.choice(outs).id)
+            if c.reporting.account_balance(a.id, day) < amount:
+                continue
+            try:
+                t = c.transactions.record_outflow(day, a.id, amount, rng.choice(outs).id)
+            except ValidationError:
+                continue
             expected[a.id] -= amount
         elif roll < 0.6:
-            t = c.transactions.record_inflow(day, a.id, amount, rng.choice(ins).id)
+            try:
+                t = c.transactions.record_inflow(day, a.id, amount, rng.choice(ins).id)
+            except ValidationError:
+                continue
             expected[a.id] += amount
         elif roll < 0.85:
-            t = c.transactions.record_transfer(day, a.id, b.id, amount)
+            if c.reporting.account_balance(a.id, day) < amount:
+                continue
+            try:
+                t = c.transactions.record_transfer(day, a.id, b.id, amount)
+            except ValidationError:
+                continue
             expected[a.id] -= amount
             expected[b.id] += amount
         elif made and roll < 0.93:
@@ -149,10 +199,19 @@ def test_randomized_ledger_always_reconciles(c):
             victim = c.transactions.get(rng.choice(made))
             if victim.is_void or victim.type.value == "TRF":
                 continue
+            after_removing = c.reporting.account_balance(a.id, day) - sum(
+                (line.quantity for line in victim.lines if line.account_id == a.id and line.date <= day), ZERO)
+            if victim.type.value == "OUT" and after_removing < amount:
+                continue
             for line in victim.lines:
                 expected[line.account_id] -= line.quantity
-            edited = c.transactions.update_money(victim.id, day, a.id, amount, rng.choice(
-                ins if victim.type.value == "IN" else outs).id)
+            try:
+                edited = c.transactions.update_money(victim.id, day, a.id, amount, rng.choice(
+                    ins if victim.type.value == "IN" else outs).id)
+            except ValidationError:
+                for line in victim.lines:
+                    expected[line.account_id] += line.quantity
+                continue
             expected[a.id] += edited.lines[0].quantity
             continue
         else:

@@ -13,11 +13,20 @@ router = APIRouter(prefix="/counterparties")
 @router.get("")
 async def list_counterparties(request: Request):
     c = container(request)
-    parties = c.counterparties.list_all()
+    query = " ".join(request.query_params.get("q", "").split())
+    all_parties = c.counterparties.list_all()
+    aliases = {party["id"]: c.counterparties.aliases_for(party["id"]) for party in all_parties}
+    suggestions = c.counterparties.suggestions(query, limit=10) if query else []
+    suggested_names = {name.casefold() for name, _ in suggestions}
+    parties = [party for party in all_parties if not query or
+               query.casefold() in party["name"].casefold() or
+               any(query.casefold() in item["alias"].casefold() for item in aliases[party["id"]]) or
+               party["name"].casefold() in suggested_names]
     categories = c.categories.pickable()
-    return render(request, "counterparties.html", parties=parties, categories=categories,
+    return render(request, "counterparties.html", parties=parties, categories=categories, query=query,
+                  total_parties=len(all_parties), search_suggestions=suggestions,
                   category_labels={item.id: c.categories.display_name(item.id) for item in categories},
-                  aliases_by_id={party["id"]: c.counterparties.aliases_for(party["id"]) for party in parties},
+                  aliases_by_id={party["id"]: aliases[party["id"]] for party in parties},
                   alias_limit=MAX_ALIASES_PER_COUNTERPARTY)
 
 

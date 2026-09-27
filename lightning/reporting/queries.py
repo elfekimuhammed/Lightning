@@ -40,7 +40,6 @@ class ReportQueries:
         rows = self.db.all(
             f"SELECT le.effect, SUM(le.amount_base_e6) AS total"
             f" FROM ledger_entries le {POSTED} WHERE le.date BETWEEN ? AND ?"
-            " AND le.owner_id IS NULL"
             " GROUP BY le.effect",
             (date_from, date_to),
         )

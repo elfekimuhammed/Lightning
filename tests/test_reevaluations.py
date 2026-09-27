@@ -54,3 +54,41 @@ def test_pending_month_end_price_is_explicit_and_completes_after_manual_entry(c)
     c.reevaluations.record_manual_price(asset.id, "2026-09-30", Decimal("120"))
     assert c.db.scalar("SELECT status FROM reevaluation_periods WHERE date='2026-09-30'") == "POSTED"
     assert c.reevaluations.pending_prices() == []
+
+
+def test_month_end_checkpoint_keeps_returns_by_owner_without_changing_cash(c):
+    account = c.account_flows.open_account("THNDR", "BROKERAGE", "2026-09-01", "0")
+    dad = c.counterparties.create("Dad")
+    salary = c.categories.get_by_code("EXP.WORK.SALARY")
+    asset = c.assets.create_investment("Owned share", "STOCK", "OWNED")
+    c.transactions.record_inflow("2026-09-10", account.id, "1000", salary.id)
+    c.transactions.record_inflow("2026-09-10", account.id, "1000", salary.id, owner_id=dad)
+    c.investments.buy("2026-09-11", account.id, asset.id, "1", "10")
+    c.investments.buy("2026-09-11", account.id, asset.id, "1", "10", owner_id=dad)
+    c.assets.set_price(asset.id, "2026-09-30", "20")
+    cash_before = c.reporting.account_balance(account.id, "2026-09-30")
+
+    assert c.reevaluations.process_date("2026-09-30", "MONTH_END")
+    rows = c.db.all("SELECT owner_id,return_base_e6,journal_transaction_id "
+                    "FROM reevaluation_entries ORDER BY owner_id")
+    assert [(row["owner_id"], row["return_base_e6"]) for row in rows] == [(None, 10_000_000), (dad, 10_000_000)]
+    journal = c.transactions.get(rows[0]["journal_transaction_id"])
+    assert {line.owner_id for line in journal.lines} == {None, dad}
+    assert c.reporting.account_balance(account.id, "2026-09-30") == cash_before
+
+
+def test_physical_item_edit_rebuilds_existing_checkpoints(c):
+    account = c.account_flows.open_account("Gold at home", "PHYSICAL_ASSET", "2026-09-01", "0")
+    reference = c.assets.get_asset_by_code("GLD:18K")
+    c.assets.set_price(reference.id, "2026-09-30", "1000")
+    item = c.physical_items.create(account.id, "Ring", "Ring", "4", 18, reference.id)
+    c.investments.add_holding(account.id, item, "1", "3000", "2026-09-01")
+    assert c.reevaluations.process_date("2026-09-30", "MONTH_END")
+    old_journal_id = c.db.scalar("SELECT transaction_id FROM reevaluation_account_posts")
+    c.physical_items.update(item, "Ring", "Ring", "5", 18, reference.id)
+
+    assert c.reevaluations.process_date("2026-09-30", "MONTH_END")
+    row = c.db.one("SELECT units_e6,value_base_e6,return_base_e6 FROM reevaluation_entries")
+    assert row["value_base_e6"] == 5_000_000_000
+    assert row["return_base_e6"] == 2_000_000_000
+    assert c.transactions.get(old_journal_id).is_void

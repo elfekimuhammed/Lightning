@@ -345,6 +345,7 @@ class BankImportService:
             return day, int(row.get("_line", 0))
 
         errors = {}
+        ambiguous_reserves = 0
         try:
             with self.db.transaction():
                 # Custody debits depend on earlier credits. Statements often arrive
@@ -359,7 +360,8 @@ class BankImportService:
                         continue
                     try:
                         with self.db.transaction():
-                            self._post_import_row(batch, row_id, decision, row, accounts)
+                            matched = self._post_import_row(batch, row_id, decision, row, accounts)
+                            ambiguous_reserves += int(matched < 0)
                     except LightningError as exc:
                         errors[int(row_id)] = exc.message
                 if errors:
@@ -373,7 +375,7 @@ class BankImportService:
                                     (now_iso(), batch_id))
         except _ImportReviewRequired as exc:
             errors = exc.errors
-        return self.summary(batch_id) | {"errors": errors}
+        return self.summary(batch_id) | {"errors": errors, "ambiguous_reserves": ambiguous_reserves}
 
     def _post_import_row(self, batch, row_id, decision, row, accounts):
         cp_text = str(decision.get("counterparty", row["Counterparty"])).strip()
@@ -402,6 +404,9 @@ class BankImportService:
             name = str(decision.get("new_counterparty", cp_text)).strip()
             if name:
                 counterparty_id = self.counterparties.create(name, alias=cp_text or None)
+        elif row.get("_suggestions") and not row.get("_counterparty_id") and not choice:
+            raise ValidationError(f"CSV row {row['_line']}: choose a Counterparty match or leave it unlinked.",
+                                  "counterparty")
         if counterparty_id and cp_text and not target:
             self.counterparties.add_alias(int(counterparty_id), cp_text)
         category_id = None if decision.get("force_uncategorized") else (decision.get("category_id") or row["_category_id"])
@@ -421,7 +426,16 @@ class BankImportService:
             )
             category = self.categories.get(int(category_id)) if category_id else None
             if category and category.code == "EXP.PERSONAL.CUSTODY" and self.money_from_others:
-                whom = str(decision.get("whom", "")).strip() or (
+                owner_choice = str(decision.get("owner_choice", ""))
+                if owner_choice == "self":
+                    whom = "self"
+                elif owner_choice.startswith("existing:"):
+                    whom = self.counterparties.get(int(owner_choice.split(":", 1)[1]))["name"]
+                elif str(decision.get("whom", "")).strip():
+                    whom = str(decision.get("whom", "")).strip()
+                else:
+                    raise ValidationError(f"CSV row {row['_line']}: choose who owns this money.", "whom")
+                whom = whom or (
                     canonical["name"] if canonical and canonical["active"] else "")
                 party = None if whom.casefold() in {"self", "me", "my money", "my own money"} else (
                     self.counterparties.resolve(whom) if whom else None)
@@ -440,8 +454,18 @@ class BankImportService:
             category = self.categories.get(int(category_id))
             owner = None
             if category.code == "EXP.PERSONAL.CUSTODY":
-                whom = str(decision.get("whom", "")).strip() or (
-                    canonical["name"] if canonical and canonical["active"] else "")
+                owner_choice = str(decision.get("owner_choice", ""))
+                if owner_choice == "self":
+                    whom = "self"
+                elif owner_choice.startswith("existing:"):
+                    party = self.counterparties.get(int(owner_choice.split(":", 1)[1]))
+                    if not party["active"]:
+                        raise ValidationError(f"CSV row {row['_line']}: choose an active owner.", "whom")
+                    whom = party["name"]
+                elif str(decision.get("whom", "")).strip():
+                    whom = str(decision.get("whom", "")).strip()
+                else:
+                    raise ValidationError(f"CSV row {row['_line']}: choose who owns this money.", "whom")
                 if whom.casefold() in {"self", "me", "my money", "my own money"}:
                     party = None
                 else:
@@ -469,7 +493,8 @@ class BankImportService:
         self.db.execute("UPDATE bank_import_rows SET status='POSTED',transaction_id=? WHERE id=?",
                         (txn.id, row_id))
         if self.reserves:
-            self.reserves.auto_link_transaction(txn.id)
+            return self.reserves.auto_link_transaction(txn.id)
+        return 0
 
     def summary(self, batch_id: int) -> dict[str, int]:
         counts = {row["status"]: row["n"] for row in self.db.all(

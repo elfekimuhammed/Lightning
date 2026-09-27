@@ -1,130 +1,18 @@
 {% extends "base.html" %}
 {% block title %}Budget {{ month }}{% endblock %}
-{% block heading %}
-<h1>Budget</h1>
-<div class="month-nav">
-  <a class="btn small" href="/budget?month={{ prev_month }}" title="Previous month">‹</a>
-  <b class="code">{{ month }}</b>
-  <a class="btn small" href="/budget?month={{ next_month }}" title="Next month">›</a>
-  {% if month != this_month %}<a class="small" href="/budget">This month</a>{% endif %}
-</div>
-{% endblock %}
+{% block heading %}<h1>Budget</h1><div class="month-nav"><a class="btn small" href="/budget?month={{ prev_month }}">‹</a><b>{{ month }}</b><a class="btn small" href="/budget?month={{ next_month }}">›</a>{% if month != this_month %}<a href="/budget">This month</a>{% endif %}</div>{% endblock %}
 {% block content %}
-{% if not has_plan %}
-<section class="card budget-setup">
-  {% if suggestions %}
-  <div class="card-heading"><div><span class="eyebrow">A first plan</span><h2>Start with your recent spending</h2></div></div>
-  <p class="muted">These suggestions use the previous three complete months. Accept them as fixed monthly limits; they will not change unless you choose to update them.</p>
-  <form method="post" action="/budget/setup?month={{ month }}">
-    <div class="budget-suggestion-list">
-      {% for category_id, (label, amount) in suggestions.items() %}
-      <label class="budget-suggestion"><span>{{ label }}</span><span class="suggestion-average">3-month average</span>
-        <input type="text" name="suggest_{{ category_id }}" value="{{ amount|money(False, 2) }}" inputmode="decimal" aria-label="Suggested limit for {{ label }}">
-      </label>
-      {% endfor %}
-    </div>
-    <button class="btn primary">Use this plan</button>
-  </form>
-  {% else %}
-  <div class="card-heading"><div><span class="eyebrow">A first plan</span><h2>Choose one monthly spending limit</h2></div></div>
-  <p class="muted">There is not enough recent spending history for useful suggestions yet. Start with one broad Personal limit. You can add category limits later.</p>
-  {% if personal_group %}<form method="post" action="/budget/setup?month={{ month }}" class="budget-first-limit">
-    <input type="hidden" name="group_id" value="{{ personal_group }}">
-    <label for="broad_limit">Personal spending limit</label>
-    <div class="actions"><input id="broad_limit" name="broad_limit" inputmode="decimal" placeholder="Monthly amount" required><button class="btn primary">Create plan</button></div>
-  </form>{% else %}<a class="btn primary" href="/categories">Create an outflow category first</a>{% endif %}
-  {% endif %}
-</section>
-{% else %}
-<div class="grid g4 budget-summary">
-  <div class="card tile"><div class="label">Available limit</div><div class="value">{{ view.available|money }}</div><div class="sub">Monthly limits{% if view.available != view.budget %} plus opening carryover{% endif %}</div></div>
-  <div class="card tile"><div class="label">Spent</div><div class="value">{{ view.actual|money }}</div><div class="sub">Posted spending this month</div></div>
-  <div class="card tile"><div class="label">Room in plan</div><div class="value {{ view.remaining|tone }}">{{ view.remaining|money }}</div><div class="sub">Available limit minus spending</div></div>
-  <div class="card tile"><div class="label">Free cash today</div><div class="value">{{ free_cash|money }}</div><div class="sub">Separate from budget limits · <a href="/birdview">Birdview</a></div></div>
-</div>
-<p class="muted small budget-note">A positive room in your plan is a spending limit, not cash set aside.</p>
-
-{% for w in view.warnings %}<div class="flash error" style="margin-top:12px">{{ w }}</div>{% endfor %}
-
-<section class="card budget-attention">
-  <div class="card-heading"><div><span class="eyebrow">This month</span><h2>Needs attention</h2></div><a class="btn small" href="#category-plan">View plan</a></div>
-  {% set attention = namespace(count=0) %}
-  {% for section in view.sections %}{% for line in section.lines %}
-    {% if line.over or (line.actual > 0 and not line.covered and line.budget is none) %}
-      {% set attention.count = attention.count + 1 %}
-      <a class="budget-attention-row" href="/transactions?q={{ line.code|urlencode }}&month={{ month }}">
-        <span><b>{{ line.name }}</b><small>{{ 'Over limit' if line.over else 'Spending without a limit' }} · {{ line.actual|money }} spent</small></span>
-        <span class="num {{ 'neg' if line.over }}">{% if line.budget is not none %}{{ line.remaining|money }} left{% else %}Review spending{% endif %} →</span>
-      </a>
-    {% endif %}
-  {% endfor %}{% endfor %}
-  {% if not attention.count %}<p class="muted">Nothing needs attention right now. Any spending outside a limit will appear here.</p>{% endif %}
-</section>
-
-<section class="card budget-plan" id="category-plan">
-  <div class="card-heading"><div><span class="eyebrow">{{ month }}</span><h2>Category plan</h2></div><span class="muted small">Money in this month: {{ view.income|money }}</span></div>
-  {% for section in view.sections %}
-  <div class="budget-section-status">
-    <div class="budget-head"><h3>{{ section.name }}</h3><div class="small muted">Available <b>{{ section.available|money }}</b> · Spent <b>{{ section.actual|money }}</b> · Room <b class="{{ section.remaining|tone }}">{{ section.remaining|money }}</b>
-      {% if section.unbudgeted %} · {{ section.unbudgeted|money }} without a limit{% endif %}</div></div>
-    <div class="budget-status-list">
-    {% for line in section.lines %}{% if line.depth > 1 or line.direct is not none %}
-      <div class="budget-status-row">
-        <div class="budget-status-name indent-{{ line.depth - 1 }}"><b>{{ line.name }}</b>{% if line.one_off %}<span class="pill">this month</span>{% endif %}
-          {% if line.opening_carryover %}<small>Limit {{ line.budget|money }} + {{ line.opening_carryover|money }} carried in</small>{% elif line.direct is not none %}<small>Monthly limit {{ line.budget|money }}</small>{% elif line.covered %}<small>Inside group limit</small>{% else %}<small>No covering limit</small>{% endif %}</div>
-        <span class="num">{{ line.actual|money }} spent</span>
-        <span class="num {{ 'neg' if line.over }}">{{ line.remaining|money if line.remaining is not none else '—' }}</span>
-        {% if line.available %}<div class="progress"><span class="{{ 'over' if line.over }}" style="width:{{ [line.used_pct, 100]|min }}%"></span></div>{% else %}<div></div>{% endif %}
-      </div>
-    {% endif %}{% endfor %}
-    </div>
-  </div>
-  {% else %}<div class="empty">No money-out categories yet.</div>{% endfor %}
-</section>
-
-<details class="card budget-carryover">
-  <summary>Optional carryover settings</summary>
-  <p class="muted small">Carryover adds unused room to a future spending limit. It never sets aside cash or changes free cash. Overspending stays in its original month.</p>
-  <form method="post" action="/budget/carryover?month={{ month }}">
-    {% for section in view.sections %}{% for line in section.lines if line.direct is not none or line.carryover_enabled %}
-    <label class="carryover-option"><span><b>{{ line.name }}</b><small>Unused room can raise next month's limit</small></span>
-      <input type="hidden" name="carryvalue_{{ line.category_id }}" value="0">
-      <input type="checkbox" name="carryon_{{ line.category_id }}" value="1" {{ 'checked' if line.carryover_enabled }} aria-label="Enable carryover for {{ line.name }}">
-    </label>
-    {% endfor %}{% endfor %}
-    <button class="btn small primary">Save carryover choices</button>
-  </form>
-</details>
-
-{% if month < this_month %}
-<section class="card budget-month-review">
-  <div class="card-heading"><div><span class="eyebrow">Month review</span><h2>{{ month }} at a glance</h2></div></div>
-  <p class="muted">{{ view.actual|money }} spent against {{ view.available|money }} available in the plan, leaving {{ view.remaining|money }}. Historical transaction or limit edits recalculate these figures.</p>
-  {% for section in view.sections %}{% for line in section.lines if line.carryover_enabled and line.direct is not none %}
-    <div class="carryover-option"><span><b>{{ line.name }}</b><small>Room at month end</small></span><span class="num">{{ [line.remaining, 0]|max|money }}{% if line.remaining < 0 %} · overspent{% endif %}</span></div>
-  {% endfor %}{% endfor %}
-</section>
-{% endif %}
-
-<details class="card budget-editor">
-  <summary>Edit full plan</summary>
-  <p class="muted small">Manual and rolling-average limits. A group limit is the ceiling for its categories.</p>
-  <form id="budget-editor-form" method="post" action="/budget?month={{ month }}" autocomplete="off">
-    <div class="card budget-save"><span class="small">Set categories from recent spending:</span><button class="btn small" type="button" data-budget-all="3">Calculate all · 3 months</button><button class="btn small" type="button" data-budget-all="6">Calculate all · 6 months</button></div>
-    {% for section in view.sections %}
-    <div class="budget-editor-section"><h3>{{ section.name }}</h3>
-      <table><thead><tr><th>Category</th><th class="num">Limit</th><th class="num">Spent</th><th class="num">Room</th><th class="num">Set limit</th></tr></thead><tbody>
-      {% for line in section.lines %}
-      {% set key = 'b_' ~ line.category_id %}{% set mode = 'm_' ~ line.category_id %}
-      <tr class="{{ 'budget-group' if line.depth == 1 }}"><td class="indent-{{ line.depth - 1 }}">{{ line.name }}</td>
-        <td><input type="text" name="{{ key }}" inputmode="decimal" class="num budget-amount" value="{{ values.get(key, line.direct|money(False, 2) if line.direct is not none else '') }}" placeholder="{{ ('Auto · ' ~ line.budget|money) if line.average_months and line.budget is not none else (('= ' ~ line.budget|money) if line.direct is none and line.budget is not none else ('inside group' if line.covered else '—')) }}" {{ 'disabled' if line.average_months }}><input type="hidden" class="budget-mode" name="{{ mode }}" value="{{ line.average_months or 'manual' }}"></td>
-        <td class="num"><a href="/transactions?q={{ line.code|urlencode }}&month={{ month }}">{{ line.actual|money }}</a></td><td class="num">{{ line.remaining|money if line.remaining is not none }}</td>
-        <td class="budget-actions"><button class="btn small" type="button" data-budget-mode="3">3 mo</button><button class="btn small" type="button" data-budget-mode="6">6 mo</button><button class="btn small" type="button" data-budget-mode="manual">Manual</button></td></tr>
-      {% endfor %}</tbody></table>
-    </div>
-    {% endfor %}
-    <div class="card budget-save"><label class="small"><input type="checkbox" name="only_this_month" value="1"> Apply changes to {{ month }} only</label><span class="muted small">Otherwise, limits repeat from this month onward.</span><button class="btn primary">Save full plan</button></div>
-  </form>
-</details>
-{% endif %}
+<section class="grid g3 budget-summary"><div class="card tile"><div class="label">Owned spending this month</div><div class="value">{{ view.actual|money if view.actual is defined else '' }}</div><div class="sub">Based on posted expenses</div></div><div class="card tile"><div class="label">Plan remaining</div><div class="value">{{ view.remaining|money if view.remaining is defined else '—' }}</div><div class="sub">Limits do not set aside cash</div></div><div class="card tile"><div class="label">Free cash</div><div class="value">{{ free_cash|money }}</div><div class="sub"><a href="/birdview">Birdview →</a></div></div></section>
+<form method="post" action="/budget/carryover/global" class="card budget-global-carryover" data-autosave-switch><input type="hidden" name="month" value="{{ month }}"><label><input type="checkbox" name="enabled" value="1" {{ 'checked' if carryover }}> Carry unused room into next month for tracked limits</label><span class="muted small">This changes limits only; it never assigns cash.</span><span class="inline-save-status" role="status" aria-live="polite"></span></form>
+<details class="card"><summary>Budget settings</summary><form method="post" action="/budget/settings" class="actions" data-autosave-form><label>Suggest tracking when a category reaches <input type="number" name="suggestion_percent" min="0" max="100" step="1" value="{{ suggestion_threshold }}" data-autosave-value>% of six-month owned Personal spending</label><span class="inline-save-status" role="status" aria-live="polite"></span></form></details>
+{% for suggestion in tracking_suggestions %}<section class="card"><b>Consider tracking {{ suggestion.name }}</b><p class="muted small">It was {{ suggestion.share|round(1) }}% of owned Personal spending in the last six completed months.</p><div class="actions">{% for action, label in [('track','Track'),('later','Not now'),('never','Don’t suggest again')] %}<form method="post" action="/budget/suggestions"><input type="hidden" name="category_id" value="{{ suggestion.id }}"><input type="hidden" name="month" value="{{ month }}"><input type="hidden" name="action" value="{{ action }}"><button class="btn small">{{ label }}</button></form>{% endfor %}</div></section>{% endfor %}
+<section class="grid g2"><details class="card"><summary>Choose tracked categories</summary><p class="muted small">Tracked categories appear in the monthly plan. Other spending remains in reports and averages.</p><form method="post" action="/budget/tracking" data-autosave-checks><label class="search-label">Search categories<input type="search" data-filter-rows placeholder="Find a category"></label><div class="compact-category-picker">{% for section in view.sections %}{% for line in section.lines if line.depth > 1 %}<label data-filter-row><input type="checkbox" name="trackon_{{ line.category_id }}" value="1" {{ 'checked' if line.category_id in tracked }}> {{ line.name }}</label>{% endfor %}{% endfor %}</div><span class="inline-save-status" role="status" aria-live="polite"></span></form></details>
+<div class="card"><div class="card-heading"><h2>Plan totals</h2></div>{% for section in view.sections %}<div class="budget-row"><b>{{ section.name }}</b><span>Spent {{ section.actual|money }}</span><span>Limit {{ section.available|money }}</span></div>{% else %}<p class="empty">No spending this month.</p>{% endfor %}<p class="muted small">Optional overall ceiling can be set separately from category limits.</p></div></section>
+<section class="card budget-plan"><div class="card-heading"><div><h2>Monthly plan</h2><p class="muted small">Limits save when you press Enter or leave the field. {% if overall_ceiling %}Overall ceiling {{ overall_ceiling|money }} · {{ ([overall_ceiling|float - view.actual|float, 0]|max)|money }} remaining; category limits sit inside it.{% endif %}</p></div></div><div class="table-wrap"><table><thead><tr><th>Category</th><th class="num">Limit</th><th class="num">Spent</th><th class="num">Left</th><th></th></tr></thead><tbody>{% for section in view.sections %}{% for line in section.lines if line.category_id in tracked %}<tr><td>{{ line.name }}</td><td><form class="inline-budget-limit" method="post" action="/budget/limit/{{ line.category_id }}"><input type="hidden" name="month" value="{{ month }}"><input type="text" name="amount" value="{{ line.direct|money(False, 2) if line.direct is not none else '' }}" placeholder="Set limit" inputmode="decimal" aria-label="Limit for {{ line.name }}" data-inline-save></form></td><td class="num"><a href="/transactions?q={{ line.code|urlencode }}&amp;month={{ month }}">{{ line.actual|money }}</a></td><td class="num">{{ line.remaining|money if line.remaining is not none else '—' }}</td><td><span class="inline-save-status" aria-live="polite"></span></td></tr>{% endfor %}{% endfor %}</tbody></table></div><form method="post" action="/budget/ceiling" class="stack" data-autosave-form><label>Optional overall ceiling<input type="text" name="amount" inputmode="decimal" value="{{ overall_ceiling }}" placeholder="No ceiling" data-autosave-value></label><span class="inline-save-status" role="status" aria-live="polite"></span></form></section>
+<section class="card"><div class="card-heading"><h2>Other spending</h2><span class="muted small">Untracked categories · this month and six completed month average</span></div>{% for section in view.sections %}{% for line in section.lines if line.depth > 1 and line.category_id not in tracked and line.actual > 0 %}<div class="budget-row"><span>{{ line.name }}</span><a href="/transactions?q={{ line.code|urlencode }}&amp;month={{ month }}">{{ line.actual|money }} this month</a><span class="muted">{{ averages.get(line.category_id, 0)|money }} average</span></div>{% endfor %}{% endfor %}<p class="muted small">To track a category, select it above. Tracking suggestions are off until a percentage is set in Budget settings.</p></section>
+<script>document.querySelectorAll('[data-inline-save]').forEach(input=>{let before=input.value;let pending=false;const save=()=>{if(pending||input.value===before)return;pending=true;const status=input.closest('tr').querySelector('.inline-save-status');status.textContent='Saving…';fetch(input.form.action,{method:'POST',body:new URLSearchParams(new FormData(input.form)),headers:{'X-Requested-With':'fetch'}}).then(async r=>{if(!r.ok)throw Error(await r.text());before=input.value;status.textContent='Saved'}).catch(e=>status.textContent=e.message||'Could not save. Retry by pressing Enter or leaving the field.').finally(()=>pending=false)};input.addEventListener('keydown',e=>{if(e.key==='Escape'){input.value=before;input.blur()}if(e.key==='Enter'){e.preventDefault();save();input.blur()}});input.addEventListener('blur',save)});
+document.querySelectorAll('[data-autosave-form]').forEach(form=>{const input=form.querySelector('[data-autosave-value]'),status=form.querySelector('.inline-save-status');let before=input.value,pending=false;const save=()=>{if(pending||input.value===before)return;pending=true;status.textContent='Saving…';fetch(form.action,{method:'POST',body:new URLSearchParams(new FormData(form)),headers:{'X-Requested-With':'fetch'}}).then(async r=>{if(!r.ok)throw Error(await r.text());before=input.value;status.textContent='Saved'}).catch(e=>status.textContent=e.message||'Could not save. Retry by pressing Enter or leaving the field.').finally(()=>pending=false)};input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();save()}});input.addEventListener('blur',save)});
+document.querySelectorAll('[data-autosave-switch]').forEach(form=>{const input=form.querySelector('[type=checkbox]'),status=form.querySelector('.inline-save-status');let pending=false;input.addEventListener('change',()=>{if(pending)return;pending=true;status.textContent='Saving…';const data=new URLSearchParams({month:form.querySelector('[name=month]').value,enabled:input.checked?'1':'0'});fetch(form.action,{method:'POST',body:data,headers:{'X-Requested-With':'fetch'}}).then(async r=>{if(!r.ok)throw Error(await r.text());status.textContent='Saved'}).catch(e=>{status.textContent=e.message||'Could not save';input.checked=!input.checked}).finally(()=>pending=false)})});
+document.querySelectorAll('[data-autosave-checks]').forEach(form=>{const status=form.querySelector('.inline-save-status');let pending=Promise.resolve();form.querySelectorAll('input[type=checkbox]').forEach(input=>input.addEventListener('change',()=>{status.textContent='Saving…';const data=new URLSearchParams(new FormData(form));pending=pending.then(()=>fetch(form.action,{method:'POST',body:data,headers:{'X-Requested-With':'fetch'}})).then(async r=>{if(!r.ok)throw Error(await r.text());status.textContent='Saved'}).catch(e=>status.textContent=e.message||'Could not save; change a selection to retry.')}))});
+document.querySelectorAll('[data-filter-rows]').forEach(input=>input.addEventListener('input',()=>{const q=input.value.trim().toLocaleLowerCase();input.closest('form').querySelectorAll('[data-filter-row]').forEach(row=>row.hidden=!row.textContent.toLocaleLowerCase().includes(q))}));</script>
 {% endblock %}

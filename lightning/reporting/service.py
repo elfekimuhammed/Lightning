@@ -207,8 +207,22 @@ class ReportingService:
 
     def owned_liquid_cash(self, as_of: date | str) -> Decimal:
         """Cash owned in wallets and bank accounts; excludes custody balances and locked assets."""
-        return sum((self.owned_account_value(account.id, as_of) for account in self.accounts.list(active_only=True)
+        return sum((self.owned_account_value(account.id, as_of) for account in self.accounts.list()
                     if account.account_type in {AccountType.CASH, AccountType.BANK}), ZERO)
+
+    def owned_brokerage_cash(self, as_of: date | str) -> Decimal:
+        """Cash inside brokerage accounts, valued at face value and excluded from spendable cash."""
+        day = self._day(as_of)
+        total = ZERO
+        for account in self.accounts.list(active_only=True):
+            if account.account_type != AccountType.BROKERAGE:
+                continue
+            amount = max(ZERO, self.account_balance(account.id, day)
+                         - self.money_from_others.cash_total_for_account(account.id, day))
+            valuation = self.valuer.value(self.assets.cash_asset(account.currency), amount, day)
+            if valuation.value is not None:
+                total += valuation.value
+        return total
 
     def first_activity_date(self) -> str | None:
         return self.q.first_entry_date()

@@ -111,8 +111,10 @@ async def all_accounts_entry(request: Request):
     if not isinstance(result, tuple):
         return result
     txn, entry = result
-    container(request).reserves.auto_link_transaction(txn.id)
+    matched_reserve = container(request).reserves.auto_link_transaction(txn.id)
     feedback = register._budget_feedback(container(request), txn)
+    if matched_reserve < 0:
+        feedback = (feedback + " Several reserves could match; choose one on the Reserves page.").strip()
     return redirect(f"/transactions?date={txn.date}&new_acct={entry['account_id']}",
                     f"Saved {txn.ref}. {feedback}".strip())
 
@@ -123,10 +125,12 @@ async def all_accounts_update(request: Request, txn_id: int):
     if not isinstance(result, tuple):
         return result
     txn, _ = result
-    container(request).reserves.auto_link_transaction(txn.id)
+    matched_reserve = container(request).reserves.auto_link_transaction(txn.id)
     message = (f"Saved as {txn.ref}. The original transaction is kept in history." if txn.id != txn_id
                else f"Saved {txn.ref}.")
     feedback = register._budget_feedback(container(request), txn)
+    if matched_reserve < 0:
+        feedback = (feedback + " Several reserves could match; choose one on the Reserves page.").strip()
     message = f"{message} {feedback}".strip()
     return redirect("/transactions", message)
 

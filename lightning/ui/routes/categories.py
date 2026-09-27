@@ -110,7 +110,7 @@ async def category_bulk_action(request: Request):
             raise LightningError("Choose Activate, Archive, or Delete.")
         category_ids = sorted({int(value) for value in raw_ids if str(value).isdigit()})
         if not category_ids:
-            raise LightningError("Select at least one L2 category.")
+            raise LightningError("Choose at least one L2 category.")
         categories = [c.categories.get(category_id) for category_id in category_ids]
         if any(category.is_root or category.is_system or category.depth < 2 for category in categories):
             raise LightningError("Only L2 categories can be managed here.")
@@ -135,5 +135,5 @@ async def category_bulk_action(request: Request):
         else:
             message = f"Deleted {deleted}; archived {archived} categor{'y' if deleted + archived == 1 else 'ies'}."
     except (ValueError, LightningError) as exc:
-        message = exc.message if isinstance(exc, LightningError) else "Select valid categories."
+        message = exc.message if isinstance(exc, LightningError) else "Choose valid categories."
     return redirect("/categories", message)

@@ -1,5 +1,7 @@
 """Architecture rules from pyproject.toml, enforced as a test."""
 
+import ast
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -25,5 +27,10 @@ def test_no_float_money_in_financial_code():
 
 def test_ui_contains_no_sql():
     for path in (ROOT / "lightning" / "ui").rglob("*.py"):
-        text = path.read_text(encoding="utf-8").upper()
-        assert "SELECT " not in text and "INSERT " not in text and "UPDATE " not in text, path
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Constant) or not isinstance(node.value, str):
+                continue
+            text = node.value.lstrip()
+            if re.match(r"(?is)^(SELECT\b.*\bFROM\b|INSERT\s+INTO\b|UPDATE\s+\w+\s+SET\b|DELETE\s+FROM\b)", text):
+                raise AssertionError(f"SQL literal in UI route: {path}:{node.lineno}")

@@ -108,10 +108,11 @@ class PostingLine:
 
     @staticmethod
     def revaluation(account_id: int, cash_asset_id: int, amount: Decimal, fx_rate: Decimal = ONE,
-                    memo: str = "Investment revaluation") -> "PostingLine":
+                    memo: str = "Investment revaluation", owner_id: int | None = None) -> "PostingLine":
         """Value-only adjustment: no cash movement and no units added or removed."""
         return PostingLine(account_id, cash_asset_id, ZERO, Effect.REVALUATION, ONE, fx_rate,
-                           memo=memo, amount=amount, amount_base=_round2(amount * fx_rate), is_cash=True)
+                           memo=memo, amount=amount, amount_base=_round2(amount * fx_rate), is_cash=True,
+                           owner_id=owner_id)
 
 def _round2(value: Decimal) -> Decimal:
     return value.quantize(Decimal("0.01"))

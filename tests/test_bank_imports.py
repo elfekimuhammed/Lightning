@@ -179,12 +179,12 @@ def test_other_account_statement_flags_the_matching_transfer(c):
     nbe = c.account_flows.open_account("NBE", "BANK", "2026-09-01", "50000")
     cib = c.account_flows.open_account("CIB", "BANK", "2026-09-01", "50000")
     first_id, _ = c.bank_imports.stage(
-        nbe.id, "nbe.csv", b"Date,Counterparty,Amount\n2026-08-30,CIB,-100\n")
+        nbe.id, "nbe.csv", b"Date,Counterparty,Amount\n2026-09-02,CIB,-100\n")
     _, first_rows = c.bank_imports.preview(first_id)
     c.bank_imports.confirm(first_id, {first_rows[0]["_import_row_id"]: {}})
 
     second_id, _ = c.bank_imports.stage(
-        cib.id, "cib.csv", b"Date,Counterparty,Amount\n2026-08-30,NBE,100\n")
+        cib.id, "cib.csv", b"Date,Counterparty,Amount\n2026-09-02,NBE,100\n")
     _, second_rows = c.bank_imports.preview(second_id)
     assert second_rows[0]["_similarity_warning"] is True
 
@@ -237,7 +237,7 @@ def test_ui_allows_incomplete_rows_and_defaults_category(c, setup):
         f"counterparty_{row_id}": "", f"category_{row_id}": "", f"date_{row_id}": "2026-09-22",
         f"amount_{row_id}": "-14"
     }, follow_redirects=False)
-    assert response.status_code == 303
+    assert response.status_code == 200 and "Import complete" in response.text
     assert c.db.scalar("SELECT COUNT(*) FROM transactions WHERE source='IMPORT'") == 1
     txn = c.db.one("SELECT counterparty FROM transactions WHERE source='IMPORT'")
     assert txn["counterparty"] == ""
@@ -287,7 +287,8 @@ def test_import_confirm_parses_more_than_one_thousand_form_fields(c, setup):
                                    (b"content-type", b"application/x-www-form-urlencoded")],
                        "server": ("testserver", 80), "client": ("testclient", 50000), "app": app}, receive)
     response = asyncio.run(confirm(request, account_id, batch_id))
-    assert response.status_code == 303
+    assert response.status_code == 200
+    assert b"Import complete" in response.body
     assert c.db.scalar("SELECT COUNT(*) FROM bank_import_rows WHERE batch_id=? AND status='SKIPPED'",
                        (batch_id,)) == 292
 

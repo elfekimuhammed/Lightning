@@ -31,7 +31,7 @@ def test_welcome_then_first_account(client, c):
                                            "opening_date": "2026-09-01", "opening_balance": "50,000"})
     assert r.status_code == 200 and "CIB Current" in r.text and "CIB-CUR-EGP" not in r.text
     r = client.get("/")
-    assert "Net worth" in r.text and "50,000.00" in r.text
+    assert "What you own" in r.text and "50,000.00" in r.text
 
 
 def test_full_flow(client, c):
@@ -82,7 +82,7 @@ def test_full_flow(client, c):
     assert "restored" in r.text
 
     r = client.get("/?month=2026-09")
-    assert "Checks out to 0.00" in r.text
+    assert "During this period" in r.text and "Needs attention now" in r.text
 
     r = client.post(f"/accounts/{wallet.id}/deactivate")
     assert "Move the balance" in r.text
@@ -121,6 +121,46 @@ def test_edit_changing_kind_replaces_transaction(client, c, setup):
                                   "/categories/new?parent=1", "/transactions/1"])
 def test_pages_render(client, setup, path):
     assert client.get(path).status_code == 200
+
+
+def test_birdview_invalid_custom_range_keeps_mode_and_dates(client):
+    response = client.get("/birdview?period=custom&date_from=2026-09-27&date_to=2026-09-25")
+    assert response.status_code == 200
+    assert "The end date must be on or after the start date." in response.text
+    assert 'value="custom" selected' in response.text
+    assert 'value="2026-09-27"' in response.text
+    assert 'value="2026-09-25"' in response.text
+
+
+def test_overview_horizons_keep_the_same_status_layout_and_popup_range(client, c):
+    wallet = c.account_flows.open_account("Wallet", "CASH", "2026-09-01", "1000")
+    c.transactions.record_outflow("2026-09-10", wallet.id, "1", c.categories.get_by_code("EXP.PERSONAL.FOOD").id)
+    cases = [
+        ("period=all", "2026-09-01 to 2026-12-31"),
+        ("period=ytd", "2026-01-01 to 2026-12-31"),
+        ("period=month&month=2026-09", "2026-09-01 to 2026-09-30"),
+        ("period=custom&date_from=2026-09-10&date_to=2026-09-20", "2026-09-10 to 2026-09-20"),
+    ]
+    for query, dates in cases:
+        response = client.get(f"/?{query}")
+        assert response.status_code == 200
+        assert dates in response.text
+        labels = ("What you own", "Cash available to spend", "During this period", "Needs attention now")
+        assert [response.text.index(label) for label in labels] == sorted(response.text.index(label) for label in labels)
+        for label in labels:
+            assert label in response.text
+        for removed in ("Where your wealth is", "Held for others", "Recent activity", "This month’s plan", "Moved into investments"):
+            assert removed not in response.text
+    popup = client.get("/explain/flow?period=custom&date_from=2026-09-10&date_to=2026-09-20")
+    assert popup.status_code == 200
+    assert "/birdview?period=custom&amp;date_from=2026-09-10&amp;date_to=2026-09-20" in popup.text
+
+
+def test_birdview_other_assets_has_no_empty_disclosure(client, setup):
+    response = client.get("/birdview")
+    assert response.status_code == 200
+    assert 'class="investment-group investment-group-static"' in response.text
+    assert "Other assets" in response.text
 
 
 def test_not_found(client):
