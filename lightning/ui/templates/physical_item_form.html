@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit item' if item else 'Add physical item' }}{% endblock %}
+{% block heading %}<h1>{{ 'Edit ' ~ values.name if item else 'Add a physical item' }}</h1><p class="muted">Track one named piece. Weight excludes stones and other non-gold parts.</p>{% endblock %}
+{% block content %}
+<form method="post" class="card" style="max-width:760px">
+  {% if error %}<p class="error">{{ error }}</p>{% endif %}
+  <div class="row">
+    <div class="field {{ 'has-error' if error_field == 'name' }}"><label for="name">Item name</label><input id="name" name="name" value="{{ values.name }}" placeholder="Gold ring" required></div>
+    <div class="field {{ 'has-error' if error_field == 'kind' }}"><label for="kind">Kind</label><input id="kind" name="kind" value="{{ values.kind }}" placeholder="Ring" required></div>
+  </div>
+  <div class="row">
+  <div class="field {{ 'has-error' if error_field == 'weight' }}"><label for="weight">Net gold weight per piece (g)</label><input id="weight" name="weight" value="{{ values.weight }}" inputmode="decimal" placeholder="4.2" required><small class="muted">Excludes stones and non-gold components. Changing weight or karat changes the reference estimate; it does not rewrite cost or transactions.</small></div>
+    <div class="field {{ 'has-error' if error_field == 'karat' }}"><label for="karat">Karat</label><select id="karat" name="karat">{% for k in (18,21,22,24) %}<option value="{{ k }}" {{ 'selected' if values.karat == k|string }}>{{ k }}K</option>{% endfor %}</select></div>
+  </div>
+  <div class="field {{ 'has-error' if error_field == 'reference_asset_id' }}"><label for="reference_asset_id">Gold price reference</label><select id="reference_asset_id" name="reference_asset_id" required><option value="">Choose matching-karat price per gram…</option>{% for a in references %}<option value="{{ a.id }}" {{ 'selected' if values.reference_asset_id == a.id|string }}>{{ a.name }} · {{ a.unit }} · {{ a.currency }}</option>{% endfor %}</select><small class="muted">The quote is already per gram of this karat; purity is not multiplied again.</small></div>
+  <div class="field"><label for="details">Details</label><textarea id="details" name="details" rows="3" placeholder="Stone, workmanship, or identifying details">{{ values.details }}</textarea></div>
+  <div class="actions"><button class="btn primary">{{ 'Save item' if item else 'Create item' }}</button><a class="btn" href="/accounts/{{ account.id }}">Cancel</a></div>
+</form>
+{% endblock %}

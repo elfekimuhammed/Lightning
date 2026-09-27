@@ -36,6 +36,48 @@ class Valuer:
         if asset.is_cash:
             price, price_date, source = ONE, None, "CASH"
         else:
+            item = self.q.db.one("SELECT net_gold_grams_e6,reference_asset_id,account_id FROM physical_items WHERE asset_id=?",
+                                 (asset.id,)) if self.q.db.has_table("physical_items") else None
+            if item:
+                reference = self.q.latest_price(item["reference_asset_id"], day)
+                manual = self.q.db.one("SELECT date,quantity_e6,total_value_e6 FROM physical_item_valuations "
+                                       "WHERE asset_id=? AND date<=? ORDER BY date DESC,id DESC LIMIT 1",
+                                       (asset.id, day))
+                reference_date = reference["date"] if reference else None
+                if manual and (reference_date is None or manual["date"] >= reference_date):
+                    unit = (Decimal(manual["total_value_e6"]) / Decimal(manual["quantity_e6"]))
+                    value = (quantity * unit).quantize(Decimal("0.000001"))
+                    return Valuation(value, unit, manual["date"], "", "MANUAL")
+                if reference:
+                    grams = Decimal(item["net_gold_grams_e6"]) / Decimal(1_000_000)
+                    price = from_e6(reference["price_e6"]) * grams
+                    fx = self._fx(asset.currency, day)
+                    if fx is None:
+                        return Valuation(None, price, reference_date,
+                                         f"No {asset.currency}/{self.base} rate on or before {day}")
+                    value = (quantity * price * fx).quantize(Decimal("0.000001"))
+                    return Valuation(value, price, reference_date, "", f"{asset.unit} · {reference['source']} reference")
+                held_qty = Decimal(0)
+                held_cost = Decimal(0)
+                cost_date = None
+                for line in self.q.investment_lines(day, item["account_id"]):
+                    if line["asset_id"] != asset.id:
+                        continue
+                    line_qty = from_e6(line["quantity_e6"])
+                    line_amount = from_e6(line["amount_base_e6"])
+                    if line_qty > 0:
+                        held_qty += line_qty
+                        held_cost += line_amount
+                        cost_date = line["date"]
+                    elif held_qty > 0:
+                        removed = held_cost / held_qty * -line_qty
+                        held_cost -= removed
+                        held_qty += line_qty
+                if held_qty > 0 and held_cost >= 0:
+                    unit_cost = held_cost / held_qty
+                    return Valuation((quantity * unit_cost).quantize(Decimal("0.000001")), unit_cost,
+                                     cost_date, "", "COST")
+                return Valuation(None, None, None, f"No gold reference or recorded cost for {asset.name}")
             found = self._price(asset, day)
             if found is None:
                 return Valuation(None, None, None, f"No price for {asset.label} on or before {day}")

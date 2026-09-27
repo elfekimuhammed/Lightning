@@ -134,6 +134,27 @@ class AssetService:
             new_id = self.repo.insert_asset(asset)
         return self.get_asset(new_id)
 
+    def create_physical_item_asset(self, name: str) -> FinancialAsset:
+        """Create the non-tickered, piece-count ledger asset behind one named physical item."""
+        from lightning.assets.domain import Exposure, Liquidity, PriceSource
+
+        base = slug(name, 14) or "ITEM"
+        suffix = 1
+        code = f"OTH:ITEM-{base}-{suffix}"
+        while self.repo.get_asset_by_code(code):
+            suffix += 1
+            code = f"OTH:ITEM-{base}-{suffix}"
+        asset = FinancialAsset(
+            id=0, code=code, name=name.strip(), asset_class_id=self.get_class_by_code("GOLD").id,
+            currency=self.base_currency, unit="piece", quantity_decimals=0, is_cash=False,
+            exposure=Exposure.GOLD, liquidity=Liquidity.DAYS, purity=None, isin=None,
+            price_source=PriceSource.MANUAL, external_symbol=None, active=True,
+            notes="Physical item ledger asset",
+        )
+        with self.db.transaction():
+            new_id = self.repo.insert_asset(asset)
+        return self.get_asset(new_id)
+
     def update_investment(self, asset_id: int, name: str, class_code: str | None = None, isin: str = "",
                           notes: str = "", active: bool = True) -> FinancialAsset:
         asset = self.get_asset(asset_id)

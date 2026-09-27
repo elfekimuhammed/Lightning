@@ -504,3 +504,24 @@ tr.clickable:hover td { background: var(--surface-2); }
 @media(max-width:760px){.budget-status-row{grid-template-columns:1fr auto;gap:6px 12px}.budget-status-row .progress{grid-column:1/3}.budget-section-status .budget-head{display:block}.budget-section-status .budget-head .small{margin-top:6px}.budget-attention-row{align-items:flex-start}.budget-editor-section{overflow-x:auto}}
 .integrity-summary-link{margin-top:16px;display:flex;justify-content:space-between;align-items:center;gap:16px;padding:16px;text-decoration:none}.integrity-summary-link span:first-child{display:grid;gap:4px}.integrity-summary-link small{color:var(--muted)}.integrity-summary-link--issue{border-color:var(--warn)}.integrity-summary{margin-top:16px}.integrity-list{display:grid;gap:12px;margin-top:18px}.integrity-check{padding:18px}.integrity-title{display:grid;grid-template-columns:12px 1fr auto;gap:12px;align-items:start}.integrity-title h2{font-size:16px;margin:0}.integrity-title p{margin:5px 0 0;color:var(--muted);font-size:13px}.integrity-indicator{width:10px;height:10px;margin-top:5px;border-radius:50%;background:var(--pos)}.integrity-check--issue .integrity-indicator{background:var(--neg)}.integrity-check--incomplete .integrity-indicator{background:var(--warn)}.integrity-values{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:18px 0 0 24px;padding-top:12px;border-top:1px solid var(--border)}.integrity-values div{display:grid;gap:4px}.integrity-values small{color:var(--muted);font-size:11px}.integrity-values b{font-variant-numeric:tabular-nums}.integrity-check--issue{border-color:var(--neg)}.integrity-check--incomplete{border-color:var(--warn)}
 @media(max-width:700px){.integrity-values{grid-template-columns:1fr;margin-left:0}.integrity-title{grid-template-columns:12px 1fr}.integrity-title .pill{grid-column:2}.integrity-summary-link{align-items:flex-start;flex-direction:column}}
+/* Shared contextual dialog/drawer used by account and transaction workflows. */
+.app-popup { border: 0; padding: 0; color: var(--text); background: transparent; width: min(680px, calc(100vw - 32px)); max-width: none; max-height: min(90vh, 900px); overflow: visible; }
+body.popup-open { overflow: hidden; }
+.app-popup::backdrop { background: rgb(8 18 30 / 52%); backdrop-filter: blur(2px); }
+.app-popup-frame { position: relative; max-height: min(90vh, 900px); overflow: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 18px; box-shadow: 0 24px 80px rgb(0 0 0 / 26%); padding: 28px; }
+.app-popup-close { position: absolute; z-index: 2; top: 12px; right: 14px; border: 0; border-radius: 50%; width: 38px; height: 38px; font-size: 26px; line-height: 1; color: var(--muted); background: var(--surface-2); cursor: pointer; }
+.app-popup-content > :first-child { margin-top: 0; }
+.app-popup [data-popup-status] { min-height: 1.4em; }
+.popup-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+.transaction-choice-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 16px 0; }
+.transaction-choice { min-height: 76px; padding: 14px; text-align: left; font-weight: 700; }
+.transaction-effect { padding: 12px 14px; border-radius: 10px; background: var(--surface-2); margin-top: 14px; }
+.field.has-error input, .field.has-error select, .field.has-error textarea { border-color: var(--danger); }
+.field-error { display: block; color: var(--danger); font-size: 12px; margin-top: 4px; }
+.account-next-step { margin-bottom: 16px; }
+.activity-row-link { color: inherit; text-decoration: none; }
+@media (max-width: 640px) {
+  .app-popup { width: 100vw; max-height: 100dvh; margin: auto 0 0; }
+  .app-popup-frame { max-height: 94dvh; border-radius: 18px 18px 0 0; padding: 24px 18px calc(24px + env(safe-area-inset-bottom)); }
+  .transaction-choice-grid { grid-template-columns: 1fr; }
+}

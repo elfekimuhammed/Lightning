@@ -55,6 +55,7 @@
 {% block top_actions %}
 <a class="btn small" href="/transactions/deleted">Deleted transactions</a>
 {% if account %}
+{% if account.active and account.account_type.value != 'PHYSICAL_ASSET' %}<a class="btn primary" data-popup-open href="/accounts/{{ account.id }}/transaction/new">Add transaction</a>{% endif %}
 <a class="btn small" href="/accounts/{{ account.id }}/reconcile">Reconcile</a>
 <a class="btn small" href="/accounts/{{ account.id }}/import">Import CSV</a>
 <a class="btn small" href="/accounts/{{ account.id }}/edit">Edit account</a>
@@ -67,11 +68,16 @@
 {% set with_balance = account and not q %}
 {% set ncols = 8 + (1 if show_account else 0) + (1 if with_balance else 0) %}
 
+{% if account and request.query_params.get('welcome') %}
+<section class="card account-next-step"><b>Next step</b><p class="muted">{% if account.account_type.value == 'BROKERAGE' %}Add cash to this brokerage account before recording a buy.{% elif account.account_type.value == 'PHYSICAL_ASSET' %}Add a named item such as a gold ring.{% else %}Record your first Money out, Money in, or Transfer activity.{% endif %}</p>
+{% if account.account_type.value == 'PHYSICAL_ASSET' %}<a class="btn primary" href="/accounts/{{ account.id }}/items/new">Add physical item</a>{% else %}<a class="btn primary" data-popup-open href="/accounts/{{ account.id }}/transaction/new">{% if account.account_type.value == 'BROKERAGE' %}Fund brokerage cash{% else %}Add transaction{% endif %}</a>{% endif %}
+</section>
+{% endif %}
+
 <datalist id="counterparty-options"><option value="My money"></option>{% for name in counterparty_options %}<option value="{{ name }}"></option>{% endfor %}</datalist>
 <script id="category-catalogue" type="application/json">{{ category_choices|tojson }}</script>
-<form id="f-new" method="post" action="{{ post_url }}" autocomplete="off"></form>
 {% if edit_id is not none %}<form id="f-edit" method="post" action="{{ post_url }}/{{ edit_id }}" autocomplete="off"></form>{% endif %}
-{% set review_form_id = 'f-edit' if edit_id is not none else 'f-new' %}
+{% set review_form_id = 'f-edit' %}
 {% if entry.get('counterparty_choice') and review_mode != 'counterparty' %}<input form="{{ review_form_id }}" type="hidden" name="counterparty_choice" value="{{ entry.counterparty_choice }}">{% endif %}
 {% if account and account.account_type.value == 'BROKERAGE' %}
 <section class="card account-asset-breakdown">
@@ -226,16 +232,6 @@
       <th class="num">Amount</th>{% if with_balance %}<th class="num">Balance</th>{% endif %}<th class="action-heading">Action</th>
     </tr></thead>
     <tbody>
-    {% if not account or account.active %}
-    <tr class="add-row">
-      <td></td>
-      {{ inputs('f-new', entry, False) }}
-      {% if with_balance %}<td></td>{% endif %}
-      <td><button form="f-new" class="btn primary small" title="Enter also saves">Add</button></td>
-    </tr>
-    <tr class="add-hint"><td colspan="{{ ncols }}">Amount: <b>−</b> money out, <b>+</b> money in. Choose or type a <b>Counterparty</b>, or choose one of your accounts to make a transfer. To exclude money held for another person, choose <b>Personal › Money Held for Others</b> and enter their name under <b>Whom</b>.</td></tr>
-    {% endif %}
-
     {% set ns = namespace(last_date='') %}
     {% for r in rows %}
       {% set kind = 'in' if r.amount > 0 else 'out' %}
@@ -254,11 +250,8 @@
         <span class="muted small code">{{ r.ref }}</span>
       </td></tr>
       {% else %}
-      {% if r.type == 'OPN' %}{% set href = '/accounts/' ~ r.account_id ~ '/edit' %}
-      {% elif r.type in ('BUY', 'SEL', 'DIV') %}{% set href = '/investments/' ~ r.txn_id ~ '/edit' %}
-      {% elif r.type == 'VAL' %}{% set href = '/transactions/' ~ r.txn_id %}
-      {% else %}{% set href = base_url ~ '?edit=' ~ r.txn_id ~ '&acct=' ~ r.account_id ~ ('&' ~ keep_qs if keep_qs) %}{% endif %}
-      <tr class="{{ '' if r.type == 'VAL' else 'clickable ' }}row-{{ kind }}" data-href="{{ href }}" title="{{ r.ref }} — {{ 'view details' if r.type == 'VAL' else 'click to edit' }}">
+      {% set href = '/transactions/' ~ r.txn_id ~ '?popup=1' %}
+      <tr class="clickable row-{{ kind }}" data-popup-row data-href="{{ href }}" title="{{ r.ref }} — view details">
         <td><input type="checkbox" class="transaction-select" value="{{ r.txn_id }}" data-type="{{ r.type }}" aria-label="Select {{ r.counterparty or r.type_label }}" {{ 'disabled title="System-generated investment revaluation"' if r.type == 'VAL' else ('disabled title="Edit opening balances from the account page"' if r.type == 'OPN' else '') }}></td>
         <td class="code {{ 'same-day' if r.date == ns.last_date }}">{{ r.date }}</td>
         {% if show_account %}<td class="small">{{ r.account_label }}</td>{% endif %}

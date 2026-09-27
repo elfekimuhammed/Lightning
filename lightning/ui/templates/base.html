@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Lightning{% endblock %} · Lightning</title>
   <link rel="stylesheet" href="/static/fonts/fonts.css">
-  <link rel="stylesheet" href="/static/style.css?v=13">
+  <link rel="stylesheet" href="/static/style.css?v=14">
 </head>
 <body>
 <div class="shell">
@@ -43,7 +43,7 @@
           <span class="num {{ 'neg' if a.value < 0 }}">{{ a.value|money }}</span></a>
         {% endfor %}
       {% endfor %}
-      <a class="side-add" href="/accounts/new">+ Add account</a>
+      <a class="side-add" data-popup-open href="/accounts/new">+ Add account</a>
       <a class="side-add" href="/accounts">Manage accounts</a>
     </div>
   </aside>
@@ -54,6 +54,12 @@
     {% block content %}{% endblock %}
   </main>
 </div>
-<script src="/static/app.js?v=11"></script>
+<dialog id="app-popup" class="app-popup" aria-modal="true" aria-labelledby="app-popup-title">
+  <div class="app-popup-frame">
+    <button type="button" class="app-popup-close" data-popup-close aria-label="Close dialog">×</button>
+    <div id="app-popup-content"></div>
+  </div>
+</dialog>
+<script src="/static/app.js?v=13"></script>
 </body>
 </html>

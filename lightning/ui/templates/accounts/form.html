@@ -4,7 +4,7 @@
 {% block heading %}<h1>{{ 'Edit ' ~ account.name if account else 'Add an account' }}</h1>
 <div class="muted">An account is a place where money is held.</div>{% endblock %}
 {% block content %}
-<form method="post" class="card" style="max-width:760px">
+<form method="post" class="card" style="max-width:760px" data-popup-return="response">
   <div class="row">
     {{ field('name', 'Name', values, error_field, placeholder='e.g. CIB Current', attrs='required autofocus') }}
   </div>
@@ -39,12 +39,19 @@
         </span>
       </div>
     </div>
+    <div class="field {{ 'has-error' if error_field == 'owner_id' }}">
+      <label for="owner_id">Owned by</label>
+      <select id="owner_id" name="owner_id"><option value="">You</option>
+        {% for person in counterparties %}<option value="{{ person.id }}" {{ 'selected' if values.owner_id == person.id|string }}>{{ person.name }}</option>{% endfor %}
+      </select>
+      <small class="muted">Leave blank if you own this starting balance.</small>
+    </div>
   </section>
   <div class="field" id="account-type-guidance" data-account-type="{{ values.account_type }}">
     <div class="help" id="account-type-help"></div>
   </div>
   <details {{ 'open' if error_field in ('last4', 'notes') }}>
-    <summary>More options</summary>
+    <summary>More details</summary>
     <div class="row" style="margin-top:12px">
       {{ field('last4', 'Last 4 digits', values, error_field, help='Optional. Never enter the full number.', attrs='inputmode="numeric" maxlength="4"') }}
     </div>

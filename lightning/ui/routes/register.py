@@ -30,6 +30,15 @@ def _int(value) -> int | None:
     return int(text) if text.isdigit() else None
 
 
+def _cash_account_id(value: str) -> int | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    if not text.isdigit() or int(text) <= 0:
+        raise ValidationError("Choose a valid cash account.", "cash_account_id")
+    return int(text)
+
+
 def _lists(request: Request) -> dict:
     """Data for register typeahead pickers."""
     c = container(request)
@@ -312,9 +321,11 @@ async def create(request: Request, account_id: int | None):
     try:
         with c.db.transaction():
             other_id, category_id, counterparty = _resolve(request, row_account, entry)
-            txn = c.transactions.record_in_account(row_account, entry["date"], entry["amount"], category_id, other_id,
-                                                   counterparty, entry["notes"])
             category = c.categories.get(category_id) if category_id else None
+            owner_name = (_transfer_custody_owner(c, entry) if other_id else _custody_owner(c, entry, category))
+            owner_party = c.counterparties.resolve(owner_name) if owner_name else None
+            txn = c.transactions.record_in_account(row_account, entry["date"], entry["amount"], category_id, other_id,
+                                                   counterparty, entry["notes"], owner_id=owner_party["id"] if owner_party else None)
             amount = to_decimal(entry["amount"], "amount")
             if other_id:
                 source, target = (other_id, row_account) if amount > ZERO else (row_account, other_id)
@@ -338,9 +349,11 @@ async def update(request: Request, account_id: int | None, txn_id: int):
     try:
         with c.db.transaction():
             other_id, category_id, counterparty = _resolve(request, row_account, values)
-            txn = c.transactions.update_in_account(txn_id, row_account, values["date"], values["amount"], category_id,
-                                                   other_id, counterparty, values["notes"])
             category = c.categories.get(category_id) if category_id else None
+            owner_name = (_transfer_custody_owner(c, values) if other_id else _custody_owner(c, values, category))
+            owner_party = c.counterparties.resolve(owner_name) if owner_name else None
+            txn = c.transactions.update_in_account(txn_id, row_account, values["date"], values["amount"], category_id,
+                                                   other_id, counterparty, values["notes"], owner_party["id"] if owner_party else None)
             if txn.id != txn_id:
                 c.money_from_others.sync_transaction(txn_id, values["date"], None, row_account, ZERO, "")
             amount = to_decimal(values["amount"], "amount")
@@ -418,6 +431,7 @@ async def create_investment_entry(request: Request, account_id: int):
             raise ValidationError("Units must be greater than zero.", "units")
         ticker_row = None
         asset = None
+        cash_account_id = _cash_account_id(values["cash_account_id"])
         with c.db.transaction():
             if key.startswith("asset:") and key[6:].isdigit():
                 asset = c.assets.get_asset(int(key[6:]))
@@ -450,14 +464,14 @@ async def create_investment_entry(request: Request, account_id: int):
                         raise ValidationError("Enter a price per unit or the total paid.", "unit_price")
                     txn = c.investments.buy(values["date"], account.id, asset.id, units, unit_price,
                                             fees=values["fees"],
-                                            cash_account_id=int(values["cash_account_id"] or 0) or None,
+                                            cash_account_id=cash_account_id,
                                             notes=values["notes"])
                 else:
                     if not total:
                         raise ValidationError("Enter the total paid or a price per unit.", "total")
                     txn = c.investments.buy_total(values["date"], account.id, asset.id, units, total,
                                                   fees=values["fees"], fees_included=values["fees_included"] != "0",
-                                                  cash_account_id=int(values["cash_account_id"] or 0) or None,
+                                                  cash_account_id=cash_account_id,
                                                   notes=values["notes"])
             else:
                 units = -units
@@ -467,14 +481,14 @@ async def create_investment_entry(request: Request, account_id: int):
                         raise ValidationError("Enter a price per unit or the total received.", "unit_price")
                     txn = c.investments.sell(values["date"], account.id, asset.id, units, unit_price,
                                              fees=values["fees"],
-                                             cash_account_id=int(values["cash_account_id"] or 0) or None,
+                                             cash_account_id=cash_account_id,
                                              notes=values["notes"])
                 else:
                     if not total:
                         raise ValidationError("Enter the total received or a price per unit.", "total")
                     txn = c.investments.sell_total(values["date"], account.id, asset.id, units, total,
                                                    fees=values["fees"], fees_included=values["fees_included"] != "0",
-                                                   cash_account_id=int(values["cash_account_id"] or 0) or None,
+                                                   cash_account_id=cash_account_id,
                                                    notes=values["notes"])
             owner = None
             if values["is_others"]:

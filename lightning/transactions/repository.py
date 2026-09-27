@@ -30,6 +30,7 @@ def _line(row: sqlite3.Row) -> LedgerLine:
         effect=Effect(row["effect"]),
         category_id=row["category_id"],
         memo=row["memo"],
+        owner_id=row["owner_id"] if "owner_id" in row.keys() else None,
     )
 
 
@@ -132,7 +133,7 @@ class TransactionRepository:
             self.db.execute(
                 "INSERT INTO ledger_entries(transaction_id, line_no, date, account_id, asset_id,"
                 " quantity_e6, unit_price_e6, amount_e6, fx_rate_e6, amount_base_e6, effect,"
-                " category_id, memo) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                " category_id, memo, owner_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     txn_id,
                     n,
@@ -147,6 +148,7 @@ class TransactionRepository:
                     line.effect.value,
                     line.category_id,
                     line.memo,
+                    line.owner_id,
                 ),
             )
 

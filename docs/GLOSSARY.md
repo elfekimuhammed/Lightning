@@ -2,8 +2,8 @@
 
 ## Document status
 
-- **Last updated:** 2026-09-26
-- **Document revision:** 2026-09-26.2
+- **Last updated:** 2026-09-27
+- **Document revision:** 2026-09-27.1
 - **App version:** 0.3.0 (`lightning/__init__.py`); `pyproject.toml` packaging metadata remains at 0.1.0.
 - **Role:** canonical product and technical terms. Current workflow and roadmap live in [Project Overview](PROJECT_OVERVIEW.md); calculation contracts live in [Architecture](ARCHITECTURE.md).
 
@@ -18,6 +18,12 @@ This is Lightning's canonical language for product, database, code, and UI. Use 
 | **Asset class** | A grouping for financial assets; describes what kind of wealth it is, not where held or why a payment happened. | Funds → Money Market |
 | **Exposure** | What economic value an asset tracks, separately from its wrapper/class. | Gold fund → Gold exposure |
 | **Holding / position** | Calculated quantity of one financial asset in one account at a date. | 100 COMI shares in THNDR |
+| **Physical item** | Individually named tangible asset tracked by piece count, per-piece net gold-bearing weight, karat, cost, and valuation reference. Its item record is not a tickered security. | One Gold ring, 1 piece, 4.2 g of 18K alloy |
+| **Net gold weight** | Grams of gold-bearing alloy per physical piece, excluding stones and non-gold parts. It is not fine-gold grams unless the item's karat is 24K. | Ring: 4.2 g at 18K |
+| **Fine-gold exposure** | Pure-gold-equivalent grams derived for allocation/reporting: piece count × net gold grams per piece × karat/24. This reporting measure does not change the item's display weight or reference valuation formula. | 1 × 4.2 g × 18/24 = 3.15 g fine gold |
+| **Karat-specific gold price** | Price per gram of alloy at the named karat. Multiply by matching-karat net gold weight; never adjust the quote by purity again. | EGP per gram of 18K gold |
+| **Acquisition cost** | Historical total paid for the item's current acquired quantity; may include workmanship, stones, and fees. Reference-price updates never change it. | 18,000 EGP including workmanship |
+| **Manual item valuation** | User-entered dated total value for a physical item and its held quantity, used when the shared gold price is unsuitable. | Ring's 2026-09-26 resale estimate |
 | **Balance** | Calculated value/quantity of an account or position on a date; not an independent user-entered fact. | 12,000 EGP; 100 shares |
 | **Activity** | The broad reason/kind of a transaction, represented by its category family. It is independent of whether money came in or went out. | Personal, Work, Investment |
 | **Category** | A label for the activity behind a transaction. Categories do not describe the counterparty, account, or owned asset. | Personal → Food & Groceries |
@@ -28,6 +34,7 @@ This is Lightning's canonical language for product, database, code, and UI. Use 
 | **Transaction** | A dated user or system event shown in the main ledger. | 450 EGP Talabat payment |
 | **Main ledger** | The single activity ledger from which account registers, all-transaction view, budget actuals, and reporting are derived. | Register filtered to CIB |
 | **Ledger line / journal line** | One transaction's effect on a particular account and financial asset. | CIB cash −450 EGP |
+| **Owner ID** | Optional Counterparty reference on a ledger line; blank means the user owns the value on that line. | Dad owns 2,000 EGP of THNDR cash |
 | **Money in / money out** | Direction in which value crosses an account boundary. Direction does not determine category. | Salary is money in; grocery purchase is money out |
 | **Transfer** | Value moved between accounts owned by the user; not income or expense. Selecting an owned account as Counterparty creates both account effects. | CIB → THNDR |
 | **Investment trade** | Exchange of brokerage cash for asset units (buy) or units for cash (sell). It is recorded inside that brokerage account's register. | Buy 10 fund units |

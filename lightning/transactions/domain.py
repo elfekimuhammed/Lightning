@@ -42,6 +42,7 @@ class LedgerLine:
     effect: Effect
     category_id: int | None
     memo: str
+    owner_id: int | None = None
 
 
 @dataclass

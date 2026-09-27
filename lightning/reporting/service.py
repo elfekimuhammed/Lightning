@@ -412,6 +412,10 @@ class ReportingService:
         groups: dict[str, Group] = {}
         for row in self.q.category_totals(start, end):
             cat = self.categories.get(row["category_id"])
+            # Income categories are not spending. Expense-category inflows are
+            # refunds and must remain in the calculation so they reduce spend.
+            if row["effect"] == "INFLOW" and cat.income_class is not None:
+                continue
             parts = cat.code.split(".")
             code = ".".join(parts[: depth + 1])
             label_cat = self.categories.get_by_code(code)

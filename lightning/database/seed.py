@@ -120,6 +120,23 @@ def seed(db: Database) -> None:
                 (code, name, cash_class, currency, currency, now, now),
             )
 
+        gold_class = db.scalar("SELECT id FROM asset_classes WHERE code = 'GOLD'")
+        # 18K and 24K are the shared reference series needed by named physical items.
+        # 21K/22K remain available as normal holding assets when users create them.
+        for karat in (18, 24):
+            # Keep 18K's established public code; make the 24K price series internal
+            # so a user can still create an ordinary GLD:24K holding.
+            code = "GLD:18K" if karat == 18 else "REF:GLD-24K"
+            if db.scalar("SELECT 1 FROM financial_assets WHERE code = ?", (code,)):
+                continue
+            db.execute(
+                "INSERT INTO financial_assets(code,name,asset_class_id,currency,unit,quantity_decimals,is_cash,"
+                "exposure,liquidity,purity_e6,price_source,created_at,updated_at) "
+                "VALUES(?,?,?,?,?,3,0,'GOLD','DAYS',?,'MANUAL',?,?)",
+                (code, f"{karat}K gold price reference", gold_class, settings.base_currency, "gram",
+                 karat * 1_000_000 // 24, now, now),
+            )
+
         if settings.get("category_seed_version") != CATEGORY_SEED_VERSION:
             for order, (code, name, extra) in enumerate(CATEGORIES):
                 if db.scalar("SELECT 1 FROM categories WHERE code = ?", (code,)):

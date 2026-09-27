@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block heading %}<h1>{{ title }}</h1><div class="muted">{{ account.label }}</div>{% endblock %}
+{% block content %}
+<section class="card app-popup-content" data-transaction-form data-account-name="{{ account.name }}" data-currency="{{ account.currency }}">
+  <h2 data-popup-title>{{ title }}</h2>
+  <p class="muted">Record one account activity. Enter a positive amount; choose Money out, Money in, or Transfer.</p>
+  {% if error %}<div class="flash error" role="alert">{{ error }}</div>{% endif %}
+  <form method="post" action="{{ action }}">
+    <input type="hidden" name="return_to" value="{{ return_to }}">
+    {% if txn_id %}<input type="hidden" name="account_id" value="{{ values.account_id }}">{% endif %}
+    <div class="transaction-choice-grid" role="group" aria-label="Transaction type">
+      {% for value, label in [('out','Money out'),('in','Money in'),('transfer','Transfer')] %}
+      <label class="btn transaction-choice"><input type="radio" name="kind" value="{{ value }}" {{ 'checked' if values.kind == value }} required> {{ label }}</label>
+      {% endfor %}
+    </div>
+    <div class="row">
+      <div class="field {{ 'has-error' if error_field == 'date' }}">
+        <label for="popup-date">Date</label>
+        <input id="popup-date" name="date" type="text" value="{{ values.date }}" placeholder="31/1" inputmode="numeric" data-smart-date required>
+        {% if error_field == 'date' %}<small class="field-error">Check the date.</small>{% endif %}
+      </div>
+      <div class="field {{ 'has-error' if error_field == 'amount' }}">
+        <label for="popup-amount">Amount ({{ account.currency }})</label>
+        <input id="popup-amount" name="amount" type="text" value="{{ values.amount }}" inputmode="decimal" placeholder="0.00" required>
+        {% if error_field == 'amount' %}<small class="field-error">{{ error }}</small>{% endif %}
+      </div>
+    </div>
+    <div class="row">
+      <div class="field transfer-only" {{ 'hidden' if values.kind != 'transfer' }}>
+        <label for="popup-to-account">Transfer to</label>
+        <select id="popup-to-account" name="to_account_id">
+          <option value="">Choose an account</option>
+          {% for a in accounts if a.id != account.id %}<option value="{{ a.id }}" {{ 'selected' if values.to_account_id == a.id|string }}>{{ a.label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field money-only {{ 'has-error' if error_field == 'category' }}" {{ 'hidden' if values.kind == 'transfer' }}>
+        <label for="popup-category">Category</label>
+        <select id="popup-category" name="category_id">
+          <option value="">Choose a category</option>
+          {% for cat in categories %}<option value="{{ cat.id }}" data-movement="{{ cat.movement.value }}" {{ 'selected' if values.category_id == cat.id|string }}>{{ cat.label }}</option>{% endfor %}
+        </select>
+        {% if error_field == 'category' %}<small class="field-error">Choose a category.</small>{% endif %}
+      </div>
+      <div class="field money-only {{ 'has-error' if error_field == 'counterparty' }}" {{ 'hidden' if values.kind == 'transfer' }}>
+        <label for="popup-counterparty">Counterparty</label>
+        <select id="popup-counterparty" name="counterparty_id">
+          <option value="">Choose a saved Counterparty (optional)</option>
+          {% for person in counterparties %}<option value="{{ person.id }}" {{ 'selected' if values.counterparty_id == person.id|string }}>{{ person.name }}</option>{% endfor %}
+        </select>
+        {% if error_field == 'counterparty' %}<small class="field-error">Choose a saved Counterparty.</small>{% endif %}
+      </div>
+    </div>
+    <div class="field">
+      <label for="popup-owner">Owned by</label>
+      <select id="popup-owner" name="owner_id"><option value="">You</option>
+        {% for person in counterparties %}<option value="{{ person.id }}" {{ 'selected' if values.owner_id == person.id|string }}>{{ person.name }}</option>{% endfor %}
+      </select>
+      <small class="muted">Leave blank if you own this money.</small>
+    </div>
+    <div class="field"><label for="popup-notes">Notes <span class="muted">(optional)</span></label><input id="popup-notes" name="notes" value="{{ values.notes }}"></div>
+    <div class="transaction-effect" data-transaction-effect role="status" aria-live="polite"></div>
+    <p class="small muted" data-popup-status aria-live="polite"></p>
+    <div class="popup-actions">
+      <button type="button" class="btn" data-popup-close>Cancel</button>
+      <button type="submit" class="btn primary">{{ 'Save changes' if txn_id else 'Save transaction' }}</button>
+    </div>
+  </form>
+</section>
+{% endblock %}

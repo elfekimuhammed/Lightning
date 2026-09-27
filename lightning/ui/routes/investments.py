@@ -92,53 +92,36 @@ def _save(request: Request, kind: str, v: dict, txn_id: int | None = None):
         party = c.counterparties.resolve(v.get("whom", ""))
         if not party or not party["active"]:
             raise LightningError("Choose an active saved Counterparty in Whom.", "whom")
-        owner = party["name"]
+        owner = party["id"]
     if txn_id:
         txn = inv.update(txn_id, date=v["date"], account_id=account, asset_id=asset, quantity=v["quantity"],
                          price=v["price"], fees=v["fees"], total_fees=v["fees"],
                          fees_included=v.get("fees_included", "1") != "0", total=v["total"], cash_account_id=cash, amount=v["amount"],
-                         total_cost=v["total_cost"], notes=v["notes"])
+                         total_cost=v["total_cost"], notes=v["notes"], owner_id=owner)
     elif kind == "buy":
         if v["total"].strip():
             txn = inv.buy_total(v["date"], account, asset, v["quantity"], v["total"], cash, v["notes"],
-                                v["fees"], v.get("fees_included", "1") != "0")
+                                v["fees"], v.get("fees_included", "1") != "0", owner)
         elif v["price"].strip():
-            txn = inv.buy(v["date"], account, asset, v["quantity"], v["price"], v["fees"], cash, v["notes"])
+            txn = inv.buy(v["date"], account, asset, v["quantity"], v["price"], v["fees"], cash, v["notes"], owner)
         else:
             txn = inv.buy_total(v["date"], account, asset, v["quantity"], v["total"], cash, v["notes"],
-                                v["fees"], v.get("fees_included", "1") != "0")
+                                v["fees"], v.get("fees_included", "1") != "0", owner)
     elif kind == "sell":
         if v["total"].strip():
             txn = inv.sell_total(v["date"], account, asset, v["quantity"], v["total"], cash, v["notes"],
-                                 v["fees"], v.get("fees_included", "1") != "0")
+                                 v["fees"], v.get("fees_included", "1") != "0", owner)
         elif v["price"].strip():
-            txn = inv.sell(v["date"], account, asset, v["quantity"], v["price"], v["fees"], cash, v["notes"])
+            txn = inv.sell(v["date"], account, asset, v["quantity"], v["price"], v["fees"], cash, v["notes"], owner)
         else:
             txn = inv.sell_total(v["date"], account, asset, v["quantity"], v["total"], cash, v["notes"],
-                                 v["fees"], v.get("fees_included", "1") != "0")
+                                 v["fees"], v.get("fees_included", "1") != "0", owner)
     elif kind == "dividend":
-        txn = inv.dividend(v["date"], account, asset, v["amount"], v["notes"])
+        txn = inv.dividend(v["date"], account, asset, v["amount"], v["notes"], owner)
     else:
-        txn = inv.add_holding(account, asset, v["quantity"], v["total_cost"], v["date"] or None, v["notes"])
+        txn = inv.add_holding(account, asset, v["quantity"], v["total_cost"], v["date"] or None,
+                              v["notes"], owner)
 
-    quantity = to_decimal(v.get("quantity", "0").replace(",", "") or "0", "quantity")
-    signed_units = -quantity if kind == "sell" else (quantity if kind in ("buy", "holding") else ZERO)
-    c.money_from_others.sync_investment(txn.id, txn.date, owner, account, asset, signed_units)
-    cash_line = next((line for line in txn.lines if c.assets.get_asset(line.asset_id).is_cash), None)
-    if cash_line:
-        cash_amount = cash_line.quantity
-        cash_account_id = cash_line.account_id
-        if cash_amount < ZERO and owner:
-            available = c.money_from_others.cash_balance(owner, cash_account_id, txn.date)
-            cash_amount = -min(abs(cash_amount), max(available, ZERO))
-            if cash_amount == ZERO:
-                c.money_from_others.sync_transaction(txn.id, txn.date, None, cash_account_id, ZERO, "")
-            else:
-                c.money_from_others.sync_transaction(txn.id, txn.date, owner, cash_account_id, cash_amount, v["notes"])
-        elif owner:
-            c.money_from_others.sync_transaction(txn.id, txn.date, owner, cash_account_id, cash_amount, v["notes"])
-        else:
-            c.money_from_others.sync_transaction(txn.id, txn.date, None, cash_account_id, ZERO, "")
     return txn
 
 

@@ -8,6 +8,10 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### Changed
+- Ledger lines can carry an optional owner. Linked legacy cash and investment custody entries migrate to owner-tagged lines, owner balances are checked across dated postings and edits, and brokerage buys must use cash from the brokerage account and the selected owner's balance.
+- `0022_physical_items.sql` adds named physical items and dated item valuations; `0023_ledger_ownership.sql` adds ledger-line ownership.
+
 ### Fixed
 - Counterparty management is now linked in the sidebar; canonical names and aliases can be edited, and delete removes unused records or archives records referenced by transaction history.
 - Re-uploading a previously imported CSV creates a new review attempt; duplicate matches are warnings users may skip or explicitly approve, and voided/deleted transactions no longer count as active duplicates.

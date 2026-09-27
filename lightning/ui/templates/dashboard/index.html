@@ -31,7 +31,7 @@
 
 <section class="grid g3 overview-tiles">
   <div class="card tile"><div class="label">Money in</div><div class="value pos">{{ cash_flow.inflows|money(True) }}</div><div class="sub">Salary, dividends</div></div>
-  <div class="card tile"><div class="label">Money out</div><div class="value neg">{{ cash_flow.outflows|money(True) }}</div><div class="sub">This month</div></div>
+  <div class="card tile"><div class="label">Money out</div><div class="value neg">{{ cash_flow.outflows|money }}</div><div class="sub">This month</div></div>
   <div class="card tile"><div class="label">Invested</div><div class="value">{{ cash_flow.investment_outflows|money }}</div><div class="sub">Moved into investments</div></div>
 </section>
 

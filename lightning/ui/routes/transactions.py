@@ -5,11 +5,85 @@ from fastapi import APIRouter, Request
 from lightning.transactions.domain import TxnFilter, TxnStatus
 
 from lightning.core.errors import LightningError
+from lightning.core.dates import fmt_date, parse_date
+from lightning.core.money import to_decimal
+from lightning.core.errors import ValidationError
 
 from . import register
 from ..web import container, redirect, render
 
 router = APIRouter()
+
+
+@router.get("/transactions/{txn_id:int}/edit-popup")
+async def edit_transaction_popup(request: Request, txn_id: int):
+    c = container(request)
+    txn = c.transactions.get(txn_id)
+    if txn.type.value not in {"OUT", "IN", "TRF"} or txn.is_void:
+        return redirect(f"/transactions/{txn_id}", "This transaction is edited from its account or investment workflow.")
+    cash_lines = [line for line in txn.lines if c.assets.get_asset(line.asset_id).is_cash]
+    if not cash_lines:
+        return redirect(f"/transactions/{txn_id}", "This transaction has no cash account to edit.")
+    if txn.type.value == "TRF":
+        source = next((line for line in cash_lines if line.quantity < 0), cash_lines[0])
+        target = next((line for line in cash_lines if line.account_id != source.account_id), None)
+        kind, category_id, amount = "transfer", "", abs(source.quantity)
+    else:
+        source = cash_lines[0]
+        target = None
+        kind = "out" if source.quantity < 0 else "in"
+        category_id, amount = str(source.category_id or ""), abs(source.quantity)
+    owner_id = next((line.owner_id for line in txn.lines if line.owner_id is not None), None)
+    cp = c.counterparties.resolve(txn.counterparty) if txn.counterparty else None
+    values = {"kind": kind, "date": txn.date, "amount": str(amount), "category_id": category_id,
+              "counterparty_id": str(cp["id"]) if cp else "", "owner_id": str(owner_id or ""),
+              "to_account_id": str(target.account_id) if target else "", "notes": txn.notes,
+              "return_to": _back(request, f"/accounts/{source.account_id}"), "account_id": str(source.account_id)}
+    from .accounts import _transaction_popup_context
+    return render(request, "transactions/form_popup.html", **_transaction_popup_context(
+        request, c.accounts.get(source.account_id), values, f"/transactions/{txn_id}/edit-popup", txn_id=txn_id))
+
+
+@router.post("/transactions/{txn_id:int}/edit-popup")
+async def save_transaction_popup(request: Request, txn_id: int):
+    c = container(request)
+    form = await request.form()
+    values = {key: str(form.get(key, "")) for key in
+              ("kind", "date", "amount", "category_id", "counterparty_id", "owner_id", "to_account_id", "notes", "account_id")}
+    from .accounts import _safe_return, _transaction_popup_context
+    txn = c.transactions.get(txn_id)
+    account_id = int(values["account_id"]) if values["account_id"].isdigit() else txn.lines[0].account_id
+    account = c.accounts.get(account_id)
+    values["return_to"] = _safe_return(form.get("return_to"), f"/accounts/{account_id}")
+    try:
+        if values["kind"] not in {"out", "in", "transfer"}:
+            raise ValidationError("Choose a transaction type.", "kind")
+        day = fmt_date(parse_date(values["date"], "date"))
+        amount = to_decimal(values["amount"], "amount")
+        if amount <= 0: raise ValidationError("Enter an amount greater than zero.", "amount")
+        owner_id = int(values["owner_id"]) if values["owner_id"].isdigit() else None
+        if values["kind"] == "transfer":
+            other = int(values["to_account_id"]) if values["to_account_id"].isdigit() else None
+            if not other or other == account_id: raise ValidationError("Choose a different destination account.", "to_account_id")
+            signed = -amount
+            category_id = None
+        else:
+            category_id = int(values["category_id"]) if values["category_id"].isdigit() else None
+            if not category_id: raise ValidationError("Choose a category.", "category")
+            expected = "OUTFLOW" if values["kind"] == "out" else "INFLOW"
+            if c.categories.get(category_id).movement.value != expected:
+                raise ValidationError("Choose a category that matches this transaction type.", "category")
+            other = None
+            signed = -amount if values["kind"] == "out" else amount
+        cp = c.counterparties.get(int(values["counterparty_id"]))["name"] if values["counterparty_id"].isdigit() else ""
+        updated = c.transactions.update_in_account(txn_id, account_id, day, signed, category_id, other,
+                                                   counterparty=cp, notes=values["notes"], owner_id=owner_id)
+        c.reserves.auto_link_transaction(updated.id)
+        return redirect(values["return_to"], f"Saved {updated.ref}. {register._budget_feedback(c, updated)}".strip())
+    except (LightningError, ValueError) as exc:
+        error = exc if isinstance(exc, LightningError) else ValidationError("Choose valid values for this transaction.")
+        return render(request, "transactions/form_popup.html", status_code=400,
+                      **_transaction_popup_context(request, account, values, f"/transactions/{txn_id}/edit-popup", error, txn_id))
 
 
 def _back(request: Request, default: str) -> str:
@@ -62,13 +136,20 @@ async def transaction_detail(request: Request, txn_id: int):
     c = container(request)
     txn = c.transactions.get(txn_id)
     lines = []
+    cash_effects = []
     for line in txn.lines:
+        asset = c.assets.get_asset(line.asset_id)
+        account = c.accounts.get(line.account_id)
         lines.append(dict(
-            ref=txn.line_ref(line), account=c.accounts.get(line.account_id).label, account_id=line.account_id,
-            asset=c.assets.get_asset(line.asset_id).code, quantity=line.quantity, amount_base=line.amount_base,
+            ref=txn.line_ref(line), account=account.label, account_id=line.account_id,
+            asset=asset.code, quantity=line.quantity, amount_base=line.amount_base,
             effect=line.effect.value, category=c.categories.get(line.category_id).label if line.category_id else "",
-            memo=line.memo,
+            memo=line.memo, owner_id=line.owner_id,
+            owner_name=c.counterparties.get(line.owner_id)["name"] if line.owner_id else "",
         ))
+        if asset.is_cash and line.quantity:
+            cash_effects.append({"account": account.label, "quantity": line.quantity, "currency": account.currency,
+                                 "owner": c.counterparties.get(line.owner_id)["name"] if line.owner_id else "you"})
     can_split = txn.type.value == "OUT" and bool(txn.lines) and all(
         c.assets.get_asset(line.asset_id).is_cash for line in txn.lines)
     expense_categories = [{"id": cat.id, "label": c.categories.display_name(cat.id)}
@@ -102,6 +183,7 @@ async def transaction_detail(request: Request, txn_id: int):
                                        "month": txn.date[:7]})
     return render(request, "transactions/detail.html", txn=txn, summary=c.transactions.summarize(txn),
                   lines=lines, history=c.transactions.history(txn_id), can_split=can_split,
+                  cash_effects=cash_effects,
                   expense_categories=expense_categories, split_lines=split_lines,
                   budget_impacts=budget_impacts,
                   reserve_links=c.reserves.links_for_transaction(txn_id), reserves=c.reserves.list_active())

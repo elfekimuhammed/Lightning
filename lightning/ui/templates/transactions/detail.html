@@ -16,7 +16,10 @@
       <tr><td class="muted">Account</td><td>{{ summary.account_label }}</td></tr>
       {% if summary.category_label %}<tr><td class="muted">Category</td><td>{{ summary.category_label }}</td></tr>{% endif %}
       {% endif %}
+      {% for effect in cash_effects %}<tr><td class="muted">Effect · {{ effect.owner }}</td><td>Cash in {{ effect.account }} {{ 'increases' if effect.quantity > 0 else 'decreases' }} by {{ effect.quantity|abs|money }} {{ effect.currency }}</td></tr>{% endfor %}
       {% if txn.counterparty %}<tr><td class="muted">Counterparty</td><td>{{ txn.counterparty }}</td></tr>{% endif %}
+      {% set owner = lines|selectattr('owner_id', 'defined')|selectattr('owner_id')|first %}
+      {% if owner %}<tr><td class="muted">Owned by</td><td>{{ owner.owner_name }}</td></tr>{% endif %}
       {% if txn.notes %}<tr><td class="muted">Notes</td><td>{{ txn.notes }}</td></tr>{% endif %}
       <tr><td class="muted">Recorded</td><td class="small">{{ txn.created_at }}{% if txn.updated_at != txn.created_at %} · updated {{ txn.updated_at }}{% endif %}</td></tr>
     </table>
@@ -24,9 +27,9 @@
       {% if txn.source == 'SYSTEM' %}<span class="muted small">Managed by the reevaluation ledger.</span>
       {% else %}
       {% if not txn.is_void %}
-        {% if txn.type in ('BUY', 'SEL', 'DIV') or (txn.type == 'OPN' and lines[0].asset != 'CASH:' ~ base) %}<a class="btn" href="/investments/{{ txn.id }}/edit">Edit</a>
-        {% elif txn.type == 'OPN' %}<a class="btn" href="/accounts/{{ lines[0].account_id }}/edit">Change opening balance</a>
-        {% else %}<a class="btn" href="/accounts/{{ lines[0].account_id }}?edit={{ txn.id }}&acct={{ lines[0].account_id }}">Edit in register</a>{% endif %}
+        {% if txn.type in ('BUY', 'SEL', 'DIV') or (txn.type == 'OPN' and lines[0].asset != 'CASH:' ~ base) %}<a class="btn" data-popup-open href="/investments/{{ txn.id }}/edit">Edit</a>
+        {% elif txn.type == 'OPN' %}<a class="btn" data-popup-open href="/accounts/{{ lines[0].account_id }}/edit">Change opening balance</a>
+        {% else %}<a class="btn" data-popup-open href="/transactions/{{ txn.id }}/edit-popup?back={{ request.url.path|urlencode }}">Edit</a>{% endif %}
         {% if txn.type != 'OPN' %}<form method="post" action="/transactions/{{ txn.id }}/delete" data-confirm-delete><button class="btn danger">Delete</button></form>{% endif %}
       {% else %}
         <form method="post" action="/transactions/{{ txn.id }}/restore"><button class="btn">Restore</button></form>

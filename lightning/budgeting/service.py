@@ -111,7 +111,7 @@ class BudgetService:
             parent_available = (budget[c.id] or ZERO) + opening_carryovers.get(c.id, ZERO)
             if budget[c.id] is not None and kids_total > parent_available:
                 warnings.append(f"{self.categories.display_name(c.id)}: its categories add up to "
-                                f"{fmt(kids_total)}, more than its available limit of {fmt(parent_available)}.")
+                                f"{fmt(kids_total)}, more than its budget / available limit of {fmt(parent_available)}.")
         income = self.reporting.cash_flow(first, last).inflows
         return BudgetMonth(month, [s for s in sections.values() if s.lines], income, warnings)
 

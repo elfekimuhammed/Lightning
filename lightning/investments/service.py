@@ -7,6 +7,7 @@ It builds ledger lines and hands them to TransactionService.post(), so every rul
 from __future__ import annotations
 
 from decimal import ROUND_HALF_UP, Decimal
+from dataclasses import replace
 
 from lightning.accounts.domain import INVESTMENT_ACCOUNT_TYPES, Account, AccountType
 from lightning.accounts.service import AccountService
@@ -55,40 +56,47 @@ class InvestmentService:
     # Recording
     # ======================================================================
     def buy(self, date: str, account_id: int, asset_id: int, quantity, price, fees="0",
-            cash_account_id: int | None = None, notes: str = "") -> Transaction:
+            cash_account_id: int | None = None, notes: str = "", owner_id: int | None = None) -> Transaction:
         """Buy units: cash leaves the paying account, the holding grows at cost (fees included)."""
-        return self._trade(DocType.BUY, date, account_id, asset_id, quantity, price, fees, cash_account_id, notes)
+        return self._trade(DocType.BUY, date, account_id, asset_id, quantity, price, fees, cash_account_id, notes,
+                           owner_id=owner_id)
 
     def buy_total(self, date, account_id, asset_id, quantity, total, cash_account_id=None, notes="",
-                  fees="0", fees_included=True):
+                  fees="0", fees_included=True, owner_id: int | None = None):
         """Buy by total cash paid (fees included) or gross trade value (fees additional)."""
         return self._trade(DocType.BUY, date, account_id, asset_id, quantity, None, "0", cash_account_id, notes,
-                           total=total, total_fees=fees, fees_included=fees_included)
+                           total=total, total_fees=fees, fees_included=fees_included, owner_id=owner_id)
 
     def sell_total(self, date, account_id, asset_id, quantity, total, cash_account_id=None, notes="",
-                   fees="0", fees_included=True):
+                   fees="0", fees_included=True, owner_id: int | None = None):
         """Sell by net cash received (fees included) or gross trade value (fees additional)."""
         return self._trade(DocType.SEL, date, account_id, asset_id, quantity, None, "0", cash_account_id, notes,
-                           total=total, total_fees=fees, fees_included=fees_included)
+                           total=total, total_fees=fees, fees_included=fees_included, owner_id=owner_id)
 
     def sell(self, date: str, account_id: int, asset_id: int, quantity, price, fees="0",
-             cash_account_id: int | None = None, notes: str = "") -> Transaction:
+             cash_account_id: int | None = None, notes: str = "", owner_id: int | None = None) -> Transaction:
         """Sell units: the holding shrinks, what you receive (after fees) arrives as cash."""
-        return self._trade(DocType.SEL, date, account_id, asset_id, quantity, price, fees, cash_account_id, notes)
+        return self._trade(DocType.SEL, date, account_id, asset_id, quantity, price, fees, cash_account_id, notes,
+                           owner_id=owner_id)
 
-    def dividend(self, date: str, account_id: int, asset_id: int, amount, notes: str = "") -> Transaction:
+    def dividend(self, date: str, account_id: int, asset_id: int, amount, notes: str = "",
+                 owner_id: int | None = None) -> Transaction:
         """A cash dividend from an investment, received into the account (money in: Investment Income)."""
         lines, counterparty = self._dividend_lines(account_id, asset_id, amount)
+        if owner_id is not None:
+            lines = [replace(line, owner_id=owner_id) for line in lines]
         return self.transactions.post(DocType.DIV, date, lines, "", counterparty, notes)
 
     def add_holding(self, account_id: int, asset_id: int, quantity, total_cost, date: str | None = None,
-                    notes: str = "") -> Transaction:
+                    notes: str = "", owner_id: int | None = None) -> Transaction:
         """Units you already owned when you started tracking, with what you paid for them in total."""
         account = self._holding_account(account_id)
         asset = self._investment(asset_id)
         if self.transactions.opening_txn_id(account.id, asset.id):
             raise ConflictError(f"{account.label} already has a starting amount of {asset.name} — edit that one.")
         lines = self._holding_lines(account, asset, quantity, total_cost)
+        if owner_id is not None:
+            lines = [replace(line, owner_id=owner_id) for line in lines]
         return self.transactions.post(DocType.OPN, date or fmt_date(today()), lines,
                                       f"Starting holding — {asset.name}", asset.name, notes)
 
@@ -98,12 +106,15 @@ class InvestmentService:
         kind = current.type
         date = values.get("date", current.date)
         notes = values.get("notes", current.notes)
+        owner_id = values.get("owner_id")
         if kind in (DocType.BUY, DocType.SEL):
             lines, counterparty = self._trade_lines(kind, values["account_id"], values["asset_id"], values["quantity"],
                                                     values["price"], values.get("fees", "0"),
                                                     values.get("cash_account_id"), total=values.get("total") or None,
                                                     total_fees=values.get("total_fees", "0"),
                                                     fees_included=values.get("fees_included", True))
+            if owner_id:
+                lines = [replace(line, owner_id=int(owner_id)) for line in lines]
             updated = self.transactions.repost(txn_id, date, lines, "", counterparty, notes)
             if kind == DocType.SEL and self.reevaluations:
                 unit_line = next(line for line in lines if not self.assets.get_asset(line.asset_id).is_cash)
@@ -112,6 +123,8 @@ class InvestmentService:
             return updated
         if kind == DocType.DIV:
             lines, counterparty = self._dividend_lines(values["account_id"], values["asset_id"], values["amount"])
+            if owner_id:
+                lines = [replace(line, owner_id=int(owner_id)) for line in lines]
             return self.transactions.repost(txn_id, date, lines, "", counterparty, notes)
         if kind == DocType.OPN and self._is_holding_opening(current):
             account = self._holding_account(values["account_id"])
@@ -120,6 +133,8 @@ class InvestmentService:
             if existing:
                 raise ConflictError(f"{account.label} already has a starting amount of {asset.name}.")
             lines = self._holding_lines(account, asset, values["quantity"], values["total_cost"])
+            if owner_id is not None:
+                lines = [replace(line, owner_id=int(owner_id)) for line in lines]
             return self.transactions.repost(txn_id, date, lines, f"Starting holding — {asset.name}", asset.name,
                                             notes)
         raise ValidationError("This is not an investment transaction.")
@@ -130,7 +145,8 @@ class InvestmentService:
         cash = [ln for ln in t.lines if self.assets.get_asset(ln.asset_id).is_cash]
         units = [ln for ln in t.lines if not self.assets.get_asset(ln.asset_id).is_cash]
         values = {"kind": {DocType.BUY: "buy", DocType.SEL: "sell", DocType.DIV: "dividend",
-                           DocType.OPN: "holding"}.get(t.type, ""), "date": t.date, "notes": t.notes}
+                           DocType.OPN: "holding"}.get(t.type, ""), "date": t.date, "notes": t.notes,
+                  "owner_id": next((line.owner_id for line in t.lines if line.owner_id is not None), None)}
         if t.type in (DocType.BUY, DocType.SEL) and units and cash:
             u, c = units[0], cash[0]
             gross = _money(abs(u.quantity) * u.unit_price)
@@ -227,9 +243,20 @@ class InvestmentService:
     # Building lines
     # ======================================================================
     def _trade(self, kind, date, account_id, asset_id, quantity, price, fees, cash_account_id, notes, total=None,
-               total_fees="0", fees_included=True):
+               total_fees="0", fees_included=True, owner_id=None):
         lines, counterparty = self._trade_lines(kind, account_id, asset_id, quantity, price, fees, cash_account_id,
                                                 total, total_fees, fees_included)
+        if owner_id is not None:
+            party = self.db.one("SELECT id FROM counterparties WHERE id=? AND active=1", (owner_id,))
+            if not party:
+                raise ValidationError("Choose an active owner.", "owner")
+            lines = [replace(line, owner_id=owner_id) for line in lines]
+        holding_account = self.accounts.get(account_id)
+        if holding_account.account_type == AccountType.BROKERAGE and kind == DocType.BUY:
+            cash_line = next(line for line in lines if self.assets.get_asset(line.asset_id).is_cash)
+            if cash_line.account_id != holding_account.id:
+                raise ValidationError("Brokerage purchases must use cash already in that brokerage account.",
+                                      "cash_account")
         if kind == DocType.BUY and cash_account_id in (None, "", 0):
             account = self.accounts.get(account_id)
             cash = next(line for line in lines if self.assets.get_asset(line.asset_id).is_cash)

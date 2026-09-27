@@ -56,6 +56,7 @@ document.querySelectorAll("[data-open-date-picker]").forEach((button) => {
 // Register: click a row to edit it in place.
 document.addEventListener("click", (e) => {
   const row = e.target.closest("tr[data-href]");
+  if (row?.hasAttribute("data-popup-row")) return;
   if (row && !e.target.closest("a, button, input, select")) location.href = row.dataset.href;
 });
 
@@ -359,8 +360,8 @@ if (tradeCatalogueNode) {
     if (fees) fees.disabled = isDividend || !feesExcluded?.checked;
     if (feesExcluded) feesExcluded.disabled = isDividend;
     if (unitPrice) unitPrice.disabled = isDividend;
-    if (qty === null) amountLabel.textContent = "Dividend amount received";
-    else amountLabel.textContent = qty < 0 ? "Total received" : "Total paid";
+    if (isDividend) amountLabel.textContent = "Dividend amount received";
+    else amountLabel.textContent = actionKind === "sell" ? "Total received" : "Total paid";
     if (qty !== null && Math.abs(qty) > 0) {
       if (basis.value === "unit_price" && price !== null) {
         const gross = Math.abs(qty) * price;
@@ -744,3 +745,230 @@ document.querySelectorAll("[data-counterparty-filter]").forEach((search) => {
     });
   });
 });
+
+// One contextual dialog for server-rendered forms and transaction details.
+(() => {
+  const dialog = document.getElementById("app-popup");
+  const content = document.getElementById("app-popup-content");
+  if (!dialog || !content) return;
+  let opener = null;
+  let baseUrl = location.href;
+  let baseScroll = 0;
+  let dirty = false;
+  let activePopupUrl = null;
+
+  const canDiscard = () => !dirty || window.confirm("Discard your unsaved changes?");
+  const close = (goBack = true) => {
+    if (!dialog.open || !canDiscard()) return false;
+    dirty = false;
+    dialog.close();
+    document.body.classList.remove("popup-open");
+    content.replaceChildren();
+    if (goBack && history.state?.lightningPopup) history.back();
+    else if (opener?.isConnected) opener.focus();
+    window.scrollTo({ top: baseScroll, behavior: "instant" });
+    return true;
+  };
+  const extract = (doc) => {
+    const main = doc.querySelector("main.main") || doc.querySelector("main");
+    return main?.innerHTML || doc.body.innerHTML;
+  };
+  const show = (html, title = "Dialog") => {
+    content.innerHTML = html;
+    const h = content.querySelector("h1, h2, [data-popup-title]");
+    if (h) { h.id = "app-popup-title"; dialog.setAttribute("aria-labelledby", h.id); }
+    else { dialog.removeAttribute("aria-labelledby"); dialog.setAttribute("aria-label", title); }
+    dirty = false;
+    document.body.classList.add("popup-open");
+    if (!dialog.open) dialog.showModal();
+    initPopupFields();
+    initTransactionForm();
+    requestAnimationFrame(() => (content.querySelector("[autofocus], input:not([type=hidden]), select, button, a[href]") ||
+      dialog.querySelector("[data-popup-close]")).focus());
+  };
+  const initPopupFields = () => {
+    content.querySelectorAll("[data-smart-date]:not([data-popup-date-ready])").forEach((input) => {
+      input.dataset.popupDateReady = "1";
+      input.addEventListener("blur", () => {
+        if (!input.value.trim()) return;
+        const normalized = isoDate(input.value);
+        if (normalized) { input.value = normalized; input.setCustomValidity(""); }
+        else input.setCustomValidity("Enter a real date like 31/1, 31/1/2026, or 2026-01-31.");
+      });
+      input.addEventListener("input", () => input.setCustomValidity(""));
+    });
+    content.querySelectorAll("[data-open-date-picker]:not([data-popup-picker-ready])").forEach((button) => {
+      button.dataset.popupPickerReady = "1";
+      button.addEventListener("click", () => {
+        const field = content.querySelector(`[data-date-picker-for="${button.dataset.openDatePicker}"]`);
+        const text = content.querySelector(`#${CSS.escape(button.dataset.openDatePicker)}`);
+        if (!field || !text) return;
+        field.value = isoDate(text.value) || "";
+        try { field.showPicker(); } catch { field.focus(); field.click(); }
+        field.addEventListener("change", () => { if (field.value) text.value = field.value; }, { once: true });
+      });
+    });
+    const type = content.querySelector("#account_type"), help = content.querySelector("#account-type-help");
+    if (type && help && !type.dataset.popupReady) {
+      type.dataset.popupReady = "1";
+      const update = () => {
+        help.textContent = type.value === "DEPOSIT"
+          ? "Certificate or time deposit: include the term, annual return, and maturity date in Notes."
+          : type.value === "PHYSICAL_ASSET" ? "Add named items such as a ring after creating this account."
+          : type.value === "BROKERAGE" ? "Record brokerage cash here before buying investments."
+          : "";
+      };
+      type.addEventListener("change", update); update();
+    }
+  };
+  const initTransactionForm = () => {
+    const root = content.querySelector("[data-transaction-form]");
+    const form = root?.querySelector("form");
+    if (!form || form.dataset.popupInitialized) return;
+    form.dataset.popupInitialized = "1";
+    const kinds = [...form.querySelectorAll('[name="kind"]')];
+    const amount = form.querySelector('[name="amount"]');
+    const owner = form.querySelector('[name="owner_id"]');
+    const note = form.querySelector('[data-transaction-effect]');
+    const category = form.querySelector('[name="category_id"]');
+    const destination = form.querySelector('[name="to_account_id"]');
+    const update = () => {
+      const kind = kinds.find((input) => input.checked)?.value || "out";
+      form.querySelectorAll(".transfer-only").forEach((field) => field.hidden = kind !== "transfer");
+      form.querySelectorAll(".money-only").forEach((field) => field.hidden = kind === "transfer");
+      if (category) [...category.options].forEach((option) => {
+        option.hidden = option.value !== "" && option.dataset.movement !== (kind === "out" ? "OUTFLOW" : "INFLOW");
+        if (option.hidden && option.selected) category.value = "";
+      });
+      const value = Number((amount.value || "").replaceAll(",", ""));
+      const shown = Number.isFinite(value) && value > 0 ? new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(value) : "…";
+      const account = root.dataset.accountName, currency = root.dataset.currency;
+      if (kind === "transfer") {
+        const to = destination.selectedOptions[0]?.textContent || "the selected account";
+        note.textContent = `Cash in ${account} decreases by ${shown} ${currency}; cash in ${to} increases by the same amount.`;
+      } else {
+        const own = owner.selectedOptions[0]?.textContent || "you";
+        note.textContent = `Cash in ${account} ${kind === "out" ? "decreases" : "increases"} by ${shown} ${currency}; balance owned by ${own}.`;
+      }
+    };
+    form.addEventListener("input", update); form.addEventListener("change", update); update();
+  };
+  const openUrl = async (url, trigger, push = true) => {
+    const replacing = dialog.open;
+    const priorOpener = opener;
+    if (dialog.open && !close(false)) return;
+    opener = replacing ? priorOpener : (trigger || document.activeElement);
+    if (!replacing) {
+      baseUrl = location.href;
+      baseScroll = window.scrollY;
+    }
+    const destination = new URL(url, location.href);
+    if (!destination.searchParams.has("return_to")) destination.searchParams.set("return_to", baseUrl);
+    const response = await fetch(destination.href, { headers: { "X-Lightning-Popup": "1" } });
+    const doc = new DOMParser().parseFromString(await response.text(), "text/html");
+    show(extract(doc), doc.title);
+    content.querySelectorAll("form:not([action])").forEach((form) => { form.action = destination.href; });
+    if (push) {
+      activePopupUrl = destination.href;
+      const state = { lightningPopup: true, baseUrl, baseScroll };
+      if (replacing) history.replaceState(state, "", destination.href);
+      else history.pushState(state, "", destination.href);
+    }
+  };
+
+  document.addEventListener("click", (event) => {
+    const closeButton = event.target.closest("[data-popup-close]");
+    if (closeButton) { event.preventDefault(); close(); return; }
+    const link = event.target.closest("a[data-popup-open]");
+    if (!link || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey) return;
+    event.preventDefault();
+    openUrl(link.href, link).catch(() => { location.href = link.href; });
+  });
+  document.addEventListener("click", (event) => {
+    const row = event.target.closest("tr[data-popup-row]");
+    if (row && !event.target.closest("a,button,input,select")) {
+      event.preventDefault();
+      openUrl(row.dataset.href, row).catch(() => { location.href = row.dataset.href; });
+    }
+  });
+  dialog.addEventListener("cancel", (event) => { event.preventDefault(); close(); });
+  dialog.addEventListener("click", (event) => {
+    if (event.target === dialog) close();
+  });
+  content.addEventListener("input", (event) => {
+    if (event.target.closest("form")) dirty = true;
+  });
+  content.addEventListener("change", (event) => {
+    if (event.target.closest("form")) dirty = true;
+  });
+  content.addEventListener("keydown", (event) => {
+    if (event.key !== "Tab") return;
+    const focusable = [...content.querySelectorAll("a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex='-1'])")];
+    if (!focusable.length) return;
+    if (event.shiftKey && document.activeElement === focusable[0]) { event.preventDefault(); focusable.at(-1).focus(); }
+    else if (!event.shiftKey && document.activeElement === focusable.at(-1)) { event.preventDefault(); focusable[0].focus(); }
+  });
+  content.addEventListener("submit", async (event) => {
+    const form = event.target;
+    if (!(form instanceof HTMLFormElement) || form.target === "_blank") return;
+    event.preventDefault();
+    const submit = form.querySelector("button[type=submit]:not([form]),button:not([type])") || form.querySelector("button[type=submit]");
+    const status = content.querySelector("[data-popup-status]");
+    if (status) status.textContent = "Saving…";
+    if (submit) submit.disabled = true;
+    try {
+      const response = await fetch(form.action || location.href, {
+        method: (form.method || "POST").toUpperCase(), body: new FormData(form),
+        headers: { "X-Lightning-Popup": "1" }, redirect: "follow"
+      });
+      const text = await response.text();
+      if (response.status >= 400) {
+        const doc = new DOMParser().parseFromString(text, "text/html");
+        show(extract(doc), doc.title);
+        dirty = true;
+        const firstError = content.querySelector(".flash.error,.error,[aria-invalid=true]");
+        firstError?.focus?.();
+      } else {
+        const msg = new URL(response.url).searchParams.get("msg");
+        const goToResponse = form.dataset.popupReturn === "response";
+        const next = new URL(goToResponse ? response.url : baseUrl, location.href);
+        close(false);
+        history.replaceState(null, "", next.pathname + next.search + next.hash);
+        if (msg) sessionStorage.setItem("lightning-popup-success", msg);
+        if (goToResponse) location.href = next.href;
+        else {
+          sessionStorage.setItem("lightning-popup-scroll", String(baseScroll));
+          location.reload();
+        }
+      }
+    } catch (error) {
+      if (status) status.textContent = "Could not save. Check your connection and try again.";
+      if (submit) submit.disabled = false;
+    }
+  });
+  window.addEventListener("popstate", () => {
+    if (!dialog.open) return;
+    if (!close(false)) {
+      history.pushState({ lightningPopup: true, baseUrl, baseScroll }, "", activePopupUrl || location.href);
+      return;
+    }
+    const base = new URL(baseUrl, location.href);
+    if (base.pathname + base.search + base.hash !== location.pathname + location.search + location.hash) location.reload();
+  });
+  const savedScroll = sessionStorage.getItem("lightning-popup-scroll");
+  if (savedScroll !== null) {
+    sessionStorage.removeItem("lightning-popup-scroll");
+    requestAnimationFrame(() => window.scrollTo({ top: Number(savedScroll) || 0, behavior: "instant" }));
+  }
+  const success = sessionStorage.getItem("lightning-popup-success");
+  if (success) {
+    sessionStorage.removeItem("lightning-popup-success");
+    const flash = document.querySelector(".flash");
+    if (flash) flash.textContent = success;
+  }
+  if (new URLSearchParams(location.search).get("popup") === "1" && location.pathname.startsWith("/transactions/")) {
+    baseUrl = location.pathname + location.search.replace(/(?:\?|&)popup=1/, "");
+    baseScroll = 0;
+    show(document.querySelector("main.main")?.innerHTML || "", document.title);
+  }
+})();

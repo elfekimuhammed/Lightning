@@ -1,25 +1,20 @@
 {% extends "base.html" %}
 {% block title %}Welcome{% endblock %}
-{% block heading %}<h1>Welcome, ElFeki</h1><div class="muted">Three accounts are ready. Tell Lightning what's in them and your overview comes to life.</div>{% endblock %}
+{% block heading %}<h1>Welcome to Lightning</h1><div class="muted">Add one account to get started. You can add others whenever you need them.</div>{% endblock %}
 {% block content %}
-<section class="onboarding-grid">
-  <div class="card onboarding-card">
-    <div class="label">Step 1 of 3</div>
-    <h2>Let's start with your accounts: what was there when you started tracking?</h2>
-    <p class="muted">Enter the balance and its date. Lightning records this as a starting balance, not income.</p>
-    <div class="setup-list">
-      <a class="setup-row" href="/accounts/new?type=CASH"><span class="setup-icon">▣</span><span><b>Cash</b><small>Cash wallet</small></span><span class="setup-action">Add →</span></a>
-      <a class="setup-row" href="/accounts/new?type=BANK"><span class="setup-icon setup-icon--sky">▤</span><span><b>CIB</b><small>Bank account</small></span><span class="setup-action">Add →</span></a>
-      <a class="setup-row" href="/accounts/new?type=BROKERAGE"><span class="setup-icon setup-icon--mint">↗</span><span><b>THNDR</b><small>Shares and funds come next</small></span><span class="setup-action">Add →</span></a>
-    </div>
-    <div class="onboarding-actions"><a class="btn primary" href="/accounts/new?type=CASH">Add your first account</a><a class="btn" href="/accounts/new?type=BANK">Add another account</a></div>
-    <p class="small muted onboarding-note">Some of it isn't yours? You can mark money you hold for others next.</p>
+<section class="card first-account-card">
+  <div class="label">First step</div>
+  <h2>Where do you keep your money?</h2>
+  <p class="muted">Choose one place. Add an optional starting balance and its date; you do not need to create sample accounts.</p>
+  <div class="setup-list first-account-choices">
+    {% for kind, label, description, icon in [
+      ('CASH','Cash','A wallet or cash at home','▣'),
+      ('BANK','Bank','A bank or deposit account','▤'),
+      ('BROKERAGE','Brokerage','A brokerage account','↗'),
+      ('PHYSICAL_ASSET','Physical asset','Gold or another named item','◇')
+    ] %}
+    <a class="setup-row" data-popup-open href="/accounts/new?type={{ kind }}"><span class="setup-icon">{{ icon }}</span><span><b>{{ label }}</b><small>{{ description }}</small></span><span class="setup-action">Add →</span></a>
+    {% endfor %}
   </div>
-  <aside class="card getting-started">
-    <div class="label">Getting started</div>
-    <ol><li class="is-current"><b>Starting balances</b><small>Cash, CIB, THNDR</small></li><li><b>Your THNDR holdings</b><small>Shares and funds you already own</small></li><li><b>This month so far</b><small>Salary in, what you've spent</small></li></ol>
-    <p class="muted small">About two minutes. Then Lightning shows what you own and what you save each month.</p>
-  </aside>
 </section>
-<section class="grid g3 onboarding-placeholders"><div class="card"><div class="label">Money in</div><div class="skeleton"></div></div><div class="card"><div class="label">Money out</div><div class="skeleton"></div></div><div class="card"><div class="label">Saved</div><div class="skeleton"></div></div></section>
 {% endblock %}

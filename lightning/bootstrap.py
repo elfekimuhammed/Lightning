@@ -23,6 +23,8 @@ from lightning.database.settings import SettingsStore
 from lightning.investments.service import InvestmentService
 from lightning.integrity import IntegrityService
 from lightning.money_from_others import MoneyFromOthersService
+from lightning.ownership_migration import migrate_legacy_ownership
+from lightning.physical_items import PhysicalItemService
 from lightning.reporting.service import ReportingService
 from lightning.reconciliation import ReconciliationService
 from lightning.reserves import CashReserveService
@@ -51,6 +53,7 @@ class Container:
     reserves: CashReserveService
     reevaluations: ReevaluationService
     money_from_others: MoneyFromOthersService
+    physical_items: PhysicalItemService
     budgets: BudgetService
     investments: InvestmentService
     account_flows: AccountWorkflows
@@ -72,6 +75,7 @@ def build(db_path: str | Path | None = None, backup_on_start: bool = False) -> C
         backup(db, data_dir / "backups")
     migrate(db)
     seed(db)
+    migrate_legacy_ownership(db)
     settings = SettingsStore(db)
     base = settings.base_currency
     audit = AuditLog(db)
@@ -82,6 +86,7 @@ def build(db_path: str | Path | None = None, backup_on_start: bool = False) -> C
     counterparties = CounterpartyService(db)
     reserves = CashReserveService(db)
     money_from_others = MoneyFromOthersService(db, accounts)
+    physical_items = PhysicalItemService(db, accounts, assets, audit)
     bank_imports = BankImportService(db, accounts, categories, counterparties, transactions, money_from_others, reserves)
     reporting = ReportingService(db, accounts, assets, categories, base, money_from_others)
     budgets = BudgetService(db, categories, reporting)
@@ -102,6 +107,7 @@ def build(db_path: str | Path | None = None, backup_on_start: bool = False) -> C
         reserves=reserves,
         reevaluations=reevaluations,
         money_from_others=money_from_others,
+        physical_items=physical_items,
         budgets=budgets,
         investments=InvestmentService(db, accounts, assets, categories, transactions, reporting, reevaluations),
         account_flows=AccountWorkflows(db, accounts, transactions, reporting),

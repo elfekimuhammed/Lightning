@@ -51,6 +51,7 @@ class PostingLine:
     amount: Decimal = field(default=ZERO)  # cash: = quantity; investment: cost or proceeds (asset currency)
     amount_base: Decimal = field(default=ZERO)  # amount x fx_rate (base currency, EGP)
     is_cash: bool = True  # not stored; tells the rules which kind of line this is
+    owner_id: int | None = None
 
     @staticmethod
     def cash(
@@ -61,6 +62,7 @@ class PostingLine:
         category_id: int | None = None,
         memo: str = "",
         fx_rate: Decimal = ONE,
+        owner_id: int | None = None,
     ) -> "PostingLine":
         """A cash line: quantity == amount, unit price 1."""
         return PostingLine(
@@ -74,6 +76,7 @@ class PostingLine:
             memo=memo,
             amount=amount,
             amount_base=_round2(amount * fx_rate),
+            owner_id=owner_id,
         )
 
     @staticmethod
@@ -86,6 +89,7 @@ class PostingLine:
         trade_price: Decimal,
         memo: str = "",
         fx_rate: Decimal = ONE,
+        owner_id: int | None = None,
     ) -> "PostingLine":
         """An investment line: units of a non-cash asset and what they cost / fetched."""
         return PostingLine(
@@ -99,6 +103,7 @@ class PostingLine:
             amount=amount,
             amount_base=_round2(amount * fx_rate),
             is_cash=False,
+            owner_id=owner_id,
         )
 
     @staticmethod

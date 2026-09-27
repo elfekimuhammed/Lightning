@@ -53,7 +53,7 @@ updatePeriodFields();
 
 <section class="grid g2 birdview-cashflow">
   <div class="card"><div class="label">Income</div><div class="tile value pos">{{ cash_flow.inflows|money(True) }}</div><div class="muted small">For selected timeline</div></div>
-  <div class="card"><div class="label">Expenses</div><div class="tile value neg">{{ cash_flow.outflows|money(True) }}</div><div class="muted small">Refunds reduce category spending · for selected timeline</div></div>
+  <div class="card"><div class="label">Expenses</div><div class="tile value neg">{{ cash_flow.outflows|money }}</div><div class="muted small">Refunds reduce category spending · for selected timeline</div></div>
 </section>
 {% if previous %}<section class="card birdview-comparison">
   <h2>Compared with the previous period</h2><p class="muted small">{{ previous_label }}</p>

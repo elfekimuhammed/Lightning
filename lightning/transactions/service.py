@@ -54,16 +54,18 @@ class TransactionService:
     # ======================================================================
     def record_inflow(self, date: str, account_id: int, amount, category_id: int, description: str = "",
                       counterparty: str = "", notes: str = "", source: TxnSource = TxnSource.MANUAL,
-                      allow_system_category: bool = False) -> Transaction:
+                      allow_system_category: bool = False, owner_id: int | None = None) -> Transaction:
         """Money in: salary, interest, a gift."""
         day, lines = self._money_lines(Movement.INFLOW, date, account_id, amount, category_id, allow_system_category)
+        lines = [replace(line, owner_id=owner_id) for line in lines]
         return self._create(DocType.IN, day, lines, description, counterparty, notes, source)
 
     def record_outflow(self, date: str, account_id: int, amount, category_id: int, description: str = "",
                        counterparty: str = "", notes: str = "", source: TxnSource = TxnSource.MANUAL,
-                       allow_system_category: bool = False) -> Transaction:
+                       allow_system_category: bool = False, owner_id: int | None = None) -> Transaction:
         """Money out: groceries, fees, tax. On a credit card this increases what you owe."""
         day, lines = self._money_lines(Movement.OUTFLOW, date, account_id, amount, category_id, allow_system_category)
+        lines = [replace(line, owner_id=owner_id) for line in lines]
         return self._create(DocType.OUT, day, lines, description, counterparty, notes, source)
 
     def record_refund(self, date: str, account_id: int, amount, category_id: int, description: str = "",
@@ -85,14 +87,15 @@ class TransactionService:
 
     def record_transfer(self, date: str, from_account_id: int, to_account_id: int, amount,
                         description: str = "", notes: str = "",
-                        source: TxnSource = TxnSource.MANUAL) -> Transaction:
+                        source: TxnSource = TxnSource.MANUAL, owner_id: int | None = None) -> Transaction:
         """Money moving between your own accounts. Never income, expense or revaluation."""
         day, lines = self._transfer_lines(date, from_account_id, to_account_id, amount)
+        lines = [replace(line, owner_id=owner_id) for line in lines]
         return self._create(DocType.TRF, day, lines, description, "", notes, source)
 
     def record_in_account(self, account_id: int, date: str, amount: object, category_id: int | None = None,
                           other_account_id: int | None = None, counterparty: str = "", notes: str = "",
-                          description: str = "") -> Transaction:
+                          description: str = "", owner_id: int | None = None) -> Transaction:
         """One register row -> the right transaction.
 
         ``amount`` is signed from this account's point of view: positive = money in, negative = money out.
@@ -102,19 +105,20 @@ class TransactionService:
         kind, value, category_id = self._register_kind(amount, category_id, other_account_id)
         if kind == DocType.TRF:
             src, dst = (account_id, other_account_id) if value < 0 else (other_account_id, account_id)
-            return self.record_transfer(date, src, dst, abs(value), description=description, notes=notes)
+            return self.record_transfer(date, src, dst, abs(value), description=description, notes=notes,
+                                        owner_id=owner_id)
         if kind == DocType.OUT:
             return self.record_outflow(date, account_id, -value, category_id, description=description,
-                                       counterparty=counterparty, notes=notes)
+                                       counterparty=counterparty, notes=notes, owner_id=owner_id)
         if self.categories.get(category_id).movement == Movement.OUTFLOW:
             return self.record_refund(date, account_id, value, category_id, description=description,
                                       counterparty=counterparty, notes=notes)
         return self.record_inflow(date, account_id, value, category_id, description=description,
-                                  counterparty=counterparty, notes=notes)
+                                  counterparty=counterparty, notes=notes, owner_id=owner_id)
 
     def update_in_account(self, txn_id: int, account_id: int, date: str, amount: object,
                           category_id: int | None = None, other_account_id: int | None = None,
-                          counterparty: str = "", notes: str = "") -> Transaction:
+                          counterparty: str = "", notes: str = "", owner_id: int | None = None) -> Transaction:
         """Edit a register row in place, seen from ``account_id`` (the register it was edited in).
 
         If the kind changes (e.g. a transfer becomes money out) the old one is voided and a new one recorded,
@@ -132,15 +136,31 @@ class TransactionService:
             if kind != current.type:
                 self.void(current.id, f"Replaced when edited ({current.type_label} → {DOC_LABELS[kind]})")
                 return self.record_in_account(account_id, date, value, category_id, other_account_id,
-                                              counterparty, notes, current.description)
+                                              counterparty, notes, current.description, owner_id)
             if kind == DocType.TRF:
                 src, dst = (account_id, other_account_id) if value < 0 else (other_account_id, account_id)
-                return self.update_transfer(current.id, date, src, dst, abs(value), current.description, notes)
+                updated = self.update_transfer(current.id, date, src, dst, abs(value), current.description, notes)
+                return self.set_transaction_owner(updated.id, owner_id)
             if kind == DocType.IN and self.categories.get(category_id).movement == Movement.OUTFLOW:
-                return self.update_refund(current.id, date, account_id, abs(value), category_id,
-                                          current.description, counterparty, notes)
-            return self.update_money(current.id, date, account_id, abs(value), category_id,
-                                     current.description, counterparty, notes)
+                updated = self.update_refund(current.id, date, account_id, abs(value), category_id,
+                                             current.description, counterparty, notes)
+                return self.set_transaction_owner(updated.id, owner_id)
+            updated = self.update_money(current.id, date, account_id, abs(value), category_id,
+                                        current.description, counterparty, notes)
+            return self.set_transaction_owner(updated.id, owner_id)
+
+    def set_transaction_owner(self, txn_id: int, owner_id: int | None) -> Transaction:
+        """Assign the transaction's selected owner to each of its ledger lines."""
+        txn = self.get(txn_id)
+        proposed = [replace(line, owner_id=owner_id) for line in txn.lines]
+        self._validate_owner_balances(proposed, txn.date, exclude_txn_id=txn_id,
+                                     force_brokerage_cash=txn.type == DocType.BUY)
+        with self.db.transaction():
+            self.db.execute("UPDATE ledger_entries SET owner_id=? WHERE transaction_id=?", (owner_id, txn_id))
+            updated = self.get(txn_id)
+            self.audit.record("transaction", txn_id, "edit", f"Changed owner on {txn.ref}",
+                              before=self._snapshot(txn), after=self._snapshot(updated))
+        return self.get(txn_id)
 
     def update_refund(self, txn_id: int, date: str, account_id: int, amount, category_id: int,
                       description: str = "", counterparty: str = "", notes: str = "") -> Transaction:
@@ -189,6 +209,7 @@ class TransactionService:
             self.accounts.require_usable(account_id)
         day = self._check_date(date)
         validate_posting(lines)
+        self._validate_owner_balances(lines, day, force_brokerage_cash=doc_type == DocType.BUY)
         return self._create(doc_type, day, lines, description, counterparty, notes, source)
 
     def repost(self, txn_id: int, date: str, lines: list[PostingLine], description: str = "",
@@ -201,9 +222,55 @@ class TransactionService:
             self.accounts.require_usable(account_id)
         day = self._check_date(date)
         validate_posting(lines)
+        self._validate_owner_balances(lines, day, exclude_txn_id=txn_id,
+                                     force_brokerage_cash=current.type == DocType.BUY)
         return self._update(current, day, lines, description, counterparty, notes)
 
-    def set_opening_balance(self, account_id: int, amount: Decimal, date: str) -> Transaction | None:
+    def _validate_owner_balances(self, lines, day, exclude_txn_id=None, force_brokerage_cash=False):
+        """An owner's dated account/asset position may never become negative."""
+        keys = set()
+        for line in lines:
+            asset = self.assets.get_asset(line.asset_id)
+            account = self.accounts.get(line.account_id)
+            if line.owner_id is not None:
+                owner = self.db.one("SELECT id FROM counterparties WHERE id=? AND active=1", (line.owner_id,))
+                if not owner:
+                    raise ValidationError("Choose an active saved owner.", "owner_id")
+            if (line.owner_id is not None or not asset.is_cash or
+                    (force_brokerage_cash and line.effect == Effect.INTERNAL and
+                     account.account_type.value == "BROKERAGE")):
+                keys.add((line.account_id, line.asset_id, line.owner_id))
+        for account_id, asset_id, owner_id in keys:
+            params = [account_id, asset_id, owner_id]
+            sql = ("SELECT le.date, SUM(le.quantity_e6) q FROM ledger_entries le "
+                   "JOIN transactions t ON t.id=le.transaction_id "
+                   "WHERE t.status='POSTED' AND le.account_id=? AND le.asset_id=? AND le.owner_id IS ?")
+            if exclude_txn_id is not None:
+                sql += " AND t.id<>?"
+                params.append(exclude_txn_id)
+            sql += " GROUP BY le.date ORDER BY le.date"
+            proposed = sum(int(line.quantity * 1_000_000) for line in lines
+                           if (line.account_id, line.asset_id, line.owner_id) == (account_id, asset_id, owner_id))
+            by_day = {}
+            for row in self.db.all(sql, tuple(params)):
+                by_day[row["date"]] = int(row["q"])
+            by_day[str(day)] = by_day.get(str(day), 0) + proposed
+            running = 0
+            for on, quantity in sorted(by_day.items()):
+                running += quantity
+                if running < 0:
+                    asset = self.assets.get_asset(asset_id)
+                    if not asset.is_cash:
+                        raise ValidationError(
+                            f"{self.accounts.get(account_id).label} would hold less than zero {asset.name} on {on}.",
+                            "quantity")
+                    owner_label = "the user's" if owner_id is None else "the selected owner's"
+                    raise ValidationError(
+                        f"This would leave {owner_label} balance negative in {self.accounts.get(account_id).label}.",
+                        "owner")
+
+    def set_opening_balance(self, account_id: int, amount: Decimal, date: str,
+                            owner_id: int | None = None) -> Transaction | None:
         """Create, change or remove an account's opening balance (signed: liabilities are negative).
 
         Called by the workflow layer when an account is opened or edited.
@@ -219,8 +286,9 @@ class TransactionService:
                     self.void(existing_id, "Opening balance set to zero")
                 return None
             lines = [PostingLine.cash(account.id, asset.id, amount, Effect.OPENING,
-                                      fx_rate=self._fx(account), memo="Opening balance")]
+                                      fx_rate=self._fx(account), memo="Opening balance", owner_id=owner_id)]
             validate_posting(lines)
+            self._validate_owner_balances(lines, day, exclude_txn_id=existing_id)
             if existing_id:
                 current = self.get(existing_id)
                 return self._update(current, day, lines, current.description, "", current.notes)
@@ -451,6 +519,7 @@ class TransactionService:
     def _create(self, doc_type: DocType, day, lines: list[PostingLine], description: str, counterparty: str,
                 notes: str, source: TxnSource) -> Transaction:
         with self.db.transaction():
+            self._validate_owner_balances(lines, day, force_brokerage_cash=doc_type == DocType.BUY)
             ref = format_ref(doc_type, day, self.repo.next_seq(ref_prefix(doc_type, day)))
             header = Transaction(
                 id=0, ref=ref, type=doc_type, date=fmt_date(day),
@@ -474,6 +543,8 @@ class TransactionService:
     def _update(self, current: Transaction, day, lines: list[PostingLine], description: str, counterparty: str,
                 notes: str) -> Transaction:
         with self.db.transaction():
+            self._validate_owner_balances(lines, day, exclude_txn_id=current.id,
+                                         force_brokerage_cash=current.type == DocType.BUY)
             updated = replace(
                 current, date=fmt_date(day), description=(description or "").strip(),
                 counterparty=(counterparty or "").strip(), notes=(notes or "").strip(),

@@ -2,8 +2,8 @@
 
 ## Document status
 
-- **Last updated:** 2026-09-26
-- **Document revision:** 2026-09-26.3
+- **Last updated:** 2026-09-27
+- **Document revision:** 2026-09-27.1
 - **App version:** 0.3.0 (`lightning/__init__.py`); packaging metadata in `pyproject.toml` still says 0.1.0.
 - **Role:** module boundaries and financial calculation contracts. Product workflow and roadmap live in [Project Overview](PROJECT_OVERVIEW.md); term definitions live in [Glossary](GLOSSARY.md).
 
@@ -35,6 +35,18 @@ reevaluation_entries ──many:one── reevaluation period ──1:1 per acco
 
 The reevaluation ledger stores per-asset, per-account month-end units, price, value, and return, plus missing-price state. It links every detail row to the one aggregated system-generated `VAL` journal per account and checkpoint in the main ledger. It never copies ordinary transactions into a second activity ledger. Sale dates force a checkpoint at the sale price; monthly checkpoints fill elapsed month-ends on app startup. If a historical price is unavailable, the checkpoint remains pending for user input rather than silently using cost as a market quote.
 
+### Physical gold item contract
+
+- An item row is an individually named thing in one `PHYSICAL_ASSET` account; its quantity is a count of pieces (for example, one ring is `1 piece`). No ticker or ISIN is required.
+- `net_gold_grams_per_piece` is the grams of gold-bearing alloy in one piece, excluding stones and other non-gold parts. The karat describes that alloy's fineness (18K = 18/24 fine gold); the number is not itself another multiplier in a gold-price valuation.
+- `acquisition_cost` is the recorded total paid for the item's current acquired pieces, including any workmanship, stones, and purchase fees when known. It is historical cost and never changes when market/reference prices change.
+- A shared reference asset represents price per gram for a specific karat, in account currency; for example `GLD:18K` is EGP per gram of 18K gold. The reference must match the item's karat. Estimated metal value is `piece_count × net_gold_grams_per_piece × dated_price_per_gram`. Do not multiply by `karat/24` again. Fine-gold exposure is reported separately as `piece_count × grams_per_piece × karat/24`.
+- Stones and workmanship have no automatic resale value in the melt estimate. They may be described in item details and are reflected only in acquisition cost unless the user enters a manual dated total-item valuation.
+- An item-specific manual valuation is a dated total value for the currently held item quantity and takes precedence over the reference-price estimate on or before that date. It is labeled `Manual`; a reference-price estimate is labeled with its source and price date; cost fallback is labeled `At cost`; missing value remains explicitly unavailable.
+- Item metadata edits (name, kind, details) do not post ledger activity. Weight or karat edits change the current reference-based estimate, but do not rewrite historical cash transactions or acquisition cost; the audit log records before/after values. Past manual item valuations remain dated facts and do not silently change.
+- Purchases and sales use normal `BUY`/`SEL` transactions with the item's piece count and associated gold weight kept distinct from cash paid/received. Purchase workmanship and fees remain part of cash paid/acquisition cost, not gold grams. The held piece count cannot fall below zero. Purchase itself exchanges cash for an asset and does not create income/expense or unexplained owned-wealth change.
+- Physical-item values enter the owning account and existing Gold allocation/report path exactly once. Existing fungible, gram-based gold ledger positions remain untouched and continue using their recorded units and asset purity/price rules.
+
 | Activity | Main-ledger effect |
 |---|---|
 | Expense 450 | Account cash −450, `OUTFLOW`, category chosen by activity |
@@ -43,15 +55,17 @@ The reevaluation ledger stores per-asset, per-account month-end units, price, va
 | Money held for Dad | Cash still enters the named account; custody attribution reduces the user's owned share/net worth |
 | Month-end return | Per-holding detail in reevaluation ledger; one account-level `VAL` journal in main ledger |
 
-Core posting invariants: internal lines net to zero; external inflows/outflows have an activity category; a sale cannot take a position below zero; voided entries remain auditable but do not contribute to balances.
+Core posting invariants: internal lines net to zero; external inflows/outflows have an activity category; a sale cannot take an owner's position below zero; voided entries remain auditable but do not contribute to balances. `ledger_entries.owner_id` is nullable: null means user-owned, otherwise the referenced Counterparty owns that line. Transactions carry the selected owner across their cash and asset lines. Dated cash and holding balances are checked per account, asset, and owner when posting or editing.
+
+Brokerage buys must use cash in the same brokerage account as the purchased holding. The purchase's owner must have enough brokerage cash on the trade date; cash in another owner's share cannot cover the buy.
 
 ## Data ownership and derived values
 
 - **Where:** `accounts` are cash wallets, bank accounts, CDs, brokerages, physical-asset locations, or other supported locations.
 - **What:** `financial_assets` and `asset_classes` represent cash, stocks, funds, gold, CDs as supported assets, and future asset kinds. A brokerage account can hold cash and multiple assets.
 - **Why:** `categories` label transaction activity: L1 is Personal, Work, or Investment; L2 is broad; L3 is intentionally unused until users need it.
-- **Who:** `counterparties` are canonical people, businesses, institutions, and the other side of ledger activity. `whom` is a separate custody-owner attribution for money belonging to someone else.
-- **Balances and analytics:** holdings, cash balances, budget actuals, ownership shares, gains, and net worth are calculated from posted ledger effects plus dated prices/custody metadata.
+- **Who:** `counterparties` are canonical people, businesses, institutions, and optional beneficial owners on ledger lines. The transaction's `Whom` choice is copied to its cash and asset lines.
+- **Balances and analytics:** holdings, cash balances, budget actuals, ownership shares, gains, and net worth are calculated from posted ledger effects, owner IDs, and dated prices.
 
 The read-only Integrity checks compare gross account values with asset-class reports, verify `owned net worth + money held for others = gross account values` overall and per account, compare categorized outflows with reported spending and budget actuals, verify reserves against owned liquid cash, and close the month-to-date net-worth bridge. Missing valuations mark affected comparisons incomplete rather than green. These checks diagnose report/subledger mismatches; they never adjust posted entries.
 

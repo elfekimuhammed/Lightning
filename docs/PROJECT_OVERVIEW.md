@@ -2,8 +2,8 @@
 
 ## Document status
 
-- **Last updated:** 2026-09-26
-- **Document revision:** 2026-09-26.3
+- **Last updated:** 2026-09-27
+- **Document revision:** 2026-09-27.1
 - **App version:** 0.3.0 (`lightning/__init__.py`); `pyproject.toml` still reports 0.1.0 and needs correction at the next release/package update.
 - **Role:** product purpose, current workflows, user questions, and delivery roadmap. [Architecture](ARCHITECTURE.md) owns calculation contracts; [Glossary](GLOSSARY.md) owns terminology.
 
@@ -19,10 +19,12 @@ Product priorities: simplest useful workflow and fewer clicks; consistent termin
 
 - There is **one main transaction ledger**. Account registers, all-account view, budget actuals, investments, Birdview, and analysis are filtered or computed views of it.
 - The **reevaluation ledger** is valuation detail, not another activity ledger. Its per-asset checkpoint rows link to one aggregated `VAL` journal per account in the main ledger.
-- Accounts are locations; financial assets are what is held; asset classes group assets; categories describe activity; Counterparty identifies the other side; `Whom` attributes ownership of money held for someone else.
+- Accounts are locations; financial assets are what is held; asset classes group assets; categories describe activity; Counterparty identifies the other side. A nullable ledger-line `owner_id` records beneficial ownership: blank means the user owns the line; a selected Counterparty owns it otherwise.
+- A physical item is individually named and held as a piece-count record with net gold-bearing weight per piece, karat, and acquisition cost. A matching-karat gold price reference is per gram of that karat; item value is piece count × net grams per piece × that price. Purity is descriptive and is not applied a second time to a karat-specific price. Stones and workmanship are excluded from gold weight and metal-value estimate; acquisition cost may include them.
 - Category L1 is **Personal / Work / Investment**; L2 is broad; L3 stays empty until users choose to add detail. Categories follow activity, not money direction.
 - Counterparty names are canonical. Similar spellings are suggestions requiring deliberate selection or explicit creation—never silently merge or create duplicates.
 - Other people's money stays in the full account/holding balance but is attributed to its owner and excluded from the user's owned totals/net worth. It is not income/expense or a receivable. **Liabilities and money owed to the user are out of scope.**
+- Owner balances are calculated from dated ledger lines by account and asset. Posting, editing, and restoring an owner's entries must not make that owner's cash or holdings negative. Brokerage buys use cash already in that brokerage account and only the selected owner's share.
 - Ordinary screens show names, not account codes. Codes and IDs are for internal identity, linking, import, and search.
 - Summary amounts display rounded to whole currency units; inputs retain cents. New money entries are validated to two decimals; `_e6` storage remains exact.
 - Dates are stored canonically as ISO `yyyy-mm-dd`. User entry accepts `31/1` (current year), `31/1/2026`, or `2026-01-31`; numeric day/month is day-first and accepted input normalizes to ISO.
@@ -133,6 +135,7 @@ The first-plan, monthly status, feedback, optional carryover, and basic past-mon
 | M3.2 Birdview history/performance | Planned after base UI | Historical owned position, selected-period change bridge, valuation quality, owned-only XIRR. |
 | M4 Market data and FX | Planned | Wider price coverage, currency conversion, multi-currency accounts, FX revaluation. |
 | M6 Deposits and gold details | Planned | CD lifecycle, local gold costs and buyback, corporate actions. |
+| Physical gold items | In progress | Named pieces, matching-karat reference/manual valuations, item purchase/sale activity, and report integration; preserve existing gram holdings unchanged. |
 | M7 Planning and imports | Partial | CSV import and reserves exist; manual-entry/import matching, review inbox, recurring transactions, and dated cash outlook remain. Forecasting follows a solid base. |
 
 Credit cards, loans, other liabilities, and receivables/money owed to the user are out of scope by owner decision. Money held for others is tracked separately. Bank connections and device sync depend on provider and deployment choices.

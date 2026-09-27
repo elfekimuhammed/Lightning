@@ -31,13 +31,13 @@ def test_investment_units_can_be_attributed_to_another_person(c, setup):
     accounts, _ = setup
     stock = c.assets.create_investment("CIB Shares", "STOCK", "COMI")
     before = c.reporting.net_worth("2026-09-30").total
-    buy = c.investments.buy_total("2026-09-10", accounts["thndr"].id, stock.id, "20", "2000",
-                                  accounts["cib"].id)
+    c.transactions.record_transfer("2026-09-09", accounts["cib"].id, accounts["thndr"].id, "2000")
+    buy = c.investments.buy_total("2026-09-10", accounts["thndr"].id, stock.id, "20", "2000")
     c.money_from_others.sync_investment(buy.id, buy.date, "Dad", accounts["thndr"].id, stock.id,
                                         Decimal("10"))
     assert c.reporting.money_from_others_total("2026-09-30") == Decimal("1000")
     assert c.reporting.net_worth("2026-09-30").total == before - Decimal("1000")
-    with pytest.raises(ValidationError, match="not enough units owned by Dad"):
+    with pytest.raises(ValidationError, match="less than zero"):
         with c.db.transaction():
             sale = c.investments.sell_total("2026-09-11", accounts["thndr"].id, stock.id, "11", "1100",
                                             accounts["cib"].id)
@@ -137,19 +137,16 @@ def test_internal_transfer_moves_custody_cash_without_double_counting(c, setup):
     dad_id = c.counterparties.create("Dad")
     dad = c.counterparties.get(dad_id)["name"]
     category = c.categories.get_by_code("EXP.PERSONAL.CUSTODY")
-    receipt = c.transactions.record_in_account(source.id, "2026-09-10", "1000", category.id)
-    c.money_from_others.sync_transaction(receipt.id, receipt.date, dad, source.id, Decimal("1000"))
+    receipt = c.transactions.record_in_account(source.id, "2026-09-10", "1000", category.id,
+                                               owner_id=dad_id)
 
-    transfer = c.transactions.record_transfer("2026-09-11", source.id, target.id, "1000")
-    c.money_from_others.sync_transfer(transfer.id, transfer.date, dad, source.id, target.id, Decimal("1000"))
+    transfer = c.transactions.record_transfer("2026-09-11", source.id, target.id, "1000", owner_id=dad_id)
     assert c.money_from_others.cash_balance(dad, source.id, "2026-09-30") == 0
     assert c.money_from_others.cash_balance(dad, target.id, "2026-09-30") == Decimal("1000")
     assert c.reporting.money_from_others_total("2026-09-30") == Decimal("1000")
 
     asset = c.assets.create_investment("CIB Shares", "STOCK", "COMI")
-    purchase = c.investments.buy_total("2026-09-12", target.id, asset.id, "10", "1000", target.id)
-    c.money_from_others.sync_investment(purchase.id, purchase.date, dad, target.id, asset.id, Decimal("10"))
-    c.money_from_others.sync_transaction(purchase.id, purchase.date, dad, target.id, Decimal("-1000"))
+    purchase = c.investments.buy_total("2026-09-12", target.id, asset.id, "10", "1000", owner_id=dad_id)
     assert c.reporting.money_from_others_total("2026-09-30") == Decimal("1000")
 
 
@@ -160,9 +157,10 @@ def test_someone_else_cannot_buy_investments_without_cash_in_the_funding_account
     stock = c.assets.create_investment("Test stock", "STOCK", "TEST")
     c.money_from_others.record("2026-09-09", "Dad", brokerage.id, Decimal("500"))
 
-    with pytest.raises(ValidationError, match="more than the money currently held for Dad"):
+    dad_id = c.counterparties.resolve("Dad")["id"]
+    with pytest.raises(ValidationError, match="selected owner"):
         with c.db.transaction():
-            trade = c.investments.buy_total("2026-09-10", brokerage.id, stock.id, "10", "1000")
+            trade = c.investments.buy_total("2026-09-10", brokerage.id, stock.id, "10", "1000", owner_id=dad_id)
             c.money_from_others.sync_investment(trade.id, trade.date, "Dad", brokerage.id, stock.id, Decimal("10"))
             c.money_from_others.sync_transaction(trade.id, trade.date, "Dad", brokerage.id, Decimal("-1000"))
     assert c.investments.holding(brokerage.id, stock.id) == 0
@@ -170,7 +168,7 @@ def test_someone_else_cannot_buy_investments_without_cash_in_the_funding_account
 
     c.money_from_others.record("2026-09-09", "Dad", brokerage.id, Decimal("500"))
     with c.db.transaction():
-        trade = c.investments.buy_total("2026-09-10", brokerage.id, stock.id, "10", "1000")
+        trade = c.investments.buy_total("2026-09-10", brokerage.id, stock.id, "10", "1000", owner_id=dad_id)
         c.money_from_others.sync_investment(trade.id, trade.date, "Dad", brokerage.id, stock.id, Decimal("10"))
         c.money_from_others.sync_transaction(trade.id, trade.date, "Dad", brokerage.id, Decimal("-1000"))
     assert c.investments.holding(brokerage.id, stock.id) == Decimal("10")
