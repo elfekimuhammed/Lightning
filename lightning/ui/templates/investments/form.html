@@ -60,8 +60,18 @@
   {% elif kind == 'dividend' %}
   <div class="row">
     {{ date_field(values, error_field) }}
-    {{ field('amount', 'Amount received (' ~ base ~ ')', values, error_field, help='After any tax withheld.', attrs='inputmode="decimal" required') }}
+    <div class="field {{ 'has-error' if error_field == 'amount' }}">
+      <label for="dividend-basis">Dividend amount entered as</label>
+      <select name="dividend_basis" id="dividend-basis"><option value="total" {{ 'selected' if values.get('dividend_basis', 'total') == 'total' }}>Total amount received</option><option value="per_share" {{ 'selected' if values.get('dividend_basis') == 'per_share' }}>Amount per share / unit</option></select>
+      <div class="help">For a per share amount, the total is calculated using this owner’s units held on the selected date.</div>
+    </div>
+    <div class="field {{ 'has-error' if error_field == 'amount' }}">
+      <label for="amount" id="dividend-amount-label">Total amount received ({{ base }})</label>
+      <input id="amount" type="text" name="amount" value="{{ values.amount }}" inputmode="decimal" required class="money-input">
+      <div class="help">Enter the amount after any tax withheld.</div>
+    </div>
   </div>
+  <script>const basis=document.getElementById('dividend-basis'),label=document.getElementById('dividend-amount-label');function syncDividendBasis(){label.textContent=basis.value==='per_share'?'Dividend per share / unit ({{ base }})':'Total amount received ({{ base }})'}basis.addEventListener('change',syncDividendBasis);syncDividendBasis();</script>
   {% else %}
   <div class="row">
     {{ field('quantity', 'Units you hold', values, error_field, attrs='inputmode="decimal" required') }}

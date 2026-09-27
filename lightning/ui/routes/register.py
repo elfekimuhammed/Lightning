@@ -7,6 +7,7 @@ Used by one account (/accounts/{id}) and by all accounts (/transactions). Only c
 
 from __future__ import annotations
 
+from decimal import Decimal, ROUND_HALF_UP
 from urllib.parse import urlencode
 
 from fastapi import Request
@@ -199,7 +200,8 @@ def page(request: Request, account_id: int | None, entry: dict | None = None, ed
     can_invest = bool(account and account.account_type in INVESTMENT_ACCOUNT_TYPES)
     trade_choices = _trade_choices(c, account, holdings)
     investment_entry = investment_entry or {"date": fmt_date(today()), "instrument_key": "", "units": "",
-                                            "total": "", "unit_price": "", "price_basis": "total", "notes": ""}
+                                            "total": "", "unit_price": "", "price_basis": "total",
+                                            "dividend_basis": "total", "notes": ""}
     if investment_entry.get("instrument_key") and not investment_entry.get("instrument_label"):
         picked = next((item for item in trade_choices if item["key"] == investment_entry["instrument_key"]), None)
         if picked:
@@ -403,7 +405,7 @@ async def create_investment_entry(request: Request, account_id: int):
     account = c.accounts.get(account_id)
     form = await request.form()
     values = {key: str(form.get(key, "")).strip() for key in
-              ("date", "instrument_key", "trade_action", "units", "total", "unit_price", "price_basis", "fees",
+              ("date", "instrument_key", "trade_action", "units", "total", "dividend_basis", "unit_price", "price_basis", "fees",
                "fees_included", "cash_account_id", "notes", "whom")}
     values["instrument_label"] = str(form.get("instrument_label", ""))
     values["is_others"] = "1" if form.get("is_others") else ""
@@ -454,10 +456,28 @@ async def create_investment_entry(request: Request, account_id: int):
                                                        ticker_row["ticker"])
             else:
                 raise ValidationError("Choose an investment from the results.", "instrument")
+            owner = None
+            owner_id = None
+            if values["is_others"]:
+                party = c.counterparties.resolve(values["whom"])
+                if not party or not party["active"]:
+                    raise ValidationError("Choose an active saved Counterparty in Whom.", "whom")
+                owner, owner_id = party["name"], party["id"]
             if units is None:
                 if not total:
                     raise ValidationError("Enter the dividend amount.", "total")
-                txn = c.investments.dividend(values["date"], account.id, asset.id, total, values["notes"])
+                if values["dividend_basis"] not in {"", "total", "per_share"}:
+                    raise ValidationError("Choose total dividend or dividend per share.", "dividend_basis")
+                dividend_amount = to_decimal(total, "total")
+                if values["dividend_basis"] == "per_share":
+                    held_units = c.investments.holding_for_owner(
+                        account.id, asset.id, fmt_date(parse_date(values["date"], "date")), owner_id)
+                    if held_units <= ZERO:
+                        who = owner or "you"
+                        raise ValidationError(f"{who.capitalize()} must hold shares of this investment on that date to receive a dividend.", "instrument")
+                    dividend_amount = (dividend_amount * held_units).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+                txn = c.investments.dividend(values["date"], account.id, asset.id, dividend_amount,
+                                             values["notes"], owner_id=owner_id)
             elif units > ZERO:
                 basis = values["price_basis"]
                 if basis == "unit_price" or (unit_price and not total):
@@ -491,12 +511,6 @@ async def create_investment_entry(request: Request, account_id: int):
                                                    fees=values["fees"], fees_included=values["fees_included"] != "0",
                                                    cash_account_id=cash_account_id,
                                                    notes=values["notes"])
-            owner = None
-            if values["is_others"]:
-                party = c.counterparties.resolve(values["whom"])
-                if not party or not party["active"]:
-                    raise ValidationError("Choose an active saved Counterparty in Whom.", "whom")
-                owner = party["name"]
             c.money_from_others.sync_investment(txn.id, txn.date, owner, account.id, asset.id, signed_units)
             if owner:
                 cash_line = next((line for line in txn.lines if c.assets.get_asset(line.asset_id).is_cash), None)

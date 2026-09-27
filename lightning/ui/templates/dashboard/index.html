@@ -18,22 +18,35 @@
 {% if period_error %}<p class="flash error">{{ period_error }}</p>{% endif %}
 {% set period_query = request.url.query %}
 <section class="overview-hero-grid">
-  <a class="card wealth-hero" data-popup-open href="/explain/owned?{{ period_query }}">
+  <section class="card wealth-hero">
     <span class="label">{{ 'Known owned value' if net_worth.unvalued else 'What you own' }}</span>
     <div class="wealth-total">{{ net_worth.total|money }} <span>{{ base }}</span></div>
     <div class="small hero-meta">Position as of {{ as_of }}</div>
     <div class="overview-change">{{ change_label }}: <b class="{{ 'neg' if change is not none and change < 0 else 'pos' if change is not none and change > 0 }}">{{ change|money(True) if change is not none else 'Change unavailable' }}</b>{% if change is none %}<small>{{ change_reason }}</small>{% endif %}</div>
-    <span class="small">Account contributions and valuation details →</span>
-  </a>
-  <a class="card saved-card" data-popup-open href="/explain/free-cash?{{ period_query }}">
+    <div class="wealth-account-breakdown" aria-label="Account contributions to owned value">
+      {% for group in account_contributions %}
+      <details class="wealth-type-group">
+        <summary class="wealth-account-row"><span>{{ group.label }} <small>{{ group.accounts|length }} account{{ 's' if group.accounts|length != 1 }}</small></span><b>{{ group.value|money(True) }} {{ base }}</b></summary>
+        <div class="wealth-type-accounts">{% for account in group.accounts %}<a class="wealth-subaccount-row" href="/accounts/{{ account.id }}"><span>{{ account.label }}</span><b>{{ account.value|money(True) }} {{ base }}</b></a>{% endfor %}</div>
+      </details>
+      {% endfor %}
+      <p class="small muted">Owned balances only. Money and investments held for others are excluded.</p>
+    </div>
+  </section>
+  <section class="card saved-card">
     <span class="label">Cash available to spend</span>
     {% if reserve_summary is none %}<div class="saved-total">Historical free cash unavailable</div><div class="small muted">Reserve assignments for this date cannot be reconstructed.</div>
-    {% else %}<div class="saved-total">{{ reserve_summary.free_cash|money }} {{ base }}</div>
-      <div class="overview-equation">Eligible cash {{ reserve_summary.eligible_cash|money }} − Assigned to reserves {{ reserve_summary.allocated|money }} = <b>{{ reserve_summary.free_cash|money }}</b></div>
+    {% else %}<div class="saved-total">{{ reserve_summary.free_cash|money }} <span>{{ base }}</span></div>
+      <div class="cash-available-breakdown" aria-label="Cash available breakdown">
+        <div class="cash-available-row cash-available-heading"><span>Eligible cash</span><b>{{ reserve_summary.eligible_cash|money(True) }} {{ base }}</b></div>
+        {% for group in cash_account_contributions %}<details class="cash-account-group"><summary class="cash-available-row"><span>{{ group.label }} <small>{{ group.accounts|length }} account{{ 's' if group.accounts|length != 1 }}</small></span><b>{{ group.value|money(True) }} {{ base }}</b></summary><div class="cash-type-accounts">{% for account in group.accounts %}<a class="cash-available-row cash-subaccount-row" href="/accounts/{{ account.id }}"><span>{{ account.label }}</span><b>{{ account.value|money(True) }} {{ base }}</b></a>{% endfor %}</div></details>{% endfor %}
+        <div class="cash-available-row"><span>Assigned to reserves</span><b>−{{ reserve_summary.allocated|money(True) }} {{ base }}</b></div>
+        <div class="cash-available-row cash-available-total"><span>Cash available to spend</span><b>{{ reserve_summary.free_cash|money(True) }} {{ base }}</b></div>
+      </div>
       {% if reserve_summary.shortfall %}<div class="small neg">Shortfall {{ reserve_summary.shortfall|money }} {{ base }}</div>{% endif %}
       <div class="small muted">Brokerage cash {{ brokerage_cash|money }} {{ base }} is included in owned wealth and held separately from spendable cash.</div>
     {% endif %}
-  </a>
+  </section>
 </section>
 <section class="card overview-flow">
   <div class="card-heading"><h2>During this period</h2><a data-popup-open href="/explain/flow?{{ period_query }}">How these figures are calculated →</a></div>

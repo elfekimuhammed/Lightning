@@ -312,6 +312,8 @@ if (tradeCatalogueNode) {
   const unitsField = document.getElementById("investment-units-field");
   const action = document.getElementById("investment-action");
   const total = document.getElementById("investment-total");
+  const dividendBasis = document.getElementById("investment-dividend-basis");
+  const dividendBasisField = document.getElementById("investment-dividend-basis-field");
   const unitPrice = document.getElementById("investment-unit-price");
   const fees = document.getElementById("investment-fees");
   const feesExcluded = document.getElementById("investment-fees-included");
@@ -354,14 +356,22 @@ if (tradeCatalogueNode) {
     });
     if (unitsField) unitsField.hidden = isDividend;
     units.disabled = isDividend;
+    if (dividendBasisField) dividendBasisField.hidden = !isDividend;
     if (priceField) priceField.hidden = isDividend;
     if (feesField) feesField.hidden = isDividend || !feesExcluded?.checked;
     if (feesToggleField) feesToggleField.hidden = isDividend;
     if (fees) fees.disabled = isDividend || !feesExcluded?.checked;
     if (feesExcluded) feesExcluded.disabled = isDividend;
     if (unitPrice) unitPrice.disabled = isDividend;
-    if (isDividend) amountLabel.textContent = "Dividend amount received";
-    else amountLabel.textContent = actionKind === "sell" ? "Total received" : "Total paid";
+    if (isDividend) {
+      const perShare = dividendBasis?.value === "per_share";
+      amountLabel.textContent = perShare ? "Dividend per share" : "Total dividend amount";
+      total.placeholder = perShare ? "Amount per share" : "Total amount received";
+    }
+    else {
+      amountLabel.textContent = actionKind === "sell" ? "Total received" : "Total paid";
+      total.placeholder = "Total amount";
+    }
     if (qty !== null && Math.abs(qty) > 0) {
       if (basis.value === "unit_price" && price !== null) {
         const gross = Math.abs(qty) * price;
@@ -381,7 +391,9 @@ if (tradeCatalogueNode) {
     } else if (selected) {
       positionHint.textContent = `You hold ${formatted(Number(selected.holding || 0), selected.decimals)} ${selected.unit}(s) here.`;
     }
-    if (isDividend) entryHint.textContent = "Enter the amount received. This is recorded as investment income.";
+    if (isDividend) entryHint.textContent = dividendBasis?.value === "per_share"
+      ? "The total dividend uses this rate × shares held by the selected owner on the transaction date."
+      : "Enter the total dividend received. The selected owner must hold shares on the transaction date.";
     else entryHint.textContent = actionKind === "sell"
       ? "Enter the number of units sold. Choose whether the sale total includes fees below."
       : "Enter the number of units bought. Fees are included in your cost basis.";
@@ -456,6 +468,7 @@ if (tradeCatalogueNode) {
     });
   });
   total.addEventListener("input", () => { basis.value = "total"; sync(); });
+  dividendBasis?.addEventListener("change", sync);
   unitPrice.addEventListener("input", () => { basis.value = "unit_price"; sync(); });
   fees?.addEventListener("input", sync);
   feesExcluded?.addEventListener("change", sync);

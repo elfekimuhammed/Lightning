@@ -14,7 +14,7 @@ from lightning.accounts.service import AccountService
 from lightning.assets.domain import EXPOSURE_LABELS, FinancialAsset
 from lightning.assets.service import AssetService
 from lightning.categories.service import CategoryService
-from lightning.core.dates import fmt_date, today
+from lightning.core.dates import fmt_date, parse_date, today
 from lightning.core.errors import ConflictError, ValidationError
 from lightning.core.ledger import Effect, PostingLine
 from lightning.core.money import ZERO, check_places, fmt, from_e6, to_decimal
@@ -85,10 +85,24 @@ class InvestmentService:
         account = self.accounts.require_usable(account_id)
         if account.account_type != AccountType.BROKERAGE:
             raise ValidationError("Dividends can only be recorded in a brokerage account.", "account")
+        if self.holding_for_owner(account_id, asset_id, date, owner_id) <= ZERO:
+            raise ValidationError("A dividend requires shares held by the selected owner on that date.", "instrument")
         lines, counterparty = self._dividend_lines(account_id, asset_id, amount)
         if owner_id is not None:
             lines = [replace(line, owner_id=owner_id) for line in lines]
         return self.transactions.post(DocType.DIV, date, lines, "", counterparty, notes)
+
+    def holding_for_owner(self, account_id: int, asset_id: int, as_of: str, owner_id: int | None = None) -> Decimal:
+        """Return signed investment units held by one owner on a date."""
+        day = parse_date(as_of).isoformat()
+        owner_clause = "le.owner_id IS NULL" if owner_id is None else "le.owner_id=?"
+        params = (account_id, asset_id, day) if owner_id is None else (account_id, asset_id, day, owner_id)
+        quantity = self.db.scalar(
+            "SELECT COALESCE(SUM(le.quantity_e6),0) FROM ledger_entries le "
+            "JOIN transactions t ON t.id=le.transaction_id "
+            f"WHERE le.account_id=? AND le.asset_id=? AND le.date<=? AND {owner_clause} AND t.status='POSTED'",
+            params)
+        return from_e6(quantity or 0)
 
     def add_holding(self, account_id: int, asset_id: int, quantity, total_cost, date: str | None = None,
                     notes: str = "", owner_id: int | None = None) -> Transaction:
@@ -126,6 +140,8 @@ class InvestmentService:
                                                 unit_line.unit_price, owner_id=owner_id)
             return updated
         if kind == DocType.DIV:
+            if self.holding_for_owner(values["account_id"], values["asset_id"], date, owner_id) <= ZERO:
+                raise ValidationError("A dividend requires shares held by the selected owner on that date.", "asset_id")
             lines, counterparty = self._dividend_lines(values["account_id"], values["asset_id"], values["amount"])
             if owner_id:
                 lines = [replace(line, owner_id=int(owner_id)) for line in lines]

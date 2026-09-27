@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
+from dataclasses import replace
 from collections import defaultdict
 
 from fastapi import APIRouter, Request
@@ -12,8 +13,14 @@ from lightning.core.money import ZERO, to_decimal
 
 from ..web import container, redirect, render
 from ...assets.catalog import instruments
+from ..periods import parse_period
 
 router = APIRouter(prefix="/investments")
+
+
+def _allocation_classes(c):
+    return sorted({c.assets.display_name(cls.id).split(" › ")[-1] for cls in c.assets.investment_classes()},
+                  key=str.casefold)
 
 KINDS = {
     "buy": ("Buy", "Units in, cash out — at cost, fees included."),
@@ -22,7 +29,7 @@ KINDS = {
     "holding": ("Add a holding you already own", "Units you had when you started tracking, and what you paid in total."),
 }
 FIELDS = ("date", "account_id", "asset_id", "quantity", "price", "fees", "fees_included", "cash_account_id", "amount", "total_cost", "total",
-          "notes", "owner_id")
+          "notes", "owner_id", "dividend_basis")
 
 
 def _int(value) -> int | None:
@@ -33,12 +40,33 @@ def _int(value) -> int | None:
 @router.get("")
 async def portfolio(request: Request):
     c = container(request)
-    day = fmt_date(today())
+    today_date = today()
+    all_port = c.investments.portfolio(fmt_date(today_date))
+    try:
+        period = parse_period(request.query_params, today_date,
+                              min((x.price_date for x in all_port.positions if x.price_date), default=None))
+    except LightningError:
+        period = parse_period({}, today_date)
+    day = period.end_text
     p = c.investments.portfolio(day)
-    custody = {(row["account_id"], row["asset_id"]): row["units"]
-               for row in c.money_from_others.investment_positions(day)}
+    before_day = fmt_date(period.start.fromordinal(period.start.toordinal()-1))
+    prior = c.investments.portfolio(before_day)
+    prior_by_key={(x.account_id,x.asset_id):x for x in prior.positions}
+    custody = defaultdict(lambda: ZERO)
+    for row in c.money_from_others.investment_positions(day):
+        custody[(row["account_id"], row["asset_id"])] += row["units"]
+    prior_custody = defaultdict(lambda: ZERO)
+    prior_custody_value = ZERO
+    for row in c.money_from_others.investment_positions(before_day):
+        prior_custody[(row["account_id"], row["asset_id"])] += row["units"]
+        valuation = c.reporting.value_of(row["asset_id"], row["units"], before_day)
+        if valuation.value is not None:
+            prior_custody_value += valuation.value
+    starting_owned_value = prior.value - prior_custody_value
     custody_value = custody_cost = Decimal(0)
     own_by_holding = {}
+    own_cost_by_holding = {}
+    own_units_by_holding = {}
     for holding in p.open:
         units = custody.get((holding.account_id, holding.asset_id), 0)
         if not units:
@@ -50,26 +78,187 @@ async def portfolio(request: Request):
         if holding.quantity:
             custody_cost += holding.cost_basis * units / holding.quantity
         own_by_holding[f"{holding.account_id}:{holding.asset_id}"] = (holding.value or Decimal(0)) - held_value
+        own_cost_by_holding[f"{holding.account_id}:{holding.asset_id}"] = holding.cost_basis * (holding.quantity-units) / holding.quantity if holding.quantity else ZERO
+        own_units_by_holding[f"{holding.account_id}:{holding.asset_id}"] = holding.quantity-units
     owned_value = p.value - custody_value
     owned_cost = p.cost_basis - custody_cost
     owned_unrealized = owned_value - owned_cost
-    class_totals = defaultdict(lambda: {"total": ZERO, "yours": ZERO, "others": ZERO})
+    owned_positions = [h for h in p.open if own_by_holding.get(f"{h.account_id}:{h.asset_id}", h.value or ZERO) != ZERO]
+    class_totals = defaultdict(lambda: {"total": ZERO, "yours": ZERO, "others": ZERO, "capital": ZERO,
+                                        "starting_capital": ZERO, "unrealized": ZERO, "period_unrealized": ZERO,
+                                        "realized": ZERO, "dividends": ZERO})
     for holding in p.open:
-        # Show the leaf (L2) of the asset-class hierarchy, not repeated full paths.
         category = holding.asset_class.split(" › ")[-1]
         total = holding.value or ZERO
         yours = own_by_holding.get(f"{holding.account_id}:{holding.asset_id}", total)
         row = class_totals[category]
-        row["total"] += total
-        row["yours"] += yours
-        row["others"] += total - yours
-    asset_class_rows = sorted(class_totals.items(), key=lambda item: (-item[1]["total"], item[0].casefold()))
-    available_capital = p.cost_basis + p.realized + p.unrealized
+        row["total"] += total; row["yours"] += yours; row["others"] += total-yours
+        key = (holding.account_id, holding.asset_id)
+        holding_key = f"{holding.account_id}:{holding.asset_id}"
+        owned_capital = own_cost_by_holding.get(holding_key, holding.cost_basis)
+        row["capital"] += owned_capital
+        row["unrealized"] += yours - owned_capital
+        old = prior_by_key.get(key)
+        old_owned_value, old_owned_capital = ZERO, ZERO
+        if old and old.quantity:
+            old_other_units = prior_custody.get(key, ZERO)
+            old_valuation = c.reporting.value_of(holding.asset_id, old_other_units, before_day)
+            old_owned_value = (old.value or ZERO) - (old_valuation.value or ZERO)
+            old_owned_capital = old.cost_basis * (old.quantity - old_other_units) / old.quantity
+        row["starting_capital"] += old_owned_capital
+        row["period_unrealized"] += (yours - owned_capital) - (old_owned_value - old_owned_capital)
+        if total:
+            share = yours/total
+            row["realized"] += (holding.realized-(old.realized if old else ZERO))*share
+            row["dividends"] += (holding.dividends-(old.dividends if old else ZERO))*share
+    asset_class_rows = sorted(class_totals.items(), key=lambda item: (-item[1]["yours"], item[0].casefold()))
+    assets = {r["id"]:r for r in c.db.all("SELECT id,allocation_bucket,investment_horizon FROM financial_assets")}
+    buckets = defaultdict(lambda: ZERO); horizons = defaultdict(lambda: ZERO)
+    owned_rows=[]
+    for h in p.open:
+        key=f"{h.account_id}:{h.asset_id}"; yours=own_by_holding.get(key,h.value or ZERO)
+        if yours <= ZERO: continue
+        asset=assets.get(h.asset_id)
+        bucket=(asset["allocation_bucket"] if asset else None) or h.asset_class.split(" › ")[-1]
+        class_text=h.asset_class.casefold()
+        suggested=("Short" if "money market" in class_text else
+                   "Medium" if any(x in class_text for x in ("fixed income","deposit","bond")) else
+                   "Long" if any(x in class_text for x in ("stock","equity","gold")) else "Unassigned")
+        horizon=(asset["investment_horizon"] if asset else None) or suggested
+        buckets[bucket]+=yours; horizons[horizon]+=yours
+        capital=own_cost_by_holding.get(key,h.cost_basis)
+        owned_rows.append((h,yours,bucket,horizon,capital,yours-capital,
+                           own_units_by_holding.get(key,h.quantity)))
+    targets={r["bucket"]:Decimal(str(r["target_weight"])) for r in c.db.all("SELECT bucket,target_weight FROM investment_targets")}
+    allocation_classes=_allocation_classes(c)
+    max_class_result=max((abs(row["period_unrealized"]+row["realized"]+row["dividends"])
+                          for _,row in asset_class_rows),default=ZERO) or Decimal(1)
+    planner=[]; target_total=sum(targets.values(),ZERO)
+    amount=to_decimal(request.query_params.get("amount","10000"),"amount")
+    total_owned=sum(buckets.values(),ZERO)
+    shortfalls={b:max(ZERO,(target* (total_owned+amount)/100)-v) for b,target in targets.items() for v in [buckets.get(b,ZERO)]}
+    eligible=sum(shortfalls.values(),ZERO)
+    cents=[]; allocated=ZERO
+    if target_total == Decimal(100) and eligible and amount>ZERO:
+        for b in sorted(targets):
+            suggested=(amount*shortfalls[b]/eligible).quantize(Decimal("0.01"))
+            cents.append([b,suggested]); allocated+=suggested
+        if cents: cents[0][1]+=amount-allocated
+    new_by_bucket=dict(cents)
+    for b,v in sorted(buckets.items(),key=lambda x:-x[1]):
+        after=(v+new_by_bucket.get(b,ZERO))/(total_owned+amount)*100 if total_owned+amount else ZERO
+        planner.append({"bucket":b,"value":v,"weight":v/total_owned*100 if total_owned else ZERO,
+                        "target":targets.get(b),"suggested":new_by_bucket.get(b,ZERO),"after":after})
+    for b,t in targets.items():
+        if b not in buckets: planner.append({"bucket":b,"value":ZERO,"weight":ZERO,"target":t,"suggested":new_by_bucket.get(b,ZERO),"after":new_by_bucket.get(b,ZERO)/(total_owned+amount)*100 if total_owned+amount else ZERO})
     return render(request, "investments/index.html", p=p, asset_class_rows=asset_class_rows,
-                  available_capital=available_capital, accounts=c.investments.investment_accounts(),
+                  accounts=c.investments.investment_accounts(),
                   has_assets=bool(c.assets.investments(active_only=True)), owned_value=owned_value,
                   owned_cost=owned_cost, owned_unrealized=owned_unrealized, custody_units=custody,
-                  own_by_holding=own_by_holding)
+                  own_by_holding=own_by_holding, period=period, period_realized=p.realized-prior.realized,
+                  period_dividends=p.dividends-prior.dividends, owned_rows=owned_rows, horizons=horizons,
+                  buckets=buckets, targets=targets, target_total=target_total, planner=planner, amount=amount,
+                  owned_positions=owned_positions, max_class_result=max_class_result,
+                  allocation_classes=allocation_classes, own_units_by_holding=own_units_by_holding,
+                  starting_owned_value=starting_owned_value, period_value_change=owned_value-starting_owned_value)
+
+
+@router.get("/planner")
+async def planner_popup(request: Request):
+    return await _render_planner(request)
+
+
+@router.post("/planner")
+async def calculate_planner(request: Request):
+    form=await request.form()
+    return await _render_planner(request,str(form.get("amount","10000")))
+
+
+async def _render_planner(request: Request, raw_amount: str="10000"):
+    c=container(request); amount=to_decimal(raw_amount,"amount")
+    if amount<=ZERO: raise LightningError("Enter an amount greater than zero.","amount")
+    day=fmt_date(today()); portfolio=c.investments.portfolio(day)
+    custody={(x["account_id"],x["asset_id"]):Decimal(str(x["units"]))
+             for x in c.money_from_others.investment_positions(day)}
+    metadata={r["id"]:r for r in c.db.all("SELECT id,allocation_bucket FROM financial_assets")}
+    values=defaultdict(lambda:ZERO); total=ZERO
+    for position in portfolio.open:
+        units=max(ZERO,position.quantity-custody.get((position.account_id,position.asset_id),ZERO))
+        value=(position.value or ZERO)*units/position.quantity if position.quantity else ZERO
+        if value<=ZERO: continue
+        meta=metadata.get(position.asset_id)
+        bucket=(meta["allocation_bucket"] if meta else None) or position.asset_class.split(" › ")[-1]
+        values[bucket]+=value; total+=value
+    targets={r["bucket"]:Decimal(str(r["target_weight"])) for r in c.db.all("SELECT bucket,target_weight FROM investment_targets")}
+    target_total=sum(targets.values(),ZERO)
+    shortfalls={b:max(ZERO,t*(total+amount)/100-values.get(b,ZERO)) for b,t in targets.items()}
+    deficit=sum(shortfalls.values(),ZERO); suggestions={}; rounded=ZERO
+    if target_total==100 and deficit:
+        for bucket in sorted(targets):
+            suggestions[bucket]=(amount*shortfalls[bucket]/deficit).quantize(Decimal("0.01")); rounded+=suggestions[bucket]
+        if suggestions: suggestions[sorted(suggestions)[0]]+=amount-rounded
+    rows=[]
+    for bucket in sorted(set(values)|set(targets),key=lambda b:(-values.get(b,ZERO),b.casefold())):
+        value=values.get(bucket,ZERO); suggested=suggestions.get(bucket,ZERO)
+        rows.append({"bucket":bucket,"value":value,"weight":value/total*100 if total else ZERO,
+                     "target":targets.get(bucket),"suggested":suggested,
+                     "after":(value+suggested)/(total+amount)*100 if total+amount else ZERO})
+    return render(request,"investments/planner.html",amount=amount,rows=rows,target_total=target_total,
+                  planner_ready=target_total==100,allocation_sum=sum((r["suggested"] for r in rows),ZERO))
+
+
+@router.get("/holding/{asset_id:int}")
+async def holding_detail(request: Request, asset_id: int):
+    c=container(request); day=request.query_params.get("date",fmt_date(today()))
+    start=request.query_params.get("start",day)
+    portfolio=c.investments.portfolio(day); account_id=_int(request.query_params.get("account"))
+    h=next((x for x in portfolio.open if x.asset_id==asset_id and (account_id is None or x.account_id==account_id)),None)
+    if h is None: raise NotFoundError("No holding found for that asset and account.")
+    custody=next((x for x in c.money_from_others.investment_positions(day)
+                  if x["account_id"]==h.account_id and x["asset_id"]==asset_id),None)
+    if custody and h.quantity:
+        own_units=max(ZERO,h.quantity-Decimal(str(custody["units"])))
+        factor=own_units/h.quantity
+        h=replace(h,quantity=own_units,cost_basis=h.cost_basis*factor,realized=h.realized*factor,
+                  dividends=h.dividends*factor,value=(h.value*factor if h.value is not None else None),xirr=None)
+    asset=c.assets.get_asset(asset_id)
+    meta=c.db.one("SELECT allocation_bucket,investment_horizon FROM financial_assets WHERE id=?",(asset_id,))
+    bucket=(meta["allocation_bucket"] if meta else None) or h.asset_class.split(" › ")[-1]
+    class_text=h.asset_class.casefold()
+    suggested=("Short" if "money market" in class_text else
+               "Medium" if any(x in class_text for x in ("fixed income","deposit","bond")) else
+               "Long" if any(x in class_text for x in ("stock","equity","gold")) else "Unassigned")
+    horizon=(meta["investment_horizon"] if meta else None) or suggested
+    before=c.investments.portfolio(fmt_date(parse_date(start).fromordinal(parse_date(start).toordinal()-1)))
+    previous=next((x for x in before.positions if x.asset_id==asset_id and x.account_id==h.account_id),None)
+    return render(request,"investments/holding.html",h=h,asset=asset,bucket=bucket,horizon=horizon,day=day,
+                  start=start,period_realized=h.realized-(previous.realized if previous else ZERO),
+                  period_dividends=h.dividends-(previous.dividends if previous else ZERO),
+                  allocation_classes=_allocation_classes(c),
+                  show_popup=request.headers.get("X-Lightning-Popup")=="1")
+
+
+@router.post("/targets")
+async def save_target(request: Request):
+    c=container(request); form=await request.form(); bucket=str(form.get("bucket","")).strip()
+    try:
+        value=to_decimal(str(form.get("target_weight","")),"target")
+        if bucket not in _allocation_classes(c) or value<ZERO or value>100: raise LightningError("Choose an available investment asset class and a target from 0 to 100.")
+        c.db.execute("INSERT INTO investment_targets(bucket,target_weight,updated_at) VALUES(?,?,?) ON CONFLICT(bucket) DO UPDATE SET target_weight=excluded.target_weight,updated_at=excluded.updated_at",(bucket,float(value),fmt_date(today())))
+    except LightningError as exc:
+        return redirect("/investments",exc.message)
+    return redirect("/investments","Target saved.")
+
+
+@router.post("/asset-plan/{asset_id:int}")
+async def save_asset_plan(request: Request,asset_id:int):
+    c=container(request); form=await request.form(); asset=c.assets.get_asset(asset_id)
+    bucket=str(form.get("allocation_bucket","")).strip() or c.assets.display_name(asset.asset_class_id).split(" › ")[-1]
+    if bucket not in _allocation_classes(c): raise LightningError("Choose one of the available investment asset classes.","allocation_bucket")
+    horizon=str(form.get("investment_horizon","")).strip()
+    if horizon not in ("Short","Medium","Long",""): raise LightningError("Choose Short, Medium, Long, or Unassigned.")
+    c.db.execute("UPDATE financial_assets SET allocation_bucket=?,investment_horizon=? WHERE id=?",(bucket,horizon or None,asset_id))
+    return redirect("/investments","Investment classification saved.")
 
 
 # -- trades -------------------------------------------------------------------
@@ -116,7 +305,13 @@ def _save(request: Request, kind: str, v: dict, txn_id: int | None = None):
             txn = inv.sell_total(v["date"], account, asset, v["quantity"], v["total"], cash, v["notes"],
                                  v["fees"], v.get("fees_included", "1") != "0", owner)
     elif kind == "dividend":
-        txn = inv.dividend(v["date"], account, asset, v["amount"], v["notes"], owner)
+        amount = to_decimal(v["amount"], "amount")
+        if v.get("dividend_basis", "total") == "per_share":
+            units = inv.holding_for_owner(account, asset, v["date"], owner)
+            if units <= ZERO:
+                raise LightningError("A dividend requires shares held by the selected owner on that date.", "asset_id")
+            amount = (amount * units).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        txn = inv.dividend(v["date"], account, asset, amount, v["notes"], owner)
     else:
         txn = inv.add_holding(account, asset, v["quantity"], v["total_cost"], v["date"] or None,
                               v["notes"], owner)
@@ -131,7 +326,7 @@ async def new_trade(request: Request):
     qp = request.query_params
     values = {k: "" for k in FIELDS}
     values.update(date=fmt_date(today()), account_id=qp.get("account", ""),
-                  asset_id=qp.get("asset", ""))
+                  asset_id=qp.get("asset", ""), dividend_basis="total")
     return _form(request, kind, values)
 
 

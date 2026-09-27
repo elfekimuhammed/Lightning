@@ -2,7 +2,7 @@
 {% block title %}{{ account.name if account else 'All accounts' }}{% endblock %}
 
 {% macro inputs(form_id, v, is_edit) -%}
-  <td><input form="{{ form_id }}" type="text" name="date" value="{{ v.get('date', '') }}" placeholder="31/1"
+  <td><input id="{{ form_id }}-date" form="{{ form_id }}" type="text" name="date" value="{{ v.get('date', '') }}" placeholder="31/1"
              inputmode="numeric" autocomplete="off" data-smart-date title="For example 31/1 or 2026-01-31" required class="{{ 'bad' if error_field == 'date' }}"></td>
   {% if show_account %}
   <td><select form="{{ form_id }}" name="account_id" required class="{{ 'bad' if error_field == 'account' }}">
@@ -55,7 +55,7 @@
 {% block top_actions %}
 <a class="btn small" href="/transactions/deleted">Deleted transactions</a>
 {% if account %}
-{% if account.active and account.account_type.value != 'PHYSICAL_ASSET' %}<a class="btn primary" data-popup-open href="/accounts/{{ account.id }}/transaction/new">Add transaction</a>{% endif %}
+{% if account.active and account.account_type.value != 'PHYSICAL_ASSET' %}<a class="btn primary" href="#f-new-date">Add transaction</a>{% endif %}
 <a class="btn small" href="/accounts/{{ account.id }}/reconcile">Reconcile</a>
 <a class="btn small" data-popup-open href="/accounts/{{ account.id }}/import">Import CSV</a>
 <a class="btn small" data-popup-open href="/accounts/{{ account.id }}/edit">Edit account</a>
@@ -76,8 +76,9 @@
 
 <datalist id="counterparty-options"><option value="My money"></option>{% for name in counterparty_options %}<option value="{{ name }}"></option>{% endfor %}</datalist>
 <script id="category-catalogue" type="application/json">{{ category_choices|tojson }}</script>
+<form id="f-new" method="post" action="{{ post_url }}" autocomplete="off"></form>
 {% if edit_id is not none %}<form id="f-edit" method="post" action="{{ post_url }}/{{ edit_id }}" autocomplete="off"></form>{% endif %}
-{% set review_form_id = 'f-edit' %}
+{% set review_form_id = 'f-edit' if edit_id is not none else 'f-new' %}
 {% if entry.get('counterparty_choice') and review_mode != 'counterparty' %}<input form="{{ review_form_id }}" type="hidden" name="counterparty_choice" value="{{ entry.counterparty_choice }}">{% endif %}
 {% if account and account.account_type.value == 'BROKERAGE' %}
 <section class="card account-asset-breakdown">
@@ -152,6 +153,13 @@
       <div class="field {{ 'has-error' if investment_error_field == 'total' }}">
         <label id="investment-total-label" for="investment-total">Total paid / received</label>
         <input id="investment-total" type="text" name="total" value="{{ investment_entry.get('total', '') }}" placeholder="Total amount" inputmode="decimal" class="money-input">
+      </div>
+      <div class="field" id="investment-dividend-basis-field" hidden>
+        <label for="investment-dividend-basis">Dividend amount entered as</label>
+        <select id="investment-dividend-basis" name="dividend_basis">
+          <option value="total" {{ 'selected' if investment_entry.get('dividend_basis', 'total') == 'total' }}>Total dividend</option>
+          <option value="per_share" {{ 'selected' if investment_entry.get('dividend_basis') == 'per_share' }}>Dividend per share / unit</option>
+        </select>
       </div>
       <div class="field {{ 'has-error' if investment_error_field == 'unit_price' }}" id="investment-price-field">
         <label for="investment-unit-price" id="investment-price-label">Price per unit</label>
@@ -233,6 +241,12 @@
       <th class="num">Amount</th>{% if with_balance %}<th class="num">Balance</th>{% endif %}<th class="action-heading">Action</th>
     </tr></thead>
     <tbody>
+    <tr class="add-row quick-add-row" id="quick-add">
+      <td><span class="muted small">New</span></td>
+      {{ inputs('f-new', entry, False) }}
+      {% if with_balance %}<td class="num muted">—</td>{% endif %}
+      <td><button form="f-new" class="btn primary small">Add</button></td>
+    </tr>
     {% set ns = namespace(last_date='') %}
     {% for r in rows %}
       {% set kind = 'in' if r.amount > 0 else 'out' %}

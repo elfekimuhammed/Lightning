@@ -24,6 +24,7 @@
             {% else %}<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.2 2.7-5 6-5s6 1.8 6 5"/><circle cx="18" cy="9" r="2"/><path d="M17 15c2.5.2 4 1.7 4 4"/></svg>{% endif %}
           </span><span>{{ label }}</span>
         </a>
+        {% if href == '/birdview' %}<a href="/investments" class="nav-child {{ 'active' if path.startswith('/investments') }}"><span class="nav-icon nav-icon--investments" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 20V4"/><path d="m4 16 5-5 4 3 7-8"/><path d="M15 6h5v5"/></svg></span><span>Investments</span></a>{% endif %}
       {% endfor %}
       <div class="nav-spacer"></div>
       <details class="secondary-nav"><summary>Management</summary>

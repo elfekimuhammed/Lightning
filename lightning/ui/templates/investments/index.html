@@ -1,95 +1,37 @@
 {% extends "base.html" %}
 {% block title %}Investments{% endblock %}
-{% block heading %}<h1>Investments</h1><div class="muted">Stocks, funds and gold across your accounts · as of {{ p.as_of }}</div>{% endblock %}
-{% block top_actions %}
-<a class="btn small" href="/investments/prices">Update prices</a>
-<a class="btn small" href="/investments/reevaluations">Reevaluation ledger</a>
-{% endblock %}
+{% block heading %}<h1>Investments</h1><div class="muted">Your investment portfolio · valued as of {{ period.end_text }}</div>{% endblock %}
+{% block top_actions %}<a class="btn small" href="/investments/prices">Update prices</a><a class="btn small" href="/investments/reevaluations">Reevaluation ledger</a>{% endblock %}
 {% block content %}
-{% macro price_tag(source) -%}
-{% if source == 'COST' %}<span class="pill" title="No price yet — valued at what you paid">at cost</span>
-{% elif source == 'TRADE' %}<span class="pill" title="Price of your last buy or sell">last trade</span>{% endif %}
-{%- endmacro %}
-
-{% if not accounts %}
-<div class="card empty">Investments live in a brokerage account (like THNDR) or a physical-asset account (like gold at home).
-  <div class="actions" style="justify-content:center;margin-top:10px">
-    <a class="btn primary" href="/accounts/new?type=BROKERAGE">Add a brokerage account</a>
-    <a class="btn" href="/accounts/new?type=PHYSICAL_ASSET">Add gold at home</a></div></div>
+<form class="card investment-period" method="get">
+ <label>Period<select name="period" onchange="this.form.requestSubmit()"><option value="all" {% if period.key=='all' %}selected{% endif %}>All time</option><option value="ytd" {% if period.key=='ytd' %}selected{% endif %}>YTD</option><option value="month" {% if period.key=='month' %}selected{% endif %}>Monthly</option><option value="custom" {% if period.key=='custom' %}selected{% endif %}>Custom</option></select></label>
+ <label>Month<input type="month" name="month" value="{{ period.start_text[:7] }}"></label><label>From<input type="date" name="date_from" value="{{ period.start_text }}"></label><label>To<input type="date" name="date_to" value="{{ period.end_text }}"></label><button class="btn small">Apply</button><span class="muted small">{{ period.start_text }} to {{ period.end_text }}</span>
+</form>
+{% if not accounts %}<div class="card empty">Investments live in a brokerage account or a physical asset account. <a href="/accounts/new?type=BROKERAGE">Add a brokerage account</a></div>
 {% else %}
-<div class="grid g4">
-  <div class="card tile"><div class="label">Injections</div><div class="value">{{ p.cost_basis|money }}</div><div class="sub">Cost basis of current holdings · Yours {{ owned_cost|money }}</div></div>
-  <div class="card tile"><div class="label">Realized gains</div><div class="value {{ p.realized|tone }}">{{ p.realized|money(True) }}</div><div class="sub">Gains/losses from assets sold</div></div>
-  <div class="card tile"><div class="label">Unrealized gains</div><div class="value {{ p.unrealized|tone }}">{{ p.unrealized|money(True) }}</div>
-    <div class="sub">Your part {{ owned_unrealized|money(True) }}{% if owned_cost %} · {{ (owned_unrealized / owned_cost * 100)|round(1) }}% on cost{% endif %}</div></div>
-  <div class="card tile"><div class="label">Available capital</div><div class="value">{{ available_capital|money }}</div>
-    <div class="sub">Injections + realized gains + unrealized gains</div>
-    <div class="sub">Dividends tracked separately: {{ p.dividends|money }} · XIRR {{ (p.xirr * 100)|round(2) ~ '%' if p.xirr is not none else '—' }}</div></div>
-</div>
+<section class="card portfolio-summary"><div class="summary-top"><div><div class="eyebrow">YOUR PORTFOLIO</div><h2>Investment position</h2><div class="muted small">Holdings valued as of {{ period.end_text }}</div></div><a class="btn primary" data-popup-open href="/investments/planner">How much do you want to invest?</a></div>
+ <div class="summary-grid"><div><div class="label">{{ 'Invested capital' if period.key == 'all' else 'Value at period start' }}</div><div class="summary-money">{{ owned_cost|money if period.key == 'all' else starting_owned_value|money }}</div><div class="small muted">{{ 'Cost basis of units still held, including purchase costs.' if period.key == 'all' else 'Owned portfolio value on the day before the selected period.' }}</div></div><div><div class="label">Current value</div><div class="summary-money">{{ owned_value|money }}</div><div class="small muted">Your owned share of holdings as of {{ period.end_text }}</div></div><div class="summary-return"><div class="label">{{ 'Up / down' if period.key == 'all' else 'Change since start' }}</div><div class="summary-money {{ (owned_unrealized if period.key == 'all' else period_value_change)|tone }}">{{ (owned_unrealized if period.key == 'all' else period_value_change)|money(True) }}</div><div class="small muted">{{ 'Unrealized gain/loss' if period.key == 'all' else 'Change in position value, including purchases and sales during the period.' }}</div></div></div>
+ <div class="summary-bottom"><div class="return-row"><span>Realized gain/loss <small class="muted">· {{ period.start_text }}–{{ period.end_text }}</small></span><b class="{{ period_realized|tone }}">{{ period_realized|money(True) }}</b></div><div class="return-row"><span>Dividends / interest received <small class="muted">· selected period</small></span><b>{{ period_dividends|money }}</b></div><div class="return-row"><span>Since-inception XIRR</span><b title="Historical custody cash flows are not verified as owned-only">Unavailable</b></div></div>
+</section>
 
-<div class="card wide" style="margin-top:16px">
-  <h2>Holdings</h2>
-  {% if p.open %}
-  <table>
-    <thead><tr><th>Investment</th><th>Account</th><th class="num">Units</th><th class="num">Cost</th>
-      <th class="num">Latest price</th><th class="num">Value</th><th class="num">Unrealized</th><th class="num">XIRR</th><th class="num">Share</th></tr></thead>
-    {% for h in p.open %}
-    <tr>
-      <td>{{ h.asset_name }}<div class="code muted small">{{ h.asset_code }} · {{ h.asset_class }}</div></td>
-      <td class="small">{{ h.account_label }}</td>
-      <td class="num">{{ h.quantity|money(False, 3 if h.unit == 'gram' else (0 if h.unit == 'share' else 4)) }} <span class="muted small">{{ h.unit }}s</span></td>
-      <td class="num">{{ h.cost_basis|money }}<div class="small muted">avg {{ h.average_cost|money(False, 2 if h.unit == 'share' else 4) if h.average_cost is not none }}</div></td>
-      <td class="num">{{ h.price|money(False, 4) if h.price is not none }}<div class="small muted">{{ h.price_date or '' }} {{ price_tag(h.price_source) }}</div>
-        {% if h.variance_per_unit is not none %}<div class="small {{ h.variance_per_unit|tone }}">{{ h.variance_per_unit|money(True, 4) }} / unit vs avg cost</div>{% endif %}</td>
-      <td class="num"><b>{{ h.value|money if h.value is not none else '—' }}</b>
-        <div class="small muted">you own {{ own_by_holding.get(h.account_id|string ~ ':' ~ h.asset_id|string, h.value)|money if h.value is not none else '—' }}</div></td>
-      <td class="num {{ h.unrealized|tone }}">{{ h.unrealized|money(True) if h.unrealized is not none }}
-        <div class="small">{{ (h.unrealized_pct|round(1) ~ '%') if h.unrealized_pct is not none }}</div></td>
-      <td class="num">{{ (h.xirr * 100)|round(2) ~ '%' if h.xirr is not none else '—' }}</td>
-      <td class="num small">{{ ((h.value / p.value * 100)|round(1) ~ '%') if p.value and h.value }}</td>
-    </tr>
-    {% endfor %}
-    <tr class="total"><td colspan="3">Total</td><td class="num">{{ p.cost_basis|money }}</td><td></td>
-      <td class="num">{{ p.value|money }}</td><td class="num {{ p.unrealized|tone }}">{{ p.unrealized|money(True) }}</td><td class="num">{{ (p.xirr * 100)|round(2) ~ '%' if p.xirr is not none else '—' }}</td><td></td></tr>
-  </table>
-  {% else %}
-  <div class="empty">No holdings yet.
-    <div class="actions" style="justify-content:center;margin-top:10px">
-      {% if not has_assets %}<a class="btn primary" href="/investments/assets/new">Add your first investment (e.g. a stock)</a>
-      {% else %}<a class="btn primary" href="/accounts/{{ accounts[0].id }}">Open {{ accounts[0].name }} to record an investment transaction</a>{% endif %}
-      <a class="btn" href="/investments/new?kind=holding">Add a holding you already own</a></div></div>
-  {% endif %}
-  <div class="actions" style="margin-top:12px">
-    <a class="btn small" href="/investments/new?kind=holding">+ Holding I already own</a>
-    <a class="btn small" href="/investments/assets/new">+ New investment (stock, fund, gold)</a>
-  </div>
-</div>
+<h2 class="investment-section-title">Your portfolio holdings</h2><section class="card holdings-card"><div class="holdings-toolbar"><div><h3>Every holding</h3><span class="muted small">Your owned units only · click a holding for its full detail page</span></div><div class="holdings-filters"><input id="holding-search" placeholder="Search holdings" oninput="filterHoldings()" aria-label="Search holdings"><select id="horizon-filter" onchange="filterHoldings()"><option value="">All horizons</option><option>Short</option><option>Medium</option><option>Long</option><option>Unassigned</option></select></div></div>
+<div class="table-wrap"><table id="holdings-table"><thead><tr><th>Investment</th><th>Account</th><th class="num">Quantity</th><th class="num">Current value</th><th class="num">Invested capital</th><th class="num">Up / down</th><th>Price date</th><th>Horizon</th></tr></thead><tbody>
+{% for h,value,bucket,horizon,capital,unrealized,owned_units in owned_rows %}<tr data-search="{{ (h.asset_name ~ ' ' ~ h.asset_code ~ ' ' ~ bucket ~ ' ' ~ h.account_label)|lower }}" data-horizon="{{ horizon }}"><td><a class="holding-link" href="/investments/holding/{{ h.asset_id }}?account={{ h.account_id }}&date={{ period.end_text }}&start={{ period.start_text }}">{{ h.asset_name }}</a><div class="small muted">{{ h.asset_code }} · {{ bucket }} · {{ h.exposure }} exposure</div></td><td>{{ h.account_label }}</td><td class="num">{{ owned_units|money(False,3 if h.unit=='gram' else (0 if h.unit=='share' else 4)) }} {{ h.unit }}</td><td class="num">{{ value|money }}</td><td class="num">{{ capital|money }}</td><td class="num {{ unrealized|tone }}">{{ unrealized|money(True) }}</td><td>{{ h.price_date or '—' }}{% if h.price_source=='COST' %}<small class="muted"> · at cost</small>{% endif %}</td><td><span class="horizon-chip horizon-{{ horizon|lower }}">{{ horizon }}</span></td></tr>{% else %}<tr><td colspan="8" class="empty">No owned holdings to show.</td></tr>{% endfor %}</tbody></table></div>
+<script>function filterHoldings(){const q=document.getElementById('holding-search').value.toLowerCase(),h=document.getElementById('horizon-filter').value;document.querySelectorAll('#holdings-table tbody tr[data-search]').forEach(r=>r.hidden=!(r.dataset.search.includes(q)&&(!h||r.dataset.horizon===h)))}</script>
+</section>
 
-{% if p.open %}
-<div class="card" style="margin-top:16px">
-  <h2>Investment value by asset class</h2>
-  <table>
-    <thead><tr><th>L2 asset class</th><th class="num">Total</th><th class="num">Yours</th><th class="num">Others</th></tr></thead>
-    <tbody>
-    {% for name, row in asset_class_rows %}
-      <tr><td>{{ name }}</td><td class="num">{{ row.total|money }}</td><td class="num">{{ row.yours|money }}</td><td class="num">{{ row.others|money }}</td></tr>
-    {% endfor %}
-    </tbody>
-  </table>
-</div>
-{% endif %}
+<h2 class="investment-section-title">Analysis by asset class</h2>
+<section class="card analysis-card"><div class="analysis-title"><div><h3>Allocation</h3><p class="muted small">Current portfolio share by asset class. Gold and other exposures stay separate from the single allocation bucket.</p></div><span class="analysis-total">{{ owned_value|money }} <small>owned value</small></span></div>
+{% if asset_class_rows %}<div class="chart-axis"><span>Asset class</span><div class="chart-ticks"><i>0%</i><i>25%</i><i>50%</i><i>75%</i><i>100%</i></div><span>Share</span></div>{% for name,row in asset_class_rows %}{% set weight=(row.yours/owned_value*100) if owned_value else 0 %}{% set target=targets.get(name) %}<details class="allocation-row"><summary><span class="allocation-name"><b>{{ name }}</b><small>{{ row.yours|money }}</small></span><span class="allocation-track"><i class="allocation-fill" style="width:{{ weight }}%"></i>{% if target is not none %}<i class="target-marker" style="left:{{ target }}%" title="Target {{ target|round(1) }}%"></i>{% endif %}</span><span class="allocation-pct">{{ weight|round(1) }}%{% if target is not none %}<small> target {{ target|round(1) }}%</small>{% endif %}</span></summary><div class="grid g4" style="margin-top:12px"><div>Current owned value<br><b>{{ row.yours|money }}</b></div><div>Invested capital<br><b>{{ row.capital|money }}</b></div><div>Unrealized gain/loss<br><b>{{ row.unrealized|money(True) }}</b></div><div>Period realized / distributions<br><b>{{ row.realized|money(True) }} / {{ row.dividends|money }}</b></div></div></details>{% endfor %}{% else %}<p class="empty">No valued holdings in this period.</p>{% endif %}
+</section>
 
-{% if p.closed %}
-<div class="card" style="margin-top:16px">
-  <details><summary>Sold out and past dividends ({{ p.closed|length }})</summary>
-  <table style="margin-top:10px">
-    <thead><tr><th>Investment</th><th>Account</th><th class="num">Realized</th><th class="num">Dividends</th></tr></thead>
-    {% for h in p.closed %}
-    <tr><td>{{ h.asset_name }} <span class="code muted small">{{ h.asset_code }}</span></td><td class="small">{{ h.account_label }}</td>
-        <td class="num {{ h.realized|tone }}">{{ h.realized|money(True) }}</td><td class="num">{{ h.dividends|money }}</td></tr>
-    {% endfor %}
-  </table></details>
-</div>
-{% endif %}
-{% endif %}
-{% endblock %}
+<section class="card analysis-card"><div class="analysis-title"><div><h3>Return by asset class</h3><p class="muted small">Change in unrealized value since period start, plus realized gain/loss and distributions during {{ period.start_text }}–{{ period.end_text }}.</p></div><div class="performance-axis"><span>Loss</span><i></i><span>Gain</span></div></div>
+{% for name,row in asset_class_rows %}{% set result=row.period_unrealized+row.realized+row.dividends %}<div class="performance-class"><div class="performance-head"><b>{{ name }}</b><span>Starting capital {{ row.starting_capital|money }} <strong class="{{ result|tone }}">Period gain/loss {{ result|money(True) }}</strong></span></div><div class="diverging-chart"><i class="zero-line"></i><span class="diverging-bar {{ 'negative' if result<0 else 'positive' }}" style="{% if result<0 %}right:50%;width:{{ ((result|abs)/max_class_result*46)|round(2) }}%{% else %}left:50%;width:{{ (result/max_class_result*46)|round(2) }}%{% endif %}"></span></div><div class="performance-components"><span>Unrealized change <b>{{ row.period_unrealized|money(True) }}</b></span><span>Realized <b>{{ row.realized|money(True) }}</b></span><span>Distributions <b>{{ row.dividends|money }}</b></span></div></div>{% else %}<p class="empty">No performance to show.</p>{% endfor %}</section>
+
+<section class="card analysis-card"><div class="analysis-title"><div><h3>Intended investment horizon</h3><p class="muted small">Short: up to 1 year · Medium: over 1 through 5 years · Long: over 5 years.</p></div></div><div class="horizon-stack" role="img" aria-label="Portfolio value by intended investment horizon">{% for label in ['Short','Medium','Long','Unassigned'] %}{% set v=horizons.get(label,0) %}{% set pct=(v/owned_value*100) if owned_value else 0 %}<button type="button" class="horizon-segment horizon-{{ label|lower }}" style="width:{{ pct }}%" title="{{ label }} {{ v|money }} · {{ pct|round(1) }}%" onclick="document.getElementById('horizon-filter').value='{{ label }}';filterHoldings();document.getElementById('holdings-table').scrollIntoView({behavior:'smooth'})">{% if pct>8 %}{{ label }} · {{ pct|round(1) }}%{% endif %}</button>{% endfor %}</div><div class="horizon-legend">{% for label in ['Short','Medium','Long','Unassigned'] %}{% set v=horizons.get(label,0) %}<button type="button" onclick="document.getElementById('horizon-filter').value='{{ label }}';filterHoldings();document.getElementById('holdings-table').scrollIntoView({behavior:'smooth'})"><i class="dot horizon-dot-{{ label|lower }}"></i><span>{{ label }}<small>{{ ((v/owned_value*100) if owned_value else 0)|round(1) }}% · {{ v|money }}</small></span></button>{% endfor %}</div></section>
+
+<details class="card target-settings"><summary><b>Set target allocation</b><span class="muted"> Target total {{ target_total|round(2) }}% · must equal 100% to use the helper</span></summary><form method="post" action="/investments/targets" data-plan-autosave class="target-add"><label>Asset class<select name="bucket" required><option value="">Choose class</option>{% for cls in allocation_classes %}<option value="{{ cls }}">{{ cls }}</option>{% endfor %}</select></label><label>Target weight (%)<input name="target_weight" type="number" min="0" max="100" step="0.01" required></label><span class="muted small">Autosaves on Enter or after both values are entered.</span></form>
+{% if targets %}<div class="table-wrap"><table><thead><tr><th>Asset class</th><th class="num">Current</th><th class="num">Target weight</th><th class="num">Gap</th></tr></thead><tbody>{% for bucket,target in targets.items() %}{% set current=buckets.get(bucket,0) %}<tr><td>{{ bucket }}</td><td class="num">{{ ((current / owned_value * 100) if owned_value else 0)|round(1) }}%</td><td><form method="post" action="/investments/targets" data-plan-autosave><input type="hidden" name="bucket" value="{{ bucket }}"><input name="target_weight" type="number" min="0" max="100" step="0.01" value="{{ target }}" style="width:100px"></form></td><td class="num">{{ (target - ((current / owned_value * 100) if owned_value else 0))|round(1) }} pp</td></tr>{% endfor %}</tbody></table></div>{% else %}<p class="muted">No target percentages are set yet.</p>{% endif %}</details>
+<div class="actions" style="margin-top:14px"><a class="btn small" href="/investments/new?kind=holding">+ Holding I already own</a><a class="btn small" href="/investments/assets/new">+ New investment</a></div>
+<script>document.querySelectorAll('[data-plan-autosave]').forEach(f=>{let busy=false;const save=()=>{if(busy||!f.target_weight.value.trim()||(f.bucket&&!f.bucket.value.trim()))return;busy=true;f.requestSubmit()};f.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();save()}});f.addEventListener('focusout',e=>{if(e.target.matches('input,select'))save()})});</script>
+{% endif %}{% endblock %}

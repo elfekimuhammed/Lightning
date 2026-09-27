@@ -6,6 +6,7 @@ import json
 
 from fastapi import APIRouter, Request
 
+from lightning.accounts.domain import AccountType
 from lightning.core.dates import fmt_date, month_of, parse_date, parse_month, today
 from lightning.core.errors import ValidationError
 from lightning.core.money import ZERO, fmt, to_decimal
@@ -15,6 +16,28 @@ from ..web import redirect
 from ..periods import Period, parse_period
 
 router = APIRouter()
+
+_ACCOUNT_TYPE_LABELS = {
+    AccountType.CASH: "Cash",
+    AccountType.BANK: "Bank",
+    AccountType.DEPOSIT: "Deposits",
+    AccountType.BROKERAGE: "Brokerage",
+    AccountType.PHYSICAL_ASSET: "Physical assets",
+    AccountType.OTHER_ASSET: "Other assets",
+}
+
+
+def _owned_account_type_rows(c, accounts, as_of, include_types=None):
+    groups = {}
+    for account in accounts:
+        if include_types is not None and account.account_type not in include_types:
+            continue
+        value = c.reporting.owned_account_value(account.id, as_of)
+        group = groups.setdefault(account.account_type, {"label": _ACCOUNT_TYPE_LABELS[account.account_type],
+                                                         "value": ZERO, "accounts": []})
+        group["value"] += value
+        group["accounts"].append({"id": account.id, "label": account.label, "value": value})
+    return [groups[account_type] for account_type in AccountType if account_type in groups]
 
 
 def _owned_wealth_rows(c, net_worth, as_of):
@@ -68,6 +91,9 @@ async def dashboard(request: Request):
     if not accounts:
         return render(request, "dashboard/welcome.html")
     net_worth = c.reporting.net_worth(as_of)
+    account_contributions = _owned_account_type_rows(c, accounts, as_of)
+    cash_account_contributions = _owned_account_type_rows(
+        c, accounts, as_of, {AccountType.CASH, AccountType.BANK})
     eligible_cash = c.reporting.owned_liquid_cash(as_of)
     brokerage_cash = c.reporting.owned_brokerage_cash(as_of)
     assigned = c.reserves.allocation_at(fmt_date(as_of))
@@ -134,6 +160,8 @@ async def dashboard(request: Request):
         change=change, change_reason=change_reason, change_label=change_label,
         attention=attention,
         net_worth=net_worth,
+        account_contributions=account_contributions,
+        cash_account_contributions=cash_account_contributions,
         cash_flow=c.reporting.cash_flow(first, as_of),
     )
 
@@ -151,8 +179,7 @@ async def explain_overview_figure(request: Request, kind: str):
         position = c.reporting.net_worth(day)
         title = "Known owned value" if position.unvalued else "What you own"
         explanation = "Owned value is the value in your accounts after money and investments owned by others are excluded."
-        rows = [{"label": account.label, "value": c.reporting.owned_account_value(account.id, day),
-                 "href": f"/accounts/{account.id}"} for account in c.accounts.list()]
+        rows = _owned_account_type_rows(c, c.accounts.list(), day)
         total = position.total
         missing = f" Missing valuation: {'; '.join(position.unvalued)}." if position.unvalued else ""
         if period.key == "all":
@@ -174,8 +201,8 @@ async def explain_overview_figure(request: Request, kind: str):
         eligible = c.reporting.owned_liquid_cash(day)
         allocated = c.reserves.allocation_at(day)
         explanation = "Eligible cash includes owned bank and wallet balances. Brokerage cash is part of owned wealth, but is not immediately spendable until moved to a bank or wallet."
-        rows = [{"label": f"{account.label} · eligible cash", "value": c.reporting.owned_account_value(account.id, day), "href": f"/accounts/{account.id}"}
-                for account in c.accounts.list() if account.account_type.value in {"CASH", "BANK"}]
+        rows = _owned_account_type_rows(
+            c, c.accounts.list(), day, {AccountType.CASH, AccountType.BANK})
         if allocated is None:
             total, foot = None, "Historical free cash unavailable: reserve assignments cannot be reconstructed for this date."
         else:
