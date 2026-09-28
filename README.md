@@ -49,7 +49,7 @@ the app on one computer at a time.
 4. **Overview** shows today's position and recent activity. **Birdview** explains cash, investments, reserves,
    income, and spending. **Budget** shows the monthly spending plan and its remaining limit.
 
-Search finds anything: `carrefour`, `2026-09`, `450`, `CIB-CUR-EGP`, `OUT-2026-09-25-003`.
+Global search finds accounts, investments, categories, and counterparties. Search transactions from the account register (or the all-accounts register) using its filters and search field.
 
 ## For developers
 

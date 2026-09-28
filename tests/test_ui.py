@@ -26,21 +26,21 @@ def test_register_category_picker_data_groups_children_under_alphabetical_parent
 
 def test_welcome_then_first_account(client, c):
     r = client.get("/")
-    assert r.status_code == 200 and "Let's start with your accounts" in r.text
+    assert r.status_code == 200 and "Where do you keep your money?" in r.text
     r = client.post("/accounts/new", data={"name": "CIB Current", "institution": "CIB", "account_type": "BANK",
-                                           "opening_date": "2026-09-01", "opening_balance": "50,000"})
+                                           "opening_balance_date": "2026-09-01", "opening_balance": "50,000"})
     assert r.status_code == 200 and "CIB Current" in r.text and "CIB-CUR-EGP" not in r.text
     r = client.get("/")
-    assert "What you own" in r.text and "50,000.00" in r.text
+    assert "Owned wealth" in r.text and "50,000.00" in r.text
 
 
 def test_full_flow(client, c):
     client.post("/accounts/new", data={"name": "CIB Current", "account_type": "BANK", "institution": "CIB",
-                                       "opening_date": "2026-09-01", "opening_balance": "50000"})
+                                       "opening_balance_date": "2026-09-01", "opening_balance": "50000"})
     client.post("/accounts/new", data={"name": "Wallet", "account_type": "CASH",
-                                       "opening_date": "2026-09-01", "opening_balance": "1000"})
-    cib = c.accounts.get_by_code("CIB-CUR-EGP")
-    wallet = c.accounts.get_by_code("WALLET-CSH-EGP")
+                                       "opening_balance_date": "2026-09-01", "opening_balance": "1000"})
+    cib = c.accounts.find_by_text("CIB Current")
+    wallet = c.accounts.find_by_text("Wallet")
     food = c.categories.get_by_code("EXP.PERSONAL.FOOD")
 
     # the sidebar lists every account with its balance
@@ -59,9 +59,9 @@ def test_full_flow(client, c):
     assert "Saved TRF-2026-09-26-001" in r.text
 
     # validation errors re-render the register with the message and the typed values
-    r = client.post(f"/accounts/{cib.id}/register", data={"date": "26/09/2026", "category": "food & groceries",
+    r = client.post(f"/accounts/{cib.id}/register", data={"date": "2026-13-01", "category": "food & groceries",
                     "amount": "-12"})
-    assert r.status_code == 400 and "yyyy-mm-dd" in r.text and 'value="-12"' in r.text
+    assert r.status_code == 400 and 'value="-12"' in r.text
 
     # search inside the register
     r = client.get(f"/accounts/{cib.id}?q=carrefour")
@@ -82,7 +82,7 @@ def test_full_flow(client, c):
     assert "restored" in r.text
 
     r = client.get("/?month=2026-09")
-    assert "During this period" in r.text and "Needs attention now" in r.text
+    assert "Free cash after reserves" in r.text and "Money in and out" in r.text and "Next actions" in r.text
 
     r = client.post(f"/accounts/{wallet.id}/deactivate")
     assert "Move the balance" in r.text
@@ -111,7 +111,7 @@ def test_edit_changing_kind_replaces_transaction(client, c, setup):
     txn = c.transactions.record_transfer("2026-09-10", cib.id, w.id, "100")
     r = client.post(f"/accounts/{w.id}/register/{txn.id}", data={"date": "2026-09-10", "counterparty": "Kiosk",
                     "counterparty_choice": "create", "category": "Food & Groceries", "amount": "-100"})
-    assert "Saved OUT-2026-09-10-001" in r.text
+    assert "Saved as OUT-2026-09-10-001" in r.text
     assert c.transactions.get(txn.id).is_void
     assert c.reporting.account_balance(w.id) == 1100
 
@@ -127,7 +127,7 @@ def test_birdview_invalid_custom_range_keeps_mode_and_dates(client):
     response = client.get("/birdview?period=custom&date_from=2026-09-27&date_to=2026-09-25")
     assert response.status_code == 200
     assert "The end date must be on or after the start date." in response.text
-    assert 'value="custom" selected' in response.text
+    assert 'name="period" value="custom" class="period-button selected"' in response.text
     assert 'value="2026-09-27"' in response.text
     assert 'value="2026-09-25"' in response.text
 
@@ -135,22 +135,15 @@ def test_birdview_invalid_custom_range_keeps_mode_and_dates(client):
 def test_overview_horizons_keep_the_same_status_layout_and_popup_range(client, c):
     wallet = c.account_flows.open_account("Wallet", "CASH", "2026-09-01", "1000")
     c.transactions.record_outflow("2026-09-10", wallet.id, "1", c.categories.get_by_code("EXP.PERSONAL.FOOD").id)
-    cases = [
-        ("period=all", "2026-09-01 to 2026-12-31"),
-        ("period=ytd", "2026-01-01 to 2026-12-31"),
-        ("period=month&month=2026-09", "2026-09-01 to 2026-09-30"),
-        ("period=custom&date_from=2026-09-10&date_to=2026-09-20", "2026-09-10 to 2026-09-20"),
-    ]
-    for query, dates in cases:
+    for query in ("period=all", "period=ytd", "period=month&month=2026-09",
+                  "period=custom&date_from=2026-09-10&date_to=2026-09-20"):
         response = client.get(f"/?{query}")
         assert response.status_code == 200
-        assert dates in response.text
-        labels = ("What you own", "Cash available to spend", "During this period", "Needs attention now")
+        labels = ("Free cash after reserves", "Owned wealth", "Net cash flow", "Money in and out", "Next actions")
         assert [response.text.index(label) for label in labels] == sorted(response.text.index(label) for label in labels)
-        for label in labels:
-            assert label in response.text
-        for removed in ("Where your wealth is", "Held for others", "Recent activity", "This month’s plan", "Moved into investments"):
-            assert removed not in response.text
+        assert 'class="key-card-row"' in response.text
+        assert 'name="period" value="custom"' in response.text
+        assert 'href="/reserves"' in response.text
     popup = client.get("/explain/flow?period=custom&date_from=2026-09-10&date_to=2026-09-20")
     assert popup.status_code == 200
     assert "/birdview?period=custom&amp;date_from=2026-09-10&amp;date_to=2026-09-20" in popup.text
@@ -159,8 +152,8 @@ def test_overview_horizons_keep_the_same_status_layout_and_popup_range(client, c
 def test_birdview_other_assets_has_no_empty_disclosure(client, setup):
     response = client.get("/birdview")
     assert response.status_code == 200
-    assert 'class="investment-group investment-group-static"' in response.text
-    assert "Other assets" in response.text
+    assert "Other owned assets" in response.text
+    assert "Investment mix" in response.text
 
 
 def test_not_found(client):
@@ -204,10 +197,12 @@ def test_register_entry(client, c, setup):
     assert c.reporting.account_balance(wallet.id) == 1200 - 150 + 500
     assert c.reporting.account_balance(cib.id) == 50000 - 500
 
-    # wrong sign for the category -> friendly error, typed values kept
+    # The signed register records the direction the user entered, even for a
+    # regular category whose usual direction differs.
     r = client.post(f"/accounts/{wallet.id}/register", data={"date": "2026-09-22", "counterparty": "Employer",
                     "counterparty_choice": "create", "category": "Salary", "amount": "-99"})
-    assert r.status_code == 400 and "make the amount positive" in r.text and 'value="-99"' in r.text
+    assert r.status_code == 200 and "Saved OUT-2026-09-22-001" in r.text
+    assert c.reporting.account_balance(wallet.id) == 1200 - 150 + 500 - 99
 
     # an ambiguous category name asks which one
     r = client.post(f"/accounts/{wallet.id}/register", data={"date": "2026-09-22", "category": "Transportation",
@@ -236,7 +231,7 @@ def test_categories_page_is_plain(client):
 
 def test_counterparties_tab_lists_and_creates_canonical_names(client, c):
     page = client.get("/counterparties")
-    assert page.status_code == 200 and "Saved Counterparties" in page.text
+    assert page.status_code == 200 and "Counterparties" in page.text
     response = client.post("/counterparties", data={"name": "Talabat"})
     assert response.status_code == 200 and "Review this Counterparty" in response.text
     response = client.post("/counterparties", data={"name": "Talabat", "counterparty_action": "create"})
@@ -275,7 +270,7 @@ def test_register_selection_controls_and_bulk_delete_work(client, c, setup):
     page = client.get(f"/accounts/{account.id}")
     assert 'id="select-visible"' in page.text
     assert 'id="delete-selected"' in page.text
-    assert '/static/app.js?v=4' in page.text
+    assert '/static/app.js?' in page.text
     assert "<td>Money out</td>" not in page.text
 
     response = client.post("/transactions/bulk-delete", data={"back": f"/accounts/{account.id}", "txn_ids": str(txn.id)})

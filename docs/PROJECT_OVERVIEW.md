@@ -2,8 +2,8 @@
 
 ## Document status
 
-- **Last updated:** 2026-09-27
-- **Document revision:** 2026-09-27.1
+- **Last updated:** 2026-09-28
+- **Document revision:** 2026-09-28.2
 - **App version:** 0.3.0 (`lightning/__init__.py`); `pyproject.toml` still reports 0.1.0 and needs correction at the next release/package update.
 - **Role:** product purpose, current workflows, user questions, and delivery roadmap. [Architecture](ARCHITECTURE.md) owns calculation contracts; [Glossary](GLOSSARY.md) owns terminology.
 
@@ -52,8 +52,8 @@ On Linux run `./run.sh`, then open `http://127.0.0.1:8765` in Firefox. Windows h
 - **Accounts and ledger:** open an account with a starting balance or enter first activity; signed money movements and transfers; edit, void/restore, multi-select/delete, search, and statement reconciliation.
 - **Counterparties/categories:** dedicated Counterparty management, aliases/default categories, Personal/Work/Investment L1 and broad L2 categories, alphabetized explicit selection, and per-category or bulk activate/archive/delete actions (used categories archive instead of being erased).
 - **CSV import:** stage CSV for supported account types; map either one signed amount column or separate inflow/outflow columns. Separate columns merge into one signed Amount (inflow positive, outflow negative) before inline review. Resolve uncertain Counterparties/categories and post valid rows when optional metadata is incomplete. Similar names are suggestions, not automatic merges.
-- **Budget:** a suggested first plan or one broad limit, monthly status and attention items, manual or rolling-average category/group limits, optional spending-limit carryover, and a past-month review. Budget limits are separate from cash reserves. Focused single-category adjustment remains a workflow improvement.
-- **Investments:** create/search assets, record buy/sell/dividend inside the brokerage account, enter total or unit price, and view current valuation/ownership/returns in the investment overview. Account codes are hidden in ordinary UI.
+- **Budget:** compact plan summary and Personal/Work/Investment rollups across All time, YTD, Monthly, and Custom. Category detail is on demand; fixed, income-percentage, and observed-month average rules remain monthly. Signed carryover applies only to deliberately tracked categories, with dated reset boundaries. Budget limits are separate from cash reserves.
+- **Investments:** create/search assets, record buy/sell/dividend inside the brokerage account, enter total or unit price, and review period cash flows/returns separately from as-of holdings and estimated sale cash. The report is owned-only and uses posted ledger activity; unmapped legacy dividends and missing prices are disclosed.
 - **Valuation:** startup processes due month-end checkpoints; supported sources may fetch prices, otherwise missing historical prices require user input. A sale forces a sale-day checkpoint. Detail links to one generated account journal in the main ledger.
 - **Money from others:** custody owner attribution for funds/assets held in tracked accounts, with full account balance and user's owned share distinguished.
 - **Birdview/reserves:** current owned wealth, liquidity/reserves, and broad cash-flow/asset views. Emergency Fund is fixed; other reserves are separate plan rows and do not themselves move cash.
@@ -84,12 +84,12 @@ lightning/ui/               FastAPI routes, templates, static JS/CSS
 | User question | Screen today | Next useful action |
 |---|---|---|
 | Where do I stand? | Overview shows owned value at the selected period end, owned cash after dated reserve assignments, income and spending for the exact period, and current attention items. | Open Birdview for analysis, Budget for spending plans, Reserves for assigned cash, or an account for a transaction. |
-| What is mine and how much cash is free? | Birdview shows owned liquid cash, investments, reserves, and an estimated liquidation value. | Open an account, holding, or reserve. |
-| Where did money come from or go? | Birdview has all-time/year/month/custom income and expense views and transaction links. | Inspect the supporting transactions. |
+| What is mine and how much cash is free? | Birdview shows full owned wealth, owned liquid cash less dated reserves, and estimated available value using class-specific factors. Brokerage cash is included once and flagged as requiring transfer before daily spending. | Open an account, class breakdown, or reserve. |
+| Where did money come from or go? | Birdview has All time, YTD, Monthly, and Custom cash flow plus an Expense Analysis subtab with category and transaction drilldowns. Positions are as of the selected range end. | Inspect supporting transactions. |
 | Am I following my spending plan? | Budget shows monthly available limit, spent, room, attention items, category status, and carryover. | Inspect category transactions or edit a limit. |
 | What happened in this account? | Account register shows balances and activity. | Record, correct, import, or find an account transaction. |
-| How did owned wealth change over time? | A current position and backend bridge exist. The Birdview period filter currently affects flows, not historical position. | Historical owned-value series and an explainable period bridge are planned. |
-| How are investments performing? | Holdings, costs, returns, and XIRR exist in the investment management view; Birdview has capital and return breakdowns. | Owned-only XIRR and valuation quality in Birdview remain planned. |
+| How did owned wealth change over time? | Overview and Birdview value positions at the selected range end; Birdview separately shows activity for the exact range. | Open the supporting flow or valuation records. |
+| How are investments performing? | Investments owns holdings, costs, returns, XIRR, and target planning. Birdview compares owned class weights with the saved plan. | Open Investments for the plan helper or holding details. |
 
 All owned-position, budget-actual, and performance views must exclude transactions and balances marked as money from others. Internal transfers do not create income or expense. Refunds reduce spending in their original category.
 
@@ -100,24 +100,24 @@ The intended path is **understand on Overview → explain on Birdview, Budget, o
 | Screen | Current friction | Intended hierarchy and action |
 |---|---|---|
 | Overview | Previously mixed analysis, reserve details, budget plan, and transaction history into the status screen. | Owned position at the range end, change from the prior position where reliable, cash available after dated reserve assignments, income/outflow bars for the selected range, and up to three current actionable attention items. |
-| Birdview | Current asset position sits below a page-wide period selector; discounted assets lead while full owned value is secondary. | Full owned position, owned cash, free cash after reserves, and investment value first. Show liquidation-factor estimate as a secondary scenario. Put period controls inside income/spending analysis. Keep holdings and reserves links beside their breakdowns. |
+| Birdview | Previously mixed present-day position with selected-period activity and hid asset-class estimation assumptions. | Lead with full owned wealth, free cash after reserves, and estimated available value. Include brokerage cash once with a transfer note, show per-class factors and plan comparison, then brief flow and ranked expense views with drilldowns. The four horizons apply to activity and position as of period end. |
 | Account | Four duplicate balance figures on a normal cash wallet; maintenance buttons compete with entry; a crowded inline entry row explains signed amounts and transfers in one paragraph. | One meaningful balance, with total/held-for-others/owned bridge only where needed. Primary Add transaction action with account preselected and Money out / Money in / Transfer choices; ledger below for history. Import is secondary; edit, reconciliation, and deactivation move to an account menu. |
 | Budget | Full edit grid remains the main route for many adjustments. | First plan in one action, then monthly status, short attention list, one-category action, and a past-month review. Full grid remains advanced. “Room in plan” is never cash available. |
 | Reserves | Creation exposes many optional fields at once. | Start with purpose and amount; ask for due date, recurrence, and counterparty matching only when useful. Overview and Birdview cash-available figures link to this workflow. |
 | Import | Review exposes many editable fields on every row. | Lead with Ready to post, Needs a decision, and Possible duplicates; expand row editing for exceptions. |
 
-The supplied UI screenshots show Overview and Birdview reaching the same 400,050 EGP total with different cash/investment splits. That discrepancy must be diagnosed before presenting a shared asset chart. The first figure to trust is the owned total with an as-of date; every breakdown must reconcile to it.
+Overview and Birdview use the same owned position and reserve history at a selected as-of date. Cash, investment classes, custody, and unvalued items remain separately identifiable so reports can reconcile without hiding residual assets.
 
 ## Budget customer flow
 
-Budget answers: **What did I plan to spend, what has happened, and where should I act?** A budget limit changes the spending plan only. A reserve assigns already-owned cash and reduces free cash; the two are never added together or substituted for each other.
+Budget answers: **What is my current spending plan, what have I spent, and what deserves closer control?** The main view is a compact summary plus L1 rollup; category controls open on demand. Monthly rules govern all horizons, while All time/YTD aggregate monthly plans and actuals without repeatedly adding carryover. A budget limit changes the spending plan only. A reserve assigns already-owned cash and reduces free cash; the two are never added together or substituted for each other.
 
 1. **First visit:** with useful prior spending, preview suggested fixed monthly limits from previous complete months, then let the user accept or adjust them. With sparse history, ask for one broad Personal limit. Opening Budget alone never saves a plan. Work appears when used.
 2. **Ordinary month:** open on available limit, spent, room in plan, separate free cash, and a small set of over-limit or uncovered-spending items. Category rows lead to transactions and adjustment. Detailed manual/3- or 6-month-average controls live under Edit full plan.
 3. **Transaction/import feedback:** show category impact near the saved entry and offer Add to plan when uncovered, without blocking posting.
 4. **Month review:** show planned, spent, overspent, and unused room. Optional carryover raises a later spending limit only; it does not move cash. Historical edits recalculate later derived carryover.
 
-The first-plan, monthly status, feedback, optional carryover, and basic past-month review are implemented. A focused one-category adjustment and stronger links from attention items to the exact causes still need refinement. See the calculation contract in [Architecture](ARCHITECTURE.md#budget-and-reserve-contract).
+Budget uses posted owned ledger expenses, income-category configuration, monthly rule methods, signed carryover, and dated reset boundaries. Settings control the income basis, suggestion thresholds, ceiling warning, exclusions, and effective month. See the calculation contract in [Architecture](ARCHITECTURE.md#budget-and-reserve-contract).
 
 ## Delivery roadmap
 
@@ -125,14 +125,14 @@ The first-plan, monthly status, feedback, optional carryover, and basic past-mon
 |---|---|---|
 | M0–M1 Foundation and cash accounts | Shipped | Ledger, opening balances, account registers, transfers, edit/void, search. |
 | B Budget foundation | Shipped | Monthly category/group limits, manual and rolling averages. |
-| B.1 Budget customer flow | Partly shipped | Finish focused category adjustment and inspect setup/attention/feedback with real user data. Optional carryover is spending-limit-only. |
+| B.1 Budget customer flow | In progress | Compact multi-horizon Budget, income-backed rules, suggestion controls, and signed carryover are being completed. |
 | M2 Reports and corrections | Partial | Reconciliation, splits, and refunds exist; balance adjustments, report pages, and month close remain. Reconciliation is not a primary workflow priority. |
 | M3 Manual investments | Shipped | Assets, trades, dividends, prices, holdings, gains, allocation, investment management XIRR. |
 | M3.1 Instrument catalogue | Partial | Local catalogue search/prefill exists; coverage and identifier quality need evaluation. |
 | UI workflow overhaul | Planned | Follow the bounded tasks below; avoid a single broad rewrite. |
 | Windows readiness | Planned, launcher exists | Verify native Windows setup and all core workflows; harden Python selection, dependency installation, time-zone data, and failure messages. |
 | Search consistency | Planned | One typo-tolerant ranking contract across navigation, accounts, people, counterparties, categories, investments, reserves, and transactions. |
-| M3.2 Birdview history/performance | Planned after base UI | Historical owned position, selected-period change bridge, valuation quality, owned-only XIRR. |
+| M3.2 Birdview history/performance | Partial | Historical as-of positions and class-specific estimates are available; a selected-period wealth-change bridge and owned-only XIRR remain. |
 | M4 Market data and FX | Planned | Wider price coverage, currency conversion, multi-currency accounts, FX revaluation. |
 | M6 Deposits and gold details | Planned | CD lifecycle, local gold costs and buyback, corporate actions. |
 | Physical gold items | In progress | Named pieces, matching-karat reference/manual valuations, item purchase/sale activity, and report integration; preserve existing gram holdings unchanged. |
@@ -146,12 +146,12 @@ Each task should leave the app usable, include a concise before/after workflow d
 
 | Order | Task | Acceptance point |
 |---|---|---|
-| 0 | Diagnose Overview/Birdview cash and investment split; define shared owned-position components and as-of date. | Both screens reconcile to the same breakdown, or a reproducible calculation fix is specified. |
+| 0 | Define the shared cash and owned-position contract for Overview, Birdview, and Reserves. | Brokerage cash is counted once; reserves reduce free cash; missing history and valuations are explicit. |
 | 1 | Remove Overview Add, fake trend, misleading investability/savings claims, and broken month arrows. | No generic entry or unsupported claim remains on Overview. |
 | 2 | Condense account header and move maintenance controls. | One balance on normal cash accounts; ownership bridge only with custody; Add transaction is primary. |
 | 3 | Replace inline register entry with an account-scoped Money out / Money in / Transfer flow. | A user can record all three without signed-amount instructions; ledger stays readable. |
 | 4 | Rebuild Overview as a short period-aware status screen. | Shared All time/YTD/Monthly/Custom ranges; owned position, cash available, period flows, and current attention have clear drilldowns. |
-| 5 | Separate Birdview's current position from selected-period activity. | Period filter no longer appears to change today's assets; full owned value leads; liquidation scenario is secondary. |
+| 5 | Rebuild Birdview position, asset-class plan comparison, cash flow, and expense drilldowns. | Position is valued at the selected end date; owned value and estimates are distinguished; every expense total drills to categories and transactions. |
 | 6 | Shorten reserve creation. | Purpose and amount suffice for a simple reserve; free-cash effect is visible. |
 | 7 | Make import review exception-first. | Ready rows can be posted without scanning all fields; duplicates and unresolved rows are prominent. |
 | 8 | Clean navigation and user-facing terminology. | Home, Budget, Birdview, Accounts are clear; advanced screens stay accessible; no L1/L2 jargon. |

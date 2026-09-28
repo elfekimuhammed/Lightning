@@ -80,6 +80,14 @@ class ReportQueries:
             params.append(before)
         return int(self.db.scalar(sql, tuple(params)) or 0)
 
+    def category_transaction_ids(self, category_ids: set[int]) -> set[int]:
+        if not category_ids:
+            return set()
+        marks = ",".join("?" for _ in category_ids)
+        return {int(row["id"]) for row in self.db.all(
+            f"SELECT DISTINCT t.id FROM transactions t JOIN ledger_entries le ON le.transaction_id=t.id "
+            f"WHERE t.status='POSTED' AND le.category_id IN ({marks})", tuple(sorted(category_ids)))}
+
     def statement_lines(self, account_id: int | None, date_from: str, date_to: str) -> list[dict]:
         """Posted cash lines for one account (or every account when account_id is None) — the register."""
         where = f"le.date BETWEEN ? AND ? AND {CASH_ONLY}"
@@ -138,7 +146,9 @@ class ReportQueries:
             params.append(account_id)
         rows = self.db.all(
             f"SELECT le.date, le.account_id, le.asset_id, le.quantity_e6, le.amount_base_e6, le.memo,"
-            f" t.id AS txn_id, t.type, t.ref FROM ledger_entries le {POSTED} WHERE {where}"
+            f" da.asset_id AS dividend_asset_id,"
+            f" t.id AS txn_id, t.type, t.ref FROM ledger_entries le {POSTED} "
+            f"LEFT JOIN investment_dividend_assets da ON da.transaction_id=t.id WHERE {where}"
             f" ORDER BY le.date, t.id, le.line_no",
             tuple(params),
         )

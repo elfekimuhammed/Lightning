@@ -1,31 +1,12 @@
 {% extends "base.html" %}
 {% block title %}Settings{% endblock %}
-{% block heading %}<h1>Settings</h1>{% endblock %}
+{% block heading %}<div class="birdview-title"><h1>Settings</h1><a class="btn small" href="{{ return_to }}">← Back</a></div>{% endblock %}
 {% block content %}
-<div class="grid g2">
-  <div class="card">
-    <h2>Your data</h2>
-    <table>
-      <tr><td class="muted">Base currency</td><td>{{ base }}</td></tr>
-      <tr><td class="muted">Database file</td><td class="code small">{{ db_path }}</td></tr>
-    </table>
-    <p class="small muted">All your data lives in that one file. A backup is made automatically each time the app starts.</p>
-    <form method="post" action="/settings/backup"><button class="btn primary">Back up now</button></form>
-    {% if backups %}
-    <h3>Recent backups</h3>
-    <ul class="small code">{% for b in backups %}<li>{{ b }}</li>{% endfor %}</ul>
-    {% endif %}
-  </div>
-  <div class="card">
-    <h2>Asset classes</h2>
-    <p class="small muted">What your wealth is made of. Investments (stocks, funds, gold) arrive in M3.</p>
-    <table>
-      {% for c in classes %}<tr><td class="indent-{{ c.depth }}">{{ c.name }}</td><td class="code muted">{{ c.code }}</td></tr>{% endfor %}
-    </table>
-    <h3>Financial assets</h3>
-    <table>
-      {% for a in assets %}<tr><td>{{ a.name }}</td><td class="code muted">{{ a.code }}</td></tr>{% endfor %}
-    </table>
-  </div>
-</div>
+{% set settings_section = 'valuations' if section in ('valuations', 'assets-valuations') else section %}
+{% include 'partials/settings_nav.html' %}
+{% if section in ('valuations','assets-valuations') %}<section id="assets-valuations" class="card data-panel"><div class="section-head"><div><h2>Investment asset values</h2><p class="muted small">Your owned value and estimated value after applying each class’ liquidation factor.</p></div></div><div class="table-scroll"><table><thead><tr><th>Class</th><th>Owned value</th><th>Liquidation factor</th><th>Estimated value</th></tr></thead><tbody>{% for row in factor_rows %}<tr><td>{{ row.name }}</td><td>{{ row.value|money }}</td><td><form class="factor-form" action="/settings/liquidation-factor/{{ row.id }}"><label class="sr-only" for="factor-{{ row.id }}">{{ row.name }} liquidation factor</label><input id="factor-{{ row.id }}" name="factor" type="number" min="0" max="100" step="0.1" value="{{ row.factor }}"><span>%</span><small class="inline-save-status" role="status"></small></form></td><td>{{ row.estimate|money }}</td></tr>{% else %}<tr><td colspan="4">No investment classes are configured.</td></tr>{% endfor %}</tbody></table></div><details><summary>View configured classes and assets</summary><table>{% for c in classes %}<tr><td class="indent-{{ c.depth }}">{{ c.name }}</td><td class="code muted">{{ c.code }}</td></tr>{% endfor %}</table><h3>Financial assets</h3><table>{% for a in assets %}<tr><td>{{ a.name }}</td><td class="code muted">{{ a.code }}</td></tr>{% endfor %}</table></details></section>
+{% elif section=='budget' %}{% include 'settings/budget_section.html' %}
+{% elif section=='general' %}<div class="workspace-grid"><section class="card data-panel"><div class="section-head"><div><h2>Your data</h2><p class="muted small">Storage and backup</p></div><form method="post" action="/settings/backup"><button class="btn primary">Back up now</button></form></div><table><tr><td class="muted">Base currency</td><td>{{ base }}</td></tr><tr><td class="muted">Database file</td><td class="code small">{{ db_path }}</td></tr></table><p class="small muted">A backup is made automatically each time the app starts.</p>{% if backups %}<details><summary>Recent backups ({{ backups|length }})</summary><ul class="small code">{% for b in backups %}<li>{{ b }}</li>{% endfor %}</ul></details>{% endif %}</section></div>
+{% else %}<section class="card"><h2>{{ section|replace('-', ' ')|title }}</h2>{% if section=='investments' %}<p class="muted">Holdings, allocation targets, and investment planning are managed in Investments.</p><a class="btn" href="/investments">Open Investments</a>{% elif section=='reserves' %}<p class="muted">Reserve amounts and assignments are managed in Reserves.</p><a class="btn" href="/reserves">Open Reserves</a>{% elif section=='imports' %}<p class="muted">Bank statement imports are started from the account they belong to.</p><a class="btn" href="/accounts">Choose an account</a>{% endif %}</section>{% endif %}
+<script>(()=>{document.querySelectorAll('.factor-form').forEach(form=>{const input=form.elements.factor,status=form.querySelector('.inline-save-status');let timer;async function save(){status.textContent='Saving…';try{const r=await fetch(form.action,{method:'POST',body:new URLSearchParams(new FormData(form)),headers:{'X-Requested-With':'fetch'}});if(!r.ok)throw Error(await r.text());status.textContent='Saved';location.reload()}catch(e){status.textContent=e.message||'Could not save'}}input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();save()}});input.addEventListener('blur',save)})})();</script>
 {% endblock %}

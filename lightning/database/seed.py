@@ -121,12 +121,11 @@ def seed(db: Database) -> None:
             )
 
         gold_class = db.scalar("SELECT id FROM asset_classes WHERE code = 'GOLD'")
-        # 18K and 24K are the shared reference series needed by named physical items.
-        # 21K/22K remain available as normal holding assets when users create them.
-        for karat in (18, 24):
+        # Shared price references for common jewelry purities.
+        for karat in (18, 21, 24):
             # Keep 18K's established public code; make the 24K price series internal
             # so a user can still create an ordinary GLD:24K holding.
-            code = "GLD:18K" if karat == 18 else "REF:GLD-24K"
+            code = "GLD:18K" if karat == 18 else f"REF:GLD-{karat}K"
             if db.scalar("SELECT 1 FROM financial_assets WHERE code = ?", (code,)):
                 continue
             db.execute(

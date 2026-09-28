@@ -48,3 +48,16 @@
   </div>
 </div>
 {%- endmacro %}
+
+{% macro period_control(action, period, month, current_month, date_from='', date_to='', category_filter='') -%}
+<form class="site-period-control" method="get" action="{{ action }}" data-month-picker data-current-month="{{ current_month }}" data-selected-month="{{ month }}">
+  {% if period!='month' %}<input type="hidden" name="month" value="{{ current_month }}">{% endif %}
+  {% if period!='custom' %}<input type="hidden" name="date_from" value="{{ date_from }}"><input type="hidden" name="date_to" value="{{ date_to }}">{% endif %}
+  {% if category_filter %}<input type="hidden" name="category_id" value="{{ category_filter }}">{% endif %}
+  <div class="period-buttons" role="group" aria-label="Reporting period">
+    {% for key, label in [('all','All time'),('ytd','YTD'),('month','Monthly'),('custom','Custom')] %}<button type="submit" name="period" value="{{ key }}" class="period-button {{ 'selected' if period==key else '' }}">{{ label }}</button>{% endfor %}
+  </div>
+  {% if period=='month' %}<div class="period-month-picker"><button class="btn small" type="button" data-month-shift="-1" aria-label="Previous month" title="Previous month">‹</button><label>Month<select data-month-part aria-label="Choose month"></select></label><label>Year<span class="year-picker"><button class="year-picker-trigger" type="button" data-year-toggle aria-haspopup="listbox" aria-expanded="false"></button><span class="year-picker-menu" data-year-options role="listbox" aria-label="Choose year" hidden></span></span></label><input type="hidden" name="month" data-month-select><button class="btn small" type="button" data-month-shift="1" aria-label="Next month" title="Next month">›</button></div>{% endif %}
+  {% if period=='custom' %}<div class="period-date-range"><label>From<input type="date" name="date_from" value="{{ date_from }}" data-typed-date required></label><label>To<input type="date" name="date_to" value="{{ date_to }}" data-typed-date required></label><button type="submit" name="period" value="custom" class="btn small">Apply</button></div>{% endif %}
+</form>
+{%- endmacro %}

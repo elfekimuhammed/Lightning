@@ -1,8 +1,10 @@
 {% extends "base.html" %}
 {% from "partials/macros.html" import amount %}
 {% block title %}Accounts{% endblock %}
-{% block heading %}<h1>Accounts</h1><div class="muted">Where your money is held.</div>{% endblock %}
+{% block heading %}<h1>Accounts</h1><div class="muted">Where is your money held?</div>{% endblock %}
+{% block top_actions %}<a class="btn primary" href="/accounts/new">Add account</a>{% endblock %}
 {% block content %}
+{% if rows %}<section class="card account-list-summary"><div class="budget-summary-grid"><div><span>Total balance</span><b>{{ amount(gross_total, base) }}</b></div><div><span>Your net worth</span><b>{{ amount(net_worth.total, base) }}</b></div></div></section>{% endif %}
 <div class="card">
   <table>
     <thead><tr><th>Account</th><th>Type</th><th class="num">Transactions</th><th class="num">Total balance</th><th class="num">You own</th></tr></thead>
@@ -18,12 +20,8 @@
     {% else %}
       <tr><td colspan="5" class="empty">No accounts yet.</td></tr>
     {% endfor %}
-    {% if rows %}
-      <tr class="total"><td colspan="3">Total balance</td><td class="num">{{ amount(gross_total, base) }}</td><td></td></tr>
-      <tr class="total"><td colspan="4">Your net worth</td><td class="num">{{ amount(net_worth.total, base) }}</td></tr>
-    {% endif %}
     </tbody>
   </table>
-  <div style="margin-top:12px"><a class="btn primary" href="/accounts/new">Add account</a></div>
+  {% if not rows %}<div style="margin-top:12px"><a class="btn primary" href="/accounts/new">Add your first account</a></div>{% endif %}
 </div>
 {% endblock %}

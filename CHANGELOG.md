@@ -8,6 +8,20 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### Product workflow pass · 2026-09-28
+- Reworked the main pages around focused questions, quiet number-led cards, consistent expandable category rows, and shared comparison/progress/time-series visuals. Added the application brand specification and live-styled component reference.
+- Replaced Management navigation with a Settings hierarchy for counterparties, categories and data checks; added distinct sidebar icons and clearer account grouping.
+- Corrected monthly Budget scope and exposed spending outside listed groups; preserved category scope in expense totals and trends; repaired saved CSV mapping, custody import and counterparty deletion workflows. Moved UI SQL behind services.
+- Defined task ownership, follow-up paths, shared components, and visualization rules in `docs/PRODUCT_UX_ARCHITECTURE.md`.
+- Recorded previously added migrations: `0029_birdview_class_factors.sql` stores liquidation factors by asset class; `0030_investment_targets_by_class.sql` links allocation targets to asset classes; `0031_dividend_asset_reference.sql` records the investment asset associated with dividends.
+- Completed the prior migration log: `0024_reevaluation_ownership.sql` adds ownership-aware reevaluation entries; `0025_reserve_category_matching.sql` links reserves to categories; `0026_reserve_allocation_history.sql` records dated allocations; `0027_investment_planning.sql` adds allocation targets and asset planning metadata; `0028_budget_rules_and_resets.sql` adds income-percentage rules and carryover resets.
+
+### UX review pass · 2026-09-28
+- Main tabs share summary-first layouts and expandable calculation details; secondary account actions are grouped for review.
+- Account CSV import includes a copyable AI preparation prompt, CSV template, and downloadable counterparty/category matching reference. Copy works in import popups with a manual fallback.
+- Registers export their filtered posted cash activity for external analysis, with account, currency, type, linked-account and ownership context. Text fields are protected from spreadsheet formula interpretation.
+- Added tab review notes and a prioritized comparison with YNAB, Monarch and Simplifi in `docs/UX_REVIEW.md` and `docs/BUDGET_APP_GAPS.md`.
+
 ### Changed
 - Ledger lines can carry an optional owner. Linked legacy cash and investment custody entries migrate to owner-tagged lines, owner balances are checked across dated postings and edits, and brokerage buys must use cash from the brokerage account and the selected owner's balance.
 - `0022_physical_items.sql` adds named physical items and dated item valuations; `0023_ledger_ownership.sql` adds ledger-line ownership.

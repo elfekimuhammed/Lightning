@@ -1,17 +1,18 @@
 {% extends "base.html" %}
-{% block title %}Integrity checks{% endblock %}
-{% block heading %}<h1>Integrity checks</h1><div class="muted">Read-only comparisons across your ledger and reports</div>{% endblock %}
+{% block title %}Data checks{% endblock %}
+{% block heading %}<h1>Settings</h1><div class="muted">Data checks · compare totals across your ledger and reports</div>{% endblock %}
 {% block top_actions %}<form method="get" class="actions"><label for="check-date" class="small">As of</label><input id="check-date" name="date" type="date" value="{{ as_of }}"><button class="btn small">Check</button></form>{% endblock %}
 {% block content %}
-<section class="integrity-summary grid g3">
-  <div class="card tile"><div class="label">Passed</div><div class="value pos">{{ counts.PASS }}</div></div>
-  <div class="card tile"><div class="label">Needs attention</div><div class="value {{ 'neg' if counts.ISSUE else '' }}">{{ counts.ISSUE }}</div></div>
-  <div class="card tile"><div class="label">Incomplete valuations</div><div class="value">{{ counts.INCOMPLETE }}</div></div>
+{% set settings_section = 'checks' %}{% include 'partials/settings_nav.html' %}
+<section class="metric-grid integrity-summary" aria-label="Check results">
+  <div class="metric-card"><div class="metric-label">Passed</div><div class="metric-value pos">{{ counts.PASS }}</div></div>
+  <div class="metric-card"><div class="metric-label">Needs attention</div><div class="metric-value {{ 'neg' if counts.ISSUE else '' }}">{{ counts.ISSUE }}</div></div>
+  <div class="metric-card"><div class="metric-label">Incomplete valuations</div><div class="metric-value">{{ counts.INCOMPLETE }}</div></div>
 </section>
 <p class="muted small">These checks compare independently derived totals. An incomplete check means a missing price or exchange rate prevents a full comparison.</p>
 <section class="integrity-list">
 {% for check in checks %}
-  <article class="card integrity-check integrity-check--{{ check.status|lower }}">
+  <article class="card data-panel integrity-check integrity-check--{{ check.status|lower }}">
     <div class="integrity-title"><span class="integrity-indicator" aria-hidden="true"></span><div><h2>{{ check.name }}</h2><p>{{ check.detail }}</p></div><span class="pill">{{ check.status|lower }}</span></div>
     <div class="integrity-values"><div><small>Actual</small><b>{{ check.actual|money(True) }} {{ base }}</b></div><div><small>Expected</small><b>{{ check.expected|money(True) }} {{ base }}</b></div><div><small>Difference</small><b class="{{ check.difference|tone }}">{{ check.difference|money(True) }} {{ base }}</b></div></div>
   </article>

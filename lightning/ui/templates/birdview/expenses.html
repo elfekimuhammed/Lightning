@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Expense Analysis · Birdview{% endblock %}
+{% block top_actions %}{% from "partials/macros.html" import period_control %}{{ period_control("/birdview/expenses", period, month, this_month, date_from, date_to, category_filter) }}{% endblock %}
+{% block heading %}<div class="birdview-title"><div><h1>Expense Analysis</h1><div class="muted small">{% if category_name %}{{ category_name }} · {% endif %}{{ start_display }} to {{ end_display }}</div></div></div>{% endblock %}
+{% block content %}
+<nav class="birdview-tabs"><a href="/birdview?period={{ period }}&amp;month={{ month }}&amp;date_from={{ custom_from }}&amp;date_to={{ custom_to }}{% if category_filter %}&amp;category_id={{ category_filter }}{% endif %}">Overview</a><a class="selected" href="/birdview/expenses?period={{ period }}&amp;month={{ month }}&amp;date_from={{ custom_from }}&amp;date_to={{ custom_to }}{% if category_filter %}&amp;category_id={{ category_filter }}{% endif %}">Expense Analysis</a><a href="/investments?period={{ period }}&amp;month={{ month }}&amp;date_from={{ custom_from }}&amp;date_to={{ custom_to }}">Investments</a></nav>
+{% if error %}<div class="flash error">{{ error }}</div>{% endif %}
+{% if category_filter %}<p class="muted small"><a href="/birdview/expenses?period={{ period }}&amp;month={{ month }}&amp;date_from={{ custom_from }}&amp;date_to={{ custom_to }}">All spending</a> / {{ category_name }}</p>{% endif %}
+<section class="metric-grid" aria-label="Spending summary">
+  <div class="metric-card metric-card--focal"><span class="metric-label">{{ category_name ~ ' spending' if category_name else 'Total spending' }}</span><strong class="metric-value">{{ spending_total|money }} {{ base }}</strong><span class="metric-note">Owned spending after refunds</span></div>
+  {% if prior_spending is not none %}{% set change = spending_total-prior_spending %}<div class="metric-card"><span class="metric-label">Change from comparable period</span><strong class="metric-value">{% if change < 0 %}{{ change|abs|money }} less{% elif change > 0 %}{{ change|money }} more{% else %}No change{% endif %}</strong><span class="metric-note">Previously {{ prior_spending|money }} {{ base }}</span></div>{% endif %}
+</section>
+{% if spending_total == 0 and not l1 and not l2 %}
+<section class="card empty"><h2>No spending in this period</h2><p>Try a longer period, or review the transactions recorded for these dates.</p><a class="btn" href="/transactions?date_from={{ date_from }}&amp;date_to={{ date_to }}">View transactions</a></section>
+{% else %}
+<div class="workspace-grid">
+  <section class="card data-panel"><div class="section-head"><div><h2>Where did it go?</h2><p class="muted small">{{ 'Subcategories' if category_filter else 'Spending categories' }} · select a row to drill down</p></div></div>
+    {% set groups = l2 if category_filter and l2 else l1 %}
+    {% for group in groups %}{% set share = (group.value/spending_total*100) if spending_total > 0 else 0 %}<a class="expense-rank-row" href="{% if category_filter %}/transactions?category_id={{ group.category_id }}&amp;date_from={{ date_from }}&amp;date_to={{ date_to }}{% else %}/birdview/expenses?period={{ period }}&amp;month={{ month }}&amp;date_from={{ custom_from }}&amp;date_to={{ custom_to }}&amp;category_id={{ group.category_id }}{% endif %}"><span>{{ group.label }}<small>{{ share|round(1) }}% of selected spending</small></span><i><b style="width:{{ [100, [0, share]|max]|min }}%"></b></i><strong>{{ group.value|money }}</strong></a>{% else %}<p class="empty">No categories match this selection.</p>{% endfor %}
+  </section>
+  <section class="card data-panel"><div class="section-head"><div><h2>When did it change?</h2><p class="muted small">Monthly spending in the selected period{% if trend_truncated %} · latest 24 months{% endif %}</p></div></div>
+    {% if trend_chart.segments %}<svg class="trend-line" viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label="Monthly spending trend; exact values follow below">{% for segment in trend_chart.segments %}<polyline points="{{ segment }}" fill="none" vector-effect="non-scaling-stroke" />{% endfor %}{% for x,y in trend_chart.dots %}<circle class="trend-dot" cx="{{ x }}" cy="{{ y }}" r="1.4" />{% endfor %}</svg>{% endif %}
+    <div class="compact-list">{% for item in trend if item.outflows != 0 %}<a class="compact-row" href="/transactions?{% if category_filter %}category_id={{ category_filter }}&amp;{% endif %}date_from={{ item.date_from }}&amp;date_to={{ item.date_to }}"><span>{{ item.month }}</span><b>{{ item.outflows|money }}</b></a>{% else %}<p class="empty">No monthly spending in this range.</p>{% endfor %}</div>
+  </section>
+</div>
+<p class="analysis-followup"><a class="btn" href="/transactions?{% if category_filter %}category_id={{ category_filter }}&amp;{% endif %}date_from={{ date_from }}&amp;date_to={{ date_to }}">Explain with transactions →</a></p>
+{% endif %}
+{% endblock %}

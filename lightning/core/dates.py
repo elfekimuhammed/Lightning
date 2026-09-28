@@ -31,7 +31,11 @@ def parse_date(value: object, field: str = "date") -> date:
             )
         day, month = map(int, match.groups()[:2])
         year_text = match.group(3)
-        year = (2000 + int(year_text) if len(year_text) == 2 else int(year_text)) if year_text else today().year
+        if year_text:
+            year = 2000 + int(year_text) if len(year_text) == 2 else int(year_text)
+        else:
+            current = today()
+            year = current.year - (1 if (month, day) > (current.month, current.day) else 0)
     try:
         return date(year, month, day)
     except ValueError:

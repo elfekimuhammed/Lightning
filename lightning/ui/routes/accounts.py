@@ -78,14 +78,16 @@ async def account_register(request: Request, account_id: int):
     return register.page(request, account_id)
 
 
-def _transaction_popup_context(request, account, values, action, error=None, txn_id=None):
+def _transaction_popup_context(request, account, values, action, error=None, txn_id=None, split_categories=None):
     c = container(request)
     return dict(account=account, values=values, action=action, txn_id=txn_id,
                 title="Edit transaction" if txn_id else "Add transaction",
                 accounts=c.accounts.list(active_only=True),
                 categories=[cat for cat in c.categories.pickable()],
+                category_names={cat.id: c.categories.display_name(cat.id) for cat in c.categories.pickable()},
                 counterparties=c.counterparties.list_active(),
                 owners=c.counterparties.list_owners(),
+                split_categories=split_categories or [],
                 return_to=str(values.get("return_to") or f"/accounts/{account.id}"),
                 error=error.message if error else "", error_field=error.field if error else "")
 
@@ -99,7 +101,7 @@ def _safe_return(value, fallback):
 async def new_transaction_popup(request: Request, account_id: int):
     account = container(request).accounts.get(account_id)
     values = {"kind": "out", "date": fmt_date(today()), "amount": "", "category_id": "",
-              "counterparty_id": "", "owner_id": "", "to_account_id": "",
+              "counterparty": "", "owner_id": "", "to_account_id": "",
               "notes": "", "return_to": _safe_return(request.query_params.get("return_to"), f"/accounts/{account_id}")}
     return render(request, "transactions/form_popup.html",
                   **_transaction_popup_context(request, account, values, f"/accounts/{account_id}/transaction/new"))
@@ -111,7 +113,7 @@ async def save_transaction_popup(request: Request, account_id: int):
     account = c.accounts.require_usable(account_id)
     form = await request.form()
     values = {key: str(form.get(key, "")) for key in
-              ("kind", "date", "amount", "category_id", "counterparty_id", "owner_id", "to_account_id", "notes")}
+              ("kind", "date", "amount", "category_id", "counterparty", "owner_id", "to_account_id", "notes")}
     values["return_to"] = _safe_return(form.get("return_to"), f"/accounts/{account_id}")
     try:
         kind = values["kind"]
@@ -140,8 +142,7 @@ async def save_transaction_popup(request: Request, account_id: int):
             expected = "OUTFLOW" if kind == "out" else "INFLOW"
             if category.movement.value != expected:
                 raise ValidationError("Choose a category that matches this transaction type.", "category")
-            counterparty_id = int(values["counterparty_id"]) if values["counterparty_id"].isdigit() else None
-            counterparty = c.counterparties.get(counterparty_id)["name"] if counterparty_id else ""
+            counterparty = _popup_counterparty(c, values["counterparty"])
             if counterparty and any(a.name.casefold() == counterparty.casefold()
                                     for a in c.accounts.list(active_only=True)):
                 raise ValidationError("Choose Transfer and select the destination account explicitly.", "counterparty")
@@ -161,6 +162,22 @@ async def save_transaction_popup(request: Request, account_id: int):
         return render(request, "transactions/form_popup.html", status_code=400,
                       **_transaction_popup_context(request, account, values,
                                                    f"/accounts/{account_id}/transaction/new", error))
+
+
+def _popup_counterparty(c, raw_value):
+    raw = str(raw_value or "").strip()
+    if not raw:
+        return ""
+    party = c.counterparties.resolve(raw)
+    if party:
+        if not party["active"]:
+            raise ValidationError("That Counterparty is archived. Activate it before using it.", "counterparty")
+        return party["name"]
+    suggestions = c.counterparties.suggestions(raw)
+    if suggestions:
+        names = ", ".join(name for name, _ in suggestions)
+        raise ValidationError(f"This name resembles a saved Counterparty ({names}). Choose that name from the list or review it first.", "counterparty")
+    return raw
 
 
 @router.get("/{account_id:int}/reconcile")

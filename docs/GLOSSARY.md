@@ -2,8 +2,8 @@
 
 ## Document status
 
-- **Last updated:** 2026-09-27
-- **Document revision:** 2026-09-27.1
+- **Last updated:** 2026-09-28
+- **Document revision:** 2026-09-28.2
 - **App version:** 0.3.0 (`lightning/__init__.py`); `pyproject.toml` packaging metadata remains at 0.1.0.
 - **Role:** canonical product and technical terms. Current workflow and roadmap live in [Project Overview](PROJECT_OVERVIEW.md); calculation contracts live in [Architecture](ARCHITECTURE.md).
 
@@ -39,18 +39,27 @@ This is Lightning's canonical language for product, database, code, and UI. Use 
 | **Transfer** | Value moved between accounts owned by the user; not income or expense. Selecting an owned account as Counterparty creates both account effects. | CIB → THNDR |
 | **Investment trade** | Exchange of brokerage cash for asset units (buy) or units for cash (sell). It is recorded inside that brokerage account's register. | Buy 10 fund units |
 | **Budget** | Planned spending amount attached to a category/group and month. Budget limits are not reserve accounts or ledger transactions. | Monthly Food limit |
-| **Monthly limit** | New amount allowed by a budget line for a month, from a fixed setting or a chosen rolling average. | Food limit of 3,000 EGP |
-| **Available limit / room in plan** | Monthly limit plus opening carryover; room is that available limit less actual spending. It is a spending constraint, not bank cash. | 3,000 + 500 carried in − 1,200 spent = 2,300 room |
+| **Monthly base budget** | A tracked category’s monthly plan before any carryover: fixed EGP, a selected percentage of budgeting income, or an observed-month spending average. | Food fixed at 3,000 EGP or 10% of income |
+| **Observed-month average** | Spending average whose 3m/6m window is divided by the distinct months with qualifying recorded activity. Months without activity are not treated as zero and the window is not extended backward. | 12,000 EGP across two observed months in a six-month window = 6,000 EGP |
+| **Available limit / room in plan** | Monthly base budget plus signed incoming carryover; room is the available amount less owned spending. It is a spending constraint, not bank cash. | 3,000 + (−500 carried in) − 1,200 spent = 1,300 over plan |
 | **Budget carryover** | Optional unused spending room added to a later month's limit. It never sets aside cash, creates a transaction, or reduces free cash. | 500 EGP of unused Food limit carried into October |
 | **Reserve** | A plan assigning some already-owned cash to an emergency fund or future goal. Assignment does not itself move money or change net worth; the actual payment is a normal ledger transaction. | Rent reserve |
 | **Emergency fund** | Permanent, dedicated reserve section. Its progress can be compared with the completed six-month average salary to express coverage in salary-months. | 13 months of average salary |
-| **Cash available to spend** | Owned bank and wallet cash at the selected date, less effective reserve assignments at that date. It can be negative when assignments exceed eligible cash; brokerage cash is excluded until moved to a bank or wallet. Past values are unavailable before assignment history can be reconstructed. | 380,000 eligible cash − 51,000 assigned = 329,000 EGP |
+| **Full owned wealth** | The known value of all tracked assets that belong to the user, including assigned reserves and brokerage cash, after excluding custody. Missing valuations are called out; liabilities and receivables are outside the current model. | 400,000 EGP of owned assets; 10,000 EGP held for Dad is excluded |
+| **Free cash** | Owned liquid cash in wallets, banks, and brokerage accounts less effective reserve assignments for the selected date. Brokerage cash is included but must be transferred before everyday spending. Historical values are unavailable when reserve history cannot be reconstructed. | 380,000 EGP owned liquid cash − 51,000 assigned = 329,000 EGP free cash |
 | **Change during this period** | Owned value at the selected range end minus owned value immediately before its start. It describes tracked wealth movement, not investment return. | 420,000 EGP ending value − 400,000 EGP opening value = +20,000 EGP |
-| **Net worth / owned wealth** | The user's share of tracked assets after excluding outstanding money belonging to others. Lightning does not currently track liabilities or money owed to the user. | Account total 20,000; Dad's 5,000 excluded; owned 15,000 |
-| **Estimated liquidatable assets** | Scenario value: owned liquid cash plus owned investments multiplied by the user's liquidation factor. It is neither full owned wealth nor a sale quote. | 380,000 cash + 95% of 20,050 invested |
-| **Liquidation factor** | User-selected percentage applied to owned investment value in the liquidation scenario. It does not change holdings or full owned wealth. | 95% |
+| **Owned wealth / full owned value** | The user's known share of all tracked assets after excluding money belonging to others. Reserves remain owned. Lightning does not currently track liabilities or money owed to the user. | Account total 20,000; Dad's 5,000 excluded; owned 15,000 |
+| **Estimated available value** | Birdview scenario: free cash plus the sum of owned investment value in each asset class multiplied by that class's current liquidation factor. Brokerage cash is counted once in free cash. It is not full owned wealth, a sale quote, or a ledger loss. | 329,000 EGP free cash + 95% of a 20,050 EGP investment class |
+| **Liquidation factor** | User-selected 0–100% estimate applied to one owned investment asset class. It does not change holdings or full owned wealth. Historical scenarios use current factor settings. | Gold 90%; equity funds 95% |
 | **Money from others / custody** | The separately attributable amount that belongs to another person but sits in an account the user tracks. It remains in the full account balance but is excluded from owned totals, net worth, and relevant budget/overview totals. | Dad's 10,000 in CIB |
 | **Revaluation** | Change in investment value caused by price changes, not deposits, purchases, or withdrawals. | Shares appreciate by 1,000 EGP |
+| **New money added** | Owned cash/value entering the investment boundary from outside it. A brokerage deposit followed by a purchase is counted once; an opening holding is excluded. | 10,000 EGP transferred into a brokerage |
+| **Money withdrawn** | Owned cash/value leaving the investment boundary for a bank or wallet, including direct sale proceeds paid outside investment accounts. | 2,000 EGP of sale proceeds transferred to a bank |
+| **Net money added** | New money added less money withdrawn during the selected period. | 10,000 added − 2,000 withdrawn = 8,000 EGP |
+| **Change in unrealized gain/loss** | Unrealized balance at period end less the balance immediately before period start. | 1,200 EGP ending unrealized − 900 EGP opening = +300 EGP |
+| **Investment result** | Realized gain/loss plus change in unrealized gain/loss plus posted distributions, with distinct FX and costs counted once. | 300 realized + 200 unrealized change + 50 distributions |
+| **Estimated cash after sale** | Investment cash plus owned dated holding values multiplied by asset-class liquidation factors; excludes reserves and is an assumption-based scenario. | 1,000 cash + 90% of a 10,000 EGP holding |
+| **Opening adjustment** | A holding entered as already owned when tracking began; it establishes a baseline and is not period contribution. | 5,000 EGP cost basis entered on tracking start |
 | **Reevaluation ledger** | Monthly per-account/per-asset record of units, prices, values, and returns. Its account-level total links to one generated journal transaction in the main ledger. | September COMI return detail linked to one THNDR `VAL` journal |
 | **System-generated posting** | An auditable ledger transaction created by application rules, not manually entered by the user. | Monthly `VAL` journal |
 | **Cost basis / average cost** | Remaining units' recorded acquisition cost, including buy fees when fees are included in total. | Remaining shares cost 9,500 EGP |

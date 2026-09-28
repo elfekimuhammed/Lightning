@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from decimal import InvalidOperation
+from decimal import Decimal, InvalidOperation
 from datetime import timedelta
 import json
 
@@ -10,10 +10,12 @@ from lightning.accounts.domain import AccountType
 from lightning.core.dates import fmt_date, month_of, parse_date, parse_month, today
 from lightning.core.errors import ValidationError
 from lightning.core.money import ZERO, fmt, to_decimal
+from lightning.investments.report import build_investment_report
 
 from ..web import container, render
 from ..web import redirect
 from ..periods import Period, parse_period
+from .birdview import _own_holdings
 
 router = APIRouter()
 
@@ -92,23 +94,38 @@ async def dashboard(request: Request):
         return render(request, "dashboard/welcome.html")
     net_worth = c.reporting.net_worth(as_of)
     account_contributions = _owned_account_type_rows(c, accounts, as_of)
-    cash_account_contributions = _owned_account_type_rows(
-        c, accounts, as_of, {AccountType.CASH, AccountType.BANK})
+    holdings, unvalued = _own_holdings(c, fmt_date(as_of))
+    class_values = {}
+    classes_by_id = {item.id: item for item in c.assets.list_classes()}
+    for holding in holdings:
+        cls = next((item for item in classes_by_id.values() if item.code == holding["class_code"]), None)
+        if cls is not None:
+            class_values[cls.id] = class_values.get(cls.id, ZERO) + (holding["value"] or ZERO)
+    factor_records = c.investments.liquidation_factors()
+    for cls in c.assets.investment_classes():
+        class_values.setdefault(cls.id, ZERO)
+    investment_value = sum(class_values.values(), ZERO)
+    estimated_investments = sum((value * factor_records.get(class_id, Decimal(95)) / 100
+                                 for class_id, value in class_values.items()), ZERO)
     eligible_cash = c.reporting.owned_liquid_cash(as_of)
     brokerage_cash = c.reporting.owned_brokerage_cash(as_of)
     assigned = c.reserves.allocation_at(fmt_date(as_of))
+    if assigned is None and as_of == today():
+        assigned = c.reserves.cash_summary(eligible_cash)["allocated"]
     reserve_summary = (None if assigned is None else {
         "eligible_cash": eligible_cash, "allocated": assigned, "free_cash": eligible_cash - assigned,
         "shortfall": max(assigned - eligible_cash, ZERO),
     })
-    now_checks = c.integrity.checks(today())
-    attention = [{"label": check.name, "detail": check.detail, "href": f"/checks?date={fmt_date(today())}", "priority": 0}
-                 for check in now_checks if check.status != "PASS"]
-    attention.extend({"label": "Missing valuation", "detail": item, "href": "/investments/prices", "priority": 0}
-                     for item in c.reporting.net_worth(today()).unvalued)
-    pending_rows = c.bank_imports.db.all("SELECT r.id,r.batch_id,r.row_number,r.raw_json,b.account_id,b.file_name,b.created_at FROM bank_import_rows r JOIN bank_import_batches b ON b.id=r.batch_id WHERE r.status='REVIEW' ORDER BY r.id LIMIT 1")
-    if pending_rows:
-        row = pending_rows[0]
+    free_cash = reserve_summary["free_cash"] if reserve_summary is not None else None
+    estimated_available = (free_cash + estimated_investments
+                           if free_cash is not None and not net_worth.unvalued else None)
+    # The Overview lists actions a user can take. Reconciliation diagnostics
+    # remain in the dedicated Integrity checks management view.
+    attention = [{"label": "Missing valuation", "detail": item, "href": "/investments/prices", "priority": 0}
+                 for item in c.reporting.net_worth(today()).unvalued]
+    pending_row = c.bank_imports.first_pending_review()
+    if pending_row:
+        row = pending_row
         try:
             source = json.loads(row["raw_json"])
         except (TypeError, ValueError):
@@ -127,16 +144,16 @@ async def dashboard(request: Request):
                               "href": "/reserves", "priority": 2})
     current_budget = c.budgets.month_view(month_of(today()))
     for section in current_budget.sections:
-        if section.available > ZERO and section.actual > section.available:
+        if section.available > ZERO and section.planned_actual > section.available:
             attention.append({"label": f"Budget exceeded: {section.name}",
-                              "detail": f"{fmt(section.actual - section.available)} {c.base_currency} over plan this month.",
+                              "detail": f"{fmt(section.planned_actual - section.available)} {c.base_currency} over plan this month.",
                               "href": "/budget", "priority": 2})
     attention = sorted(attention, key=lambda item: item["priority"])[:3]
     change, change_reason = None, "No recorded position is available for comparison."
     change_label = "Change during this period"
     if not net_worth.unvalued:
         if period.key == "all":
-            initial = c.reporting.net_worth(first) if first_activity else None
+            initial = c.reporting.net_worth(first - timedelta(days=1)) if first_activity else None
             change = net_worth.total - initial.total if initial is not None and not initial.unvalued else None
             if initial is not None and initial.unvalued:
                 change_reason = "The first recorded position is missing a required valuation."
@@ -149,20 +166,28 @@ async def dashboard(request: Request):
                 change_reason = "The position immediately before this period is missing a required valuation."
     else:
         change_reason = "A required valuation is missing from the ending position."
+    cash_flow = c.reporting.cash_flow(first, as_of)
+    investment_flow = build_investment_report(c.db, c.accounts, c.assets, c.reporting,
+                                              fmt_date(first), fmt_date(as_of))["new_money"]
+    investment_share = (investment_flow / cash_flow.inflows * 100
+                        if cash_flow.inflows > ZERO else None)
     return render(
         request,
         "dashboard/index.html",
-        month=month, period=period, period_error=period_error,
+        month=month, this_month=month_of(today()), period=period, period_error=period_error,
         date_from=fmt_date(first), date_to=fmt_date(as_of), as_of=fmt_date(as_of),
         range_label=(f"No recorded activity · Position as of {fmt_date(as_of)}"
                      if period.key == "all" and not first_activity else f"{fmt_date(first)} to {fmt_date(as_of)} · Position as of {fmt_date(as_of)}"),
         eligible_cash=eligible_cash, brokerage_cash=brokerage_cash, reserve_summary=reserve_summary,
+        free_cash=free_cash, investment_value=investment_value,
+        estimated_investments=estimated_investments, estimated_available=estimated_available,
+        unvalued=unvalued,
         change=change, change_reason=change_reason, change_label=change_label,
         attention=attention,
         net_worth=net_worth,
         account_contributions=account_contributions,
-        cash_account_contributions=cash_account_contributions,
-        cash_flow=c.reporting.cash_flow(first, as_of),
+        cash_flow=cash_flow, investment_flow=investment_flow,
+        investment_share=investment_share,
     )
 
 
@@ -183,7 +208,7 @@ async def explain_overview_figure(request: Request, kind: str):
         total = position.total
         missing = f" Missing valuation: {'; '.join(position.unvalued)}." if position.unvalued else ""
         if period.key == "all":
-            initial = c.reporting.net_worth(first) if c.reporting.first_activity_date() else None
+            initial = c.reporting.net_worth(parse_date(first) - timedelta(days=1)) if c.reporting.first_activity_date() else None
             change_value = (position.total - initial.total if not position.unvalued and initial and not initial.unvalued else None)
             change_label = "Change since first recorded position"
             change_reason = "The first recorded position is missing a required valuation." if initial and initial.unvalued else "No reliable first recorded position is available."
@@ -197,17 +222,19 @@ async def explain_overview_figure(request: Request, kind: str):
         foot = f"Position as of {day}. Change is tracked wealth movement, not investment return. The total excludes custody balances and assets.{missing}"
         action = ("Open Birdview", destination)
     elif kind == "free-cash":
-        title = "Cash available to spend"
+        title = "Free cash"
         eligible = c.reporting.owned_liquid_cash(day)
         allocated = c.reserves.allocation_at(day)
-        explanation = "Eligible cash includes owned bank and wallet balances. Brokerage cash is part of owned wealth, but is not immediately spendable until moved to a bank or wallet."
+        explanation = "Free cash = owned liquid cash (wallet, bank, and brokerage cash) − assigned reserves. Brokerage cash is included in the total, but move it to a bank or wallet before everyday spending."
         rows = _owned_account_type_rows(
             c, c.accounts.list(), day, {AccountType.CASH, AccountType.BANK})
+        rows.append({"label": "Brokerage cash · transfer before everyday spending",
+                     "value": c.reporting.owned_brokerage_cash(day)})
         if allocated is None:
             total, foot = None, "Historical free cash unavailable: reserve assignments cannot be reconstructed for this date."
         else:
             rows.append({"label": "Assigned to reserves", "value": -allocated, "href": "/reserves"})
-            total, foot = eligible - allocated, f"Eligible cash {eligible} less reserve assignments {allocated}. Period end: {day}."
+            total, foot = eligible - allocated, f"Owned liquid cash {eligible} less reserve assignments {allocated}. Period end: {day}."
         action = ("Open Reserves", "/reserves")
     elif kind == "flow":
         title = "Income and spending"

@@ -7,7 +7,7 @@ from fastapi import APIRouter, Request, Response
 from lightning.accounts.domain import AccountType
 from lightning.core.dates import fmt_date, today
 from lightning.core.errors import LightningError
-from lightning.core.money import ZERO, from_e6
+from lightning.core.money import ZERO, from_e6, to_decimal
 
 from ..web import container, redirect, render
 
@@ -91,7 +91,7 @@ async def create_item(request: Request, account_id: int):
         asset_id = c.physical_items.create(account_id, values["name"], values["kind"], values["weight"],
                                            int(values["karat"]), int(values["reference_asset_id"]), values["details"])
     except (ValueError, LightningError) as exc:
-        error = exc if isinstance(exc, LightningError) else LightningError("Choose a karat and matching price reference.")
+        error = exc if isinstance(exc, LightningError) else LightningError("Choose a matching gold price reference.")
         return render(request, "physical_item_form.html", status_code=400, account=account, item=None,
                       references=_references(c, account), values=values,
                       error=error.message, error_field=error.field or "")
@@ -125,7 +125,7 @@ async def save_item(request: Request, account_id: int, asset_id: int):
                                 int(values["karat"]), int(values["reference_asset_id"]), values["details"])
         c.reevaluations.process_due()
     except (ValueError, LightningError) as exc:
-        error = exc if isinstance(exc, LightningError) else LightningError("Choose a karat and matching price reference.")
+        error = exc if isinstance(exc, LightningError) else LightningError("Choose a matching gold price reference.")
         if request.headers.get("X-Requested-With") == "fetch":
             return Response(error.message, status_code=400, media_type="text/plain")
         return render(request, "physical_item_form.html", status_code=400, account=account,

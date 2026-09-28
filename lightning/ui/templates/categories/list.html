@@ -1,36 +1,38 @@
 {% extends "base.html" %}
 {% block title %}Categories{% endblock %}
-{% block heading %}<h1>Categories</h1><div class="muted">L1 is the activity. L2 is the broad category. L3 is not used.</div>{% endblock %}
+{% block heading %}<h1>Settings</h1><div class="muted">Categories · labels for grouping transactions</div>{% endblock %}
 {% block content %}
+{% set settings_section = 'categories' %}{% include 'partials/settings_nav.html' %}
+<div class="section-head"><label>Search categories<input type="search" id="category-search" placeholder="Find a category"></label><span id="category-result-count" class="muted small"></span></div>
 <form id="category-bulk-form" method="post" action="/categories/bulk-action" data-category-bulk>
   <div class="category-bulk-toolbar">
-    <label><input id="select-all-categories" type="checkbox"> Select all L2</label>
+    <label><input id="select-all-categories" type="checkbox"> Select all categories</label>
     <span id="category-selection-count" class="muted small">0 selected</span>
-    <button class="btn small" name="action" value="activate">Activate</button>
-    <button class="btn small" name="action" value="archive">Archive</button>
-    <button class="btn small danger" name="action" value="delete">Delete</button>
+    <button class="btn small" name="action" value="activate">Activate selected</button>
+    <button class="btn small" name="action" value="archive">Archive selected</button>
+    <button class="btn small danger" name="action" value="delete">Delete selected</button>
   </div>
 </form>
-<div class="grid g2">
+<div class="workspace-grid">
   {% for group, items in groups %}
-  <div class="card">
-    <div class="cat-group-head"><a href="/categories/{{ group.id }}/edit" class="{{ 'muted' if not group.active }}"><span class="level-tag">L1</span><h2>{{ group.name }}</h2></a></div>
+  <section class="card data-panel">
+    <div class="section-head"><a href="/categories/{{ group.id }}/edit" class="{{ 'muted' if not group.active }}"><span class="level-tag">Activity</span><h2>{{ group.name }}</h2></a></div>
     <ul class="category-tree">
       {% for c in items %}
-      <li class="category-tree-item category-manage-item {{ 'off' if not c.active }}">
+      <li class="category-tree-item category-manage-item {{ 'off' if not c.active }}" data-category-name="{{ c.name|lower }}">
         <input type="checkbox" class="category-select" name="category_ids" value="{{ c.id }}" form="category-bulk-form" aria-label="Select {{ c.name }}">
-        <span class="level-tag">L2</span><a href="/categories/{{ c.id }}/edit">{{ c.name }}</a>{% if not c.active %}<span class="small muted">Archived</span>{% endif %}
-        <form method="post" action="/categories/bulk-action" class="category-row-actions" data-category-row-action>
+        <a href="/categories/{{ c.id }}/edit">{{ c.name }}</a>{% if not c.active %}<span class="small muted">Archived</span>{% endif %}
+        <details class="category-row-actions"><summary class="btn small">More</summary><form method="post" action="/categories/bulk-action" data-category-row-action>
           <input type="hidden" name="category_id" value="{{ c.id }}">
-          <button class="btn small" name="action" value="activate" title="Activate" aria-label="Activate {{ c.name }}" {{ 'disabled' if c.active }}>Act</button>
-          <button class="btn small" name="action" value="archive" title="Archive" aria-label="Archive {{ c.name }}" {{ 'disabled' if not c.active }}>Arch</button>
-          <button class="btn small danger" name="action" value="delete" title="Delete (archives if in use)" aria-label="Delete {{ c.name }}">Del</button>
-        </form>
+          <button class="btn small" name="action" value="activate" {{ 'disabled' if c.active }}>Activate</button>
+          <button class="btn small" name="action" value="archive" {{ 'disabled' if not c.active }}>Archive</button>
+          <button class="btn small danger" name="action" value="delete">Delete</button>
+        </form></details>
       </li>
       {% endfor %}
     </ul>
-    <div style="margin-top:12px"><a class="btn small" href="/categories/new?parent={{ group.id }}">+ Add L2 category</a></div>
-  </div>
+    <div style="margin-top:12px"><a class="btn small" href="/categories/new?parent={{ group.id }}">Add category</a></div>
+  </section>
   {% endfor %}
 </div>
 <script>
@@ -38,6 +40,22 @@
   const checks = [...document.querySelectorAll('.category-select')];
   const all = document.getElementById('select-all-categories');
   const count = document.getElementById('category-selection-count');
+  const search = document.getElementById('category-search');
+  const resultCount = document.getElementById('category-result-count');
+  const groups = [...document.querySelectorAll('.workspace-grid > section')];
+  const filter = () => {
+    const query = search.value.trim().toLocaleLowerCase();
+    let visible = 0;
+    groups.forEach((group) => {
+      const rows = [...group.querySelectorAll('[data-category-name]')];
+      let groupVisible = 0;
+      rows.forEach((row) => { row.hidden = !row.dataset.categoryName.includes(query); if (!row.hidden) groupVisible++; });
+      group.hidden = groupVisible === 0;
+      visible += groupVisible;
+    });
+    resultCount.textContent = query ? `${visible} matching categories` : `${visible} categories`;
+  };
+  search?.addEventListener('input', filter);
   const sync = () => {
     const selected = checks.filter((box) => box.checked).length;
     count.textContent = `${selected} selected`;
@@ -54,6 +72,7 @@
     if (event.submitter?.value === 'delete' && !window.confirm('Delete selected categories? Categories in use will be archived instead.')) event.preventDefault();
   });
   sync();
+  filter();
 })();
 </script>
 {% endblock %}

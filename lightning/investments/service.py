@@ -52,6 +52,91 @@ class InvestmentService:
         self.reporting = reporting
         self.reevaluations = reevaluations
 
+    def liquidation_factors(self) -> dict[int, Decimal]:
+        """Configured liquidation factors, keyed by investment asset-class ID."""
+        return {int(row["asset_class_id"]): Decimal(str(row["factor"]))
+                for row in self.db.all("SELECT asset_class_id,factor FROM investment_liquidation_factors")}
+
+    def class_targets(self) -> dict[int, Decimal]:
+        """Planned investment weights, keyed by asset-class ID."""
+        return {int(row["asset_class_id"]): Decimal(str(row["target_weight"]))
+                for row in self.db.all("SELECT asset_class_id,target_weight FROM investment_targets "
+                                       "WHERE asset_class_id IS NOT NULL")}
+
+    def set_all_liquidation_factors(self, factor) -> None:
+        """Apply one estimate factor to each class with a non-cash asset."""
+        value = to_decimal(factor, "factor")
+        if not ZERO <= value <= Decimal(100):
+            raise ValidationError("Enter a liquidation factor from 0 to 100.", "factor")
+        for class_id in {asset.asset_class_id for asset in self.assets.list_assets() if not asset.is_cash}:
+            self.set_liquidation_factor(class_id, value)
+
+    def set_liquidation_factor(self, asset_class_id: int, factor) -> None:
+        """Set an estimate factor for an active, non-cash investment class."""
+        cls = self.assets.get_class(asset_class_id)
+        allowed = {item.id for item in self.assets.list_classes()
+                   if item.active and item.root_code != "CASH" and item.code != "CUSTODY"}
+        if cls.id not in allowed:
+            raise ValidationError("Choose an investment asset class.")
+        value = to_decimal(factor, "factor")
+        if not ZERO <= value <= Decimal(100):
+            raise ValidationError("Enter a liquidation factor from 0 to 100.")
+        self.db.execute(
+            "INSERT INTO investment_liquidation_factors(asset_class_id,factor) VALUES(?,?) "
+            "ON CONFLICT(asset_class_id) DO UPDATE SET factor=excluded.factor",
+            (asset_class_id, float(value)),
+        )
+
+    def target_weights(self) -> dict[str, Decimal]:
+        return {row["bucket"]: Decimal(str(row["target_weight"]))
+                for row in self.db.all("SELECT bucket,target_weight FROM investment_targets")}
+
+    def set_target_weight(self, bucket: str, weight: Decimal, class_id: int) -> None:
+        self.db.execute(
+            "INSERT INTO investment_targets(bucket,target_weight,updated_at,asset_class_id) VALUES(?,?,?,?) "
+            "ON CONFLICT(bucket) DO UPDATE SET target_weight=excluded.target_weight,"
+            "updated_at=excluded.updated_at,asset_class_id=excluded.asset_class_id",
+            (bucket, float(weight), fmt_date(today()), class_id),
+        )
+
+    def report_transactions(self, kind: str, start: str, end: str):
+        """Posted source transactions behind a portfolio report detail."""
+        type_filter = ("t.type='DIV'" if kind == "dividends" else
+                       "t.type='SEL'" if kind == "sales" else
+                       "(t.type IN ('SEL','DIV') OR c.code IN ('EXP.INVEST.DIVIDEND','EXP.INVEST.INTEREST'))"
+                       if kind == "result" else
+                       "t.type IN ('BUY','SEL','TRF','IN','OUT','ADJ')")
+        return self.db.all(
+            "SELECT DISTINCT t.id,t.ref,t.date,t.type,t.description,t.counterparty "
+            "FROM transactions t JOIN ledger_entries le ON le.transaction_id=t.id "
+            "LEFT JOIN categories c ON c.id=le.category_id "
+            "WHERE t.status='POSTED' AND le.owner_id IS NULL AND t.date BETWEEN ? AND ? AND " + type_filter +
+            " ORDER BY t.date,t.id", (start, end),
+        )
+
+    def opening_adjustments(self, account_ids: list[int], start: str, end: str) -> Decimal:
+        if not account_ids:
+            return ZERO
+        marks = ",".join("?" for _ in account_ids)
+        amount = self.db.scalar(
+            f"SELECT COALESCE(SUM(le.amount_base_e6),0) FROM ledger_entries le "
+            f"JOIN transactions t ON t.id=le.transaction_id WHERE t.status='POSTED' AND t.type='OPN' "
+            f"AND le.owner_id IS NULL AND le.account_id IN ({marks}) AND le.date BETWEEN ? AND ?",
+            (*account_ids, start, end),
+        )
+        return Decimal(amount or 0) / Decimal(1_000_000)
+
+    def period_interest(self, category_id: int | None, start: str, end: str) -> Decimal:
+        if category_id is None:
+            return ZERO
+        amount = self.db.scalar(
+            "SELECT COALESCE(SUM(le.amount_base_e6),0) FROM ledger_entries le "
+            "JOIN transactions t ON t.id=le.transaction_id WHERE t.status='POSTED' "
+            "AND le.owner_id IS NULL AND le.category_id=? AND le.effect='INFLOW' AND t.date BETWEEN ? AND ?",
+            (category_id, start, end),
+        )
+        return Decimal(amount or 0) / Decimal(1_000_000)
+
     # ======================================================================
     # Recording
     # ======================================================================
@@ -90,7 +175,10 @@ class InvestmentService:
         lines, counterparty = self._dividend_lines(account_id, asset_id, amount)
         if owner_id is not None:
             lines = [replace(line, owner_id=owner_id) for line in lines]
-        return self.transactions.post(DocType.DIV, date, lines, "", counterparty, notes)
+        txn = self.transactions.post(DocType.DIV, date, lines, "", counterparty, notes)
+        self.db.execute("INSERT INTO investment_dividend_assets(transaction_id,asset_id) VALUES(?,?)",
+                        (txn.id, asset_id))
+        return txn
 
     def holding_for_owner(self, account_id: int, asset_id: int, as_of: str, owner_id: int | None = None) -> Decimal:
         """Return signed investment units held by one owner on a date."""
@@ -145,7 +233,11 @@ class InvestmentService:
             lines, counterparty = self._dividend_lines(values["account_id"], values["asset_id"], values["amount"])
             if owner_id:
                 lines = [replace(line, owner_id=int(owner_id)) for line in lines]
-            return self.transactions.repost(txn_id, date, lines, "", counterparty, notes)
+            updated = self.transactions.repost(txn_id, date, lines, "", counterparty, notes)
+            self.db.execute("INSERT INTO investment_dividend_assets(transaction_id,asset_id) VALUES(?,?) "
+                            "ON CONFLICT(transaction_id) DO UPDATE SET asset_id=excluded.asset_id",
+                            (txn_id, values["asset_id"]))
+            return updated
         if kind == DocType.OPN and self._is_holding_opening(current):
             account = self._holding_account(values["account_id"])
             asset = self._investment(values["asset_id"])
@@ -176,8 +268,8 @@ class InvestmentService:
                           price=u.unit_price, fees=_money(fees), total_fees=_money(fees),
                           fees_included=True, total=abs(c.quantity), cash_account_id=c.account_id)
         elif t.type == DocType.DIV and cash:
-            asset = self.assets.get_asset_by_code(cash[0].memo)
-            values.update(account_id=cash[0].account_id, asset_id=asset.id, amount=cash[0].quantity)
+            asset_id = self.db.scalar("SELECT asset_id FROM investment_dividend_assets WHERE transaction_id=?", (t.id,))
+            values.update(account_id=cash[0].account_id, asset_id=asset_id, amount=cash[0].quantity)
         elif t.type == DocType.OPN and units:
             values.update(account_id=units[0].account_id, asset_id=units[0].asset_id, quantity=units[0].quantity,
                           total_cost=units[0].amount)
@@ -195,11 +287,15 @@ class InvestmentService:
         holding_flows: dict[tuple[int, int], list[tuple[str, Decimal]]] = {}
         for line in self.reporting.investment_lines(day, account_id):
             if line["type"] == "DIV":
-                key = (line["account_id"], line["memo"])
+                asset_id = line.get("dividend_asset_id")
+                if asset_id is None:
+                    continue
+                asset_code = self.assets.get_asset(asset_id).code
+                key = (line["account_id"], asset_code)
                 dividend = from_e6(line["amount_base_e6"])
                 dividends[key] = dividends.get(key, ZERO) + dividend
                 cashflows.append((line["date"], dividend))
-                asset = self.assets.get_asset_by_code(line["memo"])
+                asset = self.assets.get_asset(asset_id)
                 holding_flows.setdefault((line["account_id"], asset.id), []).append((line["date"], dividend))
                 continue
             flow = -from_e6(line["amount_base_e6"])
@@ -341,7 +437,7 @@ class InvestmentService:
             raise ValidationError("Enter the dividend you received.", "amount")
         category = self.categories.get_by_code(DIVIDEND_CATEGORY)
         cash_asset = self.assets.cash_asset(account.currency)
-        # the memo carries the asset code so dividends are counted per holding
+        # Asset attribution is stored in investment_dividend_assets; memo remains descriptive only.
         return [PostingLine.cash(account.id, cash_asset.id, value, Effect.INFLOW, category.id, memo=asset.code)], \
             asset.name
 

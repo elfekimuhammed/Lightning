@@ -2,8 +2,8 @@
 
 ## Document status
 
-- **Last updated:** 2026-09-27
-- **Document revision:** 2026-09-27.1
+- **Last updated:** 2026-09-28
+- **Document revision:** 2026-09-28.2
 - **App version:** 0.3.0 (`lightning/__init__.py`); packaging metadata in `pyproject.toml` still says 0.1.0.
 - **Role:** module boundaries and financial calculation contracts. Product workflow and roadmap live in [Project Overview](PROJECT_OVERVIEW.md); term definitions live in [Glossary](GLOSSARY.md).
 
@@ -83,39 +83,46 @@ Start with bounded local candidate lists and a small result limit. If size or me
 
 ## Position and reporting contract
 
-- **Owned position / net worth within Lightning's scope:** the user's share of tracked cash and investment assets, excluding outstanding value held for others. Liabilities and receivables are not modeled. An account's full ledger balance may therefore exceed the user's owned share.
-- **Cash available to spend at a date:** owned bank and wallet cash at that date, less effective assignments to active cash reserves at that date. It may be negative; the deficit is a reserve shortfall. Brokerage cash remains owned wealth but is not immediately spendable. Reserve allocation history begins at the recorded baseline; dates before reconstructible history are unavailable rather than using today's assignment.
-- **Estimated liquidatable assets:** owned liquid cash plus owned investment assets multiplied by the user's liquidation factor. This is a scenario estimate, not full owned position, a sale quote, or free cash.
+### Investment report contract (2026-09-28)
+
+The Investments report uses posted, non-void main-ledger entries dated by transaction date. It scopes every calculation to `owner_id IS NULL` and keeps cost lots keyed by owner, account, and asset; an opening (`OPN`) holding is a baseline adjustment and never new money. The portfolio boundary includes investment holdings and cash in brokerage, physical-asset, and other investment accounts. Investment-account cash transfers and trades net internally; direct physical purchases/sales count only their portfolio-side holding change. Dividends are distributions, not contributions. Valuation checkpoint rows (`return_base_e6`) and aggregate `VAL` journals are reconciliation data and are excluded from return.
+
+For a selected interval, new money is the positive posted change across that boundary and withdrawals are the absolute negative change. Net money added is their difference. Realized gain is net sale proceeds less average cost removed, with basis per owner/account/asset; purchase costs and net sale proceeds already include fees. Distributions use the cash actually posted. Change in unrealized gain is the end balance less the balance immediately before the interval. Investment result adds realized gain, unrealized change, distributions, and any separately identified FX/cost effects once. No balancing `other return` is permitted. If historical prices/ownership are missing, report the result unavailable.
+
+At the as-of date, cost of holdings still owned is remaining basis; holdings value is units times a dated confirmed valuation; unrealized gain is value less remaining basis. Uninvested investment cash is owned cash in investment accounts. Estimated cash after sale adds that cash to each owned holding value times its asset-class liquidation factor; it is a scenario and excludes reserves. A cost fallback is not a confirmed price. Dividend asset attribution is stored in `investment_dividend_assets`; legacy memo attribution is migrated only when it uniquely matches an asset code, otherwise the dividend remains unresolved while its cash amount is retained. Fiscal-year dates are unconfigured, so YTD is labeled Calendar 2026.
+
+- **Full owned wealth:** known value of all tracked assets belonging to the user, including assigned reserves and brokerage cash, after custody is excluded. Missing valuations are reported; liabilities and receivables remain outside the model.
+- **Free cash:** owned wallet, bank, and brokerage cash less effective reserve assignments as of the selected date. Brokerage cash is included once but needs a transfer before everyday spending. Reserve history begins at the recorded baseline; earlier dates are unavailable instead of borrowing today's assignments.
+- **Estimated available value:** free cash plus each owned investment class's value multiplied by its own 0–100% liquidation factor. Class settings use stable asset-class IDs. This is a scenario estimate using current factor settings, not full owned wealth, a sale quote, or a booked loss.
 - **Period income/spending:** posted external activity in the selected date range. Internal transfers and investment purchases are not income or expense; refunds reduce their original expense category. Custody activity is excluded from owned analysis.
 - **Investment return:** remaining holdings' market value less remaining cost, plus realized gains and dividends. The current portfolio and management XIRR must not be assumed owned-only until historical custody cash flows are verified.
 
-Overview and Birdview share the date-range parser. Overview positions are valued at the selected range end; its period change compares that value with the owned position immediately before the range. All time compares with the first recorded position. A missing valuation makes the headline a known-value subtotal, and an unreliable baseline makes the change unavailable. This change is tracked wealth movement, not investment return. Missing or stale investment prices need explicit states and dates.
+Overview and Birdview share the date-range parser. Positions in both are valued at the selected range end. Birdview expense and flow views use the selected interval; its asset-class weights divide by owned investment value and exclude cash and custody. A missing valuation is disclosed and an unavailable reserve history makes free cash and estimated available value unavailable. Historical liquidation estimates use current factor settings.
 
-### Birdview history and performance, planned
+### Birdview history and performance
 
-The current Birdview period selector changes income/expense analysis; position cards are as of today. A later selected-period owned-value view must derive opening and closing positions from posted effects and dated valuations, then explain the change as external owned income minus spending, investment/FX returns, and explicit corrections/openings. Transfers and buys change allocation but have zero owned-position effect. Every bridge component should link to source transactions or valuations, and the closing value must reconcile to the displayed position.
+Birdview's four horizons apply consistently to flow, expense, and position views; the position and reserve assignments are as of the range end. Internal transfers and investment purchases are excluded from cash-flow totals. Expense categories roll up consistently across the ranked overview, L1/L2 analysis, and linked transactions. Wealth movement remains distinct from investment return.
 
 XIRR is an annualized money-weighted rate using dated investment cash flows and an ending value. Since-inception XIRR is a separate measure from the selected period's currency return. A period-specific XIRR needs an opening valuation as an initial cash flow. If dates, flows, or ending value are inadequate, show an unavailable reason rather than 0%. Build owned-only cash flows before placing XIRR in Birdview; missing prices must not become invented historical quotes.
 
 ## Budget and reserve contract
 
-Budget limits are monthly spending constraints. Reserves assign already-owned cash to emergency or project plans; the assignment is neither a ledger transaction nor a budget limit. Only reserves reduce free cash. Budget room and free cash are separate values even when both are positive.
+Budget limits are monthly spending constraints. Reserves assign already-owned cash to emergency or project plans; the assignment is neither a ledger transaction nor a budget limit. Reserves reduce free cash. Budget room and free cash are separate values even when both are positive. Brokerage cash can be assigned as owned liquid cash, with its transfer requirement disclosed before daily use.
 
-The Budget service supports direct category or group limits, limits repeating from an effective month, one-month overrides, and optional 3/6-complete-month rolling averages. The first-plan UI previews suggestions and saves only after acceptance; accepted suggestions become fixed recurring limits unless the user deliberately chooses an average. Budget actuals follow posted owned spending, including refund reductions, and exclude custody activity. A direct parent limit is the ceiling for its entire branch; child limits are not added to that ceiling. Parent and child rows must not be double-counted in summary totals.
+Budget actuals come from posted owned ledger expenses; expense-category refunds reduce spending in their original category. Custody, internal transfers, investment purchases, and revaluations are excluded. Monthly base rules are fixed EGP, a percentage of budgeting income, or a 3/6-completed-month spending average. Average windows divide by distinct months with qualifying activity; no observed month means unavailable. A direct parent limit is a ceiling for its branch, with child amounts treated as allocations and never added to the parent cap. Carryover is an opt-in spending-plan calculation: next month receives the prior tracked month’s signed Left (positive room or negative overspending), unless disabled or a dated reset boundary clears it. Carryover never moves cash, creates a liability, or changes ledger history. Multi-month summaries aggregate monthly base plans and actuals, including range-opening carryover once rather than repeating each month’s carryover-adjusted budget.
 
-**Optional carryover is spending-limit-only**, defaults off, and is effective from the selected month. For a directly configured limit:
+Carryover defaults off and is effective from a selected month. For a directly tracked monthly limit:
 
 ```text
-available_limit(month) = monthly_limit(month) + opening_carryover(month)
-remaining_limit(month) = available_limit(month) - actual_spending(month)
-next_opening_carryover = max(remaining_limit(month), 0)  if carryover is enabled
-next_opening_carryover = 0                              otherwise
+current_budget(M) = base_monthly_budget(M) + incoming_carryover(M)
+left(M)           = current_budget(M) - owned_spending(M)
+incoming_carryover(M+1) = left(M), when enabled
+incoming_carryover(M+1) = 0, when disabled or reset at M+1
 ```
 
-Overspending remains visible in its original month and does not create a negative next-month carryover. A parent with its own limit keeps its own ceiling: child carryover never silently raises it. A parent without a direct limit derives its available amount from children. Carryover requires a direct limit, whether manual or average; clearing that limit ends later carryover until a new direct limit is set. Historical edits to transactions, refunds, limits, or average-derived amounts recalculate later carryover. Carryover is derived spending room, never cash or an independently posted balance.
+Both positive room and negative overspending carry forward without clamping. A dated reset clears the incoming amount from that month while leaving prior history and future carryover settings intact. Parent caps remain ceilings; child allocations do not increase a parent cap. YTD, All time, and Custom summaries aggregate monthly base plans and actuals and include range-opening carryover once; partial-month plan comparisons are prorated estimates. A carryover is derived spending room, never cash or an independently posted balance.
 
-The Budget screen should distinguish no plan, a zero limit, within plan, over plan, and spending with no covering limit. It should expose one-category adjustment as a focused workflow while preserving the full grid for advanced edits. The past-month review should explain opening carryover and link back to the month and transactions that caused it.
-
+Budget's ordinary view is a compact plan summary and Personal/Work/Investment rollup. Category rule editing and background estimates are opened on demand. Fixed EGP, budgeting-income percentage, and 3/6-observed-month averages are monthly methods; averages divide by distinct months with qualifying activity and never search beyond their configured window. The income basis uses selected owned income categories or an optional manual monthly amount. A missing baseline remains unavailable rather than becoming zero.
 ## Persistence, precision, and indexing
 
 - SQLite with ordered, append-only migrations; never edit a migration already applied.

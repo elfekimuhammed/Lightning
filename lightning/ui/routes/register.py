@@ -11,8 +11,10 @@ from decimal import Decimal, ROUND_HALF_UP
 from urllib.parse import urlencode
 
 from fastapi import Request
+from fastapi.responses import PlainTextResponse
 
 from lightning.accounts.domain import AccountType, INVESTMENT_ACCOUNT_TYPES
+from lightning.categories.domain import Movement
 from lightning.assets.catalog import instruments as catalog_instruments
 from lightning.core.codes import slug
 from lightning.core.dates import fmt_date, parse_date, parse_month, today
@@ -173,7 +175,28 @@ def page(request: Request, account_id: int | None, entry: dict | None = None, ed
             date_from, date_to = fmt_date(first), fmt_date(last)
         except ValidationError as exc:
             error, month = error or exc.message, ""
-    rows = c.reporting.register(account_id, date_from, date_to, c.transactions.search_ids(q) if q else None)
+    matched_ids = c.transactions.search_ids(q) if q else None
+    raw_category_id = qp.get("category_id", "")
+    if str(raw_category_id).isdigit():
+        category = c.categories.get(int(raw_category_id))
+        tree = c.categories.tree(Movement.OUTFLOW)
+        children = {}
+        for item in tree:
+            if item.parent_id:
+                children.setdefault(item.parent_id, []).append(item.id)
+        category_ids, pending = {category.id}, [category.id]
+        while pending:
+            for child in children.get(pending.pop(), []):
+                if child not in category_ids:
+                    category_ids.add(child); pending.append(child)
+        category_txns = c.reporting.category_transaction_ids(category_ids)
+        matched_ids = category_txns if matched_ids is None else matched_ids & category_txns
+    rows = c.reporting.register(account_id, date_from, date_to, matched_ids)
+    if qp.get("export") == "csv":
+        if error:
+            return PlainTextResponse(error, status_code=400)
+        from ..exports import register_csv
+        return register_csv(c, rows)
     custody_owners = {row.txn_id: c.money_from_others.transaction_owner(row.txn_id) for row in rows}
     edit_id = edit_id or _int(qp.get("edit"))
     edit_acct = edit_acct or _int(qp.get("acct")) or account_id
@@ -235,7 +258,7 @@ def page(request: Request, account_id: int | None, entry: dict | None = None, ed
     )
 
 
-def _resolve(request: Request, row_account: int | None, values: dict):
+def _resolve(request: Request, row_account: int | None, values: dict, allow_missing_category: bool = False):
     """Typed counterparty text -> internal account transfer or external transaction party."""
     c = container(request)
     if row_account is None:
@@ -277,6 +300,8 @@ def _resolve(request: Request, row_account: int | None, values: dict):
 
     category_text = values["category"].strip()
     category_choice = _int(values.get("category_choice"))
+    if allow_missing_category and not category_text and category_choice is None:
+        return None, None, canonical
     if not category_text and category_choice is None and party and party.get("default_category_id"):
         default_category_id = int(party["default_category_id"])
         if default_category_id in {item.id for item in c.categories.pickable()}:
@@ -351,7 +376,11 @@ async def update(request: Request, account_id: int | None, txn_id: int):
     row_account = account_id or _int(values["account_id"])
     try:
         with c.db.transaction():
-            other_id, category_id, counterparty = _resolve(request, row_account, values)
+            existing = c.transactions.get(txn_id)
+            cash_lines = [line for line in existing.lines if c.assets.get_asset(line.asset_id).is_cash]
+            is_split = existing.type.value == "OUT" and len(cash_lines) > 1
+            other_id, category_id, counterparty = _resolve(
+                request, row_account, values, allow_missing_category=is_split)
             category = c.categories.get(category_id) if category_id else None
             owner_name = (_transfer_custody_owner(c, values) if other_id else _custody_owner(c, values, category))
             owner_party = c.counterparties.resolve(owner_name) if owner_name else None
@@ -486,14 +515,14 @@ async def create_investment_entry(request: Request, account_id: int):
                     txn = c.investments.buy(values["date"], account.id, asset.id, units, unit_price,
                                             fees=values["fees"],
                                             cash_account_id=cash_account_id,
-                                            notes=values["notes"])
+                                            notes=values["notes"], owner_id=owner_id)
                 else:
                     if not total:
                         raise ValidationError("Enter the total paid or a price per unit.", "total")
                     txn = c.investments.buy_total(values["date"], account.id, asset.id, units, total,
                                                   fees=values["fees"], fees_included=values["fees_included"] != "0",
                                                   cash_account_id=cash_account_id,
-                                                  notes=values["notes"])
+                                                  notes=values["notes"], owner_id=owner_id)
             else:
                 units = -units
                 basis = values["price_basis"]
@@ -503,14 +532,14 @@ async def create_investment_entry(request: Request, account_id: int):
                     txn = c.investments.sell(values["date"], account.id, asset.id, units, unit_price,
                                              fees=values["fees"],
                                              cash_account_id=cash_account_id,
-                                             notes=values["notes"])
+                                             notes=values["notes"], owner_id=owner_id)
                 else:
                     if not total:
                         raise ValidationError("Enter the total received or a price per unit.", "total")
                     txn = c.investments.sell_total(values["date"], account.id, asset.id, units, total,
                                                    fees=values["fees"], fees_included=values["fees_included"] != "0",
                                                    cash_account_id=cash_account_id,
-                                                   notes=values["notes"])
+                                                   notes=values["notes"], owner_id=owner_id)
             c.money_from_others.sync_investment(txn.id, txn.date, owner, account.id, asset.id, signed_units)
             if owner:
                 cash_line = next((line for line in txn.lines if c.assets.get_asset(line.asset_id).is_cash), None)

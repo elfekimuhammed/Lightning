@@ -104,6 +104,64 @@ def test_rules(b):
     assert c.budgets.set_budget(ids["EXP.PERSONAL.FOOD"], "2026-09", "") is False  # nothing to clear
 
 
+def test_signed_carryover_and_dated_reset(b):
+    c, accounts, ids = b
+    food, wallet = ids["EXP.PERSONAL.FOOD"], accounts["cib"].id
+    c.budgets.set_budget(food, "2026-08", "1000")
+    c.transactions.record_outflow("2026-08-12", wallet, "3000", food)
+    c.budgets.set_carryover("2026-09", {food: True})
+    sep = line(c.budgets.month_view("2026-09"), "EXP.PERSONAL.FOOD")
+    assert sep.opening_carryover == Decimal("-2000")
+    assert sep.remaining == Decimal("-1000")
+    c.budgets.reset_carryover(food, "2026-09")
+    assert line(c.budgets.month_view("2026-09"), "EXP.PERSONAL.FOOD").opening_carryover == 0
+    assert line(c.budgets.month_view("2026-10"), "EXP.PERSONAL.FOOD").opening_carryover == Decimal("1000")
+
+
+def test_overspend_recovers_with_new_monthly_allowances_and_can_be_disabled(b):
+    c, accounts, ids = b
+    food, wallet = ids["EXP.PERSONAL.FOOD"], accounts["cib"].id
+    c.budgets.set_budget(food, "2026-08", "1000")
+    c.transactions.record_outflow("2026-08-12", wallet, "3000", food)
+    c.budgets.set_carryover("2026-09", {food: True})
+    assert line(c.budgets.month_view("2026-09"), "EXP.PERSONAL.FOOD").remaining == Decimal("-1000")
+    assert line(c.budgets.month_view("2026-10"), "EXP.PERSONAL.FOOD").opening_carryover == Decimal("-1000")
+    c.budgets.set_carryover("2026-10", {food: False})
+    assert line(c.budgets.month_view("2026-11"), "EXP.PERSONAL.FOOD").opening_carryover == 0
+
+
+def test_observed_month_average_and_percentage_income_basis(b):
+    c, accounts, ids = b
+    food, wallet = ids["EXP.PERSONAL.FOOD"], accounts["cib"].id
+    salary = ids["EXP.WORK.SALARY"]
+    c.transactions.record_outflow("2026-03-03", wallet, "3000", food)
+    c.transactions.record_outflow("2026-06-03", wallet, "9000", food)
+    c.budgets.set_budget(food, "2026-09", "", average_months=6)
+    assert line(c.budgets.month_view("2026-09"), "EXP.PERSONAL.FOOD").budget == Decimal("6000")
+    transport = ids["EXP.PERSONAL.TRANSPORT"]
+    c.budgets.set_budget(transport, "2026-09", "", average_months=6)
+    assert line(c.budgets.month_view("2026-09"), "EXP.PERSONAL.TRANSPORT").budget is None
+    assert c.budgets.budgeting_income("2026-09") is None
+    c.transactions.record_inflow("2026-03-25", wallet, "10000", salary)
+    c.transactions.record_inflow("2026-06-25", wallet, "10000", salary)
+    c.settings.set("budget_income_categories", f"[{salary}]")
+    c.settings.set("budget_income_months", "6")
+    assert c.budgets.budgeting_income("2026-09") == Decimal("10000")
+    c.budgets.set_income_percentage(food, "2026-09", "10")
+    assert line(c.budgets.month_view("2026-09"), "EXP.PERSONAL.FOOD").budget == Decimal("1000")
+
+
+def test_owned_refunds_reduce_spending_but_custody_is_excluded(b):
+    c, accounts, ids = b
+    food, wallet = ids["EXP.PERSONAL.FOOD"], accounts["cib"].id
+    c.transactions.record_outflow("2026-09-02", wallet, "1000", food)
+    c.transactions.record_refund("2026-09-04", wallet, "200", food)
+    dad = c.counterparties.create("Dad")
+    c.transactions.record_inflow("2026-09-04", wallet, "700", ids["EXP.WORK.SALARY"], owner_id=dad)
+    c.transactions.record_outflow("2026-09-05", wallet, "700", food, owner_id=dad)
+    assert line(c.budgets.month_view("2026-09"), "EXP.PERSONAL.FOOD").actual == Decimal("800")
+
+
 def test_budget_page(c, b):
     c, accounts, ids = b
     client = TestClient(create_app(c))
@@ -116,4 +174,13 @@ def test_budget_page(c, b):
     assert "Nothing changed" in r.text
     r = client.post("/budget?month=2026-09", data={f"b_{ids['EXP.PERSONAL.FOOD']}": "abc"})
     assert r.status_code == 400 and "not a valid number" in r.text
-    assert "Budget · 2026-09" in client.get("/?month=2026-09").text
+    assert 'value="6,000.00"' in client.get("/budget?month=2026-09").text
+
+
+def test_current_month_uses_full_month_limit_before_month_end(c, b, monkeypatch):
+    _, _, ids = b
+    monkeypatch.setenv("LIGHTNING_TODAY", "2026-09-15")
+    c.budgets.set_budget(ids["EXP.PERSONAL"], "2026-09", "6000")
+    page = TestClient(create_app(c)).get("/budget?period=month&month=2026-09")
+    assert page.status_code == 200
+    assert page.text.count("6,000.00") >= 2  # headline and matching group limit

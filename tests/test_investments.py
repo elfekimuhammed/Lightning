@@ -165,6 +165,52 @@ class TestTrades:
         p = pos(c, thndr, comi.id)
         assert p.dividends == D("250") and p.total_return == D("250")
 
+    def test_traceable_report_counts_boundary_money_and_sale_gain_once(self, inv):
+        from lightning.investments.report import build_investment_report
+        c, accounts, _, comi, _ = inv
+        bank = c.account_flows.open_account("Report Bank", "BANK", "2025-01-01", "5000")
+        broker = c.account_flows.open_account("Report Brokerage", "BROKERAGE", "2025-01-01")
+        c.transactions.record_transfer("2025-10-01", bank.id, broker.id, "100")
+        c.investments.buy("2025-12-01", broker.id, comi.id, "10", "10")
+        c.assets.set_price(comi.id, "2025-12-31", "12")
+        c.transactions.record_transfer("2026-01-02", bank.id, broker.id, "1000")
+        c.investments.sell("2026-01-10", broker.id, comi.id, "4", "12")
+        c.investments.dividend("2026-01-12", broker.id, comi.id, "3")
+        c.transactions.record_transfer("2026-01-15", broker.id, bank.id, "3")
+        report = build_investment_report(c.db, c.accounts, c.assets, c.reporting,
+                                         "2026-01-01", "2026-01-31")
+        assert report["new_money"] == D("1000")  # deposit counted once; purchase stays inside
+        assert report["withdrawn"] == D("3")
+        assert report["realized"] == D("8")  # 48 net proceeds − 40 average cost
+        assert report["dividends"] == D("3")
+        assert report["unrealized"] == D("12")
+
+    def test_traceable_report_excludes_tagged_custody_and_marks_cost_fallback_unavailable(self, inv):
+        from lightning.investments.report import build_investment_report
+        c, accounts, _, stock, _ = inv
+        buy = c.investments.add_holding(accounts["thndr"].id, stock.id, "10", "950", "2026-09-10")
+        c.money_from_others.sync_investment(buy.id, buy.date, "Dad", accounts["thndr"].id, stock.id, D("4"))
+        report = build_investment_report(c.db, c.accounts, c.assets, c.reporting,
+                                         "2026-01-01", "2026-09-28")
+        owned = next(row for row in report["holdings"] if row["asset"] == stock.name)
+        assert owned["units"] == D("6")
+        assert owned["cost"] == D("570")
+        assert report["value"] is None
+        assert any(item["asset"] == stock.name and "cost fallback" in item["reason"]
+                   for item in report["missing"])
+
+    def test_traceable_report_counts_direct_physical_purchase_as_new_money(self, inv):
+        from lightning.investments.report import build_investment_report
+        c, accounts, _, _, _ = inv
+        home = c.account_flows.open_account("Report Gold", "PHYSICAL_ASSET", "2026-09-01")
+        gold = c.assets.create_investment("Report Gold 24K", "GOLD", karat="24")
+        c.investments.buy("2026-09-10", home.id, gold.id, "1", "4000",
+                          cash_account_id=accounts["cib"].id)
+        report = build_investment_report(c.db, c.accounts, c.assets, c.reporting,
+                                         "2026-09-10", "2026-09-30")
+        assert report["new_money"] == D("4000")
+        assert report["withdrawn"] == ZERO
+
     def test_existing_holding_valued_at_cost_until_priced(self, inv):
         c, accounts, _, comi, fund = inv
         thndr = accounts["thndr"].id
@@ -288,7 +334,9 @@ class TestInvestmentPages:
         assert "Saved BUY-2026-09-10-001" in r.text  # lands on the THNDR register
         assert "Holdings" in r.text and "Commercial International Bank" in r.text and "-9,550.00" in r.text
         r = client.post("/investments/prices", data={"date": "2026-09-30", f"p_{comi.id}": "100"})
-        assert "Saved 1 price for 2026-09-30" in r.text and "+450.00" in r.text  # unrealized on the page
+        assert "Saved 1 price input; reevaluation catch-up completed." in r.text
+        assert c.investments.portfolio("2026-09-30").unrealized == D("450")
+        assert "+450.00" in client.get("/investments?period=month&month=2026-09").text
         r = client.post("/investments/new?kind=sell", data={"date": "2026-09-30", "account_id": thndr.id,
                         "asset_id": comi.id, "quantity": "500", "price": "100"})
         assert r.status_code == 400 and "less than zero" in r.text
@@ -336,21 +384,22 @@ def test_inline_investment_workflow(setup, c):
 
     oversell = client.post(f"/accounts/{thndr.id}/investment-entry", data={
         "date": "2026-09-11", "instrument_key": f"asset:{asset.id}",
-        "units": "-11", "total": "1200", "price_basis": "total",
+        "trade_action": "sell", "units": "11", "total": "1200", "price_basis": "total",
     })
     assert oversell.status_code == 400
     assert c.investments.holding(thndr.id, asset.id) == D("10")
 
     sell = client.post(f"/accounts/{thndr.id}/investment-entry", data={
         "date": "2026-09-12", "instrument_key": f"asset:{asset.id}",
-        "units": "-4", "total": "520", "price_basis": "total",
+        "trade_action": "sell", "units": "4", "total": "520", "price_basis": "total",
     })
     assert sell.status_code == 303
     assert c.investments.holding(thndr.id, asset.id) == D("6")
+    assert c.reporting.account_balance(thndr.id, "2026-09-12") == D("4470")
 
     dividend = client.post(f"/accounts/{thndr.id}/investment-entry", data={
         "date": "2026-09-13", "instrument_key": f"asset:{asset.id}",
-        "units": "", "total": "50", "price_basis": "total",
+        "trade_action": "dividend", "units": "", "total": "50", "price_basis": "total",
     })
     assert dividend.status_code == 303
     assert c.investments.holding(thndr.id, asset.id) == D("6")

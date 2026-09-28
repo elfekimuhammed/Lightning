@@ -22,7 +22,11 @@ const isoDate = (value) => {
     match = text.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2}|\d{4}))?$/);
     if (!match) return null;
     [, day, month, year] = match;
-    if (!year) year = String(new Date().getFullYear());
+    if (!year) {
+      const now = new Date();
+      year = String(now.getFullYear() - ((Number(month) - 1 > now.getMonth() ||
+        (Number(month) - 1 === now.getMonth() && Number(day) > now.getDate())) ? 1 : 0));
+    }
     else if (year.length === 2) year = `20${year}`;
   }
   const y = Number(year), m = Number(month), d = Number(day);
@@ -70,7 +74,7 @@ document.addEventListener("submit", (event) => {
   if (form.dataset.submitting === "true") { event.preventDefault(); return; }
   form.dataset.submitting = "true";
   const buttons = [...form.querySelectorAll("button")];
-  if (form.id) buttons.push(...document.querySelectorAll(`[form="${form.id}"][type="submit"], [form="${form.id}"]:not([type])`));
+  if (form.id) buttons.push(...document.querySelectorAll(`button[form="${form.id}"]`));
   buttons.forEach((button) => { if (button !== event.submitter) button.disabled = true; });
 });
 
@@ -151,7 +155,7 @@ document.querySelectorAll(".category-input").forEach((category) => {
     cell.classList.toggle("is-hidden", !visible);
     const anyVisible = document.querySelector(".whom-cell:not(.is-hidden)");
     if (header) header.classList.toggle("is-hidden", !anyVisible);
-    if (whomColumn) whomColumn.style.width = "12%";
+    if (whomColumn) whomColumn.style.width = anyVisible ? "12%" : "0";
     const input = cell.querySelector("input");
     if (input) {
       input.disabled = !visible;
@@ -1102,3 +1106,169 @@ document.querySelectorAll("[data-counterparty-filter]").forEach((search) => {
     show(document.querySelector("main.main")?.innerHTML || "", document.title);
   }
 })();
+
+// Shared period controls use separate month/year fields and a bounded scroll list.
+document.querySelectorAll("[data-month-picker]").forEach((picker) => {
+  const monthValue = picker.querySelector("[data-month-select]");
+  const monthField = picker.querySelector("[data-month-part]");
+  const yearField = picker.querySelector("[data-year-toggle]");
+  const yearList = picker.querySelector("[data-year-options]");
+  const form = picker.matches("form") ? picker : picker.closest("form") || picker.querySelector("form");
+  const currentMonth = picker.dataset.currentMonth;
+  const selectedMonth = picker.dataset.selectedMonth || currentMonth;
+  const monthlyButton = form?.querySelector('[name="period"][value="month"]');
+  if (monthlyButton) monthlyButton.addEventListener("click", () => {
+    if (monthField && yearField) {
+      monthField.value = currentMonth.slice(5, 7);
+      yearField.textContent = currentMonth.slice(0, 4);
+      monthValue.value = currentMonth;
+    }
+  });
+  if (!monthValue || !monthField || !yearField || !yearList || !form || !/^\d{4}-\d{2}$/.test(currentMonth || "")) return;
+  const toIndex = (value) => {
+    const [year, month] = value.split("-").map(Number);
+    return year * 12 + month - 1;
+  };
+  const fromIndex = (index) => `${Math.floor(index / 12)}-${String(index % 12 + 1).padStart(2, "0")}`;
+  const currentIndex = toIndex(currentMonth);
+  const currentYear = Number(currentMonth.slice(0, 4));
+  const selectedYear = Number(selectedMonth.slice(0, 4));
+  const firstYear = Math.min(currentYear - 50, selectedYear);
+  const monthNames = Array.from({ length: 12 }, (_, index) => new Date(Date.UTC(2020, index, 1)).toLocaleDateString(undefined, { month: "long", timeZone: "UTC" }));
+  monthNames.forEach((name, index) => {
+    const option = document.createElement("option");
+    option.value = String(index + 1).padStart(2, "0");
+    option.textContent = name;
+    monthField.append(option);
+  });
+  for (let year = currentYear; year >= firstYear; year -= 1) {
+    const option = document.createElement("button");
+    option.type = "button";
+    option.className = "year-picker-option";
+    option.setAttribute("role", "option");
+    option.textContent = String(year);
+    option.dataset.year = String(year);
+    yearList.append(option);
+  }
+  const [initialYear, initialMonth] = selectedMonth.split("-");
+  monthField.value = initialMonth;
+  yearField.textContent = initialYear;
+  const closeYears = () => {
+    yearList.hidden = true;
+    yearField.setAttribute("aria-expanded", "false");
+  };
+  const updateValue = () => {
+    monthValue.value = `${yearField.textContent}-${monthField.value}`;
+    const selectedIndex = toIndex(monthValue.value);
+    picker.querySelector('[data-month-shift="-1"]').disabled = selectedIndex <= toIndex(`${firstYear}-01`);
+    picker.querySelector('[data-month-shift="1"]').disabled = selectedIndex >= currentIndex;
+  };
+  const submit = () => { updateValue(); form.requestSubmit(); };
+  yearField.addEventListener("click", () => {
+    yearList.hidden = !yearList.hidden;
+    yearField.setAttribute("aria-expanded", String(!yearList.hidden));
+    if (!yearList.hidden) {
+      const current = yearList.querySelector(`[data-year="${yearField.textContent}"]`);
+      if (current) yearList.scrollTop = current.offsetTop - yearList.offsetTop;
+    }
+  });
+  yearList.addEventListener("click", (event) => {
+    const option = event.target.closest("[data-year]");
+    if (!option) return;
+    yearField.textContent = option.dataset.year;
+    closeYears();
+    submit();
+  });
+  document.addEventListener("click", (event) => { if (!picker.contains(event.target)) closeYears(); });
+  yearField.addEventListener("keydown", (event) => { if (event.key === "Escape") closeYears(); });
+  monthField.addEventListener("change", submit);
+  picker.querySelectorAll("[data-month-shift]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const nextMonth = fromIndex(toIndex(monthValue.value) + Number(button.dataset.monthShift));
+      if (toIndex(nextMonth) > currentIndex) return;
+      yearField.textContent = nextMonth.slice(0, 4);
+      monthField.value = nextMonth.slice(5, 7);
+      submit();
+    });
+  });
+  updateValue();
+});
+
+// Native date fields keep submitting ISO dates while showing a consistent,
+// typeable DD/MM/YYYY field alongside the calendar picker.
+const parseDisplayDate = (value) => {
+  const match = value.trim().match(/^(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{4})$/);
+  if (!match) return "";
+  const day = Number(match[1]);
+  const month = Number(match[2]);
+  const year = Number(match[3]);
+  const candidate = new Date(Date.UTC(year, month - 1, day));
+  if (candidate.getUTCFullYear() !== year || candidate.getUTCMonth() !== month - 1 || candidate.getUTCDate() !== day) return "";
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+};
+const formatDisplayDate = (value) => {
+  const match = (value || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : "";
+};
+document.querySelectorAll('input[type="date"]:not(.date-picker-native):not([data-site-date-ready])').forEach((native) => {
+  native.dataset.siteDateReady = "1";
+  const wrapper = document.createElement("span");
+  wrapper.className = "site-date-input";
+  native.parentNode.insertBefore(wrapper, native);
+  wrapper.append(native);
+  native.classList.add("site-date-native");
+  const text = document.createElement("input");
+  text.type = "text";
+  text.className = "site-date-text";
+  if (native.id) {
+    text.id = `${native.id}-display`;
+    const externalLabel = document.querySelector(`label[for="${CSS.escape(native.id)}"]`);
+    if (externalLabel) externalLabel.htmlFor = text.id;
+  }
+  text.inputMode = "numeric";
+  text.autocomplete = "off";
+  text.placeholder = "DD/MM/YYYY";
+  text.setAttribute("aria-label", "Date (DD/MM/YYYY)");
+  text.value = formatDisplayDate(native.value);
+  text.required = native.required;
+  native.required = false;
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "btn small site-date-button";
+  button.setAttribute("aria-label", "Choose date");
+  button.title = "Choose date";
+  button.textContent = "▦";
+  wrapper.append(text, button);
+  const syncTyped = () => {
+    if (!text.value.trim()) {
+      native.value = "";
+      text.setCustomValidity("");
+      return true;
+    }
+    const iso = parseDisplayDate(text.value);
+    if (!iso) {
+      native.value = "";
+      text.setCustomValidity("Enter a date as DD/MM/YYYY.");
+      return false;
+    }
+    native.value = iso;
+    text.setCustomValidity("");
+    return true;
+  };
+  text.addEventListener("input", syncTyped);
+  text.addEventListener("blur", () => {
+    if (syncTyped()) text.value = formatDisplayDate(native.value);
+  });
+  native.addEventListener("change", () => { text.value = formatDisplayDate(native.value); text.setCustomValidity(""); });
+  button.addEventListener("click", () => {
+    if (typeof native.showPicker === "function") native.showPicker();
+    else native.click();
+  });
+  native.form?.addEventListener("submit", (event) => {
+    if (!syncTyped()) {
+      event.preventDefault();
+      text.reportValidity();
+      text.focus();
+    }
+  });
+});

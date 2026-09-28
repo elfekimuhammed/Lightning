@@ -206,9 +206,10 @@ class ReportingService:
         return NetWorth(day, total, accounts_sorted, by_class, unvalued)
 
     def owned_liquid_cash(self, as_of: date | str) -> Decimal:
-        """Cash owned in wallets and bank accounts; excludes custody balances and locked assets."""
-        return sum((self.owned_account_value(account.id, as_of) for account in self.accounts.list()
-                    if account.account_type in {AccountType.CASH, AccountType.BANK}), ZERO)
+        """Owned wallet, bank, and brokerage cash; excludes custody balances and locked assets."""
+        return (sum((self.owned_account_value(account.id, as_of) for account in self.accounts.list()
+                     if account.account_type in {AccountType.CASH, AccountType.BANK}), ZERO)
+                + self.owned_brokerage_cash(as_of))
 
     def owned_brokerage_cash(self, as_of: date | str) -> Decimal:
         """Cash inside brokerage accounts, valued at face value and excluded from spendable cash."""
@@ -470,6 +471,9 @@ class ReportingService:
         rows = self._rows(self.q.statement_lines(account_id, start, end), opening)
         closing = rows[-1].balance if rows else opening
         return Statement(account, start, end, opening, rows, closing)
+
+    def category_transaction_ids(self, category_ids: set[int]) -> set[int]:
+        return self.q.category_transaction_ids(category_ids)
 
     def register(self, account_id: int | None, date_from: date | str, date_to: date | str,
                  txn_ids: set[int] | None = None) -> list[StatementRow]:

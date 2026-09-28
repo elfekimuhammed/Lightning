@@ -102,7 +102,13 @@ class CounterpartyService:
         """Delete an unused record; archive one referenced by transaction history. Returns archived."""
         if not self.get(counterparty_id):
             raise NotFoundError("Counterparty not found.")
-        used = self.db.scalar("SELECT 1 FROM transactions WHERE counterparty_id=? LIMIT 1", (counterparty_id,))
+        used = self.db.scalar(
+            "SELECT 1 FROM transactions WHERE counterparty_id=? LIMIT 1", (counterparty_id,)
+        ) or self.db.scalar(
+            "SELECT 1 FROM ledger_entries WHERE owner_id=? LIMIT 1", (counterparty_id,)
+        ) or self.db.scalar(
+            "SELECT 1 FROM cash_reserves WHERE counterparty_id=? LIMIT 1", (counterparty_id,)
+        )
         if used:
             self.set_active(counterparty_id, False)
             return True

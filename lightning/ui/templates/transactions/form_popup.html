@@ -9,11 +9,12 @@
   <form method="post" action="{{ action }}" {% if txn_id %}data-popup-autosave{% endif %}>
     <input type="hidden" name="return_to" value="{{ return_to }}">
     {% if txn_id %}<input type="hidden" name="account_id" value="{{ values.account_id }}">{% endif %}
-    <div class="transaction-choice-grid" role="group" aria-label="Transaction type">
+    {% if split_categories %}<input type="hidden" name="kind" value="{{ values.kind }}"><p class="muted">This expense is split across {{ split_categories|join(', ') }}. Editing here preserves its full amount and category split.</p>
+    {% else %}<div class="transaction-choice-grid" role="group" aria-label="Transaction type">
       {% for value, label in [('out','Money out'),('in','Money in'),('transfer','Transfer')] %}
       <label class="btn transaction-choice"><input type="radio" name="kind" value="{{ value }}" {{ 'checked' if values.kind == value }} required> {{ label }}</label>
       {% endfor %}
-    </div>
+    </div>{% endif %}
     <div class="row">
       <div class="field {{ 'has-error' if error_field == 'date' }}">
         <label for="popup-date">Date</label>
@@ -22,7 +23,7 @@
       </div>
       <div class="field {{ 'has-error' if error_field == 'amount' }}">
         <label for="popup-amount">Amount ({{ account.currency }})</label>
-        <input id="popup-amount" name="amount" type="text" value="{{ values.amount }}" inputmode="decimal" placeholder="0.00" required>
+        <input id="popup-amount" name="amount" type="text" value="{{ values.amount }}" inputmode="decimal" placeholder="0.00" required {{ 'readonly' if split_categories }}>
         {% if error_field == 'amount' %}<small class="field-error">{{ error }}</small>{% endif %}
       </div>
     </div>
@@ -36,19 +37,17 @@
       </div>
       <div class="field money-only {{ 'has-error' if error_field == 'category' }}" {{ 'hidden' if values.kind == 'transfer' }}>
         <label for="popup-category">Category</label>
-        <select id="popup-category" name="category_id">
+        {% if split_categories %}<input id="popup-category" value="Split · {{ split_categories|join(', ') }}" readonly>
+        {% else %}<select id="popup-category" name="category_id">
           <option value="">Choose a category</option>
-          {% for cat in categories %}<option value="{{ cat.id }}" data-movement="{{ cat.movement.value }}" {{ 'selected' if values.category_id == cat.id|string }}>{{ cat.label }}</option>{% endfor %}
-        </select>
+          {% for cat in categories %}<option value="{{ cat.id }}" data-movement="{{ cat.movement.value }}" {{ 'selected' if values.category_id == cat.id|string }}>{{ category_names[cat.id] }}</option>{% endfor %}
+        </select>{% endif %}
         {% if error_field == 'category' %}<small class="field-error">Choose a category.</small>{% endif %}
       </div>
       <div class="field money-only {{ 'has-error' if error_field == 'counterparty' }}" {{ 'hidden' if values.kind == 'transfer' }}>
-        <label for="popup-counterparty-search">Search counterparty</label>
-        <input id="popup-counterparty-search" type="search" placeholder="Find a person or business" autocomplete="off" data-option-filter="popup-counterparty">
-        <select id="popup-counterparty" name="counterparty_id">
-          <option value="">Choose a saved Counterparty (optional)</option>
-          {% for person in counterparties %}<option value="{{ person.id }}" {{ 'selected' if values.counterparty_id == person.id|string }}>{{ person.name }}</option>{% endfor %}
-        </select>
+        <label for="popup-counterparty">Counterparty <span class="muted">(optional)</span></label>
+        <input id="popup-counterparty" name="counterparty" value="{{ values.counterparty }}" list="popup-counterparties" placeholder="Type a person or business" autocomplete="off">
+        <datalist id="popup-counterparties">{% for person in counterparties %}<option value="{{ person.name }}">{% endfor %}</datalist>
         {% if error_field == 'counterparty' %}<small class="field-error">Choose a saved Counterparty.</small>{% endif %}
       </div>
     </div>

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 from fastapi import APIRouter, Request
+from fastapi.responses import JSONResponse, PlainTextResponse
 
 from lightning.bank_imports import OPTIONAL, REQUIRED, SEPARATE_AMOUNT_FIELDS, decode_csv
 from lightning.core.errors import LightningError, ValidationError
@@ -47,6 +48,31 @@ def _categories(c):
     return [{"id": cat.id, "label": c.categories.display_name(cat.id)} for cat in c.categories.pickable()]
 
 
+def _ai_reference(c):
+    return {"counterparties": [party["name"] for party in c.counterparties.list_active()],
+            "categories": _categories(c)}
+
+
+def _ai_prompt(account, reference):
+    cats = "\n".join(f"- {item['label']} (id: {item['id']})" for item in reference["categories"])
+    parties = "\n".join(f"- {name}" for name in reference["counterparties"])
+    return f'''Prepare an account statement CSV for review and import into Lightning.
+Account: {account.name}
+Currency: {account.currency}
+
+Return a standard UTF-8 CSV file with a header row, using exactly this canonical schema: Date,Amount,Counterparty,Category,Notes,Reference. Date and Amount are required; the remaining columns are optional and may be blank. Date must use YYYY-MM-DD. If the source only has separate inflow/outflow columns, the importer also accepts Date,Inflow,Outflow instead of Amount; each row must have a value in exactly one of those amount columns, with no Amount column.
+
+Quote CSV fields when needed to preserve commas, quotes, or line breaks. Preserve the source dates and amount values in meaning; do not change currency, round, or infer missing values. Express direction as the account's perspective: money into the account is positive and money out is negative. For separate columns, place nonnegative values in Inflow or Outflow respectively. Keep optional values only when present in the source. Reference is an optional source transaction identifier. Do not add unsupported columns.
+
+Match Category only to the exact pickable category labels below. Match Counterparty only when the source supports a confident match to one of the existing active names below; do not invent matches or create names. Leave unknown or ambiguous categories blank (and leave unknown counterparties unchanged or blank if absent). Do not use category IDs as CSV values.
+
+Existing active counterparties:\n{parties or '- (none)'}
+
+Pickable categories:\n{cats or '- (none)'}
+
+Review every output row against the source before confirming the import. Do not claim the import is complete.'''
+
+
 def _review_form_max_fields(row_count: int) -> int:
     # Each row has fewer than 12 submitted fields; leave room for form metadata.
     return max(1_000, row_count * 12 + 100)
@@ -56,7 +82,31 @@ def _review_form_max_fields(row_count: int) -> int:
 async def import_page(request: Request, account_id: int):
     c = container(request)
     account = c.accounts.get(account_id)
-    return render(request, "bank_import_upload.html", account=account)
+    return render(request, "bank_import_upload.html", account=account,
+                  ai_prompt=_ai_prompt(account, _ai_reference(c)))
+
+
+def _render_upload(request, c, account_id, *, error="", status_code=200):
+    account = c.accounts.get(account_id)
+    return render(request, "bank_import_upload.html", account=account,
+                  ai_prompt=_ai_prompt(account, _ai_reference(c)), error=error, status_code=status_code)
+
+
+@router.get("/{account_id:int}/import/ai-reference.json")
+async def ai_reference(request: Request, account_id: int):
+    c = container(request)
+    account = c.accounts.get(account_id)
+    return JSONResponse({"account": account.name, "currency": account.currency, **_ai_reference(c)},
+                        headers={"Content-Disposition": 'attachment; filename="lightning-import-reference.json"',
+                                 "Cache-Control": "no-store"})
+
+
+@router.get("/{account_id:int}/import/ai-template.csv")
+async def ai_template(request: Request, account_id: int):
+    container(request).accounts.get(account_id)
+    return PlainTextResponse("Date,Amount,Counterparty,Category,Notes,Reference\r\n",
+                             media_type="text/csv; charset=utf-8",
+                             headers={"Content-Disposition": 'attachment; filename="lightning-import-template.csv"'})
 
 
 @router.post("/{account_id:int}/import")
@@ -65,18 +115,27 @@ async def upload(request: Request, account_id: int):
     form = await request.form()
     upload_file = form.get("file")
     if not upload_file or not getattr(upload_file, "filename", ""):
-        return render(request, "bank_import_upload.html", account=c.accounts.get(account_id), error="Choose a CSV file.", status_code=400)
+        return _render_upload(request, c, account_id, error="Choose a CSV file.", status_code=400)
     data = await upload_file.read()
     try:
         headers, _ = decode_csv(data)
         mapping = c.bank_imports.suggested_mapping(account_id, headers)
+        saved_mapping = c.bank_imports.saved_mapping(account_id, headers)
+        if saved_mapping:
+            batch_id, repeated = c.bank_imports.stage(
+                account_id, upload_file.filename, data, saved_mapping,
+                invert_amount=saved_mapping.get("amount_sign") == "invert")
+            if repeated:
+                return redirect(f"/accounts/{account_id}/import/{batch_id}",
+                                "This exact file was already imported.")
+            return redirect(f"/accounts/{account_id}/import/{batch_id}")
         return render(request, "bank_import_map.html", account=c.accounts.get(account_id), headers=headers,
                       payload=base64.b64encode(data).decode("ascii"), filename=upload_file.filename,
                       required=REQUIRED, optional=OPTIONAL, amount_fields=SEPARATE_AMOUNT_FIELDS,
                       suggested_amount_model=mapping.get("amount_model", "SINGLE"), mapping=mapping,
                       invert_amount=mapping.get("amount_sign") == "invert")
     except LightningError as exc:
-        return render(request, "bank_import_upload.html", account=c.accounts.get(account_id), error=exc.message, status_code=400)
+        return _render_upload(request, c, account_id, error=exc.message, status_code=400)
     if repeated:
         return redirect(f"/accounts/{account_id}/import/{batch_id}", "This exact file was already imported; no rows were posted again.")
     return redirect(f"/accounts/{account_id}/import/{batch_id}")
@@ -108,7 +167,7 @@ async def map_columns(request: Request, account_id: int):
                           suggested_amount_model=mapping.get("amount_model", "SINGLE"), mapping=mapping,
                           invert_amount=form.get("amount_sign") == "invert", error=exc.message, status_code=400)
         msg = exc.message if isinstance(exc, LightningError) else "The uploaded statement could not be read. Upload it again."
-        return render(request, "bank_import_upload.html", account=c.accounts.get(account_id), error=msg, status_code=400)
+        return _render_upload(request, c, account_id, error=msg, status_code=400)
     if repeated:
         return redirect(f"/accounts/{account_id}/import/{batch_id}", "This exact file was already imported.")
     return redirect(f"/accounts/{account_id}/import/{batch_id}")

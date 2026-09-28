@@ -82,6 +82,31 @@ class AssetService:
             raise NotFoundError(f"Financial asset {code} not found.")
         return found
 
+    def investment_preferences(self, asset_id: int) -> tuple[str | None, str | None]:
+        """User-facing allocation bucket and horizon for an investment."""
+        row = self.db.one(
+            "SELECT allocation_bucket,investment_horizon FROM financial_assets WHERE id=?",
+            (asset_id,),
+        )
+        if row is None:
+            raise NotFoundError("Financial asset not found.")
+        return row["allocation_bucket"], row["investment_horizon"]
+
+    def all_investment_preferences(self) -> dict[int, dict[str, str | None]]:
+        """Saved allocation and horizon labels for investment views."""
+        return {row["id"]: {"allocation_bucket": row["allocation_bucket"],
+                            "investment_horizon": row["investment_horizon"]}
+                for row in self.db.all(
+                    "SELECT id,allocation_bucket,investment_horizon FROM financial_assets"
+                )}
+
+    def set_investment_preferences(self, asset_id: int, bucket: str, horizon: str | None) -> None:
+        self.get_asset(asset_id)
+        self.db.execute(
+            "UPDATE financial_assets SET allocation_bucket=?,investment_horizon=? WHERE id=?",
+            (bucket, horizon, asset_id),
+        )
+
     def cash_asset(self, currency: str) -> FinancialAsset:
         found = self.repo.get_cash_asset(currency)
         if not found:

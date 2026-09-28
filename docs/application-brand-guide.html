@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lightning · Application patterns</title>
+  <link rel="stylesheet" href="../lightning/ui/static/fonts/fonts.css">
+  <link rel="stylesheet" href="../lightning/ui/static/style.css">
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <a class="brand" href="#summary">Lightning</a>
+    <nav class="nav" aria-label="Reference sections">
+      <a href="#summary">Summary</a>
+      <a href="#analysis">Analysis</a>
+      <a href="#work-list">Work list</a>
+      <a href="#controls">Controls</a>
+    </nav>
+  </aside>
+  <main class="main">
+    <div class="topbar">
+      <div><p class="eyebrow">Application patterns · Illustrative data</p><h1>Clear numbers, useful detail</h1><p class="muted">Shared structures for financial work, using the live application styles. <a href="APPLICATION_BRAND_GUIDE.md">Read the application specification</a>.</p></div>
+    </div>
+
+    <section id="summary" class="workspace-grid">
+      <article class="metric-card key-card" aria-label="Illustrative account summary">
+        <div class="metric-label">Planned spending</div>
+        <div class="metric-value">24,680.00 EGP</div>
+        <p class="metric-note">Illustrative · as of 28 Sep 2026</p>
+        <div class="key-card-rows">
+          <details class="key-card-row"><summary><span>Everyday spending</span><b>12,400.00 EGP</b></summary><p class="key-card-detail">Illustrative · 18 transactions · <a href="#work-list">View activity</a></p></details>
+          <details class="key-card-row"><summary><span>Home and bills</span><b>8,200.00 EGP</b></summary><p class="key-card-detail">Illustrative · 6 transactions · next bill due 1 Oct</p></details>
+          <details class="key-card-row"><summary><span>Travel</span><b>4,080.00 EGP</b></summary><p class="key-card-detail">Illustrative · 3 transactions</p></details>
+        </div>
+        <a class="metric-link" href="#work-list">Review accounts →</a>
+      </article>
+      <section class="data-panel">
+        <div class="section-head"><div><h2>Distinct supporting measures</h2><p>Only measures that answer a separate question.</p></div></div>
+        <div class="metric-grid">
+          <article class="metric-card"><div class="metric-label">Assigned to plans</div><div class="metric-value">7,500 EGP</div><p class="metric-note">Illustrative</p></article>
+          <article class="metric-card"><div class="metric-label">Due this month</div><div class="metric-value">3,200 EGP</div><p class="metric-note">Illustrative · 2 plans</p></article>
+        </div>
+      </section>
+    </section>
+
+    <section id="analysis" class="data-panel">
+      <div class="section-head"><div><h2>Analysis answers one question</h2><p>Illustrative values · September 2026 · EGP</p></div><a href="#work-list">View transactions →</a></div>
+      <div class="workspace-grid">
+        <section>
+          <h3>Where did spending go?</h3>
+          <div class="chart-axis"><span>Category</span><div class="chart-ticks"><i>0 EGP</i><i>5,000</i><i>10,000</i></div><span>Amount</span></div>
+          <a class="allocation-bar-row" href="#work-list"><span>Home</span><span class="mix-track"><i style="width:82%"></i></span><b>8,200 EGP</b></a>
+          <a class="allocation-bar-row" href="#work-list"><span>Food</span><span class="mix-track"><i style="width:64%"></i></span><b>6,400 EGP</b></a>
+          <a class="allocation-bar-row" href="#work-list"><span>Transport</span><span class="mix-track"><i style="width:32%"></i></span><b>3,200 EGP</b></a>
+        </section>
+        <section>
+          <h3>How close to the goal?</h3>
+          <p class="muted small">Travel reserve · illustrative</p>
+          <div class="reserve-row-progress"><div class="bartrack"><div class="bar" style="width:68%"></div></div><span class="small">6,800 EGP of 10,000 EGP · 3,200 EGP remaining</span></div>
+          <h3>How did it change?</h3>
+          <p class="muted small">Illustrative account balance · EGP · 1–28 Sep 2026</p>
+          <svg viewBox="0 0 360 112" role="img" aria-label="Illustrative balance over time: 18,000 EGP on 1 Sep, 20,500 EGP on 8 Sep, 19,800 EGP on 14 Sep, 24,680 EGP on 28 Sep">
+            <path d="M34 12V84H350" fill="none" stroke="currentColor" opacity=".25"/>
+            <path d="M38 69 L96 60 L154 65 L212 42 L270 48 L344 22" fill="none" stroke="#0B6DD6" stroke-width="2"/>
+            <g fill="currentColor" font-size="10"><text x="2" y="18">25,000 EGP</text><text x="2" y="84">18,000 EGP</text><text x="30" y="104">1 Sep</text><text x="315" y="104">28 Sep</text></g>
+          </svg>
+          <p class="muted small">Missing price observations should remain gaps in a time series.</p>
+        </section>
+      </div>
+    </section>
+
+    <section id="work-list" class="data-panel">
+      <div class="section-head"><div><h2>Find and correct names</h2><p>Search first, then edit a row or reveal its details.</p></div><button class="btn primary" type="button">Add counterparty</button></div>
+      <form class="toolbar-filters" role="search"><label>Search names<input type="search" placeholder="Name or alias"></label><button class="btn" type="button">Clear</button></form>
+      <div class="table-scroll"><table><thead><tr><th>Name</th><th>Suggested category</th><th>Status</th><th>More</th></tr></thead><tbody>
+        <tr><td><input aria-label="Counterparty name" value="Harbor Market"></td><td>Food · Groceries</td><td>Active</td><td><details><summary>Details</summary><p class="muted small">Illustrative alias: Harbor Foods</p><button class="btn small" type="button">Edit aliases</button></details></td></tr>
+        <tr><td><input aria-label="Counterparty name" value="Northline Transit"></td><td>Transport · Public transit</td><td>Active</td><td><details><summary>Details</summary><p class="muted small">No aliases</p><button class="btn small" type="button">Add alias</button></details></td></tr>
+      </tbody></table></div>
+    </section>
+
+    <section class="data-panel">
+      <div class="section-head"><div><h2>Card roles and visual tokens</h2><p>Consistent purpose, quiet surfaces, and semantic accents.</p></div></div>
+      <div class="workspace-grid">
+        <p><b>Result</b><br><span class="muted small">One headline value with an expandable breakdown.</span></p>
+        <p><b>Data</b><br><span class="muted small">Neutral lists, tables, and supporting measures.</span></p>
+        <p><b>Interaction</b><br><span class="muted small">A focused action with adjacent status and errors.</span></p>
+      </div>
+      <div class="table-scroll"><table><thead><tr><th>Token</th><th>Sample</th><th>Use</th></tr></thead><tbody>
+        <tr><td>Ink</td><td><span aria-label="#0D2233" style="display:inline-block;width:24px;height:14px;background:#0D2233;border:1px solid #DDE9E6"></span></td><td>Text and financial values</td></tr>
+        <tr><td>Paper</td><td><span aria-label="#F8FCFA" style="display:inline-block;width:24px;height:14px;background:#F8FCFA;border:1px solid #DDE9E6"></span></td><td>Quiet surface</td></tr>
+        <tr><td>Azure</td><td><span aria-label="#0B6DD6" style="display:inline-block;width:24px;height:14px;background:#0B6DD6;border:1px solid #DDE9E6"></span></td><td>Neutral links and comparison</td></tr>
+        <tr><td>Meadow</td><td><span aria-label="#08764F" style="display:inline-block;width:24px;height:14px;background:#08764F;border:1px solid #DDE9E6"></span></td><td>Positive status</td></tr>
+        <tr><td>Rose</td><td><span aria-label="#A82F5D" style="display:inline-block;width:24px;height:14px;background:#A82F5D;border:1px solid #DDE9E6"></span></td><td>Shortfall or negative value</td></tr>
+      </tbody></table></div>
+      <p class="muted small">Typography uses local app fonts with Plus Jakarta Sans and Inter fallbacks; charts, controls and values require no external font service.</p>
+    </section>
+
+    <section id="controls" class="workspace-grid">
+      <section class="interaction-panel">
+        <div class="section-head"><div><h2>One focused action</h2><p>Persistent labels and adjacent feedback.</p></div></div>
+        <form class="stack"><label>Reserve name<input type="text" value="Travel" required></label><label>Target amount<input type="text" value="10,000.00" inputmode="decimal"></label><label>Due date<input type="date" value="2026-12-01"></label><div class="actions"><button class="btn primary" type="button">Save reserve</button><button class="btn" type="button">Cancel</button><button class="btn danger" type="button">Delete</button><button class="btn" type="button" disabled>Unavailable</button></div><p class="muted small">Buttons are examples only and do not save data.</p></form>
+      </section>
+      <section class="data-panel">
+        <div class="section-head"><div><h2>Visible states</h2><p>Clear meaning without relying on colour.</p></div></div>
+        <p class="flash">Saved · illustrative status</p>
+        <p class="flash error" role="alert">Enter a valid date · illustrative error</p>
+        <p class="muted">Unavailable price · illustrative missing data</p>
+        <details><summary>Context and assumptions</summary><p class="context-panel">Illustrative sample only. Actual totals and transaction details always come from the selected account and date range.</p></details>
+      </section>
+    </section>
+  </main>
+</div>
+</body>
+</html>

@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from decimal import Decimal
 from datetime import timedelta
+import json
 
-from lightning.categories.domain import Category, Movement, Scope
+from lightning.categories.domain import Category, CategoryFamily, Movement, Scope
 from lightning.categories.service import CategoryService
 from lightning.core.dates import month_of, parse_month
 from lightning.core.errors import ValidationError
@@ -26,20 +27,94 @@ class BudgetService:
         self.categories = categories
         self.reporting = reporting
 
+    def first_owned_spending_date(self) -> str | None:
+        """Earliest posted, personally owned entry in a spending category."""
+        return self.db.scalar(
+            "SELECT MIN(le.date) FROM ledger_entries le JOIN transactions t ON t.id=le.transaction_id "
+            "WHERE t.status='POSTED' AND le.category_id IS NOT NULL AND le.owner_id IS NULL"
+        )
+
+    def snapshot_rows(self, category_ids: list[int]) -> list[dict]:
+        """Capture all stored rules for an undoable bulk edit."""
+        if not category_ids:
+            return []
+        marks = ",".join("?" for _ in category_ids)
+        return [dict(row) for row in self.db.all(
+            f"SELECT * FROM budgets WHERE category_id IN ({marks})", tuple(category_ids)
+        )]
+
+    def restore_rows(self, category_ids: list[int], rows: list[dict]) -> None:
+        """Restore the exact rules captured before a bulk edit."""
+        if not category_ids:
+            return
+        columns = ("id", "category_id", "month", "one_off", "amount_e6", "created_at", "updated_at",
+                   "average_months", "income_percent_e6")
+        marks = ",".join("?" for _ in category_ids)
+        names = ",".join(columns)
+        values = ",".join("?" for _ in columns)
+        with self.db.transaction():
+            self.db.execute(f"DELETE FROM budgets WHERE category_id IN ({marks})", tuple(category_ids))
+            for row in rows:
+                self.db.execute(f"INSERT INTO budgets({names}) VALUES ({values})",
+                                tuple(row.get(key) for key in columns))
+
     # ------------------------------------------------------------------ reading
-    def amounts_for(self, month: str) -> dict[int, tuple[Decimal | None, bool, int | None]]:
-        """Configured amount, one-off flag, and optional rolling-average period by category."""
+    def amounts_for(self, month: str) -> dict[int, tuple[Decimal | None, bool, int | None, Decimal | None]]:
+        """Effective amount, one-off flag, average window, and income percentage."""
         parse_month(month)
-        repeating: dict[int, tuple[Decimal | None, int | None]] = {}
-        one_off: dict[int, tuple[Decimal | None, int | None]] = {}
+        repeating: dict[int, tuple[Decimal | None, int | None, Decimal | None]] = {}
+        one_off: dict[int, tuple[Decimal | None, int | None, Decimal | None]] = {}
         for e in self.repo.entries_up_to(month):  # ordered by category, month
             if e.one_off:
-                one_off[e.category_id] = (e.amount, e.average_months)
+                one_off[e.category_id] = (e.amount, e.average_months, e.income_percent)
             else:
-                repeating[e.category_id] = (e.amount, e.average_months)
-        result = {cid: (amount, False, period) for cid, (amount, period) in repeating.items()}
-        result.update({cid: (amount, True, period) for cid, (amount, period) in one_off.items()})
-        return {cid: v for cid, v in result.items() if v[0] is not None or v[2] is not None}
+                repeating[e.category_id] = (e.amount, e.average_months, e.income_percent)
+        result = {cid: (amount, False, period, percent) for cid, (amount, period, percent) in repeating.items()}
+        result.update({cid: (amount, True, period, percent) for cid, (amount, period, percent) in one_off.items()})
+        result = {cid: v for cid, v in result.items() if v[0] is not None or v[2] is not None or v[3] is not None}
+        for cid, (amount, oneoff, period, percent) in list(result.items()):
+            if percent is not None:
+                income = self.budgeting_income(month)
+                amount = None if income is None else (income * percent / Decimal(100)).quantize(Decimal("0.01"))
+            elif period:
+                cats = [c for c in self.categories.tree(Movement.OUTFLOW) if not c.is_root]
+                children = {}
+                for cat in cats:
+                    if cat.parent_id:
+                        children.setdefault(cat.parent_id, []).append(cat.id)
+                amount = self._rolling_average(cid, month, period, children, {})
+            result[cid] = (amount, oneoff, period, percent)
+        return result
+
+    def budgeting_income(self, month: str) -> Decimal | None:
+        """Average monthly owned budgeting income over prior completed months."""
+        configured = self.db.scalar("SELECT value FROM settings WHERE key='budget_income_categories'")
+        try:
+            chosen = {int(value) for value in json.loads(configured)} if configured else set()
+        except (ValueError, TypeError):
+            chosen = set()
+        categories = self.categories.tree()
+        by_code = {category.code: category for category in categories}
+        if configured is None:
+            chosen = {category.id for category in categories if category.family == CategoryFamily.WORK or
+                      any(word in category.name.casefold() for word in ("salary", "wage", "pay"))}
+        manual = self.db.scalar("SELECT value FROM settings WHERE key='budget_manual_monthly_income'")
+        if manual:
+            return to_decimal(manual, "manual_income")
+        raw_months = self.db.scalar("SELECT value FROM settings WHERE key='budget_income_months'") or "3"
+        lookback = 6 if str(raw_months) == "6" else 3
+        end = parse_month(month)[0] - timedelta(days=1)
+        observed = []
+        for _ in range(lookback):
+            start, last = parse_month(month_of(end))
+            income = self.reporting.money_in_by_category(start, last)
+            rows = [row for row in income if by_code.get(row.code) and by_code[row.code].id in chosen and
+                    by_code[row.code].income_class is not None and row.code != "EXP.INVEST" and
+                    not any(word in row.code.casefold() for word in ("sale", "opening", "valuation"))]
+            if rows:
+                observed.append(sum((row.value for row in rows), ZERO))
+            end = start - timedelta(days=1)
+        return (sum(observed, ZERO) / len(observed)).quantize(Decimal("0.01")) if observed else None
 
     def has_plan(self, month: str) -> bool:
         return bool(self.amounts_for(month))
@@ -47,7 +122,7 @@ class BudgetService:
     def month_view(self, month: str) -> BudgetMonth:
         first, last = parse_month(month)
         direct = self.amounts_for(month)
-        spent = self.reporting.money_out_by_category(first, last)
+        spent = self._owned_spending(first, last)
         cats = [c for c in self.categories.tree(Movement.OUTFLOW) if not c.is_root]
         by_id = {c.id: c for c in cats}
         children: dict[int, list[int]] = {}
@@ -56,19 +131,22 @@ class BudgetService:
                 children.setdefault(c.parent_id, []).append(c.id)
 
         actual: dict[int, Decimal] = {}
+        planned_actual: dict[int, Decimal] = {}
         budget: dict[int, Decimal | None] = {}
-        average_cache: dict[tuple[int, int], Decimal] = {}
+        average_cache: dict[tuple[int, int], Decimal | None] = {}
         for c in reversed(cats):  # children before parents
             kids = children.get(c.id, [])
             actual[c.id] = spent.get(c.id, ZERO) + sum((actual[k] for k in kids), ZERO)
             if c.id in direct:
-                amount, _, period = direct[c.id]
-                if period:
-                    amount = self._rolling_average(c.id, month, period, children, average_cache)
+                amount, _, period, percent = direct[c.id]
                 budget[c.id] = amount
             else:
                 kid_budgets = [budget[k] for k in kids if budget[k] is not None]
                 budget[c.id] = sum(kid_budgets, ZERO) if kid_budgets else None
+            if budget[c.id] is not None and c.id in direct:
+                planned_actual[c.id] = actual[c.id]
+            else:
+                planned_actual[c.id] = sum((planned_actual[k] for k in kids), ZERO)
 
         def ancestor_has_direct(c: Category) -> bool:
             parent = by_id.get(c.parent_id)
@@ -79,6 +157,7 @@ class BudgetService:
             return False
 
         sections = {scope: BudgetSection(name) for scope, name in SECTION_NAMES.items()}
+        sections["INVESTMENT"] = BudgetSection("Investment")
         warnings: list[str] = []
         carryover_settings = self.repo.carryover_settings(month)
         opening_carryovers = {category_id: self._opening_carryover(category_id, month,
@@ -90,7 +169,7 @@ class BudgetService:
                 opening_carryovers[category.id] = sum(
                     (opening_carryovers.get(child_id, ZERO) for child_id in children.get(category.id, [])), ZERO)
         for c in cats:
-            section = sections[c.scope or Scope.PERSONAL]
+            section = sections["INVESTMENT"] if c.family == CategoryFamily.INVESTMENT else sections[c.scope or Scope.PERSONAL]
             covered = ancestor_has_direct(c)
             if c.id not in direct and not covered:
                 section.unbudgeted += spent.get(c.id, ZERO)
@@ -99,12 +178,14 @@ class BudgetService:
                 shows = False
             if not shows:
                 continue
-            amount, one_off, average_months = direct.get(c.id, (None, False, None))
+            amount, one_off, average_months, income_percent = direct.get(c.id, (None, False, None, None))
             section.lines.append(BudgetLine(
                 category_id=c.id, code=c.code, name=c.name, depth=c.depth, direct=amount, one_off=one_off,
-                average_months=average_months, budget=budget[c.id], actual=actual[c.id], covered=covered,
+                average_months=average_months, budget=budget[c.id], actual=actual[c.id],
+                planned_actual=planned_actual[c.id], covered=covered,
                 opening_carryover=opening_carryovers.get(c.id, ZERO),
                 carryover_enabled=carryover_settings.get(c.id, False),
+                income_percent=income_percent,
             ))
             kids_total = sum(((budget[k] or ZERO) + opening_carryovers.get(k, ZERO)
                               for k in children.get(c.id, []) if budget[k] is not None), ZERO)
@@ -124,15 +205,21 @@ class BudgetService:
         for category in cats:
             if category.parent_id in by_id:
                 children.setdefault(category.parent_id, []).append(category.id)
-        cache: dict[tuple[int, int], Decimal] = {}
+        cache: dict[tuple[int, int], Decimal | None] = {}
         result = {}
         for category in cats:
             if children.get(category.id):
                 continue
             avg = self._rolling_average(category.id, month, 3, children, cache)
-            if avg > ZERO:
+            if avg is not None and avg > ZERO:
                 result[category.id] = avg
         return result
+
+    def _owned_spending(self, start, end) -> dict[int, Decimal]:
+        # Report queries already filter to posted, user-owned categorized ledger
+        # effects; investment buys, transfers, and revaluations have no outflow
+        # expense effect and therefore do not appear as spending here.
+        return self.reporting.money_out_by_category(start, end)
 
     def set_carryover(self, month: str, settings: dict[int, bool]) -> int:
         parse_month(month)
@@ -162,6 +249,11 @@ class BudgetService:
         active = False
         setting_index = 0
         balance = ZERO
+        reset_month = self.repo.reset_month(category_id, month)
+        if reset_month == month:
+            return ZERO
+        enabling_now = bool(settings and settings[-1] == (month, True))
+        preceding_month = month_of(first - timedelta(days=1))
         descendants = {category_id}
         pending = [category_id]
         while pending:
@@ -170,20 +262,33 @@ class BudgetService:
             pending.extend(kids)
         while cursor < first:
             current_month = month_of(cursor)
+            if reset_month == current_month:
+                balance = ZERO
             while setting_index < len(settings) and settings[setting_index][0] <= current_month:
                 active = settings[setting_index][1]
                 setting_index += 1
+            next_month = month_of(parse_month(current_month)[1] + timedelta(days=1))
+            # An opt-in effective in the next month immediately carries this
+            # month's final result, even if carryover was previously off.
+            if setting_index < len(settings) and settings[setting_index] == (next_month, True):
+                active = True
+            if enabling_now and current_month == preceding_month:
+                active = True
             next_cursor = (parse_month(current_month)[1] + timedelta(days=1))
             if active:
                 direct = self.amounts_for(current_month).get(category_id)
                 if direct:
-                    amount, _, period = direct
+                    amount, _, period, percent = direct
                     if period:
                         amount = self._rolling_average(category_id, current_month, period, children, {})
+                    elif percent is not None:
+                        amount = self.budgeting_income(current_month)
+                        if amount is not None:
+                            amount = amount * percent / Decimal(100)
                     start, end = parse_month(current_month)
-                    spent = self.reporting.money_out_by_category(start, end)
+                    spent = self._owned_spending(start, end)
                     actual = sum((spent.get(cid, ZERO) for cid in descendants), ZERO)
-                    balance = max(ZERO, (amount or ZERO) + balance - actual)
+                    balance = (amount or ZERO) + balance - actual
                 else:
                     balance = ZERO
             else:
@@ -210,8 +315,8 @@ class BudgetService:
                 category = self._budgetable(category_id)
                 period = self._average_period(average_months.get(category_id))
                 value = None if period else self._parse(raw, category)
-                old = current.get(category_id, (None, False, None))
-                if old[0] == value and old[2] == period:
+                old = current.get(category_id, (None, False, None, None))
+                if old[0] == value and old[2] == period and old[3] is None:
                     continue
                 before = self._repeating_before(category_id, month)
                 desired = (value, period)
@@ -242,7 +347,7 @@ class BudgetService:
         return (rows[-1].amount, rows[-1].average_months) if rows else (None, None)
 
     def _rolling_average(self, category_id: int, month: str, months: int,
-                         children: dict[int, list[int]], cache: dict[tuple[int, int], Decimal]) -> Decimal:
+                         children: dict[int, list[int]], cache: dict[tuple[int, int], Decimal | None]) -> Decimal | None:
         key = (category_id, months)
         if key in cache:
             return cache[key]
@@ -256,11 +361,52 @@ class BudgetService:
             pending.extend(child_ids)
         for _ in range(months):
             start, end = parse_month((cursor - timedelta(days=1)).strftime("%Y-%m"))
-            actual = self.reporting.money_out_by_category(start, end)
+            actual = self._owned_spending(start, end)
             total += sum((actual.get(cid, ZERO) for cid in descendants), ZERO)
             cursor = start
-        cache[key] = (total / months).quantize(Decimal("0.01"))
+        observed = 0
+        cursor = parse_month(month)[0]
+        for _ in range(months):
+            start, end = parse_month((cursor - timedelta(days=1)).strftime("%Y-%m"))
+            amounts = self._owned_spending(start, end)
+            if any(cid in amounts for cid in descendants):
+                observed += 1
+            cursor = start
+        cache[key] = (total / observed).quantize(Decimal("0.01")) if observed else None
         return cache[key]
+
+    def set_income_percentage(self, category_id: int, month: str, percent: object,
+                              only_this_month: bool = False) -> bool:
+        parse_month(month); category = self._budgetable(category_id)
+        value = check_places(to_decimal(percent, "percentage"), 2, "percentage")
+        if value < ZERO or value > 10000:
+            raise ValidationError("Enter an income percentage from 0 to 10,000.", "percentage")
+        rows = self.repo.entries_up_to(month)
+        prior = next((row for row in reversed(rows) if row.category_id == category_id and not row.one_off
+                      and row.month < month), None)
+        previous = ((prior.amount, prior.average_months, prior.income_percent) if prior else (None, None, None))
+        desired = (None, None, value)
+        with self.db.transaction():
+            if only_this_month:
+                if previous == desired:
+                    self.repo.delete(category_id, month, True)
+                else:
+                    self.repo.upsert(category_id, month, True, None, None, value)
+            else:
+                self.repo.delete(category_id, month, True)
+                if previous == desired:
+                    self.repo.delete(category_id, month, False)
+                else:
+                    self.repo.upsert(category_id, month, False, None, None, value)
+        return True
+
+    def reset_carryover(self, category_id: int, month: str) -> None:
+        """Set a dated boundary clearing carryover from this month onward."""
+        parse_month(month)
+        self._budgetable(category_id)
+        if category_id not in self.amounts_for(month):
+            raise ValidationError("Reset carryover is available for tracked categories only.")
+        self.repo.reset(category_id, month)
 
     @staticmethod
     def _average_period(raw: object) -> int | None:

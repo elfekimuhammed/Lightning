@@ -243,8 +243,8 @@ class ReevaluationService:
             valuation = self.reporting.valuer.value(self.reporting.assets.get_asset(asset_id), Decimal(1), day)
             if valuation.value is None or valuation.source == "COST" or not valuation.price_date:
                 return None
-            if (parse_date(day) - parse_date(valuation.price_date)).days > 10:
-                return None
+            # Physical-item values are explicit dated appraisals, not market
+            # quotes; retain the latest recorded appraisal until replaced.
             return valuation.price, valuation.source
         found = self.reporting.valuer._price(self.reporting.assets.get_asset(asset_id), day)
         if not found or found[2] == "COST":

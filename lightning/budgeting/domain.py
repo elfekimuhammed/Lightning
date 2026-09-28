@@ -27,6 +27,7 @@ class BudgetEntry:
     one_off: bool
     amount: Decimal | None  # None = no budget
     average_months: int | None = None  # rolling average from prior complete months
+    income_percent: Decimal | None = None
 
 
 @dataclass
@@ -40,13 +41,15 @@ class BudgetLine:
     average_months: int | None  # None = manual; 3/6 = auto budget from past spending
     budget: Decimal | None  # effective: direct, else sum of children's budgets, else None
     actual: Decimal  # money out, this line and everything under it
+    planned_actual: Decimal  # spending covered by a limit at this line or below
     covered: bool  # an ancestor has a budget, so this spending is inside a budget
     opening_carryover: Decimal = ZERO
     carryover_enabled: bool = False
+    income_percent: Decimal | None = None
 
     @property
     def remaining(self) -> Decimal | None:
-        return None if self.budget is None else self.budget + self.opening_carryover - self.actual
+        return None if self.budget is None else self.budget + self.opening_carryover - self.planned_actual
 
     @property
     def available(self) -> Decimal | None:
@@ -56,11 +59,11 @@ class BudgetLine:
     def used_pct(self) -> int | None:
         if not self.available:
             return None
-        return int((self.actual / self.available * 100).to_integral_value())
+        return int((self.planned_actual / self.available * 100).to_integral_value())
 
     @property
     def over(self) -> bool:
-        return self.available is not None and self.actual > self.available
+        return self.available is not None and self.planned_actual > self.available
 
 
 @dataclass
@@ -82,8 +85,13 @@ class BudgetSection:
         return sum((g.actual for g in self.groups), ZERO)
 
     @property
+    def planned_actual(self) -> Decimal:
+        """Spending covered by category or ancestor limits."""
+        return sum((group.planned_actual for group in self.groups), ZERO)
+
+    @property
     def remaining(self) -> Decimal:
-        return self.available - self.actual
+        return self.available - self.planned_actual
 
     @property
     def available(self) -> Decimal:
@@ -108,7 +116,7 @@ class BudgetMonth:
 
     @property
     def remaining(self) -> Decimal:
-        return self.available - self.actual
+        return sum((section.remaining for section in self.sections), ZERO)
 
     @property
     def available(self) -> Decimal:

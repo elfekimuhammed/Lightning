@@ -32,16 +32,20 @@ async def edit_transaction_popup(request: Request, txn_id: int):
         source = cash_lines[0]
         target = None
         kind = "out" if source.quantity < 0 else "in"
-        category_id, amount = str(source.category_id or ""), abs(source.quantity)
+        split_categories = sorted({line.category_id for line in cash_lines if line.category_id})
+        is_split = len(cash_lines) > 1
+        category_id = "" if is_split else str(source.category_id or "")
+        amount = abs(sum((line.quantity for line in cash_lines), start=0)) if is_split else abs(source.quantity)
     owner_id = next((line.owner_id for line in txn.lines if line.owner_id is not None), None)
-    cp = c.counterparties.resolve(txn.counterparty) if txn.counterparty else None
     values = {"kind": kind, "date": txn.date, "amount": str(amount), "category_id": category_id,
-              "counterparty_id": str(cp["id"]) if cp else "", "owner_id": str(owner_id or ""),
+              "counterparty": txn.counterparty or "", "owner_id": str(owner_id or ""),
               "to_account_id": str(target.account_id) if target else "", "notes": txn.notes,
               "return_to": _back(request, f"/accounts/{source.account_id}"), "account_id": str(source.account_id)}
     from .accounts import _transaction_popup_context
     return render(request, "transactions/form_popup.html", **_transaction_popup_context(
-        request, c.accounts.get(source.account_id), values, f"/transactions/{txn_id}/edit-popup", txn_id=txn_id))
+        request, c.accounts.get(source.account_id), values, f"/transactions/{txn_id}/edit-popup", txn_id=txn_id,
+        split_categories=[c.categories.display_name(category_id) for category_id in split_categories]
+        if txn.type.value != "TRF" and is_split else []))
 
 
 @router.post("/transactions/{txn_id:int}/edit-popup")
@@ -49,13 +53,20 @@ async def save_transaction_popup(request: Request, txn_id: int):
     c = container(request)
     form = await request.form()
     values = {key: str(form.get(key, "")) for key in
-              ("kind", "date", "amount", "category_id", "counterparty_id", "owner_id", "to_account_id", "notes", "account_id")}
+              ("kind", "date", "amount", "category_id", "counterparty", "owner_id", "to_account_id", "notes", "account_id")}
     from .accounts import _safe_return, _transaction_popup_context
     txn = c.transactions.get(txn_id)
     account_id = int(values["account_id"]) if values["account_id"].isdigit() else txn.lines[0].account_id
     account = c.accounts.get(account_id)
     values["return_to"] = _safe_return(form.get("return_to"), f"/accounts/{account_id}")
     try:
+        cash_lines = [line for line in txn.lines if c.assets.get_asset(line.asset_id).is_cash]
+        split_categories = {line.category_id for line in cash_lines if line.category_id}
+        if txn.type.value == "OUT" and len(cash_lines) > 1:
+            from .accounts import _popup_counterparty
+            cp = _popup_counterparty(c, values["counterparty"])
+            updated = c.transactions.update_metadata(txn_id, values["date"], cp, values["notes"])
+            return redirect(values["return_to"], f"Saved {updated.ref}; split amounts are unchanged.")
         if values["kind"] not in {"out", "in", "transfer"}:
             raise ValidationError("Choose a transaction type.", "kind")
         day = fmt_date(parse_date(values["date"], "date"))
@@ -75,7 +86,8 @@ async def save_transaction_popup(request: Request, txn_id: int):
                 raise ValidationError("Choose a category that matches this transaction type.", "category")
             other = None
             signed = -amount if values["kind"] == "out" else amount
-        cp = c.counterparties.get(int(values["counterparty_id"]))["name"] if values["counterparty_id"].isdigit() else ""
+        from .accounts import _popup_counterparty
+        cp = _popup_counterparty(c, values["counterparty"])
         updated = c.transactions.update_in_account(txn_id, account_id, day, signed, category_id, other,
                                                    counterparty=cp, notes=values["notes"], owner_id=owner_id)
         c.reserves.auto_link_transaction(updated.id)
@@ -83,7 +95,10 @@ async def save_transaction_popup(request: Request, txn_id: int):
     except (LightningError, ValueError) as exc:
         error = exc if isinstance(exc, LightningError) else ValidationError("Choose valid values for this transaction.")
         return render(request, "transactions/form_popup.html", status_code=400,
-                      **_transaction_popup_context(request, account, values, f"/transactions/{txn_id}/edit-popup", error, txn_id))
+                      **_transaction_popup_context(request, account, values, f"/transactions/{txn_id}/edit-popup", error,
+                                                   txn_id, [c.categories.display_name(category_id)
+                                                            for category_id in split_categories]
+                                                   if txn.type.value == "OUT" and len(cash_lines) > 1 else []))
 
 
 def _back(request: Request, default: str) -> str:

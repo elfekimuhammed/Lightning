@@ -132,7 +132,18 @@ class TransactionService:
             raise ValidationError("Change an opening balance from the account's edit page.")
         if current.type not in EDITABLE_TYPES:
             raise ValidationError(f"{current.type_label} transactions are edited from Investments.")
+        cash_lines = [line for line in current.lines if self.assets.get_asset(line.asset_id).is_cash]
+        if current.type == DocType.OUT and len(cash_lines) > 1 and category_id is None:
+            total = sum((line.quantity for line in cash_lines), ZERO)
+            if account_id != cash_lines[0].account_id or to_decimal(amount, "amount") != total:
+                raise ValidationError("Change split amounts on the transaction details page; this edit only changes its notes or date.")
+            return self.update_metadata(current.id, date, counterparty, notes)
         kind, value, category_id = self._register_kind(amount, category_id, other_account_id)
+        if kind != current.type and category_id is not None:
+            category = self.categories.get(category_id)
+            movement = Movement.INFLOW if kind == DocType.IN else Movement.OUTFLOW
+            if category.is_system and category.movement != movement:
+                raise ValidationError("This system category cannot be changed to the opposite money direction. Choose a regular category.", "category")
         with self.db.transaction():
             if kind != current.type:
                 self.void(current.id, f"Replaced when edited ({current.type_label} → {DOC_LABELS[kind]})")
@@ -254,7 +265,6 @@ class TransactionService:
                 if not owner:
                     raise ValidationError("Choose an active saved owner.", "owner_id")
             if ((line.owner_id is not None and line.quantity != ZERO) or not asset.is_cash or
-                    (asset.is_cash and line.quantity < ZERO) or
                     (force_brokerage_cash and line.effect == Effect.INTERNAL and
                      account.account_type.value == "BROKERAGE")):
                 keys.add((line.account_id, line.asset_id, line.owner_id))
@@ -340,6 +350,12 @@ class TransactionService:
                                        allow_inactive_category=unchanged_category)
         lines = [replace(line, owner_id=owner_id) for line in lines]
         return self._update(current, day, lines, description, counterparty, notes)
+
+    def update_metadata(self, txn_id: int, date: str, counterparty: str = "", notes: str = "") -> Transaction:
+        """Edit transaction details without rebuilding or changing its ledger lines."""
+        current = self._editable(txn_id, EDITABLE_TYPES)
+        day = self._check_date(date)
+        return self._update(current, day, list(current.lines), current.description, counterparty, notes)
 
     def update_expense_split(self, txn_id: int, allocations: list[tuple[int, object]]) -> Transaction:
         """Replace an expense's category allocation while preserving its total cash movement."""
@@ -583,7 +599,22 @@ class TransactionService:
             if canonical:
                 updated.counterparty = canonical["name"]
             self.repo.update_header(updated, canonical["id"] if canonical else None)
+            # Rebuilding an unchanged posting must not silently clear its
+            # reconciliation state. If its date/account/amount/category changed,
+            # leave the replacement uncleared so it can be reconciled again.
+            old_cleared = self.db.all(
+                "SELECT account_id,asset_id,quantity_e6,effect,category_id,memo,cleared "
+                "FROM ledger_entries WHERE transaction_id=? ORDER BY line_no", (current.id,))
             self.repo.replace_lines(current.id, updated.date, lines)
+            if updated.date == current.date and len(old_cleared) == len(lines):
+                new_rows = self.db.all(
+                    "SELECT id,account_id,asset_id,quantity_e6,effect,category_id,memo "
+                    "FROM ledger_entries WHERE transaction_id=? ORDER BY line_no", (current.id,))
+                for old, new in zip(old_cleared, new_rows):
+                    same_posting = all(old[key] == new[key] for key in
+                                       ("account_id", "asset_id", "quantity_e6", "effect", "category_id", "memo"))
+                    if same_posting and old["cleared"]:
+                        self.db.execute("UPDATE ledger_entries SET cleared=1 WHERE id=?", (new["id"],))
             self._check_holdings(list(current.lines) + list(lines))
             after = self.get(current.id)
             self.audit.record("transaction", current.id, "edit", f"Edited {current.ref}",

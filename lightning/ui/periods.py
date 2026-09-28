@@ -22,6 +22,14 @@ class Period:
     def end_text(self) -> str:
         return fmt_date(self.end)
 
+    @property
+    def start_display(self) -> str:
+        return self.start.strftime("%d %b %Y")
+
+    @property
+    def end_display(self) -> str:
+        return self.end.strftime("%d %b %Y")
+
 
 def parse_period(query, today: date, first_activity: str | None = None) -> Period:
     """Parse all|ytd|month|custom. Invalid selections raise a user-facing error."""

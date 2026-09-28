@@ -102,13 +102,19 @@ class BankImportService:
         self.money_from_others = money_from_others
         self.reserves = reserves
 
+    def first_pending_review(self):
+        """Earliest staged import row still requiring a decision."""
+        return self.db.one(
+            "SELECT r.id,r.batch_id,r.row_number,r.raw_json,b.account_id,b.file_name,b.created_at "
+            "FROM bank_import_rows r JOIN bank_import_batches b ON b.id=r.batch_id "
+            "WHERE r.status='REVIEW' ORDER BY r.id LIMIT 1"
+        )
+
     def suggested_mapping(self, account_id: int, headers: list[str]) -> dict[str, str]:
         """Return saved or best-effort column matches for the reviewable map step."""
-        signature = hashlib.sha256(json.dumps(headers, ensure_ascii=False).encode()).hexdigest()
-        saved = self.db.one("SELECT mapping_json,invert_amount FROM bank_import_column_maps WHERE account_id=? AND header_signature=?",
-                            (account_id, signature))
+        saved = self.saved_mapping(account_id, headers)
         if saved:
-            return json.loads(saved["mapping_json"]) | {"amount_sign": "invert" if saved["invert_amount"] else "normal"}
+            return saved
         normalized = {header: " ".join("".join(ch.lower() if ch.isalnum() else " " for ch in header).split())
                       for header in headers}
         aliases = {
@@ -133,6 +139,15 @@ class BankImportService:
         else:
             result["amount_model"] = "SINGLE"
         return result
+
+    def saved_mapping(self, account_id: int, headers: list[str]) -> dict[str, str] | None:
+        """Return a prior user-confirmed mapping for these exact headers, if available."""
+        signature = hashlib.sha256(json.dumps(headers, ensure_ascii=False).encode()).hexdigest()
+        saved = self.db.one("SELECT mapping_json,invert_amount FROM bank_import_column_maps WHERE account_id=? AND header_signature=?",
+                            (account_id, signature))
+        if not saved:
+            return None
+        return json.loads(saved["mapping_json"]) | {"amount_sign": "invert" if saved["invert_amount"] else "normal"}
 
     def stage(self, account_id: int, filename: str, data: bytes, mapping: dict[str, str] | None = None, invert_amount: bool = False):
         self.accounts.require_usable(account_id)
@@ -433,6 +448,8 @@ class BankImportService:
                     whom = self.counterparties.get(int(owner_choice.split(":", 1)[1]))["name"]
                 elif str(decision.get("whom", "")).strip():
                     whom = str(decision.get("whom", "")).strip()
+                elif canonical and canonical["active"]:
+                    whom = canonical["name"]
                 else:
                     raise ValidationError(f"CSV row {row['_line']}: choose who owns this money.", "whom")
                 whom = whom or (
@@ -464,6 +481,8 @@ class BankImportService:
                     whom = party["name"]
                 elif str(decision.get("whom", "")).strip():
                     whom = str(decision.get("whom", "")).strip()
+                elif canonical and canonical["active"]:
+                    whom = canonical["name"]
                 else:
                     raise ValidationError(f"CSV row {row['_line']}: choose who owns this money.", "whom")
                 if whom.casefold() in {"self", "me", "my money", "my own money"}:

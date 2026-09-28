@@ -208,7 +208,7 @@ def test_ui_upload_review_and_post(c, setup):
                              {"Date": "Date", "Amount": "Amount", "Counterparty": "Counterparty"})
     assert upload.status_code == 303
     preview = client.get(upload.headers["location"])
-    assert preview.status_code == 200 and "Post rows" in preview.text and 'name="amount_' in preview.text
+    assert preview.status_code == 200 and "Post ready rows" in preview.text and 'name="amount_' in preview.text
     batch_id = int(upload.headers["location"].rsplit("/", 1)[-1])
     _, rows = c.bank_imports.preview(batch_id)
     row_id = rows[0]["_import_row_id"]
@@ -217,7 +217,7 @@ def test_ui_upload_review_and_post(c, setup):
         f"category_{row_id}": str(cats["EXP.PERSONAL.FOOD"].id), f"date_{row_id}": "2026-09-22",
         f"amount_{row_id}": "-14"
     }, follow_redirects=False)
-    assert posted.status_code == 303 and "Import%20complete" in posted.headers["location"]
+    assert posted.status_code == 200 and "Import complete: 1 posted" in posted.text
     assert c.reporting.account_balance(account_id) == 50000 - 14
 
 

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Lightning{% endblock %} · Lightning</title>
   <link rel="stylesheet" href="/static/fonts/fonts.css">
-  <link rel="stylesheet" href="/static/style.css?v=15">
+  <link rel="stylesheet" href="/static/style.css?v=24">
 </head>
 <body>
 <div class="shell">
@@ -14,30 +14,30 @@
       <svg width="22" height="22" viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="brand-bolt" x1="0" y1="0" x2="0.35" y2="1"><stop offset="0" stop-color="#45A9E8"/><stop offset="0.55" stop-color="#1FB5A8"/><stop offset="1" stop-color="#34BF8C"/></linearGradient></defs><path d="M18.2 3.5 7.6 17.4c-.6.8 0 1.9 1 1.9h5.9l-1.6 8.3c-.2 1.1 1.2 1.7 1.9.8l10.6-13.9c.6-.8 0-1.9-1-1.9h-5.9l1.6-8.3c.2-1.1-1.2-1.7-1.9-.8Z" fill="url(#brand-bolt)"/></svg>
       Lightning
     </a>
-    <nav class="nav">
-      {% for href, label, icon in [("/", "Overview", "overview"), ("/accounts", "Accounts", "overview"), ("/budget", "Budget", "budget"), ("/birdview", "Birdview", "overview")] %}
-        <a href="{{ href }}" class="{{ 'active' if (href == '/' and path == '/') or (href != '/' and path.startswith(href)) }}">
-          <span class="nav-icon nav-icon--{{ icon }}" aria-hidden="true">
-            {% if icon == 'overview' %}<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-            {% elif icon == 'budget' %}<svg viewBox="0 0 24 24"><path d="M12 3v9h9"/><path d="M20.5 15A9 9 0 1 1 9 3.5"/></svg>
-            {% elif icon == 'investments' %}<svg viewBox="0 0 24 24"><path d="M3 20V4"/><path d="m4 16 5-5 4 3 7-8"/><path d="M15 6h5v5"/></svg>
-            {% else %}<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.2 2.7-5 6-5s6 1.8 6 5"/><circle cx="18" cy="9" r="2"/><path d="M17 15c2.5.2 4 1.7 4 4"/></svg>{% endif %}
-          </span><span>{{ label }}</span>
+    <nav class="nav" aria-label="Main navigation">
+      {% for href, label, icon in [('/', 'Overview', 'overview'), ('/budget', 'Budget', 'budget'), ('/birdview', 'Birdview', 'birdview'), ('/investments', 'Investments', 'investments'), ('/birdview/expenses', 'Expense analysis', 'expenses'), ('/reserves', 'Reserves', 'reserves'), ('/money-from-others', 'Money from others', 'people'), ('/settings', 'Settings', 'settings')] %}
+        {% set active = (path == '/' if href == '/' else (path == '/birdview' if href == '/birdview' else path.startswith(href))) or (href == '/settings' and (path.startswith('/counterparties') or path.startswith('/categories') or path.startswith('/checks'))) %}
+        <a href="{{ href }}" class="{{ 'active' if active }}" {% if active %}aria-current="page"{% endif %}>
+          <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24">
+            {% if icon == 'overview' %}<path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M9 21v-7h6v7"/>
+            {% elif icon == 'budget' %}<rect x="3" y="5" width="18" height="15" rx="3"/><path d="M3 9h18M16 14h3"/>
+            {% elif icon == 'birdview' %}<path d="m12 3 9 5-9 5-9-5zM3 12l9 5 9-5M3 16l9 5 9-5"/>
+            {% elif icon == 'investments' %}<path d="M3 20V4M3 20h18M6 16l5-5 4 3 5-8"/><path d="M16 6h4v4"/>
+            {% elif icon == 'expenses' %}<path d="M5 3h14v18l-3-2-4 2-4-2-3 2zM8 8h8M8 12h8M8 16h5"/>
+            {% elif icon == 'reserves' %}<path d="M12 2 4 6v6c0 5 3.5 8 8 10 4.5-2 8-5 8-10V6z"/><path d="m9 12 2 2 4-4"/>
+            {% elif icon == 'people' %}<circle cx="9" cy="8" r="3"/><path d="M3 20c0-3 2.5-5 6-5s6 2 6 5M17 5a3 3 0 0 1 0 6M18 15c2 .4 3 2 3 5"/>
+            {% else %}<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1"/>{% endif %}
+          </svg></span><span>{{ label }}</span>
         </a>
-        {% if href == '/birdview' %}<a href="/investments" class="nav-child {{ 'active' if path.startswith('/investments') }}"><span class="nav-icon nav-icon--investments" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 20V4"/><path d="m4 16 5-5 4 3 7-8"/><path d="M15 6h5v5"/></svg></span><span>Investments</span></a>{% endif %}
       {% endfor %}
-      <div class="nav-spacer"></div>
-      <details class="secondary-nav"><summary>Management</summary>
-        <a href="/reserves">Reserves</a><a href="/money-from-others">Money from others</a><a href="/counterparties">Counterparties</a><a href="/categories">Categories</a><a href="/settings">Settings</a><a href="/checks">Integrity checks</a>
-      </details>
     </nav>
-    <div class="side-accounts">
-      <a class="side-row side-total {{ 'active' if path.startswith('/transactions') }}" href="/transactions">
-        <span>All accounts</span><span class="num">{{ sidebar_total|money }}</span></a>
-      <div class="side-row side-owned-total"><span>What you own</span><span class="num">{{ sidebar_owned_total|money }}</span></div>
-      <div class="side-row side-held-total"><span>Money held for others</span><span class="num">{{ (sidebar_total - sidebar_owned_total)|money }}</span></div>
+    <details class="side-accounts" id="sidebar-accounts">
+      <summary class="mobile-accounts-summary"><span>Accounts</span><b>{{ sidebar_total|money }} {{ base }}</b></summary>
+      <div class="sidebar-heading">Accounts <span>· Balances in {{ base }}</span></div>
+      <a class="side-row side-total {{ 'active' if path == '/transactions' }}" href="/transactions" {% if path == '/transactions' %}aria-current="page"{% endif %}>
+        <span>All accounts</span><span class="num" title="Gross balances, including money held for others">{{ sidebar_total|money }}</span></a>
       {% for g in sidebar_groups %}
-        <div class="side-row side-group"><span>{{ g.label }}</span><span class="num">{{ g.value|money }}</span></div>
+        <div class="side-row side-group"><span>{{ g.label }}</span></div>
         {% for a in g.children %}
         <a class="side-row side-account {{ 'active' if path == '/accounts/' ~ a.id or path.startswith('/accounts/' ~ a.id ~ '/') }}" href="/accounts/{{ a.id }}" title="{{ a.label }}">
           <span class="side-name">{{ a.label }}</span>
@@ -46,10 +46,10 @@
       {% endfor %}
       <a class="side-add" data-popup-open href="/accounts/new">+ Add account</a>
       <a class="side-add" href="/accounts">Manage accounts</a>
-    </div>
+    </details>
   </aside>
   <main class="main">
-    <div class="topbar"><div>{% block heading %}{% endblock %}</div><div class="actions"><form method="get" action="/search" class="site-search"><input type="search" name="q" placeholder="Search accounts, assets, categories" aria-label="Search Lightning"><button class="btn small">Search</button></form>{% block top_actions %}{% endblock %}</div></div>
+    <div class="topbar"><div>{% block heading %}{% endblock %}</div><div class="actions">{% block top_actions %}{% endblock %}</div></div>
     {% if msg %}<div class="flash">{{ msg }}</div>{% endif %}
     {% if error %}<div class="flash error">{{ error }}</div>{% endif %}
     {% block content %}{% endblock %}
@@ -61,6 +61,8 @@
     <div id="app-popup-content"></div>
   </div>
 </dialog>
-<script src="/static/app.js?v=13"></script>
+<script src="/static/app.js?v=16"></script>
+<script src="/static/ai-handoff.js?v=1" defer></script>
+<script>(()=>{const section=document.getElementById('sidebar-accounts'),mobile=window.matchMedia('(max-width: 900px)');if(!section)return;const sync=()=>{section.open=!mobile.matches};sync();mobile.addEventListener('change',sync)})();</script>
 </body>
 </html>

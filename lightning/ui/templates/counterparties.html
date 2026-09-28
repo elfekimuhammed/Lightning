@@ -1,9 +1,11 @@
 {% extends "base.html" %}
 {% block title %}Counterparties{% endblock %}
-{% block heading %}<div class="acct-title"><h1>Counterparties</h1></div><div class="muted small">People and businesses you transact with</div>{% endblock %}
+{% block heading %}<h1>Settings</h1><div class="muted small">Counterparties · saved names, aliases, and suggested categories</div>{% endblock %}
 {% block content %}
-<div class="card" style="max-width:760px">
-  <h2>Add a Counterparty</h2>
+{% set settings_section = 'counterparties' %}{% include 'partials/settings_nav.html' %}
+{% if error %}<p class="flash error" role="alert">{{ error }}</p>{% endif %}
+<details class="card" {{ 'open' if error or review_required }}>
+  <summary><b>Add a Counterparty</b><span class="muted small">Save a name and optional suggested category</span></summary>
   <p class="muted small">Use one saved name across transactions. You can set a suggested category; each transaction can still use a different one.</p>
   <form method="post" action="/counterparties" class="stack">
     <label>Name<input type="text" name="name" value="{{ entered_name or '' }}" placeholder="e.g. Talabat" required></label>
@@ -14,9 +16,9 @@
     </label>
     <button class="btn primary">Add Counterparty</button>
   </form>
-</div>
-<div class="card" style="margin-top:14px">
-  <h2>Saved Counterparties <span class="muted small">{{ parties|length }} of {{ total_parties }}</span></h2>
+ </details>
+<section class="card data-panel">
+  <div class="section-head"><div><h2>Find and correct names</h2><p class="muted small">{{ parties|length }} shown · {{ total_parties }} saved. Rename, add aliases, or change the suggested category.</p></div></div>
   <form method="get" action="/counterparties" class="toolbar-filters" data-counterparty-search><input type="search" name="q" value="{{ query }}" placeholder="Search names and aliases" autocomplete="off">{% if query %}<a class="btn small" href="/counterparties">Clear</a>{% endif %}</form>
   {% if search_suggestions %}<p class="muted small">Did you mean {% for name, score in search_suggestions %}<a href="/counterparties?q={{ name|urlencode }}">{{ name }}</a>{% if not loop.last %} · {% endif %}{% endfor %}?</p>{% endif %}
   {% if parties %}
@@ -30,16 +32,8 @@
         <input type="text" name="name" value="{{ party.name }}" aria-label="Counterparty name">
         <span class="inline-save-status" role="status" aria-live="polite"></span>
       </form>
-      {% if aliases|length < alias_limit %}<div class="alias-entry">
-        <form method="post" action="/counterparties" class="alias-add">
-          <input type="hidden" name="counterparty_action" value="add_alias">
-          <input type="hidden" name="counterparty_id" value="{{ party.id }}">
-          <input type="text" name="alias" placeholder="Add alias…" required aria-label="Add alias for {{ party.name }}">
-          <button class="alias-submit" aria-label="Save alias">Save alias</button>
-        </form>
-        <div class="alias-enter-hint" role="status">Press Enter to save alias</div>
-      </div>{% else %}<span class="muted small">Alias limit reached</span>{% endif %}
-      {% if aliases %}<details class="alias-details"><summary>{{ aliases|length }} aliases</summary><div class="alias-list muted small">{% for item in aliases %}
+      {% if aliases or aliases|length < alias_limit %}<details class="alias-details"><summary>Aliases · {{ aliases|length }}</summary>
+      {% if aliases %}<div class="alias-list muted small">{% for item in aliases %}
         <form method="post" action="/counterparties" class="alias-row" data-counterparty-autosave>
           <input type="hidden" name="counterparty_action" value="rename_alias">
           <input type="hidden" name="counterparty_id" value="{{ party.id }}">
@@ -53,7 +47,16 @@
           <input type="hidden" name="alias_id" value="{{ item.id }}">
           <button class="btn small danger" aria-label="Remove alias {{ item.alias }}">×</button>
         </form>
-      {% endfor %}</div></details>{% endif %}
+      {% endfor %}</div>{% endif %}
+      {% if aliases|length < alias_limit %}<div class="alias-entry">
+        <form method="post" action="/counterparties" class="alias-add">
+          <input type="hidden" name="counterparty_action" value="add_alias">
+          <input type="hidden" name="counterparty_id" value="{{ party.id }}">
+          <input type="text" name="alias" placeholder="Add alias…" required aria-label="Add alias for {{ party.name }}">
+          <button class="alias-submit" aria-label="Save alias">Save alias</button>
+        </form>
+        <div class="alias-enter-hint" role="status">Press Enter to save alias</div>
+      </div>{% else %}<span class="muted small">Alias limit reached</span>{% endif %}</details>{% endif %}
       {% if not party.active %}<span class="small muted">Archived</span>{% endif %}
       </div>
     </td><td><select form="{{ edit_form }}" name="default_category_id" aria-label="Suggested category" data-submit-on-change>
@@ -65,7 +68,7 @@
     </div></td></tr>{% endfor %}
   </tbody></table>
   {% else %}<p class="muted">No saved counterparties yet.</p>{% endif %}
-</div>
+</section>
 {% if review_required %}
 <div class="review-backdrop">
   <section class="review-dialog" role="dialog" aria-modal="true" aria-labelledby="counterparty-review-title">
