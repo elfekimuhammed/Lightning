@@ -45,7 +45,9 @@ def _budget_import_feedback(c, batch_id: int) -> str:
     return f" Budget · {', '.join(impacts[:3])}." if impacts else ""
 
 def _categories(c):
-    return [{"id": cat.id, "label": c.categories.display_name(cat.id)} for cat in c.categories.pickable()]
+    return [{"id": cat.id, "name": cat.name,
+             "group": c.categories.get(cat.parent_id).name if cat.parent_id else "Other",
+             "label": c.categories.display_name(cat.id)} for cat in c.categories.pickable()]
 
 
 def _ai_reference(c):
@@ -183,6 +185,7 @@ async def preview(request: Request, account_id: int, batch_id: int):
     counterparties = c.counterparties.list_active()
     return render(request, "bank_import_preview.html", account=c.accounts.get(account_id), batch=batch, rows=rows,
                   categories=categories, counterparties=counterparties,
+                  account_choices=[a for a in c.accounts.list(active_only=True) if a.id != account_id and a.currency == c.accounts.get(account_id).currency],
                   counterparty_search_names=c.counterparties.search_names(),
                   summary=c.bank_imports.summary(batch_id))
 
@@ -212,6 +215,7 @@ async def confirm(request: Request, account_id: int, batch_id: int):
                     "owner_choice": form.get(f"owner_choice_{row_id}", ""),
                     "counterparty_choice": form.get(f"counterparty_choice_{row_id}", ""),
                     "remember_category": form.get(f"remember_category_{row_id}") == "on"}
+        decision["transfer_account_id"] = str(form.get(f"transfer_account_id_{row_id}", ""))
         selected = decision["counterparty_choice"]
         if selected.startswith("existing:"):
             decision["counterparty_id"] = int(selected.split(":", 1)[1])
@@ -235,9 +239,11 @@ async def confirm(request: Request, account_id: int, batch_id: int):
             row["_counterparty_choice"] = str(form.get(f"counterparty_choice_{row_id}", ""))
             row["_remember_category"] = form.get(f"remember_category_{row_id}") == "on"
             row["_skip"] = form.get(f"skip_{row_id}") == "on"
+            row["_transfer_account_id"] = str(form.get(f"transfer_account_id_{row_id}", ""))
         counterparties = c.counterparties.list_active()
         return render(request, "bank_import_preview.html", account=c.accounts.get(account_id), batch=batch, rows=rows,
                       categories=_categories(c), counterparties=counterparties,
+                      account_choices=[a for a in c.accounts.list(active_only=True) if a.id != account_id and a.currency == c.accounts.get(account_id).currency],
                       counterparty_search_names=c.counterparties.search_names(),
                       summary=c.bank_imports.summary(batch_id), error=exc.message, status_code=400)
     if count.get("errors"):
@@ -255,6 +261,7 @@ async def confirm(request: Request, account_id: int, batch_id: int):
             row["_counterparty_choice"] = str(form.get(f"counterparty_choice_{row_id}", ""))
             row["_remember_category"] = form.get(f"remember_category_{row_id}") == "on"
             row["_skip"] = form.get(f"skip_{row_id}") == "on"
+            row["_transfer_account_id"] = str(form.get(f"transfer_account_id_{row_id}", ""))
             row["_row_error"] = count["errors"].get(int(row_id))
             row["_hide_row"] = not bool(row["_row_error"])
         counterparties = c.counterparties.list_active()
@@ -262,13 +269,15 @@ async def confirm(request: Request, account_id: int, batch_id: int):
                "Only rows with problems are shown; other rows remain in the review and their edits are kept.")
         return render(request, "bank_import_preview.html", account=c.accounts.get(account_id), batch=batch,
                       rows=review_rows, categories=_categories(c), counterparties=counterparties,
+                      account_choices=[a for a in c.accounts.list(active_only=True) if a.id != account_id and a.currency == c.accounts.get(account_id).currency],
                       counterparty_search_names=c.counterparties.search_names(),
                       summary=c.bank_imports.summary(batch_id), msg=msg)
     feedback = _budget_import_feedback(c, batch_id)
     if count.get("ambiguous_reserves"):
-        feedback += f" {count['ambiguous_reserves']} row(s) could match multiple reserves; review them on the Reserves page."
+        feedback += f" {count['ambiguous_reserves']} row(s) could match multiple reserves; choose beside each transaction in its account list."
     batch, result_rows = c.bank_imports.preview(batch_id)
     return render(request, "bank_import_preview.html", account=c.accounts.get(account_id), batch=batch,
                   rows=result_rows, categories=_categories(c), counterparties=c.counterparties.list_active(),
+                  account_choices=[a for a in c.accounts.list(active_only=True) if a.id != account_id and a.currency == c.accounts.get(account_id).currency],
                   counterparty_search_names=c.counterparties.search_names(), summary=count,
                   msg=f"Import complete: {count['posted']} posted, {count['skipped']} skipped, {count['duplicates']} duplicates.{feedback}")

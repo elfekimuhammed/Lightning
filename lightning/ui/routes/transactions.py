@@ -129,7 +129,7 @@ async def all_accounts_entry(request: Request):
     matched_reserve = container(request).reserves.auto_link_transaction(txn.id)
     feedback = register._budget_feedback(container(request), txn)
     if matched_reserve < 0:
-        feedback = (feedback + " Several reserves could match; choose one on the Reserves page.").strip()
+        feedback = (feedback + " Several reserves match; choose beside the transaction in its account list.").strip()
     return redirect(f"/transactions?date={txn.date}&new_acct={entry['account_id']}",
                     f"Saved {txn.ref}. {feedback}".strip())
 
@@ -145,7 +145,7 @@ async def all_accounts_update(request: Request, txn_id: int):
                else f"Saved {txn.ref}.")
     feedback = register._budget_feedback(container(request), txn)
     if matched_reserve < 0:
-        feedback = (feedback + " Several reserves could match; choose one on the Reserves page.").strip()
+        feedback = (feedback + " Several reserves match; choose beside the transaction in its account list.").strip()
     message = f"{message} {feedback}".strip()
     return redirect("/transactions", message)
 
@@ -241,10 +241,12 @@ async def link_transaction_reserve(request: Request, txn_id: int):
         if action != "link":
             raise LightningError("Choose a valid reserve action.")
         c.reserves.set_expense_link(reserve_id, txn_id, str(form.get("amount", "")))
+        if form.get("complete") == "1" and c.reserves.get(reserve_id)["status"] == "ACTIVE":
+            c.reserves.complete(reserve_id)
     except (ValueError, LightningError) as exc:
         msg = exc.message if isinstance(exc, LightningError) else "Choose a reserve."
-        return redirect(f"/transactions/{txn_id}", msg)
-    return redirect(f"/transactions/{txn_id}", "Assigned this payment to its reserve.")
+        return redirect(_back(request, f"/transactions/{txn_id}"), msg)
+    return redirect(_back(request, f"/transactions/{txn_id}"), "Payment matched and reserve completed." if form.get("complete") == "1" else "Assigned this payment to its reserve.")
 
 
 @router.post("/transactions/{txn_id:int}/void")
@@ -260,7 +262,10 @@ async def void_transaction(request: Request, txn_id: int):
 async def delete_transaction(request: Request, txn_id: int):
     c = container(request)
     try:
+        reevaluation = c.transactions.get(txn_id).type.value == "VAL"
         c.transactions.delete_many([txn_id])
+        if reevaluation:
+            c.reevaluations.process_due()
     except LightningError as exc:
         return redirect(_back(request, f"/transactions/{txn_id}"), exc.message)
     return redirect(_back(request, "/transactions"), "Transaction deleted. You can restore it from its history page.")
@@ -276,7 +281,10 @@ async def delete_transactions(request: Request):
     if not ids:
         return redirect(destination, "Choose at least one transaction.")
     try:
+        reevaluation = any(c.transactions.get(txn_id).type.value == "VAL" for txn_id in ids)
         count = c.transactions.delete_many(ids)
+        if reevaluation:
+            c.reevaluations.process_due()
     except LightningError as exc:
         return redirect(destination, exc.message)
     return redirect(destination, f"Deleted {count} transaction(s). You can restore them from history.")
@@ -285,7 +293,10 @@ async def delete_transactions(request: Request):
 @router.post("/transactions/{txn_id:int}/restore")
 async def restore_transaction(request: Request, txn_id: int):
     try:
-        txn = container(request).transactions.restore(txn_id)
+        c = container(request)
+        txn = c.transactions.restore(txn_id)
+        if txn.type.value == "VAL":
+            c.reevaluations.process_due()
     except LightningError as exc:
         return redirect(f"/transactions/{txn_id}", exc.message)
     return redirect(_back(request, f"/transactions/{txn.id}"), f"{txn.ref} restored.")

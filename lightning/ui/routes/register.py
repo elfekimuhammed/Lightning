@@ -11,7 +11,6 @@ from decimal import Decimal, ROUND_HALF_UP
 from urllib.parse import urlencode
 
 from fastapi import Request
-from fastapi.responses import PlainTextResponse
 
 from lightning.accounts.domain import AccountType, INVESTMENT_ACCOUNT_TYPES
 from lightning.categories.domain import Movement
@@ -191,12 +190,11 @@ def page(request: Request, account_id: int | None, entry: dict | None = None, ed
                     category_ids.add(child); pending.append(child)
         category_txns = c.reporting.category_transaction_ids(category_ids)
         matched_ids = category_txns if matched_ids is None else matched_ids & category_txns
-    rows = c.reporting.register(account_id, date_from, date_to, matched_ids)
-    if qp.get("export") == "csv":
-        if error:
-            return PlainTextResponse(error, status_code=400)
-        from ..exports import register_csv
-        return register_csv(c, rows)
+    all_rows = c.reporting.register(account_id, date_from, date_to, matched_ids)
+    page_size = 50
+    total_pages = max(1, (len(all_rows) + page_size - 1) // page_size)
+    page_number = min(max(_int(qp.get("page")) or 1, 1), total_pages)
+    rows = all_rows[(page_number - 1) * page_size:page_number * page_size]
     custody_owners = {row.txn_id: c.money_from_others.transaction_owner(row.txn_id) for row in rows}
     edit_id = edit_id or _int(qp.get("edit"))
     edit_acct = edit_acct or _int(qp.get("acct")) or account_id
@@ -230,6 +228,9 @@ def page(request: Request, account_id: int | None, entry: dict | None = None, ed
         if picked:
             investment_entry["instrument_label"] = f"{picked['name']} · {picked['ticker']}"
     keep = {k: v for k, v in (("q", q), ("month", month), ("date_from", from_query), ("date_to", to_query)) if v}
+    page_base_qs = urlencode(keep)
+    if page_number > 1:
+        keep["page"] = page_number
     base_url = (f"/accounts/{account_id}" if account_id else "/transactions")
     return render(
         request, "register.html", status_code=status_code,
@@ -243,11 +244,14 @@ def page(request: Request, account_id: int | None, entry: dict | None = None, ed
         cash_accounts=[a for a in c.accounts.list(active_only=True) if account and a.id != account.id]
                       if can_invest and account.account_type.value != "BROKERAGE" else [],
         rows=rows, **_lists(request),
+        reserve_suggestions={row.txn_id: c.reserves.suggested_reserves(row.txn_id)
+                             for row in rows if row.type == DocType.OUT},
         custody_owners=custody_owners,
         custody_present=any(custody_owners.values()),
         entry=entry or {"date": qp.get("date") or fmt_date(today()), "account_id": qp.get("new_acct", "")},
         edit_id=edit_id if edit_values is not None else None, edit_acct=edit_acct, edit=edit_values or {},
         q=q, month=month, date_from=from_query, date_to=to_query, base_url=base_url, keep_qs=urlencode(keep),
+        page_number=page_number, total_pages=total_pages, total_rows=len(all_rows), page_base_qs=page_base_qs,
         search_suggestions=c.counterparties.suggestions(q, limit=3) if q else [],
         post_url=(f"/accounts/{account_id}/register" if account_id else "/transactions/register"),
         show_account=account is None, error=error, error_field=error_field,

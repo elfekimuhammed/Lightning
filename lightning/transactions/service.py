@@ -404,7 +404,8 @@ class TransactionService:
         """Cancel a transaction. It stays visible (greyed out) and can be restored."""
         t = self.get(txn_id)
         if t.type == DocType.VAL and t.source == TxnSource.SYSTEM:
-            raise ValidationError("System-generated reevaluation entries are managed by the investment reevaluation ledger.")
+            self.delete_many([txn_id])
+            return self.get(txn_id)
         if t.is_void:
             return t
         with self.db.transaction():
@@ -417,8 +418,6 @@ class TransactionService:
         """Hide selected transactions from normal views while retaining audit and restore history."""
         ids = list(dict.fromkeys(int(value) for value in txn_ids))
         transactions = [self.get(txn_id) for txn_id in ids]
-        if any(txn.type == DocType.VAL and txn.source == TxnSource.SYSTEM for txn in transactions):
-            raise ValidationError("System-generated reevaluation entries cannot be deleted manually.")
         if any(txn.type == DocType.OPN and not txn.is_void for txn in transactions):
             raise ValidationError("Change an opening balance from the account edit page.")
         pending = [txn for txn in transactions if not txn.is_void]
@@ -427,6 +426,14 @@ class TransactionService:
         lines = [line for txn in pending for line in txn.lines]
         with self.db.transaction():
             for txn in pending:
+                if txn.type == DocType.VAL and txn.source == TxnSource.SYSTEM:
+                    post = self.db.one("SELECT period_id,account_id FROM reevaluation_account_posts WHERE transaction_id=?",
+                                       (txn.id,))
+                    if post:
+                        self.db.execute("INSERT OR IGNORE INTO reevaluation_suppressed_accounts(period_id,account_id,created_at) "
+                                        "VALUES(?,?,datetime('now'))", (post["period_id"], post["account_id"]))
+                        self.db.execute("UPDATE reevaluation_periods SET source_hash='' WHERE date>"
+                                        "(SELECT date FROM reevaluation_periods WHERE id=?)", (post["period_id"],))
                 self.repo.set_status(txn.id, TxnStatus.VOID)
                 self.audit.record("transaction", txn.id, "void", f"Deleted by user: {txn.ref}")
             self._check_holdings(lines)
@@ -442,6 +449,14 @@ class TransactionService:
                 if self.repo.opening_txn_id(line.account_id, None if asset.is_cash else asset.id, exclude_id=t.id):
                     raise ValidationError("This account already has another opening balance for that.")
         with self.db.transaction():
+            if t.type == DocType.VAL and t.source == TxnSource.SYSTEM:
+                post = self.db.one("SELECT period_id,account_id FROM reevaluation_account_posts WHERE transaction_id=?",
+                                   (t.id,))
+                if post:
+                    self.db.execute("DELETE FROM reevaluation_suppressed_accounts WHERE period_id=? AND account_id=?",
+                                    (post["period_id"], post["account_id"]))
+                    self.db.execute("UPDATE reevaluation_periods SET source_hash='' WHERE date>="
+                                    "(SELECT date FROM reevaluation_periods WHERE id=?)", (post["period_id"],))
             # re-validate against today's rules (accounts may have been deactivated)
             for line in t.lines:
                 self.accounts.require_usable(line.account_id)

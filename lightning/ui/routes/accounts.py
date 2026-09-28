@@ -85,6 +85,7 @@ def _transaction_popup_context(request, account, values, action, error=None, txn
                 accounts=c.accounts.list(active_only=True),
                 categories=[cat for cat in c.categories.pickable()],
                 category_names={cat.id: c.categories.display_name(cat.id) for cat in c.categories.pickable()},
+                category_parent_names={cat.id: cat.name for cat in c.categories.tree() if cat.depth == 1},
                 counterparties=c.counterparties.list_active(),
                 owners=c.counterparties.list_owners(),
                 split_categories=split_categories or [],
@@ -155,7 +156,7 @@ async def save_transaction_popup(request: Request, account_id: int):
         matched_reserve = c.reserves.auto_link_transaction(txn.id)
         feedback = register._budget_feedback(c, txn)
         if matched_reserve < 0:
-            feedback = (feedback + " Several reserves could match; choose the reserve on the Reserves page.").strip()
+            feedback = (feedback + " Several reserves match; choose beside the transaction in its account list.").strip()
         return redirect(values["return_to"], f"Saved {txn.ref}. {feedback}".strip())
     except (LightningError, ValueError) as exc:
         error = exc if isinstance(exc, LightningError) else ValidationError("Choose valid values for this transaction.")

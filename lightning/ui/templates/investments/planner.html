@@ -3,7 +3,7 @@
 {% block heading %}<h2>How much do you want to invest?</h2><p class="muted">A what-if plan using today's owned portfolio. This will not place trades.</p>{% endblock %}
 {% block content %}
 <form method="post" action="/investments/planner" data-popup-return="popup" class="card planner-popup-form">
-  <label>Amount in EGP<input autofocus name="amount" type="number" min="0.01" step="0.01" value="{{ amount }}" required></label>
+  <label>Amount in EGP<input autofocus name="amount" type="text" inputmode="decimal" class="money-input" autocomplete="off" value="{{ amount }}" required></label>
   <button class="btn primary">Show suggested split</button>
 </form>
 {% if not rows %}<div class="card empty">No current owned investments to plan against.</div>

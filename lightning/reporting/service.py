@@ -213,17 +213,20 @@ class ReportingService:
 
     def owned_brokerage_cash(self, as_of: date | str) -> Decimal:
         """Cash inside brokerage accounts, valued at face value and excluded from spendable cash."""
+        return sum((row["value"] or ZERO for row in self.owned_brokerage_cash_by_account(as_of)), ZERO)
+
+    def owned_brokerage_cash_by_account(self, as_of: date | str) -> list[dict]:
+        """Owned brokerage cash at an account boundary, for reconciled detail views."""
         day = self._day(as_of)
-        total = ZERO
+        rows = []
         for account in self.accounts.list(active_only=True):
             if account.account_type != AccountType.BROKERAGE:
                 continue
             amount = max(ZERO, self.account_balance(account.id, day)
                          - self.money_from_others.cash_total_for_account(account.id, day))
             valuation = self.valuer.value(self.assets.cash_asset(account.currency), amount, day)
-            if valuation.value is not None:
-                total += valuation.value
-        return total
+            rows.append({"id": account.id, "label": account.label, "value": valuation.value})
+        return rows
 
     def first_activity_date(self) -> str | None:
         return self.q.first_entry_date()

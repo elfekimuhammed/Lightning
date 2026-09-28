@@ -14,7 +14,7 @@
              autocomplete="off" aria-autocomplete="list" aria-expanded="false" aria-controls="{{ form_id }}-counterparty-results"
              data-counterparty-results="{{ form_id }}-counterparty-results"
              class="counterparty-input {{ 'bad' if error_field in ('counterparty', 'counterparty_review', 'to_account', 'from_account') }}"
-             {{ '' if is_edit else 'id=counterparty' }} {{ 'autofocus' if is_edit or edit_id is none }}>
+             {{ '' if is_edit else 'id=counterparty' }} {{ 'autofocus' if is_edit }}>
       <div id="{{ form_id }}-counterparty-results" class="counterparty-results" role="listbox" hidden></div>
     </div></td>
   <td><div class="category-picker">
@@ -50,10 +50,9 @@
 
 {% block top_actions %}
 {% if account %}
-{% if account.active and account.account_type.value != 'PHYSICAL_ASSET' %}<a class="btn primary" data-popup-open href="/accounts/{{ account.id }}/transaction/new">Add transaction</a>{% endif %}
 {% else %}<a class="btn primary" href="/accounts">Choose an account</a>
 {% endif %}
-<details class="action-menu"><summary>More actions</summary><div>{% if account %}<a data-popup-open href="/accounts/{{ account.id }}/import">Import CSV</a>{% endif %}<a href="{{ request.url.include_query_params(export='csv') }}">Export CSV</a><a href="/transactions/deleted">Deleted transactions</a>{% if account %}<a href="/accounts/{{ account.id }}/reconcile">Reconcile</a><a data-popup-open href="/accounts/{{ account.id }}/edit">Edit account</a>{% if account.active %}<form method="post" action="/accounts/{{ account.id }}/deactivate"><button class="danger-text">Deactivate</button></form>{% else %}<form method="post" action="/accounts/{{ account.id }}/reactivate"><button>Reactivate</button></form>{% endif %}{% endif %}</div></details>
+<details class="action-menu"><summary>More actions</summary><div>{% if account %}<a href="/accounts/{{ account.id }}/import">Import CSV</a>{% endif %}<a href="/transactions/deleted">Deleted transactions</a>{% if account %}<a href="/accounts/{{ account.id }}/reconcile">Reconcile</a><a data-popup-open href="/accounts/{{ account.id }}/edit">Edit account</a>{% if account.active %}<form method="post" action="/accounts/{{ account.id }}/deactivate"><button class="danger-text">Deactivate</button></form>{% else %}<form method="post" action="/accounts/{{ account.id }}/reactivate"><button>Reactivate</button></form>{% endif %}{% endif %}</div></details>
 {% endblock %}
 
 {% block content %}
@@ -62,7 +61,7 @@
 
 {% if account and request.query_params.get('welcome') %}
 <section class="card account-next-step"><b>Next step</b><p class="muted">{% if account.account_type.value == 'BROKERAGE' %}Add cash to this brokerage account before recording a buy.{% elif account.account_type.value == 'PHYSICAL_ASSET' %}Add a named item such as a gold ring.{% else %}Record your first Money out, Money in, or Transfer activity.{% endif %}</p>
-{% if account.account_type.value == 'PHYSICAL_ASSET' %}<a class="btn primary" data-popup-open href="/accounts/{{ account.id }}/items/new">Add physical item</a>{% else %}<a class="btn primary" data-popup-open href="/accounts/{{ account.id }}/transaction/new">{% if account.account_type.value == 'BROKERAGE' %}Fund brokerage cash{% else %}Add transaction{% endif %}</a>{% endif %}
+{% if account.account_type.value == 'PHYSICAL_ASSET' %}<a class="btn primary" data-popup-open href="/accounts/{{ account.id }}/items/new">Add physical item</a>{% else %}<a class="btn primary" href="#quick-add">{% if account.account_type.value == 'BROKERAGE' %}Fund brokerage cash{% else %}Add transaction{% endif %}</a>{% endif %}
 </section>
 {% endif %}
 
@@ -206,7 +205,7 @@
 </div>
 {% endif %}
 
-<div class="register-intro section-head"><div><h2>What happened here?</h2><p>{{ 'Activity in this account' if account else 'Activity across all accounts' }}</p></div><button class="btn small" type="button" data-toggle-quick-add aria-controls="quick-add" aria-expanded="{{ 'true' if error_field or review_mode else 'false' }}">Advanced signed entry</button></div>
+<div class="register-intro section-head"><div><h2>Transactions</h2><p>{{ 'Add and edit activity in this account' if account else 'Add and edit activity across your accounts' }}</p></div></div>
 <div class="toolbar register-filters">
   <form method="get" class="toolbar-filters" data-auto-filter>
     <input type="search" name="q" value="{{ q }}" placeholder="Search: counterparty, notes, category, amount, ref…">
@@ -215,7 +214,6 @@
   </form>
   {% if search_suggestions %}<div class="muted small">Did you mean {% for name, score in search_suggestions %}<a href="{{ base_url }}?q={{ name|urlencode }}">{{ name }}</a>{% if not loop.last %} · {% endif %}{% endfor %}?</div>{% endif %}
 </div>
-<details class="context-detail"><summary>About CSV export</summary><p class="muted small">CSV exports the filtered, posted account activity shown here. Transfers appear once for each account. This analysis export is not an import file.</p></details>
 <script>(()=>{const form=document.querySelector('[data-auto-filter]');if(!form)return;const search=form.elements.q,month=form.elements.month;let timer;search?.addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(()=>form.requestSubmit(),350)});month?.addEventListener('change',()=>form.requestSubmit());search?.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();clearTimeout(timer);form.requestSubmit()}})})();</script>
 
 <div class="card ledger" data-counterparties='{{ counterparty_categories|tojson }}' data-accounts='{{ account_options|tojson }}'>
@@ -235,19 +233,19 @@
       <th class="num">Amount</th>{% if with_balance %}<th class="num">Balance</th>{% endif %}<th class="action-heading">Action</th>
     </tr></thead>
     <tbody>
-    <tr class="add-row quick-add-row" id="quick-add" {% if not error_field and not review_mode %}hidden{% endif %}>
+    {% if not account or account.active %}<tr class="add-row quick-add-row" id="quick-add">
       <td><span class="muted small">New</span></td>
       {{ inputs('f-new', entry, False) }}
       {% if with_balance %}<td class="num muted">—</td>{% endif %}
       <td><button form="f-new" class="btn primary small">Add</button></td>
-    </tr>
+    </tr>{% endif %}
     {% set ns = namespace(last_date='') %}
     {% for r in rows %}
       {% set kind = 'in' if r.amount > 0 else 'out' %}
       {% if r.type == 'TRF' %}{% set kind = 'transfer' %}{% elif r.type in ('BUY', 'SEL', 'DIV') %}{% set kind = 'invest' %}{% elif r.type == 'OPN' %}{% set kind = 'opening' %}{% endif %}
       {% if edit_id == r.txn_id and edit_acct == r.account_id %}
       <tr class="add-row editing">
-        <td><a class="small" data-popup-open href="/transactions/{{ r.txn_id }}?popup=1" aria-label="Open transaction details">Details</a></td>
+        <td><a class="small" href="/transactions/{{ r.txn_id }}" aria-label="Open transaction details">Details</a></td>
         {{ inputs('f-edit', edit, True) }}
         {% if with_balance %}<td class="num muted">{{ r.balance|money if r.balance is not none }}</td>{% endif %}
         <td><button form="f-edit" class="btn primary small">Save</button></td>
@@ -259,9 +257,9 @@
         <span class="muted small code">{{ r.ref }}</span>
       </td></tr>
       {% else %}
-      {% set href = '/transactions/' ~ r.txn_id ~ '?popup=1' %}
-      <tr class="clickable row-{{ kind }}" data-popup-row data-href="{{ href }}" title="{{ r.ref }} — view details">
-        <td><input type="checkbox" class="transaction-select" value="{{ r.txn_id }}" data-type="{{ r.type }}" aria-label="Select {{ r.counterparty or r.type_label }}" {{ 'disabled title="System-generated investment revaluation"' if r.type == 'VAL' else ('disabled title="Edit opening balances from the account page"' if r.type == 'OPN' else '') }}></td>
+      {% set href = (base_url ~ '?' ~ (keep_qs ~ '&' if keep_qs else '') ~ 'edit=' ~ r.txn_id ~ '&acct=' ~ r.account_id) if r.type in ('IN','OUT','TRF') else '/transactions/' ~ r.txn_id %}
+      <tr class="clickable row-{{ kind }}" data-href="{{ href }}" title="{{ r.ref }} — {{ 'edit in this list' if r.type in ('IN','OUT','TRF') else 'view details' }}">
+        <td><input type="checkbox" class="transaction-select" value="{{ r.txn_id }}" data-type="{{ r.type }}" aria-label="Select {{ r.counterparty or r.type_label }}" {{ 'disabled title="Edit opening balances from the account page"' if r.type == 'OPN' else '' }}></td>
         <td class="code {{ 'same-day' if r.date == ns.last_date }}">{{ r.date }}</td>
         {% if show_account %}<td class="small">{{ r.account_label }}</td>{% endif %}
         <td>{% if r.type == 'TRF' %}<span class="pill transfer">↔</span> {{ r.other_account_label }}{% else %}{{ r.counterparty or r.description or '—' }}{% endif %}</td>
@@ -270,8 +268,9 @@
         <td class="small muted">{{ r.notes }}{% if r.type == 'TRF' and r.description %} {{ r.description }}{% endif %}</td>
         <td class="num amount {{ r.amount|tone }}">{{ r.amount|money(True) }}</td>
         {% if with_balance %}<td class="num muted">{{ r.balance|money }}</td>{% endif %}
-        <td></td>
+        <td><a class="small" href="{{ href }}">{{ 'Edit' if r.type in ('IN','OUT','TRF') else 'Details' }}</a></td>
       </tr>
+      {% if reserve_suggestions.get(r.txn_id) %}<tr class="reserve-match-prompt"><td colspan="{{ ncols }}"><div class="reserve-match-actions"><span>Is this the payment for {% for reserve in reserve_suggestions[r.txn_id] %}{{ reserve.name }}{% if not loop.last %} or {% endif %}{% endfor %}?</span>{% for reserve in reserve_suggestions[r.txn_id] %}<form method="post" action="/transactions/{{ r.txn_id }}/reserve?back={{ request.url.path|urlencode }}"><input type="hidden" name="reserve_id" value="{{ reserve.id }}"><input type="hidden" name="amount" value="{{ reserve.amount }}"><input type="hidden" name="complete" value="1"><button class="btn small primary">Yes, close {{ reserve.name }}</button></form>{% endfor %}<button type="button" class="btn small" onclick="this.closest('tr').remove()">Not this payment</button></div></td></tr>{% endif %}
       {% set ns.last_date = r.date %}
       {% endif %}
     {% else %}
@@ -280,7 +279,8 @@
     </tbody>
   </table>
 </div>
-<script>(()=>{const toggle=document.querySelector('[data-toggle-quick-add]'),row=document.getElementById('quick-add');toggle?.addEventListener('click',()=>{row.hidden=!row.hidden;toggle.setAttribute('aria-expanded',String(!row.hidden));if(!row.hidden)row.querySelector('input[name=date]')?.focus()})})();</script>
+{% if total_pages > 1 %}<nav class="register-pagination" aria-label="Transaction pages"><span class="muted small">Showing {{ (page_number-1)*50+1 }}–{{ [page_number*50,total_rows]|min }} of {{ total_rows }}</span>{% if page_number > 1 %}<a class="btn small" href="{{ base_url }}?{{ page_base_qs ~ '&' if page_base_qs else '' }}page={{ page_number-1 }}">Previous</a>{% endif %}{% if page_number < total_pages %}<a class="btn small" href="{{ base_url }}?{{ page_base_qs ~ '&' if page_base_qs else '' }}page={{ page_number+1 }}">Next</a>{% endif %}</nav>{% endif %}
+
 <div id="transaction-context-menu" class="context-menu" role="menu" hidden>
   <button type="button" role="menuitem" data-context-edit>Edit transaction</button>
   <button type="button" role="menuitem" class="danger-text" data-context-delete>Delete transaction</button>

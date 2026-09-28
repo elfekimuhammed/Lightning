@@ -31,7 +31,7 @@ def test_welcome_then_first_account(client, c):
                                            "opening_balance_date": "2026-09-01", "opening_balance": "50,000"})
     assert r.status_code == 200 and "CIB Current" in r.text and "CIB-CUR-EGP" not in r.text
     r = client.get("/")
-    assert "Owned wealth" in r.text and "50,000.00" in r.text
+    assert "Total owned wealth" in r.text and "50,000.00" in r.text
 
 
 def test_full_flow(client, c):
@@ -82,7 +82,8 @@ def test_full_flow(client, c):
     assert "restored" in r.text
 
     r = client.get("/?month=2026-09")
-    assert "Free cash after reserves" in r.text and "Money in and out" in r.text and "Next actions" in r.text
+    assert "Total owned wealth" in r.text and "Available cash" in r.text
+    assert "Selected-period cash flow" in r.text and "Needs attention" in r.text
 
     r = client.post(f"/accounts/{wallet.id}/deactivate")
     assert "Move the balance" in r.text
@@ -139,9 +140,10 @@ def test_overview_horizons_keep_the_same_status_layout_and_popup_range(client, c
                   "period=custom&date_from=2026-09-10&date_to=2026-09-20"):
         response = client.get(f"/?{query}")
         assert response.status_code == 200
-        labels = ("Free cash after reserves", "Owned wealth", "Net cash flow", "Money in and out", "Next actions")
+        labels = ("Total owned wealth", "Available cash", "Selected-period cash flow",
+                  "Needs attention", "Quick expense analysis", "Investments at a glance")
         assert [response.text.index(label) for label in labels] == sorted(response.text.index(label) for label in labels)
-        assert 'class="key-card-row"' in response.text
+        assert 'class="overview-disclosure"' in response.text
         assert 'name="period" value="custom"' in response.text
         assert 'href="/reserves"' in response.text
     popup = client.get("/explain/flow?period=custom&date_from=2026-09-10&date_to=2026-09-20")

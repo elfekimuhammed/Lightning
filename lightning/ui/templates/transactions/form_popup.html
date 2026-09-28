@@ -40,7 +40,7 @@
         {% if split_categories %}<input id="popup-category" value="Split · {{ split_categories|join(', ') }}" readonly>
         {% else %}<select id="popup-category" name="category_id">
           <option value="">Choose a category</option>
-          {% for cat in categories %}<option value="{{ cat.id }}" data-movement="{{ cat.movement.value }}" {{ 'selected' if values.category_id == cat.id|string }}>{{ category_names[cat.id] }}</option>{% endfor %}
+          {% for parent_id, children in categories|groupby('parent_id') %}<optgroup label="{{ category_parent_names.get(parent_id, 'Other') }}">{% for cat in children %}<option value="{{ cat.id }}" data-movement="{{ cat.movement.value }}" {{ 'selected' if values.category_id == cat.id|string }}>{{ cat.name }}</option>{% endfor %}</optgroup>{% endfor %}
         </select>{% endif %}
         {% if error_field == 'category' %}<small class="field-error">Choose a category.</small>{% endif %}
       </div>

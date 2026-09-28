@@ -238,6 +238,12 @@ class BankImportService:
             raise NotFoundError("Import batch not found.")
         rows = self.db.all("SELECT * FROM bank_import_rows WHERE batch_id=? ORDER BY row_number", (batch_id,))
         result = []
+        amount_dates = {}
+        for source_row in rows:
+            staged = json.loads(source_row["raw_json"])["parsed"]
+            if not staged.get("_errors"):
+                key = (staged["Date"], staged["Amount"])
+                amount_dates[key] = amount_dates.get(key, 0) + 1
         seen_refs = set()
         for row in rows:
             record = json.loads(row["raw_json"])
@@ -253,10 +259,13 @@ class BankImportService:
             parsed["_counterparty_id"] = cp["id"] if cp else None
             parsed["_suggestions"] = self.counterparties.suggestions(parsed["Counterparty"])
             parsed["_reference_duplicate"] = ref_duplicate
-            parsed["_similarity_warning"] = self._similarity_warning(batch["account_id"], parsed)
+            parsed["_similarity_warning"] = (self._similarity_warning(batch["account_id"], parsed)
+                or amount_dates.get((parsed["Date"], parsed["Amount"]), 0) > 1)
             parsed["_category_id"] = self._category_for(parsed, cp)
-            parsed["_transfer_target_suggestion"] = self._transfer_target_suggestion(
+            parsed["_transfer_target_suggestion"] = (self._transfer_target_suggestion(
                 batch["account_id"], parsed["Notes"])
+                or self._transfer_target_suggestion(batch["account_id"], parsed["Counterparty"])
+                or self._matching_bank_transfer(batch["account_id"], parsed))
             category = self.categories.get(parsed["_category_id"]) if parsed["_category_id"] else None
             parsed["_is_custody"] = bool(category and category.code == "EXP.PERSONAL.CUSTODY")
             # Keep the canonical owner ready in the form: the user may choose
@@ -269,22 +278,24 @@ class BankImportService:
         return batch, result
 
     def _transfer_target_suggestion(self, source_account_id: int, notes: str):
-        """Suggest an internal destination only when the note explicitly describes a transfer."""
+        """Suggest an internal destination from an account name or transfer wording."""
         destination = re.search(r"\b(?:transfer(?:red)?|send|sent|payment)\s+(?:to|into)\s+(.+)",
                                 notes or "", re.IGNORECASE)
-        if not destination:
-            return None
 
         def compact(value):
             return "".join(character.casefold() for character in value if character.isalnum())
 
-        tokens = re.findall(r"[\w]+", destination.group(1), re.UNICODE)
+        tokens = re.findall(r"[\w]+", destination.group(1), re.UNICODE) if destination else []
         candidates = []
+        source_currency = self.accounts.get(source_account_id).currency
         accounts = [account for account in self.accounts.list(active_only=True)
-                    if account.id != source_account_id]
+                    if account.id != source_account_id and account.currency == source_currency]
         for account in accounts:
             name = compact(account.name)
             if not name:
+                continue
+            if compact(notes or "") == name:
+                candidates.append((1.0, account))
                 continue
             score = 0.0
             for start in range(len(tokens)):
@@ -301,6 +312,23 @@ class BankImportService:
             return None
         return candidates[0][1].name
 
+    def _matching_bank_transfer(self, source_account_id: int, parsed: dict):
+        """Spot the opposite side already posted in another bank on this date."""
+        if parsed.get("_errors"):
+            return None
+        amount_e6 = int(Decimal(parsed["Amount"]) * 1_000_000)
+        rows = self.db.all(
+            "SELECT DISTINCT le.account_id FROM ledger_entries le "
+            "JOIN transactions t ON t.id=le.transaction_id "
+            "WHERE t.status='POSTED' AND t.type IN ('IN','OUT') AND t.date=? "
+            "AND le.account_id<>? AND le.amount_e6=?",
+            (parsed["Date"], source_account_id, -amount_e6))
+        source_currency = self.accounts.get(source_account_id).currency
+        bank_ids = {account.id: account.name for account in self.accounts.list(active_only=True)
+                    if account.account_type.value == "BANK" and account.currency == source_currency}
+        matches = {bank_ids[row["account_id"]] for row in rows if row["account_id"] in bank_ids}
+        return next(iter(matches)) if len(matches) == 1 else None
+
     def _category_for(self, parsed, counterparty):
         if parsed["Category"]:
             try:
@@ -313,7 +341,7 @@ class BankImportService:
         return recent.get(parsed["Counterparty"])
 
     def _similarity_warning(self, account_id, parsed):
-        if parsed["Reference"] or parsed["_errors"]:
+        if parsed["_errors"]:
             return False
         amount = Decimal(parsed["Amount"])
         targets = self.db.all("SELECT id FROM accounts WHERE active=1 AND lower(name)=lower(?)",
@@ -335,9 +363,9 @@ class BankImportService:
                 return True
         row = self.db.one(
             "SELECT 1 FROM transactions t JOIN ledger_entries l ON l.transaction_id=t.id "
-            "WHERE t.status='POSTED' AND t.date=? AND t.counterparty=? AND l.account_id=? "
+            "WHERE t.status='POSTED' AND t.date=? AND l.account_id=? "
             "AND l.amount_e6=? LIMIT 1",
-            (parsed["Date"], parsed["Counterparty"], account_id, int(amount * 1_000_000)),
+            (parsed["Date"], account_id, int(amount * 1_000_000)),
         )
         return bool(row)
 
@@ -405,6 +433,13 @@ class BankImportService:
             raise ValidationError(f"CSV row {row['_line']}: account name is ambiguous; use a unique name.",
                                   "counterparty")
         target = account_matches[0] if account_matches else None
+        selected_target = str(decision.get("transfer_account_id", "")).strip()
+        if selected_target:
+            source_currency = self.accounts.get(batch["account_id"]).currency
+            target = next((a for a in accounts if str(a.id) == selected_target and a.id != batch["account_id"]
+                           and a.currency == source_currency), None)
+            if target is None:
+                raise ValidationError(f"CSV row {row['_line']}: choose another active account for this transfer.", "transfer_account_id")
         counterparty_id = decision.get("counterparty_id") or (row["_counterparty_id"] if cp_text == row["Counterparty"] else None)
         if cp_text and not counterparty_id:
             exact = self.counterparties.resolve(cp_text)

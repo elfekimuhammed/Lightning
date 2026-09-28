@@ -3,6 +3,7 @@ from __future__ import annotations
 from decimal import Decimal, InvalidOperation
 from datetime import timedelta
 import json
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Request
 
@@ -109,9 +110,21 @@ async def dashboard(request: Request):
                                  for class_id, value in class_values.items()), ZERO)
     eligible_cash = c.reporting.owned_liquid_cash(as_of)
     brokerage_cash = c.reporting.owned_brokerage_cash(as_of)
-    assigned = c.reserves.allocation_at(fmt_date(as_of))
-    if assigned is None and as_of == today():
-        assigned = c.reserves.cash_summary(eligible_cash)["allocated"]
+    cash_accounts = [
+        {"id": account.id, "label": account.label,
+         "value": c.reporting.owned_account_value(account.id, as_of),
+         "type": _ACCOUNT_TYPE_LABELS[account.account_type]}
+        for account in accounts if account.account_type in {AccountType.CASH, AccountType.BANK}
+    ]
+    cash_accounts.extend({**row, "type": "Brokerage cash"}
+                         for row in c.reporting.owned_brokerage_cash_by_account(as_of))
+    reserve_rows = c.reserves.breakdown_at(fmt_date(as_of))
+    if reserve_rows is None and as_of == today():
+        reserve_rows = [{"id": row["id"], "name": row["name"],
+                         "effective_allocated": row["effective_allocated"]}
+                        for row in c.reserves.list_active()]
+    assigned = (sum((row["effective_allocated"] for row in reserve_rows), ZERO)
+                if reserve_rows is not None else None)
     reserve_summary = (None if assigned is None else {
         "eligible_cash": eligible_cash, "allocated": assigned, "free_cash": eligible_cash - assigned,
         "shortfall": max(assigned - eligible_cash, ZERO),
@@ -144,11 +157,11 @@ async def dashboard(request: Request):
                               "href": "/reserves", "priority": 2})
     current_budget = c.budgets.month_view(month_of(today()))
     for section in current_budget.sections:
-        if section.available > ZERO and section.planned_actual > section.available:
+        if section.planned_actual > section.available:
             attention.append({"label": f"Budget exceeded: {section.name}",
                               "detail": f"{fmt(section.planned_actual - section.available)} {c.base_currency} over plan this month.",
                               "href": "/budget", "priority": 2})
-    attention = sorted(attention, key=lambda item: item["priority"])[:3]
+    attention = sorted(attention, key=lambda item: item["priority"])
     change, change_reason = None, "No recorded position is available for comparison."
     change_label = "Change during this period"
     if not net_worth.unvalued:
@@ -167,8 +180,43 @@ async def dashboard(request: Request):
     else:
         change_reason = "A required valuation is missing from the ending position."
     cash_flow = c.reporting.cash_flow(first, as_of)
-    investment_flow = build_investment_report(c.db, c.accounts, c.assets, c.reporting,
-                                              fmt_date(first), fmt_date(as_of))["new_money"]
+    spending_groups = c.reporting.spending_by_category(first, as_of, depth=2)
+    categorized_spending = sum((max(group.value, ZERO) for group in spending_groups), ZERO)
+    spending = []
+    for group in spending_groups[:5]:
+        category = c.categories.get_by_code(group.code)
+        query = urlencode({"category_id": category.id, "date_from": fmt_date(first),
+                           "date_to": fmt_date(as_of)})
+        spending.append({"label": group.label, "value": group.value,
+                         "share": max(group.value, ZERO) / categorized_spending * 100
+                         if categorized_spending else ZERO,
+                         "category_id": category.id, "href": f"/transactions?{query}"})
+    closing_report = build_investment_report(c.db, c.accounts, c.assets, c.reporting,
+                                              fmt_date(first), fmt_date(as_of))
+    opening_report = build_investment_report(c.db, c.accounts, c.assets, c.reporting,
+                                              fmt_date(first), fmt_date(first - timedelta(days=1)))
+    unrealized_change = (closing_report["unrealized"] - opening_report["unrealized"]
+                         if closing_report["unrealized"] is not None and opening_report["unrealized"] is not None
+                         else None)
+    period_result = (closing_report["realized"] + closing_report["dividends"] + unrealized_change
+                     if unrealized_change is not None else None)
+    holdings_value = closing_report["value"]
+    investment_cash = closing_report["investment_cash"]
+    portfolio_value = (holdings_value + investment_cash
+                       if holdings_value is not None and investment_cash is not None else None)
+    investment_report = {
+        "holdings_value": holdings_value, "investment_cash": investment_cash,
+        "portfolio_value": portfolio_value, "new_money": closing_report["new_money"],
+        "period_result": period_result, "period_result_available": period_result is not None,
+        "missing": closing_report["missing"] + opening_report["missing"],
+        "holdings_count": sum(1 for row in closing_report["holdings"] if row["price_source"] != "CASH"),
+    }
+    investment_holdings = [
+        {"label": f"{row['asset']} · {row['account']}", "value": row["value"]}
+        for row in sorted((row for row in closing_report["holdings"] if row["price_source"] != "CASH"),
+                          key=lambda row: (row["value"] is None, -(row["value"] or ZERO), row["asset"]))[:5]
+    ]
+    investment_flow = closing_report["new_money"]
     investment_share = (investment_flow / cash_flow.inflows * 100
                         if cash_flow.inflows > ZERO else None)
     return render(
@@ -179,13 +227,16 @@ async def dashboard(request: Request):
         range_label=(f"No recorded activity · Position as of {fmt_date(as_of)}"
                      if period.key == "all" and not first_activity else f"{fmt_date(first)} to {fmt_date(as_of)} · Position as of {fmt_date(as_of)}"),
         eligible_cash=eligible_cash, brokerage_cash=brokerage_cash, reserve_summary=reserve_summary,
+        cash_accounts=cash_accounts, reserve_rows=reserve_rows,
         free_cash=free_cash, investment_value=investment_value,
         estimated_investments=estimated_investments, estimated_available=estimated_available,
         unvalued=unvalued,
         change=change, change_reason=change_reason, change_label=change_label,
         attention=attention,
         net_worth=net_worth,
-        account_contributions=account_contributions,
+        account_contributions=account_contributions, spending=spending,
+        categorized_spending=categorized_spending,
+        investment_report=investment_report, investment_holdings=investment_holdings,
         cash_flow=cash_flow, investment_flow=investment_flow,
         investment_share=investment_share,
     )

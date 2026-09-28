@@ -25,6 +25,40 @@ def test_monthly_returns_create_one_account_journal_linked_from_each_asset(c):
     assert c.db.scalar("SELECT COUNT(*) FROM transactions WHERE type='VAL'") == 1
 
 
+def test_deleted_reevaluation_stays_deleted_when_checkpoint_is_rebuilt(c):
+    account = c.account_flows.open_account("THNDR", "BROKERAGE", "2026-09-01", "1000")
+    asset = c.assets.create_investment("Fund", "FUND.EQUITY", "FUND")
+    c.investments.add_holding(account.id, asset.id, "1", "100", "2026-09-01")
+    c.assets.set_price(asset.id, "2026-09-30", "120")
+    assert c.reevaluations.process_date("2026-09-30", "MONTH_END")
+    journal_id = c.db.scalar("SELECT transaction_id FROM reevaluation_account_posts")
+    assert c.transactions.delete_many([journal_id]) == 1
+    assert c.transactions.get(journal_id).is_void
+    c.assets.set_price(asset.id, "2026-09-30", "130")
+    assert c.reevaluations.process_date("2026-09-30", "MONTH_END")
+    assert c.db.scalar("SELECT COUNT(*) FROM transactions WHERE type='VAL' AND status='POSTED'") == 0
+    c.transactions.restore(journal_id)
+    assert c.reevaluations.process_date("2026-09-30", "MONTH_END")
+    assert c.db.scalar("SELECT COUNT(*) FROM transactions WHERE type='VAL' AND status='POSTED'") == 1
+
+
+def test_deleting_earlier_reevaluation_recalculates_later_return(c):
+    account = c.account_flows.open_account("THNDR", "BROKERAGE", "2026-09-01", "1000")
+    asset = c.assets.create_investment("Fund", "FUND.EQUITY", "FUND")
+    c.investments.add_holding(account.id, asset.id, "1", "100", "2026-09-01")
+    c.assets.set_price(asset.id, "2026-09-30", "120")
+    c.assets.set_price(asset.id, "2026-10-31", "140")
+    assert c.reevaluations.process_date("2026-09-30", "MONTH_END")
+    assert c.reevaluations.process_date("2026-10-31", "MONTH_END")
+    old_id = c.db.scalar("SELECT ap.transaction_id FROM reevaluation_account_posts ap "
+                         "JOIN reevaluation_periods p ON p.id=ap.period_id WHERE p.date='2026-09-30'")
+    c.transactions.delete_many([old_id])
+    assert c.reevaluations.process_date("2026-10-31", "MONTH_END")
+    later = c.db.scalar("SELECT e.return_base_e6 FROM reevaluation_entries e "
+                        "JOIN reevaluation_periods p ON p.id=e.period_id WHERE p.date='2026-10-31'")
+    assert later == 40_000_000
+
+
 def test_sale_forces_same_day_revaluation_at_trade_price(c):
     account = c.account_flows.open_account("THNDR", "BROKERAGE", "2026-09-01", "10000")
     asset = c.assets.create_investment("COMI", "STOCK", "COMI")

@@ -4,7 +4,7 @@
 
 | Screen | Primary job | Sections, in order | Follow-up destination |
 |---|---|---|---|
-| Overview | Decide what needs attention now | Compact position metrics; period income/spending comparison; actionable exceptions | Wealth breakdown, Budget, Reserves, account activity |
+| Overview | Decide what needs attention now | Total owned wealth; available cash after reserves; selected-period cash flow; actions; quick expense analysis; investment summary | Wealth breakdown, Budget, Reserves, account activity |
 | Birdview | Understand what wealth consists of | Owned composition; liquidity assumptions; allocation against target | Class holdings, reserves, investment planning |
 | Budget | Identify and adjust spending limits | Remaining/over-plan; categories requiring action; category progress and edit | Filtered spending and one-category limit edit |
 | Expense Analysis | Explain spending | Selected-scope total and comparison; ranked category bars; dated trend | Subcategory drilldown and exact transactions |
@@ -43,3 +43,11 @@ Owned wealth, account balances including custody, free cash after reserves, budg
 3. Check primary screens with populated and empty data, plus a narrow viewport, through the browser.
 4. Confirm copied/imported/exported data contracts and keyboard-accessible disclosures.
 5. Leave a concrete review note of verified behavior and remaining limits; professional presentation alone is not a claim of international compliance or full localization.
+
+## Overview hub contract
+
+The Overview follows a vertical reading order, not a grid of unrelated metrics. Each of its six sections has a heading, a scope/date, a clear divider, and one financial question. Owned wealth leads; available cash follows; net cash flow belongs with money in and out. Actions precede short spending and investment summaries. Detailed analysis remains available from each relevant section.
+
+An expandable amount reveals the actual contributing rows in place. Owned liquid cash reveals wallet, bank and brokerage cash balances; reserves reveal assignments. Account and reserve links are secondary to this quick explanation. Brokerage holdings must never be counted as brokerage cash. Rows reconcile to their parent amount or explicitly state why a breakdown is unavailable.
+
+Position values use the selected period end. Flow, expenses and investment performance use its start and end. Current unresolved alerts state that they are current. Do not truncate alerts without a way to reveal the remainder. Missing valuation or historical assignment data stays visibly unavailable. “Available cash” is a stock after reserves; “net cash flow” is income minus expenses over time.

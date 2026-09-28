@@ -60,7 +60,6 @@ document.querySelectorAll("[data-open-date-picker]").forEach((button) => {
 // Register: click a row to edit it in place.
 document.addEventListener("click", (e) => {
   const row = e.target.closest("tr[data-href]");
-  if (row?.hasAttribute("data-popup-row")) return;
   if (row && !e.target.closest("a, button, input, select")) location.href = row.dataset.href;
 });
 
@@ -234,7 +233,10 @@ document.addEventListener("keydown", (e) => {
   if (cancel && e.target.closest("tr.editing")) location.href = cancel.href;
 });
 // Format money as the user types (1,000.50) while retaining a plain numeric value on submit.
-document.querySelectorAll(".money-input").forEach((input) => {
+const setupMoneyInput = (input) => {
+  if (input.dataset.moneyFormatReady) return;
+  input.dataset.moneyFormatReady = "true";
+  input.setAttribute("autocomplete", "off");
   input.addEventListener("input", () => {
     const before = input.value;
     const caret = input.selectionStart ?? before.length;
@@ -266,7 +268,13 @@ document.querySelectorAll(".money-input").forEach((input) => {
       input.setSelectionRange(next, next);
     }
   });
-});
+  if (input.value) input.dispatchEvent(new Event("input"));
+};
+const moneySelector = 'input.money-input, input[inputmode="decimal"]:not([type="number"])';
+document.querySelectorAll(moneySelector).forEach(setupMoneyInput);
+const moneyPopup = document.getElementById("app-popup");
+if (moneyPopup) new MutationObserver(() => moneyPopup.querySelectorAll(moneySelector).forEach(setupMoneyInput))
+  .observe(moneyPopup, {childList:true, subtree:true});
 
 // Register: Counterparty and Category work together.
 //  - an owned account as counterparty -> transfer: no category is needed
@@ -541,7 +549,8 @@ if (categoryCatalogueNode) {
       if (input.disabled || document.activeElement !== input) return;
       results.replaceChildren();
       activeIndex = -1;
-      const matches = matchesFor();
+      const allMatches = matchesFor();
+      const matches = allMatches.slice(0, 30);
       const groups = new Map();
       matches.forEach((item) => {
         if (!groups.has(item.parent)) groups.set(item.parent, []);
@@ -572,6 +581,12 @@ if (categoryCatalogueNode) {
           results.append(option);
         });
       });
+      if (allMatches.length > matches.length) {
+        const hint = document.createElement("div");
+        hint.className = "category-group-title";
+        hint.textContent = "Type to find more categories";
+        results.append(hint);
+      }
       if (!matches.length) {
         const empty = document.createElement("div");
         empty.className = "category-group-title";
@@ -1009,13 +1024,6 @@ document.querySelectorAll("[data-counterparty-filter]").forEach((search) => {
     if (!link || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey) return;
     event.preventDefault();
     openUrl(link.href, link).catch(() => { location.href = link.href; });
-  });
-  document.addEventListener("click", (event) => {
-    const row = event.target.closest("tr[data-popup-row]");
-    if (row && !event.target.closest("a,button,input,select")) {
-      event.preventDefault();
-      openUrl(row.dataset.href, row).catch(() => { location.href = row.dataset.href; });
-    }
   });
   dialog.addEventListener("cancel", (event) => { event.preventDefault(); close(); });
   dialog.addEventListener("click", (event) => {

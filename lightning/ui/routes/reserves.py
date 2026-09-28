@@ -60,7 +60,10 @@ def _context(request: Request, error: str = ""):
             "salary_period": f"{first_month.strftime('%b %Y')}–{last_month.strftime('%b %Y')}",
             "summary": c.reserves.cash_summary(cash), "error": error,
             "counterparties": c.counterparties.list_active(),
-            "categories": c.categories.pickable(Movement.OUTFLOW)}
+            "accounts": [account for account in c.accounts.list(active_only=True)
+                         if account.account_type.value in ("CASH", "BANK", "DEPOSIT", "BROKERAGE")],
+            "categories": c.categories.pickable(Movement.OUTFLOW),
+            "category_parent_names": {cat.id: cat.name for cat in c.categories.tree() if cat.depth == 1}}
 
 
 @router.get("")
@@ -78,7 +81,8 @@ async def create_reserve(request: Request):
                                         "PROJECT", str(form.get("due_date", "")) or None,
                                         str(form.get("recurrence", "NONE")),
                                         int(str(form.get("counterparty_id", ""))) if form.get("match_by") == "counterparty" and str(form.get("counterparty_id", "")).isdigit() else None,
-                                        int(str(form.get("category_id", ""))) if form.get("match_by") == "category" and str(form.get("category_id", "")).isdigit() else None)
+                                        int(str(form.get("category_id", ""))) if form.get("match_by") == "category" and str(form.get("category_id", "")).isdigit() else None,
+                                        int(str(form.get("account_id", ""))) if form.get("match_by") == "account" and str(form.get("account_id", "")).isdigit() else None)
             allocated = str(form.get("allocated", "")).strip()
             if allocated:
                 _allocate(c, reserve["id"], allocated)
@@ -121,7 +125,8 @@ async def edit_reserve(request: Request, reserve_id: int):
                                     str(form.get("due_date", "")) or None,
                                     str(form.get("recurrence", "NONE")),
                                     int(str(form.get("counterparty_id", ""))) if form.get("match_by") == "counterparty" and str(form.get("counterparty_id", "")).isdigit() else None,
-                                    int(str(form.get("category_id", ""))) if form.get("match_by") == "category" and str(form.get("category_id", "")).isdigit() else None)
+                                    int(str(form.get("category_id", ""))) if form.get("match_by") == "category" and str(form.get("category_id", "")).isdigit() else None,
+                                    int(str(form.get("account_id", ""))) if form.get("match_by") == "account" and str(form.get("account_id", "")).isdigit() else None)
     except LightningError as exc:
         if request.headers.get("X-Requested-With") == "fetch":
             return Response(exc.message, status_code=400, media_type="text/plain")

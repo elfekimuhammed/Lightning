@@ -8,6 +8,11 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### Overview information flow · 2026-09-29
+- Replaced the mixed card grid with six ordered, divided sections: wealth, available cash, period cash flow, attention, expenses and investments.
+- Expanded cash and reserve amounts now reveal contributing balances inline; expense category links preserve dates, and investment results use the selected period.
+- Removed the three-item attention limit and included spending above zero-value plans.
+
 ### Product workflow pass · 2026-09-28
 - Reworked the main pages around focused questions, quiet number-led cards, consistent expandable category rows, and shared comparison/progress/time-series visuals. Added the application brand specification and live-styled component reference.
 - Replaced Management navigation with a Settings hierarchy for counterparties, categories and data checks; added distinct sidebar icons and clearer account grouping.

@@ -105,7 +105,12 @@ class ReevaluationService:
                     self.transactions.repo.set_status(txn_id, TxnStatus.VOID)
                     self.transactions.audit.record("transaction", txn_id, "void",
                                                    f"Rebuilt changed reevaluation checkpoint {day}")
-                self.db.execute("DELETE FROM reevaluation_account_posts WHERE period_id=?", (period_id,))
+                # Keep the original link for a manually suppressed account so
+                # restoring its journal can re-enable this checkpoint later.
+                self.db.execute(
+                    "DELETE FROM reevaluation_account_posts WHERE period_id=? AND account_id NOT IN ("
+                    "SELECT account_id FROM reevaluation_suppressed_accounts WHERE period_id=?)",
+                    (period_id, period_id))
                 self.db.execute("UPDATE reevaluation_periods SET status='PENDING' WHERE id=?", (period_id,))
             self.db.execute("DELETE FROM reevaluation_entries WHERE period_id=?", (period_id,))
             rows = self.db.all("SELECT le.account_id,le.asset_id,le.owner_id,SUM(le.quantity_e6) quantity_e6 "
@@ -158,7 +163,9 @@ class ReevaluationService:
                 prior = self.db.one(
                     "SELECT e.value_base_e6,p.date FROM reevaluation_entries e JOIN reevaluation_periods p "
                     "ON p.id=e.period_id WHERE e.account_id=? AND e.asset_id=? AND e.owner_id IS ? "
-                    "AND p.date<? AND e.needs_price=0 ORDER BY p.date DESC,p.id DESC LIMIT 1",
+                    "AND p.date<? AND e.needs_price=0 AND NOT EXISTS ("
+                    "SELECT 1 FROM reevaluation_suppressed_accounts s WHERE s.period_id=p.id AND s.account_id=e.account_id) "
+                    "ORDER BY p.date DESC,p.id DESC LIMIT 1",
                     (account_id, asset_id, owner_id, day))
                 flow_start = fmt_date(parse_date(prior["date"]) + timedelta(days=1)) if prior else None
                 flow_sql = "SELECT COALESCE(SUM(amount_base_e6),0) FROM ledger_entries le JOIN transactions t " \
@@ -182,6 +189,9 @@ class ReevaluationService:
             if incomplete:
                 return False
             for account_id in sorted({key[0] for key in account_returns}):
+                if self.db.scalar("SELECT 1 FROM reevaluation_suppressed_accounts WHERE period_id=? AND account_id=?",
+                                  (period_id, account_id)):
+                    continue
                 account = self.accounts.get(account_id)
                 cash_asset = self.reporting.assets.cash_asset(account.currency)
                 fx = self.reporting.valuer._fx(account.currency, day)

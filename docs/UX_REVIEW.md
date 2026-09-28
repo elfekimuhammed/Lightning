@@ -4,7 +4,7 @@ The application now uses a quiet, number-led visual system. Primary results use 
 
 | Screen | Main question | Result of this pass |
 |---|---|---|
-| Overview | Where do I stand? | Free-cash key card with cash/reserve toggles; owned wealth and period net flow; compact inflow/outflow comparison and actionable exceptions. Brokerage cash caveat stays visible. |
+| Overview | Where do I stand? | Six sequential sections: total owned wealth, available cash, period cash flow, actions, expense snapshot and investments. Expandable balances show their contributing rows in place. Brokerage cash caveat stays visible. |
 | Birdview | Where is my wealth? | Composition includes cash, investments and other owned assets; allocation and liquidity details have focused drilldowns rather than repeating the spending dashboard. |
 | Budget | Am I within my plan? | Full monthly plan in monthly mode; partial custom-range estimates labelled; outside-group spending reconciles headline totals and links to supporting records. |
 | Expense Analysis | Where did my money go? | Ranked bars, plain-language prior-period comparison, consistent time trend and transaction links. Category selection applies to totals, comparisons and monthly data. |
@@ -31,3 +31,9 @@ The baseline had 17 failing tests, 217 passing and one skipped. The final integr
 Browser review uses an isolated SQLite snapshot, not the live database. Checks cover populated Overview, Budget, Birdview, Spending, Investments, account actions, Settings and the component guide, including key-card expansion, custom-date submission and narrow layouts. This is a reviewable implementation; forecasts, bank synchronization, debt modelling and full language/RTL localization were not added.
 
 Design references: [Application brand guide](APPLICATION_BRAND_GUIDE.md), [visual component reference](application-brand-guide.html), and [task architecture](PRODUCT_UX_ARCHITECTURE.md). Font families in the brand specification use the app's existing offline font fallbacks until the new brand fonts are bundled.
+
+## Overview follow-up · 29 September 2026
+
+Desktop browser review confirmed the six-section order, clear dividers, and actual cash-account and reserve rows inside disclosures. The original mixed metric grid is removed. Expense previews use the more useful second-level categories; heavy analysis remains linked separately.
+
+Sixteen focused Overview, reporting and reserve checks passed. The full shared-workspace run produced 244 passed, one skipped and two failures from concurrent changes outside this Overview work: the unlogged `0033_reserve_account_matching.sql` migration and the changed account-entry control expected by `test_product_shell.py`. Those changes were preserved, not rewritten as part of this request.
