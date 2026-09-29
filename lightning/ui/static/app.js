@@ -34,28 +34,82 @@ const isoDate = (value) => {
   if (check.getUTCFullYear() !== y || check.getUTCMonth() !== m - 1 || check.getUTCDate() !== d) return null;
   return `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 };
-document.querySelectorAll("[data-smart-date]").forEach((input) => {
-  input.addEventListener("input", () => input.setCustomValidity(""));
-  input.addEventListener("blur", () => {
-    if (!input.value.trim()) return;
-    const normalized = isoDate(input.value);
-    if (normalized) { input.value = normalized; input.setCustomValidity(""); }
-    else input.setCustomValidity("Enter a real date like 31/1, 31/1/2026, or 2026-01-31.");
+// Every date field is one component: a typeable ISO text box plus the same
+// calendar button. Plain [data-smart-date] boxes and leftover native date
+// inputs are upgraded here, so templates only need a text input.
+const DATE_ERROR = "Enter a real date like 31/1, 31/1/2026, or 2026-01-31.";
+let dateFieldCount = 0;
+const normalizeDateField = (input) => {
+  if (!input.value.trim()) { input.setCustomValidity(""); return true; }
+  const normalized = isoDate(input.value);
+  if (normalized) { input.value = normalized; input.setCustomValidity(""); return true; }
+  input.setCustomValidity(DATE_ERROR);
+  return false;
+};
+const initDateFields = (root = document) => {
+  root.querySelectorAll('input[type="date"]:not(.date-picker-native)').forEach((native) => {
+    native.type = "text";
+    native.dataset.smartDate = "";
+    if (!native.placeholder) native.placeholder = "31/1";
+    native.inputMode = "numeric";
+    native.autocomplete = "off";
   });
-});
-document.querySelectorAll("[data-open-date-picker]").forEach((button) => {
-  button.addEventListener("click", () => {
-    const field = document.querySelector(`[data-date-picker-for="${button.dataset.openDatePicker}"]`);
-    const text = document.getElementById(button.dataset.openDatePicker);
-    if (!field || !text) return;
-    const normalized = isoDate(text.value);
-    field.value = normalized || "";
-    try { field.showPicker(); } catch { field.focus(); field.click(); }
-    field.addEventListener("change", () => {
-      if (field.value) { text.value = field.value; text.dispatchEvent(new Event("input", { bubbles: true })); }
-    }, { once: true });
+  root.querySelectorAll("[data-smart-date]").forEach((input) => {
+    if (input.closest(".iso-date-control")) return;
+    if (!input.id) input.id = `date-field-${++dateFieldCount}`;
+    if (!input.placeholder) input.placeholder = "31/1";
+    const wrapper = document.createElement("span");
+    wrapper.className = "iso-date-control";
+    input.parentNode.insertBefore(wrapper, input);
+    const native = document.createElement("input");
+    native.type = "date";
+    native.className = "date-picker-native";
+    native.tabIndex = -1;
+    native.setAttribute("aria-hidden", "true");
+    native.dataset.datePickerFor = input.id;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "btn small date-picker-button";
+    button.dataset.openDatePicker = input.id;
+    button.setAttribute("aria-label", "Choose date");
+    button.title = "Choose date";
+    button.textContent = "▦";
+    wrapper.append(input, native, button);
   });
-});
+  root.querySelectorAll("[data-smart-date]:not([data-date-ready])").forEach((input) => {
+    input.dataset.dateReady = "1";
+    input.addEventListener("input", () => input.setCustomValidity(""));
+    input.addEventListener("blur", () => normalizeDateField(input));
+    const form = input.form;
+    if (form && !form.dataset.dateSubmitReady) {
+      form.dataset.dateSubmitReady = "1";
+      form.addEventListener("submit", (event) => {
+        const bad = [...form.elements].find((field) => field.matches?.("[data-smart-date]") && !normalizeDateField(field));
+        if (bad) { event.preventDefault(); event.stopImmediatePropagation(); bad.reportValidity(); bad.focus(); }
+      }, true);
+    }
+  });
+  root.querySelectorAll("[data-open-date-picker]:not([data-picker-ready])").forEach((button) => {
+    button.dataset.pickerReady = "1";
+    button.addEventListener("click", () => {
+      const control = button.closest(".iso-date-control") || root;
+      const field = control.querySelector(`[data-date-picker-for="${CSS.escape(button.dataset.openDatePicker)}"]`);
+      const text = control.querySelector(`#${CSS.escape(button.dataset.openDatePicker)}`);
+      if (!field || !text) return;
+      field.value = isoDate(text.value) || "";
+      field.addEventListener("change", () => {
+        if (field.value) {
+          text.value = field.value;
+          text.setCustomValidity("");
+          text.dispatchEvent(new Event("input", { bubbles: true }));
+          text.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+      }, { once: true });
+      try { field.showPicker(); } catch { field.focus(); field.click(); }
+    });
+  });
+};
+initDateFields();
 
 // Register: click a row to edit it in place.
 document.addEventListener("click", (e) => {
@@ -874,27 +928,7 @@ document.querySelectorAll("[data-counterparty-filter]").forEach((search) => {
       dialog.querySelector("[data-popup-close]")).focus());
   };
   const initPopupFields = () => {
-    content.querySelectorAll("[data-smart-date]:not([data-popup-date-ready])").forEach((input) => {
-      input.dataset.popupDateReady = "1";
-      input.addEventListener("blur", () => {
-        if (!input.value.trim()) return;
-        const normalized = isoDate(input.value);
-        if (normalized) { input.value = normalized; input.setCustomValidity(""); }
-        else input.setCustomValidity("Enter a real date like 31/1, 31/1/2026, or 2026-01-31.");
-      });
-      input.addEventListener("input", () => input.setCustomValidity(""));
-    });
-    content.querySelectorAll("[data-open-date-picker]:not([data-popup-picker-ready])").forEach((button) => {
-      button.dataset.popupPickerReady = "1";
-      button.addEventListener("click", () => {
-        const field = content.querySelector(`[data-date-picker-for="${button.dataset.openDatePicker}"]`);
-        const text = content.querySelector(`#${CSS.escape(button.dataset.openDatePicker)}`);
-        if (!field || !text) return;
-        field.value = isoDate(text.value) || "";
-        try { field.showPicker(); } catch { field.focus(); field.click(); }
-        field.addEventListener("change", () => { if (field.value) text.value = field.value; }, { once: true });
-      });
-    });
+    initDateFields(content);
     const type = content.querySelector("#account_type"), help = content.querySelector("#account-type-help");
     if (type && help && !type.dataset.popupReady) {
       type.dataset.popupReady = "1";
@@ -1200,83 +1234,4 @@ document.querySelectorAll("[data-month-picker]").forEach((picker) => {
     });
   });
   updateValue();
-});
-
-// Native date fields keep submitting ISO dates while showing a consistent,
-// typeable DD/MM/YYYY field alongside the calendar picker.
-const parseDisplayDate = (value) => {
-  const match = value.trim().match(/^(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{4})$/);
-  if (!match) return "";
-  const day = Number(match[1]);
-  const month = Number(match[2]);
-  const year = Number(match[3]);
-  const candidate = new Date(Date.UTC(year, month - 1, day));
-  if (candidate.getUTCFullYear() !== year || candidate.getUTCMonth() !== month - 1 || candidate.getUTCDate() !== day) return "";
-  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-};
-const formatDisplayDate = (value) => {
-  const match = (value || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  return match ? `${match[3]}/${match[2]}/${match[1]}` : "";
-};
-document.querySelectorAll('input[type="date"]:not(.date-picker-native):not([data-site-date-ready])').forEach((native) => {
-  native.dataset.siteDateReady = "1";
-  const wrapper = document.createElement("span");
-  wrapper.className = "site-date-input";
-  native.parentNode.insertBefore(wrapper, native);
-  wrapper.append(native);
-  native.classList.add("site-date-native");
-  const text = document.createElement("input");
-  text.type = "text";
-  text.className = "site-date-text";
-  if (native.id) {
-    text.id = `${native.id}-display`;
-    const externalLabel = document.querySelector(`label[for="${CSS.escape(native.id)}"]`);
-    if (externalLabel) externalLabel.htmlFor = text.id;
-  }
-  text.inputMode = "numeric";
-  text.autocomplete = "off";
-  text.placeholder = "DD/MM/YYYY";
-  text.setAttribute("aria-label", "Date (DD/MM/YYYY)");
-  text.value = formatDisplayDate(native.value);
-  text.required = native.required;
-  native.required = false;
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "btn small site-date-button";
-  button.setAttribute("aria-label", "Choose date");
-  button.title = "Choose date";
-  button.textContent = "▦";
-  wrapper.append(text, button);
-  const syncTyped = () => {
-    if (!text.value.trim()) {
-      native.value = "";
-      text.setCustomValidity("");
-      return true;
-    }
-    const iso = parseDisplayDate(text.value);
-    if (!iso) {
-      native.value = "";
-      text.setCustomValidity("Enter a date as DD/MM/YYYY.");
-      return false;
-    }
-    native.value = iso;
-    text.setCustomValidity("");
-    return true;
-  };
-  text.addEventListener("input", syncTyped);
-  text.addEventListener("blur", () => {
-    if (syncTyped()) text.value = formatDisplayDate(native.value);
-  });
-  native.addEventListener("change", () => { text.value = formatDisplayDate(native.value); text.setCustomValidity(""); });
-  button.addEventListener("click", () => {
-    if (typeof native.showPicker === "function") native.showPicker();
-    else native.click();
-  });
-  native.form?.addEventListener("submit", (event) => {
-    if (!syncTyped()) {
-      event.preventDefault();
-      text.reportValidity();
-      text.focus();
-    }
-  });
 });
