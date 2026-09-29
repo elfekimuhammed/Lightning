@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Settings{% endblock %}
-{% block heading %}<div class="birdview-title"><h1>Settings</h1><a class="btn small" href="{{ return_to }}">← Back</a></div>{% endblock %}
+{% block heading %}<div class="birdview-title"><h1>Settings</h1><a class="btn small" href="{{ return_to }}"> Back</a></div>{% endblock %}
 {% block content %}
 {% set settings_section = 'valuations' if section in ('valuations', 'assets-valuations') else section %}
 {% include 'partials/settings_nav.html' %}

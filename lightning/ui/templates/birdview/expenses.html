@@ -23,6 +23,6 @@
     <div class="compact-list">{% for item in trend if item.outflows != 0 %}<a class="compact-row" href="/transactions?{% if category_filter %}category_id={{ category_filter }}&amp;{% endif %}date_from={{ item.date_from }}&amp;date_to={{ item.date_to }}"><span>{{ item.month }}</span><b>{{ item.outflows|money }}</b></a>{% else %}<p class="empty">No monthly spending in this range.</p>{% endfor %}</div>
   </section>
 </div>
-<p class="analysis-followup"><a class="btn" href="/transactions?{% if category_filter %}category_id={{ category_filter }}&amp;{% endif %}date_from={{ date_from }}&amp;date_to={{ date_to }}">Explain with transactions →</a></p>
+<p class="analysis-followup"><a class="btn" href="/transactions?{% if category_filter %}category_id={{ category_filter }}&amp;{% endif %}date_from={{ date_from }}&amp;date_to={{ date_to }}">Explain with transactions</a></p>
 {% endif %}
 {% endblock %}

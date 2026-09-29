@@ -41,13 +41,18 @@ def parse_period(query, today: date, first_activity: str | None = None) -> Perio
         return Period("ytd", "YTD", date(today.year, 1, 1), today)
     if key == "custom":
         try:
-            start, end = date.fromisoformat(str(query.get("date_from", ""))), date.fromisoformat(str(query.get("date_to", "")))
+            from_value, to_value = str(query.get("date_from", "")), str(query.get("date_to", ""))
+            if len(from_value) < 7 or len(to_value) < 7:
+                raise ValidationError("Choose both months for a custom report.")
+            from_month = from_value[:7] if len(from_value) >= 7 else ""
+            to_month = to_value[:7] if len(to_value) >= 7 else ""
+            start, _ = parse_month(from_month)
+            _, end = parse_month(to_month)
         except ValueError:
-            raise ValidationError("Choose both dates for a custom timeline.") from None
+            raise ValidationError("Choose valid months for a custom report.") from None
+        end = min(end, today)
         if end < start:
-            raise ValidationError("The end date must be on or after the start date.")
-        if end > today:
-            raise ValidationError("The end date cannot be later than today.")
+            raise ValidationError("The end month must be the same as or after the start month.")
         return Period(key, "Custom", start, end)
     if key != "month":
         raise ValidationError("Choose All time, YTD, Monthly, or Custom.")

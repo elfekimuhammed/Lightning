@@ -42,7 +42,7 @@
     {% else %}<div class="muted small">No changes since it was recorded.</div>{% endif %}
   </div>
 </div>
-{% if budget_impacts %}<section class="card" style="margin-top:16px"><div class="card-heading"><h2>Budget impact</h2><a href="/budget?month={{ budget_impacts[0].month }}#category-plan">Open {{ budget_impacts[0].month }} plan →</a></div>
+{% if budget_impacts %}<section class="card" style="margin-top:16px"><div class="card-heading"><h2>Budget impact</h2><a href="/budget?month={{ budget_impacts[0].month }}#category-plan">Open {{ budget_impacts[0].month }} plan</a></div>
   {% for impact in budget_impacts %}<div class="budget-attention-row"><span><b>{{ impact.name }}</b><small>Spending in this category changes its monthly plan.</small></span><span class="num">{% if impact.remaining is not none %}{{ impact.remaining|money }} left{% elif impact.covered_by %}Inside {{ impact.covered_by }} · {{ impact.covered_remaining|money }} left{% else %}No covering limit{% endif %}</span></div>{% endfor %}
 </section>{% endif %}
 {% if can_split and not txn.is_void %}

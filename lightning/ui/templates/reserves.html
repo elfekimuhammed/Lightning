@@ -12,7 +12,7 @@
 {% block content %}
 {% if error %}<p class="flash error">{{ error }}</p>{% endif %}
 <section class="metric-grid reserve-overview" aria-label="Reserve cash summary">
-  <div class="metric-card"><div class="metric-label">Owned liquid cash</div><div class="metric-value">{{ summary.owned_liquid_cash|money }}</div></div>
+  <div class="metric-card"><div class="metric-label">Cash you own</div><div class="metric-value">{{ summary.owned_liquid_cash|money }}</div></div>
   <div class="metric-card"><div class="metric-label">Assigned to reserves</div><div class="metric-value">{{ summary.allocated|money }}</div></div>
   <div class="metric-card"><div class="metric-label">Free cash</div><div class="metric-value {{ summary.free_cash|tone }}">{{ summary.free_cash|money }}</div></div>
 </section>

@@ -192,7 +192,7 @@
 
 {% if holdings %}
 <div class="card holdings-strip">
-  <div class="strip-head"><b>Holdings</b><a class="small" href="/investments">All investments →</a></div>
+  <div class="strip-head"><b>Holdings</b><a class="small" href="/investments">All investments</a></div>
   <div class="chips">
     {% for h in holdings %}
     <span class="holding-chip" title="{{ h.asset_code }} · cost {{ h.cost_basis|money }}">

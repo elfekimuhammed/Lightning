@@ -63,8 +63,10 @@ class CashReserveService:
                     "SELECT COALESCE(SUM(l.amount_e6),0) FROM reserve_transaction_links l "
                     "JOIN transactions t ON t.id=l.transaction_id WHERE l.reserve_id=? AND t.status='POSTED' AND t.date<=?",
                     (reserve["id"], as_of)) or 0)
-                name = self.db.scalar("SELECT name FROM cash_reserves WHERE id=?", (reserve["id"],))
-                rows.append({"id": reserve["id"], "name": name or "Reserve",
+                reserve_data = self.db.one("SELECT name,kind FROM cash_reserves WHERE id=?", (reserve["id"],))
+                name = reserve_data["name"] if reserve_data else "Reserve"
+                kind = reserve_data["kind"] if reserve_data else "PROJECT"
+                rows.append({"id": reserve["id"], "name": name or "Reserve", "kind": kind,
                              "effective_allocated": max(from_e6(row["allocated_e6"]) - from_e6(spent), ZERO)})
         return rows
 

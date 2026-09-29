@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Budget settings{% endblock %}
 {% block heading %}<div class="budget-heading"><div><h1>Budget settings</h1><div class="muted">Choose how your plan is calculated</div></div></div>{% endblock %}
-{% block content %}<a class="btn small" href="{{ return_to }}">← Back to Budget</a>
+{% block content %}<a class="btn small" href="{{ return_to }}"> Back to Budget</a>
 {% if error %}<div class="notice error" role="alert">{{ error }}</div>{% endif %}
 <form id="budget-settings" class="card stack" method="post" action="/budget/settings/full"><input type="hidden" name="return_to" value="{{ return_to }}">
 <h2>Carryover</h2><label><input type="checkbox" name="carryover" value="1" {{ 'checked' if carryover }}> Carry unused room and overspending into tracked categories</label><label>Effective from month<input type="text" name="carryover_month" value="{{ carryover_month }}" placeholder="yyyy-mm" pattern="\d{4}-\d{2}" title="Month, yyyy-mm" class="month-input" required></label><p class="muted small">Carryover changes spending-plan room only. It never reserves or moves cash.</p>

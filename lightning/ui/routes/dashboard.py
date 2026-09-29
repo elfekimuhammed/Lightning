@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from decimal import Decimal, InvalidOperation
 from datetime import timedelta
+from collections import defaultdict
 import json
 from urllib.parse import urlencode
 
@@ -120,7 +121,7 @@ async def dashboard(request: Request):
                          for row in c.reporting.owned_brokerage_cash_by_account(as_of))
     reserve_rows = c.reserves.breakdown_at(fmt_date(as_of))
     if reserve_rows is None and as_of == today():
-        reserve_rows = [{"id": row["id"], "name": row["name"],
+        reserve_rows = [{"id": row["id"], "name": row["name"], "kind": row["kind"],
                          "effective_allocated": row["effective_allocated"]}
                         for row in c.reserves.list_active()]
     assigned = (sum((row["effective_allocated"] for row in reserve_rows), ZERO)
@@ -182,15 +183,49 @@ async def dashboard(request: Request):
     cash_flow = c.reporting.cash_flow(first, as_of)
     spending_groups = c.reporting.spending_by_category(first, as_of, depth=2)
     categorized_spending = sum((max(group.value, ZERO) for group in spending_groups), ZERO)
-    spending = []
-    for group in spending_groups[:5]:
+    expense_groups = []
+    expense_group_index = {}
+    for group in spending_groups:
         category = c.categories.get_by_code(group.code)
+        parent = c.categories.get(category.parent_id) if category.parent_id else category
         query = urlencode({"category_id": category.id, "date_from": fmt_date(first),
                            "date_to": fmt_date(as_of)})
-        spending.append({"label": group.label, "value": group.value,
-                         "share": max(group.value, ZERO) / categorized_spending * 100
-                         if categorized_spending else ZERO,
-                         "category_id": category.id, "href": f"/transactions?{query}"})
+        child = {"label": category.name, "value": group.value,
+                 "share": max(group.value, ZERO) / categorized_spending * 100
+                 if categorized_spending else ZERO,
+                 "category_id": category.id, "href": f"/transactions?{query}"}
+        if parent.id not in expense_group_index:
+            expense_group_index[parent.id] = {"id": parent.id, "label": parent.name,
+                                              "children": [], "total": ZERO}
+            expense_groups.append(expense_group_index[parent.id])
+        expense_group_index[parent.id]["children"].append(child)
+        expense_group_index[parent.id]["total"] += group.value
+    # Give every L1 group its two largest L2 categories first, then fill the
+    # remaining places with the next-largest categories overall, capped at 8.
+    selected_ids = set()
+    for parent in expense_groups:
+        for child in parent["children"][:2]:
+            if len(selected_ids) < 8:
+                selected_ids.add(child["category_id"])
+    remaining_children = sorted(
+        (child for parent in expense_groups for child in parent["children"]
+         if child["category_id"] not in selected_ids),
+        key=lambda child: child["value"], reverse=True)
+    for child in remaining_children:
+        if len(selected_ids) >= 8:
+            break
+        selected_ids.add(child["category_id"])
+    selected_groups = []
+    for parent in expense_groups:
+        children = [child for child in parent["children"] if child["category_id"] in selected_ids]
+        if children:
+            other_children = [child for child in parent["children"] if child["category_id"] not in selected_ids]
+            selected_groups.append({
+                "id": parent["id"], "label": parent["label"], "children": children,
+                "total": parent["total"], "other_count": len(other_children),
+                "other_total": sum((child["value"] for child in other_children), ZERO),
+            })
+    expense_groups = selected_groups
     closing_report = build_investment_report(c.db, c.accounts, c.assets, c.reporting,
                                               fmt_date(first), fmt_date(as_of))
     opening_report = build_investment_report(c.db, c.accounts, c.assets, c.reporting,
@@ -212,13 +247,72 @@ async def dashboard(request: Request):
         "holdings_count": sum(1 for row in closing_report["holdings"] if row["price_source"] != "CASH"),
     }
     investment_holdings = [
-        {"label": f"{row['asset']} · {row['account']}", "value": row["value"]}
+        {"label": f"{row['asset']} · {row['account']}", "value": row["value"],
+         "weight": (row["value"] / portfolio_value * 100
+                    if row["value"] is not None and portfolio_value else None)}
         for row in sorted((row for row in closing_report["holdings"] if row["price_source"] != "CASH"),
                           key=lambda row: (row["value"] is None, -(row["value"] or ZERO), row["asset"]))[:5]
     ]
+    # Reuse the investment ledger's dated positions for asset-class and asset
+    # performance. Returns combine each holding's unrealized movement,
+    # realized gain/loss and distributions across the selected range.
+    current_day, opening_day = fmt_date(as_of), fmt_date(first - timedelta(days=1))
+    current_portfolio = c.investments.portfolio(current_day)
+    opening_portfolio = c.investments.portfolio(opening_day)
+    current_by_key = {(h.account_id, h.asset_id): h for h in current_portfolio.positions}
+    opening_by_key = {(h.account_id, h.asset_id): h for h in opening_portfolio.positions}
+
+    def owned_values(portfolio, on_day):
+        custody_units = defaultdict(lambda: ZERO)
+        for row in c.money_from_others.investment_positions(on_day):
+            custody_units[(row["account_id"], row["asset_id"])] += row["units"]
+        values = {}
+        for holding in portfolio.open:
+            key = (holding.account_id, holding.asset_id)
+            others = custody_units.get(key, ZERO)
+            other_value = (c.reporting.value_of(holding.asset_id, others, on_day).value or ZERO) if others else ZERO
+            share = ((holding.value or ZERO) - other_value) / holding.value if holding.value else ZERO
+            values[key] = (share, (holding.value or ZERO) - other_value,
+                           holding.cost_basis * (holding.quantity - others) / holding.quantity
+                           if holding.quantity else ZERO)
+        return values
+
+    current_owned = owned_values(current_portfolio, current_day)
+    opening_owned = owned_values(opening_portfolio, opening_day)
+    class_results = defaultdict(lambda: ZERO)
+    asset_results = defaultdict(lambda: {"label": "", "result": ZERO})
+    for key, holding in current_by_key.items():
+        if not holding.is_open or holding.value is None:
+            continue
+        share, owned_value, owned_cost = current_owned.get(key, (ZERO, ZERO, ZERO))
+        previous = opening_by_key.get(key)
+        old_share, old_value, old_cost = opening_owned.get(key, (ZERO, ZERO, ZERO))
+        if previous and previous.value is not None:
+            unrealized_change = (owned_value - owned_cost) - (old_value - old_cost)
+            realized_change = (holding.realized - previous.realized) * share
+            distribution_change = (holding.dividends - previous.dividends) * share
+        else:
+            unrealized_change = owned_value - owned_cost
+            realized_change = holding.realized * share
+            distribution_change = holding.dividends * share
+        result = unrealized_change + realized_change + distribution_change
+        class_results[holding.asset_class.split(" › ")[-1]] += result
+        asset_result = asset_results[holding.asset_id]
+        asset_result["label"] = holding.asset_name
+        asset_result["result"] += result
+    class_rows = [{"label": name, "result": value} for name, value in
+                  sorted(class_results.items(), key=lambda item: (-abs(item[1]), item[0].casefold()))]
+    asset_result_rows = list(asset_results.values())
+    winners = sorted((row for row in asset_result_rows if row["result"] > ZERO),
+                     key=lambda row: row["result"], reverse=True)[:2]
+    losers = sorted((row for row in asset_result_rows if row["result"] < ZERO),
+                    key=lambda row: row["result"])[:2]
+    class_scale = max((abs(row["result"]) for row in class_rows), default=ZERO) or Decimal(1)
     investment_flow = closing_report["new_money"]
     investment_share = (investment_flow / cash_flow.inflows * 100
                         if cash_flow.inflows > ZERO else None)
+    savings_rate = (cash_flow.net / cash_flow.inflows * 100
+                    if cash_flow.inflows > ZERO else None)
     return render(
         request,
         "dashboard/index.html",
@@ -234,11 +328,13 @@ async def dashboard(request: Request):
         change=change, change_reason=change_reason, change_label=change_label,
         attention=attention,
         net_worth=net_worth,
-        account_contributions=account_contributions, spending=spending,
+        account_contributions=account_contributions, expense_groups=expense_groups,
         categorized_spending=categorized_spending,
         investment_report=investment_report, investment_holdings=investment_holdings,
+        investment_class_returns=class_rows, investment_class_scale=class_scale,
+        investment_winners=winners, investment_losers=losers,
         cash_flow=cash_flow, investment_flow=investment_flow,
-        investment_share=investment_share,
+        investment_share=investment_share, savings_rate=savings_rate,
     )
 
 
