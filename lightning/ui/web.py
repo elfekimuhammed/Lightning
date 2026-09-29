@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from urllib.parse import quote, urlsplit
 
@@ -21,8 +21,21 @@ UI_DIR = Path(__file__).parent
 templates = Jinja2Templates(directory=str(UI_DIR / "templates"))
 
 
+def _minus(text: str) -> str:
+    """Screens show a true minus (−5,000.00); exports keep the ASCII hyphen."""
+    return "\u2212" + text[1:] if text.startswith("-") else text
+
+
 def _money(value, signed: bool = False, places: int = 2) -> str:
-    return fmt(value if value is None or isinstance(value, Decimal) else Decimal(str(value)), places, signed)
+    if value is None or isinstance(value, Decimal):
+        return _minus(fmt(value, places, signed))
+    # Re-rendered forms hand back what the user typed ("45,000.00", "−450");
+    # show it as typed instead of failing the whole page.
+    text = str(value).strip().replace(",", "").replace("\u2212", "-")
+    try:
+        return _minus(fmt(Decimal(text), places, signed))
+    except InvalidOperation:
+        return str(value)
 
 
 def _tone(value) -> str:

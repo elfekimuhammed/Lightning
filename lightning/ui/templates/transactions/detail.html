@@ -31,7 +31,7 @@
         {% else %}<a class="btn" href="/accounts/{{ summary.account_id }}?edit={{ txn.id }}&acct={{ summary.account_id }}">Edit in transactions</a>{% endif %}
         {% if txn.type != 'OPN' %}<form method="post" action="/transactions/{{ txn.id }}/delete" data-confirm-delete><button class="btn danger">Delete</button></form>{% endif %}
       {% else %}
-        <form method="post" action="/transactions/{{ txn.id }}/restore"><button class="btn">Restore</button></form>
+        {% if replaced_revaluation %}<p class="muted small">Replaced by a newer revaluation; nothing to restore.</p>{% else %}<form method="post" action="/transactions/{{ txn.id }}/restore"><button class="btn">Restore</button></form>{% endif %}
       {% endif %}
     </div>
   </div>

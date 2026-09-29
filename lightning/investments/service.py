@@ -278,6 +278,12 @@ class InvestmentService:
     # ======================================================================
     # Positions
     # ======================================================================
+    def first_holding_date(self) -> str | None:
+        """Date of the first posted non-cash investment line."""
+        return self.db.scalar(
+            "SELECT MIN(t.date) FROM transactions t JOIN ledger_entries l ON l.transaction_id=t.id "
+            "JOIN financial_assets a ON a.id=l.asset_id WHERE t.status='POSTED' AND a.is_cash=0")
+
     def portfolio(self, as_of=None, account_id: int | None = None) -> Portfolio:
         """Every holding (open and closed) with cost basis, value and gains, as of a date (default today)."""
         day = fmt_date(as_of) if as_of and not isinstance(as_of, str) else (as_of or fmt_date(today()))

@@ -78,8 +78,8 @@
     {{ field('total_cost', 'What you paid in total (' ~ base ~ ')', values, error_field, help='Your cost basis — THNDR shows it as average cost × units.', attrs='inputmode="decimal" required') }}
   </div>
   <div class="field {{ 'has-error' if error_field == 'date' }}">
-    <label for="date">As of <span class="muted small">e.g. 31/1</span></label>
-    <input type="text" id="date" name="date" value="{{ values.date }}" placeholder="31/1" inputmode="numeric" data-smart-date>
+    <label for="date">As of <span class="muted small">yyyy-mm-dd</span></label>
+    <input type="text" id="date" name="date" value="{{ values.date }}" placeholder="yyyy-mm-dd" inputmode="numeric" data-smart-date>
     <div class="help">Choose when you want this existing holding to enter your tracked history.</div>
   </div>
   {% endif %}
@@ -92,7 +92,7 @@
   </div>
   <div class="field"><label for="notes">Notes</label><textarea id="notes" name="notes" rows="2">{{ values.notes }}</textarea></div>
   <div class="actions">
-    {% if txn %}<span class="inline-save-status" role="status" aria-live="polite"></span>{% else %}<button class="btn primary">Record {{ kind }}</button>{% endif %}
+    {% if txn %}<span class="muted small">Changes save automatically.</span><span class="inline-save-status" role="status" aria-live="polite"></span>{% else %}<button class="btn primary">Record {{ kind }}</button>{% endif %}
     <a class="btn" href="/investments">Cancel</a>
     {% if txn %}<a class="btn" href="/transactions/{{ txn.id }}">Details &amp; history</a>{% endif %}
   </div>

@@ -282,11 +282,25 @@ async def dashboard(request: Request):
     class_results = defaultdict(lambda: ZERO)
     asset_results = defaultdict(lambda: {"label": "", "result": ZERO})
     for key, holding in current_by_key.items():
-        if not holding.is_open or holding.value is None:
-            continue
-        share, owned_value, owned_cost = current_owned.get(key, (ZERO, ZERO, ZERO))
         previous = opening_by_key.get(key)
         old_share, old_value, old_cost = opening_owned.get(key, (ZERO, ZERO, ZERO))
+        if not holding.is_open:
+            # Sold out during the period: its sale gain and distributions still
+            # belong to the period result, less any gain it carried in.
+            realized = holding.realized - (previous.realized if previous else ZERO)
+            dividends = holding.dividends - (previous.dividends if previous else ZERO)
+            if not realized and not dividends:
+                continue
+            share = old_share if previous and old_share else Decimal(1)
+            result = (realized + dividends) * share - ((old_value - old_cost) if previous else ZERO)
+            class_results[holding.asset_class.split(" › ")[-1]] += result
+            asset_result = asset_results[holding.asset_id]
+            asset_result["label"] = holding.asset_name
+            asset_result["result"] += result
+            continue
+        if holding.value is None:
+            continue
+        share, owned_value, owned_cost = current_owned.get(key, (ZERO, ZERO, ZERO))
         if previous and previous.value is not None:
             unrealized_change = (owned_value - owned_cost) - (old_value - old_cost)
             realized_change = (holding.realized - previous.realized) * share

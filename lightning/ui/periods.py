@@ -24,11 +24,11 @@ class Period:
 
     @property
     def start_display(self) -> str:
-        return self.start.strftime("%d %b %Y")
+        return fmt_date(self.start)
 
     @property
     def end_display(self) -> str:
-        return self.end.strftime("%d %b %Y")
+        return fmt_date(self.end)
 
 
 def parse_period(query, today: date, first_activity: str | None = None) -> Period:

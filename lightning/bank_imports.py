@@ -389,6 +389,9 @@ class BankImportService:
 
         errors = {}
         ambiguous_reserves = 0
+        # A merchant typed as new on several rows (salary every month) is
+        # created once; later rows in this batch reuse it.
+        self._created_in_batch = {}
         try:
             with self.db.transaction():
                 # Custody debits depend on earlier credits. Statements often arrive
@@ -401,10 +404,13 @@ class BankImportService:
                         skip_status = "DUPLICATE" if row["_reference_duplicate"] or row["_similarity_warning"] else "SKIPPED"
                         self.db.execute("UPDATE bank_import_rows SET status=? WHERE id=?", (skip_status, row_id))
                         continue
+                    self._pending_created = None
                     try:
                         with self.db.transaction():
                             matched = self._post_import_row(batch, row_id, decision, row, accounts)
                             ambiguous_reserves += int(matched < 0)
+                        if self._pending_created:
+                            self._created_in_batch.update([self._pending_created])
                     except LightningError as exc:
                         errors[int(row_id)] = exc.message
                 if errors:
@@ -452,8 +458,12 @@ class BankImportService:
             counterparty_id = None
         elif choice == "new":
             name = str(decision.get("new_counterparty", cp_text)).strip()
-            if name:
+            created = getattr(self, "_created_in_batch", {})
+            if name and name.casefold() in created:
+                counterparty_id = created[name.casefold()]
+            elif name:
                 counterparty_id = self.counterparties.create(name, alias=cp_text or None)
+                self._pending_created = (name.casefold(), counterparty_id)
         elif row.get("_suggestions") and not row.get("_counterparty_id") and not choice:
             raise ValidationError(f"CSV row {row['_line']}: choose a Counterparty match or leave it unlinked.",
                                   "counterparty")

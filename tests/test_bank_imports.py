@@ -318,3 +318,36 @@ def test_ui_maps_nonstandard_headers_once_and_can_reverse_sign(c, setup):
     second_id = int(auto.headers["location"].rsplit("/", 1)[-1])
     _, rows = c.bank_imports.preview(second_id)
     assert rows[0]["Date"] == "2026-09-26" and rows[0]["Amount"] == "-22"
+
+
+def test_same_new_counterparty_on_several_rows_is_created_once(c, setup):
+    accounts, cats = setup
+    csv = b"Date,Counterparty,Amount\n2026-09-02,CARREFOUR 4587,-100\n2026-09-09,CARREFOUR 4587,-200\n"
+    batch_id, _ = c.bank_imports.stage(accounts["cib"].id, "shop.csv", csv)
+    _, rows = c.bank_imports.preview(batch_id)
+    decisions = {row["_import_row_id"]: {"counterparty": "Carrefour", "counterparty_choice": "new",
+                                         "new_counterparty": "Carrefour",
+                                         "category_id": str(cats["EXP.PERSONAL.FOOD"].id)} for row in rows}
+    result = c.bank_imports.confirm(batch_id, decisions)
+    assert result["errors"] == {} and result["posted"] == 2
+    assert [row["name"] for row in c.counterparties.list_active()].count("Carrefour") == 1
+
+
+def test_review_with_a_row_error_rerenders_typed_amounts(c, setup):
+    from fastapi.testclient import TestClient
+    from lightning.ui.web import create_app
+    accounts, cats = setup
+    client = TestClient(create_app(c))
+    account_id = accounts["cib"].id
+    csv = b"Date,Counterparty,Amount\n2026-09-02,Shop,-1200\n2026-09-03,Shop,-45\n"
+    upload = _upload_and_map(client, account_id, "month.csv", csv,
+                             {"Date": "Date", "Amount": "Amount", "Counterparty": "Counterparty"})
+    batch_id = int(upload.headers["location"].rsplit("/", 1)[-1])
+    _, rows = c.bank_imports.preview(batch_id)
+    first, second = (row["_import_row_id"] for row in rows)
+    posted = client.post(f"/accounts/{account_id}/import/{batch_id}/confirm", data={
+        f"counterparty_choice_{first}": "unlinked", f"amount_{first}": "-1,200.00", f"date_{first}": "2026-09-02",
+        f"counterparty_choice_{second}": "unlinked", f"amount_{second}": "-4x5", f"date_{second}": "2026-09-03",
+    })
+    assert posted.status_code == 200
+    assert "Nothing was imported" in posted.text and "Fix 1 row" in posted.text

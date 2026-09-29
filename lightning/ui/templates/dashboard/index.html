@@ -7,7 +7,7 @@
 {% set period_query = request.url.query %}
 <div class="overview-stack">
   <section class="overview-section" aria-labelledby="position-heading">
-    <header class="overview-section-head"><h2 id="position-heading">Your Position</h2><span>As of {{ as_of }}</span></header>
+    <header class="overview-section-head"><h2 id="position-heading">Your position</h2><span>As of {{ as_of }}</span></header>
     <div class="overview-position-grid">
       <article class="overview-block overview-wealth-card" aria-labelledby="owned-heading">
         <div class="overview-block-head"><div><h3 id="owned-heading">What you own</h3><p>Excludes money held for others</p></div><a class="quiet-link" href="/birdview?{{ period_query }}">Wealth analysis</a></div>
@@ -26,7 +26,7 @@
         <div class="overview-headline">{% if free_cash is not none %}{{ free_cash|money }} <small>{{ base }}</small>{% else %}Unavailable{% endif %}</div>
         <div class="overview-inline-list">
           <details class="overview-disclosure"><summary><span>Cash you own</span><b>{{ eligible_cash|money }} {{ base }}</b></summary><div class="overview-disclosure-body">{% for account in cash_accounts %}<a href="/accounts/{{ account.id }}"><span>{{ account.label }} <small>{{ account.type }}</small></span><b>{{ account.value|money if account.value is not none else 'Unavailable' }}{% if account.value is not none %} {{ base }}{% endif %}</b></a>{% else %}<p class="muted small">No cash is recorded in active accounts.</p>{% endfor %}</div></details>
-          {% if reserve_summary is not none %}<details class="overview-disclosure"><summary><span>Assigned reserves</span><b>− {{ reserve_summary.allocated|money }} {{ base }}</b></summary><div class="overview-disclosure-body">{% for reserve in reserve_rows if reserve.effective_allocated != 0 %}<a href="/reserves"><span>{{ 'Emergency Fund' if reserve.kind == 'EMERGENCY' else reserve.name }}</span><b>{{ reserve.effective_allocated|money }} {{ base }}</b></a>{% else %}<p class="muted small">No cash is assigned to reserves on this date.</p>{% endfor %}</div></details>{% else %}<div class="overview-static-row"><span>Assigned reserves</span><b>History unavailable</b></div><p class="muted small">Reserve history cannot be reconstructed for this date. <a href="/reserves">Review current reserves</a></p>{% endif %}
+          {% if reserve_summary is not none %}<details class="overview-disclosure"><summary><span>Assigned reserves</span><b>−{{ reserve_summary.allocated|money }} {{ base }}</b></summary><div class="overview-disclosure-body">{% for reserve in reserve_rows if reserve.effective_allocated != 0 %}<a href="/reserves"><span>{{ 'Emergency Fund' if reserve.kind == 'EMERGENCY' else reserve.name }}</span><b>{{ reserve.effective_allocated|money }} {{ base }}</b></a>{% else %}<p class="muted small">No cash is assigned to reserves on this date.</p>{% endfor %}</div></details>{% else %}<div class="overview-static-row"><span>Assigned reserves</span><b>History unavailable</b></div><p class="muted small">Reserve history cannot be reconstructed for this date. <a href="/reserves">Review current reserves</a></p>{% endif %}
         </div>
         {% if brokerage_cash > 0 %}<p class="overview-context">Includes {{ brokerage_cash|money }} {{ base }} in brokerage cash; transfer it to a bank or wallet before everyday spending.</p>{% endif %}
       </article>
@@ -34,7 +34,7 @@
   </section>
 
   <section class="overview-section" aria-labelledby="cashflow-analysis-heading">
-    <header class="overview-section-head"><h2 id="cashflow-analysis-heading">Cash Flow Analysis</h2></header>
+    <header class="overview-section-head"><h2 id="cashflow-analysis-heading">Cash flow</h2></header>
     <div class="overview-analysis-grid">
         <article class="overview-block overview-flow-card" aria-labelledby="flow-heading">
           <div class="overview-block-head"><div><h3 id="flow-heading">Cashflow</h3><p>Owned posted income and expenses</p></div><a class="quiet-link" href="/transactions?date_from={{ date_from }}&amp;date_to={{ date_to }}">Transactions</a></div>
@@ -57,7 +57,7 @@
             <summary><span>{{ group.label }}</span><b>{{ group.total|money }} {{ base }}</b></summary>
             <div class="overview-expense-items">
               {% for category in group.children %}<a href="{{ category.href }}"><span>{{ category.label }}</span><b>{{ category.value|money }} {{ base }}</b></a>{% endfor %}
-              {% if group.other_count %}<div class="overview-expense-other"><span>{{ group.other_count }} more categories</span><b>{{ group.other_total|money }} {{ base }}</b></div>{% endif %}
+              {% if group.other_count %}<div class="overview-expense-other"><span>{{ group.other_count }} more {{ 'category' if group.other_count == 1 else 'categories' }}</span><b>{{ group.other_total|money }} {{ base }}</b></div>{% endif %}
             </div>
           </details>
           {% else %}<p class="muted small">No expenses were recorded in this period.</p>{% endfor %}
@@ -91,7 +91,7 @@
           {% for row in investment_class_returns %}<div class="overview-investment-return-row"><span>{{ row.label }}</span><span class="overview-investment-track"><i class="{{ 'negative' if row.result < 0 else 'positive' }}" style="width:{{ (row.result|abs / investment_class_scale * 100)|round(1) }}%"></i></span><b class="{{ row.result|tone }}">{{ row.result|money(True) }} {{ base }}</b></div>{% else %}<p class="muted small">No financial asset returns in this period.</p>{% endfor %}
         </section>
         <section class="overview-investment-movers" aria-labelledby="investment-movers-heading">
-          <h3 id="investment-movers-heading">Biggest movers · financial assets</h3>
+          <h3 id="investment-movers-heading">Biggest movers</h3>
           <div class="overview-investment-mover-columns">
             <div><h4>Winners</h4>{% for row in investment_winners %}<div class="overview-investment-mover"><span>{{ row.label }}</span><b class="positive">{{ row.result|money(True) }} {{ base }}</b></div>{% else %}<p class="muted small">No gains in this period.</p>{% endfor %}</div>
             <div><h4>Losers</h4>{% for row in investment_losers %}<div class="overview-investment-mover"><span>{{ row.label }}</span><b class="negative">{{ row.result|money(True) }} {{ base }}</b></div>{% else %}<p class="muted small">No losses in this period.</p>{% endfor %}</div>
