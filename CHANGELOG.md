@@ -8,6 +8,11 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### Uniform controls and date fields · 2026-09-29
+- Buttons, text and number fields, dropdowns, month boxes and segmented toggles share one font, a 40 px height (30 px for small buttons), one border and an 8 px radius; checkboxes keep their natural 16 px size.
+- Every date field is the same component: a typeable ISO box (`31/1`, `31/1/2026` or `2026-01-31`) with the same calendar button, including the register, CSV review, reconcile, data checks, custom periods, prices and physical items. Dates are normalised on submit as well as on blur.
+- The register date column fits a full date; the settings carryover month uses the `yyyy-mm` box; the Birdview class popup keeps only the dialog's close button.
+
 ### Overview information flow · 2026-09-29
 - Replaced the mixed card grid with six ordered, divided sections: wealth, available cash, period cash flow, attention, expenses and investments.
 - Expanded cash and reserve amounts now reveal contributing balances inline; expense category links preserve dates, and investment results use the selected period.

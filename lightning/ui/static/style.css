@@ -528,7 +528,7 @@ tr.clickable:hover td { background: var(--surface-2); }
 .birdview-period label { min-width: 125px; }
 .birdview-period [hidden] { display: none !important; }
 .period-month-picker{align-items:end;gap:8px}.period-month-picker form{margin:0}.period-month-picker select{min-width:180px}.period-month-picker button:disabled{opacity:.45;cursor:not-allowed}
-.site-period-control{display:flex;align-items:end;justify-content:flex-end;gap:10px;flex-wrap:wrap;margin:0}.site-period-control .period-buttons{display:flex;flex-wrap:nowrap}.site-period-control .period-month-picker,.site-period-control .period-date-range{display:flex;align-items:end;gap:8px}.site-period-control label{display:grid;gap:4px;color:var(--muted);font-size:12px}.site-period-control select,.site-period-control input{min-height:38px}.site-period-control select{min-width:180px}.site-date-input{position:relative;display:grid;grid-template-columns:minmax(130px,1fr) 36px;gap:6px;align-items:center}.site-date-input .site-date-native{position:absolute!important;width:1px!important;height:1px!important;left:0;bottom:0;opacity:0!important;pointer-events:none}.site-date-input .site-date-text{width:100%;min-width:130px}.site-date-input .site-date-button{min-width:36px;padding:6px}.period-month-picker{display:flex}.period-month-picker label{display:grid;gap:4px;color:var(--muted);font-size:12px}
+.site-period-control{display:flex;align-items:end;justify-content:flex-end;gap:10px;flex-wrap:wrap;margin:0}.site-period-control .period-buttons{display:flex;flex-wrap:nowrap}.site-period-control .period-month-picker,.site-period-control .period-date-range{display:flex;align-items:end;gap:8px}.site-period-control label{display:grid;gap:4px;color:var(--muted);font-size:12px}.site-period-control select,.site-period-control input{min-height:38px}.site-period-control select{min-width:180px}.period-month-picker{display:flex}.period-month-picker label{display:grid;gap:4px;color:var(--muted);font-size:12px}
 .site-period-control .period-month-picker{align-items:end;gap:7px}.site-period-control .period-month-picker select{width:132px;min-width:132px}.year-picker{position:relative;display:block}.year-picker-trigger{width:82px;min-height:38px;padding:7px 11px;text-align:left;color:var(--ink-900);background:var(--surface);border:1px solid var(--border);border-radius:9px;cursor:pointer}.year-picker-menu{position:absolute;z-index:30;top:calc(100% + 4px);left:0;display:block;width:82px;max-height:220px;overflow-y:auto;overscroll-behavior:contain;background:var(--surface);border:1px solid var(--border);border-radius:9px;box-shadow:0 8px 24px #1024382b;padding:4px}.year-picker-menu[hidden]{display:none}.year-picker-option{display:block;width:100%;padding:6px 9px;text-align:left;background:transparent;border:0;border-radius:5px;color:var(--ink-900);cursor:pointer}.year-picker-option:hover,.year-picker-option:focus{background:var(--sky-100);outline:none}
 @media(max-width:760px){.site-period-control{justify-content:flex-start}.site-period-control .period-buttons,.site-period-control .period-date-range{flex-wrap:wrap}.site-period-control .period-date-range label{flex:1 1 135px}.topbar>.actions{width:100%}}
 .birdview-assets { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px; }
@@ -868,3 +868,62 @@ input,select,textarea { min-height:40px; }
 .reserve-match-actions,.reserve-match-prompt form{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .reserve-match-prompt form{margin:0}
 .import-amount-model [data-amount-fields][hidden]{display:none!important}
+
+/* ── Unified small controls ────────────────────────────────────────────────
+   One font, height, border and radius for every button, field, dropdown and
+   date box. `:not(#_)` lifts these rules above the page-specific ones that
+   used to resize controls locally (it matches every element). */
+:root { --control-h: 40px; --control-h-small: 30px; --control-radius: 8px; --control-font: 14px; }
+button, input, select, textarea { font-family: inherit; }
+:is(input:not([type]), input[type=text], input[type=search], input[type=number], input[type=email],
+    input[type=tel], input[type=url], input[type=password], input[type=month], select, textarea):not(#_) {
+  box-sizing: border-box; height: var(--control-h); min-height: var(--control-h); padding: 0 12px;
+  border: 1px solid var(--border); border-radius: var(--control-radius); background: var(--surface);
+  color: var(--text); font-family: inherit; font-size: var(--control-font); font-weight: 400; line-height: 1.3;
+}
+/* Width stays a low-specificity default so toolbars and grids can still size fields. */
+:where(input:not([type]), input[type=number], input[type=email], input[type=tel], input[type=url],
+    input[type=password], input[type=month]) { width: 100%; }
+select:not(#_) { padding-right: 8px; }
+textarea:not(#_) { height: auto; min-height: 88px; padding: 9px 12px; line-height: 1.45; }
+.field.has-error :is(input, select):not(#_), :is(input, select).bad:not(#_) { border-color: var(--neg); }
+.amount input:not(#_) { font-size: 20px; font-variant-numeric: tabular-nums; }
+.toolbar-filters .month-input:not(#_), .month-input:not(#_) { width: 110px; }
+/* Checkboxes and radios keep their natural size instead of stretching to field height/width. */
+input:is([type=checkbox], [type=radio]):not(#_) {
+  width: 16px; height: 16px; min-height: 0; margin: 0 6px 0 0; padding: 0; flex: 0 0 auto;
+  vertical-align: -3px; accent-color: var(--accent); cursor: pointer;
+}
+/* Buttons: one font and two fixed heights, so containers can no longer stretch them. */
+.btn:not(#_) {
+  box-sizing: border-box; height: var(--control-h); min-height: var(--control-h); padding: 0 16px;
+  justify-content: center; align-self: auto; white-space: nowrap; text-decoration: none;
+  font-family: inherit; font-size: var(--control-font); font-weight: 500; line-height: 1;
+}
+.btn.small:not(#_) { height: var(--control-h-small); min-height: var(--control-h-small); padding: 0 12px; font-size: 13px; }
+/* Date component: the same calendar button next to every date box. */
+.iso-date-control { display: grid; grid-template-columns: minmax(0, 1fr) var(--control-h); gap: 6px; align-items: center; min-width: 0; }
+.iso-date-control .date-picker-button:not(#_) {
+  width: var(--control-h); height: var(--control-h); min-height: var(--control-h); min-width: 0; padding: 0;
+  border-radius: var(--control-radius); font-size: 15px;
+}
+.site-period-control .iso-date-control, .actions .iso-date-control { width: 170px; }
+/* Segmented toggles share one look. */
+:is(.period-button, .investment-action-button):not(#_) {
+  box-sizing: border-box; height: var(--control-h); min-height: var(--control-h); padding: 0 14px;
+  font-family: inherit; font-size: var(--control-font); font-weight: 600; line-height: 1;
+}
+.period-button:first-child:not(#_) { border-radius: var(--control-radius) 0 0 var(--control-radius); }
+.period-button:last-child:not(#_) { border-radius: 0 var(--control-radius) var(--control-radius) 0; }
+.period-button:only-child:not(#_) { border-radius: var(--control-radius); }
+.investment-action-button:not(#_) { padding: 0 6px; border-radius: var(--control-radius); }
+.year-picker-trigger:not(#_) {
+  box-sizing: border-box; height: var(--control-h); min-height: var(--control-h); padding: 0 12px;
+  border-radius: var(--control-radius); font-family: inherit; font-size: var(--control-font); font-weight: 400; line-height: 1;
+}
+.horizon-segment { font-family: inherit; }
+/* Hidden submit buttons stay fully invisible. */
+.alias-submit:not(#_) { appearance: none; background: transparent; min-height: 0; height: 1px; }
+.horizon-legend button { font-size: var(--control-font); }
+/* The hidden native picker behind each calendar button must not take up space. */
+.date-picker-native:not(#_) { width: 1px; height: 1px; min-height: 0; padding: 0; border: 0; }
