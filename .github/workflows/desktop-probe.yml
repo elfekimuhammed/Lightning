@@ -22,7 +22,8 @@ jobs:
         with:
           python-version: '3.13'
       - name: Install locked dependencies
-        run: python -m pip install --require-hashes --only-binary=:all: -r requirements/desktop-probe-win.lock
+        run: |
+          python -m pip install --require-hashes --only-binary=:all: -r requirements/desktop-probe-win.lock
       - name: Test Windows adapters and shared crypto
         run: python -m pytest tests/test_desktop_crypto.py tests/test_desktop_window.py tests/test_desktop_server.py tests/test_desktop_packaging.py -q
       - name: Check import contracts
