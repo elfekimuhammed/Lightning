@@ -1334,3 +1334,9 @@ textarea:not(#_):not(.x_) { height:auto; min-height:96px; padding:12px 16px; lin
 /* A folded row's title and its muted note read as two phrases. */
 summary > b + .muted { margin-left:8px; }
 .physical-items-table td small.muted { display:block; }
+/* Page header bar: every control is 48px, so the bar lines up top and bottom. */
+.topbar :is(.btn, .action-menu > summary):not(#_):not(.x_) {
+  display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box;
+  height:var(--control-h); min-height:var(--control-h); padding:0 20px; border-radius:999px; font-size:14px;
+}
+.topbar .icon-btn:not(#_):not(.x_) { width:var(--control-h); padding:0; font-size:18px; }
