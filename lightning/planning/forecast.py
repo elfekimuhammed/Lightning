@@ -8,6 +8,7 @@ from datetime import date
 from decimal import Decimal
 
 from lightning.core.dates import fmt_date, month_of, parse_month, today
+from lightning.core.figures import label
 from lightning.core.money import ZERO
 
 from .domain import CashForecast, ForecastMonth, Payment, PaymentStatus, PlanKind
@@ -122,6 +123,6 @@ class CashForecaster:
         bills = sum((p.amount for p in before), ZERO)
         this_month = first.budget_spending if first else ZERO
         goals = first.goal_saving if first else ZERO
-        parts = [("Free cash", free), ("Bills and loan payments before next income", -bills),
-                 ("Left in plan after bills", -this_month), ("Saving for goals", -goals)]
-        return free - bills - this_month - goals, [(label, value) for label, value in parts if value or label == "Free cash"]
+        parts = [(label("free_cash"), free), (label("payments_before_next_income"), -bills),
+                 (label("left_in_plan_after_bills"), -this_month), (label("saving_for_goals"), -goals)]
+        return free - bills - this_month - goals, [(name, value) for name, value in parts if value or name == label("free_cash")]

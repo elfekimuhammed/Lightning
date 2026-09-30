@@ -156,7 +156,8 @@ def test_every_tab_of_the_demo_opens_with_its_key_notes(demo):
         if url in with_notes:
             assert 'aria-label="Key notes"' in page.text, url
     overview = client.get("/").text
-    assert "chart-donut" in overview and "chart-trend" in overview and "chart-bar-row" in overview
+    assert "chart-donut" in overview and "chart-bar-row" in overview
+    assert "chart-trend" in client.get("/birdview").text  # month by month lives on Birdview
 
 
 def test_the_welcome_button_adds_the_demo_only_once(c, monkeypatch):

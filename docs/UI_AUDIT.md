@@ -152,12 +152,32 @@ The second UI run reported findings #134–#148. All of them are addressed excep
 | 139 | Lead cards not consistent | One soft lead card per page (`.lead-card`, or the lead tile in a row of tiles). |
 | 140 | Cash planning tabs didn't show the open tab | Fixed: the tab macro compared against the wrong variable. |
 | 141 | Button heights and the ⚙ emoji | 48 px in page headers and 36 px in cards; one primary action per header; a line icon for settings. |
-| 142 | Four expander styles | One: title on the left, chevron on the right. The quiet "How is this worked out?" and "Show the numbers" toggles share one look. |
+| 142 | Four expander styles | One: title on the left, chevron on the right. "Show the numbers" under charts shares one quiet look. |
 | 143 | Key notes repeated the page | Notes only for what isn't shown: what needs you (Overview), the cost of selling (Birdview), the top category and the change (Expense analysis), categories over plan (Budget), the best class (Investments), the lowest point (Plan), the bills' share of income (Recurring), the payoff date (Loans), months covered (Reserves). |
-| 144 | Formulas said too often | Inside "How is this worked out?" only. |
+| 144 | Formulas said too often | Removed from pages. Names explain themselves (owner review, round 3). |
 | 145 | Dates everywhere | The period lives in the page header. "As of" stays only where the period can move the date (Overview). |
 | 146 | Navigation duplicated | Birdview sub-tabs removed; the sidebar has each page. |
 | 147 | Phone | Tabs scroll on one line; dates and numbers never break. |
 | 148 | Uneven card heights | Side-by-side cards stretch to the same height. |
 
 **Still open:** on a phone, the transactions register scrolls sideways inside its card.
+
+## Owner review, round 3 (2026-09-30)
+
+| Ask | Change |
+|---|---|
+| Pick months instead of typing them; the year apart from the month | One month picker for every month box: a year row with ‹ ›, then 12 months, with future months disabled. |
+| No opt-in explanations: rename what needs explaining | Every "How is this worked out?" toggle removed. "Result" became "Net gain or loss". |
+| Savings rate cramped on the left | Beside Net flow on the right, behind a divider. |
+| A colour for page-wide cards | A third gradient: soft green on the left, white on the right. |
+| Month by month on Birdview; Needs you at the top as a toggle | Moved. Needs you is a closed row at the top of the Overview that opens into the list. |
+
+## Owner review, round 4 (2026-09-30)
+
+| Ask | Change |
+|---|---|
+| Budget summary order | Planned, Spent, then Left in plan. |
+| Field names repeated on every tracked row | One header row; rows show values only. |
+| Two rule boxes per category | One "Amount or %" field (`1,500` or `12%`); the rule in use is a note under the name. |
+| Birdview is redundant | Folded into the Overview (What it is made of, If you sold today, Month by month); `/birdview` redirects. |
+| Names that needed explaining | Gain from sales, Price change on what you hold, Money added, Budget left to spend, Investments if sold (estimate). |

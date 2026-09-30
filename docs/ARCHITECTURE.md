@@ -34,7 +34,7 @@ ui/                   FastAPI routes, Jinja templates, small vanilla JS/CSS
 workflows/            transactional use-cases spanning modules
 planning/             cash planning: recurring items, loans, what you owe, cash forecast (read-only)
 domain services/      accounts, assets, categories, transactions, investments, budgeting
-reporting/            read-only queries and derived views (net worth, budgets, Birdview)
+reporting/            read-only queries and derived views (net worth, budgets, the Overview)
 database/             SQLite, migrations, seed data, backup, settings, audit
 core/                 dates, money, identifiers, posting rules; no app dependencies
 ```
@@ -115,7 +115,7 @@ At the as-of date, cost of holdings still owned is remaining basis; holdings val
 - **Period income/spending:** posted external activity in the selected date range. Internal transfers and investment purchases are not income or expense; refunds reduce their original expense category. Custody activity is excluded from owned analysis.
 - **Investment return:** remaining holdings' market value less remaining cost, plus realized gains and dividends. The current portfolio and management XIRR must not be assumed owned-only until historical custody cash flows are verified.
 
-Overview and Birdview share the date-range parser. Positions in both are valued at the selected range end. Birdview expense and flow views use the selected interval; its asset-class weights divide by owned investment value and exclude cash and custody. A missing valuation is disclosed and an unavailable reserve history makes free cash and If you sold today unavailable. Historical after-sale estimates use current sale factors.
+The Overview and the reports share the date-range parser (Birdview was folded into the Overview on 2026-09-30; `/birdview` redirects there). Positions in both are valued at the selected range end. Birdview expense and flow views use the selected interval; its asset-class weights divide by owned investment value and exclude cash and custody. A missing valuation is disclosed and an unavailable reserve history makes free cash and If you sold today unavailable. Historical after-sale estimates use current sale factors.
 
 ### Birdview history and performance
 

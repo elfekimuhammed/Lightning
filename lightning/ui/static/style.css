@@ -1648,3 +1648,75 @@ a.chart-meter:hover { background:var(--hover); }
 .main .btn.small, .main button.small { font-size:var(--fs-2)!important; }
 .main .expense-lead { margin-bottom:var(--gap-block); }
 .main .expense-lead .plan-figure { margin-bottom:4px; }
+/* Month picker popup: a year row, then twelve months. */
+.month-picker-box { cursor:pointer; caret-color:transparent; }
+.month-popup { position:absolute; z-index:60; width:264px; padding:12px; border-radius:16px; background:var(--surface); border:1px solid var(--line); box-shadow:var(--shadow-float); font-family:var(--body); }
+.month-popup-year { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+.month-popup-year b { font:700 16px/1 var(--display); }
+.month-popup button { border:0; background:transparent; color:var(--ink); font:600 14px/1 var(--body); border-radius:10px; cursor:pointer; }
+.month-popup-year button { width:36px; height:36px; font-size:18px; }
+.month-popup-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:4px; }
+.month-popup-grid button { height:40px; }
+.month-popup button:hover:not([disabled]) { background:var(--hover); }
+.month-popup button.selected { background:var(--action); color:var(--on-action); }
+.month-popup button[disabled] { color:var(--line-control); opacity:.45; cursor:default; }
+.month-popup-clear { width:100%; height:36px; margin-top:6px; color:var(--azure)!important; }
+/* Net flow: the number on the left, a divider, the savings rate on the right. */
+.main .overview-flow-summary:not(#_) { grid-template-columns:minmax(0,1fr) auto; align-items:center; column-gap:28px; }
+.main .overview-flow-summary .overview-savings-rate { margin:0 0 0 auto; padding:4px 0 4px 28px; border-left:1px solid var(--line); border-top:0; }
+@media (max-width:760px) {
+  .main .overview-flow-summary:not(#_) { grid-template-columns:1fr; }
+  .main .overview-flow-summary .overview-savings-rate { margin:0; padding:12px 0 0; border-left:0; border-top:1px solid var(--line); }
+}
+/* Needs you: one closed row at the top of the Overview; open it to see every item. */
+.main .needs-you { padding:0!important; margin:0 0 var(--gap-block); }
+.main .needs-you > summary, .main .needs-you.is-empty { display:flex; align-items:center; gap:10px; padding:14px 20px; font:700 var(--fs-body)/1.4 var(--body); color:var(--ink); }
+.main .needs-you > summary small { font-weight:500; color:var(--ink-2); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.main .needs-you-dot { width:10px; height:10px; border-radius:50%; background:var(--rose); flex:none; }
+.main .needs-you.is-empty .needs-you-dot { background:var(--meadow); }
+.main .needs-you.is-empty { font-weight:600; color:var(--ink-2); }
+.main .needs-you-count { display:inline-grid; place-items:center; min-width:22px; height:22px; padding:0 6px; border-radius:11px; background:var(--rose-soft); color:var(--rose); font-size:var(--fs-meta); }
+.main .needs-you[open] > summary { border-bottom:1px solid var(--line); }
+.main .needs-you .overview-inline-list { padding:4px 20px 12px; }
+
+/* Wide cards (a card that spans the page): the lead card's soft green on the left, white on the right. */
+:root { --wide-gradient:linear-gradient(100deg,#E0F5E9 0%,#E3F4EF 26%,#F7FCF9 52%,#FFFFFF 72%); }
+.main :is(.wide-card,.overview-investment-card,#budget-meters,.budget-rollup,.plan-section > .card:not(.plan-lead):not(.plan-loan),
+  .plan-loan,.emergency-fund,.reserve-list,.holdings-card,section.analysis-card,.money-from-others-card) { background:var(--wide-gradient)!important; }
+.main .needs-you.is-empty { padding:14px 20px!important; }
+.main .overview-flow-summary .overview-headline { font-size:var(--num-card)!important; white-space:nowrap; overflow:visible; }
+.main .birdview-trend { margin-top:32px; }
+.main .overview-flow-summary .overview-headline { display:flex!important; align-items:baseline; flex-wrap:nowrap; }
+.main .overview-flow-summary .overview-headline small { display:inline!important; }
+/* Budget › tracked categories: the field names once, then one line per category. */
+.main .budget-track-head, .main .budget-track-grid { display:grid; grid-template-columns:minmax(170px,2fr) 124px repeat(5,minmax(72px,1fr)) 56px; gap:10px; align-items:center; }
+.main .budget-track-head { padding:6px 0; border-bottom:1px solid var(--line); color:var(--muted); font:700 var(--fs-meta)/1.3 var(--body); }
+.main .budget-track-head span:nth-child(n+3):not(:last-child) { text-align:right; }
+.main .budget-track-grid { padding:10px 0; border-bottom:1px solid var(--line); }
+.main .budget-track-name { display:grid; gap:2px; min-width:0; }
+.main .budget-track-name label { display:flex; gap:8px; align-items:center; font-weight:600; }
+.main .budget-track-name small { color:var(--muted); padding-left:26px; }
+.main .budget-track-grid form { display:grid; gap:2px; }
+.main .budget-track-grid form input[name=rule] { width:100%; height:36px; }
+.main .budget-track-grid .num { text-align:right; font-variant-numeric:tabular-nums; }
+@media (max-width:760px) {
+  .main .budget-track-head { display:none; }
+  .main .budget-track-grid { grid-template-columns:1fr 1fr; }
+  .main .budget-track-grid .num::before { content:attr(data-label); display:block; color:var(--muted); font-size:var(--fs-meta); }
+}
+/* Overview › what it is made of | if you sold today: one wide card split by a divider. */
+.main .overview-owned-card { margin-top:16px; }
+.main .overview-split { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0; }
+.main .overview-split > section { min-width:0; padding:0 24px; }
+.main .overview-split > section:first-child { padding-left:0; }
+.main .overview-split > section + section { border-left:1px solid var(--line); padding-right:0; }
+.main .overview-split .overview-headline { font-size:var(--num-card)!important; }
+.main .overview-month-toggle { margin-top:var(--gap-block); padding:0!important; }
+.main .overview-month-toggle > summary { padding:16px 24px; }
+.main .overview-month-toggle > summary small { margin-left:8px; }
+.main .overview-month-toggle > .chart { padding:0 24px 16px; }
+@media (max-width:760px) {
+  .main .overview-split { grid-template-columns:1fr; }
+  .main .overview-split > section { padding:0; }
+  .main .overview-split > section + section { border-left:0; border-top:1px solid var(--line); margin-top:16px; padding-top:16px; }
+}

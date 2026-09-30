@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=Manrope:wght@400..800&display=swap">
-  <link rel="stylesheet" href="/static/style.css?v=49">
+  <link rel="stylesheet" href="/static/style.css?v=53">
 </head>
 <body>
 <div class="shell">
@@ -19,7 +19,7 @@
       Lightning
     </a>
     <nav class="nav" aria-label="Main navigation">
-      {% for href, label, icon in [('/', 'Overview', 'overview'), ('/budget', 'Budget', 'budget'), ('/birdview', 'Birdview', 'birdview'), ('/investments', 'Investments', 'investments'), ('/birdview/expenses', 'Expense analysis', 'expenses'), ('/plan', 'Cash planning', 'reserves'), ('/money-from-others', 'Held for others', 'people'), ('/settings', 'Settings', 'settings')] %}
+      {% for href, label, icon in [('/', 'Overview', 'overview'), ('/budget', 'Budget', 'budget'), ('/investments', 'Investments', 'investments'), ('/birdview/expenses', 'Expense analysis', 'expenses'), ('/plan', 'Cash planning', 'reserves'), ('/money-from-others', 'Held for others', 'people'), ('/settings', 'Settings', 'settings')] %}
         {% set active = (path == '/' if href == '/' else (path == '/birdview' if href == '/birdview' else path.startswith(href))) or (href == '/settings' and (path.startswith('/counterparties') or path.startswith('/categories') or path.startswith('/checks'))) %}
         <a href="{{ href }}" class="{{ 'active' if active }}" {% if active %}aria-current="page"{% endif %}>
           <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24">
@@ -65,7 +65,7 @@
     <div id="app-popup-content"></div>
   </div>
 </dialog>
-<script src="/static/app.js?v=20"></script>
+<script src="/static/app.js?v=22"></script>
 <script src="/static/ai-handoff.js?v=1" defer></script>
 <script>(()=>{const section=document.getElementById('sidebar-accounts'),mobile=window.matchMedia('(max-width: 900px)');if(!section)return;const sync=()=>{section.open=!mobile.matches};sync();mobile.addEventListener('change',sync)})();</script>
 </body>

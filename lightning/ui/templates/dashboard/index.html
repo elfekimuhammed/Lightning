@@ -1,10 +1,16 @@
 {% extends "base.html" %}
 {% block title %}Overview{% endblock %}
 {% block heading %}<div><h1>Overview</h1><p class="muted small page-subtitle">Your position and what changed</p></div>{% endblock %}
-{% block top_actions %}{% from "partials/macros.html" import period_control %}{{ period_control("/", period.key, month, this_month, period.start_text, period.end_text) }}{% endblock %}
+{% block top_actions %}{% from "partials/macros.html" import period_control %}{{ period_control("/", period.key, month, this_month, request.query_params.get("date_from", "") if period_error and period.key == "custom" else period.start_text, request.query_params.get("date_to", "") if period_error and period.key == "custom" else period.end_text) }}{% endblock %}
 {% block content %}
-{% from "partials/charts.html" import key_notes, bars, trend, donut %}
+{% from "partials/charts.html" import key_notes, bars, donut, trend %}
 {% if period_error %}<p class="flash error">{{ period_error }}</p>{% endif %}
+{% if attention %}
+<details class="card needs-you" aria-labelledby="needs-heading">
+  <summary><span class="needs-you-dot" aria-hidden="true"></span><b id="needs-heading">Needs you</b><span class="needs-you-count">{{ attention|length }}</span><small>{{ attention[0].label }}{% if attention|length > 1 %} and {{ attention|length - 1 }} more{% endif %}</small></summary>
+  <div class="overview-inline-list">{% for item in attention %}<a class="overview-action-row" href="{{ item.href }}"{% if item.popup %} data-popup-open{% endif %}><span><b>{{ item.label }}</b><small>{{ item.detail }}</small></span><span>{{ item.action or 'Review' }}</span></a>{% endfor %}</div>
+</details>
+{% else %}<div class="card needs-you is-empty"><span class="needs-you-dot" aria-hidden="true"></span><b>Nothing needs you today</b></div>{% endif %}
 {{ key_notes(notes) }}
 {% set period_query = request.url.query %}
 <div class="overview-stack">
@@ -13,9 +19,8 @@
     <div class="overview-position-grid">
       <article class="overview-block overview-wealth-card" aria-labelledby="owned-heading">
         {% set owes = pos.what_you_owe > 0 %}{% set lead = 'net_worth' if owes else 'what_you_own' %}
-        <div class="overview-block-head"><div><h3 id="owned-heading">{{ fig[lead].label }}</h3><p>Excludes money held for others</p></div><a class="quiet-link" href="/birdview?{{ period_query }}">Wealth analysis</a></div>
+        <div class="overview-block-head"><div><h3 id="owned-heading">{{ fig[lead].label }}</h3><p>Excludes money held for others</p></div></div>
         <div class="overview-headline">{{ (pos.net_worth if owes else pos.what_you_own)|money }} <small>{{ base }}</small>{% if pos.unvalued %}<span>Known subtotal</span>{% endif %}</div>
-        {{ formula(lead, 'Money and units you hold for other people are not counted.', 'what_you_own', 'what_you_owe') if owes else formula(lead, 'Money and units you hold for other people are not counted.', 'cash_you_own', 'deposits', 'holdings_value') }}
         <div class="overview-position-change"><span>{{ change_label }}</span>{% if change is not none %}<b class="overview-positive-number">{{ change|money(True) }}</b>{% else %}<small>{{ change_reason }}</small>{% endif %}</div>
         {% if pos.unvalued %}<p class="notice">{{ pos.unvalued|length }} asset valuation(s) are missing from this total.</p>{% endif %}
         <div class="overview-inline-list" aria-label="{{ fig.what_you_own.label }}">
@@ -31,7 +36,6 @@
       <article class="overview-block overview-cash-card" aria-labelledby="cash-heading">
         <div class="overview-block-head"><div><h3 id="cash-heading">{{ fig.free_cash.label }}</h3><p>After reserves and bills due</p></div><a class="quiet-link" href="/plan">Cash planning</a></div>
         <div class="overview-headline">{% if pos.free_cash is not none %}{{ pos.free_cash|money }} <small>{{ base }}</small>{% else %}Unavailable{% endif %}</div>
-        {{ formula('free_cash', (('Includes ' ~ (pos.brokerage_cash|money) ~ ' ' ~ base ~ ' of brokerage cash; move it to a bank or wallet before everyday spending.') if pos.brokerage_cash > 0 else ''), 'cash_you_own', 'reserves', 'bills_due') }}
         <div class="overview-inline-list">
           <div class="overview-static-row"><span>{{ fig.cash_you_own.label }}</span><b>{{ pos.cash_you_own|money }}</b></div>
           {% if pos.reserve_rows is not none %}<details class="overview-disclosure"><summary><span>{{ fig.reserves.label }}</span><b>−{{ pos.reserves|money }}</b></summary><div class="overview-disclosure-body">{% for reserve in pos.reserve_rows if reserve.effective_allocated != 0 %}<a href="/plan/reserves"><span>{{ 'Emergency fund' if reserve.kind == 'EMERGENCY' else reserve.name }}</span><b>{{ reserve.effective_allocated|money }}</b></a>{% else %}<p class="muted small">No cash is set aside on this date.</p>{% endfor %}</div></details>{% else %}<div class="overview-static-row"><span>{{ fig.reserves.label }}</span><b>History unavailable</b></div><p class="muted small">Reserve history cannot be rebuilt for this date. <a href="/plan/reserves">Review current reserves</a></p>{% endif %}
@@ -39,6 +43,21 @@
         </div>
       </article>
     </div>
+    <article class="overview-block wide-card overview-owned-card" aria-label="What it is made of and if you sold today">
+      <div class="overview-split">
+        <section aria-labelledby="madeof-heading"><div class="overview-block-head"><div><h3 id="madeof-heading">What it is made of</h3><p>{{ fig.what_you_own.label }} by kind</p></div></div>
+          {{ donut(wealth_donut, fig.what_you_own.label, base) }}</section>
+        <section aria-labelledby="sold-heading"><div class="overview-block-head"><div><h3 id="sold-heading">{{ fig.if_you_sold_today.label }}</h3><p>After selling your investments</p></div><a class="quiet-link" href="/settings?section=assets-valuations">Sale factors</a></div>
+          <div class="overview-headline">{% if pos.if_you_sold_today is not none %}{{ pos.if_you_sold_today|money }} <small>{{ base }}</small>{% else %}Unavailable{% endif %}</div>
+          <div class="overview-inline-list">
+            <div class="overview-static-row"><span>{{ fig.free_cash.label }}</span><b>{{ pos.free_cash|money if pos.free_cash is not none else 'Unavailable' }}</b></div>
+            {% for cls in pos.classes if cls.value %}<a class="overview-static-row" data-popup-open href="/birdview/class/{{ cls.id }}?as_of={{ as_of }}"><span>{{ cls.name }} <small>{{ cls.value|money }} × {{ '%g'|format(cls.factor) }}%</small></span><b>{{ cls.after_sale|money }}</b></a>{% endfor %}
+            <div class="overview-static-row overview-subtotal"><span>{{ fig.investments_after_sale.label }}</span><b>{{ pos.investments_after_sale|money }}</b></div>
+          </div>
+          {% if pos.if_you_sold_today is none %}<p class="muted small">{{ pos.unavailable_reason }}</p>{% endif %}
+        </section>
+      </div>
+    </article>
   </section>
 
   <section class="overview-section" aria-labelledby="cashflow-analysis-heading">
@@ -55,7 +74,6 @@
             <div class="comparison-row"><div><span>{{ fig.money_in.label }}</span><b>{{ cash_flow.inflows|money }}</b></div><span class="comparison-track"><i class="comparison-fill in" style="width:{{ [cash_flow.inflows / flow_scale * 100, 0]|max }}%"></i></span></div>
             <div class="comparison-row"><div><span>{{ fig.money_out.label }}</span><b>{{ abs(cash_flow.outflows)|money }}</b></div><span class="comparison-track"><i class="comparison-fill out" style="width:{{ abs(cash_flow.outflows) / flow_scale * 100 }}%"></i></span></div>
           </div>
-          {{ formula('net_flow', 'Transfers between your accounts and investment trades are not income or spending.', 'money_in', 'money_out', 'savings_rate') }}
         </article>
       <article class="overview-block overview-expense-card" aria-labelledby="expenses-heading">
         <div class="overview-block-head"><div><h3 id="expenses-heading">Where it went</h3><p>Largest categories first</p></div><a class="quiet-link" href="/birdview/expenses?{{ period_query }}">See spending</a></div>
@@ -63,18 +81,6 @@
       </article>
     </div>
   </section>
-
-  <section class="overview-section" aria-labelledby="trend-heading">
-    <header class="overview-section-head"><h2 id="trend-heading">Month by month</h2><span>Money in and money out{% if flow_trend.labels %} · {{ flow_trend.labels[0].text }} to {{ flow_trend.labels[-1].text }}{% endif %}</span></header>
-    <article class="overview-block overview-trend-card">{{ trend(flow_trend, 'Money in and money out per month') }}</article>
-  </section>
-
-{% if attention %}
-  <section class="overview-block overview-attention-card" aria-labelledby="attention-heading">
-    <div class="overview-block-head"><div><h2 id="attention-heading">Needs you</h2><p>Today, whatever period is selected</p></div></div>
-    {% if attention %}<div class="overview-inline-list">{% for item in attention %}<a class="overview-action-row" href="{{ item.href }}"{% if item.popup %} data-popup-open{% endif %}><span><b>{{ item.label }}</b><small>{{ item.detail }}</small></span><span>{{ item.action or 'Review' }}</span></a>{% endfor %}</div>{% endif %}
-  </section>
-{% endif %}
 
   <section class="overview-block overview-investment-card" aria-labelledby="investments-heading">
     <div class="overview-block-head"><div><h2 id="investments-heading">Investments at a glance</h2><p>Your portfolio and this period's result</p></div><a class="quiet-link" href="/investments?{{ period_query }}">Investment detail</a></div>
@@ -105,5 +111,9 @@
       </div>
     </div>
   </section>
+  <details class="card wide-card overview-month-toggle">
+    <summary><b>Month by month</b><small>Money in and money out{% if flow_trend.labels %} · {{ flow_trend.labels[0].text }} to {{ flow_trend.labels[-1].text }}{% endif %}</small></summary>
+    {{ trend(flow_trend, 'Money in and money out per month') }}
+  </details>
 </div>
 {% endblock %}

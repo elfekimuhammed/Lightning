@@ -58,7 +58,7 @@ def test_every_tab_shows_the_same_free_cash_and_holdings_after_sale(c, setup):
     # Investments used to add holdings at full value (no sale factor); it now uses Birdview's factors.
     assert p.holdings_after_sale == p.holdings_value * Decimal("0.95")
     assert after_sale in client.get("/investments").text
-    assert "Free cash = Cash you own − Reserves − Bills due" in client.get("/").text
+    assert "How is this worked out?" not in client.get("/").text  # names explain themselves
 
 
 def test_one_average_monthly_income_for_budget_reserves_and_forecast(c, setup):

@@ -159,12 +159,12 @@ def test_overview_lists_due_bills_under_needs_you(c, setup, monkeypatch):
     c.planning.create(kind="LOAN", name="Car loan", amount="2500", frequency="MONTHLY", start_date="2026-09-05",
                       payment_count="3")
     page = TestClient(create_app(c), base_url="http://127.0.0.1").get("/").text
-    attention = page[page.index('id="attention-heading">Needs you'):]
+    start = page.index('<details class="card needs-you"')
+    attention = page[start:page.index("</details>", start)]  # a closed list at the very top
+    assert page.index("needs-you") < page.index('aria-label="Key notes"')
     assert "Bill due: Electricity" in attention and "Due 2026-09-25 · 480.00" in attention
     assert "Loan payment due: Car loan" in attention and "Mark paid" in attention
-    start = page.index('aria-label="Key notes"')
-    notes = page[start:page.index("</section>", start)]
-    assert "and 1 more" in notes  # the first key note leads with what needs you
+    assert "and 1 more" in attention  # the closed summary names the first item and counts the rest
 
 
 def test_a_due_bill_inside_a_budget_is_not_counted_twice(c, setup, monkeypatch):
@@ -181,7 +181,7 @@ def test_a_due_bill_inside_a_budget_is_not_counted_twice(c, setup, monkeypatch):
     assert c.planning.what_you_owe(day).bills_due == Decimal("12000")
     assert october.budget_spending == 0
     parts = dict(c.forecaster.forecast(day).safe_to_spend_parts)
-    assert "Left in plan after bills" not in parts  # nothing left once the due rent is counted
+    assert "Budget left to spend" not in parts  # nothing left once the due rent is counted
 
 
 def test_manual_link_suggests_only_plausible_transactions(c, setup, monkeypatch):
@@ -216,7 +216,7 @@ def test_a_loan_adds_its_payments_as_a_budget_line(c, setup, monkeypatch):
     assert not any(l.category_id == loans.id and l.budget for s in c.budgets.month_view("2026-12").sections
                    for l in s.lines)  # the loan has ended: no plan line
     page = TestClient(create_app(c), base_url="http://127.0.0.1").get("/budget?month=2026-10").text
-    assert "Loan payments scheduled this month" in page
+    assert "Loan payments this month" in page
     c.budgets.set_budget(loans.id, "2026-10", "3000")  # a rule you set replaces the scheduled amount
     assert line("2026-10").budget == Decimal("3000") and not line("2026-10").from_loans
 

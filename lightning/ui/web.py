@@ -69,18 +69,7 @@ templates.env.filters["units"] = _units
 templates.env.globals["abs"] = abs
 
 
-def _formula(key: str, note: str = "", *more: str) -> Markup:
-    """Under a figure: one closed "How is this worked out?" toggle holding its formula, the meaning
-    of it and of the figures it uses (``more``), and an optional note. Nothing extra shows until asked."""
-    figure = FIGURES[key]
-    line = f'<p class="figure-formula">{escape(figure.equation)}</p>' if figure.formula else ""
-    items = "".join(f"<li><b>{escape(FIGURES[k].label)}</b>: {escape(FIGURES[k].meaning)}</li>" for k in (key, *more))
-    body = line + f"<ul>{items}</ul>" + (f"<p>{escape(note)}</p>" if note else "")
-    return Markup(f'<details class="figure-explain"><summary>How is this worked out?</summary>{body}</details>')
-
-
 templates.env.globals["fig"] = FIGURES
-templates.env.globals["formula"] = _formula
 
 
 def container(request: Request) -> Container:

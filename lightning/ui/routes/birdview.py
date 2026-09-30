@@ -32,75 +32,8 @@ def _period(c, query):
 
 @router.get("")
 async def birdview(request: Request):
-    c = container(request)
-    try:
-        selected = _period(c, request.query_params)
-        period_error = ""
-    except LightningError as exc:
-        fallback = _period(c, {"period": "month", "month": month_of(today())})
-        selected = Period("custom", "Custom", fallback.start, fallback.end) if request.query_params.get("period") == "custom" else fallback
-        period_error = exc.message
-    first, last = selected.start, selected.end
-    day = fmt_date(last)
-    # Every position figure comes from one calculation; see lightning/planning/position.py.
-    position = c.position.at(last)
-    classes = [{"id": row.id, "code": row.code, "name": row.name, "value": row.value, "factor": row.factor,
-                "after_sale": row.after_sale, "items": row.items}
-               for row in position.classes if row.value or not row.is_deposit]
-    investment_value = position.deposits + position.holdings_value
-
-    cash_flow = c.reporting.cash_flow(first, last)
-    spending = c.reporting.spending_by_category(first, last, depth=1)
-    income = c.reporting.money_in_by_category(first, last)
-    for group in spending:
-        group.category_id = c.categories.get_by_code(group.code).id
-    for group in income:
-        group.category_id = c.categories.get_by_code(group.code).id
-    category_filter = str(request.query_params.get("category_id", ""))
-    category_name = ""
-    if category_filter.isdigit():
-        selected_category = c.categories.get(int(category_filter))
-        category_name = selected_category.name
-        spending = [group for group in spending if selected_category.code.startswith(group.code)]
-    monthly_flow = c.reporting.monthly_flow_between(first.replace(day=1), last)
-    flow_max = max(cash_flow.inflows, cash_flow.outflows, Decimal("1"))
-    prior = None
-    if selected.key != "all":
-        if selected.key == "month":
-            prior_to = first - timedelta(days=1)
-            prior_from = prior_to.replace(day=1)
-            prior_to = date(prior_to.year, prior_to.month, calendar.monthrange(prior_to.year, prior_to.month)[1])
-        elif selected.key == "ytd":
-            prior_from = date(first.year - 1, 1, 1)
-            prior_to = date(first.year - 1, last.month, min(last.day, calendar.monthrange(first.year - 1, last.month)[1]))
-        else:
-            prior_to = first - timedelta(days=1)
-            prior_from = prior_to - (last - first)
-        prior = c.reporting.cash_flow(prior_from, prior_to)
-    targets = c.investments.class_targets()
-    total_targets = sum(targets.values(), ZERO)
-    for row in classes:
-        target = targets.get(row["id"])
-        row["current_weight"] = row["value"] / investment_value * 100 if investment_value else ZERO
-        row["target"] = target
-        row["gap"] = target - row["current_weight"] if target is not None else None
-        row["target_value"] = investment_value * target / 100 if target is not None else None
-        row["to_target"] = row["target_value"] - row["value"] if target is not None else None
-    wealth_donut = visuals.holdings_donut(position, include_deposits=True, include_cash=True)
-    # The donut already shows each part's share, so the only note is what selling would cost.
-    notes = [n for n in (keynotes.sale_cost(position),) if n]
-    return render(request, "birdview.html", notes=notes, wealth_donut=wealth_donut,
-                  period=selected.key, month=last.strftime("%Y-%m"),
-                  custom_from=request.query_params.get("date_from", ""), custom_to=request.query_params.get("date_to", ""),
-                  date_from=fmt_date(first), date_to=fmt_date(last), range_start_display=selected.start_display,
-                  range_end_display=selected.end_display, as_of=day, pos=position, owe=position.owe,
-                  classes=classes, spending=spending, income=income,
-                  cash_flow=cash_flow, monthly_flow=monthly_flow, prior=prior, period_error=period_error,
-                  flow_max=flow_max,
-                  unvalued=list(position.unvalued), targets_set=bool(targets),
-                  targets_complete=total_targets == Decimal(100), first_activity=c.reporting.first_activity_date(),
-                  category_filter=category_filter, category_name=category_name,
-                  base=c.reporting.base_currency)
+    """Birdview was folded into the Overview; old links land there with the same period."""
+    return redirect("/" + (f"?{request.url.query}" if request.url.query else ""))
 
 
 @router.get("/class/{class_id:int}")
