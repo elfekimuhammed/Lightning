@@ -39,8 +39,8 @@ HTTP/CSP hardening; password/recovery screens; shared session/lifecycle;
 the actual finance window; beta ZIP/update validation; Windows and Linux
 acceptance. Existing financial data must remain untouched until explicit import.
 
-Two small-model workers implement the bounded window adapter and crypto checks.
-The architect owns the loopback/build integration and reviews their changes.
+Two small-model workers implemented the bounded window adapter and crypto checks.
+The architect reviewed their changes and integrated the loopback host and build.
 
 ## Results
 
@@ -49,7 +49,19 @@ The architect owns the loopback/build integration and reviews their changes.
 - Source self-check and a frozen Linux executable self-check both passed every
   encryption/resource check. The Linux freeze verifies packaging only, not a
   supported Linux desktop window.
-- Windows workflow result and manual ordinary-user smoke: pending.
+- Windows Python 3.13: all 34 focused tests and all four import contracts passed.
+  The frozen executable passed encryption/resource checks and the real WebView2
+  smoke (authenticated local page/API and blocked external navigation).
+  Evidence: [successful Windows run](https://github.com/elfekimuhammed/Lightning/actions/runs/36770153942)
+  on code revision `09a62c2db1a4a8e57992b54926e1778540c45f9a`.
+- The ZIP and non-secret JSON reports are attached to that run (seven-day
+  retention). The downloaded ZIP's SHA-256 matched `SHA256SUMS`.
+- Manual ordinary-user Windows launch: pending. The owner confirmed they can
+  test on a Windows PC. Extract the whole ZIP, double-click `LightningProbe.exe`,
+  confirm the engineering-check window appears, close it, and launch it again.
+  Also try offline and from a path containing spaces/non-ASCII characters.
+  This build is unsigned; report any Windows warning rather than disabling
+  antivirus protection. Do not distribute it as the financial beta.
 - Password slot default is Argon2id 64 MiB, 3 iterations, 4 lanes, with validated
   upper bounds before derivation. This replaces the draft's 256 MiB default for
   the initial beta profile; strong passphrases remain required in the future UI.
