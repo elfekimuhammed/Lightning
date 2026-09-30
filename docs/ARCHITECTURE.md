@@ -1,13 +1,23 @@
 # Architecture
 
-## Document status
+**Last updated 2026-09-30 · app 0.3.0** (`lightning/__init__.py`; `pyproject.toml` still says 0.1.0).
 
-- **Last updated:** 2026-09-30
-- **Document revision:** 2026-09-30.3
-- **App version:** 0.3.0 (`lightning/__init__.py`); packaging metadata in `pyproject.toml` still says 0.1.0.
-- **Role:** module boundaries and financial calculation contracts. Product workflow and roadmap live in [Project Overview](PROJECT_OVERVIEW.md); term definitions live in [Glossary](GLOSSARY.md).
+This file holds the technical side: stack, module boundaries, data model and every calculation contract. The product story is in [Project Overview](PROJECT_OVERVIEW.md), the visual system in the [App brand guideline](APPLICATION_BRAND_GUIDE.md), and term definitions in the [Glossary](GLOSSARY.md).
 
-Lightning is a local-first, single-user **modular monolith**: one Python process, one SQLite database, and a server-rendered browser UI. The architecture prioritizes correctness, understandable ownership of data, and adding new financial-asset types without duplicating transaction logic.
+Lightning is a local-first, single-user **modular monolith**: one Python process, one SQLite database, and a server-rendered browser UI. The architecture puts correctness first, then clear ownership of data, then adding new financial-asset types without duplicating transaction logic.
+
+## Stack and local operation
+
+| Area | Choice |
+|---|---|
+| Runtime | Python 3.11+, FastAPI, Uvicorn |
+| UI | Jinja2 server-rendered HTML, vanilla JS/CSS; no frontend build |
+| Persistence | One local SQLite file in `data/`, ordered SQL migrations, local backups |
+| Financial precision | `Decimal` in Python, scaled integers (`_e6`) in SQLite; no binary floats in financial logic |
+| Quality | pytest and `import-linter` boundaries |
+| Network | Local-only server bound to `127.0.0.1` |
+
+On Linux run `./run.sh`, then open `http://127.0.0.1:8765` in Firefox. Startup takes a backup, runs migrations and processes due valuation checkpoints. Keep the process running while you use the app; stopping it deletes nothing. `python -m lightning --demo` opens the sample household (`lightning/demo.py`) in a separate `data/demo.db` on port 8766. It is rebuilt on every start and entered through the same services as the screens.
 
 ## Three layers: ledger, plan, report
 
@@ -40,6 +50,27 @@ core/                 dates, money, identifiers, posting rules; no app dependenc
 ```
 
 `bootstrap.py` is the composition root. Cross-module operations call public services, not another module's repository. Import boundaries and UI restrictions are checked by `import-linter`/tests. Transaction posting is centralized in `TransactionService`; other modules build validated postings and ask it to write them.
+
+## Modules
+
+| Package/module | Responsibility |
+|---|---|
+| `lightning/core` | Money/date parsing, refs/codes, errors, posting rules; `figures.py` names every figure with its formula, layer and function |
+| `lightning/database` | Connection, migrations, seed, backups, audit, settings |
+| `lightning/accounts` + `workflows/accounts.py` | Account rules and atomic account/opening-balance workflows |
+| `lightning/assets` | Asset classes, financial assets, local EGX catalogue, prices and quote adapters |
+| `lightning/categories` | Activity taxonomy and archived/pickable category rules |
+| `lightning/counterparties.py` | Canonical names, aliases, match suggestions and defaults |
+| `lightning/transactions` | Main-ledger posting, editing, voiding, search; the only writer of postings |
+| `lightning/investments` + `reevaluations.py` | Trades, positions, investment calculations and valuation checkpoints |
+| `lightning/money_from_others.py` | Custody attribution for money and units held for others |
+| `lightning/bank_imports.py` + `reconciliation.py` | Staged CSV review and posting; statement reconciliation |
+| `lightning/budgeting` + `reserves.py` | Spending plans and cash reserves (separate concepts) |
+| `lightning/planning` | Recurring items, loans, payments, what you owe, cash forecast; `position.py` computes every position figure once |
+| `lightning/reporting` + `integrity` | Read-only queries, derived reporting and data checks |
+| `lightning/workflows` | Atomic cross-module use-cases |
+| `lightning/ui` | Routes, templates, static assets. `charts.py` (chart geometry), `visuals.py` (chart data read from services) and `keynotes.py` (each page's key notes) never compute a financial figure |
+| `lightning/demo.py` | The sample household |
 
 ## One main ledger; one linked valuation ledger
 
@@ -89,39 +120,29 @@ The read-only Integrity checks compare gross account values with asset-class rep
 
 IDs are internal relational keys. Stable refs identify transactions; readable codes identify master records internally and for imports/search. Ordinary screens show names, not account codes. Source CSV spellings are retained during review; possible Counterparty matches are suggestions, never silent merges. Users can correct fields inline and post rows with safe incomplete metadata.
 
-## Search and identity contract
-
-Search is read-only retrieval; choosing a result is an explicit user action. Keep a single application-layer matcher for navigation and named entities, with per-surface scopes. Its result should include stable entity ID, type, display name, contextual subtitle, rank, and match reason. Use canonical Counterparty identities and their confirmed aliases; never store a fuzzy score as an alias or silently merge records. The existing limit of ten confirmed aliases per Counterparty remains.
-
-Candidate order: exact ID/code/ref or name; normalized name; confirmed alias; prefix/word/substring; typo suggestion. Normalize Unicode, case, whitespace, punctuation, and limited script-specific marks for candidate retrieval. Preserve canonical text for display and identity; do not flatten meaningful distinctions or treat cross-script transliteration as a proven identity. [RapidFuzz](https://rapidfuzz.github.io/RapidFuzz/Usage/process.html) provides local similarity ranking and score cutoffs; calibrate cutoffs with real names, especially short ones, rather than using one threshold for every entity. Do not run fuzzy matching on amounts, dates, or short account codes.
-
-Existing transaction SQL `LIKE` remains useful for exact literal filters, but searching by a matched Counterparty alias should use its canonical ID to find linked historical transactions. Similar account, category, and investment matches should resolve to their IDs before filtering ledger rows. When a page offers all entity types, group results by type so an own account cannot be mistaken for an external Counterparty. The transfer destination and custody owner must always be explicitly selected; a fuzzy match never changes posting type or beneficial ownership automatically. CSV suggestions likewise remain unposted until the user confirms.
-
-Start with bounded local candidate lists and a small result limit. If size or measured latency later requires an index, evaluate SQLite FTS5 for candidate retrieval while retaining the same ranking and confirmation contract. Keep all query and identity logic in Python services; the UI only renders candidates and submits selected IDs.
-
 ## Position and reporting contract
 
 ### Investment report contract (2026-09-28)
 
 The Investments report uses posted, non-void main-ledger entries dated by transaction date. It scopes every calculation to `owner_id IS NULL` and keeps cost lots keyed by owner, account, and asset; an opening (`OPN`) holding is a baseline adjustment and never new money. The portfolio boundary includes investment holdings and cash in brokerage, physical-asset, and other investment accounts. Investment-account cash transfers and trades net internally; direct physical purchases/sales count only their portfolio-side holding change. Dividends are distributions, not contributions. Valuation checkpoint rows (`return_base_e6`) and aggregate `VAL` journals are reconciliation data and are excluded from return.
 
-For a selected interval, new money is the positive posted change across that boundary and withdrawals are the absolute negative change. New money in is their difference. Realized gain is net sale proceeds less average cost removed, with basis per owner/account/asset; purchase costs and net sale proceeds already include fees. Distributions use the cash actually posted. Change in unrealized gain is the end balance less the balance immediately before the interval. Result adds realized gain, unrealized change, distributions, and any separately identified FX/cost effects once. No balancing `other return` is permitted. If historical prices/ownership are missing, report the result unavailable.
+For a selected interval, new money is the positive posted change across that boundary and withdrawals are the absolute negative change. Money added is their difference. Gain from sales is net sale proceeds less average cost removed, with basis per owner/account/asset; purchase costs and net sale proceeds already include fees. Distributions use the cash actually posted. Price change on what you hold is the end balance less the balance immediately before the interval. Net gain or loss adds gain from sales, price change, distributions, and any separately identified FX/cost effects once. No balancing `other return` is permitted. If historical prices/ownership are missing, report the result unavailable.
 
-At the as-of date, cost of holdings still owned is remaining basis; holdings value is units times a dated confirmed valuation; unrealized gain is value less remaining basis. Brokerage cash is owned cash in investment accounts. Holdings after sale (estimate) comes from the shared position (see below), not the investment report. Before an asset has any typed or trade price, it is valued at its remaining cost (no gain yet) and listed in the report's `at_cost` notices; this keeps the Result available and consistent with the per-class breakdown. A missing price after that point still makes the Result unavailable. Dividend asset attribution is stored in `investment_dividend_assets`; legacy memo attribution is migrated only when it uniquely matches an asset code, otherwise the dividend remains unresolved while its cash amount is retained. Fiscal-year dates are unconfigured, so YTD is labeled Calendar 2026.
+At the as-of date, cost of holdings still owned is remaining basis; holdings value is units times a dated confirmed valuation; unrealized gain is value less remaining basis. Brokerage cash is owned cash in investment accounts. Holdings after sale (estimate) comes from the shared position (see below), not the investment report. Before an asset has any typed or trade price, it is valued at its remaining cost (no gain yet) and listed in the report's `at_cost` notices; this keeps Net gain or loss available and consistent with the per-class breakdown. A missing price after that point still makes Net gain or loss unavailable. Dividend asset attribution is stored in `investment_dividend_assets`; legacy memo attribution is migrated only when it uniquely matches an asset code, otherwise the dividend remains unresolved while its cash amount is retained. Fiscal-year dates are unconfigured, so YTD is labeled Calendar 2026.
 
 - **Position figures** (What you own, Cash you own, Deposits, Holdings value, Reserves, Bills due, What you owe, Net worth, Free cash, Portfolio value, Holdings after sale, If you sold today) are computed once by `PositionService.at(date)` in `lightning/planning/position.py`. Base values are read from reporting, reserves and planning; every other figure is a property that composes them (for example `free_cash = cash_you_own − reserves − bills_due`). Routes and templates read the `Position`; they never re-add balances. Names, meanings and formulas come from `lightning/core/figures.py` and match the Glossary.
-- **Sale factors:** each asset class's 0–100% factor (95% when unset, `investments.domain.DEFAULT_SALE_FACTOR`). Holdings after sale = Σ holdings value × factor; Deposits and holdings after sale adds deposits × factor; If you sold today = Free cash + that. This is a scenario using current settings, not a sale quote or a booked loss.
+- **Sale factors:** each asset class's 0–100% factor (95% when unset, `investments.domain.DEFAULT_SALE_FACTOR`). Holdings after sale = Σ holdings value × factor; Investments if sold (estimate) adds deposits × factor; If you sold today = Free cash + that. This is a scenario using current settings, not a sale quote or a booked loss.
 - **Average monthly income:** `BudgetService.income_average(month)` is the only income average. It covers the chosen income categories over the last 3 or 6 completed months that had income, or a manual amount. Budget percentages, emergency-fund coverage and the cash forecast all read it.
 - **Period income/spending:** posted external activity in the selected date range. Internal transfers and investment purchases are not income or expense; refunds reduce their original expense category. Custody activity is excluded from owned analysis.
-- **Investment return:** remaining holdings' market value less remaining cost, plus realized gains and dividends. The current portfolio and management XIRR must not be assumed owned-only until historical custody cash flows are verified.
+- **Investment return:** remaining holdings' market value less remaining cost, plus gains from sales and dividends. The current portfolio and management XIRR must not be assumed owned-only until historical custody cash flows are verified.
 
-The Overview and the reports share the date-range parser (Birdview was folded into the Overview on 2026-09-30; `/birdview` redirects there). Positions in both are valued at the selected range end. Birdview expense and flow views use the selected interval; its asset-class weights divide by owned investment value and exclude cash and custody. A missing valuation is disclosed and an unavailable reserve history makes free cash and If you sold today unavailable. Historical after-sale estimates use current sale factors.
+The Overview and the reports share the date-range parser (Birdview was folded into the Overview on 2026-09-30; `/birdview` redirects there, and Expense analysis keeps its `/birdview/expenses` address). Positions are valued at the selected range end; expense and flow views use the selected interval. Asset-class weights divide by owned investment value and exclude cash and custody. A missing valuation is disclosed and an unavailable reserve history makes free cash and If you sold today unavailable. Historical after-sale estimates use current sale factors.
 
-### Birdview history and performance
+### Wealth history and performance
 
-Birdview's four horizons apply consistently to flow, expense, and position views; the position and reserve assignments are as of the range end. Internal transfers and investment purchases are excluded from cash-flow totals. Expense categories roll up consistently across the ranked overview, L1/L2 analysis, and linked transactions. Wealth movement remains distinct from investment return.
+The four horizons apply consistently to flow, expense, and position views; the position and reserve assignments are as of the range end. Internal transfers and investment purchases are excluded from cash-flow totals. Expense categories roll up consistently across the ranked overview, L1/L2 analysis, and linked transactions. Wealth movement remains distinct from investment return.
 
-XIRR is an annualized money-weighted rate using dated investment cash flows and an ending value. Since-inception XIRR is a separate measure from the selected period's currency return. A period-specific XIRR needs an opening valuation as an initial cash flow. If dates, flows, or ending value are inadequate, show an unavailable reason rather than 0%. Build owned-only cash flows before placing XIRR in Birdview; missing prices must not become invented historical quotes.
+XIRR is an annualized money-weighted rate using dated investment cash flows and an ending value. Since-inception XIRR is a separate measure from the selected period's currency return. A period-specific XIRR needs an opening valuation as an initial cash flow. If dates, flows, or ending value are inadequate, show an unavailable reason rather than 0%. Build owned-only cash flows before showing XIRR on the Overview; missing prices must not become invented historical quotes.
 
 ## Cash planning contract
 
@@ -155,50 +176,71 @@ incoming_carryover(M+1) = 0, when disabled or reset at M+1
 Both positive room and negative overspending carry forward without clamping. A dated reset clears the incoming amount from that month while leaving prior history and future carryover settings intact. Parent caps remain ceilings; child allocations do not increase a parent cap. YTD, All time, and Custom summaries aggregate monthly base plans and actuals and include range-opening carryover once; partial-month plan comparisons are prorated estimates. A carryover is derived spending room, never cash or an independently posted balance.
 
 Budget's ordinary view is a compact plan summary and Personal/Work/Investment rollup. Category rule editing and background estimates are opened on demand. Fixed EGP, budgeting-income percentage, and 3/6-observed-month averages are monthly methods; averages divide by distinct months with qualifying activity and never search beyond their configured window. The income basis uses selected owned income categories or an optional manual monthly amount. A missing baseline remains unavailable rather than becoming zero.
+
 ## Persistence, precision, and indexing
 
 - SQLite with ordered, append-only migrations; never edit a migration already applied.
 - Dates are stored as ISO `yyyy-mm-dd`. User entry accepts ISO, `dd/mm/yyyy`, and `dd/m` (current year); UI normalizes accepted input to ISO. CSV dates use the same parser.
 - An account's legacy opening/tracking date is not a transaction-date boundary. Historical activity may predate the account metadata or opening-balance entry; balances remain chronological sums of their dated ledger lines.
-- CSV import normalizes either a signed amount column or separately mapped inflow/outflow columns into one signed Amount before row review; money-out is negative. The ledger and downstream reporting do not depend on source CSV shape.
 - Money, prices, and quantities use `Decimal` in Python and integer `_e6` storage; new money inputs are validated to two decimal places. Display summaries round to whole currency units; entry controls retain cents.
 - Important query paths are indexed by ledger account/date, asset/date, category/date, transaction id, transaction date/type/status, and price history asset/date.
 - Corrections are audited. Transactions are voided/deleted through recoverable status/history flows; used categories cannot be physically removed and are archived instead.
 - SQLite data and backups live locally under `data/`, which is not source controlled. Git moves code, not the personal financial database.
 
-## Major modules in this repository
+## UI contract
 
-| Package/module | Responsibility |
-|---|---|
-| `lightning/core` | Money/date parsing, refs/codes, errors, posting validation |
-| `lightning/database` | Connection, migrations, seed, backups, audit, configuration |
-| `lightning/accounts` + `workflows/accounts.py` | Account rules and atomic account/opening-balance workflows |
-| `lightning/assets` | Asset classes, financial assets, local EGX catalogue, prices and quote adapters |
-| `lightning/categories` | Activity taxonomy and archived/pickable category rules |
-| `lightning/counterparties.py` | Canonical names, aliases, match suggestions and defaults |
-| `lightning/transactions` | Main-ledger document and line posting, editing, voiding, search |
-| `lightning/investments` + `reevaluations.py` | Trades/positions and scheduled/historical valuation checkpoints |
-| `lightning/money_from_others.py` | Ownership/custody attribution for funds and assets held for others |
-| `lightning/bank_imports.py` + `reconciliation.py` | Staged CSV review, inline corrections, posting and statement reconciliation |
-| `lightning/budgeting` + `reserves.py` | Spending plans and cash-reserve goals (separate concepts) |
-| `lightning/reporting` | Read-only queries and computed portfolio/net-worth/budget reporting |
-| `lightning/ui` | Browser routes, templates, static assets. `charts.py` turns figures into chart geometry, `visuals.py` reads the figures a chart needs from services, `keynotes.py` phrases a page's key notes; none of them computes a financial figure |
-| `lightning/demo.py` | The sample household (`python -m lightning --demo`, or the welcome page on an empty database), entered through the same services as the screens |
+- **Names explain themselves.** Screens show a figure's registry label; there are no explanation toggles, and a name that needs explaining is renamed in `figures.py` (the old name becomes a retired alias).
+- **Thin routes.** A route parses form values, calls services and renders results or errors. No SQL, and no financial calculation, in routes, templates or JavaScript. A screen calls the function the figure registry names.
+- **Charts and key notes** position and phrase figures a service already computed. A key note may compare two figures, never derive a new one.
+- **Every visible action leads to a working workflow.** A drilldown either applies its scope (category, dates) or is labelled as general activity. Category and date context survive drilldowns.
+- **The period control** keeps custom dates and filters across submissions and supported drilldowns. Position figures use the period end; flows use the whole interval.
+- **Failures stay visible.** Invalid edits keep the typed values and show the error, including inside a disclosure. A missing valuation is never replaced with zero. Expandable rows add up to their parent or say why a breakdown is unavailable.
+- **Distinct concepts stay distinct:** What you own, account balances including custody, Free cash, Left in plan and If you sold today. Investment transfers are not expenses. Brokerage holdings are never counted as brokerage cash.
+- A presentation change never introduces a new financial model or forecast.
 
-## Extension rules
+## CSV import and export contract
 
-1. Define the product term and taxonomy in `docs/GLOSSARY.md` before adding a new concept.
-2. Add persistent state through a new migration and a module that owns its repository/table.
-3. Put cross-module actions in a workflow/service and wrap all writes in one database transaction.
-4. Post all main-ledger effects through `TransactionService`; generated valuation journals use `source=SYSTEM` and stable links to their reevaluation details.
-5. Keep UI thin: parse form values, call services, display results/errors. No SQL or financial calculations in route/template/JavaScript code. Charts and key notes follow the same rule: they position and phrase figures a service computed (a key note may compare two of them, never derive a new one).
-6. Add focused tests for date/money edge cases, ownership/net-worth effects, posting invariants, and archive/void behavior; run the full pytest suite and import-boundary checks.
-7. Add release/version notes to `CHANGELOG.md` when shipping a version; update the overview at the owner's request.
+Import normalizes either one signed amount column or separate inflow/outflow columns into one signed amount (money out is negative) before review. Nothing downstream depends on the source CSV's shape. Rows stay unposted until the user reviews them. The AI preparation helper builds exact CSV instructions and current matching names locally and never contacts an AI provider.
 
-## Local run and Windows portability
+The register's **Export CSV** downloads filtered posted cash activity, one row per transaction and account. It is not a full ledger or holdings snapshot, and it is not meant for re-import. Account IDs, currency, type, linked account and *Held for* help interpretation. Both sides of an internal transfer may appear and are not income or spending. Split-category rows are summarized. Refunds reduce spending; opening balances, trades and valuation changes are not ordinary income or spending. Currencies are not aggregated without conversion. Text that starts like a spreadsheet formula is prefixed with an apostrophe.
 
-On Linux, run `./run.sh`; Lightning serves on `http://127.0.0.1:8765`, which the user opens manually in Firefox. Windows has `run.bat` and uses the same `python -m lightning` entry point; it opens the default browser unless `--no-browser` is supplied. Startup handles backup/migrations and attempts due investment reevaluations. Keep the server process alive while using the app; stopping it does not delete data.
+## Search and identity contract
 
-The core uses `pathlib`, Python's `sqlite3`, FastAPI, and bundled Jinja/static files; no Linux-only runtime API is required for the ledger. Windows support still needs native verification. The launcher's Python version check and pip failure handling are weak, and `run.bat` currently installs requirements on every launch. Price fetching calls `ZoneInfo("Africa/Cairo")`; Windows commonly lacks an IANA time-zone database, so declare `tzdata` and verify dates there. Python's [zoneinfo documentation](https://docs.python.org/3/library/zoneinfo.html#data-sources) recommends that dependency for cross-platform applications.
+Search is read-only retrieval; choosing a result is an explicit user action. Keep a single application-layer matcher for navigation and named entities, with per-surface scopes. Its result should include stable entity ID, type, display name, contextual subtitle, rank, and match reason. Use canonical Counterparty identities and their confirmed aliases; never store a fuzzy score as an alias or silently merge records. The existing limit of ten confirmed aliases per Counterparty remains.
 
-Current default data is `PROJECT_ROOT/data/lightning.db`. This works for a user-writable source checkout but is unsuitable for an installer placed in a protected program directory. Before packaging, define a per-user data location and migration/backup behavior for existing databases. Do not move an existing user's database silently. The first Windows acceptance pass should use a source checkout in a writable folder and test spaces in paths, UTF-8 names, CSV files, migrations, backups, startup re-use, and occupied ports.
+Candidate order: exact ID/code/ref or name; normalized name; confirmed alias; prefix/word/substring; typo suggestion. Normalize Unicode, case, whitespace, punctuation, and limited script-specific marks for candidate retrieval. Preserve canonical text for display and identity; do not flatten meaningful distinctions or treat cross-script transliteration as a proven identity. [RapidFuzz](https://rapidfuzz.github.io/RapidFuzz/Usage/process.html) provides local similarity ranking and score cutoffs; calibrate cutoffs with real names, especially short ones, rather than using one threshold for every entity. Do not run fuzzy matching on amounts, dates, or short account codes.
+
+Existing transaction SQL `LIKE` remains useful for exact literal filters, but searching by a matched Counterparty alias should use its canonical ID to find linked historical transactions. Similar account, category, and investment matches should resolve to their IDs before filtering ledger rows. When a page offers all entity types, group results by type so an own account cannot be mistaken for an external Counterparty. The transfer destination and custody owner must always be explicitly selected; a fuzzy match never changes posting type or beneficial ownership automatically. CSV suggestions likewise remain unposted until the user confirms.
+
+Start with bounded local candidate lists and a small result limit. If size or measured latency later requires an index, evaluate SQLite FTS5 for candidate retrieval while retaining the same ranking and confirmation contract. Keep all query and identity logic in Python services; the UI only renders candidates and submits selected IDs.
+
+**Planned work, in order:**
+
+1. Agree on the contract: common misspellings, Arabic/English variants, aliases, duplicate names across entity types, short codes, and account-versus-counterparty ambiguity.
+2. Build one matching service: normalize, rank exact, alias, prefix, token, substring, then RapidFuzz; return ID, type, label, context and match reason; never auto-select.
+3. Apply it to scoped pickers: transfer account, counterparty, custody owner, category, instrument.
+4. Add global search (keyboard shortcut and a visible entry) and page search for Accounts, People, Counterparties, Reserves and investments, grouped by type.
+5. Let transaction history find rows through matched alias, account and category IDs, keeping exact date, amount and ref filters.
+6. Verify zero results, near ties, one- and two-character queries, Arabic text, large histories, archived records and transfer safety, and measure latency. RapidFuzz has a native component, so Windows installation is a release check.
+
+## Windows portability
+
+`run.bat` creates a virtual environment and starts the same `python -m lightning` entry point; it opens the default browser unless `--no-browser` is given. The core uses `pathlib`, `sqlite3`, FastAPI and bundled templates and static files, so no Linux-only API is involved. Windows stays **provisional** until a native pass succeeds:
+
+1. **Launcher:** pick Python 3.11+ deliberately, stop with a useful message when environment creation or pip fails, reinstall only when requirements change, and keep the error visible.
+2. **Time zones:** declare `tzdata` so `ZoneInfo("Africa/Cairo")` works (see Python's [zoneinfo data sources](https://docs.python.org/3/library/zoneinfo.html#data-sources)), then verify quote and month-end dates.
+3. **Paths and data:** test a writable folder, spaces and UTF-8 in paths, a custom `--db`, migrations, backups, CSV, fonts and the catalogue. The default database is `PROJECT_ROOT/data/lightning.db`, which won't suit an installer in a protected folder. Define a per-user data location first, and never move an existing database silently.
+4. **Smoke test on clean Windows 10/11:** double-click launch, create accounts, post, edit and restore, import a CSV, create a budget and reserve, record an investment, restart, restore a backup, and launch a second time with the port already in use.
+5. **Distribution:** only after that, publish a setup guide and choose between a source checkout with launcher and a packaged installer.
+
+## Working rules
+
+1. Check `git status` first and preserve existing user changes and personal data.
+2. Define a new concept in the Glossary before building it.
+3. Add persistent state through a new migration and a module that owns its table. Never rewrite an applied migration.
+4. Put cross-module actions in a workflow or service, with all writes in one database transaction.
+5. Post every main-ledger effect through `TransactionService`. Generated valuation journals use `source=SYSTEM` and stable links to their reevaluation details.
+6. Keep the UI thin (see UI contract).
+7. Test the changed workflow and its invariants: date and money edge cases, ownership and net-worth effects, posting, archive and void. Run the full pytest suite, the import-boundary checks and `git diff --check`. Keep meaningful business assertions when updating old tests.
+8. For UI changes, check populated and empty data and a 390px viewport in a browser, and re-run the Omar walkthrough when a workflow changes.
+9. Log changes under `Unreleased` in `CHANGELOG.md`, and change version headings only when releasing. Keep the four docs consistent.
