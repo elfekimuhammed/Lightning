@@ -108,3 +108,54 @@ def forecast_trend(forecast) -> dict:
     labels = [m.month for m in forecast.months]
     values = [m.closing for m in forecast.months]
     return charts.trend(labels, [{"name": "Ends with", "tone": "hold", "values": values, "area": True}])
+
+
+def month_ends(end: date, count: int, first_activity: str | None) -> list[tuple[str, date]]:
+    """(yyyy-mm, month end) for up to ``count`` months ending with ``end`` (the last one is ``end``)."""
+    out = []
+    for key in months_back(end, count, first_activity):
+        _, last = parse_month(key)
+        out.append((key, min(last, end)))
+    return out
+
+
+def net_worth_trend(c, end: date, count: int = 12) -> dict:
+    """Net worth at each month end (the same Position as the Overview's cards)."""
+    points = [(key, c.position.at(day)) for key, day in month_ends(end, count, c.reporting.first_activity_date())]
+    owes = any(pos.what_you_owe for _, pos in points)
+    # One line: the breakdown right under the chart carries What you own and What you owe.
+    series = [{"name": "Net worth" if owes else "What you own", "tone": "hold", "area": True,
+               "values": [pos.net_worth if owes else pos.what_you_own for _, pos in points]}]
+    return charts.trend([k for k, _ in points], series)
+
+
+def free_cash_steps(position) -> dict | None:
+    """Cash you own, less reserves and bills due, down to free cash."""
+    if position.free_cash is None:
+        return None
+    return charts.waterfall(("Cash you own", position.cash_you_own),
+                            [("Reserves", -(position.reserves or ZERO)), ("Bills due", -position.bills_due)],
+                            ("Free cash", position.free_cash))
+
+
+def usual_rows(rows: list[dict], limit: int = 10) -> list[dict]:
+    """Categories against their usual month, each with a mini trend."""
+    return [{**r, "label": r["label"].split(" › ")[-1], "group": r["label"].split(" › ")[0],
+             "spark": charts.sparkline(r["history"])} for r in rows[:limit]]
+
+
+def counterparty_bars(c, first: date, last: date, limit: int = 8) -> dict:
+    """Who you paid most, each linking to their transactions."""
+    rows = [{"label": name, "value": value,
+             "href": "/transactions?" + urlencode({"q": name, "date_from": fmt_date(first), "date_to": fmt_date(last)})}
+            for name, value in c.reporting.spending_by_counterparty(first, last)]
+    return charts.bars(rows, limit)
+
+
+def account_bars(c, first: date, last: date) -> dict:
+    """Which accounts the spending was paid from."""
+    names = {a.id: a.name for a in c.accounts.list()}
+    rows = [{"label": names.get(account_id, "Account"), "value": value,
+             "href": f"/accounts/{account_id}?" + urlencode({"month": fmt_date(last)[:7]}) if fmt_date(first)[:7] == fmt_date(last)[:7] else f"/accounts/{account_id}"}
+            for account_id, value in c.reporting.spending_by_account(first, last)]
+    return charts.bars(rows, 6)

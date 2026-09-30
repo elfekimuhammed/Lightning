@@ -118,7 +118,16 @@ async def expense_analysis(request: Request):
     prior_label = (prior_from.strftime("%Y-%m") if selected.key == "month" else "the period before") if prior else ""
     notes = [n for n in (keynotes.top_category(bar_rows, spending_total, ""),
                          keynotes.compared(spending_total, prior_spending, prior_label)) if n]
+    usual = []
+    if selected.key == "month":  # "your usual month" only compares like with like: one month
+        usual = [r for r in c.reporting.spending_vs_usual(first, last)
+                 if not category_code or r["code"].startswith(category_code)]
+    largest = c.reporting.largest_payments(first, last, 6)
+    for row in largest:
+        row["category"] = c.categories.get(row["category_id"]).name if row["category_id"] else ""
     return render(request, "birdview/expenses.html", notes=notes, category_bars=category_bars, spend_trend=spend_trend,
+                  usual=visuals.usual_rows(usual), who_bars=visuals.counterparty_bars(c, first, last),
+                  account_bars=visuals.account_bars(c, first, last), largest=largest,
                   period=selected.key, month=last.strftime("%Y-%m"),
                   custom_from=request.query_params.get("date_from", ""), custom_to=request.query_params.get("date_to", ""),
                   date_from=fmt_date(first), date_to=fmt_date(last), start_display=selected.start_display,

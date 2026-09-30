@@ -8,6 +8,17 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### A chart with its numbers: net worth trend, free cash steps, richer Expense analysis · 2026-09-30
+- **Overview:**
+  - A net worth trend (the end of each month) sits at the top of Your position, with the breakdown cards under it.
+  - Free cash shows its steps as a small waterfall: cash you own, less reserves and bills due, down to free cash.
+- **Expense analysis** gains:
+  - Compared with your usual month: each category this month against the average of the three months before, with a mini trend and the difference.
+  - Who you paid, and Paid from (which account).
+  - The largest payments.
+  - These breakdowns add up to Money out.
+- **Register:** the add row's fields are line-height and softly tinted instead of white.
+
 ### No browser history under fields · 2026-09-30
 - Fields no longer show what you typed before, such as old names, amounts or "Gold 24k". The only suggestions left are the app's own: counterparties, categories and accounts. This applies to every form, popups included.
 

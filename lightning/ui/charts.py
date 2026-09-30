@@ -123,6 +123,28 @@ def grouped_bars(rows: list[dict], limit: int = 8) -> dict:
     return {"rows": out, "more": len(rest), "more_total": sum((r["value"] for r in rest), ZERO)}
 
 
+def waterfall(start: tuple[str, Decimal], steps: list[tuple[str, Decimal]], end: tuple[str, Decimal]) -> dict:
+    """A start value, the steps taken off (or added), and where it ends, as horizontal bars.
+
+    Each step bar sits where the running total was, so the bars read as one path from start to end.
+    Positions are percentages of the largest running total."""
+    running, points = start[1], [start[1]]
+    for _, value in steps:
+        running += value
+        points.append(running)
+    scale = max([abs(v) for v in points] + [abs(end[1]), Decimal(1)])
+    rows = [{"label": start[0], "value": start[1], "kind": "total", "left": 0.0, "width": float(abs(start[1]) / scale * 100)}]
+    running = start[1]
+    for label, value in steps:
+        after = running + value
+        low, high = min(running, after), max(running, after)
+        rows.append({"label": label, "value": value, "kind": "up" if value > 0 else "down",
+                     "left": float(max(low, ZERO) / scale * 100), "width": float((high - max(low, ZERO)) / scale * 100)})
+        running = after
+    rows.append({"label": end[0], "value": end[1], "kind": "end", "left": 0.0, "width": float(max(end[1], ZERO) / scale * 100)})
+    return {"rows": rows}
+
+
 def meter(used: Decimal, total: Decimal | None) -> dict:
     """Spent of plan (or saved of target). Over plan fills the track in strong rose."""
     if not total or total <= 0:

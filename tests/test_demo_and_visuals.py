@@ -250,3 +250,22 @@ def test_target_allocation_says_how_much_to_invest(demo):
     fragment = client.get("/investments/targets?fragment=1").text
     assert "Value to adjust" in fragment and "<html" not in fragment
     assert "Target allocation" in client.get("/settings?section=targets").text
+
+
+def test_visuals_and_breakdowns_add_up(demo):
+    from lightning.ui import visuals
+    c, _ = demo
+    first, last = date(2026, 9, 1), date(2026, 9, 30)
+    trend = visuals.net_worth_trend(c, last)
+    assert [lab["text"] for lab in trend["labels"]] == ["2026-07", "2026-08", "2026-09"]
+    assert trend["series"][0]["values"][-1] == c.position.at(last).net_worth  # the same figure as the card
+    steps = visuals.free_cash_steps(c.position.at(last))
+    assert [r["kind"] for r in steps["rows"]] == ["total", "down", "down", "end"]
+    assert steps["rows"][-1]["value"] == c.position.at(last).free_cash
+    out = c.reporting.cash_flow(first, last).outflows
+    assert sum(v for _, v in c.reporting.spending_by_counterparty(first, last)) == out  # who you paid
+    assert sum(v for _, v in c.reporting.spending_by_account(first, last)) == out  # paid from
+    usual = {r["label"].split(" › ")[-1]: r for r in c.reporting.spending_vs_usual(first, last)}
+    food = usual["Food & Groceries"]
+    assert food["usual"] == (D("4568.50") + D("4762.80")) / 2 and food["change"] == D("5.50")
+    assert c.reporting.largest_payments(first, last, 1)[0]["counterparty"] == "Landlord"

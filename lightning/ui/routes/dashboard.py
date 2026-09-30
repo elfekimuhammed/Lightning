@@ -250,6 +250,7 @@ async def dashboard(request: Request):
         investment_donut=visuals.holdings_donut(position),
         wealth_donut=visuals.holdings_donut(position, include_deposits=True, include_cash=True),
         flow_trend=visuals.flow_trend(c, as_of),
+        networth_trend=visuals.net_worth_trend(c, as_of), free_cash_steps=visuals.free_cash_steps(position),
         month=month, this_month=month_of(today()), period=period, period_error=period_error,
         date_from=fmt_date(first), date_to=fmt_date(as_of), as_of=fmt_date(as_of),
         range_label=(f"No recorded activity · Position as of {fmt_date(as_of)}"

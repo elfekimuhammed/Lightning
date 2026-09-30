@@ -3,7 +3,7 @@
 {% block heading %}<div><h1>Overview</h1><p class="muted small page-subtitle">Your position and what changed</p></div>{% endblock %}
 {% block top_actions %}{% from "partials/macros.html" import period_control %}{{ period_control("/", period.key, month, this_month, request.query_params.get("date_from", "") if period_error and period.key == "custom" else period.start_text, request.query_params.get("date_to", "") if period_error and period.key == "custom" else period.end_text) }}{% endblock %}
 {% block content %}
-{% from "partials/charts.html" import key_notes, bars, donut, trend %}
+{% from "partials/charts.html" import key_notes, bars, donut, trend, waterfall %}
 {% if period_error %}<p class="flash error">{{ period_error }}</p>{% endif %}
 {% if attention %}
 <details class="card needs-you" aria-labelledby="needs-heading">
@@ -16,6 +16,10 @@
 <div class="overview-stack">
   <section class="overview-section" aria-labelledby="position-heading">
     <header class="overview-section-head"><h2 id="position-heading">Your position</h2><span>As of {{ as_of }}</span></header>
+    <article class="overview-block wide-card networth-trend-card" aria-labelledby="nw-trend-heading">
+      <div class="overview-block-head"><div><h3 id="nw-trend-heading">{{ fig.net_worth.label if pos.what_you_owe > 0 else fig.what_you_own.label }} over time</h3><p>At the end of each month{% if networth_trend.labels %} · {{ networth_trend.labels[0].text }} to {{ networth_trend.labels[-1].text }}{% endif %}</p></div></div>
+      {{ trend(networth_trend, 'Net worth at the end of each month', 'Plan', 220) }}
+    </article>
     <div class="overview-position-grid">
       <article class="overview-block overview-wealth-card" aria-labelledby="owned-heading">
         {% set owes = pos.what_you_owe > 0 %}{% set lead = 'net_worth' if owes else 'what_you_own' %}
@@ -37,6 +41,7 @@
         <div class="overview-block-head"><div><h3 id="cash-heading">{{ fig.free_cash.label }}</h3><p>After reserves and bills due</p></div><a class="quiet-link" href="/plan">Cash planning</a></div>
         <div class="overview-cash-figure"><div class="overview-headline">{% if pos.free_cash is not none %}{{ pos.free_cash|money }} <small>{{ base }}</small>{% else %}Unavailable{% endif %}</div>{% if pos.free_cash and pos.free_cash > 0 %}<a class="btn btn-planner small" data-popup-open href="/investments/planner"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 20h18M6 16l4-5 4 3 6-8"/><path d="M16 6h4v4"/></svg>Plan to invest</a>{% endif %}</div>
         <div class="overview-inline-list">
+          {{ waterfall(free_cash_steps, false) }}
           <div class="overview-static-row"><span>{{ fig.cash_you_own.label }}</span><b>{{ pos.cash_you_own|money }}</b></div>
           {% if pos.reserve_rows is not none %}<details class="overview-disclosure"><summary><span>{{ fig.reserves.label }}</span><b>−{{ pos.reserves|money }}</b></summary><div class="overview-disclosure-body">{% for reserve in pos.reserve_rows if reserve.effective_allocated != 0 %}<a href="/plan/reserves"><span>{{ 'Emergency fund' if reserve.kind == 'EMERGENCY' else reserve.name }}</span><b>{{ reserve.effective_allocated|money }}</b></a>{% else %}<p class="muted small">No cash is set aside on this date.</p>{% endfor %}</div></details>{% else %}<div class="overview-static-row"><span>{{ fig.reserves.label }}</span><b>History unavailable</b></div><p class="muted small">Reserve history cannot be rebuilt for this date. <a href="/plan/reserves">Review current reserves</a></p>{% endif %}
           <details class="overview-disclosure"><summary><span>{{ fig.bills_due.label }}</span><b>{{ ('−' ~ (pos.bills_due|money)) if pos.bills_due > 0 else '0.00' }}</b></summary><div class="overview-disclosure-body">{% for p in owe.bills_due_items[:6] %}<a data-popup-open href="/plan/items/{{ p.item.id }}/pay?due={{ p.due_date }}&amp;back=%2F"><span>{{ p.item.name }} <small>{{ p.due_date }}</small></span><b>{{ p.amount|money }}</b></a>{% else %}<p class="muted small">Nothing is due and unpaid.</p>{% endfor %}{% if owe.bills_due_items|length > 6 %}<a href="/plan"><span>{{ owe.bills_due_items|length - 6 }} more</span><b></b></a>{% endif %}</div></details>

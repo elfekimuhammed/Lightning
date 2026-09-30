@@ -1817,3 +1817,36 @@ a.chart-meter:hover { background:var(--hover); }
 .main .key-note.tone-info { --note-tint:#E1EEFC; --note-edge:var(--azure); }
 .main .key-note.tone-attention { --note-tint:#FBE3EC; --note-edge:var(--rose); }
 .main .key-note .key-note-icon { background:rgba(255,255,255,.85)!important; box-shadow:0 1px 0 rgba(10,36,66,.06); }
+/* Waterfall: total in azure, what comes off in soft rose, the end in green. */
+.chart-waterfall { display:grid; gap:6px; margin:4px 0 12px; }
+.chart-fall-row { display:grid; grid-template-columns:110px minmax(0,1fr) auto; gap:10px; align-items:center; font-size:var(--fs-2); }
+.chart-fall-label { color:var(--ink-2); }
+.chart-fall-track { height:10px; border-radius:5px; background:var(--track); overflow:hidden; }
+.chart-fall-track i { display:block; height:100%; border-radius:5px; background:var(--tone-hold); }
+.chart-fall-row.is-down .chart-fall-track i { background:var(--tone-spend); }
+.chart-fall-row.is-up .chart-fall-track i { background:var(--tone-in); }
+.chart-fall-row.is-end .chart-fall-track i { background:var(--meadow-dark); }
+.chart-fall-row.is-end .chart-fall-label, .chart-fall-row.is-end .chart-fall-value { font-weight:700; color:var(--ink); }
+.chart-fall-value { font-variant-numeric:tabular-nums; font-weight:600; white-space:nowrap; }
+.main .networth-trend-card { margin:0 0 16px; }
+.main .networth-trend-card .overview-block-head { margin-bottom:6px; }
+/* Expense analysis › compared with your usual month: one line per category with its mini trend. */
+.main .usual-card { margin-top:var(--gap-block); }
+.main .usual-row { display:grid; grid-template-columns:minmax(150px,1.6fr) minmax(90px,1fr) repeat(3,minmax(96px,.8fr)); gap:12px; align-items:center; padding:9px 0; border-bottom:1px solid var(--line); }
+.main .usual-row > span:first-child { display:grid; gap:1px; min-width:0; }
+.main .usual-row small { color:var(--muted); }
+.main .usual-row .num { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.main .usual-head { color:var(--muted); font:700 var(--fs-meta)/1.3 var(--body); padding-top:0; }
+.main .usual-row .chart-spark { width:100%; height:28px; }
+.main .expense-more { margin-top:var(--gap-block); }
+.main .expense-subhead { margin:18px 0 6px; }
+@media (max-width:760px) { .main .usual-row { grid-template-columns:1fr 80px 1fr; } .main .usual-row > :nth-child(4), .main .usual-row > :nth-child(5) { display:none; } }
+/* Register add and edit rows: fields as tall as a line entry, in a soft tint instead of white. */
+.main .ledger tr.add-row td, .main .ledger tr.editing td { padding:3px 4px!important; }
+.main .ledger :is(tr.add-row,tr.editing) :is(input,select):not(#_):not(.x_) { height:30px!important; min-height:30px!important; background:#F2F8F6!important; border:1px solid transparent!important; border-radius:8px!important; font-size:var(--fs-2)!important; }
+.main .ledger tr.editing :is(input,select):not(#_):not(.x_) { background:#FFFFFF!important; border-color:#D6E4F5!important; }
+.main .ledger :is(tr.add-row,tr.editing) :is(input,select):not(#_):not(.x_):hover { border-color:var(--line)!important; }
+.main .ledger :is(tr.add-row,tr.editing) :is(input,select):not(#_):not(.x_):focus { background:#FFFFFF!important; border-color:var(--azure)!important; }
+.main .ledger :is(tr.add-row,tr.editing) .btn:not(#_), .main .ledger :is(tr.add-row,tr.editing) button:not(#_) { height:30px!important; min-height:30px!important; font-size:var(--fs-2)!important; }
+.main .ledger :is(tr.add-row,tr.editing) .date-picker-button:not(#_) { width:30px!important; min-width:30px!important; background:#F2F8F6!important; border-color:transparent!important; }
+.main .ledger tr.add-row td > .muted.small { font-size:var(--fs-meta)!important; }

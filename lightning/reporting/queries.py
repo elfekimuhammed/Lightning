@@ -58,6 +58,21 @@ class ReportQueries:
         )
         return [dict(r) for r in rows]
 
+    def spending_lines(self, date_from: str, date_to: str) -> list[dict]:
+        """Categorised money in and out lines with their transaction, account and counterparty: the
+        same lines as category_totals, one row per line."""
+        rows = self.db.all(
+            f"SELECT le.transaction_id, le.date, le.account_id, le.category_id, le.effect, le.amount_base_e6 AS amount,"
+            f" t.ref, t.counterparty, t.description"
+            f" FROM ledger_entries le {POSTED}"
+            f" WHERE le.date BETWEEN ? AND ? AND le.category_id IS NOT NULL"
+            f" AND le.effect IN ('INFLOW','OUTFLOW')"
+            " AND COALESCE(le.category_id,0) NOT IN (SELECT id FROM categories WHERE code='EXP.PERSONAL.CUSTODY')"
+            " AND le.owner_id IS NULL",
+            (date_from, date_to),
+        )
+        return [dict(r) for r in rows]
+
     def monthly_effects(self, date_from: str, date_to: str) -> list[dict]:
         rows = self.db.all(
             f"SELECT substr(le.date, 1, 7) AS month, le.effect, SUM(le.amount_base_e6) AS total"

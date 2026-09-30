@@ -447,6 +447,75 @@ class ReportingService:
             group.value -= from_e6(row["total"])
         return sorted((g for g in groups.values() if g.value != ZERO), key=lambda g: g.value, reverse=True)
 
+    def _spending(self, date_from, date_to) -> list[dict]:
+        """Spending lines (positive = spent; a refund in an expense category is negative), the same
+        lines that make up spending_by_category."""
+        start, end = self._day(date_from), self._day(date_to)
+        out = []
+        for row in self.q.spending_lines(start, end):
+            cat = self.categories.get(row["category_id"])
+            if row["effect"] == "INFLOW" and cat.income_class is not None:
+                continue
+            out.append(row | {"value": -from_e6(row["amount"])})
+        return out
+
+    def spending_by_counterparty(self, date_from, date_to) -> list[tuple[str, Decimal]]:
+        """Money out per counterparty (who you paid), largest first."""
+        totals: dict[str, Decimal] = {}
+        for row in self._spending(date_from, date_to):
+            name = (row["counterparty"] or row["description"] or "No counterparty").strip()
+            totals[name] = totals.get(name, ZERO) + row["value"]
+        return sorted(((k, v) for k, v in totals.items() if v > ZERO), key=lambda kv: -kv[1])
+
+    def spending_by_account(self, date_from, date_to) -> list[tuple[int, Decimal]]:
+        """Money out per account it was paid from, largest first."""
+        totals: dict[int, Decimal] = {}
+        for row in self._spending(date_from, date_to):
+            totals[row["account_id"]] = totals.get(row["account_id"], ZERO) + row["value"]
+        return sorted(((k, v) for k, v in totals.items() if v > ZERO), key=lambda kv: -kv[1])
+
+    def largest_payments(self, date_from, date_to, limit: int = 5) -> list[dict]:
+        """The biggest single payments in the period."""
+        by_txn: dict[int, dict] = {}
+        for row in self._spending(date_from, date_to):
+            entry = by_txn.setdefault(row["transaction_id"], {"id": row["transaction_id"], "date": row["date"],
+                                                              "ref": row["ref"], "counterparty": row["counterparty"] or row["description"] or "",
+                                                              "category_id": row["category_id"], "value": ZERO})
+            entry["value"] += row["value"]
+        return sorted((e for e in by_txn.values() if e["value"] > ZERO), key=lambda e: -e["value"])[:limit]
+
+    def spending_vs_usual(self, date_from, date_to, months: int = 3, history: int = 6, depth: int = 2) -> list[dict]:
+        """Each category's spending in the period against its usual month: the average of the
+        ``months`` whole months before the period (only months after the first record count). Also
+        the last ``history`` months for a mini trend. Largest first."""
+        start, end = parse_date(self._day(date_from)), parse_date(self._day(date_to))
+        first_record = self.first_activity_date()
+        floor = parse_date(first_record).replace(day=1) if first_record else start
+
+        def month_range(back_from: date, back: int) -> tuple[date, date]:
+            index = back_from.year * 12 + back_from.month - 1 - back
+            first = date(index // 12, index % 12 + 1, 1)
+            last = (first.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
+            return first, last
+
+        def by_code(first: date, last: date) -> dict[str, Decimal]:
+            return {g.code: g.value for g in self.spending_by_category(first, last, depth)}
+
+        prior = [month_range(start, k) for k in range(1, months + 1)]
+        prior = [(a, b) for a, b in prior if a >= floor]
+        prior_values = [by_code(a, b) for a, b in prior]
+        trend_months = [month_range(end, k) for k in range(history - 1, -1, -1)]
+        trend_months = [(a, min(b, end)) for a, b in trend_months if a >= floor]
+        trend_values = [by_code(a, b) for a, b in trend_months]
+        rows = []
+        for group in self.spending_by_category(start, end, depth):
+            usual = (sum((v.get(group.code, ZERO) for v in prior_values), ZERO) / len(prior_values)) if prior_values else None
+            rows.append({"code": group.code, "label": group.label, "value": group.value, "usual": usual,
+                         "change": None if usual is None else group.value - usual,
+                         "history": [v.get(group.code, ZERO) for v in trend_values],
+                         "history_months": [a.strftime("%Y-%m") for a, _ in trend_months]})
+        return rows
+
     def monthly_trend(self, end_month: str, months: int = 6) -> list[dict]:
         _, last = parse_month(end_month)
         first = last.replace(day=1)

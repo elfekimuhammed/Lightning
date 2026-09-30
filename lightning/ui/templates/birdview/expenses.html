@@ -3,7 +3,7 @@
 {% block top_actions %}{% from "partials/macros.html" import period_control %}{{ period_control("/birdview/expenses", period, month, this_month, date_from, date_to, category_filter) }}{% endblock %}
 {% block heading %}<div class="birdview-title"><div><h1>Expense analysis</h1><div class="muted small">{{ category_name if category_name else "Where your money went" }}</div></div></div>{% endblock %}
 {% block content %}
-{% from "partials/charts.html" import key_notes, bars, trend %}
+{% from "partials/charts.html" import key_notes, bars, trend, sparkline %}
 {% if error %}<div class="flash error">{{ error }}</div>{% endif %}
 {% if category_filter %}<p class="muted small"><a href="/birdview/expenses?period={{ period }}&amp;month={{ month }}&amp;date_from={{ custom_from }}&amp;date_to={{ custom_to }}">All spending</a> / {{ category_name }}</p>{% endif %}
 <section class="stat-row" aria-label="Spending summary">
@@ -26,6 +26,28 @@
   </section>
   <section class="card data-panel"><div class="section-head"><div><h2>When did it change?</h2><p class="muted small">Money out per month{{ ' against this month\'s plan' if not category_filter }}</p></div></div>
     {{ trend(spend_trend, 'Money out per month', 'Plan') }}
+  </section>
+</div>
+{% if usual %}
+<section class="card wide-card usual-card" aria-labelledby="usual-heading">
+  <div class="section-head"><div><h2 id="usual-heading">Compared with your usual month</h2><p>This month against the average of the three months before it</p></div></div>
+  <div class="usual-table" role="table">
+    <div class="usual-row usual-head" role="row"><span role="columnheader">Category</span><span role="columnheader">Last {{ usual[0].history|length }} months</span><span class="num" role="columnheader">This month</span><span class="num" role="columnheader">Usual</span><span class="num" role="columnheader">Difference</span></div>
+    {% for r in usual %}<div class="usual-row" role="row"><span role="cell"><b>{{ r.label }}</b>{% if r.group != 'Personal' %}<small>{{ r.group }}</small>{% endif %}</span>
+      <span role="cell">{{ sparkline(r.spark, 'spend', r.label ~ ' over the last months') }}</span>
+      <span class="num" role="cell">{{ r.value|money }}</span>
+      <span class="num muted" role="cell">{{ r.usual|money if r.usual is not none else '—' }}</span>
+      <span class="num {{ 'neg' if r.change and r.change > 0 else ('pos' if r.change and r.change < 0 else '') }}" role="cell">{% if r.change is none %}—{% elif r.change > 0 %}{{ r.change|money }} more{% elif r.change < 0 %}{{ r.change|abs|money }} less{% else %}Same{% endif %}</span></div>{% endfor %}
+  </div>
+</section>
+{% endif %}
+<div class="workspace-grid expense-more">
+  <section class="card data-panel"><div class="section-head"><div><h2>Who you paid</h2><p class="muted small">Largest first</p></div></div>
+    {{ bars(who_bars, 'spend', 'No spending in this period.') }}</section>
+  <section class="card data-panel"><div class="section-head"><div><h2>Paid from</h2><p class="muted small">The account each payment left</p></div></div>
+    {{ bars(account_bars, 'hold', 'No spending in this period.') }}
+    {% if largest %}<h3 class="expense-subhead">Largest payments</h3>
+    <div class="compact-list">{% for t in largest %}<a class="compact-row" href="/transactions/{{ t.id }}"><span>{{ t.counterparty or t.ref }}<small class="muted">{{ t.date }}{{ ' · ' ~ t.category if t.category }}</small></span><b>{{ t.value|money }}</b></a>{% endfor %}</div>{% endif %}
   </section>
 </div>
 {% endif %}
