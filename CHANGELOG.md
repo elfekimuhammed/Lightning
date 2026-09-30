@@ -8,6 +8,11 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### Omar's workflow covers a salaried year · 2026-09-30
+- The reference workflow in the Project Overview gains steps 11–21 for the rest of Omar's year: a raise, a salary paid early for the holidays, a year-end bonus, a reimbursed work expense, yearly bills, selling shares, a maturing certificate, Eid gifts, a gam'eya, installments and the year-end read. Each step says what must be true and what happens today.
+- The questions gain the follow-ups a salaried user asks, and a new question 8, "What changes when my pay changes?".
+- Found by running these steps on the demo data (not fixed yet): a 90,000 bonus lifts Average monthly income from 45,000 to 75,000 for three months; a raise over 10%, or a salary paid more than 7 days early, is not matched to its scheduled payment, so the forecast counts it twice; the emergency fund is measured in months of income rather than spending.
+
 ### No browser history under fields · 2026-09-30
 - Fields no longer show what you typed before, such as old names, amounts or "Gold 24k". The only suggestions left are the app's own: counterparties, categories and accounts. This applies to every form, popups included.
 
