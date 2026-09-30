@@ -46,6 +46,7 @@ class BudgetLine:
     opening_carryover: Decimal = ZERO
     carryover_enabled: bool = False
     income_percent: Decimal | None = None
+    from_loans: bool = False  # planned amount = loan payments scheduled this month (no rule set)
 
     @property
     def remaining(self) -> Decimal | None:

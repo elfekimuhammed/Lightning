@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 from decimal import Decimal
 
-from lightning.core.dates import fmt_date, parse_date, today
+from lightning.core.dates import fmt_date, parse_date, parse_month, today
 from lightning.core.errors import NotFoundError, ValidationError
 from lightning.core.money import ZERO, to_decimal
 from lightning.database.connection import Database
@@ -207,6 +207,18 @@ class PlanningService:
             loans_left += sum((p.amount for p in self.payments(item, end, day) if p.outstanding), ZERO)
         return WhatYouOwe(bills_due=sum((p.amount for p in due), ZERO), loans_still_to_pay=loans_left,
                           bills_due_items=due)
+
+    def loan_payments_by_category(self, month: str) -> dict[int, Decimal]:
+        """Loan payments scheduled in a month (paid, due or upcoming; not skipped), by category."""
+        first, last = parse_month(month)
+        out: dict[int, Decimal] = {}
+        for item in self.items((PlanKind.LOAN,)):
+            if item.category_id is None:
+                continue
+            for p in self.payments(item, last):
+                if p.due_date >= fmt_date(first) and p.status != PaymentStatus.SKIPPED:
+                    out[item.category_id] = out.get(item.category_id, ZERO) + p.amount
+        return out
 
     def loan_progress(self, item: PlannedItem, as_of: date | None = None) -> dict:
         payments = self.payments(item, item.end_date or "2999-12-31", as_of)

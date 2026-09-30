@@ -193,3 +193,26 @@ def test_manual_link_suggests_only_plausible_transactions(c, setup, monkeypatch)
     payment = c.planning.payments(c.planning.get(item_id), "2026-10-05", date(2026, 10, 6))[0]
     amounts = [r["amount"] for r in c.planning.candidates(payment, date(2026, 10, 6), loose=True)]
     assert amounts == [Decimal("2480")]  # the 2,000 gift to Mom is not offered
+
+
+def test_a_loan_adds_its_payments_as_a_budget_line(c, setup, monkeypatch):
+    monkeypatch.setenv("LIGHTNING_TODAY", "2026-10-06")
+    accounts, _ = setup
+    loans = c.categories.get_by_code("EXP.PERSONAL.LOANS")
+    assert not c.budgets.has_plan("2026-10")
+    c.planning.create(kind="LOAN", name="Car loan", amount="2500", frequency="MONTHLY", start_date="2026-10-05",
+                      payment_count="2", account_id=str(accounts["cib"].id))
+    assert not c.budgets.has_plan("2026-10")  # a loan alone does not count as having made a plan
+
+    def line(month):
+        view = c.budgets.month_view(month)
+        return next(l for s in view.sections for l in s.lines if l.category_id == loans.id)
+    october = line("2026-10")
+    assert october.budget == Decimal("2500") and october.from_loans
+    assert line("2026-11").budget == Decimal("2500")
+    assert not any(l.category_id == loans.id and l.budget for s in c.budgets.month_view("2026-12").sections
+                   for l in s.lines)  # the loan has ended: no plan line
+    page = TestClient(create_app(c), base_url="http://127.0.0.1").get("/budget?month=2026-10").text
+    assert "Loan payments scheduled this month" in page
+    c.budgets.set_budget(loans.id, "2026-10", "3000")  # a rule you set replaces the scheduled amount
+    assert line("2026-10").budget == Decimal("3000") and not line("2026-10").from_loans

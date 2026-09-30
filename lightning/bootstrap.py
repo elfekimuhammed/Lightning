@@ -98,6 +98,7 @@ def build(db_path: str | Path | None = None, backup_on_start: bool = False) -> C
     budgets = BudgetService(db, categories, reporting)
     reevaluations = ReevaluationService(db, accounts, transactions, reporting)
     planning = PlanningService(db, accounts, categories, counterparties, transactions)
+    budgets.scheduled_loans = planning.loan_payments_by_category
     investments = InvestmentService(db, accounts, assets, categories, transactions, reporting, reevaluations)
     position = PositionService(reporting, assets, investments, money_from_others, reserves, planning)
     forecaster = CashForecaster(planning, reporting, reserves, budgets, categories, position)
