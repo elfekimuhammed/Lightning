@@ -1,335 +1,191 @@
 # Lightning — Project Overview
 
-## Document status
+**Last updated 2026-09-30 · app 0.3.0** (`lightning/__init__.py`; `pyproject.toml` still says 0.1.0 until the next release).
 
-- **Last updated:** 2026-09-30
-- **Document revision:** 2026-09-30.2
-- **App version:** 0.3.0 (`lightning/__init__.py`); `pyproject.toml` still reports 0.1.0 and needs correction at the next release/package update.
-- **Role:** product purpose, the reference workflow, the main user questions and their follow-ups, gaps against the best budgeting apps, and the delivery roadmap. [Architecture](ARCHITECTURE.md) owns calculation contracts; [Glossary](GLOSSARY.md) owns terminology.
+This file tells the story: what Lightning is, who it is for, what it answers and where it goes next. [Architecture](ARCHITECTURE.md) holds the technical side. The [App brand guideline](APPLICATION_BRAND_GUIDE.md) holds the visual side. The [Glossary](GLOSSARY.md) defines every term and figure. Shipped changes go in `CHANGELOG.md`.
 
-## Product purpose
+## What Lightning is
 
-Lightning is a local-first personal wealth-management app for Egyptians. It helps people understand where money is held, what it is invested in, how spending compares with plans, and how owned wealth changes over time. The main workflow is deliberately simple: record or import activity, resolve unclear Counterparties/categories, then use analysis to understand patterns and build savings goals.
+Lightning is a local-first personal wealth app for Egyptians. It shows where your money is held, what it is invested in, how spending compares with your plan, and how what you own changes over time. The loop is simple: record or import activity, sort out unclear counterparties and categories, then read the analysis to spot patterns and save towards goals.
 
-The model separates two questions: **Account — where is value held?** (CIB, Cash wallet, THNDR, gold at home) and **Financial asset — what value is held?** (EGP cash, COMI shares, fund units, gold grams, supported deposits).
+It keeps two questions apart: **where** value is held (an account such as CIB, the cash wallet, THNDR, gold at home) and **what** is held (EGP cash, COMI shares, fund units, gold grams, deposits).
 
-Lightning has **three layers**, and every screen says which one a number comes from (see the [Glossary](GLOSSARY.md#three-layers-ledger-plan-report)):
+Every number comes from one of three layers, and each screen says which:
 
 - **Ledger — real money.** Posted transactions: where money actually came from and went.
-- **Plan — what-if.** Budgets, reserves, scheduled bills and loans, sale factors and the cash forecast. It moves no money; it sits on top of the ledger to help you plan.
-- **Report — reads both.** The Overview (the quick glance) and the reports under it (Budget, Investments, Expense analysis, Cash planning) present the ledger and the plan and store nothing.
+- **Plan — what-if.** Budgets, reserves, scheduled bills and loans, sale factors and the cash forecast. It moves no money.
+- **Report — reads both.** The Overview (the quick glance) and the reports under it: Budget, Investments, Expense analysis and Cash planning. They store nothing.
 
-**Who it is for:** a busy, hurried user who won't read help text. Every figure has one name, one calculation and one function everywhere (`lightning/core/figures.py`); a derived figure shows its formula under it; every action gives visible feedback; wrong or silent results are treated as worse than an extra click.
+**Who it is for:** a busy user who won't read help text. Every figure has one name and one calculation everywhere, and a name that needs explaining gets renamed rather than explained. Every action gives visible feedback. A wrong or silent result is worse than an extra click.
 
-Product priorities: simplest useful workflow and fewer clicks; consistent terminology; durable, searchable data; clean code boundaries; and broad coverage of normal personal-finance cases. Avoid expensive AI calls for deterministic app features. Calculations, matching, monthly price processing, and categorization defaults should be ordinary code, not AI calls.
+**Priorities:** the simplest useful workflow with the fewest clicks; the same words everywhere; durable, searchable data; broad coverage of normal personal-finance cases. Calculations, matching, price processing and categorization are ordinary code, never AI calls.
 
-## Decisions that must stay consistent
+## Product decisions that must hold
 
-- There is **one main transaction ledger**. Account registers, all-account view, budget actuals, investments, the Overview and the reports are filtered or computed views of it.
-- The **reevaluation ledger** is valuation detail, not another activity ledger. Its per-asset checkpoint rows link to one aggregated `VAL` journal per account in the main ledger.
-- Accounts are locations; financial assets are what is held; asset classes group assets; categories describe activity; Counterparty identifies the other side. A nullable ledger-line `owner_id` records beneficial ownership: blank means the user owns the line; a selected Counterparty owns it otherwise.
-- A physical item is individually named and held as a piece-count record with net gold-bearing weight per piece, karat, and acquisition cost. A matching-karat gold price reference is per gram of that karat; item value is piece count × net grams per piece × that price. Purity is descriptive and is not applied a second time to a karat-specific price. Stones and workmanship are excluded from gold weight and metal-value estimate; acquisition cost may include them.
-- Category L1 is **Personal / Work / Investment**; L2 is broad; L3 stays empty until users choose to add detail. Categories follow activity, not money direction.
-- Counterparty names are canonical. Similar spellings are suggestions requiring deliberate selection or explicit creation—never silently merge or create duplicates.
-- Other people's money stays in the full account/holding balance but is attributed to its owner (**Held for others**) and excluded from What you own. It is not income/expense or a receivable.
-- **Certain obligations count; forecasts never do.** Bills due and loans still to pay form *What you owe*: bills due come off Free cash, and What you owe comes off Net worth. Loans are payment schedules in the plan, not ledger debt accounts; a loan payment counts as spending when paid. Credit cards, interest accrual and money owed to the user remain out of scope.
-- Owner balances are calculated from dated ledger lines by account and asset. Posting, editing, and restoring an owner's entries must not make that owner's cash or holdings negative. Brokerage buys use cash already in that brokerage account and only the selected owner's share.
-- Ordinary screens show names, not account codes. Codes and IDs are for internal identity, linking, import, and search.
-- Summary amounts display rounded to whole currency units; inputs retain cents. New money entries are validated to two decimals; `_e6` storage remains exact.
-- Dates are stored canonically as ISO `yyyy-mm-dd`. User entry accepts `31/1` (current year), `31/1/2026`, or `2026-01-31`; numeric day/month is day-first and accepted input normalizes to ISO.
-- An account's stored opening/tracking date does not block historical activity. Users can add, edit, import, or restore transactions dated before it; the opening balance remains its own dated ledger entry.
-- Keep lists alphabetical. Used categories cannot be physically deleted; archive instead. Archived categories are not selectable for new transactions.
-- Reserves are plans for already-owned cash, not transactions or budget limits. The emergency fund is a permanent section and reports its size in months of **Average monthly income**, the same average the budget and the cash forecast use.
-- **One name, one calculation.** A figure is computed once (the position in `PositionService.at`, flows in `CashFlow`, investment results in `investment_period`) and every tab reads that. Routes never compute figures. Retired names are listed in the Glossary and must not return.
-- The Linux desktop workflow starts the local server and opens `http://127.0.0.1:8765` manually in Firefox. The Windows launcher exists but its end-to-end setup and operation still need a native Windows verification pass; it currently opens the default browser.
-- Update this overview when the owner asks. Record shipped changes in `CHANGELOG.md`; do not bump the version unless actually releasing.
+- **One ledger.** Account registers, the all-accounts view, budget actuals, investments, the Overview and the reports are all views of one transaction ledger.
+- **Other people's money** (*Held for others*) stays in the account balance but belongs to its owner. It is left out of *What you own*. It is not income, spending or money owed to you.
+- **Certain obligations count; forecasts never do.** Bills due and loans still to pay make up *What you owe*. Bills due come off Free cash, and What you owe comes off Net worth. Loans are payment schedules, not debt accounts. A loan payment counts as spending when it is paid. Credit cards, interest and money owed to you are out of scope.
+- **Reserves are not budgets.** A reserve sets aside cash you already own and lowers Free cash. A budget limit changes only the spending plan. The two are never added together. The emergency fund is shown in months of *Average monthly income*, the same average the budget and the forecast use.
+- **Categories describe the activity, not the direction of money.** Level 1 is Personal / Work / Investment and level 2 is broad. Level 3 stays empty until a user wants detail. A category that has been used is archived, never deleted.
+- **Names are canonical.** Similar spellings are suggestions the user must pick. Lightning never silently merges or creates a counterparty.
+- **Physical gold** is tracked piece by piece: net gold weight per piece, karat and cost. It is valued at a price per gram for the same karat, and purity is never applied twice.
+- **People see names, not codes.** Summaries round to whole pounds; inputs keep cents. Dates are ISO. Entry also accepts `31/1` and `31/1/2026`, and Arabic-Indic digits.
+- **Local only.** Data lives in one SQLite file on the user's computer and is never committed to Git.
 
-## Technology and local operation
+## What you can do today
 
-| Area | Choice |
-|---|---|
-| Runtime | Python 3.11+, FastAPI, Uvicorn |
-| UI | Jinja2 server-rendered HTML, vanilla JS/CSS; no frontend build |
-| Persistence | One local SQLite file in `data/`, ordered SQL migrations, local backups |
-| Financial precision | `Decimal` in Python, scaled integers (`_e6`) in SQLite; no binary floats in financial logic |
-| Quality | pytest and `import-linter` boundaries |
-| Network | Local-only server bound to `127.0.0.1` |
+- **Accounts and ledger:** open an account with a starting balance; record money in, money out and transfers; edit, void and restore, bulk select, search, and reconcile against a statement.
+- **CSV import:** stage a bank CSV with one signed column or separate in/out columns. Only rows that need a decision need attention; a new name typed on several rows is created once; duplicates are flagged.
+- **Budget:** Planned, Spent, then Left in plan. Each category takes one *Amount or %* field (`1,500`, or `12%` of average monthly income), or the average of recent months, with optional carryover. Views cover All time, YTD, Monthly and Custom. A loan's scheduled payments are planned automatically until you set your own amount.
+- **Cash planning (Plan · Recurring · Loans · Reserves):** *Safe to spend* until the next income, What you owe, the next 30 days and a three-month forecast. It also holds recurring bills, subscriptions and income (suggested from history, never created on their own), loans with progress and payoff date, and reserves with the emergency fund. A payment is marked paid automatically when exactly one transaction matches, or by hand from a popup, with undo.
+- **Investments:** buy, sell and dividends inside the brokerage account; prices typed in or fetched; the period's *Net gain or loss* (Gain from sales + Price change on what you hold + Dividends and interest) alongside current holdings and *Holdings after sale (estimate)*.
+- **Overview:** Needs you at the top (a closed row that opens into the list), then your position: Net worth, Free cash, *What it is made of* and *If you sold today (estimate)* with a sale factor per class. Below that come Cash flow with the savings rate, Where it went, Investments at a glance, and Month by month as a closed row. Birdview was folded in on 2026-09-30, and `/birdview` redirects here.
+- **Held for others:** money and units you hold for someone else. Account headers show *In this account · What you own · Held for others*.
+- **Every page:** months are picked from a month picker, never typed. Up to three key notes under the title give the page's answer in one sentence, and one set of charts follows the brand guideline.
+- **Demo:** `python -m lightning --demo`, or "See Lightning with a sample household" on an empty welcome page, opens Omar's last three months in a separate database.
 
-On Linux run `./run.sh`, then open `http://127.0.0.1:8765` in Firefox. Windows has `run.bat`, but support is provisional until the Windows readiness milestone below passes. Startup performs backups/migrations and processes due investment checkpoints. Keep the process running while using the app. Financial data is local and is not committed to Git; syncing code does not sync the database.
+## The questions Lightning answers
 
-**Demo:** `python -m lightning --demo` opens a sample household (Omar's last three months, dated up to today) in a separate `data/demo.db` on port 8766, rebuilt on every start. An empty Lightning offers the same household from its welcome page.
+Each tab answers one main question first, then its natural follow-ups. **Partial** and **Missing** mark the gaps.
 
-## Current user workflows
+| Screen | Main question | Leads with |
+|---|---|---|
+| Overview | Where do I stand, and what needs me? | Needs you, Net worth (What you own when nothing is owed), Free cash, what it is made of, cash flow, investments |
+| Expense analysis | Where did my money go? | Money out, ranked categories, change from last period |
+| Budget | Am I on plan? | Left in plan, categories over plan |
+| Investments | What do I hold, and how did it do? | Net gain or loss for the period, holdings, allocation |
+| Cash planning | How much can I actually spend? | Safe to spend, What you owe, the forecast |
+| Reserves | Am I safe if something goes wrong? | Emergency fund in months of income |
+| Account | What happened here? | One balance, then add/import and the register |
+| Held for others | Whose money am I holding? | Balances by person |
+| Settings · Checks | Is my data right? | Configuration and integrity checks |
 
-- **Accounts and ledger:** open an account with a starting balance or enter first activity; signed money movements and transfers; edit, void/restore, multi-select/delete, search, and statement reconciliation. Amounts and dates accept Arabic-Indic digits.
-- **Counterparties/categories:** dedicated Counterparty management, aliases/default categories, Personal/Work/Investment L1 and broad L2 categories, alphabetized explicit selection, and per-category or bulk activate/archive/delete actions (used categories archive instead of being erased).
-- **CSV import:** stage CSV for supported account types; map either one signed amount column or separate inflow/outflow columns. Resolve uncertain Counterparties/categories inline; a new name typed on several rows is created once; the error view lists only the rows to fix. Similar names are suggestions, not automatic merges.
-- **Budget:** compact plan summary and Personal/Work/Investment rollups across All time, YTD, Monthly, and Custom. Fixed, income-percentage (of Average monthly income) and observed-month average rules; signed carryover for tracked categories. A loan's category is planned at the loan payments scheduled that month until the user sets an amount.
-- **Cash planning (Plan · Recurring · Loans · Reserves):** Safe to spend until the next income, What you owe, the next 30 days and a three-month cash forecast; recurring bills, subscriptions and income with suggestions from history; loans with progress and payoff date; reserves and the emergency fund. Payments are marked paid automatically when exactly one posted transaction matches, or from a popup (link, record, move a loan payment to the end, skip, undo).
-- **Investments:** create/search assets, record buy/sell/dividend inside the brokerage account, enter total or unit price, and review the period Result separately from as-of holdings and Holdings after sale (estimate). The report is owned-only and uses posted ledger activity; unmapped legacy dividends and missing prices are disclosed.
-- **Valuation:** startup processes due month-end checkpoints; supported sources may fetch prices, otherwise missing historical prices require user input. A sale forces a sale-day checkpoint. Detail links to one generated account journal in the main ledger.
-- **Held for others:** custody attribution for money and units held in tracked accounts; account pages show In this account · What you own · Held for others where it applies.
-- **Every tab (demo pass):** up to three key notes under the page title say the page's answer in a sentence, each with its number and one link. Charts follow the guideline: a money in and out trend and spending bars on the Overview, a donut of what you own on Birdview and Investments, category bars and a trend against the plan on Expense analysis, spent-of-plan meters on Budget, the forecast line on Plan, bill bars on Recurring, the payment meter on Loans and the emergency-fund meter on Reserves. See [UI audit](UI_AUDIT.md).
-- **Overview (Birdview folded in, 2026-09-30):** how What you own adds up (Cash you own + Deposits + Holdings value + Other you own), If you sold today (estimate) with each class's sale factor, and Expense analysis.
+**1. Where do I stand?**
 
-## Code map
+| Follow-up | Answered by | Status |
+|---|---|---|
+| How does it add up? | Overview › Net worth rows and What it is made of | Answered |
+| What part is not mine? | Held for others; account headers | Answered |
+| What do I owe? | Overview › What you owe; Cash planning › Plan, Loans | Answered |
+| Did it grow this period? | Overview › Change in what you own | Answered |
+| *Why* did it change: saving, prices or new money? | No wealth bridge yet | Partial (M3.2) |
+| How has it moved over the year? | No net-worth history chart | Missing |
 
-```
-lightning/core/             dates, money, codes, refs, errors, posting rules;
-                            figures.py: every figure's name, formula, layer and function
-lightning/database/         SQLite, migrations, seed, backup, audit/settings
-lightning/accounts/         account identities and rules
-lightning/assets/           financial assets/classes, EGX catalogue, prices
-lightning/categories/       Personal/Work/Investment category tree
-lightning/transactions/     only writer of main-ledger postings
-lightning/investments/      trades, positions and investment calculations
-lightning/reevaluations.py  monthly detail and linked account-level VAL journal
-lightning/money_from_others.py  custody ownership attribution
-lightning/budgeting/        monthly plans and rolling average methods
-lightning/reserves.py       emergency fund and other reserve plans
-lightning/planning/         cash planning: recurring items, loans, payments, what you owe,
-                            cash forecast; position.py computes every position figure once
-lightning/bank_imports.py   CSV staging/review/posting
-lightning/reconciliation.py cleared items and statement comparison
-lightning/reporting/        read-only queries and derived reporting
-lightning/workflows/        atomic cross-module account workflows
-lightning/ui/               FastAPI routes, templates, static JS/CSS
-                            charts.py / visuals.py / keynotes.py: chart geometry, chart
-                            data read from services, and each page's key notes
-lightning/demo.py           the sample household (--demo and the welcome page)
-```
+**2. How much can I spend?**
+
+| Follow-up | Answered by | Status |
+|---|---|---|
+| Why is it lower than my bank balance? | Free cash = Cash you own − Reserves − Bills due, each part expandable | Answered |
+| How much until payday? | Cash planning › Safe to spend | Answered |
+| What is due next? | Overview › Needs you; Cash planning › Next 30 days | Answered |
+| Will I run short? | Cash forecast with its lowest point; Overview warns | Answered (3 months fixed) |
+| Is my salary late? | — | Left out by decision |
+
+**3. Where did my money go?**
+
+| Follow-up | Answered by | Status |
+|---|---|---|
+| Which categories, and which transactions? | Overview › Where it went; Expense analysis bars drill down to transactions | Answered |
+| More or less than last month? | Expense analysis › change from the comparable period | Answered |
+| How much did I keep? | Savings rate (Net flow ÷ Money in) | Answered |
+| What do subscriptions cost a year? | Cash planning › Recurring | Answered |
+| A merchant or a few categories I care about? | No saved watchlist | Missing |
+
+**4. Am I sticking to my plan?**
+
+| Follow-up | Answered by | Status |
+|---|---|---|
+| Which categories are over? | Budget meters, over plan first; Overview | Answered |
+| How much of my income does the plan take? | Spent and Planned as % of Average monthly income | Answered |
+| Is my loan in the plan? | "Includes … of loan payments scheduled this month" | Answered |
+| What about next month? | Rules repeat; a future month cannot be opened yet | Partial |
+| Where should the rest of my income go? | No "ready to assign" view | Missing |
+
+**5. How are my investments doing?**
+
+| Follow-up | Answered by | Status |
+|---|---|---|
+| Which class or holding did best? | Net gain or loss by asset class; biggest movers | Answered |
+| How much did I put in? | Money added | Answered |
+| What would I get if I sold? | Investments › Holdings after sale; Overview › If you sold today | Answered |
+| Am I on my target mix? | Investments › Set target allocation | Answered |
+| Why does a holding show no gain? | No price yet: valued at cost and flagged | Answered |
+
+**6. Am I safe if something goes wrong?** The emergency fund shows months covered. Saving for goals shows what to set aside each month. Loans show payments made, what is left and the last payment; a skipped payment moves to the end of the loan.
+
+**7. Is my data right?** Reconcile against the bank, review imports for gaps and duplicates, and run Checks. There is no stale-price warning yet (partial).
+
+Money held for others is left out of every owned, budget and performance view. Transfers are never income or spending. Refunds reduce spending in their original category.
 
 ## Reference workflow: a month with Omar
 
-The acceptance persona is **Omar**, a 31-year-old salaried employee in Cairo:
-- **Income:** 45,000 EGP a month from ACME Egypt, into CIB.
-- **Cash:** a CIB payroll account, a cash wallet and Vodafone Cash.
-- **Investments and deposits:** an NBE 3-year certificate, and a THNDR account with COMI, Fawry and a money market fund.
-- **Gold:** an L'Azurde ring bought by card and a gold pound from his grandmother.
-- **Other people's money:** 10,000 EGP of his mother's money in his CIB account.
-- **Commitments:** monthly rent, internet, phone and electricity, and a 24-month car loan.
+The acceptance persona is **Omar**, 31, salaried, in Cairo. He earns 45,000 EGP a month from ACME Egypt, paid into CIB. He has a CIB payroll account, a cash wallet and Vodafone Cash; an NBE 3-year certificate; and a THNDR account with COMI, Fawry and a money market fund. His gold is an L'Azurde ring bought by card and a gold pound from his grandmother. He holds 10,000 EGP of his mother's money in CIB. He pays rent, internet, phone and electricity monthly, and has a 24-month car loan.
 
-The walkthrough is driven in a browser through the screens only. Run reports are in [`docs/personas/`](personas/). Re-run it after any change to a workflow; the numbers below must still reconcile.
+Drive it in a browser through the screens only, and re-run it after any workflow change. The numbers must still reconcile. The demo household is the same month, dated to today.
 
-| # | Step | Layer | Where | What must be true afterwards |
-|---|---|---|---|---|
-| 1 | Open six accounts with starting balances (dates typed as `1/7`) | Ledger | Accounts › Add account | Dates become `2026-07-01`; the sidebar shows **In your accounts** |
-| 2 | Import three months of the CIB statement (40 rows) | Ledger | CIB › Import | 39 rows posted, 1 skipped; salary, rent, groceries and transfers categorized; Mom's 10,000 shows under **Held for others** |
-| 3 | Move money to THNDR; buy COMI and Fawry with fees; buy a money market fund | Ledger | THNDR register | Holdings and brokerage cash appear on Investments |
-| 4 | Record the ring bought by card and the inherited gold pound | Ledger | Gold at home | Ring paid from CIB; the pound needs no cash account |
-| 5 | Record cash and Vodafone Cash spending | Ledger | Wallet registers | Each shows in Money out and in its category |
-| 6 | Enter month-end prices | Ledger | Investments › Update prices | Holdings value and Result update |
-| 7 | Set the emergency fund to 20,000 and create the budget plan | Plan | Cash planning › Reserves; Budget | Free cash = Cash you own − Reserves − Bills due; the plan is ready |
-| 8 | Track suggested recurring items (salary, rent, internet, phone); add electricity and the car loan | Plan | Cash planning › Recurring, Loans | September's payments matched automatically; What you owe = 60,000; the loan appears in the budget |
-| 9 | 2026-10-06: salary, rent and a loan payment are due; mark them paid from the Overview | Plan → Ledger | Overview › Needs my attention | Each payment posts a real transaction. Net worth moves only by the salary (+45,000): paying what you already owed leaves it unchanged. Loans still to pay 57,500 |
-| 10 | Read every tab | Report | All tabs | Free cash and What you own read the same on every tab; Checks pass |
+| # | Step | Layer | What must be true afterwards |
+|---|---|---|---|
+| 1 | Open six accounts, typing dates as `1/7` | Ledger | Dates become `2026-07-01`; the sidebar shows **In your accounts** |
+| 2 | Import three months of CIB (40 rows) | Ledger | 39 posted, 1 skipped; salary, rent, groceries and transfers categorized; Mom's 10,000 is **Held for others** |
+| 3 | Move money to THNDR; buy COMI and Fawry with fees; buy a money market fund | Ledger | Holdings and brokerage cash show on Investments |
+| 4 | Record the ring bought by card and the inherited gold pound | Ledger | Ring paid from CIB; the pound needs no cash account |
+| 5 | Record cash and Vodafone Cash spending | Ledger | Each shows in Money out and in its category |
+| 6 | Enter month-end prices | Ledger | Holdings value and Net gain or loss update |
+| 7 | Set a 20,000 emergency fund and create the budget | Plan | Free cash = Cash you own − Reserves − Bills due |
+| 8 | Track suggested recurring items; add electricity and the car loan | Plan | September's payments matched; What you owe = 60,000; the loan is in the budget |
+| 9 | On 2026-10-06 mark salary, rent and a loan payment paid from the Overview | Plan → Ledger | Each posts a real transaction; Net worth moves only by the salary (+45,000); loans still to pay 57,500 |
+| 10 | Read every tab | Report | Free cash and What you own read the same everywhere; Checks pass |
 
-## Main questions and follow-up questions
+## Compared with the best budgeting apps
 
-Each tab answers one main question first, then its natural follow-ups. **Answered** means a screen gives the answer today; **Partial** or **Missing** points to the gap or finding number.
+The reference apps are YNAB, Monarch, Copilot, Simplifi, Rocket Money, Lunch Money and Actual Budget.
 
-### 1. Where do I stand? → Overview · **Net worth** (or **What you own** when nothing is owed)
-| Follow-up | Where it is answered | Status |
-|---|---|---|
-| How does it add up? | Overview › Net worth rows and What it is made of (Cash you own + Deposits + Holdings value + Other you own) | Answered |
-| What part is not mine? | Held for others tab; account headers show In this account · What you own · Held for others | Answered |
-| What do I owe? | Overview › What you owe; Cash planning › Plan and Loans | Answered |
-| Did it grow this period? | Overview › Change in what you own | Answered |
-| *Why* did it change: saving, prices or new money? | No wealth bridge yet (Net flow vs price changes vs new balances) | Partial (roadmap M3.2) |
-| How has it moved over the last year? | No net-worth history chart | Missing |
+**Already on par or adopted:**
 
-### 2. How much can I spend? → Overview · **Free cash**; Cash planning · **Safe to spend**
-| Follow-up | Where it is answered | Status |
-|---|---|---|
-| Why is it lower than my bank balance? | The formula line: Cash you own − Reserves − Bills due, with each part expandable | Answered |
-| How much until payday? | Cash planning › Safe to spend, with its parts | Answered |
-| What is due next? | Overview › Needs my attention; Cash planning › Next 30 days | Answered |
-| Will I run short in the next months? | Cash planning › Cash forecast, lowest point; Overview flags "Cash may run short" | Answered (3 months fixed) |
-| Is my salary late? | Not flagged | Left out by owner decision (#117) |
-
-### 3. Where did my money go? → Overview · **Net flow** (Money in − Money out)
-| Follow-up | Where it is answered | Status |
-|---|---|---|
-| Which categories? | Overview › Where it went; Expense analysis | Answered |
-| More or less than last month? | Expense analysis › Change from comparable period | Answered |
-| Which transactions? | Category rows drill down to Transactions | Answered |
-| How much did I keep? | Overview › Savings rate (Net flow ÷ Money in) | Answered |
-| What do my subscriptions cost a year? | Cash planning › Recurring › Subscriptions | Answered |
-| How about a merchant or a few categories I care about? | No saved watchlist | Missing |
-
-### 4. Am I sticking to my plan? → Budget · **Left in plan** (Planned − Spent)
-| Follow-up | Where it is answered | Status |
-|---|---|---|
-| Which categories are over? | Budget rows; Overview › Budget exceeded | Answered |
-| How much of my income does the plan take? | Budget › Spent and Planned as % of Average monthly income | Answered |
-| Is my loan in the plan? | Budget summary "Includes … of loan payments scheduled this month" | Answered |
-| What about next month? | Rules repeat into later months; a future month cannot be opened yet | Partial |
-| Where should the rest of my income go? | No "ready to assign" view | Missing |
-
-### 5. How are my investments doing? → Investments · **Result** (Realized gain + Change in unrealized gain + Dividends and interest)
-| Follow-up | Where it is answered | Status |
-|---|---|---|
-| Which class or holding did best? | Overview › Result by asset class, Biggest movers; Investments › Analysis by asset class | Answered |
-| How much did I put in? | New money in | Answered |
-| What would I get if I sold? | Investments › Holdings after sale (estimate); Overview › If you sold today (estimate) | Answered |
-| Am I on my target mix? | Investments › Set target allocation | Answered |
-| Why does a holding show no gain? | No price yet: it is valued at cost and flagged "valued at cost" | Answered |
-
-### 6. Am I safe if something goes wrong? → Cash planning › Reserves · **Emergency fund** in months of Average monthly income
-| Follow-up | Where it is answered | Status |
-|---|---|---|
-| How much should I set aside each month for a goal? | Cash forecast › Saving for goals | Answered |
-| When does my loan end, and how much is left? | Cash planning › Loans (payments made, still to pay, last payment) | Answered |
-| What if I skip a loan payment? | "Move to the end of the loan": still owed, ends a month later | Answered |
-
-### 7. Is my data right? → Checks
-| Follow-up | Where it is answered | Status |
-|---|---|---|
-| Does my balance match the bank? | Account › Reconcile | Answered |
-| Did the import miss or duplicate anything? | Import review; duplicates flagged; one answer fills rows with the same name | Answered |
-| Is a price old? | Missing-valuation notices | Partial (no stale-price warning) |
-
-All owned-position, budget-actual and performance views exclude money held for others. Internal transfers do not create income or expense. Refunds reduce spending in their original category.
-
-## Compared with the best budgeting apps: what is still missing
-
-Reference apps: YNAB, Monarch, Copilot, Simplifi, Rocket Money, Lunch Money and Actual Budget. [Budget app patterns](BUDGET_APP_GAPS.md) records the patterns already adopted.
-
-**Already on par:**
-- Recurring detection that suggests but never creates.
-- Upcoming bills with automatic paid-matching and undo.
-- A projected balance with its lowest point.
-- Monthly amounts for dated goals.
+- Recurring detection that suggests but never creates (Monarch, Rocket Money, Copilot).
+- Upcoming bills with automatic paid-matching and undo (Monarch).
+- A projected balance with its lowest point (Simplifi).
+- The monthly amount a dated goal still needs (YNAB).
+- Subscriptions totalled per year (Rocket Money).
 - Loan progress and payoff date.
 - Rollover budgets.
 - Transfers, splits and refunds.
-- Investments with real returns, local gold and money held for others. Most budgeting apps do not have these.
+- Real investment returns, local gold and money held for others, which most budgeting apps lack.
 
-Still missing, ordered by value for a hurried user:
+**Still missing, most valuable first:**
 
-| # | Missing | Best-in-class example | Lightning today | Why it matters here |
-|---|---|---|---|---|
-| 1 | **Capture on the phone in seconds** | Copilot and Monarch mobile apps; quick add from a widget | Local web app on the computer; entry needs the account page | Cash and Vodafone Cash spending is forgotten unless it can be logged on the spot |
-| 2 | **Automatic transaction feed** | Bank sync in Monarch, YNAB, Copilot | CSV import only; no Egyptian aggregator | Import is the heaviest step. A cheaper local route: parse bank and wallet SMS, or e-statement PDFs |
-| 3 | **Learned categorization rules** | Monarch and Copilot rules and learning; Lunch Money rules | Counterparty default categories; import copies one answer to rows with the same name | A first import still needs one decision per distinct name (16 for Omar) |
-| 4 | **One review inbox** | Monarch and Copilot "to review" | Import review and Overview attention are separate | One place to clear everything, exceptions first |
-| 5 | **Reminders and notifications** | Bill reminders in Monarch, Rocket Money and Simplifi | Due bills show only when the Overview is open | A lazy user won't open the app to check |
-| 6 | **Multi-currency** | Lunch Money, YNAB (per budget), Monarch | Base currency only (M4 planned) | Many Egyptians keep USD savings or receive USD income |
-| 7 | **Net-worth and spending history** | Monarch net-worth chart and monthly recap | Point-in-time figures; no trend or monthly review | Answers "am I improving?" (question 1 above) |
-| 8 | **Give every pound a job** | YNAB "Ready to assign" | Budget rules and Left in plan, but no unassigned-income view | Closes question 4's last follow-up |
-| 9 | **Watchlists** | Simplifi watchlists | Category budgets only | Tracks one habit (eating out, one merchant) without a full budget |
-| 10 | **Shared household** | Monarch partner access | Single user, single device | Couples manage money together |
-| 11 | **Guided first setup** | Monarch and YNAB onboarding | Empty welcome page, then free exploration | Omar's first run needed six account forms before seeing anything |
-| 12 | **Less reading per screen** | Copilot: one number, details on tap | Figures carry names that explain themselves, with no explanation toggles; a name that needs explaining is renamed. The Plan tab has about 200 words, mostly data rows | Keep new screens to one number and one line per card |
-| 13 | Receipts and attachments | Monarch, Lunch Money | None | Warranty and gold purchase receipts |
-| 14 | Credit cards and interest | All reference apps | Out of scope by decision (loans are schedules) | Revisit if card use grows |
+| # | Missing | Best example | Why it matters here |
+|---|---|---|---|
+| 1 | Capture on the phone in seconds | Copilot, Monarch mobile | Cash and Vodafone Cash spending is forgotten unless logged on the spot |
+| 2 | Automatic transaction feed | Bank sync in Monarch, YNAB | Import is the heaviest step. There is no Egyptian aggregator, so parsing bank SMS or e-statement PDFs is the cheaper route |
+| 3 | Learned categorization rules | Monarch, Copilot, Lunch Money | A first import still needs one decision per distinct name |
+| 4 | One review inbox | Monarch, Copilot "to review" | Import review and Needs you are separate today |
+| 5 | Reminders | Monarch, Rocket Money, Simplifi | A user who doesn't open the app never sees a due bill |
+| 6 | Multi-currency | Lunch Money, YNAB | Many Egyptians keep USD savings or earn USD |
+| 7 | Net-worth and spending history | Monarch | Answers "am I improving?" |
+| 8 | Give every pound a job | YNAB "Ready to assign" | Closes question 4's last follow-up |
+| 9 | Watchlists | Simplifi | Track one habit without a full budget |
+| 10 | Shared household | Monarch partner access | Couples manage money together |
+| 11 | Guided first setup | Monarch, YNAB onboarding | Omar's first run needed six account forms before seeing anything |
+| 12 | Receipts and attachments | Monarch, Lunch Money | Warranty and gold purchase receipts |
 
-The open findings from the Omar runs (#111, #129–#133, import review, fees, buying by amount, new-name confirmation) were fixed on 2026-09-30. See `CHANGELOG.md`.
+Bank sync and bill negotiation are not adopted. Any sync first needs a provider and regional coverage; local CSV stays the foundation. A "safe to spend" figure must always say which obligations and income it includes. Simplifi's projection, which leaves out planned spending, shows why.
 
-## Customer workflow and UI decisions
+## Roadmap
 
-The intended path is **glance at the Overview → go deeper in a report (Budget, Investments, Expense analysis, Cash planning) → record in an account → review exceptions at import**. Overview is a status screen across All time, YTD, Monthly, and Custom ranges; it does not own analysis, plans, reserve management, or transaction entry. All-account transactions remains a search/history workspace.
-
-| Screen | Current friction | Intended hierarchy and action |
+| Milestone | State | Next |
 |---|---|---|
-| Overview | Previously mixed analysis, reserve details, budget plan, and transaction history into the status screen. | Owned position at the range end, change from the prior position where reliable, Free cash (Cash you own − Reserves − Bills due), Money in and Money out bars for the selected range, and up to three current actionable attention items. |
-| Birdview | Previously mixed present-day position with selected-period activity and hid asset-class estimation assumptions. | Lead with What you own and how it adds up, Free cash, and If you sold today (estimate). Include brokerage cash once with a transfer note, show per-class factors and plan comparison, then brief flow and ranked expense views with drilldowns. The four horizons apply to activity and position as of period end. |
-| Account | Four duplicate balance figures on a normal cash wallet; maintenance buttons compete with entry; a crowded inline entry row explains signed amounts and transfers in one paragraph. | One meaningful balance, with total/held-for-others/owned bridge only where needed. Primary Add transaction action with account preselected and Money out / Money in / Transfer choices; ledger below for history. Import is secondary; edit, reconciliation, and deactivation move to an account menu. |
-| Budget | Full edit grid remains the main route for many adjustments. | First plan in one action, then monthly status, short attention list, one-category action, and a past-month review. Full grid remains advanced. Left in plan is never Free cash. |
-| Cash planning › Reserves | Creation exposes many optional fields at once. | Start with purpose and amount; ask for due date, recurrence, and counterparty matching only when useful. Overview and Birdview Free cash figures link to this workflow. |
-| Import | Review exposes many editable fields on every row. | Lead with Ready to post, Needs a decision, and Possible duplicates; expand row editing for exceptions. |
+| M0–M1 Foundation and cash accounts | Shipped | — |
+| B Budget, B.1 Budget flow | Shipped / in progress | Change one category without the full grid; first-use flow |
+| M2 Reports and corrections | Partial | Balance adjustments, month close |
+| M3 Manual investments | Shipped | — |
+| M3.1 Instrument catalogue | Partial | Coverage and identifier quality |
+| M3.2 Wealth history | Partial | Wealth-change bridge; owned-only XIRR; net-worth trend |
+| M4 Market data and FX | Planned | Wider prices, multi-currency accounts, FX revaluation |
+| M6 Deposits and gold details | Planned | CD lifecycle, local gold costs and buyback |
+| Physical gold items | In progress | Item purchase/sale and report integration |
+| M7 Planning and imports | Partial | Shipped: CSV import and Cash planning. Next: review inbox, matching manual entries with imports, reminders |
+| Search | Planned | One typo-tolerant search across pages and records (contract in Architecture) |
+| Windows readiness | Planned, launcher exists | Native verification; Windows stays provisional until it passes (checklist in Architecture) |
 
-The Overview and the reports use the same owned position and reserve history at a selected as-of date. Cash, investment classes, custody, and unvalued items remain separately identifiable so reports can reconcile without hiding residual assets.
-
-## Budget customer flow
-
-Budget answers: **What is my current spending plan, what have I spent, and what deserves closer control?** The main view is a compact summary plus L1 rollup; category controls open on demand. Monthly rules govern all horizons, while All time/YTD aggregate monthly plans and actuals without repeatedly adding carryover. A budget limit changes the spending plan only. A reserve assigns already-owned cash and reduces free cash; the two are never added together or substituted for each other.
-
-1. **First visit:** with useful prior spending, preview suggested fixed monthly limits from previous complete months, then let the user accept or adjust them. With sparse history, ask for one broad Personal limit. Opening Budget alone never saves a plan. Work appears when used.
-2. **Ordinary month:** open on Planned, Spent, Left in plan, a separate Free cash, and a small set of over-limit or uncovered-spending items. Category rows lead to transactions and adjustment. Detailed manual/3- or 6-month-average controls live under Edit full plan.
-3. **Transaction/import feedback:** show category impact near the saved entry and offer Add to plan when uncovered, without blocking posting.
-4. **Month review:** show planned, spent, overspent, and unused room. Optional carryover raises a later spending limit only; it does not move cash. Historical edits recalculate later derived carryover.
-
-Budget uses posted owned ledger expenses, income-category configuration, monthly rule methods, signed carryover, and dated reset boundaries. Settings control Average monthly income (categories, 3 or 6 months, or a manual amount), suggestion thresholds, ceiling warning, exclusions, and effective month. See the calculation contract in [Architecture](ARCHITECTURE.md#budget-and-reserve-contract).
-
-## Delivery roadmap
-
-| Milestone | State at this revision | Outcome or next work |
-|---|---|---|
-| M0–M1 Foundation and cash accounts | Shipped | Ledger, opening balances, account registers, transfers, edit/void, search. |
-| B Budget foundation | Shipped | Monthly category/group limits, manual and rolling averages. |
-| B.1 Budget customer flow | In progress | Compact multi-horizon Budget, income-backed rules, suggestion controls, and signed carryover are being completed. |
-| M2 Reports and corrections | Partial | Reconciliation, splits, and refunds exist; balance adjustments, report pages, and month close remain. Reconciliation is not a primary workflow priority. |
-| M3 Manual investments | Shipped | Assets, trades, dividends, prices, holdings, gains, allocation, investment management XIRR. |
-| M3.1 Instrument catalogue | Partial | Local catalogue search/prefill exists; coverage and identifier quality need evaluation. |
-| UI workflow overhaul | Planned | Follow the bounded tasks below; avoid a single broad rewrite. |
-| Windows readiness | Planned, launcher exists | Verify native Windows setup and all core workflows; harden Python selection, dependency installation, time-zone data, and failure messages. |
-| Search consistency | Planned | One typo-tolerant ranking contract across navigation, accounts, people, counterparties, categories, investments, reserves, and transactions. |
-| M3.2 Birdview history/performance | Partial | Historical as-of positions and class-specific estimates are available; a selected-period wealth-change bridge and owned-only XIRR remain. |
-| M4 Market data and FX | Planned | Wider price coverage, currency conversion, multi-currency accounts, FX revaluation. |
-| M6 Deposits and gold details | Planned | CD lifecycle, local gold costs and buyback, corporate actions. |
-| Physical gold items | In progress | Named pieces, matching-karat reference/manual valuations, item purchase/sale activity, and report integration; preserve existing gram holdings unchanged. |
-| M7 Planning and imports | Partial | Shipped: CSV import, Cash planning (recurring items, loans, What you owe, Safe to spend, three-month forecast) and unified figures. Remaining: review inbox, manual-entry/import matching, reminders, and the gaps listed above. |
-
-Loans are tracked as payment schedules in Cash planning. Credit cards, interest accrual, other ledger liabilities and receivables/money owed to the user remain out of scope by owner decision. Money held for others is tracked separately. Bank connections and device sync depend on provider and deployment choices.
-
-### Small UI tasks for Luna
-
-Each task should leave the app usable, include a concise before/after workflow description, and verify empty, cash, custody, and investment-account states. Keep financial calculation changes in separately reviewed work.
-
-| Order | Task | Acceptance point |
-|---|---|---|
-| 0 | Define the shared cash and owned-position contract for Overview, Birdview, and Reserves. | Brokerage cash is counted once; reserves reduce free cash; missing history and valuations are explicit. |
-| 1 | Remove Overview Add, fake trend, misleading investability/savings claims, and broken month arrows. | No generic entry or unsupported claim remains on Overview. |
-| 2 | Condense account header and move maintenance controls. | One balance on normal cash accounts; ownership bridge only with custody; Add transaction is primary. |
-| 3 | Replace inline register entry with an account-scoped Money out / Money in / Transfer flow. | A user can record all three without signed-amount instructions; ledger stays readable. |
-| 4 | Rebuild Overview as a short period-aware status screen. | Shared All time/YTD/Monthly/Custom ranges; owned position, Free cash, period flows, and current attention have clear drilldowns. |
-| 5 | Rebuild Birdview position, asset-class plan comparison, cash flow, and expense drilldowns. | Position is valued at the selected end date; What you own and estimates are distinguished; every expense total drills to categories and transactions. |
-| 6 | Shorten reserve creation. | Purpose and amount suffice for a simple reserve; free-cash effect is visible. |
-| 7 | Make import review exception-first. | Ready rows can be posted without scanning all fields; duplicates and unresolved rows are prominent. |
-| 8 | Clean navigation and user-facing terminology. | Home, Budget, Birdview, Accounts are clear; advanced screens stay accessible; no L1/L2 jargon. |
-| B.1 follow-up | Finish focused Budget adjustment and review its first-use flow. | One category can be changed without opening the full grid; parent/group effect is clear. |
-
-The dated cash outlook shipped as the Cash planning forecast; it never changes Free cash or Net worth. Next, prioritize import matching and a review inbox.
-
-## Search experience milestone
-
-The user may type an imperfect name, such as “overiveiw” for Overview, a mistyped account, or a merchant spelling absent from its saved aliases. Search should help them recover without changing financial identity or transaction meaning on their behalf.
-
-**Current state:** Counterparties have up to ten confirmed aliases and close-name suggestions; categories also suggest similar names. Account lookup requires an exact name/label/code. Register and investment pickers mostly filter by substring, while transaction history uses literal word matches. People/custody and Counterparty management have no consistent page search. There is no site-wide search for destinations and records.
-
-**Intended experience:** A site-wide search entry (keyboard shortcut and visible affordance) finds pages, accounts, people who own tracked money, counterparties, categories, holdings/instruments, reserves, and transactions. Results are grouped by type and labeled with enough context to choose safely: e.g. “CIB · bank account” versus “CIB · Counterparty,” or “Dad · money held for others.” Each existing picker uses the same ranking and typo fallback, scoped to valid choices for that task. A zero-result state offers close matches and a clear create action only where creation makes sense.
-
-Rank exact name/code/ref first, then normalized spelling, confirmed alias, prefix/word/substring, and finally close spelling. Show why a close result appeared (“similar spelling” or “saved alias”). A mistaken spelling must **never** silently create or merge a Counterparty, choose a custody owner, turn an entry into a transfer, or post an imported transaction. Short account codes, amounts, dates, and transaction refs need exact or structured matching rather than fuzzy guesses.
-
-Use the open-source [RapidFuzz](https://github.com/rapidfuzz/RapidFuzz) library for typo ranking rather than building a new string-matching algorithm. Keep the existing canonical-name/alias rules and SQLite search for exact filters; a shared application service composes them. Check Windows installation as part of the Windows milestone because RapidFuzz has a native component. If the corpus outgrows local candidate ranking, consider SQLite FTS5 as a later retrieval optimization, not a first feature.
-
-### Search tasks for Luna
-
-1. **Search contract and examples:** capture common misspellings, Arabic/English variants, aliases, duplicate names across entity types, short codes, and ambiguous account-versus-Counterparty cases. Agree on ranking and visible labels before changing pickers.
-2. **Shared matching service:** normalize harmless case, spacing, punctuation, and script-specific marks; rank exact, alias, prefix, token, substring, and RapidFuzz suggestions. Return entity IDs, type, label, context, and match reason. Do not auto-select from fuzzy matches.
-3. **Scoped pickers:** apply the shared service to account transfer selection, Counterparty and custody-owner selection, categories, and investment instruments. A chosen option carries its ID; typed text alone is not an identity decision when ambiguous.
-4. **Search pages and global entry:** add a visible global search for destinations/records and compact search controls for Accounts, People, Counterparties, Reserves, and investment lists. Group and label results; support keyboard and screen-reader selection.
-5. **Transaction history and import:** preserve exact date, amount, and ref filters; let name queries find transactions through matched Counterparty aliases, account IDs, and category IDs. Reuse suggestions in CSV review, requiring confirmation before linking. Keep import matching of duplicate transactions a separate later workflow.
-6. **Verification:** test zero results, near ties, 1–2 character queries, Arabic and English text, large histories, archived records, custody exclusions, and transfer safety. Measure response time on a realistic local database. Windows installation is a required release check for the new dependency.
-
-## Windows readiness milestone
-
-Lightning is a Python/FastAPI/SQLite local web app, so the product code does not need a Windows rewrite. `run.bat` already creates a virtual environment and starts `python -m lightning`. That launcher and the full workflow have not been verified on a native Windows machine in this repository. Treat Windows as **provisional**, not as shipped support.
-
-1. **Startup:** make `run.bat` choose Python 3.11+ deliberately, stop with a useful message if environment creation or dependency installation fails, and avoid reinstalling packages on every launch unless requirements changed. Preserve a visible terminal/error log when startup fails.
-2. **Time zones:** include the `tzdata` dependency required for reliable `ZoneInfo("Africa/Cairo")` use on Windows, then verify quote dates and month-end valuation dates.
-3. **Data and file paths:** test a fresh checkout in a normal user-writable folder, a path containing spaces, and a custom `--db` location. Confirm SQLite migrations, backups, CSV import/export, templates, fonts, and the local instrument catalogue. Decide on a per-user data directory before producing a machine-wide installer; the current default database is under the project folder.
-4. **Native Windows smoke test:** use a clean Windows 10/11 environment with Python 3.11+; launch by double-click, complete setup, create accounts, post/edit/restore transactions, import a CSV, create a budget and reserve, record an investment, restart, and restore from a backup. Test another launch while the server is already running and an occupied port.
-5. **Distribution:** after that test passes, publish a Windows setup guide and choose between a simple source checkout plus launcher or a packaged installer. Packaging is a later convenience, not a prerequisite for a usable Windows version.
-
-Acceptance: a new Windows user can install prerequisites, double-click the launcher, open the local app, retain data across restarts, and complete core money workflows without using a shell. The same cross-platform test suite stays green, and Windows-specific results are recorded before claiming support.
-
-## Working agreements
-
-1. Check `git status` first and preserve existing user changes and personal data.
-2. Keep business rules in Python services/workflows; cross-module writes belong in one DB transaction.
-3. Schema changes require a new migration; never rewrite an applied migration.
-4. Test the changed workflow and invariants; check import boundaries and `git diff --check`.
-5. Log implementation changes under `Unreleased`; version/release headings change only when shipping.
-6. Update this overview, architecture, or glossary when the owner asks, keeping all three consistent.
+**Next up:** matching manual entries with imports, then one review inbox.

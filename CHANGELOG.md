@@ -22,6 +22,11 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - **XIRR:** the yearly return shows on the Portfolio value card, with a "?" that explains it.
 - **Fixed:** Money added listed every transaction in the period, including groceries and rent. It now lists only money that moved into or out of investment accounts, and the list adds up to the figure.
 
+### Docs: four files · 2026-09-30
+- `docs/` now holds four files. Project Overview tells the story, Architecture holds the technical side, the App brand guideline holds the visual side, and the Glossary defines terms.
+- Merged into those files and then removed: `PRODUCT_UX_ARCHITECTURE.md`, `UX_REVIEW.md`, `BUDGET_APP_GAPS.md`, `UI_AUDIT.md`, the Omar persona reports in `docs/personas/`, and `application-brand-guide.html`, which is now written out in `APPLICATION_BRAND_GUIDE.md`. All of them remain in Git history.
+- The docs describe the Overview with Birdview folded in, and use the new figure names (Net gain or loss, Gain from sales, Money added and the others).
+
 ### Birdview folded into the Overview; budget rows; clearer names · 2026-09-30
 - **Birdview is gone.** The Overview is the quick glance, and the reports under it (Budget, Investments, Expense analysis, Cash planning) carry the depth.
   - The Overview gains "What it is made of" (everything you own by kind) and "If you sold today" (each class with its sale factor), side by side in one wide card with a divider.
