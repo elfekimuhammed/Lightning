@@ -3,7 +3,7 @@
 ## Document status
 
 - **Last updated:** 2026-09-30
-- **Document revision:** 2026-09-30.2
+- **Document revision:** 2026-09-30.3
 - **App version:** 0.3.0 (`lightning/__init__.py`); packaging metadata in `pyproject.toml` still says 0.1.0.
 - **Role:** module boundaries and financial calculation contracts. Product workflow and roadmap live in [Project Overview](PROJECT_OVERVIEW.md); term definitions live in [Glossary](GLOSSARY.md).
 
@@ -182,7 +182,8 @@ Budget's ordinary view is a compact plan summary and Personal/Work/Investment ro
 | `lightning/bank_imports.py` + `reconciliation.py` | Staged CSV review, inline corrections, posting and statement reconciliation |
 | `lightning/budgeting` + `reserves.py` | Spending plans and cash-reserve goals (separate concepts) |
 | `lightning/reporting` | Read-only queries and computed portfolio/net-worth/budget reporting |
-| `lightning/ui` | Browser routes, templates, static assets |
+| `lightning/ui` | Browser routes, templates, static assets. `charts.py` turns figures into chart geometry, `visuals.py` reads the figures a chart needs from services, `keynotes.py` phrases a page's key notes; none of them computes a financial figure |
+| `lightning/demo.py` | The sample household (`python -m lightning --demo`, or the welcome page on an empty database), entered through the same services as the screens |
 
 ## Extension rules
 
@@ -190,7 +191,7 @@ Budget's ordinary view is a compact plan summary and Personal/Work/Investment ro
 2. Add persistent state through a new migration and a module that owns its repository/table.
 3. Put cross-module actions in a workflow/service and wrap all writes in one database transaction.
 4. Post all main-ledger effects through `TransactionService`; generated valuation journals use `source=SYSTEM` and stable links to their reevaluation details.
-5. Keep UI thin: parse form values, call services, display results/errors. No SQL or financial calculations in route/template/JavaScript code.
+5. Keep UI thin: parse form values, call services, display results/errors. No SQL or financial calculations in route/template/JavaScript code. Charts and key notes follow the same rule: they position and phrase figures a service computed (a key note may compare two of them, never derive a new one).
 6. Add focused tests for date/money edge cases, ownership/net-worth effects, posting invariants, and archive/void behavior; run the full pytest suite and import-boundary checks.
 7. Add release/version notes to `CHANGELOG.md` when shipping a version; update the overview at the owner's request.
 

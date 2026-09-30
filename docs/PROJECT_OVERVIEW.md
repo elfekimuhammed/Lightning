@@ -3,7 +3,7 @@
 ## Document status
 
 - **Last updated:** 2026-09-30
-- **Document revision:** 2026-09-30.1
+- **Document revision:** 2026-09-30.2
 - **App version:** 0.3.0 (`lightning/__init__.py`); `pyproject.toml` still reports 0.1.0 and needs correction at the next release/package update.
 - **Role:** product purpose, the reference workflow, the main user questions and their follow-ups, gaps against the best budgeting apps, and the delivery roadmap. [Architecture](ARCHITECTURE.md) owns calculation contracts; [Glossary](GLOSSARY.md) owns terminology.
 
@@ -57,6 +57,8 @@ Product priorities: simplest useful workflow and fewer clicks; consistent termin
 
 On Linux run `./run.sh`, then open `http://127.0.0.1:8765` in Firefox. Windows has `run.bat`, but support is provisional until the Windows readiness milestone below passes. Startup performs backups/migrations and processes due investment checkpoints. Keep the process running while using the app. Financial data is local and is not committed to Git; syncing code does not sync the database.
 
+**Demo:** `python -m lightning --demo` opens a sample household (Omar's last three months, dated up to today) in a separate `data/demo.db` on port 8766, rebuilt on every start. An empty Lightning offers the same household from its welcome page.
+
 ## Current user workflows
 
 - **Accounts and ledger:** open an account with a starting balance or enter first activity; signed money movements and transfers; edit, void/restore, multi-select/delete, search, and statement reconciliation. Amounts and dates accept Arabic-Indic digits.
@@ -67,6 +69,7 @@ On Linux run `./run.sh`, then open `http://127.0.0.1:8765` in Firefox. Windows h
 - **Investments:** create/search assets, record buy/sell/dividend inside the brokerage account, enter total or unit price, and review the period Result separately from as-of holdings and Holdings after sale (estimate). The report is owned-only and uses posted ledger activity; unmapped legacy dividends and missing prices are disclosed.
 - **Valuation:** startup processes due month-end checkpoints; supported sources may fetch prices, otherwise missing historical prices require user input. A sale forces a sale-day checkpoint. Detail links to one generated account journal in the main ledger.
 - **Held for others:** custody attribution for money and units held in tracked accounts; account pages show In this account · What you own · Held for others where it applies.
+- **Every tab (demo pass):** up to three key notes under the page title say the page's answer in a sentence, each with its number and one link. Charts follow the guideline: a money in and out trend and spending bars on the Overview, a donut of what you own on Birdview and Investments, category bars and a trend against the plan on Expense analysis, spent-of-plan meters on Budget, the forecast line on Plan, bill bars on Recurring, the payment meter on Loans and the emergency-fund meter on Reserves. See [UI audit](UI_AUDIT.md).
 - **Birdview:** how What you own adds up (Cash you own + Deposits + Holdings value + Other you own), If you sold today (estimate) with each class's sale factor, and Expense analysis.
 
 ## Code map
@@ -91,6 +94,9 @@ lightning/reconciliation.py cleared items and statement comparison
 lightning/reporting/        read-only queries and derived reporting
 lightning/workflows/        atomic cross-module account workflows
 lightning/ui/               FastAPI routes, templates, static JS/CSS
+                            charts.py / visuals.py / keynotes.py: chart geometry, chart
+                            data read from services, and each page's key notes
+lightning/demo.py           the sample household (--demo and the welcome page)
 ```
 
 ## Reference workflow: a month with Omar

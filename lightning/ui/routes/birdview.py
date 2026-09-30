@@ -13,6 +13,7 @@ from lightning.core.money import ZERO, to_decimal
 from ..web import container, redirect, render
 from ..periods import Period, parse_period
 from ..charts import line_chart
+from .. import charts, keynotes, visuals
 
 router = APIRouter(prefix="/birdview")
 
@@ -85,7 +86,11 @@ async def birdview(request: Request):
         row["gap"] = target - row["current_weight"] if target is not None else None
         row["target_value"] = investment_value * target / 100 if target is not None else None
         row["to_target"] = row["target_value"] - row["value"] if target is not None else None
-    return render(request, "birdview.html", period=selected.key, month=last.strftime("%Y-%m"),
+    wealth_donut = visuals.holdings_donut(position, include_deposits=True, include_cash=True)
+    notes = [n for n in (keynotes.largest_part(wealth_donut, "what you own"), keynotes.cash_share(position),
+                         keynotes.sale_cost(position)) if n]
+    return render(request, "birdview.html", notes=notes, wealth_donut=wealth_donut,
+                  period=selected.key, month=last.strftime("%Y-%m"),
                   custom_from=request.query_params.get("date_from", ""), custom_to=request.query_params.get("date_to", ""),
                   date_from=fmt_date(first), date_to=fmt_date(last), range_start_display=selected.start_display,
                   range_end_display=selected.end_display, as_of=day, pos=position, owe=position.owe,
@@ -171,7 +176,18 @@ async def expense_analysis(request: Request):
         spending_total = flow.outflows
         prior_spending = prior.outflows if prior else None
     trend_chart = line_chart([item["outflows"] for item in trend])
-    return render(request, "birdview/expenses.html", period=selected.key, month=last.strftime("%Y-%m"),
+    groups = l2 if l2 else l1
+    bar_rows = [{"label": g.label.split(" › ")[-1], "note": "" if g.label.startswith("Personal") or " › " not in g.label
+                 else g.label.split(" › ")[0], "value": g.value,
+                 "href": f"/transactions?category_id={g.category_id}&date_from={fmt_date(first)}&date_to={fmt_date(last)}"}
+                for g in groups if g.value > 0]
+    category_bars = charts.bars(bar_rows, limit=8)
+    spend_trend = visuals.spending_trend(c, last, category_code, count=max(6, min(len(trend), 24)))
+    prior_label = (prior_from.strftime("%Y-%m") if selected.key == "month" else "the period before") if prior else ""
+    notes = [n for n in (keynotes.top_category(bar_rows, spending_total, ""),
+                         keynotes.compared(spending_total, prior_spending, prior_label)) if n]
+    return render(request, "birdview/expenses.html", notes=notes, category_bars=category_bars, spend_trend=spend_trend,
+                  period=selected.key, month=last.strftime("%Y-%m"),
                   custom_from=request.query_params.get("date_from", ""), custom_to=request.query_params.get("date_to", ""),
                   date_from=fmt_date(first), date_to=fmt_date(last), start_display=selected.start_display,
                   end_display=selected.end_display, flow=flow, l1=l1, l2=l2, prior=prior, trend=trend,

@@ -3,7 +3,9 @@
 {% block heading %}<div><h1>Overview</h1><p class="muted small page-subtitle">Your position and what changed</p></div>{% endblock %}
 {% block top_actions %}{% from "partials/macros.html" import period_control %}{{ period_control("/", period.key, month, this_month, period.start_text, period.end_text) }}{% endblock %}
 {% block content %}
+{% from "partials/charts.html" import key_notes, bars, trend, donut %}
 {% if period_error %}<p class="flash error">{{ period_error }}</p>{% endif %}
+{{ key_notes(notes) }}
 {% set period_query = request.url.query %}
 <div class="overview-stack">
   <section class="overview-section" aria-labelledby="position-heading">
@@ -56,26 +58,23 @@
           {{ formula('net_flow', 'Transfers between your accounts and investment trades are not income or spending.', 'money_in', 'money_out', 'savings_rate') }}
         </article>
       <article class="overview-block overview-expense-card" aria-labelledby="expenses-heading">
-        <div class="overview-block-head"><div><h3 id="expenses-heading">Quick expense analysis</h3><p>Largest categories</p></div><a class="quiet-link" href="/birdview/expenses?{{ period_query }}">Full analysis</a></div>
-        <div class="overview-expense-groups">
-          {% for group in expense_groups %}
-          <details class="overview-expense-toggle" {{ 'open' if loop.first else '' }}>
-            <summary><span>{{ group.label }}</span><b>{{ group.total|money }} {{ base }}</b></summary>
-            <div class="overview-expense-items">
-              {% for category in group.children %}<a href="{{ category.href }}"><span>{{ category.label }}</span><b>{{ category.value|money }} {{ base }}</b></a>{% endfor %}
-              {% if group.other_count %}<div class="overview-expense-other"><span>{{ group.other_count }} more {{ 'category' if group.other_count == 1 else 'categories' }}</span><b>{{ group.other_total|money }} {{ base }}</b></div>{% endif %}
-            </div>
-          </details>
-          {% else %}<p class="muted small">No expenses were recorded in this period.</p>{% endfor %}
-        </div>
+        <div class="overview-block-head"><div><h3 id="expenses-heading">Where it went</h3><p>Largest categories first</p></div><a class="quiet-link" href="/birdview/expenses?{{ period_query }}">See spending</a></div>
+        {{ bars(where_it_went, 'spend', 'No spending was recorded in this period.', '/birdview/expenses?' ~ period_query) }}
       </article>
     </div>
   </section>
 
-  <section class="overview-block overview-attention-card" aria-labelledby="attention-heading">
-    <div class="overview-block-head"><div><h2 id="attention-heading">Needs my attention</h2><p>Current items, independent of the selected period</p></div></div>
-    {% if attention %}<div class="overview-inline-list">{% for item in attention %}<a class="overview-action-row" href="{{ item.href }}"{% if item.popup %} data-popup-open{% endif %}><span><b>{{ item.label }}</b><small>{{ item.detail }}</small></span><span>{{ item.action or 'Review' }}</span></a>{% endfor %}</div>{% else %}<p class="muted small">Nothing needs attention right now.</p>{% endif %}
+  <section class="overview-section" aria-labelledby="trend-heading">
+    <header class="overview-section-head"><h2 id="trend-heading">Month by month</h2><span>Money in and money out{% if flow_trend.labels %} · {{ flow_trend.labels[0].text }} to {{ flow_trend.labels[-1].text }}{% endif %}</span></header>
+    <article class="overview-block overview-trend-card">{{ trend(flow_trend, 'Money in and money out per month') }}</article>
   </section>
+
+{% if attention %}
+  <section class="overview-block overview-attention-card" aria-labelledby="attention-heading">
+    <div class="overview-block-head"><div><h2 id="attention-heading">Needs you</h2><p>Today, whatever period is selected</p></div></div>
+    {% if attention %}<div class="overview-inline-list">{% for item in attention %}<a class="overview-action-row" href="{{ item.href }}"{% if item.popup %} data-popup-open{% endif %}><span><b>{{ item.label }}</b><small>{{ item.detail }}</small></span><span>{{ item.action or 'Review' }}</span></a>{% endfor %}</div>{% endif %}
+  </section>
+{% endif %}
 
   <section class="overview-block overview-investment-card" aria-labelledby="investments-heading">
     <div class="overview-block-head"><div><h2 id="investments-heading">Investments at a glance</h2><p>Portfolio position as of {{ as_of }} · activity from {{ period.start_display }} to {{ period.end_display }}</p></div><a class="quiet-link" href="/investments?{{ period_query }}">Investment detail</a></div>
@@ -89,7 +88,7 @@
           <div class="overview-static-row"><span>{{ fig.result.label }}</span><b>{% if investment_report.period_result_available %}{{ investment_report.period_result|money(True) }} {{ base }}{% else %}Unavailable{% endif %}</b></div>
         </div>
         {% if investment_report.missing %}<p class="overview-context">A required valuation is missing, so the result is unavailable.</p>{% endif %}{% if investment_report.at_cost and not investment_report.missing %}<p class="overview-context">{{ investment_report.at_cost|length }} holding(s) valued at cost until a price is entered.</p>{% endif %}
-        {% if investment_holdings %}<section class="overview-holdings" aria-labelledby="top-holdings-heading"><h3 id="top-holdings-heading">Top holdings · {{ investment_report.holdings_count }} total</h3><div class="overview-holdings-heading"><span>Holding</span><span>Value</span><span>Weight</span></div>{% for holding in investment_holdings %}<div class="overview-holding-row"><span>{{ holding.label }}</span><b>{{ holding.value|money if holding.value is not none else 'Unavailable' }}{% if holding.value is not none %} {{ base }}{% endif %}</b><span>{% if holding.weight is not none %}{{ '%.1f'|format(holding.weight) }}%{% else %}—{% endif %}</span></div>{% endfor %}<p class="overview-context">Weight is each holding's share of {{ fig.portfolio_value.label|lower }}.</p></section>{% endif %}
+        <section class="overview-holdings" aria-labelledby="allocation-heading"><h3 id="allocation-heading">What you hold</h3>{{ donut(investment_donut, fig.holdings_value.label, base) }}</section>
       </div>
       <div class="overview-investment-insights">
         <section class="overview-investment-classes" aria-labelledby="investment-returns-heading">

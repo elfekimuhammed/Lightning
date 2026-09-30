@@ -270,6 +270,7 @@ class PlanningService:
         return {"total": len(payments) - len(skipped), "paid": len(paid), "left": len(left), "skipped": skipped,
                 "still_to_pay": sum((p.amount for p in left), ZERO),
                 "paid_amount": sum((p.amount for p in paid), ZERO),
+                "total_amount": sum((p.amount for p in paid + left), ZERO),  # paid + still to pay
                 "next": next((p for p in payments if p.outstanding), None),
                 "due": [p for p in payments if p.status == PaymentStatus.DUE],
                 "last_date": payments[-1].due_date if payments else None}

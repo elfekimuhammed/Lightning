@@ -5,13 +5,14 @@
 {% block top_actions %}<a class="btn primary" data-popup-open href="/plan/items/new?kind=BILL">Add recurring item</a>{% endblock %}
 {% block content %}
 {{ plan_tabs(tabs, plan_tab) }}
+{% from "partials/charts.html" import key_notes %}
+{{ key_notes(notes) }}
 <section class="plan-section" aria-labelledby="recurring-totals">
   <header class="overview-section-head"><h2 id="recurring-totals">Every month</h2><span>As of {{ as_of }}</span></header>
-  <div class="metric-grid plan-metrics">
-    <article class="metric-card"><div class="metric-label">Bills and subscriptions</div><div class="metric-value">{{ monthly_out|money }} <small>{{ base }}</small></div><p class="metric-note">A month, on average</p></article>
-    <article class="metric-card"><div class="metric-label">Subscriptions</div><div class="metric-value">{{ subscriptions_per_year|money }} <small>{{ base }}</small></div><p class="metric-note">A year</p></article>
-    <article class="metric-card"><div class="metric-label">Scheduled income</div><div class="metric-value">{{ monthly_in|money }} <small>{{ base }}</small></div><p class="metric-note">A month, on average</p></article>
-  </div>
+  <article class="card">
+    <div class="section-head"><div><h2>{{ monthly_out|money }} <small class="muted">{{ base }} a month</small></h2><p>Bills and subscriptions, largest first{% if monthly_in %} · scheduled income {{ monthly_in|money }} a month{% endif %}</p></div></div>
+    {% from "partials/charts.html" import bars %}{{ bars(bill_bars, 'spend', 'No bills or subscriptions yet.') }}
+  </article>
 </section>
 
 <section class="plan-section" aria-labelledby="recurring-list">

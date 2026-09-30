@@ -155,7 +155,7 @@ def test_birdview_other_assets_has_no_empty_disclosure(client, setup):
     response = client.get("/birdview")
     assert response.status_code == 200
     assert "How what you own adds up" in response.text
-    assert "Deposit and holding mix" in response.text
+    assert "What it is made of" in response.text
 
 
 def test_not_found(client):

@@ -152,16 +152,19 @@ def test_loan_payments_count_as_spending_and_leave_net_worth_unchanged(c, setup,
     assert c.reporting.net_worth(day).total - after_owe == before_net
 
 
-def test_overview_lists_due_bills_under_needs_my_attention(c, setup, monkeypatch):
+def test_overview_lists_due_bills_under_needs_you(c, setup, monkeypatch):
     monkeypatch.setenv("LIGHTNING_TODAY", "2026-09-30")
     accounts, _ = setup
     c.planning.create(kind="BILL", name="Electricity", amount="480", frequency="MONTHLY", start_date="2026-09-25")
     c.planning.create(kind="LOAN", name="Car loan", amount="2500", frequency="MONTHLY", start_date="2026-09-05",
                       payment_count="3")
     page = TestClient(create_app(c), base_url="http://127.0.0.1").get("/").text
-    attention = page[page.index("Needs my attention"):]
+    attention = page[page.index('id="attention-heading">Needs you'):]
     assert "Bill due: Electricity" in attention and "Due 2026-09-25 · 480.00" in attention
     assert "Loan payment due: Car loan" in attention and "Mark paid" in attention
+    start = page.index('aria-label="Key notes"')
+    notes = page[start:page.index("</section>", start)]
+    assert "and 1 more" in notes  # the first key note leads with what needs you
 
 
 def test_a_due_bill_inside_a_budget_is_not_counted_twice(c, setup, monkeypatch):

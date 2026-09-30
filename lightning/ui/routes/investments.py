@@ -16,7 +16,8 @@ from ..web import container, redirect, render
 from ..charts import line_chart
 from ...assets.catalog import instruments
 from ..periods import parse_period
-from ...investments.report import build_investment_report, investment_period
+from ...investments.report import build_investment_report, investment_period, results_by_asset
+from .. import keynotes, visuals
 
 router = APIRouter(prefix="/investments")
 
@@ -219,8 +220,14 @@ async def portfolio(request: Request):
     interest_id = next((cat.id for cat in c.categories.tree() if cat.code == "EXP.INVEST.INTEREST"), None)
     period_interest = c.investments.period_interest(interest_id, period.start_text, period.end_text)
     period_distributions = p.dividends-prior.dividends+period_interest
+    position = c.position.at(period.end)
+    class_results, _ = results_by_asset(c.investments, c.money_from_others, c.reporting, before_day, day)
+    notes = [n for n in (keynotes.best_class([{"label": k, "result": v} for k, v in class_results.items()]),
+                         keynotes.at_cost(investment_report.get("at_cost", [])),
+                         keynotes.largest_part(visuals.holdings_donut(position), "your holdings")) if n]
     return render(request, "investments/index.html", p=p, asset_class_rows=asset_class_rows,
-                  pos=c.position.at(period.end),
+                  pos=position, notes=notes, investment_donut=visuals.holdings_donut(position),
+                  portfolio_chart=visuals.portfolio_trend([(pt["month"], pt["value"]) for pt in investment_trend]),
                   accounts=c.investments.investment_accounts(),
                   has_assets=bool(c.assets.investments(active_only=True)), owned_value=owned_value,
                   owned_cost=owned_cost, owned_unrealized=owned_unrealized, custody_units=custody,

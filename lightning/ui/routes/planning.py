@@ -15,6 +15,7 @@ from lightning.planning.domain import (FREQUENCY_LABELS, KIND_LABELS, RECURRING_
 from lightning.planning.schedule import describe
 from lightning.planning.service import LOAN_CATEGORY
 
+from .. import charts, keynotes, visuals
 from ..web import container, redirect, render
 from . import reserves as reserve_routes
 
@@ -99,7 +100,9 @@ async def plan_page(request: Request):
     window_end = day + timedelta(days=30)
     next_payments = [p for p in c.planning.all_payments(window_end, day)
                      if p.status in (PaymentStatus.DUE, PaymentStatus.UPCOMING)]
+    notes = [n for n in (keynotes.next_payment(next_payments), keynotes.lowest_point(forecast)) if n]
     return render(request, "planning/plan.html", tabs=TABS, plan_tab="plan", forecast=forecast, owe=owe,
+                  notes=notes, forecast_chart=visuals.forecast_trend(forecast),
                   next_payments=next_payments, as_of=fmt_date(day), window_end=fmt_date(window_end),
                   has_items=bool(c.planning.items()), labels=_labels(c))
 
@@ -116,7 +119,12 @@ async def recurring_page(request: Request):
     subscriptions = sum((r["per_year"] for r in rows if r["item"].kind == PlanKind.SUBSCRIPTION), ZERO)
     monthly_out = sum((r["per_year"] for r in rows if not r["item"].is_income), ZERO) / 12
     monthly_in = sum((r["per_year"] for r in rows if r["item"].is_income), ZERO) / 12
+    notes = [n for n in (keynotes.recurring_summary(monthly_out, monthly_in, subscriptions),) if n]
+    bill_bars = charts.bars([{"label": r["item"].name, "value": r["per_year"] / 12,
+                              "note": r["item"].kind_label + (" · " + r["category"] if r["category"] else "")}
+                             for r in rows if not r["item"].is_income])
     return render(request, "planning/recurring.html", tabs=TABS, plan_tab="recurring", rows=rows, stopped=stopped,
+                  notes=notes, bill_bars=bill_bars,
                   suggestions=c.planning.suggestions(day), subscriptions_per_year=subscriptions,
                   monthly_out=monthly_out, monthly_in=monthly_in, labels=labels, as_of=fmt_date(day))
 
@@ -129,7 +137,10 @@ async def loans_page(request: Request):
     labels = _labels(c)
     loans = [{"item": item, "progress": c.planning.loan_progress(item, day), "schedule": describe(item),
               "account": labels["accounts"].get(item.account_id)} for item in c.planning.items((PlanKind.LOAN,))]
-    return render(request, "planning/loans.html", tabs=TABS, plan_tab="loans", loans=loans,
+    for entry in loans:
+        entry["meter"] = charts.meter(entry["progress"]["paid_amount"], entry["progress"]["total_amount"])
+    notes = [n for n in (keynotes.loans_summary(loans),) if n]
+    return render(request, "planning/loans.html", tabs=TABS, plan_tab="loans", loans=loans, notes=notes,
                   still_to_pay=sum((l["progress"]["still_to_pay"] for l in loans), ZERO), as_of=fmt_date(day))
 
 

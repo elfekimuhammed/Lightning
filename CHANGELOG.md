@@ -8,6 +8,31 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### Demo pass: visuals, key notes and a sample household · 2026-09-30
+- **Key notes:** each main tab opens with up to three one-sentence notes: the answer, what changed, and what needs you. Each note has its number and one link.
+  - Overview: safe to spend until payday, or what needs you; the change in what you own; how much of money in you kept.
+  - Budget: the categories over plan, and what is left per remaining day.
+  - Loans: the payoff date and the next payment.
+  - The other tabs follow the same pattern.
+- **Charts follow the app guideline** on every tab, with colours by meaning and bars from zero. Every trend has a "Show the numbers" table.
+  - Overview: a month-by-month money in and out trend, "Where it went" spending bars, and a "What you hold" donut.
+  - Birdview: a donut of what you own.
+  - Expense analysis: category bars and a spending trend against the plan.
+  - Budget: spent-of-plan meters, over plan first.
+  - Investments: a portfolio trend that starts at the first holding, and an allocation donut.
+  - Cash planning: the forecast line, the bills bars, a payment meter on each loan, and the emergency-fund meter.
+- **Simpler screens:**
+  - Lead cards use the soft gradient with dark text, so formulas on them can be read.
+  - "Needs my attention" is now **Needs you** and appears only when something does.
+  - The holdings table has 5 columns instead of 8, and "Update prices" is under More actions.
+  - Recurring shows one bar card instead of three tiles.
+  - Budget's summary cards fill one row.
+- **Sample household:**
+  - `python -m lightning --demo` opens Omar's last three months (accounts, spending, investments, gold, money kept for Mom, a budget, the emergency fund, bills and a car loan) in a separate `data/demo.db` on port 8766.
+  - It is rebuilt on every start and dated up to today.
+  - An empty Lightning offers the same household from its welcome page.
+- The tab-by-tab audit and what this pass changed are in `docs/UI_AUDIT.md`.
+
 ### Open findings fixed (Omar runs) · 2026-09-30
 - **#111:** a holding with no price yet is valued at what you paid (no gain yet) and flagged "valued at cost". The investment Result is no longer "Unavailable", and it now matches Result by asset class.
 - **#129:** each derived figure shows its number, one formula line and one closed "How is this worked out?" toggle with the meanings and notes, the same on every tab. The Plan tab shows about 20% fewer words.

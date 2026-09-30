@@ -1,0 +1,88 @@
+{# Charts and key notes · App guideline 2.1 · 08 Data visuals. Geometry comes from lightning/ui/charts.py. #}
+
+{% macro money_tip(label, value) %}{{ label }} · {{ value|money }}{% endmacro %}
+
+{# Trend: lines over time on one axis. `t` from charts.trend(); `caption` names what is plotted. #}
+{% macro trend(t, caption, plan_label='Plan', height=180) %}
+<figure class="chart chart-trend" aria-label="{{ caption }}">
+  {% if t.too_short %}
+  <p class="chart-empty">Not enough history yet — check back next month.</p>
+  {% else %}
+  {% if t.series|length > 1 or t.plan %}<div class="chart-legend">{% for s in t.series %}<span><i class="chart-key tone-{{ s.tone }}"></i>{{ s.name }}</span>{% endfor %}{% if t.plan %}<span><i class="chart-key chart-key-plan"></i>{{ plan_label }} {{ t.plan.value|money }}</span>{% endif %}</div>{% endif %}
+  <div class="chart-plot" style="height:{{ height }}px">
+    {% for tick in t.ticks %}<div class="chart-grid{{ ' chart-grid-zero' if tick.value == 0 }}" style="top:{{ '%.2f'|format(tick.y) }}%"><span>{{ '{:,.0f}'.format(tick.value) }}</span></div>{% endfor %}
+    <svg class="chart-marks" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+      {% for s in t.series %}{% if s.area %}<path class="chart-area tone-{{ s.tone }}" d="{{ s.area }}"/>{% endif %}{% endfor %}
+      {% if t.plan %}<line class="chart-plan" x1="0" x2="100" y1="{{ '%.2f'|format(t.plan.y) }}" y2="{{ '%.2f'|format(t.plan.y) }}" vector-effect="non-scaling-stroke"/>{% endif %}
+      {% for s in t.series %}<polyline class="chart-line tone-{{ s.tone }}" points="{{ s.line }}" vector-effect="non-scaling-stroke"/>{% endfor %}
+    </svg>
+    {% for s in t.series %}{% for d in s.dots %}<span class="chart-dot tone-{{ s.tone }}{{ ' is-over' if d.over }}" style="left:{{ '%.2f'|format(d.x) }}%;top:{{ '%.2f'|format(d.y) }}%" tabindex="0" data-tip="{{ d.label }} · {{ s.name }} {{ d.value|money }}{{ ' · over plan' if d.over }}" aria-label="{{ d.label }}, {{ s.name }} {{ d.value|money }}"></span>{% endfor %}
+    {% if s.last %}<span class="chart-end" style="left:{{ '%.2f'|format(s.last.x) }}%;top:{{ '%.2f'|format(s.last.y) }}%">{{ s.last.value|money }}</span>{% endif %}{% endfor %}
+  </div>
+  <div class="chart-x">{% for lab in t.labels %}<span style="left:{{ '%.2f'|format(lab.x) }}%">{{ lab.text }}</span>{% endfor %}</div>
+  <details class="chart-table"><summary>Show the numbers</summary><table><thead><tr><th>Month</th>{% for s in t.series %}<th class="num">{{ s.name }}</th>{% endfor %}</tr></thead><tbody>{% for lab in t.labels %}{% set i = loop.index0 %}<tr><td>{{ lab.text }}</td>{% for s in t.series %}<td class="num">{{ s['values'][i]|money if s['values'][i] is not none else '—' }}</td>{% endfor %}</tr>{% endfor %}</tbody></table></details>
+  {% endif %}
+  <figcaption class="sr-only">{{ caption }}</figcaption>
+</figure>
+{% endmacro %}
+
+{# Horizontal bars: largest first, value at the end. tone: spend (soft rose) | in (green) | hold (azure). #}
+{% macro bars(b, tone='spend', empty='Nothing to show for this period.', more_href='') %}
+<div class="chart chart-bars">
+  {% for r in b.rows %}
+  {% set tag = 'a' if r.href else 'div' %}
+  <{{ tag }} class="chart-bar-row"{% if r.href %} href="{{ r.href }}"{% endif %}><span class="chart-bar-label">{{ r.label }}{% if r.note %} <small>{{ r.note }}</small>{% endif %}</span><span class="chart-bar-track"><i class="chart-bar tone-{{ r.tone or tone }}" style="width:{{ '%.1f'|format(r.width) }}%"></i></span><b class="chart-bar-value">{{ r.value|money }}</b></{{ tag }}>
+  {% else %}<p class="chart-empty">{{ empty }}</p>{% endfor %}
+  {% if b.more %}{% if more_href %}<a class="chart-bar-more" href="{{ more_href }}">{% else %}<div class="chart-bar-more">{% endif %}<span>{{ b.more }} more</span><b>{{ b.more_total|money }}</b>{% if more_href %}</a>{% else %}</div>{% endif %}{% endif %}
+</div>
+{% endmacro %}
+
+{# Meter: spent of plan, or saved of a target. #}
+{% macro meter(label, used, total, m, href='', note='', target_word='plan') %}
+{% set tag = 'a' if href else 'div' %}
+<{{ tag }} class="chart-meter{{ ' is-over' if m.over }}"{% if href %} href="{{ href }}"{% endif %}>
+  <span class="chart-meter-head"><b>{{ label }}</b>{% if m.over and total %}<span class="chart-badge-over">{{ (used - total)|money }} over</span>{% elif m.left is not none %}<small>{{ m.left|money }} {{ 'left' if target_word == 'plan' else 'to go' }}</small>{% endif %}</span>
+  <span class="chart-meter-track"><i style="width:{{ '%.1f'|format(m.width) }}%"></i></span>
+  <small class="chart-meter-foot">{{ used|money }} of {{ total|money if total else '—' }}{% if note %} · {{ note }}{% endif %}</small>
+</{{ tag }}>
+{% endmacro %}
+
+{# Donut: parts of one whole, at most six, with the total in the middle and a labelled legend. #}
+{% macro donut(d, center_label, base) %}
+<figure class="chart chart-donut" aria-label="{{ center_label }}">
+  {% if d.segments %}
+  <div class="chart-donut-ring">
+    <svg viewBox="0 0 42 42" aria-hidden="true"><circle class="chart-donut-track" cx="21" cy="21" r="15.915"/>
+      {% for s in d.segments %}<circle class="chart-donut-seg tone-{{ s.tone }}" cx="21" cy="21" r="15.915" stroke-dasharray="{{ '%.2f'|format(s.dash) }} {{ '%.2f'|format(100 - s.dash) }}" stroke-dashoffset="{{ '%.2f'|format(s.offset) }}"><title>{{ s.label }} · {{ '%.1f'|format(s.share) }}% · {{ s.value|money }}</title></circle>{% endfor %}
+    </svg>
+    <div class="chart-donut-center"><b>{{ d.total|money }}</b><small>{{ center_label }}</small></div>
+  </div>
+  <ul class="chart-legend-list">{% for s in d.segments %}<li><i class="chart-key tone-{{ s.tone }}"></i><span>{{ s.label }}</span><b>{{ '%.1f'|format(s.share) }}%</b><small>{{ s.value|money }} {{ base }}</small></li>{% endfor %}</ul>
+  {% else %}<p class="chart-empty">Nothing to show yet.</p>{% endif %}
+</figure>
+{% endmacro %}
+
+{# Share bar: two to four parts of one whole in a single line. #}
+{% macro share_bar(s, base) %}
+<div class="chart chart-share">
+  <div class="chart-share-bar">{% for p in s.parts %}<i class="tone-{{ p.tone }}" style="width:{{ '%.2f'|format(p.share) }}%" title="{{ p.label }} · {{ '%.1f'|format(p.share) }}%"></i>{% endfor %}</div>
+  <div class="chart-share-labels">{% for p in s.parts %}<span><i class="chart-key tone-{{ p.tone }}"></i>{{ p.label }} <b>{{ p.value|money }}</b> <small>{{ '%.1f'|format(p.share) }}%</small></span>{% endfor %}</div>
+</div>
+{% endmacro %}
+
+{# Sparkline: a trend inside a card, no axes or labels. #}
+{% macro sparkline(sp, tone='hold', label='') %}
+{% if sp.points %}<svg class="chart-spark tone-{{ tone }}" viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label="{{ label }}"><polyline points="{{ sp.points }}" vector-effect="non-scaling-stroke"/></svg>{% endif %}
+{% endmacro %}
+
+{# Key notes: the page's answer in up to three sentences. note: {tone: good|info|attention, title, text, href?, action?} #}
+{% macro key_notes(notes) %}
+{% if notes %}<section class="key-notes" aria-label="Key notes">
+  {% for n in notes[:3] %}
+  <article class="key-note tone-{{ n.tone }}">
+    <span class="key-note-icon" aria-hidden="true">{% if n.tone == 'attention' %}<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>{% elif n.tone == 'good' %}<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>{% else %}<svg viewBox="0 0 24 24"><path d="M9 18h6M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.3h6c0-1 .4-1.8 1-2.3A7 7 0 0 0 12 2Z"/></svg>{% endif %}</span>
+    <div><b>{{ n.title }}</b><p>{{ n.text }}</p>{% if n.href %}<a href="{{ n.href }}"{% if n.popup %} data-popup-open{% endif %}>{{ n.action or 'See details' }}</a>{% endif %}</div>
+  </article>
+  {% endfor %}
+</section>{% endif %}
+{% endmacro %}

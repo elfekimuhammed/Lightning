@@ -5,6 +5,8 @@
 {% block top_actions %}<a class="btn" data-popup-open href="/plan/items/new?kind=BILL&amp;back=%2Fplan">Add bill</a><a class="btn" data-popup-open href="/plan/items/new?kind=LOAN&amp;back=%2Fplan">Add loan</a>{% endblock %}
 {% block content %}
 {{ plan_tabs(tabs, plan_tab) }}
+{% from "partials/charts.html" import key_notes, trend %}
+{{ key_notes(notes) }}
 {% set f = forecast %}
 <section class="plan-section" aria-labelledby="plan-now">
   <header class="overview-section-head"><h2 id="plan-now">Your cash</h2><span>As of {{ as_of }}</span></header>
@@ -41,6 +43,7 @@
   <article class="card">
     <p class="muted small">An estimate. It never changes your net worth or free cash.</p>
     {{ formula('left_in_plan_after_bills', 'Each month: Ends with = Starts with + Income − Bills and loan payments − Left in plan after bills − Saving for goals. The first month starts with free cash.' ~ ((' Income without a schedule uses ' ~ fig.average_monthly_income.label|lower ~ ': ' ~ (f.average_income|money) ~ ' ' ~ base ~ ' over ' ~ f.average_income_months ~ ' completed months, the same figure the budget uses.') if f.average_income is not none else ''), 'bills_inside_the_plan', 'saving_for_goals', 'average_monthly_income') }}
+    {{ trend(forecast_chart, 'Cash at the end of each month') }}
     <div class="table-scroll"><table class="plan-forecast-table">
       <thead><tr><th>Month</th><th class="num">Starts with</th><th class="num">Income</th><th class="num">Bills and loan payments</th><th class="num">{{ fig.left_in_plan_after_bills.label }}</th><th class="num">{{ fig.saving_for_goals.label }}</th><th class="num">Ends with</th></tr></thead>
       <tbody>{% for m in f.months %}<tr class="{{ 'plan-low' if f.lowest and m.month == f.lowest.month }}"><td>{{ m.month }}</td><td class="num">{{ m.opening|money }}</td><td class="num">{{ ('+' ~ (m.income|money)) if m.income else '0.00' }}{% if m.income_estimated %} <small class="muted">average monthly income</small>{% endif %}</td><td class="num">{{ (m.commitments * -1)|money }}</td><td class="num">{{ (m.budget_spending * -1)|money }}</td><td class="num">{{ (m.goal_saving * -1)|money }}</td><td class="num"><b class="{{ 'neg' if m.closing < 0 }}">{{ m.closing|money }}</b></td></tr>{% endfor %}</tbody>

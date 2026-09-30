@@ -12,6 +12,8 @@
 {% block heading %}<div><h1>Cash planning</h1><p class="muted small page-subtitle">Set cash aside for emergencies and upcoming plans.</p></div>{% endblock %}
 {% block content %}
 {% if tabs %}{{ plan_tabs(tabs, plan_tab) }}{% endif %}
+{% from "partials/charts.html" import key_notes, meter %}
+{{ key_notes(notes) }}
 {% if error %}<p class="flash error">{{ error }}</p>{% endif %}
 <section class="metric-grid reserve-overview" aria-label="{{ fig.free_cash.label }}">
   <div class="metric-card"><div class="metric-label">{{ fig.cash_you_own.label }}</div><div class="metric-value">{{ pos.cash_you_own|money }}</div></div>
@@ -28,9 +30,10 @@
       {% else %}<b>—</b><span>{{ fig.average_monthly_income.label|lower }} unavailable</span>{% endif %}
     </div>
   </div>
+  {% if emergency_meter %}<div class="emergency-meter">{{ meter('Towards six months of average monthly income', emergency_set_aside, income.six_months, emergency_meter, '', '', 'target') }}</div>{% endif %}
   <div class="emergency-stats">
     <div><span class="muted small">{{ fig.reserves.label }} for emergencies</span><b>{{ (emergency.effective_allocated if emergency else 0)|money }}</b></div>
-    <div><span class="muted small">{{ fig.average_monthly_income.label }}</span><b>{{ (income.amount or 0)|money }}</b><small class="muted">{% if income.manual %}Set by hand in Settings{% else %}{{ income.window }} · {{ income.months_counted }} month{{ '' if income.months_counted == 1 else 's' }} with income{% endif %} · {{ ((income.amount or 0) * 6)|money }} six-month target</small></div>
+    <div><span class="muted small">{{ fig.average_monthly_income.label }}</span><b>{{ (income.amount or 0)|money }}</b><small class="muted">{% if income.manual %}Set by hand in Settings{% else %}{{ income.window }} · {{ income.months_counted }} month{{ '' if income.months_counted == 1 else 's' }} with income{% endif %} · {{ (income.six_months or 0)|money }} six-month target</small></div>
   </div>
   <p class="muted small">Months covered = {{ fig.reserves.label }} for emergencies ÷ {{ fig.average_monthly_income.label }}. {% if not income.amount %}Choose your income categories in <a href="/settings?section=budget">Settings</a> to calculate it.{% endif %}</p>
   <form method="post" action="/reserves/emergency" class="emergency-form" data-autosave-form>

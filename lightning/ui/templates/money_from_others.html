@@ -2,6 +2,8 @@
 {% block title %}{{ fig.held_for_others.label }}{% endblock %}
 {% block heading %}<h1>{{ fig.held_for_others.label }}</h1><p class="muted">{{ fig.held_for_others.meaning }} It is left out of {{ fig.what_you_own.label|lower }}.</p>{% endblock %}
 {% block content %}
+{% from "partials/charts.html" import key_notes %}
+{{ key_notes(notes) }}
 <section class="card data-panel">
   <div class="section-head"><div><h2>Cash</h2><p class="muted small">By person and account.</p></div></div>
   <table><thead><tr><th>Held for</th><th>Account</th><th class="num">Amount held</th></tr></thead><tbody>
