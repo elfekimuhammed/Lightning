@@ -1350,3 +1350,16 @@ document.querySelectorAll("[data-month-picker]").forEach((picker) => {
   bind(document);
   new MutationObserver(() => bind(document)).observe(document.body, { childList: true, subtree: true });
 })();
+
+// No browser history under fields: suggestions come only from the app's own lists (counterparties,
+// categories, accounts). Applies to every form, including ones loaded into a popup later.
+(() => {
+  const quiet = (root) => {
+    root.querySelectorAll?.("form:not([autocomplete])").forEach((form) => form.setAttribute("autocomplete", "off"));
+    root.querySelectorAll?.('input:not([type=hidden]):not([type=checkbox]):not([type=radio]):not([type=submit]):not([type=button]):not([type=password]), textarea')
+      .forEach((field) => { if (field.getAttribute("autocomplete") !== "off") field.setAttribute("autocomplete", "off"); });
+  };
+  quiet(document);
+  new MutationObserver((changes) => changes.forEach((change) => change.addedNodes.forEach((node) => node.nodeType === 1 && quiet(node))))
+    .observe(document.body, { childList: true, subtree: true });
+})();

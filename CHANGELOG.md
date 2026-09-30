@@ -8,6 +8,9 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### No browser history under fields · 2026-09-30
+- Fields no longer show what you typed before, such as old names, amounts or "Gold 24k". The only suggestions left are the app's own: counterparties, categories and accounts. This applies to every form, popups included.
+
 ### Target allocation page, three-card summaries, key notes with colour · 2026-09-30
 - **Target allocation:** it has moved from the bottom of Investments to its own page, opened from a button in the Investments header and from a new Settings tab.
   - Columns: Current %, Required %, Difference, and Value to adjust (how much to invest in a class, or take out, to reach the required share).
