@@ -1,4 +1,4 @@
-"""Chart geometry for server-rendered pages (App guideline 2.1 · 08 Data visuals).
+"""Chart geometry for server-rendered pages (App guideline 2.2 · 09 Charts).
 
 Hand-drawn SVG and CSS, no chart library. This module only turns figures that services already
 computed into positions and percentages; it never computes a financial figure. The markup lives

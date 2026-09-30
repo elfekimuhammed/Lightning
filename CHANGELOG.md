@@ -8,6 +8,22 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### App guideline 2.2 · Grove: one guideline, with a visual page · 2026-09-30
+- `docs/APPLICATION_BRAND_GUIDE.md` is rewritten as one unified guideline in 16 numbered sections. Its visual half, `docs/APPLICATION_BRAND_GUIDE.html`, uses the same numbering and shows every rule as a live sample. Rebuild the page with `python docs/build_brand_guide.py`.
+- New in the guideline:
+  - **Soft register fields:** 30px tall, `#F2F8F6` fill with no border, white with an azure border on focus. The row being edited takes the held tint.
+  - **Stat cards:** three in a row, the first on the lead gradient.
+  - **Key notes:** a tone tint fading to white, a 4px edge and a 32px icon tile.
+  - **Cards:** the lead (gradient), wide, white and entry cards side by side, all with the app's 20px radius.
+- **Charts:** a full catalogue of 40 chart types, each drawn with sample data and its use, rules and page:
+  - 13 are in the app;
+  - 25 are ready to use when a page needs them (forecast with range, Sankey, treemap, dumbbell, bullet, calendar heatmap and more);
+  - 2 are marked to avoid.
+
+  A "Never" list covers dual axes, 3D, gauges, radar and pies.
+- **Where the old guideline and the app disagreed, the guideline now follows the app:** one type scale, the waterfall colours, the vivid gradient on the Investment planner button, and "Net gain or loss".
+- No app behaviour changed. Two code comments now point at guideline 2.2.
+
 ### Desktop build spec (draft) · 2026-09-30
 - New `docs/desktop/BUILD_SPEC.md` describes the Windows desktop app: one `Lightning.exe` window (pywebview, WebView2, PyInstaller) and data in `%LOCALAPPDATA%\Lightning`.
   - The database and backups are encrypted with SQLCipher. The key comes from a recovery key, and the app opens automatically through Windows DPAPI or asks for a password.
