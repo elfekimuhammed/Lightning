@@ -8,6 +8,11 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### Project overview: workflow, questions and gaps · 2026-09-30
+- The Project Overview describes the three layers and the hurried-user principle. It adds Omar's month as the reference workflow, the seven main questions each with follow-up questions (where each is answered, or the gap), and what is still missing compared with the best budgeting apps.
+- Outdated decisions are corrected: loans and What you owe now count, and the emergency fund uses Average monthly income.
+- The Omar persona reports are kept in `docs/personas/`.
+
 ### Glossary by layer: ledger, plan, report · 2026-09-30
 - The Glossary and Architecture describe three layers: the **ledger** (real money that actually moved), the **plan** (what-if: budgets, reserves, scheduled bills and loans, sale factors, the forecast; it moves no money) and the **report** (reads both, stores nothing).
 - Every reported figure lists its layer (Ledger, Plan, or Ledger + Plan), how it is calculated, and the one function that computes it. The tables are generated from `lightning/core/figures.py` (`python -m lightning.core.figures`), and a test fails if the Glossary drifts or a listed function doesn't exist.
