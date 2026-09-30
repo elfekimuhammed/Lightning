@@ -21,16 +21,48 @@ Downloaded / extracted program (replaceable)
     _internal/
     README.txt + third-party notices
 
-Windows user data (retained across releases)
-  %LOCALAPPDATA%/Lightning/
-    lightning.db
+Windows / Linux user data (retained across releases; owner-amended default)
+  <actual Documents folder>/Lightning/
+    Personal_2026-10-01_001_a1b2c3d4/
+      Personal_2026-10-01_001_a1b2c3d4.db
+      keys.json
+      instance.lock
+      backups/
+
+Explicitly selected external database
+  <chosen folder>/chosen.db
+  <chosen folder>/.chosen.db.lightning/
     keys.json
     backups/
-    logs/
-
-Linux user data
-  $XDG_DATA_HOME/lightning/       (fallback ~/.local/share/lightning/)
+    instance.lock
 ```
+
+**Owner amendment during implementation:** use Documents → Lightning as the
+default, offer an explicit location/database chooser, and support multiple named
+profiles. Resolve Windows Documents through its known-folder API (including
+redirection); Linux follows `XDG_DOCUMENTS_DIR`, falling back to `~/Documents`.
+Do not silently move or convert existing files. Until the new launcher/profile
+chooser is integrated, the legacy browser launcher retains its existing path.
+
+Startup discovery means finding saved databases/profiles and backups, **not app
+update checks**. Scan only the Lightning container or a user-selected folder,
+not all Documents recursively. Present profiles and backups separately; never
+automatically restore the newest-looking file. The user selects what to open.
+Multiple finance accounts remain inside each independently encrypted profile.
+
+Use human-readable filenames with a name, UTC date, sequence and short ID:
+`Personal_2026-10-01_001_a1b2c3d4.db`. The creation identity stays stable across
+saves and app updates. Backups append `_backup_<date>_<sequence>_<id>.db` to the
+database stem; protected pre-upgrade copies use `_upgrade_` instead. Backups keep
+their original schema records inside the encrypted snapshot. Readable filenames
+do not imply readable financial contents. Keys/locks stay in the profile folder.
+
+Documents may be cloud-synced. This is not a multi-computer synchronization
+feature: local instance locks do not coordinate separate PCs through OneDrive.
+Do not open a synced live database on multiple computers; prefer a non-synced
+chosen folder for active use and transfer completed encrypted backups instead.
+Warn about this in the upcoming chooser. Existing hardlinked DB paths are
+unsupported because path-based locks cannot safely identify every hardlink.
 
 Windows end users need neither Python nor Git. WebView2 remains a prerequisite; the app detects it and offers the official install path. The small bootstrapper needs internet. For a completely offline first installation, provide Microsoft's standalone runtime installer separately. Do not confuse offline everyday operation with offline runtime installation. [PyInstaller distribution](https://pyinstaller.org/en/stable/operating-mode.html), [Microsoft WebView2 distribution](https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/distribution).
 

@@ -7,6 +7,8 @@ dependencies = ["fastapi>=0.115", "uvicorn>=0.30", "jinja2>=3.1", "python-multip
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "httpx>=0.27", "import-linter>=2.1"]
+encrypted = ["sqlcipher3==0.6.2", "cryptography==50.0.2", "tzdata==2026.2"]
+desktop = ["pywebview==6.2.1; sys_platform == 'win32'", "pythonnet==3.1.0; sys_platform == 'win32'"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -23,6 +25,7 @@ name = "Layers: each layer may only import the layers below it"
 type = "layers"
 layers = [
     "lightning.desktop | lightning.main",
+    "lightning.runtime",
     "lightning.ui",
     "lightning.bootstrap",
     "lightning.workflows",
