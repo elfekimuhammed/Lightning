@@ -1,6 +1,8 @@
 # Desktop architecture review and implementation plan
 
-Reviewed 2026-09-30. Planning and isolated verification only; desktop implementation has not started.
+Reviewed 2026-09-30; amended during owner-approved implementation. The original
+verification record below describes the pre-build review. See
+[BUILD_STATUS.md](BUILD_STATUS.md) for current implementation and test results.
 
 ## Recommendation and scope
 
@@ -8,7 +10,9 @@ Keep FastAPI, Jinja, the existing UI and financial services. Add a thin Windows 
 
 This document amends [BUILD_SPEC.md](BUILD_SPEC.md). Its requirements supersede conflicting defaults and sketches there; the draft remains useful reference material, not executable instructions. In particular, D2, the one-file definition of done, M9 and the shutdown/restore/rekey sketches change below. Prior work-log claims are distinguished from verification in this review.
 
-The owner's current instructions allow architecture changes and verification, and defer building until review is complete. References to automatically pushing, deleting old artifacts or publishing in the original draft do not authorize those actions during this review.
+At review time the owner deferred building until review was complete; they have
+since approved building. References to automatically deleting artifacts or
+publishing in the original draft are not separate authorization to do so.
 
 ## Downloads, updates and persistent data
 
@@ -207,6 +211,6 @@ Review disposition: proceed with the amended architecture when the owner starts 
 ## Owner decisions before dependent implementation
 
 - Resolved: the owner selected password unlock on both Windows and Linux. This overrides D6/first-run automatic-unlock choices in the original draft; recovery always creates a password slot in v1.
-- Resolved: Windows-first beta; the owner will host the ZIP on their website for a few selected testers. Assign a Windows PC/VM and tester during P0/P8; no interactive Windows test machine has been exercised in this review.
+- Resolved: Windows-first beta; the owner will host the ZIP on their website for a few selected testers. The owner subsequently confirmed successful P0 launches on their Windows laptop; another PC's startup failure remains open. Full beta acceptance is still required.
 
 No decision is needed to retain browser mode or choose a ZIP: those follow the owner's current constraints. Market prices retain the draft's on-with-disclosure default unless changed. Start building only after the owner chooses to proceed from this review.

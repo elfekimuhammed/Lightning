@@ -81,7 +81,34 @@ For P1/P2, two small-model workers implemented profile paths/locks and migration
 atomicity. The architect reviewed those contracts and implemented encryption,
 snapshot verification, staged copying and finance-service integration.
 
-## Results
+## P1/P2 validation
+
+- Local Linux/Python 3.13: **385 passed, 1 skipped**. The skipped test calls the
+  actual Windows Documents known-folder API; it runs in Windows CI instead.
+- All four import contracts passed; `git diff --check` passed.
+- Tests cover encrypted finance-service use and the complete synthetic sample
+  household, verified backups, wrong-key/no-plaintext-fallback behavior, source
+  preservation including committed WAL rows, output-collision safety, protected
+  upgrade backups, atomic migration failure/retry and abrupt process-exit rollback.
+- Profile tests cover multiple names/locations, directory aliases, hardlink and
+  database-symlink rejection, unfinished-directory sequences, safe Linux Documents
+  parsing and real subprocess lock contention/release.
+- The date rollover to October 1 exposed wall-clock-dependent historical test
+  fixtures. Audit timestamps are now pinned in tests; the app's real clock behavior
+  is unchanged. Text-resource checks explicitly use UTF-8 on Windows.
+- CI runs the complete shared suite on Linux and focused desktop, profile,
+  database and UI coverage on Windows to control runner costs. Earlier interrupted
+  Windows runs are not counted as passes.
+- [Final cross-platform run](https://github.com/elfekimuhammed/Lightning/actions/runs/36777173133)
+  on code revision `eefc298` passed: Linux **385 passed, 1 Windows-only skip**;
+  Windows **133 passed** with no skips, including actual Documents known-folder
+  resolution and OS locks. All four import contracts passed on each platform.
+  The frozen encryption/resource check and real guarded WebView2 window smoke
+  also passed. Its downloadable ZIP remains the engineering probe, not the
+  profile/password finance UI. A documentation-only follow-up records these
+  results without another CI build.
+
+## P0 validation (historical)
 
 - Linux Python 3.13: 332 tests passed, including 34 new feasibility checks.
 - All four import contracts passed; `git diff --check` passed.
