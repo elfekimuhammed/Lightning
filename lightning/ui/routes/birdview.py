@@ -110,11 +110,10 @@ async def expense_analysis(request: Request):
         prior_spending = prior.outflows if prior else None
     trend_chart = line_chart([item["outflows"] for item in trend])
     groups = l2 if l2 else l1
-    bar_rows = [{"label": g.label.split(" › ")[-1], "note": "" if g.label.startswith("Personal") or " › " not in g.label
-                 else g.label.split(" › ")[0], "value": g.value,
+    bar_rows = [{"group": g.label.split(" › ")[0], "label": g.label.split(" › ")[-1], "value": g.value,
                  "href": f"/transactions?category_id={g.category_id}&date_from={fmt_date(first)}&date_to={fmt_date(last)}"}
                 for g in groups if g.value > 0]
-    category_bars = charts.bars(bar_rows, limit=8)
+    category_bars = charts.grouped_bars(bar_rows, limit=10)
     spend_trend = visuals.spending_trend(c, last, category_code, count=max(6, min(len(trend), 24)))
     prior_label = (prior_from.strftime("%Y-%m") if selected.key == "month" else "the period before") if prior else ""
     notes = [n for n in (keynotes.top_category(bar_rows, spending_total, ""),

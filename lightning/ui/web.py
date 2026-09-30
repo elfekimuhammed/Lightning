@@ -69,6 +69,21 @@ templates.env.filters["units"] = _units
 templates.env.globals["abs"] = abs
 
 
+def _back_url(request) -> str:
+    """Where a full page's Back button goes: the page it was opened from (``return_to``), only if
+    it is a page of this app. Empty when there is nowhere to go back to."""
+    raw = str(request.query_params.get("return_to", "") or "")
+    parts = urlsplit(raw)
+    if parts.netloc and parts.netloc != request.url.netloc:
+        return ""
+    path = parts.path or ""
+    if not path.startswith("/") or path.startswith("//") or path == request.url.path:
+        return ""
+    query = "&".join(q for q in parts.query.split("&") if q and not q.startswith("popup="))
+    return path + (f"?{query}" if query else "")
+
+
+templates.env.globals["back_url"] = _back_url
 templates.env.globals["fig"] = FIGURES
 
 

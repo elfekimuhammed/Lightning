@@ -1720,3 +1720,75 @@ a.chart-meter:hover { background:var(--hover); }
   .main .overview-split > section { padding:0; }
   .main .overview-split > section + section { border-left:0; border-top:1px solid var(--line); margin-top:16px; padding-top:16px; }
 }
+/* Asset class colours (App guideline · Asset class colours): one hue family per kind of asset,
+   a lighter shade for the fund version. */
+:root {
+  --class-cash:#0B6DD6;
+  --class-deposits:#00907F; --class-money-market:#6CC795; --class-fixed-income:#2E9CC8;
+  --class-gold:#9A6708; --class-gold-fund:#D6A23A;
+  --class-equity:#08744A; --class-equity-fund:#3EB072;
+  --class-other:#687F8B; --class-other-fund:#A2B4BC;
+}
+.tone-cash { --tone:var(--class-cash)!important; }
+.tone-deposits { --tone:var(--class-deposits)!important; } .tone-fixed-income { --tone:var(--class-fixed-income); } .tone-money-market { --tone:var(--class-money-market); }
+.tone-gold { --tone:var(--class-gold)!important; } .tone-gold-fund { --tone:var(--class-gold-fund); }
+.tone-equity { --tone:var(--class-equity)!important; } .tone-equity-fund { --tone:var(--class-equity-fund); }
+.tone-other { --tone:var(--class-other)!important; } .tone-other-fund { --tone:var(--class-other-fund); }
+.chart-legend-list .chart-legend-total { border-top:1px solid var(--line); padding-top:8px; margin-top:4px; }
+.chart-legend-list .chart-legend-total .chart-key { background:transparent; }
+.chart-legend-list .chart-legend-total span, .chart-legend-list .chart-legend-total b { font-weight:700; }
+.main .figure-label { display:block; color:var(--ink-2); font:500 var(--fs-body)/1.4 var(--body); margin-bottom:2px; }
+.main .overview-flow-figure { min-width:0; }
+/* Investments on the Overview: a header that opens into the detail. */
+.main .investment-toggle > summary { display:flex!important; align-items:baseline; gap:16px; flex-wrap:wrap; }
+.main .investment-toggle > summary b { font:700 var(--fs-card)/1.3 var(--display)!important; }
+.main .investment-toggle-figure { font:800 var(--fs-section)/1.2 var(--display); font-variant-numeric:tabular-nums; }
+.main .investment-toggle-figure small, .main .investment-toggle-gain small { font:600 var(--fs-meta)/1 var(--body); color:var(--muted); }
+.main .investment-toggle-gain { font:700 var(--fs-body)/1.2 var(--body); font-variant-numeric:tabular-nums; }
+.main .investment-toggle-gain.pos { color:var(--positive); } .main .investment-toggle-gain.neg { color:var(--rose); }
+.main .investment-toggle[open] > summary { margin-bottom:12px; padding-bottom:12px; border-bottom:1px solid var(--line); }
+/* Grouped bars: the L1 category as a header with its total, its L2 categories under it. */
+.chart-bar-group { display:flex; justify-content:space-between; gap:12px; padding:10px 0 4px; margin-top:4px; border-bottom:1px solid var(--line); font:700 var(--fs-body)/1.4 var(--body); color:var(--ink); }
+.chart-bar-group:first-child { margin-top:0; padding-top:0; }
+.chart-bar-group b { font-variant-numeric:tabular-nums; }
+.chart-bars .chart-bar-group + .chart-bar-row, .chart-bars .chart-bar-row { padding-left:0; }
+.chart-bars .chart-bar-row .chart-bar-label { padding-left:12px; }
+/* Investment planner: its own button, in the vivid Meadow gradient (the only place it is used besides the logo). */
+.btn.btn-planner { display:inline-flex; align-items:center; gap:8px; border:0!important; color:#fff!important;
+  background:linear-gradient(135deg,#0C9B63 0%,#0A9E96 52%,#0B6DD6 100%)!important; box-shadow:0 10px 22px -14px rgba(10,110,120,.8); }
+.btn.btn-planner:hover { filter:brightness(1.06); color:#fff!important; }
+.btn.btn-planner .icon { width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+.main .overview-cash-figure { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; }
+.main .overview-cash-figure .overview-headline { margin:0; }
+/* Register editing: a soft tint, and fields sized like the row they replace (no jump when clicked). */
+.main .ledger tr.editing td, .main .ledger tr.edit-bar td { background:var(--tint-held)!important; }
+.main .ledger tr.editing td { padding:4px 4px!important; vertical-align:middle; }
+.main .ledger :is(tr.add-row,tr.editing) :is(input,select):not(#_):not(.x_) { height:34px!important; min-height:34px!important; font-size:var(--fs-body)!important; border-radius:10px!important; border-color:var(--line)!important; background:var(--surface); box-shadow:none; }
+.main .ledger :is(tr.add-row,tr.editing) :is(input,select):not(#_):not(.x_):focus { border-color:var(--azure)!important; box-shadow:0 0 0 3px var(--azure-fill)!important; outline:0; }
+.main .ledger :is(tr.add-row,tr.editing) .btn:not(#_), .main .ledger :is(tr.add-row,tr.editing) button:not(#_) { height:34px!important; min-height:34px!important; padding:0 12px!important; }
+.main .ledger :is(tr.add-row,tr.editing) .date-picker-button:not(#_) { width:34px!important; min-width:34px!important; padding:0!important; }
+.main .ledger tr.edit-bar td { padding:2px 8px 8px!important; }
+.main .ledger tr.edit-bar .btn:not(#_) { height:30px!important; min-height:30px!important; padding:0 12px!important; font-size:var(--fs-2)!important; }
+.topbar .birdview-title { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+.main .overview-cash-figure { flex-wrap:nowrap; }
+.main .overview-cash-figure .overview-headline { width:auto!important; flex:0 1 auto; }
+.main .overview-cash-figure .btn-planner { flex:none; }
+@media (max-width:760px) { .main .overview-cash-figure { flex-wrap:wrap; } }
+.main .overview-cash-figure { flex-wrap:wrap; row-gap:8px; }
+.main .overview-cash-figure .overview-headline { flex-shrink:0; white-space:nowrap; }
+.main .overview-cash-figure .btn-planner { margin-left:auto; }
+/* Popups: a full-page button beside close; full pages opened from somewhere get one Back button. */
+.app-popup-expand { position:absolute; z-index:2; top:12px; right:60px; display:grid; place-items:center; width:38px; height:38px; border-radius:50%; color:var(--muted); background:var(--surface-2); }
+.app-popup-expand:hover { color:var(--ink); background:var(--hover); }
+.app-popup-expand svg { width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+.topbar .page-back { display:inline-flex; align-items:center; gap:4px; align-self:center; margin-right:4px; padding:0 14px 0 10px; }
+.topbar .page-back .icon { width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+/* Holdings: set the horizon in the row. */
+.main .horizon-pick select { height:30px!important; min-height:30px!important; padding:0 28px 0 10px!important; border-radius:999px!important; font-size:var(--fs-meta)!important; font-weight:600; width:auto!important; }
+.main .horizon-pick select.horizon-unassigned { color:var(--muted); }
+/* XIRR line with a "?" that explains it on hover or tap. */
+.main .xirr-line { display:flex; align-items:center; gap:8px; margin:0 0 8px; color:var(--ink-2); }
+.main .xirr-line b { font:800 var(--fs-note)/1 var(--display); font-variant-numeric:tabular-nums; }
+.main .xirr-line b.pos { color:var(--positive); } .main .xirr-line b.neg { color:var(--rose); }
+.info-tip { position:relative; display:inline-grid; place-items:center; width:20px; height:20px; padding:0!important; min-height:0!important; border-radius:50%; border:1px solid var(--line-control); background:var(--surface); color:var(--ink-2); font:700 12px/1 var(--body)!important; cursor:help; }
+.info-tip:hover::after, .info-tip:focus::after { content:attr(data-tip); position:absolute; z-index:30; left:50%; top:calc(100% + 8px); transform:translateX(-50%); width:260px; padding:10px 12px; border-radius:12px; background:var(--action); color:#fff; font:500 13px/1.45 var(--body); text-align:left; box-shadow:var(--shadow-float); white-space:normal; }

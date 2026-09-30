@@ -35,7 +35,7 @@
 
       <article class="overview-block overview-cash-card" aria-labelledby="cash-heading">
         <div class="overview-block-head"><div><h3 id="cash-heading">{{ fig.free_cash.label }}</h3><p>After reserves and bills due</p></div><a class="quiet-link" href="/plan">Cash planning</a></div>
-        <div class="overview-headline">{% if pos.free_cash is not none %}{{ pos.free_cash|money }} <small>{{ base }}</small>{% else %}Unavailable{% endif %}</div>
+        <div class="overview-cash-figure"><div class="overview-headline">{% if pos.free_cash is not none %}{{ pos.free_cash|money }} <small>{{ base }}</small>{% else %}Unavailable{% endif %}</div>{% if pos.free_cash and pos.free_cash > 0 %}<a class="btn btn-planner small" data-popup-open href="/investments/planner"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 20h18M6 16l4-5 4 3 6-8"/><path d="M16 6h4v4"/></svg>Plan to invest</a>{% endif %}</div>
         <div class="overview-inline-list">
           <div class="overview-static-row"><span>{{ fig.cash_you_own.label }}</span><b>{{ pos.cash_you_own|money }}</b></div>
           {% if pos.reserve_rows is not none %}<details class="overview-disclosure"><summary><span>{{ fig.reserves.label }}</span><b>−{{ pos.reserves|money }}</b></summary><div class="overview-disclosure-body">{% for reserve in pos.reserve_rows if reserve.effective_allocated != 0 %}<a href="/plan/reserves"><span>{{ 'Emergency fund' if reserve.kind == 'EMERGENCY' else reserve.name }}</span><b>{{ reserve.effective_allocated|money }}</b></a>{% else %}<p class="muted small">No cash is set aside on this date.</p>{% endfor %}</div></details>{% else %}<div class="overview-static-row"><span>{{ fig.reserves.label }}</span><b>History unavailable</b></div><p class="muted small">Reserve history cannot be rebuilt for this date. <a href="/plan/reserves">Review current reserves</a></p>{% endif %}
@@ -64,9 +64,9 @@
     <header class="overview-section-head"><h2 id="cashflow-analysis-heading">Cash flow</h2></header>
     <div class="overview-analysis-grid">
         <article class="overview-block overview-flow-card" aria-labelledby="flow-heading">
-          <div class="overview-block-head"><div><h3 id="flow-heading">{{ fig.net_flow.label }}</h3><p>Money in less money out</p></div><a class="quiet-link" href="/transactions?date_from={{ date_from }}&amp;date_to={{ date_to }}">Transactions</a></div>
+          <div class="overview-block-head"><div><h3 id="flow-heading">Money in and out</h3><p>This period</p></div><a class="quiet-link" href="/transactions?date_from={{ date_from }}&amp;date_to={{ date_to }}">Transactions</a></div>
           <div class="overview-flow-summary">
-            <div class="overview-headline overview-flow-net">{{ cash_flow.net|money(True) }} <small>{{ base }}</small></div>
+            <div class="overview-flow-figure"><span class="figure-label">{{ fig.net_flow.label }}</span><div class="overview-headline overview-flow-net">{{ cash_flow.net|money(True) }} <small>{{ base }}</small></div></div>
             <div class="overview-savings-rate"><span>{{ fig.savings_rate.label if cash_flow.net >= 0 else 'Spent over income' }}</span><div class="overview-savings-visual"><span class="overview-savings-ring" style="--saved-rate:{{ [[savings_rate or 0, 0]|max, 100]|min }}%"></span></div><b>{% if savings_rate is not none %}{{ '%.1f'|format(savings_rate) }}%{% else %}—{% endif %}</b></div>
           </div>
           {% set flow_scale = [cash_flow.inflows, abs(cash_flow.outflows), 1]|max %}
@@ -82,8 +82,9 @@
     </div>
   </section>
 
-  <section class="overview-block overview-investment-card" aria-labelledby="investments-heading">
-    <div class="overview-block-head"><div><h2 id="investments-heading">Investments at a glance</h2><p>Your portfolio and this period's result</p></div><a class="quiet-link" href="/investments?{{ period_query }}">Investment detail</a></div>
+  <details class="overview-block overview-investment-card investment-toggle">
+    <summary><b id="investments-heading">Investments</b><span class="investment-toggle-figure">{{ investment_report.portfolio_value|money if investment_report.portfolio_value is not none else 'Unavailable' }} <small>{{ base }}</small></span>{% if investment_report.period_result_available %}<span class="investment-toggle-gain {{ investment_report.period_result|tone }}">{{ investment_report.period_result|money(True) }} <small>{{ fig.result.label|lower }}</small></span>{% endif %}</summary>
+    <div class="overview-block-head"><div><p>Your portfolio and this period's {{ fig.result.label|lower }}</p></div><a class="quiet-link" href="/investments?{{ period_query }}">Investment detail</a></div>
     <div class="overview-investment-layout">
       <div class="overview-investment-breakdown">
         <div class="overview-headline">{{ investment_report.portfolio_value|money if investment_report.portfolio_value is not none else 'Unavailable' }}{% if investment_report.portfolio_value is not none %} <small>{{ base }}</small>{% endif %}</div>
@@ -94,7 +95,7 @@
           <div class="overview-static-row"><span>{{ fig.result.label }}</span><b>{% if investment_report.period_result_available %}{{ investment_report.period_result|money(True) }}{% else %}Unavailable{% endif %}</b></div>
         </div>
         {% if investment_report.missing %}<p class="overview-context">A required valuation is missing, so the result is unavailable.</p>{% endif %}{% if investment_report.at_cost and not investment_report.missing %}<p class="overview-context">{{ investment_report.at_cost|length }} holding(s) valued at cost until a price is entered.</p>{% endif %}
-        <section class="overview-holdings" aria-labelledby="allocation-heading"><h3 id="allocation-heading">What you hold</h3>{{ donut(investment_donut, fig.holdings_value.label, base) }}</section>
+        <section class="overview-holdings" aria-labelledby="allocation-heading"><h3 id="allocation-heading">What you hold</h3>{{ donut(investment_donut, fig.holdings_value.label, base, (fig.what_you_own.label, pos.what_you_own)) }}</section>
       </div>
       <div class="overview-investment-insights">
         <section class="overview-investment-classes" aria-labelledby="investment-returns-heading">
@@ -110,7 +111,7 @@
         </section>
       </div>
     </div>
-  </section>
+  </details>
   <details class="card wide-card overview-month-toggle">
     <summary><b>Month by month</b><small>Money in and money out{% if flow_trend.labels %} · {{ flow_trend.labels[0].text }} to {{ flow_trend.labels[-1].text }}{% endif %}</small></summary>
     {{ trend(flow_trend, 'Money in and money out per month') }}

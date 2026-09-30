@@ -30,10 +30,10 @@ def test_overview_cash_reserves_spending_and_investments_reconcile(c, setup, mon
     assert pos.brokerage_cash == Decimal("1000")
     assert pos.reserves == sum((row["effective_allocated"] for row in pos.reserve_rows), Decimal(0))
     assert pos.free_cash == pos.cash_you_own - Decimal("500")
-    where = captured["where_it_went"]  # the "Where it went" bars
-    assert where["rows"][0]["value"] == Decimal("100") and where["rows"][0]["width"] == 100
-    assert "Food" in where["rows"][0]["label"]
-    assert "category_id=" in where["rows"][0]["href"]
+    where = captured["where_it_went"]["rows"]  # the "Where it went" bars: L1 header, then its L2 bars
+    assert where[0]["header"] and where[0]["label"] == "Personal" and where[0]["value"] == Decimal("100")
+    assert where[1]["value"] == Decimal("100") and where[1]["width"] == 100
+    assert "Food" in where[1]["label"] and "category_id=" in where[1]["href"]
     assert captured["investment_report"]["brokerage_cash"] == Decimal("1000")
     assert captured["investment_report"]["new_money"] == Decimal("1000")
     assert captured["investment_report"]["period_result"] == Decimal("0")

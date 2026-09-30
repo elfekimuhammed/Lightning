@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=Manrope:wght@400..800&display=swap">
-  <link rel="stylesheet" href="/static/style.css?v=53">
+  <link rel="stylesheet" href="/static/style.css?v=58">
 </head>
 <body>
 <div class="shell">
@@ -53,7 +53,7 @@
     </details>
   </aside>
   <main class="main">
-    <div class="topbar"><div>{% block heading %}{% endblock %}</div><div class="actions">{% block top_actions %}{% endblock %}</div></div>
+    <div class="topbar">{% set back = back_url(request) %}{% if back %}<a class="btn page-back" href="{{ back }}" aria-label="Back to the page you came from"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>Back</a>{% endif %}<div>{% block heading %}{% endblock %}</div><div class="actions">{% block top_actions %}{% endblock %}</div></div>
     {% if msg %}<div class="flash">{{ msg }}</div>{% endif %}
     {% if error %}<div class="flash error">{{ error }}</div>{% endif %}
     {% block content %}{% endblock %}
@@ -61,11 +61,12 @@
 </div>
 <dialog id="app-popup" class="app-popup" aria-modal="true" aria-labelledby="app-popup-title">
   <div class="app-popup-frame">
+    <a class="app-popup-expand" href="#" data-popup-expand aria-label="Open as a full page" title="Open as a full page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></a>
     <button type="button" class="app-popup-close" data-popup-close aria-label="Close dialog">×</button>
     <div id="app-popup-content"></div>
   </div>
 </dialog>
-<script src="/static/app.js?v=22"></script>
+<script src="/static/app.js?v=23"></script>
 <script src="/static/ai-handoff.js?v=1" defer></script>
 <script>(()=>{const section=document.getElementById('sidebar-accounts'),mobile=window.matchMedia('(max-width: 900px)');if(!section)return;const sync=()=>{section.open=!mobile.matches};sync();mobile.addEventListener('change',sync)})();</script>
 </body>

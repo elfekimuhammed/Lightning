@@ -143,7 +143,7 @@ def test_overview_horizons_keep_the_same_status_layout_and_popup_range(client, c
                   "period=custom&date_from=2026-09-10&date_to=2026-09-20"):
         response = client.get(f"/?{query}")
         assert response.status_code == 200
-        labels = ("What you own", "Free cash", "Cash flow", "Where it went", "Investments at a glance")
+        labels = ("What you own", "Free cash", "Cash flow", "Where it went", "investments-heading")
         assert [response.text.index(label) for label in labels] == sorted(response.text.index(label) for label in labels)
         assert 'class="overview-disclosure"' in response.text
         assert 'name="period" value="custom"' in response.text

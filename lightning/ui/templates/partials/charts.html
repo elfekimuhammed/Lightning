@@ -30,8 +30,9 @@
 {% macro bars(b, tone='spend', empty='Nothing to show for this period.', more_href='') %}
 <div class="chart chart-bars">
   {% for r in b.rows %}
+  {% if r.header %}<div class="chart-bar-group"><span>{{ r.label }}</span><b>{{ r.value|money }}</b></div>{% else %}
   {% set tag = 'a' if r.href else 'div' %}
-  <{{ tag }} class="chart-bar-row"{% if r.href %} href="{{ r.href }}"{% endif %}><span class="chart-bar-label">{{ r.label }}{% if r.note %} <small>{{ r.note }}</small>{% endif %}</span><span class="chart-bar-track"><i class="chart-bar tone-{{ r.tone or tone }}" style="width:{{ '%.1f'|format(r.width) }}%"></i></span><b class="chart-bar-value">{{ r.value|money }}</b></{{ tag }}>
+  <{{ tag }} class="chart-bar-row"{% if r.href %} href="{{ r.href }}"{% endif %}><span class="chart-bar-label">{{ r.label }}{% if r.note %} <small>{{ r.note }}</small>{% endif %}</span><span class="chart-bar-track"><i class="chart-bar tone-{{ r.tone or tone }}" style="width:{{ '%.1f'|format(r.width) }}%"></i></span><b class="chart-bar-value">{{ r.value|money }}</b></{{ tag }}>{% endif %}
   {% else %}<p class="chart-empty">{{ empty }}</p>{% endfor %}
   {% if b.more %}{% if more_href %}<a class="chart-bar-more" href="{{ more_href }}">{% else %}<div class="chart-bar-more">{% endif %}<span>{{ b.more }} more</span><b>{{ b.more_total|money }}</b>{% if more_href %}</a>{% else %}</div>{% endif %}{% endif %}
 </div>
@@ -48,7 +49,8 @@
 {% endmacro %}
 
 {# Donut: parts of one whole, at most six, with the total in the middle and a labelled legend. #}
-{% macro donut(d, center_label, base) %}
+{# `of`: (label, value) of the whole this donut is part of; the total line then says its share. #}
+{% macro donut(d, center_label, base, of=none) %}
 <figure class="chart chart-donut" aria-label="{{ center_label }}">
   {% if d.segments %}
   <div class="chart-donut-ring">
@@ -57,7 +59,8 @@
     </svg>
     <div class="chart-donut-center"><b>{{ d.total|money }}</b><small>{{ center_label }}</small></div>
   </div>
-  <ul class="chart-legend-list">{% for s in d.segments %}<li><i class="chart-key tone-{{ s.tone }}"></i><span>{{ s.label }}</span><b>{{ '%.1f'|format(s.share) }}%</b><small>{{ s.value|money }}</small></li>{% endfor %}</ul>
+  <ul class="chart-legend-list">{% for s in d.segments %}<li><i class="chart-key tone-{{ s.tone }}"></i><span>{{ s.label }}</span><b>{{ '%.1f'|format(s.share) }}%</b><small>{{ s.value|money }}</small></li>{% endfor %}
+    <li class="chart-legend-total"><i class="chart-key" aria-hidden="true"></i><span>Total{% if of and of[1] %} · {{ '%.0f'|format(d.total / of[1] * 100) }}% of {{ of[0]|lower }}{% endif %}</span><b>100%</b><small>{{ d.total|money }}</small></li></ul>
   {% else %}<p class="chart-empty">Nothing to show yet.</p>{% endif %}
 </figure>
 {% endmacro %}

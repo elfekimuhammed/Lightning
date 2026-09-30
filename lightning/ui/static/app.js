@@ -1079,6 +1079,17 @@ document.querySelectorAll("[data-counterparty-filter]").forEach((search) => {
   document.addEventListener("click", (event) => {
     const closeButton = event.target.closest("[data-popup-close]");
     if (closeButton) { event.preventDefault(); close(); return; }
+    // Full page: the same address outside the popup; its Back button returns here (return_to).
+    const expand = event.target.closest("[data-popup-expand]");
+    if (expand) {
+      event.preventDefault();
+      if (!activePopupUrl || !canDiscard()) return;
+      const target = new URL(activePopupUrl, location.href);
+      target.searchParams.delete("popup");
+      dirty = false;
+      location.href = target.href;
+      return;
+    }
     const link = event.target.closest("a[data-popup-open]");
     if (!link || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey) return;
     event.preventDefault();

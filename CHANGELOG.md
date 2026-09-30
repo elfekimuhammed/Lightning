@@ -8,6 +8,20 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### Asset class colours, grouped categories, popups to full pages · 2026-09-30
+- **Asset class colours:** each class has its own colour in a family (cash azure; deposits, money market and fixed income in teal to light green; gold and gold fund; stocks and equity fund in greens; other in greys). The colours are in the app guideline, and a Total line under each donut says what share of the whole it covers.
+- **Categories are grouped:** "Where it went" and Expense analysis show each L1 category as a header with its L2 categories under it.
+- **Overview:**
+  - The net flow number has its own label.
+  - Investments is a header you can open, showing the portfolio value and the net gain or loss while closed.
+  - Free cash has a "Plan to invest" button.
+- **Investment planner:** its own button in the Investments header, in the Meadow gradient.
+- **Popups:** every popup has a full-page button. A page opened that way, or from any other page, has a Back button to where you were.
+- **Transaction editing:** a soft blue tint, and fields the size of the row, so it no longer jumps.
+- **Holdings:** set the horizon straight from the table.
+- **XIRR:** the yearly return shows on the Portfolio value card, with a "?" that explains it.
+- **Fixed:** Money added listed every transaction in the period, including groceries and rent. It now lists only money that moved into or out of investment accounts, and the list adds up to the figure.
+
 ### Birdview folded into the Overview; budget rows; clearer names · 2026-09-30
 - **Birdview is gone.** The Overview is the quick glance, and the reports under it (Budget, Investments, Expense analysis, Cash planning) carry the depth.
   - The Overview gains "What it is made of" (everything you own by kind) and "If you sold today" (each class with its sale factor), side by side in one wide card with a divider.

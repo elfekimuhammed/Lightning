@@ -40,6 +40,17 @@ def test_bars_are_largest_first_and_fold_the_rest():
     assert b["more"] == 1 and b["more_total"] == D(15)  # a zero row is left out, not counted
 
 
+def test_grouped_bars_put_each_l2_under_its_l1():
+    b = charts.grouped_bars([{"group": "Work", "label": "Software", "value": D(300)},
+                             {"group": "Personal", "label": "Food", "value": D(400)},
+                             {"group": "Personal", "label": "Rent", "value": D(1000)},
+                             {"group": "Work", "label": "Travel", "value": D(50)}], limit=3)
+    assert [(r.get("header", False), r["label"]) for r in b["rows"]] == [
+        (True, "Personal"), (False, "Rent"), (False, "Food"), (True, "Work"), (False, "Software")]
+    assert b["rows"][0]["value"] == D(1400) and b["rows"][1]["width"] == 100  # one scale across groups
+    assert b["more"] == 1 and b["more_total"] == D(50)
+
+
 def test_a_meter_over_plan_fills_and_says_so():
     over = charts.meter(D(90), D("67.50"))
     assert over["over"] and over["width"] == 100 and over["left"] == D("-22.50")
@@ -49,10 +60,12 @@ def test_a_meter_over_plan_fills_and_says_so():
 
 
 def test_class_tones_pick_the_most_specific_code():
-    assert charts.class_tone("FUND.GOLD") == "gold"
-    assert charts.class_tone("FUND.MONEY_MARKET") == "deposits"
-    assert charts.class_tone("FUND.EQUITY") == "equity"
-    assert charts.class_tone("STOCK") == "equity"
+    # One colour family per kind of asset; the fund version is a lighter shade of it.
+    assert charts.class_tone("GOLD") == "gold" and charts.class_tone("FUND.GOLD") == "gold-fund"
+    assert charts.class_tone("DEPOSIT.CD") == "deposits" and charts.class_tone("FUND.MONEY_MARKET") == "money-market"
+    assert charts.class_tone("FUND.FIXED_INCOME") == "fixed-income"
+    assert charts.class_tone("STOCK") == "equity" and charts.class_tone("FUND.EQUITY") == "equity-fund"
+    assert charts.class_tone("CASH.BANK") == "cash" and charts.class_tone("FUND.OTHER") == "other-fund"
     assert charts.class_tone("CRYPTO") == "other"
 
 
@@ -209,3 +222,15 @@ def test_a_month_is_only_over_plan_against_its_own_plan(demo):
     over = {d["label"]: d["over"] for d in t["series"][0]["dots"]}
     assert over["2026-07"] is False and over["2026-08"] is False
     assert over["2026-09"] is (t["series"][0]["values"][-1] > t["plan"]["value"])
+
+
+def test_money_added_lists_only_money_that_crossed_into_investments(demo):
+    c, _ = demo
+    rows = c.investments.report_transactions("flows", "2026-07-01", "2026-09-30")
+    # The THNDR transfer and the ring bought from CIB; never groceries, rent or salary.
+    assert all(r["type"] in ("TRF", "BUY", "SEL", "IN", "OUT", "ADJ") for r in rows)
+    assert not any(r["counterparty"] in ("Carrefour", "Landlord", "ACME Egypt", "Talabat") for r in rows)
+    report_new = sum(r["amount"] for r in rows if r["amount"] > 0)
+    from lightning.investments.report import build_investment_report
+    report = build_investment_report(c.db, c.accounts, c.assets, c.reporting, "2026-07-01", "2026-09-30")
+    assert report_new == report["new_money"]  # the list adds up to the figure

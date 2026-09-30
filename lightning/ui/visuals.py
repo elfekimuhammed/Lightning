@@ -63,17 +63,17 @@ def spending_trend(c, end: date, category_code: str = "", count: int = 6) -> dic
 
 
 def spending_bars(c, first: date, last: date, limit: int = 6) -> dict:
-    """Money out by category (level 2), largest first, each linking to its transactions."""
+    """Money out by category: each L1 as a header with its L2 categories under it, each linking to
+    its transactions."""
     rows = []
     for group in c.reporting.spending_by_category(first, last, depth=2):
         if group.value <= 0:
             continue
         category = c.categories.get_by_code(group.code)
         query = urlencode({"category_id": category.id, "date_from": fmt_date(first), "date_to": fmt_date(last)})
-        parent = c.categories.get(category.parent_id).name if category.parent_id else ""
-        rows.append({"label": category.name, "value": group.value, "href": f"/transactions?{query}",
-                     "note": parent if parent and parent != "Personal" else ""})
-    return charts.bars(rows, limit)
+        parent = c.categories.get(category.parent_id).name if category.parent_id else category.name
+        rows.append({"group": parent, "label": category.name, "value": group.value, "href": f"/transactions?{query}"})
+    return charts.grouped_bars(rows, limit)
 
 
 def holdings_donut(position, include_deposits: bool = False, include_cash: bool = False) -> dict:

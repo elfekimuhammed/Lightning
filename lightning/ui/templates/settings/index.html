@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Settings{% endblock %}
 {% block heading %}<h1>Settings</h1>{% endblock %}
-{% block top_actions %}<a class="btn" href="{{ return_to }}">Back</a>{% endblock %}
+
 {% block content %}
 {% set settings_section = 'valuations' if section in ('valuations', 'assets-valuations') else section %}
 {% include 'partials/settings_nav.html' %}

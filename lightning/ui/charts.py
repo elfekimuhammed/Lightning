@@ -5,8 +5,8 @@ computed into positions and percentages; it never computes a financial figure. T
 in templates/partials/charts.html. Rules from the guideline and the data-visualization checks:
 
 - colours follow meaning: money in green, money out soft rose, over plan strong rose, money you
-  hold azure; asset classes cash azure, deposits teal, gold gold, equity green, other grey
-  (in that order around a donut, so similar hues never touch);
+  hold azure; asset classes by family (cash azure, income teal, gold gold, growth green, other
+  grey), a lighter shade for the fund version, families kept together around a donut;
 - bars start at zero, values sit on the marks, one axis only;
 - a trend with fewer than two points says so instead of drawing;
 - every chart has a table view with the same numbers.
@@ -17,11 +17,15 @@ from decimal import Decimal
 
 ZERO = Decimal(0)
 
-# Asset class code (root or child) -> chart tone. Order is the donut order.
-CLASS_TONES = [("CASH", "cash"), ("DEPOSIT", "deposits"), ("FUND.FIXED_INCOME", "deposits"),
-               ("FUND.MONEY_MARKET", "deposits"), ("GOLD", "gold"), ("FUND.GOLD", "gold"),
-               ("STOCK", "equity"), ("FUND", "equity"), ("OTHER", "other")]
-TONE_ORDER = ["cash", "deposits", "gold", "equity", "other"]
+# Asset class code (root or child) -> chart tone. One hue family per kind of asset, a lighter shade
+# for the fund version (App guideline · Asset class colours). Order is the donut order.
+CLASS_TONES = [("CASH", "cash"),
+               ("DEPOSIT", "deposits"), ("FUND.MONEY_MARKET", "money-market"), ("FUND.FIXED_INCOME", "fixed-income"),
+               ("GOLD", "gold"), ("FUND.GOLD", "gold-fund"),
+               ("STOCK", "equity"), ("FUND", "equity-fund"), ("FUND.EQUITY", "equity-fund"),
+               ("OTHER", "other"), ("FUND.OTHER", "other-fund")]
+TONE_ORDER = ["cash", "deposits", "money-market", "fixed-income", "gold", "gold-fund",
+              "equity", "equity-fund", "other", "other-fund"]  # checked with the palette validator
 
 
 def class_tone(code: str) -> str:
@@ -95,6 +99,28 @@ def bars(rows: list[dict], limit: int = 6) -> dict:
     scale = max((abs(r["value"]) for r in shown), default=ZERO) or Decimal(1)
     return {"rows": [{**r, "width": float(abs(r["value"]) / scale * 100)} for r in shown],
             "more": len(rest), "more_total": sum((r["value"] for r in rest), ZERO)}
+
+
+def grouped_bars(rows: list[dict], limit: int = 8) -> dict:
+    """Bars under their parent category: an L1 header row with its total, then its L2 rows.
+
+    rows: [{"group", "label", "value", "href"?}]. Groups are largest first, rows largest first
+    inside each group; bar lengths share one scale so groups compare. At most ``limit`` bars show.
+    """
+    shown_rows = [r for r in rows if r["value"]]
+    totals: dict[str, Decimal] = {}
+    for r in shown_rows:
+        totals[r["group"]] = totals.get(r["group"], ZERO) + r["value"]
+    ordered = sorted(shown_rows, key=lambda r: (-totals[r["group"]], r["group"], -abs(r["value"])))
+    shown, rest = ordered[:limit], ordered[limit:]
+    scale = max((abs(r["value"]) for r in shown), default=ZERO) or Decimal(1)
+    out, current = [], None
+    for r in shown:
+        if r["group"] != current:
+            current = r["group"]
+            out.append({"header": True, "label": current, "value": totals[current]})
+        out.append({**r, "width": float(abs(r["value"]) / scale * 100)})
+    return {"rows": out, "more": len(rest), "more_total": sum((r["value"] for r in rest), ZERO)}
 
 
 def meter(used: Decimal, total: Decimal | None) -> dict:

@@ -17,6 +17,8 @@ from ..charts import line_chart
 from ...assets.catalog import instruments
 from ..periods import parse_period
 from ...investments.report import build_investment_report, investment_period, results_by_asset
+from lightning.core.figures import label
+
 from .. import keynotes, visuals
 
 router = APIRouter(prefix="/investments")
@@ -32,9 +34,9 @@ async def investment_report_detail(request: Request):
         return render(request, "investments/report_detail.html", title="Owned holdings",
                       rows=report["holdings"], holdings=True, show_popup=True)
     rows = c.investments.report_transactions(kind, start, end)
-    return render(request, "investments/report_detail.html", title={"dividends":"Dividends & interest",
-                  "sales":"Sales and realized gains"}.get(kind,"Portfolio boundary transactions"),
-                  rows=rows, show_popup=True)
+    return render(request, "investments/report_detail.html", title={"dividends": label("dividends_and_interest"), "sales": label("realized_gain"),
+                  "flows": label("new_money_in")}.get(kind, "Investment transactions"),
+                  rows=rows, show_amount=kind == "flows", show_popup=True)
 
 
 def _allocation_classes(c):
@@ -336,7 +338,8 @@ async def save_asset_plan(request: Request,asset_id:int):
     horizon=str(form.get("investment_horizon","")).strip()
     if horizon not in ("Short","Medium","Long",""): raise LightningError("Choose Short, Medium, Long, or Unassigned.")
     c.assets.set_investment_preferences(asset_id, bucket, horizon or None)
-    return redirect("/investments","Investment classification saved.")
+    back = str(form.get("return_to", "")).strip()
+    return redirect(back if back.startswith("/investments") else "/investments", "Horizon saved." if back else "Investment classification saved.")
 
 
 # -- trades -------------------------------------------------------------------

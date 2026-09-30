@@ -101,6 +101,8 @@ class InvestmentService:
 
     def report_transactions(self, kind: str, start: str, end: str):
         """Posted source transactions behind a portfolio report detail."""
+        if kind == "flows":
+            return self.money_added_transactions(start, end)
         type_filter = ("t.type='DIV'" if kind == "dividends" else
                        "t.type='SEL'" if kind == "sales" else
                        "(t.type IN ('SEL','DIV') OR c.code IN ('EXP.INVEST.DIVIDEND','EXP.INVEST.INTEREST'))"
@@ -113,6 +115,25 @@ class InvestmentService:
             "WHERE t.status='POSTED' AND le.owner_id IS NULL AND t.date BETWEEN ? AND ? AND " + type_filter +
             " ORDER BY t.date,t.id", (start, end),
         )
+
+    def money_added_transactions(self, start: str, end: str) -> list[dict]:
+        """The transactions behind Money added: money that crossed into or out of investment accounts.
+
+        The same rule as the figure (lightning/investments/report.py): per transaction, sum only its
+        lines in investment accounts; a transfer between two of them nets to zero and is left out, and
+        dividends, interest, opening balances and revaluations (VAL) are not money added."""
+        ids = [a.id for a in self.accounts.list(active_only=False) if a.account_type in INVESTMENT_ACCOUNT_TYPES]
+        if not ids:
+            return []
+        marks = ",".join("?" for _ in ids)
+        rows = self.db.all(
+            "SELECT t.id,t.ref,t.date,t.type,t.description,t.counterparty,SUM(le.amount_base_e6) AS amount_e6 "
+            "FROM transactions t JOIN ledger_entries le ON le.transaction_id=t.id "
+            "LEFT JOIN categories c ON c.id=le.category_id "
+            f"WHERE t.status='POSTED' AND le.owner_id IS NULL AND le.account_id IN ({marks}) AND t.date BETWEEN ? AND ? "
+            "AND t.type NOT IN ('DIV','OPN','VAL') AND COALESCE(c.code,'') NOT IN ('EXP.INVEST.DIVIDEND','EXP.INVEST.INTEREST') "
+            "GROUP BY t.id HAVING SUM(le.amount_base_e6) != 0 ORDER BY t.date,t.id", (*ids, start, end))
+        return [dict(r) | {"amount": Decimal(r["amount_e6"]) / Decimal(1_000_000)} for r in rows]
 
     def opening_adjustments(self, account_ids: list[int], start: str, end: str) -> Decimal:
         if not account_ids:
