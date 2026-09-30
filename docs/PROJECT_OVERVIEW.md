@@ -17,7 +17,7 @@ Lightning has **three layers**, and every screen says which one a number comes f
 
 - **Ledger — real money.** Posted transactions: where money actually came from and went.
 - **Plan — what-if.** Budgets, reserves, scheduled bills and loans, sale factors and the cash forecast. It moves no money; it sits on top of the ledger to help you plan.
-- **Report — reads both.** Overview, Birdview, Investments and the other analysis views present the ledger and the plan and store nothing.
+- **Report — reads both.** The Overview (the quick glance) and the reports under it (Budget, Investments, Expense analysis, Cash planning) present the ledger and the plan and store nothing.
 
 **Who it is for:** a busy, hurried user who won't read help text. Every figure has one name, one calculation and one function everywhere (`lightning/core/figures.py`); a derived figure shows its formula under it; every action gives visible feedback; wrong or silent results are treated as worse than an extra click.
 
@@ -25,7 +25,7 @@ Product priorities: simplest useful workflow and fewer clicks; consistent termin
 
 ## Decisions that must stay consistent
 
-- There is **one main transaction ledger**. Account registers, all-account view, budget actuals, investments, Birdview, and analysis are filtered or computed views of it.
+- There is **one main transaction ledger**. Account registers, all-account view, budget actuals, investments, the Overview and the reports are filtered or computed views of it.
 - The **reevaluation ledger** is valuation detail, not another activity ledger. Its per-asset checkpoint rows link to one aggregated `VAL` journal per account in the main ledger.
 - Accounts are locations; financial assets are what is held; asset classes group assets; categories describe activity; Counterparty identifies the other side. A nullable ledger-line `owner_id` records beneficial ownership: blank means the user owns the line; a selected Counterparty owns it otherwise.
 - A physical item is individually named and held as a piece-count record with net gold-bearing weight per piece, karat, and acquisition cost. A matching-karat gold price reference is per gram of that karat; item value is piece count × net grams per piece × that price. Purity is descriptive and is not applied a second time to a karat-specific price. Stones and workmanship are excluded from gold weight and metal-value estimate; acquisition cost may include them.
@@ -70,7 +70,7 @@ On Linux run `./run.sh`, then open `http://127.0.0.1:8765` in Firefox. Windows h
 - **Valuation:** startup processes due month-end checkpoints; supported sources may fetch prices, otherwise missing historical prices require user input. A sale forces a sale-day checkpoint. Detail links to one generated account journal in the main ledger.
 - **Held for others:** custody attribution for money and units held in tracked accounts; account pages show In this account · What you own · Held for others where it applies.
 - **Every tab (demo pass):** up to three key notes under the page title say the page's answer in a sentence, each with its number and one link. Charts follow the guideline: a money in and out trend and spending bars on the Overview, a donut of what you own on Birdview and Investments, category bars and a trend against the plan on Expense analysis, spent-of-plan meters on Budget, the forecast line on Plan, bill bars on Recurring, the payment meter on Loans and the emergency-fund meter on Reserves. See [UI audit](UI_AUDIT.md).
-- **Birdview:** how What you own adds up (Cash you own + Deposits + Holdings value + Other you own), If you sold today (estimate) with each class's sale factor, and Expense analysis.
+- **Overview (Birdview folded in, 2026-09-30):** how What you own adds up (Cash you own + Deposits + Holdings value + Other you own), If you sold today (estimate) with each class's sale factor, and Expense analysis.
 
 ## Code map
 
@@ -131,7 +131,7 @@ Each tab answers one main question first, then its natural follow-ups. **Answere
 ### 1. Where do I stand? → Overview · **Net worth** (or **What you own** when nothing is owed)
 | Follow-up | Where it is answered | Status |
 |---|---|---|
-| How does it add up? | Overview disclosures; Birdview › How what you own adds up (Cash you own + Deposits + Holdings value + Other you own) | Answered |
+| How does it add up? | Overview › Net worth rows and What it is made of (Cash you own + Deposits + Holdings value + Other you own) | Answered |
 | What part is not mine? | Held for others tab; account headers show In this account · What you own · Held for others | Answered |
 | What do I owe? | Overview › What you owe; Cash planning › Plan and Loans | Answered |
 | Did it grow this period? | Overview › Change in what you own | Answered |
@@ -150,7 +150,7 @@ Each tab answers one main question first, then its natural follow-ups. **Answere
 ### 3. Where did my money go? → Overview · **Net flow** (Money in − Money out)
 | Follow-up | Where it is answered | Status |
 |---|---|---|
-| Which categories? | Overview › Quick expense analysis; Birdview › Expense analysis | Answered |
+| Which categories? | Overview › Where it went; Expense analysis | Answered |
 | More or less than last month? | Expense analysis › Change from comparable period | Answered |
 | Which transactions? | Category rows drill down to Transactions | Answered |
 | How much did I keep? | Overview › Savings rate (Net flow ÷ Money in) | Answered |
@@ -171,8 +171,8 @@ Each tab answers one main question first, then its natural follow-ups. **Answere
 |---|---|---|
 | Which class or holding did best? | Overview › Result by asset class, Biggest movers; Investments › Analysis by asset class | Answered |
 | How much did I put in? | New money in | Answered |
-| What would I get if I sold? | Investments › Holdings after sale (estimate); Birdview › If you sold today (estimate) | Answered |
-| Am I on my target mix? | Birdview › Compare with target weights; Investments › Set target allocation | Answered |
+| What would I get if I sold? | Investments › Holdings after sale (estimate); Overview › If you sold today (estimate) | Answered |
+| Am I on my target mix? | Investments › Set target allocation | Answered |
 | Why does a holding show no gain? | No price yet: it is valued at cost and flagged "valued at cost" | Answered |
 
 ### 6. Am I safe if something goes wrong? → Cash planning › Reserves · **Emergency fund** in months of Average monthly income
@@ -228,7 +228,7 @@ The open findings from the Omar runs (#111, #129–#133, import review, fees, bu
 
 ## Customer workflow and UI decisions
 
-The intended path is **understand on Overview → explain on Birdview, Budget, or Reserves → record in an account → review exceptions at import**. Overview is a status screen across All time, YTD, Monthly, and Custom ranges; it does not own analysis, plans, reserve management, or transaction entry. All-account transactions remains a search/history workspace.
+The intended path is **glance at the Overview → go deeper in a report (Budget, Investments, Expense analysis, Cash planning) → record in an account → review exceptions at import**. Overview is a status screen across All time, YTD, Monthly, and Custom ranges; it does not own analysis, plans, reserve management, or transaction entry. All-account transactions remains a search/history workspace.
 
 | Screen | Current friction | Intended hierarchy and action |
 |---|---|---|
@@ -239,7 +239,7 @@ The intended path is **understand on Overview → explain on Birdview, Budget, o
 | Cash planning › Reserves | Creation exposes many optional fields at once. | Start with purpose and amount; ask for due date, recurrence, and counterparty matching only when useful. Overview and Birdview Free cash figures link to this workflow. |
 | Import | Review exposes many editable fields on every row. | Lead with Ready to post, Needs a decision, and Possible duplicates; expand row editing for exceptions. |
 
-Overview and Birdview use the same owned position and reserve history at a selected as-of date. Cash, investment classes, custody, and unvalued items remain separately identifiable so reports can reconcile without hiding residual assets.
+The Overview and the reports use the same owned position and reserve history at a selected as-of date. Cash, investment classes, custody, and unvalued items remain separately identifiable so reports can reconcile without hiding residual assets.
 
 ## Budget customer flow
 

@@ -51,7 +51,7 @@ the app on one computer at a time.
 3. To import a statement, open the relevant **account** and choose **Import CSV**. Use `Date`, `Counterparty`,
    and signed `Amount` columns (negative = spending); `Category`, `Notes`, and `Reference` are optional. Review
    the preview to map aliases and categories before confirming—the app does not post until you confirm.
-4. **Overview** shows today's position and recent activity. **Birdview** explains cash, investments, reserves,
+4. **Overview** shows today's position and recent activity. The reports under it (Budget, Investments, Expense analysis, Cash planning) explain cash, investments, reserves,
    income, and spending. **Budget** shows the monthly spending plan and its remaining limit.
 
 Global search finds accounts, investments, categories, and counterparties. Search transactions from the account register (or the all-accounts register) using its filters and search field.

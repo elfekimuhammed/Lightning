@@ -10,7 +10,7 @@ from lightning.ui.web import create_app
 def test_analysis_navigation_selects_only_the_current_page(c):
     client = TestClient(create_app(c))
     for path, current in (
-        ("/birdview", "/birdview"),
+        ("/birdview", "/"),  # Birdview now lives in the Overview
         ("/birdview/expenses", "/birdview/expenses"),
         ("/settings", "/settings"),
         ("/counterparties", "/settings"),
@@ -26,9 +26,10 @@ def test_account_uses_guided_transaction_entry_and_keeps_advanced_row_secondary(
     client = TestClient(create_app(c))
     page = client.get("/accounts/1")
     assert page.status_code == 200
-    assert 'data-popup-open href="/accounts/1/transaction/new"' in page.text
-    assert 'id="quick-add" hidden' in page.text
-    assert 'data-toggle-quick-add' in page.text
+    # The quick-add row is always open on the account page (owner decision, a1d7944); the guided
+    # popup form stays available for other entry points.
+    assert '<tr class="add-row quick-add-row" id="quick-add">' in page.text
+    assert client.get("/accounts/1/transaction/new").status_code == 200
     assert 'href="/accounts/1/import"' in page.text
 
 
@@ -38,8 +39,9 @@ def test_custom_period_apply_keeps_custom_mode(c):
     page = client.get("/birdview?period=custom&date_from=2026-09-01&date_to=2026-09-20")
     assert page.status_code == 200
     assert 'name="period" value="custom" class="btn small">Apply' in page.text
-    assert 'name="date_from" value="2026-09-01"' in page.text
-    assert 'name="date_to" value="2026-09-20"' in page.text
+    # Reports are picked by the month, so the range shows as From month and To month.
+    assert 'name="date_from" value="2026-09"' in page.text
+    assert 'name="date_to" value="2026-09"' in page.text
 
 
 def test_mobile_account_navigation_uses_a_collapsible_account_section(c):

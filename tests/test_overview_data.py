@@ -30,10 +30,10 @@ def test_overview_cash_reserves_spending_and_investments_reconcile(c, setup, mon
     assert pos.brokerage_cash == Decimal("1000")
     assert pos.reserves == sum((row["effective_allocated"] for row in pos.reserve_rows), Decimal(0))
     assert pos.free_cash == pos.cash_you_own - Decimal("500")
-    assert captured["spending"][0]["value"] == Decimal("100")
-    assert "Food" in captured["spending"][0]["label"]
-    assert captured["spending"][0]["share"] == Decimal("100")
-    assert "category_id=" in captured["spending"][0]["href"]
+    where = captured["where_it_went"]  # the "Where it went" bars
+    assert where["rows"][0]["value"] == Decimal("100") and where["rows"][0]["width"] == 100
+    assert "Food" in where["rows"][0]["label"]
+    assert "category_id=" in where["rows"][0]["href"]
     assert captured["investment_report"]["brokerage_cash"] == Decimal("1000")
     assert captured["investment_report"]["new_money"] == Decimal("1000")
     assert captured["investment_report"]["period_result"] == Decimal("0")
@@ -67,5 +67,5 @@ def test_reserve_historical_breakdown_matches_total_and_rejects_unknown_past(c, 
     c.reserves.allocate(reserve["id"], "500")
     assert c.reserves.breakdown_at("2026-09-30") is None
     rows = c.reserves.breakdown_at("2026-12-31")
-    assert rows == [{"id": reserve["id"], "name": "Travel", "effective_allocated": Decimal("500")}]
+    assert rows == [{"id": reserve["id"], "name": "Travel", "kind": "PROJECT", "effective_allocated": Decimal("500")}]
     assert c.reserves.allocation_at("2026-12-31") == sum((row["effective_allocated"] for row in rows), Decimal(0))

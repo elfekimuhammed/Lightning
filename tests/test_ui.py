@@ -31,7 +31,7 @@ def test_welcome_then_first_account(client, c):
                                            "opening_balance_date": "2026-09-01", "opening_balance": "50,000"})
     assert r.status_code == 200 and "CIB Current" in r.text and "CIB-CUR-EGP" not in r.text
     r = client.get("/")
-    assert "Total owned wealth" in r.text and "50,000.00" in r.text
+    assert "What you own" in r.text and "50,000.00" in r.text
 
 
 def test_full_flow(client, c):
@@ -82,8 +82,8 @@ def test_full_flow(client, c):
     assert "restored" in r.text
 
     r = client.get("/?month=2026-09")
-    assert "Total owned wealth" in r.text and "Available cash" in r.text
-    assert "Selected-period cash flow" in r.text and "Needs attention" in r.text
+    assert "What you own" in r.text and "Free cash" in r.text
+    assert "Cash flow" in r.text and "Where it went" in r.text
 
     r = client.post(f"/accounts/{wallet.id}/deactivate")
     assert "Move the balance" in r.text
@@ -124,13 +124,16 @@ def test_pages_render(client, setup, path):
     assert client.get(path).status_code == 200
 
 
-def test_birdview_invalid_custom_range_keeps_mode_and_dates(client):
-    response = client.get("/birdview?period=custom&date_from=2026-09-27&date_to=2026-09-25")
+def test_overview_invalid_custom_range_keeps_mode_and_dates(client, c):
+    c.account_flows.open_account("Wallet", "CASH", "2026-09-01", "1000")  # an empty Lightning shows the welcome page
+    # Reports are picked by the month: an end month before the start month is refused, and the
+    # page keeps Custom and both months so the user can fix them.
+    response = client.get("/?period=custom&date_from=2026-10&date_to=2026-09")
     assert response.status_code == 200
-    assert "The end date must be on or after the start date." in response.text
+    assert "The end month must be the same as or after the start month." in response.text
     assert 'name="period" value="custom" class="period-button selected"' in response.text
-    assert 'value="2026-09-27"' in response.text
-    assert 'value="2026-09-25"' in response.text
+    assert 'name="date_from" value="2026-10"' in response.text
+    assert 'name="date_to" value="2026-09"' in response.text
 
 
 def test_overview_horizons_keep_the_same_status_layout_and_popup_range(client, c):
@@ -140,15 +143,14 @@ def test_overview_horizons_keep_the_same_status_layout_and_popup_range(client, c
                   "period=custom&date_from=2026-09-10&date_to=2026-09-20"):
         response = client.get(f"/?{query}")
         assert response.status_code == 200
-        labels = ("Total owned wealth", "Available cash", "Selected-period cash flow",
-                  "Needs attention", "Quick expense analysis", "Investments at a glance")
+        labels = ("What you own", "Free cash", "Cash flow", "Where it went", "Investments at a glance")
         assert [response.text.index(label) for label in labels] == sorted(response.text.index(label) for label in labels)
         assert 'class="overview-disclosure"' in response.text
         assert 'name="period" value="custom"' in response.text
-        assert 'href="/reserves"' in response.text
+        assert 'href="/plan"' in response.text  # Free cash links to cash planning
     popup = client.get("/explain/flow?period=custom&date_from=2026-09-10&date_to=2026-09-20")
     assert popup.status_code == 200
-    assert "/birdview?period=custom&amp;date_from=2026-09-10&amp;date_to=2026-09-20" in popup.text
+    assert "/?period=custom&amp;date_from=2026-09-10&amp;date_to=2026-09-20" in popup.text
 
 
 def test_birdview_other_assets_has_no_empty_disclosure(client, setup):

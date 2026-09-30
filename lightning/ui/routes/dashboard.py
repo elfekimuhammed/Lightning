@@ -248,6 +248,8 @@ async def dashboard(request: Request):
         notes=key_notes,
         where_it_went=visuals.spending_bars(c, first, as_of),
         investment_donut=visuals.holdings_donut(position),
+        wealth_donut=visuals.holdings_donut(position, include_deposits=True, include_cash=True),
+        flow_trend=visuals.flow_trend(c, as_of),
         month=month, this_month=month_of(today()), period=period, period_error=period_error,
         date_from=fmt_date(first), date_to=fmt_date(as_of), as_of=fmt_date(as_of),
         range_label=(f"No recorded activity · Position as of {fmt_date(as_of)}"
@@ -288,7 +290,7 @@ async def explain_overview_figure(request: Request, kind: str):
     except ValidationError:
         period = parse_period({"period": "month", "month": month_of(today())}, today(), c.reporting.first_activity_date())
     day, first = fmt_date(period.end), fmt_date(period.start)
-    destination = "/birdview?" + request.url.query
+    destination = "/?" + request.url.query
     position = c.position.at(day)
     if kind == "owned":
         title = f"{label('what_you_own')} · known subtotal" if position.unvalued else label("what_you_own")

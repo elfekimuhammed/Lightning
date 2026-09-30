@@ -102,11 +102,11 @@ Every figure a screen shows is listed here once. **From** says which layer its i
 | **Spent** | Money out in the category this month. | Read directly from the ledger | `budgeting.domain.BudgetLine.actual` |
 | **Cost** | What you paid for the units you still hold. | Read directly from the ledger | `investments.report.build_investment_report` |
 | **Unrealized gain** | Gain or loss on units you still hold. | Holdings value − Cost | `investments.report.build_investment_report` |
-| **Change in unrealized gain** | How unrealized gain moved in the period. | Unrealized gain at the end − Unrealized gain at the start | `investments.report.investment_period` |
-| **Realized gain** | Sale proceeds less the cost of the units sold. | Read directly from the ledger | `investments.report.build_investment_report` |
+| **Price change on what you hold** | How unrealized gain moved in the period. | Unrealized gain at the end − Unrealized gain at the start | `investments.report.investment_period` |
+| **Gain from sales** | Sale proceeds less the cost of the units sold. | Read directly from the ledger | `investments.report.build_investment_report` |
 | **Dividends and interest** | Distributions and interest received. | Read directly from the ledger | `investments.report.build_investment_report` |
-| **Net gain or loss** | What your investments earned or lost in the period: sales, price changes and payouts. | Realized gain + Change in unrealized gain + Dividends and interest | `investments.report.investment_period` |
-| **New money in** | Cash moved into investment accounts from outside, less cash taken out. | Read directly from the ledger | `investments.report.build_investment_report` |
+| **Net gain or loss** | What your investments earned or lost in the period: sales, price changes and payouts. | Gain from sales + Price change on what you hold + Dividends and interest | `investments.report.investment_period` |
+| **Money added** | Cash moved into investment accounts from outside, less cash taken out. | Read directly from the ledger | `investments.report.build_investment_report` |
 
 ### From the plan — what-if
 
@@ -128,13 +128,13 @@ Every figure a screen shows is listed here once. **From** says which layer its i
 | **Net worth** | What you own after what you owe. | What you own − What you owe | `planning.position.Position.net_worth` |
 | **Free cash** | Cash you can spend without touching reserves or leaving a bill unpaid. | Cash you own − Reserves − Bills due | `planning.position.Position.free_cash` |
 | **Holdings after sale (estimate)** | What your holdings might fetch if sold, after each class's sale factor. | Σ Holdings value of each class × its sale factor | `planning.position.Position.holdings_after_sale` |
-| **Deposits and holdings after sale (estimate)** | What deposits and holdings might fetch if cashed in today. | Deposits × sale factor + Holdings after sale (estimate) | `planning.position.Position.investments_after_sale` |
-| **If you sold today (estimate)** | Free cash plus what your deposits and holdings might fetch. | Free cash + Deposits and holdings after sale (estimate) | `planning.position.Position.if_you_sold_today` |
+| **Investments if sold (estimate)** | What deposits and holdings might fetch if cashed in today. | Deposits × sale factor + Holdings after sale (estimate) | `planning.position.Position.investments_after_sale` |
+| **If you sold today (estimate)** | Free cash plus what your deposits and holdings might fetch. | Free cash + Investments if sold (estimate) | `planning.position.Position.if_you_sold_today` |
 | **Carryover** | Unused plan from last month, added to this month when carryover is on. | Left in plan last month | `budgeting.domain.BudgetLine.opening_carryover` |
 | **Planned** | What you plan to spend this month. | Base budget + Carryover | `budgeting.domain.BudgetLine.available` |
 | **Left in plan** | What is left of the plan. | Planned − Spent | `budgeting.domain.BudgetLine.remaining` |
-| **Safe to spend** | Free cash after what is promised before your next income. An estimate. | Free cash − Bills and loan payments before next income − Left in plan after bills − Saving for goals | `planning.forecast.CashForecaster._safe_to_spend` |
-| **Left in plan after bills** | This month's left in plan less the scheduled bills it already covers, so a bill is never counted twice. | Left in plan − Bills inside the plan | `planning.domain.ForecastMonth.budget_spending` |
+| **Safe to spend** | Free cash after what is promised before your next income. An estimate. | Free cash − Bills and loan payments before next income − Budget left to spend − Saving for goals | `planning.forecast.CashForecaster._safe_to_spend` |
+| **Budget left to spend** | This month's left in plan less the scheduled bills it already covers, so a bill is never counted twice. | Left in plan − Bills inside the plan | `planning.domain.ForecastMonth.budget_spending` |
 
 ### Entry-form fields
 
@@ -188,7 +188,7 @@ These names no longer appear on screens. Each is now called:
 | Assigned reserves | Reserves |
 | Assigned to reserves | Reserves |
 | Cash reserved | Reserves |
-| Estimated liquid investments | Deposits and holdings after sale (estimate) |
+| Estimated liquid investments | Investments if sold (estimate) |
 | Estimated cash after sale | Holdings after sale (estimate) |
 | Estimated available value | If you sold today (estimate) |
 | Yours | What you own |
@@ -201,15 +201,20 @@ These names no longer appear on screens. Each is now called:
 | Invested capital | Cost |
 | What you paid in total | Cost |
 | Unrealized gain/loss | Unrealized gain |
-| Change in unrealized value | Change in unrealized gain |
-| Realized gain or loss | Realized gain |
+| Change in unrealized value | Price change on what you hold |
+| Realized gain or loss | Gain from sales |
 | Distributions | Dividends and interest |
 | Investment result | Net gain or loss |
 | Period result | Net gain or loss |
 | Period gain/loss | Net gain or loss |
 | Result | Net gain or loss |
-| New money added this period | New money in |
-| Cash added and withdrawn | New money in |
+| Realized gain | Gain from sales |
+| Change in unrealized gain | Price change on what you hold |
+| New money in | Money added |
+| Left in plan after bills | Budget left to spend |
+| Deposits and holdings after sale (estimate) | Investments if sold (estimate) |
+| New money added this period | Money added |
+| Cash added and withdrawn | Money added |
 <!-- figures:end -->
 
 ## Category taxonomy (why the activity happened)

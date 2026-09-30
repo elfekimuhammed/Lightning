@@ -181,7 +181,7 @@ def test_a_due_bill_inside_a_budget_is_not_counted_twice(c, setup, monkeypatch):
     assert c.planning.what_you_owe(day).bills_due == Decimal("12000")
     assert october.budget_spending == 0
     parts = dict(c.forecaster.forecast(day).safe_to_spend_parts)
-    assert "Left in plan after bills" not in parts  # nothing left once the due rent is counted
+    assert "Budget left to spend" not in parts  # nothing left once the due rent is counted
 
 
 def test_manual_link_suggests_only_plausible_transactions(c, setup, monkeypatch):
@@ -216,7 +216,7 @@ def test_a_loan_adds_its_payments_as_a_budget_line(c, setup, monkeypatch):
     assert not any(l.category_id == loans.id and l.budget for s in c.budgets.month_view("2026-12").sections
                    for l in s.lines)  # the loan has ended: no plan line
     page = TestClient(create_app(c), base_url="http://127.0.0.1").get("/budget?month=2026-10").text
-    assert "Loan payments scheduled this month" in page
+    assert "Loan payments this month" in page
     c.budgets.set_budget(loans.id, "2026-10", "3000")  # a rule you set replaces the scheduled amount
     assert line("2026-10").budget == Decimal("3000") and not line("2026-10").from_loans
 

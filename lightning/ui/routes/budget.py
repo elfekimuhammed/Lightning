@@ -583,6 +583,30 @@ async def inline_limit(request: Request, category_id: int):
     return redirect(f"/budget?month={month}", "Limit saved.")
 
 
+@router.post("/rule/{category_id:int}")
+async def inline_rule(request: Request, category_id: int):
+    """One field per category: "1500" is a fixed amount, "12%" is 12% of average monthly income,
+    and an empty field clears the category's own rule."""
+    c = container(request); form = await request.form()
+    month = str(form.get("month", month_of(today())))
+    raw = str(form.get("rule", "")).strip().replace("٪", "%")
+    try:
+        if raw.endswith("%"):
+            c.budgets.set_income_percentage(category_id, month, raw[:-1].strip())
+        else:
+            c.budgets.set_budget(category_id, month, raw)
+        current = set(json.loads(c.settings.get("budget_tracked_categories") or "[]")); current.add(category_id)
+        c.settings.set("budget_tracked_categories", json.dumps(sorted(current)))
+    except (LightningError, ValueError) as exc:
+        message = exc.message if isinstance(exc, LightningError) else "Enter an amount like 1,500 or a percentage like 12%."
+        if request.headers.get("X-Requested-With") == "fetch":
+            return Response(message, status_code=400, media_type="text/plain")
+        return redirect(f"/budget?month={month}", message)
+    if request.headers.get("X-Requested-With") == "fetch":
+        return Response(status_code=204)
+    return redirect(f"/budget?month={month}", "Budget saved.")
+
+
 @router.post("/percentage/{category_id:int}")
 async def inline_percentage(request: Request, category_id: int):
     c = container(request); form = await request.form()

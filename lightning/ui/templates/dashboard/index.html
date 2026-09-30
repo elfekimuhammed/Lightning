@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 {% block title %}Overview{% endblock %}
 {% block heading %}<div><h1>Overview</h1><p class="muted small page-subtitle">Your position and what changed</p></div>{% endblock %}
-{% block top_actions %}{% from "partials/macros.html" import period_control %}{{ period_control("/", period.key, month, this_month, period.start_text, period.end_text) }}{% endblock %}
+{% block top_actions %}{% from "partials/macros.html" import period_control %}{{ period_control("/", period.key, month, this_month, request.query_params.get("date_from", "") if period_error and period.key == "custom" else period.start_text, request.query_params.get("date_to", "") if period_error and period.key == "custom" else period.end_text) }}{% endblock %}
 {% block content %}
-{% from "partials/charts.html" import key_notes, bars, donut %}
+{% from "partials/charts.html" import key_notes, bars, donut, trend %}
 {% if period_error %}<p class="flash error">{{ period_error }}</p>{% endif %}
 {% if attention %}
 <details class="card needs-you" aria-labelledby="needs-heading">
@@ -19,7 +19,7 @@
     <div class="overview-position-grid">
       <article class="overview-block overview-wealth-card" aria-labelledby="owned-heading">
         {% set owes = pos.what_you_owe > 0 %}{% set lead = 'net_worth' if owes else 'what_you_own' %}
-        <div class="overview-block-head"><div><h3 id="owned-heading">{{ fig[lead].label }}</h3><p>Excludes money held for others</p></div><a class="quiet-link" href="/birdview?{{ period_query }}">Wealth analysis</a></div>
+        <div class="overview-block-head"><div><h3 id="owned-heading">{{ fig[lead].label }}</h3><p>Excludes money held for others</p></div></div>
         <div class="overview-headline">{{ (pos.net_worth if owes else pos.what_you_own)|money }} <small>{{ base }}</small>{% if pos.unvalued %}<span>Known subtotal</span>{% endif %}</div>
         <div class="overview-position-change"><span>{{ change_label }}</span>{% if change is not none %}<b class="overview-positive-number">{{ change|money(True) }}</b>{% else %}<small>{{ change_reason }}</small>{% endif %}</div>
         {% if pos.unvalued %}<p class="notice">{{ pos.unvalued|length }} asset valuation(s) are missing from this total.</p>{% endif %}
@@ -43,6 +43,21 @@
         </div>
       </article>
     </div>
+    <article class="overview-block wide-card overview-owned-card" aria-label="What it is made of and if you sold today">
+      <div class="overview-split">
+        <section aria-labelledby="madeof-heading"><div class="overview-block-head"><div><h3 id="madeof-heading">What it is made of</h3><p>{{ fig.what_you_own.label }} by kind</p></div></div>
+          {{ donut(wealth_donut, fig.what_you_own.label, base) }}</section>
+        <section aria-labelledby="sold-heading"><div class="overview-block-head"><div><h3 id="sold-heading">{{ fig.if_you_sold_today.label }}</h3><p>After selling your investments</p></div><a class="quiet-link" href="/settings?section=assets-valuations">Sale factors</a></div>
+          <div class="overview-headline">{% if pos.if_you_sold_today is not none %}{{ pos.if_you_sold_today|money }} <small>{{ base }}</small>{% else %}Unavailable{% endif %}</div>
+          <div class="overview-inline-list">
+            <div class="overview-static-row"><span>{{ fig.free_cash.label }}</span><b>{{ pos.free_cash|money if pos.free_cash is not none else 'Unavailable' }}</b></div>
+            {% for cls in pos.classes if cls.value %}<a class="overview-static-row" data-popup-open href="/birdview/class/{{ cls.id }}?as_of={{ as_of }}"><span>{{ cls.name }} <small>{{ cls.value|money }} × {{ '%g'|format(cls.factor) }}%</small></span><b>{{ cls.after_sale|money }}</b></a>{% endfor %}
+            <div class="overview-static-row overview-subtotal"><span>{{ fig.investments_after_sale.label }}</span><b>{{ pos.investments_after_sale|money }}</b></div>
+          </div>
+          {% if pos.if_you_sold_today is none %}<p class="muted small">{{ pos.unavailable_reason }}</p>{% endif %}
+        </section>
+      </div>
+    </article>
   </section>
 
   <section class="overview-section" aria-labelledby="cashflow-analysis-heading">
@@ -96,5 +111,9 @@
       </div>
     </div>
   </section>
+  <details class="card wide-card overview-month-toggle">
+    <summary><b>Month by month</b><small>Money in and money out{% if flow_trend.labels %} · {{ flow_trend.labels[0].text }} to {{ flow_trend.labels[-1].text }}{% endif %}</small></summary>
+    {{ trend(flow_trend, 'Money in and money out per month') }}
+  </details>
 </div>
 {% endblock %}

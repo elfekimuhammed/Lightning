@@ -8,6 +8,28 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### Birdview folded into the Overview; budget rows; clearer names · 2026-09-30
+- **Birdview is gone.** The Overview is the quick glance, and the reports under it (Budget, Investments, Expense analysis, Cash planning) carry the depth.
+  - The Overview gains "What it is made of" (everything you own by kind) and "If you sold today" (each class with its sale factor), side by side in one wide card with a divider.
+  - Month by month sits at the bottom of the Overview as a closed row.
+  - Old `/birdview` links open the Overview with the same period. Expense analysis keeps its address.
+- **Budget:**
+  - The summary reads Planned, Spent, then Left in plan.
+  - Tracked categories show the field names once, in a header row, instead of on every line.
+  - One **Amount or %** field per category: type `1,500` for a fixed amount or `12%` for a share of average monthly income. The rule in use shows as a small note under the category name.
+  - "Reset carryover" appears only when there is carryover to reset.
+- **Clearer names** (applied everywhere from the figures registry, with the old names kept as aliases):
+  - Realized gain → **Gain from sales**
+  - Change in unrealized gain → **Price change on what you hold**
+  - New money in → **Money added**
+  - Left in plan after bills → **Budget left to spend**
+  - Deposits and holdings after sale (estimate) → **Investments if sold (estimate)**
+- The Safe to spend parts take their names from the registry, so they can't drift.
+- **Tests:** all 294 pass.
+  - Nine older tests described screens, names and rules that have since changed; they now check the current design.
+  - Migration `0032_suppressed_reevaluations.sql` is now in the changelog.
+  - The Overview keeps the months you picked when a custom range is refused, as Birdview did.
+
 ### Month picker, no explainers, clearer investment gains · 2026-09-30
 - **Picking a month:** every month box opens a small picker instead of being typed. Pick the year with ‹ › and then the month; months after this one are greyed out. This covers the period controls on every page (Monthly and Custom), the Transactions month filter and the carryover month.
 - **No explanation toggles:** "How is this worked out?" is gone from every page. A figure's name has to explain itself; one that doesn't gets renamed.
@@ -177,7 +199,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - Replaced Management navigation with a Settings hierarchy for counterparties, categories and data checks; added distinct sidebar icons and clearer account grouping.
 - Corrected monthly Budget scope and exposed spending outside listed groups; preserved category scope in expense totals and trends; repaired saved CSV mapping, custody import and counterparty deletion workflows. Moved UI SQL behind services.
 - Defined task ownership, follow-up paths, shared components, and visualization rules in `docs/PRODUCT_UX_ARCHITECTURE.md`.
-- Recorded previously added migrations: `0029_birdview_class_factors.sql` stores liquidation factors by asset class; `0030_investment_targets_by_class.sql` links allocation targets to asset classes; `0031_dividend_asset_reference.sql` records the investment asset associated with dividends.
+- Recorded previously added migrations: `0032_suppressed_reevaluations.sql` records accounts whose monthly valuation checkpoint was skipped; `0029_birdview_class_factors.sql` stores liquidation factors by asset class; `0030_investment_targets_by_class.sql` links allocation targets to asset classes; `0031_dividend_asset_reference.sql` records the investment asset associated with dividends.
 - Completed the prior migration log: `0024_reevaluation_ownership.sql` adds ownership-aware reevaluation entries; `0025_reserve_category_matching.sql` links reserves to categories; `0026_reserve_allocation_history.sql` records dated allocations; `0027_investment_planning.sql` adds allocation targets and asset planning metadata; `0028_budget_rules_and_resets.sql` adds income-percentage rules and carryover resets.
 
 ### UX review pass · 2026-09-28

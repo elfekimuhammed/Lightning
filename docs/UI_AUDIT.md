@@ -171,3 +171,13 @@ The second UI run reported findings #134–#148. All of them are addressed excep
 | Savings rate cramped on the left | Beside Net flow on the right, behind a divider. |
 | A colour for page-wide cards | A third gradient: soft green on the left, white on the right. |
 | Month by month on Birdview; Needs you at the top as a toggle | Moved. Needs you is a closed row at the top of the Overview that opens into the list. |
+
+## Owner review, round 4 (2026-09-30)
+
+| Ask | Change |
+|---|---|
+| Budget summary order | Planned, Spent, then Left in plan. |
+| Field names repeated on every tracked row | One header row; rows show values only. |
+| Two rule boxes per category | One "Amount or %" field (`1,500` or `12%`); the rule in use is a note under the name. |
+| Birdview is redundant | Folded into the Overview (What it is made of, If you sold today, Month by month); `/birdview` redirects. |
+| Names that needed explaining | Gain from sales, Price change on what you hold, Money added, Budget left to spend, Investments if sold (estimate). |
