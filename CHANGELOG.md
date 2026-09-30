@@ -8,6 +8,12 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### Windows desktop feasibility build · 2026-09-30
+- Start the amended desktop plan with an isolated Windows one-folder build, protected loopback host, WebView2 navigation guard and synthetic encryption/resource checks.
+- The first build is an engineering check, not a finance beta. It does not open or convert existing financial data; Linux browser operation is unchanged.
+- Add password/recovery primitives shared across platforms, bounded tamper tests and a Windows build workflow. Password unlock is the chosen design on both operating systems; DPAPI is deferred.
+- Remove the tracked `nul` artifact so Git for Windows can check out the repository. It remains recoverable from Git history.
+
 ### App guideline 2.2 · Grove: one guideline, with a visual page · 2026-09-30
 - `docs/APPLICATION_BRAND_GUIDE.md` is rewritten as one unified guideline in 16 numbered sections. Its visual half, `docs/APPLICATION_BRAND_GUIDE.html`, uses the same numbering and shows every rule as a live sample. Rebuild the page with `python docs/build_brand_guide.py`.
 - New in the guideline:

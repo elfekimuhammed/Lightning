@@ -22,7 +22,7 @@ root_package = "lightning"
 name = "Layers: each layer may only import the layers below it"
 type = "layers"
 layers = [
-    "lightning.main",
+    "lightning.desktop | lightning.main",
     "lightning.ui",
     "lightning.bootstrap",
     "lightning.workflows",
@@ -33,7 +33,7 @@ layers = [
     "lightning.transactions",
     "lightning.accounts",
     "lightning.assets | lightning.categories",
-    "lightning.database",
+    "lightning.database | lightning.security",
     "lightning.core",
 ]
 
