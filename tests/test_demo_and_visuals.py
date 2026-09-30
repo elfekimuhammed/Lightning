@@ -167,7 +167,7 @@ def test_every_tab_of_the_demo_opens_with_its_key_notes(demo):
         page = client.get(url)
         assert page.status_code == 200, url
         if url in with_notes:
-            assert 'aria-label="Key notes"' in page.text, url
+            assert 'class="key-note' in page.text or 'class="stat-card key-note' in page.text, url
     overview = client.get("/").text
     assert "chart-donut" in overview and "chart-bar-row" in overview
     assert "chart-trend" in client.get("/birdview").text  # month by month lives on Birdview
@@ -234,3 +234,19 @@ def test_money_added_lists_only_money_that_crossed_into_investments(demo):
     from lightning.investments.report import build_investment_report
     report = build_investment_report(c.db, c.accounts, c.assets, c.reporting, "2026-07-01", "2026-09-30")
     assert report_new == report["new_money"]  # the list adds up to the figure
+
+
+def test_target_allocation_says_how_much_to_invest(demo):
+    from lightning.investments.report import allocation_plan
+    plan = allocation_plan({"Gold": D(600), "Stocks": D(400)}, {"Gold": D(50), "Stocks": D(40)}, ["Gold", "Stocks", "Money Market Fund"])
+    gold, stocks = plan["rows"]
+    assert gold["current"] == 60 and gold["difference"] == -10 and gold["adjust"] == -100  # take 100 out
+    assert stocks["adjust"] == 0 and plan["required"] == 90 and not plan["complete"]
+    assert plan["unset"] == ["Money Market Fund"]
+    c, _ = demo
+    client = TestClient(create_app(c), base_url="http://127.0.0.1")
+    saved = client.post("/investments/targets", data={"bucket": "Gold", "target_weight": "40"}, headers={"X-Requested-With": "fetch"})
+    assert saved.status_code == 204  # saved in place, no page load
+    fragment = client.get("/investments/targets?fragment=1").text
+    assert "Value to adjust" in fragment and "<html" not in fragment
+    assert "Target allocation" in client.get("/settings?section=targets").text

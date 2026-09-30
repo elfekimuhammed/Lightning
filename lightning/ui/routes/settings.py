@@ -42,7 +42,12 @@ async def settings_page(request: Request):
         excluded_categories = {int(x) for x in __import__('json').loads(c.settings.get("budget_one_off_exclusions") or "[]")}
     except (ValueError, TypeError):
         selected_income, excluded_categories = set(), set()
-    return render(request, "settings/index.html", db_path=c.db.path, backups=[b.name for b in backups],
+    section = request.query_params.get("section", "general")
+    plan = None
+    if section == "targets":
+        from .investments import target_plan
+        plan = target_plan(c)
+    return render(request, "settings/index.html", db_path=c.db.path, backups=[b.name for b in backups], plan=plan,
                   classes=c.assets.list_classes(), assets=c.assets.list_assets(), factor_rows=factor_rows,
                   section=request.query_params.get("section", "general"), return_to=return_to,
                   budget_return_to=f"/settings?section=budget&return_to={return_to}",

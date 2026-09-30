@@ -2,6 +2,7 @@
   <a class="{{ 'selected' if settings_section == 'general' }}" href="/settings{% if return_to is defined %}?return_to={{ return_to|urlencode }}{% endif %}" {% if settings_section == 'general' %}aria-current="page"{% endif %}>General</a>
   <a class="{{ 'selected' if settings_section == 'budget' }}" href="/settings?section=budget{% if return_to is defined %}&amp;return_to={{ return_to|urlencode }}{% endif %}" {% if settings_section == 'budget' %}aria-current="page"{% endif %}>Budget</a>
   <a class="{{ 'selected' if settings_section == 'valuations' }}" href="/settings?section=valuations{% if return_to is defined %}&amp;return_to={{ return_to|urlencode }}{% endif %}" {% if settings_section == 'valuations' %}aria-current="page"{% endif %}>Valuations</a>
+  <a class="{{ 'selected' if settings_section == 'targets' }}" href="/settings?section=targets{% if return_to is defined %}&amp;return_to={{ return_to|urlencode }}{% endif %}" {% if settings_section == 'targets' %}aria-current="page"{% endif %}>Target allocation</a>
   <a class="{{ 'selected' if settings_section == 'counterparties' }}" href="/counterparties" {% if settings_section == 'counterparties' %}aria-current="page"{% endif %}>Counterparties</a>
   <a class="{{ 'selected' if settings_section == 'categories' }}" href="/categories" {% if settings_section == 'categories' %}aria-current="page"{% endif %}>Categories</a>
   <a class="{{ 'selected' if settings_section == 'checks' }}" href="/checks" {% if settings_section == 'checks' %}aria-current="page"{% endif %}>Data checks</a>

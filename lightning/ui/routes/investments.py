@@ -5,7 +5,7 @@ from dataclasses import replace
 from collections import defaultdict
 from datetime import date, timedelta
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Response
 
 from lightning.core.dates import fmt_date, parse_date, parse_month, today
 from lightning.core.errors import LightningError, NotFoundError
@@ -315,6 +315,28 @@ async def holding_detail(request: Request, asset_id: int):
                   show_popup=request.headers.get("X-Lightning-Popup")=="1")
 
 
+def target_plan(c) -> dict:
+    """Owned holdings by allocation class (a holding's own class unless reassigned) against targets."""
+    from lightning.investments.report import allocation_plan
+    prefs = c.assets.all_investment_preferences()
+    values = defaultdict(lambda: ZERO)
+    rows, _ = c.position.owned_holdings(today())
+    for row in rows:
+        if row.value is None:
+            continue
+        pref = prefs.get(row.asset_id)
+        bucket = (pref["allocation_bucket"] if pref else None) or c.assets.get_class_by_code(row.class_code).name
+        values[bucket] += row.value
+    return allocation_plan(dict(values), c.investments.target_weights(), _allocation_classes(c))
+
+
+@router.get("/targets")
+async def targets_page(request: Request):
+    c = container(request)
+    template = "investments/_targets.html" if request.query_params.get("fragment") else "investments/targets.html"
+    return render(request, template, plan=target_plan(c), allocation_classes=_allocation_classes(c))
+
+
 @router.post("/targets")
 async def save_target(request: Request):
     c=container(request); form=await request.form(); bucket=str(form.get("bucket","")).strip()
@@ -326,8 +348,12 @@ async def save_target(request: Request):
         cls_id=matches[0].id
         c.investments.set_target_weight(bucket, value, cls_id)
     except LightningError as exc:
-        return redirect("/investments",exc.message)
-    return redirect("/investments","Target saved.")
+        if request.headers.get("X-Requested-With") == "fetch":
+            return Response(exc.message, status_code=400, media_type="text/plain")
+        return redirect("/investments/targets", exc.message)
+    if request.headers.get("X-Requested-With") == "fetch":
+        return Response(status_code=204)
+    return redirect("/investments/targets", "Target saved.")
 
 
 @router.post("/asset-plan/{asset_id:int}")

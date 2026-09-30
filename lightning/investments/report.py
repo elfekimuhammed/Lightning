@@ -227,3 +227,22 @@ def results_by_asset(investments, money_from_others, reporting, opening_day: str
         asset_result["label"] = holding.asset_name
         asset_result["result"] += result
     return class_results, asset_results
+
+
+def allocation_plan(values: dict[str, Decimal], targets: dict[str, Decimal], classes: list[str]) -> dict:
+    """Target allocation: for each class its current share, the required share, the difference, and
+    the value to adjust (how much to invest, or take out when negative, to reach the required share
+    of today's total). ``values`` are owned holdings by allocation class."""
+    total = sum(values.values(), ZERO)
+    names = [n for n in classes if values.get(n) or n in targets] + sorted(set(values) - set(classes))
+    rows = []
+    for name in names:
+        value = values.get(name, ZERO)
+        current = value / total * 100 if total else ZERO
+        target = targets.get(name)
+        rows.append({"name": name, "value": value, "current": current, "target": target,
+                     "difference": None if target is None else target - current,
+                     "adjust": None if target is None else total * target / 100 - value})
+    required = sum(targets.values(), ZERO)
+    return {"rows": rows, "total": total, "required": required, "complete": required == 100,
+            "unset": [n for n in classes if n not in targets and not values.get(n)]}

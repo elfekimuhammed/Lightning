@@ -1312,3 +1312,41 @@ document.querySelectorAll("[data-month-picker]").forEach((picker) => {
   document.addEventListener("keydown", (event) => { if (event.key === "Escape") close(); });
   window.addEventListener("resize", close);
 })();
+
+// Target allocation: each Required % saves on Enter or when you leave it, then the table is redrawn
+// in place, so the page never reloads or jumps.
+(() => {
+  const bind = (root) => {
+    root.querySelectorAll("[data-target-save]").forEach((form) => {
+      if (form.dataset.bound) return;
+      form.dataset.bound = "1";
+      const input = form.elements.target_weight;
+      let before = input.value;
+      const save = async () => {
+        const value = input.value.trim().replace("%", "");
+        if (value === before.trim() || (form.elements.bucket.value || "") === "" || value === "") return;
+        const box = form.closest(".targets"), state = box?.querySelector(".save-state");
+        const data = new URLSearchParams(new FormData(form)); data.set("target_weight", value);
+        if (state) state.textContent = "Saving…";
+        const response = await fetch(form.action, { method: "POST", body: data, headers: { "X-Requested-With": "fetch" } });
+        if (!response.ok) { if (state) state.textContent = await response.text(); return; }
+        before = input.value;
+        const focusBucket = form.elements.bucket.value;
+        const fresh = await (await fetch(box.dataset.targetsSrc)).text();
+        const holder = document.createElement("div"); holder.innerHTML = fresh;
+        const next = holder.querySelector(".targets");
+        box.replaceWith(next); bind(next);
+        next.querySelector(".save-state").textContent = "Saved";
+        const rows = [...next.querySelectorAll('[data-target-save] input[name="bucket"]')];
+        const at = rows.findIndex((b) => b.value === focusBucket);
+        rows[at + 1]?.closest("form").elements.target_weight.focus();
+      };
+      input.addEventListener("keydown", (event) => { if (event.key === "Enter") { event.preventDefault(); save(); } });
+      input.addEventListener("blur", () => { if (!form.classList.contains("target-add")) save(); });
+      form.elements.bucket.addEventListener?.("change", () => input.focus());
+      form.addEventListener("submit", (event) => { event.preventDefault(); save(); });
+    });
+  };
+  bind(document);
+  new MutationObserver(() => bind(document)).observe(document.body, { childList: true, subtree: true });
+})();
