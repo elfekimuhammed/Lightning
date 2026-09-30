@@ -8,6 +8,12 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### Glossary by layer: ledger, plan, report · 2026-09-30
+- The Glossary and Architecture describe three layers: the **ledger** (real money that actually moved), the **plan** (what-if: budgets, reserves, scheduled bills and loans, sale factors, the forecast; it moves no money) and the **report** (reads both, stores nothing).
+- Every reported figure lists its layer (Ledger, Plan, or Ledger + Plan), how it is calculated, and the one function that computes it. The tables are generated from `lightning/core/figures.py` (`python -m lightning.core.figures`), and a test fails if the Glossary drifts or a listed function doesn't exist.
+- The basic terms and entry-form fields are marked by layer too.
+- Calculations moved out of screens into one function each: Savings rate (`CashFlow.savings_rate`), Change in what you own (`PositionService.change_in_what_you_own`), and Result with Change in unrealized gain (`investment_period`, `results_by_asset`). The Overview and Investments no longer compute Result separately.
+
 ### Fixes from the Omar v7.1 re-run · 2026-09-30
 - Skipping a loan payment no longer forgives it: the payment moves to the end of the loan ("Move to the end of the loan"), and skipped payments show on Loans and Recurring with an undo.
 - Amounts and dates accept Arabic-Indic digits (٦٠٠, ٥/١٠) and the Arabic decimal and thousands marks.
