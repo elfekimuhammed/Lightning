@@ -16,7 +16,7 @@
       {{ formula('safe_to_spend') }}{% if f.safe_to_spend < 0 %}<p class="flash error">Promised payments are larger than your free cash.</p>{% endif %}
     </article>
     <article class="card">
-      <div class="section-head"><div><h2>{{ fig.what_you_owe.label }}</h2><p>{{ fig.what_you_owe.meaning }}</p></div><a class="quiet-link" href="/plan/loans">Loans</a></div>
+      <div class="section-head"><div><h2>{{ fig.what_you_owe.label }}</h2><p>{{ fig.what_you_owe.meaning }}</p></div><a class="quiet-link" href="/plan/loans">See your loans</a></div>
       <div class="plan-figure plan-figure-small">{{ owe.total|money }} <small>{{ base }}</small></div>
       <div class="compact-list">
         <div class="compact-row"><span>{{ fig.bills_due.label }} <small>other than loan payments</small></span><b>{{ owe.other_bills_due|money }} {{ base }}</b></div>

@@ -17,7 +17,7 @@
 <section class="metric-grid" aria-label="Budget summary">
   <div class="metric-card metric-card--focal"><span class="metric-label">{{ fig.left_in_plan.label if period_left >= 0 else 'Over plan by' }}</span><strong class="metric-value {{ period_left|tone }}">{{ period_left|abs|money }} {{ base }}</strong><span class="metric-note">{{ fig.left_in_plan.equation }} · not {{ fig.free_cash.label|lower }}</span></div>
   <div class="metric-card"><span class="metric-label">{{ fig.spent.label }}</span><strong class="metric-value">{{ period_actual|money }} {{ base }}</strong>{% if period_income %}<span class="metric-note">{{ (period_actual/period_income*100)|round(1) }}% of {{ fig.average_monthly_income.label|lower }}</span>{% endif %}</div>
-  <div class="metric-card"><span class="metric-label">{{ fig.planned.label }}</span><strong class="metric-value">{{ period_budgeted|money }} {{ base }}</strong>{% if period_carryover %}<span class="metric-note">Includes {{ period_carryover|money(True) }} carryover</span>{% endif %}</div>
+  <div class="metric-card"><span class="metric-label">{{ fig.planned.label }}</span><strong class="metric-value">{{ period_budgeted|money }} {{ base }}</strong>{% if period_carryover %}<span class="metric-note">Includes {{ period_carryover|money(True) }} carryover</span>{% endif %}{% if loan_planned %}<span class="metric-note">Includes {{ loan_planned|money }} of loan payments scheduled this month</span>{% endif %}</div>
 </section>
 {% endif %}
 {% if not period_income %}<p class="muted small">Set your income categories to calculate {{ fig.average_monthly_income.label|lower }} and compare your plan with it. <a href="/settings?section=budget">Budget settings</a></p>{% endif %}

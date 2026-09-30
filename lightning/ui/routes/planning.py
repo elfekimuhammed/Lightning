@@ -50,7 +50,9 @@ def _row(c, item, labels, as_of):
     due = [p for p in payments if p.status == PaymentStatus.DUE]
     last = next((p for p in reversed(payments) if p.status == PaymentStatus.PAID), None)
     per_year = _per_year(item)
-    return {"item": item, "schedule": describe(item), "next": upcoming, "due": due, "last_paid": last,
+    recent = fmt_date(as_of - timedelta(days=62))
+    skipped = [p for p in payments if p.status == PaymentStatus.SKIPPED and p.due_date >= recent]
+    return {"item": item, "schedule": describe(item), "next": upcoming, "due": due, "last_paid": last, "skipped": skipped,
             "account": labels["accounts"].get(item.account_id), "category": labels["categories"].get(item.category_id),
             "per_year": per_year}
 
@@ -144,6 +146,7 @@ def _item_form(request: Request, c, values: dict, item=None, error: str = "", er
     kinds = [(PlanKind.LOAN.value, "Loan or installment plan")] if kind == PlanKind.LOAN.value else [
         (k.value, KIND_LABELS[k]) for k in RECURRING_KINDS]
     return render(request, "planning/item_form.html", status_code=status_code, values=values, item=item,
+                  has_history=bool(item) and c.planning.has_history(item.id),
                   kinds=kinds, is_loan=kind == PlanKind.LOAN.value,
                   frequencies=[(f.value, FREQUENCY_LABELS[f]) for f in Frequency],
                   accounts=_paying_accounts(c),
@@ -258,10 +261,13 @@ async def settle_payment(request: Request, item_id: int):
             message = f"{item.name} · {due} recorded and marked paid."
         elif action == "skip":
             c.planning.skip(item_id, due)
-            message = f"{item.name} · {due} skipped."
+            message = (f"{item.name} · {due} moved to the end of the loan." if item.kind == PlanKind.LOAN
+                       else f"{item.name} · {due} skipped.")
         elif action == "reopen":
+            was_skipped = any(p.due_date == due and p.status == PaymentStatus.SKIPPED
+                              for p in c.planning.payments(item, due, today()))
             c.planning.reopen(item_id, due)
-            message = f"{item.name} · {due} is unpaid again."
+            message = f"{item.name} · {due} is " + ("back on the schedule." if was_skipped else "unpaid again.")
         else:
             raise LightningError("Choose how this payment was settled.")
     except LightningError as exc:

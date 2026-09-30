@@ -216,3 +216,34 @@ def test_a_loan_adds_its_payments_as_a_budget_line(c, setup, monkeypatch):
     assert "Loan payments scheduled this month" in page
     c.budgets.set_budget(loans.id, "2026-10", "3000")  # a rule you set replaces the scheduled amount
     assert line("2026-10").budget == Decimal("3000") and not line("2026-10").from_loans
+
+
+def test_skipping_a_loan_payment_moves_it_to_the_end(c, setup, monkeypatch):
+    monkeypatch.setenv("LIGHTNING_TODAY", "2026-10-06")
+    item_id = c.planning.create(kind="LOAN", name="Car loan", amount="2500", frequency="MONTHLY",
+                                start_date="2026-10-05", payment_count="24")
+    day = date(2026, 10, 6)
+    assert c.planning.what_you_owe(day).loans_still_to_pay == Decimal("60000")
+    c.planning.skip(item_id, "2026-10-05")
+    progress = c.planning.loan_progress(c.planning.get(item_id), day)
+    assert c.planning.what_you_owe(day).loans_still_to_pay == Decimal("60000")  # still owed
+    assert progress["total"] == 24 and progress["last_date"] == "2028-10-05" and len(progress["skipped"]) == 1
+    c.planning.reopen(item_id, "2026-10-05")
+    assert c.planning.loan_progress(c.planning.get(item_id), day)["last_date"] == "2028-09-05"
+
+
+def test_lazy_input_and_next_month(c, setup, monkeypatch):
+    from lightning.core.dates import parse_date
+    from lightning.core.money import to_decimal
+    monkeypatch.setenv("LIGHTNING_TODAY", "2026-10-06")
+    assert to_decimal("١٢٬٥٠٠٫٥") == Decimal("12500.5") and to_decimal("۶۰۰") == Decimal("600")
+    assert parse_date("٥/١٠") == date(2026, 10, 5)
+    client = TestClient(create_app(c), base_url="http://127.0.0.1")
+    ahead = client.get("/budget?month=2026-11", follow_redirects=False)
+    assert ahead.status_code == 303 and "has%20not%20started" in ahead.headers["location"]
+    item_id = c.planning.create(kind="BILL", name="Gym", amount="600", frequency="MONTHLY", start_date="2026-10-05")
+    form = client.get(f"/plan/items/{item_id}/edit").text
+    assert ">Delete<" in form and "cannot be undone" in form
+    c.planning.skip(item_id, "2026-10-05")
+    form = client.get(f"/plan/items/{item_id}/edit").text
+    assert ">Stop<" in form and "First due date" in form

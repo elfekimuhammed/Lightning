@@ -8,6 +8,14 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### Fixes from the Omar v7.1 re-run · 2026-09-30
+- Skipping a loan payment no longer forgives it: the payment moves to the end of the loan ("Move to the end of the loan"), and skipped payments show on Loans and Recurring with an undo.
+- Amounts and dates accept Arabic-Indic digits (٦٠٠, ٥/١٠) and the Arabic decimal and thousands marks.
+- Opening a budget month that hasn't started returns to this month with an explanation instead of an error.
+- Popup actions (mark paid, skip, stop, undo) always show a confirmation.
+- Plan items with paid history show **Stop** instead of Delete, with matching confirmation text. Editing a loan says First due date and Number of payments.
+- The Budget summary shows the loan payments included in Planned. The Plan tab's loans link reads "See your loans".
+
 ### Cash planning fixes from the Omar re-run · 2026-09-30
 - A loan adds its payments to the budget: while Personal › Loan payments (or the loan's category) has no budget rule, it is planned at the payments scheduled that month. It ends when the loan ends; setting an amount replaces it.
 - Safe to spend and the cash forecast no longer count a due bill twice (once as a bill due, again as budget still to spend). Income that is due but not received stays in this month's forecast.

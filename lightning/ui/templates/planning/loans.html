@@ -24,6 +24,7 @@
       <div class="compact-row"><span>Still to pay</span><b>{{ pr.still_to_pay|money }} {{ base }}</b></div>
       <div class="compact-row"><span>Next payment</span><b>{% if pr.next %}{{ pr.next.amount|money }} on {{ pr.next.due_date }}{% else %}Paid off{% endif %}</b></div>
       <div class="compact-row"><span>Last payment</span><b>{{ pr.last_date or '—' }}</b></div>
+      {% for p in pr.skipped %}<a class="compact-row" data-popup-open href="/plan/items/{{ i.id }}/pay?due={{ p.due_date }}&amp;back=%2Fplan%2Floans"><span>Skipped {{ p.due_date }} <small class="muted">moved to the end · undo</small></span><b>{{ p.amount|money }} {{ base }}</b></a>{% endfor %}
     </div>
   </article>{% endfor %}
   {% else %}<article class="card"><p class="muted">No loans yet. Add a car loan, a personal loan, or a phone bought in installments to see what you still owe and when it ends.</p></article>{% endif %}

@@ -1,6 +1,7 @@
 """Planned items, their payments, and what you owe."""
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import date, timedelta
 from decimal import Decimal
 
@@ -52,6 +53,9 @@ class PlanningService:
         with self.db.transaction():
             self.repo.update(item_id, clean)
 
+    def has_history(self, item_id: int) -> bool:
+        return self.repo.has_payments(item_id)
+
     def remove(self, item_id: int) -> str:
         """Delete an item nobody paid yet; otherwise stop it and keep its history."""
         item = self.get(item_id)
@@ -66,6 +70,13 @@ class PlanningService:
     def payments(self, item: PlannedItem, until: str | date, as_of: date | None = None) -> list[Payment]:
         day = as_of or today()
         settled = self.repo.settled()
+        original = item
+        if item.kind == PlanKind.LOAN and item.payment_count:
+            # A skipped loan payment is still owed: it moves to the end of the loan.
+            skipped = sum(1 for (item_id, _), row in settled.items()
+                          if item_id == item.id and row["status"] == PaymentStatus.SKIPPED.value)
+            if skipped:
+                item = replace(item, payment_count=item.payment_count + skipped)
         out = []
         for number, due in payment_dates(item, until):
             row = settled.get((item.id, due))
@@ -73,7 +84,7 @@ class PlanningService:
                 status = PaymentStatus(row["status"])
             else:
                 status = PaymentStatus.DUE if due <= fmt_date(day) else PaymentStatus.UPCOMING
-            out.append(Payment(item, due, number, status, row["transaction_id"] if row else None))
+            out.append(Payment(original, due, number, status, row["transaction_id"] if row else None))
         return out
 
     def all_payments(self, until: str | date, as_of: date | None = None,
@@ -224,7 +235,8 @@ class PlanningService:
         payments = self.payments(item, item.end_date or "2999-12-31", as_of)
         paid = [p for p in payments if p.status == PaymentStatus.PAID]
         left = [p for p in payments if p.outstanding]
-        return {"total": len(payments), "paid": len(paid), "left": len(left),
+        skipped = [p for p in payments if p.status == PaymentStatus.SKIPPED]
+        return {"total": len(payments) - len(skipped), "paid": len(paid), "left": len(left), "skipped": skipped,
                 "still_to_pay": sum((p.amount for p in left), ZERO),
                 "paid_amount": sum((p.amount for p in paid), ZERO),
                 "next": next((p for p in payments if p.outstanding), None),

@@ -292,7 +292,7 @@ def _page(request: Request, month: str, values: dict | None = None, error: str =
                 bulk_undo = token
         except (ValueError, TypeError):
             pass
-    return render(request, "budget.html", status_code=status_code, view=view, month=month,
+    return render(request, "budget.html", loan_planned=sum(c.budgets.loan_lines(month).values(), ZERO), status_code=status_code, view=view, month=month,
                   prev_month=prev_month, next_month=next_month, values=values or {}, error=error,
                   has_plan=has_plan, suggestions=suggestions_view,
                   tracked=tracked, averages=averages,
@@ -660,6 +660,10 @@ async def budget_page(request: Request):
         month = _month(request)
     except ValidationError:
         return redirect("/budget", "That month is invalid. Use YYYY-MM, for example 2026-09.")
+    if month > month_of(today()):
+        # Budget amounts repeat into later months, so this month's plan is next month's plan too.
+        return redirect("/budget", f"{month} has not started yet. This month's amounts carry on into it "
+                                   "until you change them.")
     return _page(request, month)
 
 

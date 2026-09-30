@@ -12,9 +12,14 @@ document.addEventListener("click", (e) => {
   input.value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 });
 
+// Arabic-Indic digits (٠١٢ / ۰۱۲) and the Arabic decimal/thousands marks, as a phone keyboard types them.
+const asciiDigits = (value) => String(value)
+  .replace(/[\u0660-\u0669]/g, (d) => String(d.charCodeAt(0) - 0x0660))
+  .replace(/[\u06F0-\u06F9]/g, (d) => String(d.charCodeAt(0) - 0x06F0))
+  .replace(/\u066B/g, ".").replace(/\u066C/g, ",");
 // Date fields accept ISO, day/month/year, and day/month (current year), then normalize to ISO.
 const isoDate = (value) => {
-  const text = value.trim();
+  const text = asciiDigits(value).trim();
   let year, month, day;
   let match = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
   if (match) [, year, month, day] = match;
@@ -123,7 +128,7 @@ document.addEventListener("click", (e) => {
 // Keep repeated Enter presses from posting the quick-add form twice.
 document.addEventListener("submit", (event) => {
   const form = event.target;
-  if (form.matches("[data-confirm-delete]") && !window.confirm("Delete this transaction? You can restore it from its history page.")) {
+  if (form.matches("[data-confirm-delete]") && !window.confirm(form.dataset.confirmDelete || "Delete this transaction? You can restore it from its history page.")) {
     event.preventDefault(); return;
   }
   if (!(form.matches("#f-new, #f-edit, .investment-entry-form"))) return;
@@ -295,7 +300,7 @@ const setupMoneyInput = (input) => {
   input.dataset.moneyFormatReady = "true";
   input.setAttribute("autocomplete", "off");
   input.addEventListener("input", () => {
-    const before = input.value;
+    const before = asciiDigits(input.value);
     const caret = input.selectionStart ?? before.length;
     const clean = (value) => {
       const filtered = value.replace(/,/g, "").replace(/[^0-9.\-]/g, "");
@@ -1142,8 +1147,16 @@ document.querySelectorAll("[data-counterparty-filter]").forEach((search) => {
   const success = sessionStorage.getItem("lightning-popup-success");
   if (success) {
     sessionStorage.removeItem("lightning-popup-success");
-    const flash = document.querySelector(".flash");
-    if (flash) flash.textContent = success;
+    // Confirm what the popup just did, even on pages that had no message of their own.
+    let flash = document.querySelector(".flash:not(.error)");
+    if (!flash) {
+      flash = document.createElement("div");
+      flash.className = "flash";
+      flash.setAttribute("role", "status");
+      const topbar = document.querySelector("main .topbar");
+      if (topbar) topbar.after(flash); else document.querySelector("main")?.prepend(flash);
+    }
+    flash.textContent = success;
   }
   if (new URLSearchParams(location.search).get("popup") === "1" && location.pathname.startsWith("/transactions/")) {
     baseUrl = location.pathname + location.search.replace(/(?:\?|&)popup=1/, "");

@@ -19,6 +19,15 @@ ZERO = Decimal("0")
 ONE = Decimal("1")
 
 
+_ARABIC_DIGITS = {**{0x0660 + i: str(i) for i in range(10)}, **{0x06F0 + i: str(i) for i in range(10)},
+                  0x066B: ".", 0x066C: ","}
+
+
+def ascii_digits(text: str) -> str:
+    """Arabic-Indic digits (٠١٢, ۰۱۲) and the Arabic decimal and thousands marks as plain ASCII."""
+    return text.translate(_ARABIC_DIGITS)
+
+
 def to_decimal(value: object, field: str = "amount") -> Decimal:
     """Parse user or code input into a Decimal.
 
@@ -32,7 +41,7 @@ def to_decimal(value: object, field: str = "amount") -> Decimal:
     elif isinstance(value, int):
         result = Decimal(value)
     elif isinstance(value, str):
-        cleaned = value.strip().replace("−", "-")
+        cleaned = ascii_digits(value).strip().replace("−", "-")
         if cleaned == "":
             raise ValidationError("Enter an amount.", field)
         if re.fullmatch(r"[+-]?\d{1,3},\d{1,2}", cleaned):
