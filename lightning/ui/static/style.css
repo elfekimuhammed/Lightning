@@ -1539,3 +1539,112 @@ a.chart-meter:hover { background:var(--hover); }
 /* One link colour for card headers, lead or not. */
 .overview-section .overview-block-head .quiet-link,.overview-section .overview-block-head>a,
 .overview-position-grid .overview-wealth-card .overview-block-head a { color:var(--azure)!important; }
+
+/* ===================================================================================
+   Crisp pass · one type scale, one card, one number style, one expander (UI run 2026-09-30)
+   Text: 12 meta · 13 secondary · 14 body · 15 note title · 17 card title · 20 section · 28 page.
+   Numbers: 40 lead · 30 card · 24 tile, with the currency once, small, beside the number.
+   =================================================================================== */
+:root { --fs-meta:12px; --fs-2:13px; --fs-body:14px; --fs-note:15px; --fs-card:17px; --fs-section:20px; --fs-page:28px;
+        --num-lead:40px; --num-card:30px; --num-tile:24px; --r-card:20px; --gap-block:20px; }
+.nowrap { white-space:nowrap; }
+.main { font-size:var(--fs-body); }
+
+/* Page header: title, one line under it, actions on the right. */
+.topbar h1, .topbar .birdview-title h1, .topbar .budget-heading h1 { font:700 var(--fs-page)/1.15 var(--display)!important; letter-spacing:-.03em; }
+.topbar h1 ~ p, .topbar h1 ~ div.muted, .topbar .page-subtitle, .topbar > div > .muted, .topbar .budget-heading .muted,
+.topbar .acct-title ~ p { font:500 var(--fs-body)/1.45 var(--body)!important; color:var(--muted)!important; margin:4px 0 0!important; }
+.topbar { margin-bottom:var(--gap-block); }
+
+/* Headings: sections outside cards 20, card titles 17, small group titles 15. */
+.main h2 { font:700 var(--fs-section)/1.3 var(--display)!important; letter-spacing:-.02em; }
+.main :is(.card,.data-panel,.metric-card,.overview-block,.plan-lead,.analysis-card) :is(h2,h3),
+.main .overview-block-head :is(h2,h3), .main .overview-section .overview-block-head h3 { font:700 var(--fs-card)/1.3 var(--display)!important; letter-spacing:-.02em; }
+.main :is(.card,.overview-block) :is(h4,.overview-investment-insights h3) { font:700 var(--fs-note)/1.3 var(--display)!important; }
+.main .overview-section-head h2, .main .section-head h2, .main .investment-section-title { font-size:var(--fs-section)!important; }
+
+/* Body, secondary and meta text. */
+.main p, .main li, .main td, .main .compact-row span, .main .overview-static-row span, .main summary span { font-size:var(--fs-body); }
+.main .muted, .main p.muted, .main .metric-note, .main .figure-formula, .main .overview-block-head p, .main .section-head p,
+.main .key-note p, .main .chart-meter-foot, .main .card-heading p { font-size:var(--fs-2)!important; line-height:1.45; }
+.main small, .main .small:not(.btn):not(button), .main th, .main .chart-grid span, .main .chart-x span, .main .chart-axis span, .main .chart-ticks i,
+.main .horizon-chip, .main .budget-category-values small, .main .budget-l1-amounts small, .main .budget-l1-trigger small,
+.main .allocation-name small, .main .analysis-total small, .main .compact-row small, .main .metric-label small { font-size:var(--fs-meta)!important; }
+.main th { font-weight:700; letter-spacing:0; }
+.main td.code, .main .code { font-family:var(--body)!important; font-size:var(--fs-2)!important; font-variant-numeric:tabular-nums; }
+
+/* Numbers: display face, tabular, never split; the currency small and muted beside them. */
+.main :is(.overview-headline,.plan-figure,.metric-value,.emergency-multiple b,.overview-savings-rate b,.chart-donut-center b,
+  .emergency-stats b,.analysis-total) { font-family:var(--display)!important; font-weight:800!important; font-variant-numeric:tabular-nums;
+  letter-spacing:-.02em; white-space:nowrap; color:var(--ink); }
+.main .overview-headline, .main .plan-figure, .main .workspace-grid > .card > .metric-value { font-size:var(--num-lead)!important; line-height:1.1!important; }
+.main .overview-investment-breakdown .overview-headline, .main .plan-figure-small { font-size:var(--num-card)!important; }
+.main .metric-grid .metric-value:not(#_), .main .emergency-multiple b, .main .overview-savings-rate b { font-size:var(--num-tile)!important; line-height:1.2!important; }
+.main .chart-donut-center b, .main .emergency-stats b, .main .analysis-total { font-size:var(--fs-card)!important; }
+.main :is(.overview-headline,.plan-figure,.metric-value) small { font:600 var(--fs-body)/1 var(--body)!important; color:var(--muted)!important;
+  letter-spacing:0; margin-left:4px; vertical-align:baseline; }
+.main .metric-value.pos, .main .overview-headline .pos { color:var(--positive); }
+.main .metric-value.neg { color:var(--rose); }
+.main .compact-row b, .main .overview-static-row b, .main summary b, .main td.num, .main .num { font-variant-numeric:tabular-nums; white-space:nowrap; }
+
+/* Tiles: one label size, one number size, the lead tile only differs by its soft background. */
+.main .metric-label, .main .metric-card--focal .metric-label, .main .metric-card-primary .metric-label { font:700 var(--fs-2)/1.35 var(--body)!important; color:var(--ink-2)!important; }
+.main .metric-card { padding:20px!important; gap:6px!important; }
+.main .metric-grid { gap:12px; margin-bottom:var(--gap-block); }
+.main .metric-grid > .metric-card:not(.metric-card--focal):not(.metric-card-primary) { background:linear-gradient(180deg,var(--paper) 0%,var(--paper-end) 100%)!important; }
+
+/* One card shape. */
+.main :is(.card,.data-panel,.metric-card,.overview-block,.key-note,details.context-detail.card) { border-radius:var(--r-card)!important; }
+.main .key-note { padding:16px 18px; box-shadow:none; }
+.main .key-notes { margin:0 0 var(--gap-block); gap:12px; }
+.main .key-note b { font-size:var(--fs-note)!important; line-height:1.35; }
+.main .key-note a { font-size:var(--fs-2)!important; }
+
+/* Expanders: a title on the left, one chevron on the right that turns when open. */
+.main details > summary { list-style:none; }
+.main details > summary::-webkit-details-marker { display:none; }
+.main details:not(.overview-disclosure):not(.figure-explain):not(.chart-table):not(.action-menu):not(.key-card-row):not(.alias-details):not(.side-accounts):not(.budget-l1) > summary {
+  display:flex; align-items:center; gap:10px; cursor:pointer; color:var(--ink)!important; font:700 var(--fs-body)/1.4 var(--body)!important; }
+.main details:not(.overview-disclosure):not(.figure-explain):not(.chart-table):not(.action-menu):not(.key-card-row):not(.alias-details):not(.side-accounts):not(.budget-l1) > summary::before { content:none!important; }
+.main details:not(.overview-disclosure):not(.figure-explain):not(.chart-table):not(.action-menu):not(.key-card-row):not(.alias-details):not(.side-accounts):not(.budget-l1) > summary::after {
+  content:""!important; float:none!important; margin-left:auto; flex:none; width:8px; height:8px; border-right:2px solid var(--muted); border-bottom:2px solid var(--muted);
+  transform:rotate(45deg); transition:transform .15s; }
+.main details[open]:not(.overview-disclosure):not(.figure-explain):not(.chart-table):not(.action-menu):not(.key-card-row):not(.alias-details):not(.side-accounts):not(.budget-l1) > summary::after { transform:rotate(225deg); }
+.main details > summary small, .main details > summary .muted { font-weight:500; color:var(--muted); }
+/* Quiet toggles under a figure or chart share one look. */
+.main .chart-table > summary, .main .figure-explain > summary { font:700 var(--fs-2)/1.4 var(--body)!important; color:var(--ink-2)!important; }
+
+/* Numbers in accent colour are links, never figures. */
+.main .emergency-multiple b { color:var(--ink)!important; }
+
+/* Tabs: one underline style everywhere, never wrapping on a phone. */
+.main .birdview-tabs, .main .settings-nav { flex-wrap:nowrap!important; overflow-x:auto; scrollbar-width:none; }
+.main .birdview-tabs a, .main .settings-nav a { white-space:nowrap; font-size:var(--fs-note)!important; }
+.main :is(b,strong):not(.metric-value):not(.plan-figure) { font-weight:700; }
+.main .compact-row-total b, .main .overview-subtotal b, .main .overview-disclosure summary b, .main .overview-disclosure summary span,
+.main .plan-low td.num b, .main .budget-percent-input span { font-size:var(--fs-body)!important; }
+.main .performance-axis span { font-size:var(--fs-meta)!important; }
+.main .acct-figures b { font:800 var(--num-tile)/1.2 var(--display)!important; font-variant-numeric:tabular-nums; letter-spacing:-.02em; }
+.main .acct-figures .muted { font-size:var(--fs-meta)!important; }
+.icon-btn .icon { width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:1.75; stroke-linecap:round; stroke-linejoin:round; }
+/* The page's lead card: the soft gradient, one per page. */
+.main .lead-card { background:linear-gradient(135deg,var(--focal-1),var(--focal-2) 52%,var(--focal-3))!important; border:0!important; box-shadow:var(--shadow-focal)!important; }
+.main .birdview-subhead { margin:20px 0 8px; }
+.main .birdview-workspace { align-items:stretch; }
+.main .section-head { align-items:flex-start; }
+.main .section-head p { margin:2px 0 0; }
+.main .plan-figure { margin:4px 0 12px; }
+.main .birdview-subhead { color:var(--ink)!important; }
+.main .workspace-grid { align-items:stretch; }
+.main .workspace-grid > .card, .main .workspace-grid > .data-panel { height:auto; margin:0; }
+.main .holdings-toolbar { padding:0!important; margin:0 0 8px!important; min-height:0; }
+.main .section-total { font:800 var(--num-tile)/1.2 var(--display); font-variant-numeric:tabular-nums; white-space:nowrap; }
+.main .section-total small { font:600 var(--fs-body)/1 var(--body); color:var(--muted); margin-left:4px; }
+.main .topbar .icon-btn svg.icon { width:20px!important; height:20px!important; display:block; }
+/* Register: one line per note, amounts never cut, readable dates. */
+.main .ledger td.register-note { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:0; }
+.main .ledger td.amount, .main .ledger td.num { white-space:nowrap; overflow:visible; text-overflow:clip; }
+.main .ledger td, .main .ledger th { vertical-align:top; }
+.main .btn.small, .main button.small { font-size:var(--fs-2)!important; }
+.main .expense-lead { margin-bottom:var(--gap-block); }
+.main .expense-lead .plan-figure { margin-bottom:4px; }

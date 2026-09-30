@@ -48,7 +48,7 @@ def needs_you(attention: list[dict], safe_to_spend: Decimal | None, next_income:
     if safe_to_spend is not None:
         until = f" until {next_income}" if next_income else ""
         return note("info", f"{fmt(safe_to_spend)} safe to spend{until}",
-                    "Nothing needs you today. That is free cash after what is promised before your next income.",
+                    "Nothing is due. Free cash less what is promised before your next income.",
                     "/plan", "See cash planning")
     return note("info", "Nothing needs you today", "No bills are due and nothing is waiting for a decision.")
 
@@ -76,18 +76,24 @@ def compared(spent: Decimal, prior: Decimal | None, prior_label: str) -> dict | 
 
 
 def budget_left(left: Decimal, days_left: int, over: list[str], href: str) -> list[dict]:
-    notes = []
+    """Only what the summary cards don't say: which categories went over plan."""
     if over:
         names = ", ".join(over[:2]) + (f" and {len(over) - 2} more" if len(over) > 2 else "")
-        notes.append(note("attention", f"{names} over plan", "Open the category to see what pushed it over.", href, "See categories"))
-    if left >= 0:
-        text = ("The month is over; this is what the plan saved." if days_left <= 0
-                else "Today is the last day of the month." if days_left == 1
-                else f"About {fmt(left / days_left)} a day for the {days_left} days left this month.")
-        notes.append(note("good" if not over else "info", f"{fmt(left)} left in plan", text))
-    else:
-        notes.append(note("attention", f"{fmt(-left)} over plan this month", "Spending passed the plan. Cut back or raise a category's plan."))
-    return notes
+        return [note("attention", f"{names} over plan", "Open a category to see what pushed it over.", href, "See categories")]
+    if left < 0:
+        return [note("attention", f"{fmt(-left)} over plan this month", "Cut back or raise a category's plan.")]
+    return []
+
+
+def per_day(left: Decimal, days_left: int) -> str:
+    """Under Left in plan: what it means for the rest of the month."""
+    if left < 0:
+        return "Spending passed the plan"
+    if days_left <= 0:
+        return "The month is over"
+    if days_left == 1:
+        return "Today is the last day of the month"
+    return f"About {fmt(left / days_left)} a day for {days_left} days"
 
 
 def best_class(class_rows: list[dict]) -> dict | None:
@@ -135,8 +141,7 @@ def emergency(months: Decimal | None, target: Decimal | None) -> dict | None:
         return note("info", "Emergency fund not measured yet", "Set your income categories so months covered can be worked out.",
                     "/settings?section=budget", "Open settings")
     tone = "good" if months >= 6 else "attention" if months < 1 else "info"
-    rest = f" Six months of average monthly income is {fmt(target)}." if target else ""
-    return note(tone, f"Emergency fund covers {months:.1f} months", "Of average monthly income." + rest)
+    return note(tone, f"Emergency fund covers {months:.1f} months", "Of average monthly income. The aim is six.")
 
 
 def largest_part(donut: dict, what: str, href: str = "") -> dict | None:
@@ -154,8 +159,7 @@ def sale_cost(position) -> dict | None:
         return None
     cost = held - position.investments_after_sale
     return note("info", f"Selling everything would cost about {fmt(cost)}",
-                "The gap between today's value and what your sale factors expect you to get.",
-                "/settings?section=assets-valuations", "Review sale factors")
+                "What your sale factors expect to lose against today's value.")
 
 
 def cash_share(position) -> dict | None:
@@ -169,12 +173,11 @@ def cash_share(position) -> dict | None:
 def recurring_summary(monthly_out: Decimal, monthly_in: Decimal, subscriptions_per_year: Decimal) -> dict | None:
     if not monthly_out:
         return None
-    subs = f" Subscriptions come to {fmt(subscriptions_per_year)} a year." if subscriptions_per_year else ""
+    subs = f"Subscriptions come to {fmt(subscriptions_per_year)} a year." if subscriptions_per_year else ""
     if not monthly_in:
-        return note("info", f"{fmt(monthly_out)} a month goes to bills", "Add your income as a recurring item to see its share." + subs)
+        return note("info", "Add your income to see its share", "Bills are measured against scheduled income. " + subs)
     share = monthly_out / monthly_in * 100
-    return note("attention" if share > 50 else "info", f"Bills take {share:.0f}% of scheduled income",
-                f"{fmt(monthly_out)} of {fmt(monthly_in)} a month." + subs)
+    return note("attention" if share > 50 else "info", f"Bills take {share:.0f}% of your {fmt(monthly_in)} income", subs)
 
 
 def loans_summary(loans: list[dict]) -> dict | None:
@@ -188,10 +191,8 @@ def loans_summary(loans: list[dict]) -> dict | None:
                     f"{fmt(left)} still to pay in all. The last payment is on {ends}.")
     paid = sum(entry["progress"]["paid"] for entry in loans)
     total = sum(entry["progress"]["total"] for entry in loans)
-    upcoming = sorted((entry["progress"]["next"] for entry in loans if entry["progress"]["next"]), key=lambda p: p.due_date)
-    following = f" Next: {fmt(upcoming[0].amount)} on {upcoming[0].due_date}." if upcoming else ""
     return note("good" if paid else "info", f"Paid off on {ends}" if ends else f"{fmt(left)} still to pay",
-                f"{paid} of {total} payments made.{following}")
+                f"{paid} of {total} payments made.")
 
 
 def held_for_others(owners: list[dict], total: Decimal | None) -> dict | None:

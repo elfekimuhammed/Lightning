@@ -154,8 +154,8 @@ def test_overview_horizons_keep_the_same_status_layout_and_popup_range(client, c
 def test_birdview_other_assets_has_no_empty_disclosure(client, setup):
     response = client.get("/birdview")
     assert response.status_code == 200
-    assert "How what you own adds up" in response.text
     assert "What it is made of" in response.text
+    assert "If you sold today" in response.text
 
 
 def test_not_found(client):
@@ -190,7 +190,7 @@ def test_register_entry(client, c, setup):
     r = client.post(f"/accounts/{wallet.id}/register", data={"date": "2026-09-20", "counterparty": "Carrefour",
                     "counterparty_choice": "create", "category": "Personal › Food & Groceries",
                     "amount": "-150", "notes": "milk"})
-    assert "Saved OUT-2026-09-20-001" in r.text and "Personal › Food &amp; Groceries" in r.text
+    assert "Saved OUT-2026-09-20-001" in r.text and 'title="Personal › Food &amp; Groceries">Food &amp; Groceries<' in r.text
     assert c.reporting.account_balance(wallet.id) == 1200 - 150
 
     r = client.post(f"/accounts/{wallet.id}/register", data={"date": "2026-09-21", "counterparty": "CIB Current",

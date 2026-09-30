@@ -100,7 +100,8 @@ async def plan_page(request: Request):
     window_end = day + timedelta(days=30)
     next_payments = [p for p in c.planning.all_payments(window_end, day)
                      if p.status in (PaymentStatus.DUE, PaymentStatus.UPCOMING)]
-    notes = [n for n in (keynotes.next_payment(next_payments), keynotes.lowest_point(forecast)) if n]
+    # The next payment heads the Next 30 days list, so the note is only the forecast's lowest point.
+    notes = [n for n in (keynotes.lowest_point(forecast),) if n]
     return render(request, "planning/plan.html", tabs=TABS, plan_tab="plan", forecast=forecast, owe=owe,
                   notes=notes, forecast_chart=visuals.forecast_trend(forecast),
                   next_payments=next_payments, as_of=fmt_date(day), window_end=fmt_date(window_end),

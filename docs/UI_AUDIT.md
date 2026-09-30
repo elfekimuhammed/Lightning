@@ -140,3 +140,24 @@ Checked on the sample household at 1280 px and 390 px: no script errors, no serv
 - Plan: the lowest point is named in a key note but not marked on the forecast line.
 - Transactions, account pages and Settings are unchanged. They answer no main question on their own.
 - Dark mode: the app is light-only. The chart palette has dark steps chosen and validated, but they are not wired in.
+
+## Crisp pass (2026-09-30)
+
+The second UI run reported findings #134–#148. All of them are addressed except the one noted at the end.
+
+| # | Finding | Change |
+|---|---|---|
+| 134–137 | Too many text sizes; headings and numbers varied by page | One scale in the stylesheet's "Crisp pass" layer. Text 12/13/14/15/17/20/28 px, numbers 40/30/24 px. 5–10 sizes per page, none under 12 px. |
+| 138 | "EGP" shown four ways | Small, beside a card's main number only. Row amounts show only the number. |
+| 139 | Lead cards not consistent | One soft lead card per page (`.lead-card`, or the lead tile in a row of tiles). |
+| 140 | Cash planning tabs didn't show the open tab | Fixed: the tab macro compared against the wrong variable. |
+| 141 | Button heights and the ⚙ emoji | 48 px in page headers and 36 px in cards; one primary action per header; a line icon for settings. |
+| 142 | Four expander styles | One: title on the left, chevron on the right. The quiet "How is this worked out?" and "Show the numbers" toggles share one look. |
+| 143 | Key notes repeated the page | Notes only for what isn't shown: what needs you (Overview), the cost of selling (Birdview), the top category and the change (Expense analysis), categories over plan (Budget), the best class (Investments), the lowest point (Plan), the bills' share of income (Recurring), the payoff date (Loans), months covered (Reserves). |
+| 144 | Formulas said too often | Inside "How is this worked out?" only. |
+| 145 | Dates everywhere | The period lives in the page header. "As of" stays only where the period can move the date (Overview). |
+| 146 | Navigation duplicated | Birdview sub-tabs removed; the sidebar has each page. |
+| 147 | Phone | Tabs scroll on one line; dates and numbers never break. |
+| 148 | Uneven card heights | Side-by-side cards stretch to the same height. |
+
+**Still open:** on a phone, the transactions register scrolls sideways inside its card.

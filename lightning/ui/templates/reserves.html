@@ -16,26 +16,19 @@
 {{ key_notes(notes) }}
 {% if error %}<p class="flash error">{{ error }}</p>{% endif %}
 <section class="metric-grid reserve-overview" aria-label="{{ fig.free_cash.label }}">
-  <div class="metric-card"><div class="metric-label">{{ fig.cash_you_own.label }}</div><div class="metric-value">{{ pos.cash_you_own|money }}</div></div>
-  <div class="metric-card"><div class="metric-label">{{ fig.reserves.label }}</div><div class="metric-value">{{ pos.reserves|money }}</div></div>
-  <a class="metric-card" href="/plan"><div class="metric-label">{{ fig.bills_due.label }}</div><div class="metric-value">{{ pos.bills_due|money }}</div></a>
-  <div class="metric-card"><div class="metric-label">{{ fig.free_cash.label }}</div><div class="metric-value {{ pos.free_cash|tone }}">{{ pos.free_cash|money }}</div></div>
+  <div class="metric-card"><div class="metric-label">{{ fig.cash_you_own.label }}</div><div class="metric-value">{{ pos.cash_you_own|money }} <small>{{ base }}</small></div></div>
+  <div class="metric-card"><div class="metric-label">{{ fig.reserves.label }}</div><div class="metric-value">{{ pos.reserves|money }} <small>{{ base }}</small></div></div>
+  <a class="metric-card" href="/plan"><div class="metric-label">{{ fig.bills_due.label }}</div><div class="metric-value">{{ pos.bills_due|money }} <small>{{ base }}</small></div></a>
+  <div class="metric-card metric-card--focal"><div class="metric-label">{{ fig.free_cash.label }}</div><div class="metric-value {{ pos.free_cash|tone }}">{{ pos.free_cash|money }} <small>{{ base }}</small></div></div>
 </section>
-{{ formula('free_cash') }}<p class="muted small">{{ fig.cash_you_own.label }} includes {{ fig.brokerage_cash.label|lower }}. Move that part to a bank or wallet before everyday spending.</p>
+{{ formula('free_cash', fig.cash_you_own.label ~ ' includes ' ~ fig.brokerage_cash.label|lower ~ '. Move that part to a bank or wallet before everyday spending.') }}
 <section class="card emergency-fund">
-  <div class="emergency-heading"><div><span class="pill">Always included</span><h2>Emergency fund</h2>
-    <p class="muted small">A permanent section for money set aside for emergencies. Its type and name cannot be changed.</p></div>
-    <div class="emergency-multiple">
-      {% if income.amount %}<b>{{ '%.1f'|format(emergency_months or 0) }} months</b><span>of {{ fig.average_monthly_income.label|lower }}</span>
-      {% else %}<b>—</b><span>{{ fig.average_monthly_income.label|lower }} unavailable</span>{% endif %}
-    </div>
-  </div>
-  {% if emergency_meter %}<div class="emergency-meter">{{ meter('Towards six months of average monthly income', emergency_set_aside, income.six_months, emergency_meter, '', '', 'target') }}</div>{% endif %}
+  <div class="section-head"><div><h2>Emergency fund</h2><p>Money set aside for the unexpected</p></div></div>
+  {% if emergency_meter %}<div class="emergency-meter">{{ meter('Towards six months of income', emergency_set_aside, income.six_months, emergency_meter, '', '', 'target') }}</div>{% endif %}
   <div class="emergency-stats">
-    <div><span class="muted small">{{ fig.reserves.label }} for emergencies</span><b>{{ (emergency.effective_allocated if emergency else 0)|money }}</b></div>
-    <div><span class="muted small">{{ fig.average_monthly_income.label }}</span><b>{{ (income.amount or 0)|money }}</b><small class="muted">{% if income.manual %}Set by hand in Settings{% else %}{{ income.window }} · {{ income.months_counted }} month{{ '' if income.months_counted == 1 else 's' }} with income{% endif %} · {{ (income.six_months or 0)|money }} six-month target</small></div>
+    <div><span class="muted small">{{ fig.average_monthly_income.label }}</span><b>{{ (income.amount or 0)|money }}</b><small class="muted">{% if income.manual %}Set by hand in Settings{% else %}{{ income.window }} · {{ income.months_counted }} month{{ '' if income.months_counted == 1 else 's' }} with income{% endif %}</small></div>
   </div>
-  <p class="muted small">Months covered = {{ fig.reserves.label }} for emergencies ÷ {{ fig.average_monthly_income.label }}. {% if not income.amount %}Choose your income categories in <a href="/settings?section=budget">Settings</a> to calculate it.{% endif %}</p>
+  {% if not income.amount %}<p class="muted small">Choose your income categories in <a href="/settings?section=budget">Settings</a> to measure months covered.</p>{% endif %}
   <form method="post" action="/reserves/emergency" class="emergency-form" data-autosave-form>
     <label>Amount set aside<input class="money-input" type="text" name="allocated" value="{{ emergency.allocated|money(False, 2) if emergency else '0.00' }}" inputmode="decimal" required></label>
     <span class="inline-save-status" aria-live="polite"></span>
@@ -43,7 +36,8 @@
 </section>
 
 <section class="card reserve-list data-panel">
-  <div class="section-head"><div><h2>What are you saving for?</h2><p class="muted small">Due dates, funding progress, and linked payments.</p></div><a class="btn primary reserve-add-link" href="#add-reserve">Add reserve</a></div>
+  <div class="section-head"><div><h2>What are you saving for?</h2></div></div>
+  {% if not reserves %}<p class="muted">Nothing yet. Add a reserve below for a payment or a savings goal.</p>{% else %}
   <div class="table-wrap"><table class="reserve-table">
     <thead><tr><th>Reserve</th><th class="num">Expected</th><th>Set aside</th><th>Due</th><th>Funding and payment</th><th>Actions</th></tr></thead>
     <tbody>
@@ -71,13 +65,13 @@
       </details>
       <form method="post" action="/reserves/{{ reserve.id }}/complete" class="reserve-complete"><button class="btn small">Complete</button></form></td>
     </tr>
-    {% else %}<tr><td colspan="6" class="empty">No other reserves yet. Add one below.</td></tr>{% endfor %}
+    {% endfor %}
     </tbody>
-  </table></div>
+  </table></div>{% endif %}
 </section>
 {% if completed_reserves %}<details class="card data-panel"><summary><b>Completed payment occurrences</b><span class="muted small">{{ completed_reserves|length }} completed</span></summary><p class="muted small">Recurring payments appear here after the matched payment completes an occurrence. Savings goals stay separate.</p><div class="table-wrap"><table><thead><tr><th>Payment</th><th>Due</th><th>State</th><th>Matched transaction</th></tr></thead><tbody>{% for reserve in completed_reserves %}<tr><td>{{ reserve.name }}</td><td>{{ reserve.due_date or '—' }}</td><td>{{ 'Paid/reconciled' if reserve.spent >= reserve.target else 'Completed' }}</td><td>{% for payment in reserve.payments %}<a href="/transactions/{{ payment.id }}">{{ payment.ref }} · {{ payment.date }} · {{ payment.amount|money }}</a>{% else %}<span class="muted">No linked transaction</span>{% endfor %}</td></tr>{% endfor %}</tbody></table></div></details>{% endif %}
 <details id="add-reserve" class="card reserve-create" {{ 'open' if error }}>
-  <summary><b>Add a reserve</b><span class="muted small">Plan cash for a payment or savings goal</span></summary>
+  <summary><b>Add a reserve</b></summary>
   <p class="muted small">A reserve is a plan for cash you already own. Recording a payment remains a separate transaction.</p>
   <form method="post" action="/reserves" class="reserve-create-form">
     <label>Name<input type="text" name="name" placeholder="e.g. Rent" required></label>

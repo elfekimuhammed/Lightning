@@ -239,13 +239,9 @@ async def dashboard(request: Request):
     investment_share = (investment_flow / cash_flow.inflows * 100
                         if cash_flow.inflows > ZERO else None)
     savings_rate = cash_flow.savings_rate
-    period_words = ("Since your first record" if period.key == "all" else
-                    f"{fmt_date(first)} to {fmt_date(as_of)}")
-    key_notes = [n for n in (
-        keynotes.needs_you(attention, today_forecast.safe_to_spend, today_forecast.next_income_date),
-        keynotes.change_in_what_you_own(change, period_words, f"/birdview?{request.url.query}"),
-        keynotes.kept(cash_flow, period_words, f"/birdview/expenses?{request.url.query}"),
-    ) if n]
+    # One note: what needs you, or what is safe to spend. The cards below already show the change
+    # in what you own and the savings rate, so the notes don't repeat them.
+    key_notes = [keynotes.needs_you(attention, today_forecast.safe_to_spend, today_forecast.next_income_date)]
     return render(
         request,
         "dashboard/index.html",
@@ -347,9 +343,9 @@ async def money_from_others(request: Request):
     c = container(request)
     owners = c.reporting.money_from_others_by_owner(today())
     investments = c.reporting.money_from_others_investments(today())
-    notes = [keynotes.held_for_others(owners + investments, c.position.at(today()).held_for_others)]
+    held_total = c.position.at(today()).held_for_others
     return render(request, "money_from_others.html", accounts=c.accounts.list(active_only=True),
-                  counterparties=c.counterparties.list_active(), notes=notes,
+                  counterparties=c.counterparties.list_active(), held_total=held_total,
                   owners=owners, investments=investments,
                   entries=c.reporting.money_from_others_history(),
                   investment_entries=c.money_from_others.investment_history())

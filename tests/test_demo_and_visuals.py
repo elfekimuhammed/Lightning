@@ -75,11 +75,13 @@ def test_a_donut_keeps_the_largest_parts_in_class_order():
 # ---------------------------------------------------------------- key notes
 
 def test_budget_notes_speak_plainly_about_the_days_left():
-    assert keynotes.budget_left(D(300), 10, [], "#m")[0]["text"] == "About 30.00 a day for the 10 days left this month."
-    assert keynotes.budget_left(D(300), 1, [], "#m")[0]["text"] == "Today is the last day of the month."
+    assert keynotes.per_day(D(300), 10) == "About 30.00 a day for 10 days"
+    assert keynotes.per_day(D(300), 1) == "Today is the last day of the month"
+    assert keynotes.per_day(D(-5), 3) == "Spending passed the plan"
+    assert keynotes.budget_left(D(300), 10, [], "#m") == []  # the Left in plan card already says it
     notes = keynotes.budget_left(D(-50), 0, ["Food", "Fuel", "Fees"], "#m")
-    assert notes[0]["title"] == "Food, Fuel and 1 more over plan" and notes[0]["tone"] == "attention"
-    assert notes[1]["title"] == "50.00 over plan this month"
+    assert len(notes) == 1 and notes[0]["title"] == "Food, Fuel and 1 more over plan" and notes[0]["tone"] == "attention"
+    assert keynotes.budget_left(D(-50), 0, [], "#m")[0]["title"] == "50.00 over plan this month"
 
 
 def test_needs_you_leads_with_the_first_item_and_counts_the_rest():
@@ -93,15 +95,15 @@ def test_needs_you_leads_with_the_first_item_and_counts_the_rest():
 
 def test_recurring_and_loan_notes_answer_share_and_end_date():
     heavy = keynotes.recurring_summary(D(12000), D(20000), D(0))
-    assert heavy["title"] == "Bills take 60% of scheduled income" and heavy["tone"] == "attention"
-    assert "Add your income" in keynotes.recurring_summary(D(500), D(0), D(0))["text"]
+    assert heavy["title"] == "Bills take 60% of your 20,000.00 income" and heavy["tone"] == "attention"
+    assert keynotes.recurring_summary(D(500), D(0), D(0))["title"] == "Add your income to see its share"
 
     class Payment:
         amount, due_date = D(2500), "2026-10-05"
     progress = {"still_to_pay": D(52500), "last_date": "2028-06-05", "due": [], "paid": 3, "total": 24, "next": Payment()}
     loan = keynotes.loans_summary([{"progress": progress}])
     assert loan["title"] == "Paid off on 2028-06-05"
-    assert loan["text"] == "3 of 24 payments made. Next: 2,500.00 on 2026-10-05."
+    assert loan["text"] == "3 of 24 payments made."  # the next payment is on the loan card
     due = keynotes.loans_summary([{"progress": {**progress, "due": [Payment()]}}])
     assert due["title"] == "1 loan payment due now" and due["tone"] == "attention"
 
@@ -147,8 +149,8 @@ def test_every_tab_of_the_demo_opens_with_its_key_notes(demo):
     c, _ = demo
     client = TestClient(create_app(c), base_url="http://127.0.0.1")
     with_notes = ["/", "/budget", "/birdview", "/birdview/expenses", "/investments", "/plan", "/plan/recurring",
-                  "/plan/loans", "/plan/reserves", "/money-from-others"]
-    for url in with_notes + ["/transactions", "/settings"]:
+                  "/plan/loans", "/plan/reserves"]
+    for url in with_notes + ["/money-from-others", "/transactions", "/settings"]:
         page = client.get(url)
         assert page.status_code == 200, url
         if url in with_notes:

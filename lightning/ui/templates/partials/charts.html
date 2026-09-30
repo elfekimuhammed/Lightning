@@ -41,7 +41,7 @@
 {% macro meter(label, used, total, m, href='', note='', target_word='plan') %}
 {% set tag = 'a' if href else 'div' %}
 <{{ tag }} class="chart-meter{{ ' is-over' if m.over }}"{% if href %} href="{{ href }}"{% endif %}>
-  <span class="chart-meter-head"><b>{{ label }}</b>{% if m.over and total %}<span class="chart-badge-over">{{ (used - total)|money }} over</span>{% elif m.left is not none %}<small>{{ m.left|money }} {{ 'left' if target_word == 'plan' else 'to go' }}</small>{% endif %}</span>
+  <span class="chart-meter-head"><b>{{ label }}</b>{% if m.over and total %}<span class="chart-badge-over">{{ (used - total)|money }} over</span>{% elif m.left is not none %}<small>{{ ('On plan' if target_word == 'plan' else 'Reached') if m.left == 0 else (m.left|money ~ (' left' if target_word == 'plan' else ' to go')) }}</small>{% endif %}</span>
   <span class="chart-meter-track"><i style="width:{{ '%.1f'|format(m.width) }}%"></i></span>
   <small class="chart-meter-foot">{{ used|money }} of {{ total|money if total else '—' }}{% if note %} · {{ note }}{% endif %}</small>
 </{{ tag }}>
@@ -57,7 +57,7 @@
     </svg>
     <div class="chart-donut-center"><b>{{ d.total|money }}</b><small>{{ center_label }}</small></div>
   </div>
-  <ul class="chart-legend-list">{% for s in d.segments %}<li><i class="chart-key tone-{{ s.tone }}"></i><span>{{ s.label }}</span><b>{{ '%.1f'|format(s.share) }}%</b><small>{{ s.value|money }} {{ base }}</small></li>{% endfor %}</ul>
+  <ul class="chart-legend-list">{% for s in d.segments %}<li><i class="chart-key tone-{{ s.tone }}"></i><span>{{ s.label }}</span><b>{{ '%.1f'|format(s.share) }}%</b><small>{{ s.value|money }}</small></li>{% endfor %}</ul>
   {% else %}<p class="chart-empty">Nothing to show yet.</p>{% endif %}
 </figure>
 {% endmacro %}
@@ -81,7 +81,7 @@
   {% for n in notes[:3] %}
   <article class="key-note tone-{{ n.tone }}">
     <span class="key-note-icon" aria-hidden="true">{% if n.tone == 'attention' %}<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>{% elif n.tone == 'good' %}<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>{% else %}<svg viewBox="0 0 24 24"><path d="M9 18h6M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.3h6c0-1 .4-1.8 1-2.3A7 7 0 0 0 12 2Z"/></svg>{% endif %}</span>
-    <div><b>{{ n.title }}</b><p>{{ n.text }}</p>{% if n.href %}<a href="{{ n.href }}"{% if n.popup %} data-popup-open{% endif %}>{{ n.action or 'See details' }}</a>{% endif %}</div>
+    <div><b>{{ n.title|keep_dates }}</b>{% if n.text %}<p>{{ n.text|keep_dates }}</p>{% endif %}{% if n.href %}<a href="{{ n.href }}"{% if n.popup %} data-popup-open{% endif %}>{{ n.action or 'See details' }}</a>{% endif %}</div>
   </article>
   {% endfor %}
 </section>{% endif %}

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from urllib.parse import quote, urlsplit
@@ -46,19 +47,36 @@ def _tone(value) -> str:
     return "neg" if value < ZERO else ("pos" if value > ZERO else "zero")
 
 
+def _keep_dates(text) -> Markup:
+    """Dates never break across lines (a narrow key note would split 2026-10-03 at a hyphen)."""
+    return Markup(re.sub(r"\b(\d{4}-\d{2}(?:-\d{2})?)\b", r'<span class="nowrap">\1</span>', str(escape(text))))
+
+
 templates.env.filters["money"] = _money
 templates.env.filters["tone"] = _tone
+templates.env.filters["keep_dates"] = _keep_dates
+
+
+def _units(value) -> str:
+    """A quantity with no trailing zeros: 25 units, 1 piece, 12.5 g, 1,250 shares."""
+    if value is None:
+        return ""
+    text = f"{Decimal(value):,.4f}".rstrip("0").rstrip(".")
+    return text
+
+
+templates.env.filters["units"] = _units
 templates.env.globals["abs"] = abs
 
 
 def _formula(key: str, note: str = "", *more: str) -> Markup:
-    """Under a figure: its formula in one visible line, then one closed "How is this worked out?"
-    toggle with the meaning of it and of the figures it uses (``more``) and an optional note."""
+    """Under a figure: one closed "How is this worked out?" toggle holding its formula, the meaning
+    of it and of the figures it uses (``more``), and an optional note. Nothing extra shows until asked."""
     figure = FIGURES[key]
     line = f'<p class="figure-formula">{escape(figure.equation)}</p>' if figure.formula else ""
     items = "".join(f"<li><b>{escape(FIGURES[k].label)}</b>: {escape(FIGURES[k].meaning)}</li>" for k in (key, *more))
-    body = f"<ul>{items}</ul>" + (f"<p>{escape(note)}</p>" if note else "")
-    return Markup(f'{line}<details class="figure-explain"><summary>How is this worked out?</summary>{body}</details>')
+    body = line + f"<ul>{items}</ul>" + (f"<p>{escape(note)}</p>" if note else "")
+    return Markup(f'<details class="figure-explain"><summary>How is this worked out?</summary>{body}</details>')
 
 
 templates.env.globals["fig"] = FIGURES

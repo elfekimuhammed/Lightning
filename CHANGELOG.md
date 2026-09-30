@@ -8,6 +8,36 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### Crisp pass: one look on every page, less text · 2026-09-30
+- **One type scale:**
+  - Text: 12 (labels), 13 (notes), 14 (body), 15 (key-note titles), 17 (card titles), 20 (sections) and 28 (page titles).
+  - Numbers: 40 (lead card), 30 (other cards) and 24 (tiles).
+  - Pages use 5–10 sizes instead of 10–14, and nothing is smaller than 12 px.
+- **Currency once:** "EGP" appears small beside a card's main number. Row amounts show only the number.
+- **One look for shared parts:**
+  - Card shape, lead-card style and tile style.
+  - One expander with a chevron on the right.
+  - The same button sizes, and one primary action per header.
+  - A settings icon in place of the ⚙ emoji.
+  - "Back" sits with the actions on Settings.
+- **Fixes:**
+  - The Cash planning tabs show which one is open.
+  - Transactions amounts are no longer cut off.
+  - Dates and numbers no longer break across lines.
+  - Tabs don't wrap on a phone.
+- **Less text, nothing said twice:**
+  - Formulas move inside "How is this worked out?".
+  - Key notes only say what the page doesn't already show.
+  - Repeated dates and "As of" labels are removed where the page header gives the period.
+  - "Upcoming" labels are removed; only due payments are marked.
+  - Empty tables show one line instead of headers.
+  - Birdview, Expense analysis and Investments lose the sub-tabs that repeated the sidebar.
+  - Birdview is two cards: What you own (or Net worth) with what it is made of, and If you sold today.
+  - The Plan forecast table has 5 columns.
+  - Investments hides the Horizon column until a horizon is set, and shows units without trailing zeros.
+  - Transactions show the category name without its group (the full path shows on hover), trade descriptions without internal codes, and notes on one line.
+- Word counts fell 20–64% per page (Birdview 403 → 145, Overview 383 → 269, Plan 319 → 201).
+
 ### Demo pass: visuals, key notes and a sample household · 2026-09-30
 - **Key notes:** each main tab opens with up to three one-sentence notes: the answer, what changed, and what needs you. Each note has its number and one link.
   - Overview: safe to spend until payday, or what needs you; the change in what you own; how much of money in you kept.

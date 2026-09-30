@@ -104,7 +104,7 @@ def portfolio_trend(values: list[tuple[str, Decimal | None]]) -> dict:
 
 
 def forecast_trend(forecast) -> dict:
-    """Free cash today, then the forecast's Ends with for each month."""
-    labels = ["Today"] + [m.month for m in forecast.months]
-    values = [forecast.free_cash] + [m.closing for m in forecast.months]
+    """The forecast's Ends with for each month."""
+    labels = [m.month for m in forecast.months]
+    values = [m.closing for m in forecast.months]
     return charts.trend(labels, [{"name": "Ends with", "tone": "hold", "values": values, "area": True}])

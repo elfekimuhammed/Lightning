@@ -306,7 +306,8 @@ def _page(request: Request, month: str, values: dict | None = None, error: str =
     days_left = (month_last - today()).days + 1 if month_first <= today() <= month_last else 0
     notes = keynotes.budget_left(view.available - view.actual, days_left,
                                  [r["label"] for r in meter_lines if r["m"]["over"]], "#budget-meters") if c.budgets.has_plan(month) else []
-    return render(request, "budget.html", notes=notes, meter_lines=meter_lines,
+    left_note = keynotes.per_day(view.available - view.actual, days_left) if c.budgets.has_plan(month) else ""
+    return render(request, "budget.html", notes=notes, meter_lines=meter_lines, left_note=left_note,
                   loan_planned=sum(c.budgets.loan_lines(month).values(), ZERO), status_code=status_code, view=view, month=month,
                   prev_month=prev_month, next_month=next_month, values=values or {}, error=error,
                   has_plan=has_plan, suggestions=suggestions_view,

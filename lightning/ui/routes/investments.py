@@ -223,8 +223,7 @@ async def portfolio(request: Request):
     position = c.position.at(period.end)
     class_results, _ = results_by_asset(c.investments, c.money_from_others, c.reporting, before_day, day)
     notes = [n for n in (keynotes.best_class([{"label": k, "result": v} for k, v in class_results.items()]),
-                         keynotes.at_cost(investment_report.get("at_cost", [])),
-                         keynotes.largest_part(visuals.holdings_donut(position), "your holdings")) if n]
+                         keynotes.at_cost(investment_report.get("at_cost", []))) if n]
     return render(request, "investments/index.html", p=p, asset_class_rows=asset_class_rows,
                   pos=position, notes=notes, investment_donut=visuals.holdings_donut(position),
                   portfolio_chart=visuals.portfolio_trend([(pt["month"], pt["value"]) for pt in investment_trend]),

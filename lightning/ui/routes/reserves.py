@@ -5,7 +5,7 @@ from fastapi import APIRouter, Request, Response
 
 from lightning.core.dates import month_of, today
 from lightning.core.errors import LightningError
-from lightning.core.money import ZERO, fmt, from_e6
+from lightning.core.money import ZERO, from_e6
 from lightning.core.money import to_decimal
 from lightning.transactions.domain import TxnFilter
 from lightning.core.refs import DocType
@@ -48,10 +48,8 @@ def _context(request: Request, error: str = ""):
     set_aside = emergency["effective_allocated"] if emergency else ZERO
     emergency_meter = charts.meter(set_aside, income.six_months) if income.six_months else None
     position = c.position.at(today())
-    notes = [n for n in (keynotes.emergency(emergency_months, income.six_months),
-                         keynotes.note("info", f"{fmt(position.free_cash)} free cash",
-                                       "Cash you own after reserves and bills due. Reserves stay in your accounts.")
-                         if position.free_cash is not None else None) if n]
+    # Free cash is the last tile below, so the one note is how long the emergency fund lasts.
+    notes = [n for n in (keynotes.emergency(emergency_months, income.six_months),) if n]
     return {"reserves": listed, "completed_reserves": completed, "notes": notes, "emergency_meter": emergency_meter,
             "emergency_set_aside": set_aside,
             "emergency": emergency, "income": income, "emergency_months": emergency_months,

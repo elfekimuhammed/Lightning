@@ -1,23 +1,22 @@
 {% extends "base.html" %}
 {% block title %}{{ fig.held_for_others.label }}{% endblock %}
 {% block heading %}<h1>{{ fig.held_for_others.label }}</h1><p class="muted">{{ fig.held_for_others.meaning }} It is left out of {{ fig.what_you_own.label|lower }}.</p>{% endblock %}
+{% block top_actions %}{% if held_total %}<b class="section-total">{{ held_total|money }} <small>{{ base }} in all</small></b>{% endif %}{% endblock %}
 {% block content %}
-{% from "partials/charts.html" import key_notes %}
-{{ key_notes(notes) }}
 <section class="card data-panel">
-  <div class="section-head"><div><h2>Cash</h2><p class="muted small">By person and account.</p></div></div>
-  <table><thead><tr><th>Held for</th><th>Account</th><th class="num">Amount held</th></tr></thead><tbody>
-  {% for row in owners %}<tr><td>{{ row.owner }}</td><td>{{ row.account_name }}</td><td class="num">{{ row.amount|money }} {{ row.currency }}</td>
-  {% else %}<tr><td class="empty" colspan="3">No cash is held for others.</td></tr>{% endfor %}
-  </tbody></table>
+  <div class="section-head"><div><h2>Cash</h2></div></div>
+  {% if owners %}<table><thead><tr><th>Held for</th><th>Account</th><th class="num">Amount held</th></tr></thead><tbody>
+  {% for row in owners %}<tr><td>{{ row.owner }}</td><td>{{ row.account_name }}</td><td class="num">{{ row.amount|money }}</td>
+  {% endfor %}
+  </tbody></table>{% else %}<p class="muted">No cash is held for others.</p>{% endif %}
 </section>
 <section class="card data-panel">
-  <div class="section-head"><div><h2>Investments</h2><p class="muted small">Current ownership by person and account.</p></div></div>
-  <table><thead><tr><th>Held for</th><th>Account</th><th>Investment</th><th class="num">Units</th><th class="num">Value</th></tr></thead><tbody>
+  <div class="section-head"><div><h2>Investments</h2></div></div>
+  {% if investments %}<table><thead><tr><th>Held for</th><th>Account</th><th>Investment</th><th class="num">Units</th><th class="num">Value</th></tr></thead><tbody>
   {% for row in investments %}<tr><td>{{ row.owner }}</td><td>{{ row.account_name }}</td><td>{{ row.asset_name }}</td>
-    <td class="num">{{ row.units|money(False, 4) }} {{ row.unit }}</td><td class="num">{{ row.value|money if row.value is not none else '—' }} {{ row.currency }}</td>
-  {% else %}<tr><td colspan="5" class="empty">No investments are marked as held for others.</td></tr>{% endfor %}
-  </tbody></table>
+    <td class="num">{{ row.units|units }} {{ row.unit }}</td><td class="num">{{ row.value|money if row.value is not none else '—' }}</td>
+  {% endfor %}
+  </tbody></table>{% else %}<p class="muted">No investments are held for others.</p>{% endif %}
 </section>
 <details class="card"><summary><b>How to record ownership</b></summary>
   <p class="muted">Use the account’s transaction form and choose the person in <b>Held for</b>. For cash already held for someone else, record money in; record a return with a negative amount. Both paths update the owner’s balance.</p>

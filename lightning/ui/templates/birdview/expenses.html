@@ -1,31 +1,28 @@
 {% extends "base.html" %}
 {% block title %}Expense analysis · Birdview{% endblock %}
 {% block top_actions %}{% from "partials/macros.html" import period_control %}{{ period_control("/birdview/expenses", period, month, this_month, date_from, date_to, category_filter) }}{% endblock %}
-{% block heading %}<div class="birdview-title"><div><h1>Expense analysis</h1><div class="muted small">{% if category_name %}{{ category_name }} · {% endif %}{{ start_display }} to {{ end_display }}</div></div></div>{% endblock %}
+{% block heading %}<div class="birdview-title"><div><h1>Expense analysis</h1><div class="muted small">{{ category_name if category_name else "Where your money went" }}</div></div></div>{% endblock %}
 {% block content %}
-<nav class="birdview-tabs"><a href="/birdview?period={{ period }}&amp;month={{ month }}&amp;date_from={{ custom_from }}&amp;date_to={{ custom_to }}{% if category_filter %}&amp;category_id={{ category_filter }}{% endif %}">Wealth composition</a><a class="selected" href="/birdview/expenses?period={{ period }}&amp;month={{ month }}&amp;date_from={{ custom_from }}&amp;date_to={{ custom_to }}{% if category_filter %}&amp;category_id={{ category_filter }}{% endif %}">Expense analysis</a><a href="/investments?period={{ period }}&amp;month={{ month }}&amp;date_from={{ custom_from }}&amp;date_to={{ custom_to }}">Investments</a></nav>
 {% from "partials/charts.html" import key_notes, bars, trend %}
 {% if error %}<div class="flash error">{{ error }}</div>{% endif %}
 {% if category_filter %}<p class="muted small"><a href="/birdview/expenses?period={{ period }}&amp;month={{ month }}&amp;date_from={{ custom_from }}&amp;date_to={{ custom_to }}">All spending</a> / {{ category_name }}</p>{% endif %}
-<section class="pair" aria-label="Spending summary">
-  <article class="card metric-card--focal expense-lead"><div class="section-head"><div><h2>{{ fig.money_out.label }}{{ ' · ' ~ category_name if category_name }}</h2><p>{{ start_display }} to {{ end_display }}</p></div><a class="quiet-link" href="/transactions?{% if category_filter %}category_id={{ category_filter }}&amp;{% endif %}date_from={{ date_from }}&amp;date_to={{ date_to }}">Transactions</a></div>
+{{ key_notes(notes) }}
+<section aria-label="Spending summary">
+  <article class="card lead-card expense-lead"><div class="section-head"><div><h2>{{ fig.money_out.label }}{{ ' · ' ~ category_name if category_name }}</h2></div><a class="quiet-link" href="/transactions?{% if category_filter %}category_id={{ category_filter }}&amp;{% endif %}date_from={{ date_from }}&amp;date_to={{ date_to }}">Transactions</a></div>
     <div class="plan-figure">{{ spending_total|money }} <small>{{ base }}</small></div>
-    {% if prior_spending is not none %}{% set change = spending_total-prior_spending %}<p class="expense-compare">{% if change < 0 %}{{ change|abs|money }} less{% elif change > 0 %}{{ change|money }} more{% else %}The same{% endif %} than before · {{ prior_spending|money }} {{ base }} then</p>{% endif %}
     {{ formula('money_out') }}
   </article>
-  <div>{{ key_notes(notes) }}</div>
 </section>
 {% if spending_total == 0 and not l1 and not l2 %}
 <section class="card empty"><h2>No spending in this period</h2><p>Try a longer period, or review the transactions recorded for these dates.</p><a class="btn" href="/transactions?date_from={{ date_from }}&amp;date_to={{ date_to }}">View transactions</a></section>
 {% else %}
 <div class="workspace-grid">
-  <section class="card data-panel"><div class="section-head"><div><h2>Where did it go?</h2><p class="muted small">{{ 'Inside ' ~ category_name if category_filter else 'By category' }} · largest first · select one for its transactions</p></div></div>
+  <section class="card data-panel"><div class="section-head"><div><h2>Where did it go?</h2><p class="muted small">{{ 'Inside ' ~ category_name if category_filter else 'By category' }}, largest first</p></div></div>
     {{ bars(category_bars, 'spend', 'No spending in this period.') }}
   </section>
   <section class="card data-panel"><div class="section-head"><div><h2>When did it change?</h2><p class="muted small">Money out per month{{ ' against this month\'s plan' if not category_filter }}</p></div></div>
     {{ trend(spend_trend, 'Money out per month', 'Plan') }}
   </section>
 </div>
-<p class="analysis-followup"><a class="btn" href="/transactions?{% if category_filter %}category_id={{ category_filter }}&amp;{% endif %}date_from={{ date_from }}&amp;date_to={{ date_to }}">Explain with transactions</a></p>
 {% endif %}
 {% endblock %}

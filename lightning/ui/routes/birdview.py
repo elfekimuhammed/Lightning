@@ -87,8 +87,8 @@ async def birdview(request: Request):
         row["target_value"] = investment_value * target / 100 if target is not None else None
         row["to_target"] = row["target_value"] - row["value"] if target is not None else None
     wealth_donut = visuals.holdings_donut(position, include_deposits=True, include_cash=True)
-    notes = [n for n in (keynotes.largest_part(wealth_donut, "what you own"), keynotes.cash_share(position),
-                         keynotes.sale_cost(position)) if n]
+    # The donut already shows each part's share, so the only note is what selling would cost.
+    notes = [n for n in (keynotes.sale_cost(position),) if n]
     return render(request, "birdview.html", notes=notes, wealth_donut=wealth_donut,
                   period=selected.key, month=last.strftime("%Y-%m"),
                   custom_from=request.query_params.get("date_from", ""), custom_to=request.query_params.get("date_to", ""),

@@ -8,9 +8,10 @@
 {% from "partials/charts.html" import key_notes %}
 {{ key_notes(notes) }}
 <section class="plan-section" aria-labelledby="recurring-totals">
-  <header class="overview-section-head"><h2 id="recurring-totals">Every month</h2><span>As of {{ as_of }}</span></header>
+  <header class="overview-section-head"><h2 id="recurring-totals">Every month</h2></header>
   <article class="card">
-    <div class="section-head"><div><h2>{{ monthly_out|money }} <small class="muted">{{ base }} a month</small></h2><p>Bills and subscriptions, largest first{% if monthly_in %} · scheduled income {{ monthly_in|money }} a month{% endif %}</p></div></div>
+    <div class="section-head"><div><h2>Bills and subscriptions</h2><p>Largest first</p></div></div>
+    <div class="plan-figure plan-figure-small">{{ monthly_out|money }} <small>{{ base }} a month</small></div>
     {% from "partials/charts.html" import bars %}{{ bars(bill_bars, 'spend', 'No bills or subscriptions yet.') }}
   </article>
 </section>
@@ -33,7 +34,7 @@
 {% if suggestions %}<section class="plan-section" aria-labelledby="recurring-suggest">
   <header class="overview-section-head"><h2 id="recurring-suggest">Looks recurring</h2><span>From your last six months</span></header>
   <article class="card">
-    <p class="muted small">These repeated about monthly with a similar amount. Nothing is tracked until you add it.</p>
+    <p class="muted small">Repeated about monthly. Track one to plan for it.</p>
     <div class="compact-list">{% for s in suggestions %}
       <div class="compact-row plan-item-row">
         <span><b>{{ s.name }}</b><small class="muted">{{ s.months }} months · usually around day {{ s.day }} · last {{ s.last_date }}</small></span>
