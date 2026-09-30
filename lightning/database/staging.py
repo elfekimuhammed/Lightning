@@ -13,7 +13,7 @@ from uuid import uuid4
 
 from .connection import Database
 from .migrator import inspect_schema
-from .snapshot import export_snapshot, _remove_partial
+from .snapshot import export_snapshot
 
 
 @dataclass(frozen=True)
@@ -40,7 +40,6 @@ def stage_database(source: Path, folder: Path, *, destination_key: bytes,
         # The regular browser Database continues to use stock SQLite.
         from sqlcipher3 import dbapi2
         db.driver = dbapi2
-    target = None
     try:
         if not db.has_table("schema_migrations"):
             raise ValueError("The selected file is not a recognized Lightning database")
@@ -51,9 +50,5 @@ def stage_database(source: Path, folder: Path, *, destination_key: bytes,
         target = folder / f"Import_{day}_{sequence:03d}_{uuid4().hex}.partial"
         export_snapshot(db.conn, target, key=destination_key, source_encrypted=source_key is not None)
         return StagedDatabase(target, inspection.current_version)
-    except BaseException:
-        if target is not None:
-            _remove_partial(target)
-        raise
     finally:
         db.close()

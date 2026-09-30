@@ -14,6 +14,29 @@ from lightning.database.snapshot import snapshot
 KEY = bytes(range(32))  # Public test key, never used outside scratch fixtures.
 
 
+def test_full_sample_household_balances_survive_encrypted_backup(tmp_path, monkeypatch):
+    from datetime import date
+    from decimal import Decimal
+    from lightning.demo import build_demo
+    monkeypatch.setenv("LIGHTNING_TODAY", "2026-09-30")
+    c = build(tmp_path / "Household.db", key=KEY)
+    day = date(2026, 9, 30)
+    assert build_demo(c, as_of=day)["accounts"] == 6
+    expected = c.position.at(day)
+    assert expected.holdings_value == Decimal("77902.50")
+    assert expected.held_for_others == 10000
+    assert expected.loans_still_to_pay == 52500
+    assert expected.net_worth == expected.what_you_own - expected.what_you_owe
+    assert expected.free_cash == expected.cash_you_own - expected.reserves - expected.bills_due
+    saved = c.backup_now()
+    c.db.close()
+    restored = build(saved, key=KEY)
+    actual = restored.position.at(day)
+    for field in ("net_worth", "free_cash", "holdings_value", "held_for_others", "loans_still_to_pay"):
+        assert getattr(actual, field) == getattr(expected, field)
+    restored.db.close()
+
+
 def test_encrypted_finance_roundtrip_and_backup(tmp_path):
     path = tmp_path / "أسرة personal.db"
     c = build(path, key=KEY)
@@ -176,3 +199,18 @@ def test_backup_names_sequences_and_profile_isolation(tmp_path):
     assert [entry.path for entry in list_backups(folder, first.path)] == [personal2]
     first.close()
     second.close()
+
+
+def test_backup_cleanup_does_not_delete_unowned_partial(tmp_path, monkeypatch):
+    from importlib import import_module
+    module = import_module("lightning.database.backup")
+    db = Database(tmp_path / "x.db", key=KEY)
+    db.execute("CREATE TABLE sample(value INTEGER)")
+    def collision(db, target):
+        target.write_bytes(b"another operation")
+        raise FileExistsError(target)
+    monkeypatch.setattr(module, "snapshot", collision)
+    with pytest.raises(FileExistsError):
+        backup(db, tmp_path / "backups")
+    assert [p.read_bytes() for p in (tmp_path / "backups").iterdir()] == [b"another operation"]
+    db.close()

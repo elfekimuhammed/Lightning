@@ -26,7 +26,8 @@ jobs:
           python -m pip install --require-hashes --only-binary=:all: -r requirements/build-tools.lock
           python -m pip install --require-hashes --only-binary=:all: --no-binary=proxy-tools --no-build-isolation -r requirements/desktop-probe-win.lock
       - name: Test finance regressions, profiles, encrypted storage and Windows adapters
-        run: python -m pytest -o addopts= -q
+        timeout-minutes: 10
+        run: python -m pytest -o addopts= -o faulthandler_timeout=60 -vv
       - name: Check import contracts
         run: lint-imports
       - name: Build one-folder executable

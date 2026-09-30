@@ -8,7 +8,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
-### Desktop profiles and encrypted storage foundations · 2026-09-30
+### Desktop profiles and encrypted storage foundations · 2026-10-01
 - Add Documents/Lightning profile paths, explicit alternate locations, read-only discovery, human-readable date/sequence/ID names and OS-backed profile locks. This is the upcoming launcher's storage contract; existing user files are not moved.
 - Add an opt-in SQLCipher database driver, verified encrypted snapshots and explicit staged legacy import/recovery candidates that preserve their sources. Password screens and live restore are not yet connected.
 - Commit migration SQL and its bookkeeping atomically, validate schema/resources before writes, and require protected verified pre-upgrade backups before upgrading existing data.

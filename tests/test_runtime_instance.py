@@ -20,13 +20,14 @@ def test_lock_reentry_conflict_and_idempotent_close(tmp_path):
             InstanceLock(paths.lock_path).acquire()
         with pytest.raises(InstanceAlreadyRunning):
             first.acquire()
-        assert f"pid={os.getpid()}" in paths.lock_path.read_text()
     finally:
         first.close()
         first.close()
 
     assert not first.acquired
     assert paths.lock_path.exists()  # persistent inode: never unlink on release
+    # Windows byte-range locks also block reads through a second descriptor.
+    assert f"pid={os.getpid()}" in paths.lock_path.read_text()
 
 
 def test_subprocess_cannot_enter_until_descriptor_is_released(tmp_path):

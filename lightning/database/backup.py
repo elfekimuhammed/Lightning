@@ -53,8 +53,12 @@ def backup(db: Database, folder: str | Path, keep: int = 30, *,
     sequence = max(sequences, default=0) + 1
     target = folder / f"{prefix}{sequence:03d}_{uuid4().hex[:8]}.db"
     staging = target.with_suffix(".partial")
+    created = False
     try:
         snapshot(db, staging)
+        created = True
+        if target.exists():
+            raise FileExistsError(target)
         os.replace(staging, target)
         if os.name != "nt":
             directory_fd = os.open(folder, os.O_RDONLY)
@@ -63,7 +67,8 @@ def backup(db: Database, folder: str | Path, keep: int = 30, *,
             finally:
                 os.close(directory_fd)
     except BaseException:
-        staging.unlink(missing_ok=True)
+        if created:
+            staging.unlink(missing_ok=True)
         raise
     backups = [entry.path for entry in list_backups(folder, db.path) if not entry.pre_upgrade]
     for old in backups[keep:] if keep > 0 else []:

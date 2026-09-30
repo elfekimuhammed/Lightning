@@ -75,3 +75,16 @@ def test_unrecognized_or_newer_source_rejected_without_output(tmp_path):
     with pytest.raises(ValueError, match="newer or unknown"):
         stage_database(source, tmp_path / "stage", destination_key=KEY)
     assert not (tmp_path / "stage").exists()
+
+
+def test_staging_does_not_delete_an_unowned_collision(tmp_path, monkeypatch):
+    from lightning.database import staging
+    source = tmp_path / "original.db"
+    build(source).db.close()
+    def collision(conn, target, **kwargs):
+        target.write_bytes(b"belongs to another operation")
+        raise FileExistsError(target)
+    monkeypatch.setattr(staging, "export_snapshot", collision)
+    with pytest.raises(FileExistsError):
+        stage_database(source, tmp_path / "stage", destination_key=KEY)
+    assert [p.read_bytes() for p in (tmp_path / "stage").iterdir()] == [b"belongs to another operation"]
