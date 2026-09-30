@@ -161,7 +161,19 @@ async def dashboard(request: Request):
         if reserve.get("due_date") and reserve["due_date"] < fmt_date(today()) and reserve["effective_allocated"] > ZERO:
             attention.append({"label": f"Overdue reserve: {reserve['name']}",
                               "detail": f"Due {reserve['due_date']} · {fmt(reserve['effective_allocated'])} {c.base_currency} remains assigned.",
-                              "href": "/reserves", "priority": 2})
+                              "href": "/plan/reserves", "priority": 2})
+    # Payments that are due and unpaid today, whatever period is selected.
+    for payment in c.planning.what_you_owe(today()).bills_due_items:
+        kind = "Loan payment due" if payment.item.kind.value == "LOAN" else "Bill due"
+        attention.append({"label": f"{kind}: {payment.item.name}",
+                          "detail": f"Due {payment.due_date} · {fmt(payment.amount)} {c.base_currency} · not paid yet.",
+                          "href": f"/plan/items/{payment.item.id}/pay?due={payment.due_date}&back=%2F",
+                          "popup": True, "action": "Mark paid", "priority": 1})
+    lowest = c.forecaster.forecast(today()).lowest
+    if lowest is not None and lowest.closing < ZERO:
+        attention.append({"label": "Cash may run short",
+                          "detail": f"The cash forecast ends {lowest.month} at {fmt(lowest.closing)} {c.base_currency}.",
+                          "href": "/plan", "priority": 1})
     current_budget = c.budgets.month_view(month_of(today()))
     for section in current_budget.sections:
         if section.planned_actual > section.available:

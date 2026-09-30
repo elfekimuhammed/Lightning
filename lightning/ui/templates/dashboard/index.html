@@ -71,7 +71,7 @@
 
   <section class="overview-block overview-attention-card" aria-labelledby="attention-heading">
     <div class="overview-block-head"><div><h2 id="attention-heading">Needs my attention</h2><p>Current items, independent of the selected period</p></div></div>
-    {% if attention %}<div class="overview-inline-list">{% for item in attention %}<a class="overview-action-row" href="{{ item.href }}"><span><b>{{ item.label }}</b><small>{{ item.detail }}</small></span><span>Review</span></a>{% endfor %}</div>{% else %}<p class="muted small">Nothing needs attention right now.</p>{% endif %}
+    {% if attention %}<div class="overview-inline-list">{% for item in attention %}<a class="overview-action-row" href="{{ item.href }}"{% if item.popup %} data-popup-open{% endif %}><span><b>{{ item.label }}</b><small>{{ item.detail }}</small></span><span>{{ item.action or 'Review' }}</span></a>{% endfor %}</div>{% else %}<p class="muted small">Nothing needs attention right now.</p>{% endif %}
   </section>
 
   <section class="overview-block overview-investment-card" aria-labelledby="investments-heading">
