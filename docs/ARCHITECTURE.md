@@ -3,11 +3,28 @@
 ## Document status
 
 - **Last updated:** 2026-09-30
-- **Document revision:** 2026-09-30.1
+- **Document revision:** 2026-09-30.2
 - **App version:** 0.3.0 (`lightning/__init__.py`); packaging metadata in `pyproject.toml` still says 0.1.0.
 - **Role:** module boundaries and financial calculation contracts. Product workflow and roadmap live in [Project Overview](PROJECT_OVERVIEW.md); term definitions live in [Glossary](GLOSSARY.md).
 
 Lightning is a local-first, single-user **modular monolith**: one Python process, one SQLite database, and a server-rendered browser UI. The architecture prioritizes correctness, understandable ownership of data, and adding new financial-asset types without duplicating transaction logic.
+
+## Three layers: ledger, plan, report
+
+The product has three layers. They are separate from the import layers below: they describe what the data *is*, not which package may import which.
+
+| Layer | Holds | Modules | Moves money? |
+|---|---|---|---|
+| **Ledger** (real money) | Accounts, posted transactions and their ledger lines, prices and valuations, custody (held for others) | `accounts`, `transactions`, `assets`, trades in `investments`, `money_from_others`, `physical_items` | Yes. Only `TransactionService` writes postings. |
+| **Plan** (what-if) | Budget rules and carryover, reserves (amounts set aside), planned items and their payments, sale factors, the cash forecast | `budgeting`, `reserves`, `planning` | No. A plan never changes a ledger balance. "Record and mark paid" posts an ordinary transaction through `TransactionService`, and the plan then links to it. |
+| **Report** | Nothing of its own: figures computed on read from the ledger and the plan | `reporting`, `planning.position` (`PositionService`), `investments.report`, `integrity`, `ui` | No. |
+
+Rules:
+
+- **Real money is only what the ledger says.** Cash you own, holdings value, money in and out, and investment results are ledger figures. A budget, a reserve, a scheduled bill or a forecast never appears in them.
+- **A plan figure is labelled as one.** What you owe, reserves, planned amounts, safe to spend, the forecast and every "(estimate)" figure come from the plan, alone or combined with the ledger.
+- **Report figures are formulas of the other two.** Each figure has one name, one formula and one function, listed in `lightning/core/figures.py` with its layer (Ledger, Plan, or Ledger + Plan). The Glossary's figure tables are generated from that file (`python -m lightning.core.figures`), and `tests/test_figures.py` checks that they match and that every named function exists.
+- **Routes never compute figures.** A screen calls the function named in the registry; for example the Overview reads `PositionService.at`, `CashFlow.savings_rate`, `PositionService.change_in_what_you_own`, `investment_period` and `results_by_asset`.
 
 ## Runtime and dependency direction
 

@@ -16,7 +16,7 @@ never re-adds balances its own way. The names match docs/GLOSSARY.md and the UI 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 from lightning.core.dates import fmt_date, parse_date, today
@@ -213,6 +213,23 @@ class PositionService:
             rows = [{"id": r["id"], "name": r["name"], "kind": r["kind"],
                      "effective_allocated": r["effective_allocated"]} for r in self.reserves.list_active()]
         return rows
+
+    def change_in_what_you_own(self, start: date | str, end: date | str,
+                               since_first_record: bool = False) -> tuple[Decimal | None, str]:
+        """Change in what you own = What you own at the end − What you own the day before the start.
+
+        Returns (change, reason); change is None, with the reason, when a valuation is missing."""
+        start_day, end_day = parse_date(start), parse_date(end)
+        closing = self.reporting.net_worth(fmt_date(end_day))
+        if closing.unvalued:
+            return None, "A required valuation is missing from the ending position."
+        if since_first_record and not self.reporting.first_activity_date():
+            return None, "No recorded position is available for comparison."
+        opening = self.reporting.net_worth(fmt_date(start_day - timedelta(days=1)))
+        if opening.unvalued:
+            return None, ("The first recorded position is missing a required valuation." if since_first_record
+                          else "The position immediately before this period is missing a required valuation.")
+        return closing.total - opening.total, ""
 
     def at(self, as_of: date | str | None = None) -> Position:
         day = parse_date(as_of) if as_of is not None else today()

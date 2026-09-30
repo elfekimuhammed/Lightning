@@ -77,10 +77,31 @@ def test_formulas_only_use_names_from_the_table():
         rest = figure.formula
         for name in labels:
             rest = rest.replace(name, "")
-        rest = re.sub(r"\b(at the end|at the start|the day before the start|of each class|its sale factor|"
+        rest = re.sub(r"\b(last month|at the end|at the start|the day before the start|of each class|its sale factor|"
                       r"sale factor|other than loan payments|before next income|this month|Payments)\b", "", rest)
         leftover = re.sub(r"[\s+−÷×Σ()]", "", rest)
         assert not leftover, f"{figure.key}: {figure.formula!r} uses a name that is not in the table ({leftover})"
+
+
+def test_glossary_section_is_generated_from_the_registry_and_every_function_exists():
+    import importlib
+    from lightning.core.figures import END, START, glossary_markdown
+    glossary = (ROOT / "docs" / "GLOSSARY.md").read_text()
+    section = glossary.split(START, 1)[1].split(END, 1)[0]
+    assert section.strip() == glossary_markdown().strip(), "run: python -m lightning.core.figures"
+    for figure in FIGURES.values():
+        assert figure.layer in ("Ledger", "Plan", "Ledger + Plan"), figure.key
+        parts = figure.function.split(".")
+        for cut in range(len(parts) - 1, 0, -1):  # longest importable module prefix, then attributes
+            try:
+                target = importlib.import_module(".".join(parts[:cut]))
+                break
+            except ModuleNotFoundError:
+                continue
+        for attribute in parts[cut:]:
+            fields = getattr(target, "__dataclass_fields__", {})
+            target = fields[attribute] if attribute in fields else getattr(target, attribute)
+        assert target is not None, figure.function
 
 
 def test_glossary_lists_every_figure_and_screens_use_no_retired_name():

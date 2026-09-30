@@ -16,7 +16,7 @@ from ..web import container, redirect, render
 from ..charts import line_chart
 from ...assets.catalog import instruments
 from ..periods import parse_period
-from ...investments.report import build_investment_report
+from ...investments.report import build_investment_report, investment_period
 
 router = APIRouter(prefix="/investments")
 
@@ -72,15 +72,11 @@ async def portfolio(request: Request):
     except LightningError:
         period = parse_period({}, today_date)
     day = period.end_text
-    investment_report = build_investment_report(c.db, c.accounts, c.assets, c.reporting,
-                                                period.start_text, period.end_text)
+    investment_report = investment_period(c.db, c.accounts, c.assets, c.reporting,
+                                          period.start_text, period.end_text)
+    opening_report = investment_report["opening"]
     p = c.investments.portfolio(day)
     before_day = fmt_date(period.start.fromordinal(period.start.toordinal()-1))
-    opening_report = build_investment_report(c.db, c.accounts, c.assets, c.reporting,
-                                             period.start_text, before_day)
-    investment_report["unrealized_change"] = (None if investment_report["unrealized"] is None or
-                                               opening_report["unrealized"] is None else
-                                               investment_report["unrealized"] - opening_report["unrealized"])
     invest_ids = [a.id for a in c.investments.investment_accounts()]
     opening_adjustments = c.investments.opening_adjustments(invest_ids, period.start_text, period.end_text)
     investment_report["recon_opening"] = (opening_report["investment_cash"] + opening_report["value"]
@@ -90,9 +86,7 @@ async def portfolio(request: Request):
                                             if investment_report["value"] is not None and
                                             investment_report["investment_cash"] is not None else None)
     investment_report["opening_adjustments"] = opening_adjustments
-    investment_report["recon_result"] = (investment_report["realized"] + investment_report["unrealized_change"] +
-                                           investment_report["dividends"]
-                                           if investment_report["unrealized_change"] is not None else None)
+    investment_report["recon_result"] = investment_report["result"]
     investment_report["recon_difference"] = (
         investment_report["recon_closing"] - investment_report["recon_opening"] -
         investment_report["net_money"] - investment_report["recon_result"] - opening_adjustments
