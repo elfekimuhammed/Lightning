@@ -3,14 +3,14 @@
 {% block heading %}<h1>{{ fig.held_for_others.label }}</h1><p class="muted">{{ fig.held_for_others.meaning }} It is left out of {{ fig.what_you_own.label|lower }}.</p>{% endblock %}
 {% block top_actions %}{% if held_total %}<b class="section-total">{{ held_total|money }} <small>{{ base }} in all</small></b>{% endif %}{% endblock %}
 {% block content %}
-<section class="card data-panel">
+<section class="card data-panel wide-card">
   <div class="section-head"><div><h2>Cash</h2></div></div>
   {% if owners %}<table><thead><tr><th>Held for</th><th>Account</th><th class="num">Amount held</th></tr></thead><tbody>
   {% for row in owners %}<tr><td>{{ row.owner }}</td><td>{{ row.account_name }}</td><td class="num">{{ row.amount|money }}</td>
   {% endfor %}
   </tbody></table>{% else %}<p class="muted">No cash is held for others.</p>{% endif %}
 </section>
-<section class="card data-panel">
+<section class="card data-panel wide-card">
   <div class="section-head"><div><h2>Investments</h2></div></div>
   {% if investments %}<table><thead><tr><th>Held for</th><th>Account</th><th>Investment</th><th class="num">Units</th><th class="num">Value</th></tr></thead><tbody>
   {% for row in investments %}<tr><td>{{ row.owner }}</td><td>{{ row.account_name }}</td><td>{{ row.asset_name }}</td>

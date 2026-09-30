@@ -90,6 +90,7 @@ async def birdview(request: Request):
     # The donut already shows each part's share, so the only note is what selling would cost.
     notes = [n for n in (keynotes.sale_cost(position),) if n]
     return render(request, "birdview.html", notes=notes, wealth_donut=wealth_donut,
+                  flow_trend=visuals.flow_trend(c, last),
                   period=selected.key, month=last.strftime("%Y-%m"),
                   custom_from=request.query_params.get("date_from", ""), custom_to=request.query_params.get("date_to", ""),
                   date_from=fmt_date(first), date_to=fmt_date(last), range_start_display=selected.start_display,

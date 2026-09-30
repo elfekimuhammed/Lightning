@@ -1235,3 +1235,69 @@ document.querySelectorAll("[data-month-picker]").forEach((picker) => {
   });
   updateButtons();
 });
+
+// Month picker: every month box (class "month-input") opens a small popup instead of being typed.
+// The year and the month are picked separately, so going back years is one tap per year.
+(() => {
+  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const now = new Date();
+  const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  let open = null;
+  const close = () => { if (open) { open.pop.remove(); open.input.setAttribute("aria-expanded", "false"); open = null; } };
+  const maxFor = (input) => input.dataset.maxMonth || input.closest("[data-current-month]")?.dataset.currentMonth || "";
+  function show(input) {
+    close();
+    const max = maxFor(input);
+    const valid = /^\d{4}-\d{2}$/.test(input.value) ? input.value : (max || thisMonth);
+    let year = Number(valid.slice(0, 4));
+    const pop = document.createElement("div");
+    pop.className = "month-popup";
+    pop.setAttribute("role", "dialog");
+    pop.setAttribute("aria-label", "Choose a month");
+    const render = () => {
+      const maxYear = max ? Number(max.slice(0, 4)) : 9999;
+      pop.innerHTML = `<div class="month-popup-year"><button type="button" data-year="-1" aria-label="Previous year">‹</button><b>${year}</b><button type="button" data-year="1" aria-label="Next year" ${year >= maxYear ? "disabled" : ""}>›</button></div>`
+        + `<div class="month-popup-grid">${MONTHS.map((name, i) => {
+          const value = `${year}-${String(i + 1).padStart(2, "0")}`;
+          const disabled = max && value > max;
+          return `<button type="button" data-value="${value}" class="${value === input.value ? "selected" : ""}" ${disabled ? "disabled" : ""}>${name}</button>`;
+        }).join("")}</div>`
+        + (input.required || input.closest("[data-month-picker]") ? "" : `<button type="button" class="month-popup-clear" data-value="">Any month</button>`);
+    };
+    render();
+    pop.addEventListener("click", (event) => {
+      event.stopPropagation();  // a redrawn year row detaches the clicked button; it is still inside
+      const button = event.target.closest("button");
+      if (!button || button.disabled) return;
+      event.preventDefault();
+      if (button.dataset.year) { year += Number(button.dataset.year); render(); return; }
+      input.value = button.dataset.value;
+      input.setCustomValidity("");
+      close();
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    document.body.appendChild(pop);
+    const box = input.getBoundingClientRect();
+    const left = Math.min(box.left + window.scrollX, window.scrollX + document.documentElement.clientWidth - pop.offsetWidth - 12);
+    pop.style.left = `${Math.max(12, left)}px`;
+    pop.style.top = `${box.bottom + window.scrollY + 6}px`;
+    input.setAttribute("aria-expanded", "true");
+    open = { input, pop };
+    pop.querySelector("button.selected, .month-popup-grid button:not([disabled])")?.focus();
+  }
+  document.querySelectorAll("input.month-input").forEach((input) => {
+    input.readOnly = true;
+    input.classList.add("month-picker-box");
+    input.setAttribute("aria-haspopup", "dialog");
+    input.addEventListener("click", () => (open?.input === input ? close() : show(input)));
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " " || event.key === "ArrowDown") { event.preventDefault(); show(input); }
+      if (event.key === "Escape") close();
+    });
+  });
+  document.addEventListener("click", (event) => {
+    if (open && !open.pop.contains(event.target) && event.target !== open.input) close();
+  });
+  document.addEventListener("keydown", (event) => { if (event.key === "Escape") close(); });
+  window.addEventListener("resize", close);
+})();

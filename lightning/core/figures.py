@@ -100,7 +100,7 @@ _TABLE = [
      "Unrealized gain at the end − Unrealized gain at the start"),
     ("realized_gain", "Realized gain", "Sale proceeds less the cost of the units sold."),
     ("dividends_and_interest", "Dividends and interest", "Distributions and interest received."),
-    ("result", "Result", "What your investments earned in the period.",
+    ("result", "Net gain or loss", "What your investments earned or lost in the period: sales, price changes and payouts.",
      "Realized gain + Change in unrealized gain + Dividends and interest"),
     ("new_money_in", "New money in", "Cash moved into investment accounts from outside, less cash taken out."),
     # ------------------------------------------------------------ cash planning
@@ -184,7 +184,7 @@ RETIRED_NAMES = {
     "Invested capital": "cost", "What you paid in total": "cost",
     "Unrealized gain/loss": "unrealized_gain", "Change in unrealized value": "change_in_unrealized_gain",
     "Realized gain or loss": "realized_gain", "Distributions": "dividends_and_interest",
-    "Investment result": "result", "Period result": "result", "Period gain/loss": "result",
+    "Investment result": "result", "Period result": "result", "Period gain/loss": "result", "Result": "result",
     "New money added this period": "new_money_in", "Cash added and withdrawn": "new_money_in",
 }
 

@@ -21,7 +21,7 @@
   <a class="metric-card" href="/plan"><div class="metric-label">{{ fig.bills_due.label }}</div><div class="metric-value">{{ pos.bills_due|money }} <small>{{ base }}</small></div></a>
   <div class="metric-card metric-card--focal"><div class="metric-label">{{ fig.free_cash.label }}</div><div class="metric-value {{ pos.free_cash|tone }}">{{ pos.free_cash|money }} <small>{{ base }}</small></div></div>
 </section>
-{{ formula('free_cash', fig.cash_you_own.label ~ ' includes ' ~ fig.brokerage_cash.label|lower ~ '. Move that part to a bank or wallet before everyday spending.') }}
+
 <section class="card emergency-fund">
   <div class="section-head"><div><h2>Emergency fund</h2><p>Money set aside for the unexpected</p></div></div>
   {% if emergency_meter %}<div class="emergency-meter">{{ meter('Towards six months of income', emergency_set_aside, income.six_months, emergency_meter, '', '', 'target') }}</div>{% endif %}

@@ -10,7 +10,6 @@
 <section aria-label="Spending summary">
   <article class="card lead-card expense-lead"><div class="section-head"><div><h2>{{ fig.money_out.label }}{{ ' · ' ~ category_name if category_name }}</h2></div><a class="quiet-link" href="/transactions?{% if category_filter %}category_id={{ category_filter }}&amp;{% endif %}date_from={{ date_from }}&amp;date_to={{ date_to }}">Transactions</a></div>
     <div class="plan-figure">{{ spending_total|money }} <small>{{ base }}</small></div>
-    {{ formula('money_out') }}
   </article>
 </section>
 {% if spending_total == 0 and not l1 and not l2 %}

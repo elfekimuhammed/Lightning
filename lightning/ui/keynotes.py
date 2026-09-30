@@ -48,8 +48,7 @@ def needs_you(attention: list[dict], safe_to_spend: Decimal | None, next_income:
     if safe_to_spend is not None:
         until = f" until {next_income}" if next_income else ""
         return note("info", f"{fmt(safe_to_spend)} safe to spend{until}",
-                    "Nothing is due. Free cash less what is promised before your next income.",
-                    "/plan", "See cash planning")
+                    "Free cash less what is promised before your next income.", "/plan", "See cash planning")
     return note("info", "Nothing needs you today", "No bills are due and nothing is waiting for a decision.")
 
 

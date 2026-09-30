@@ -3,7 +3,7 @@
 {% block heading %}<div><h1>Birdview</h1><p class="muted small page-subtitle">Your wealth as of {{ range_end_display }}</p></div>{% endblock %}
 {% block top_actions %}{% from "partials/macros.html" import period_control %}{{ period_control("/birdview", period, month, this_month, custom_from if period_error and period == 'custom' else date_from, custom_to if period_error and period == 'custom' else date_to, category_filter) }}{% endblock %}
 {% block content %}
-{% from "partials/charts.html" import key_notes, donut %}
+{% from "partials/charts.html" import key_notes, donut, trend %}
 {% if period_error %}<p class="flash error">{{ period_error }}</p>{% endif %}
 {{ key_notes(notes) }}
 {% if unvalued %}<p class="notice">Some owned assets have no valuation and are excluded from valued totals: {{ unvalued|join('; ') }}</p>{% endif %}
@@ -12,7 +12,6 @@
   <section class="data-panel lead-card" aria-labelledby="owned-heading"><div class="section-head"><div><h2 id="owned-heading">{{ fig.net_worth.label if owes else fig.what_you_own.label }}</h2>{% if unvalued %}<p>Known subtotal</p>{% endif %}</div></div>
     <div class="plan-figure">{{ (pos.net_worth if owes else pos.what_you_own)|money }} <small>{{ base }}</small></div>
     <div class="compact-list owned-composition"><div class="compact-row"><span>{{ fig.cash_you_own.label }}</span><b>{{ pos.cash_you_own|money }}</b></div><div class="compact-row"><span>{{ fig.deposits.label }}</span><b>{{ pos.deposits|money }}</b></div><div class="compact-row"><span>{{ fig.holdings_value.label }}</span><b>{{ pos.holdings_value|money }}</b></div>{% if pos.other_you_own %}<div class="compact-row"><span>{{ fig.other_you_own.label }}</span><b>{{ pos.other_you_own|money }}</b></div>{% endif %}{% if owes %}<div class="compact-row compact-row-total"><span>{{ fig.what_you_own.label }}</span><b>{{ pos.what_you_own|money }}</b></div><a class="compact-row" href="/plan/loans"><span>{{ fig.what_you_owe.label }}</span><b>−{{ pos.what_you_owe|money }}</b></a>{% endif %}</div>
-    {{ formula('net_worth', '', 'what_you_own', 'what_you_owe') if owes else formula('what_you_own') }}
     <h3 class="birdview-subhead">What it is made of</h3>
     {{ donut(wealth_donut, fig.what_you_own.label, base) }}
     {% if targets_set %}<details class="context-detail"><summary>Compare with target weights</summary><div class="table-scroll"><table><thead><tr><th>Class</th><th>Current</th><th>Target</th><th>Gap</th><th>Value to target</th></tr></thead><tbody>{% for cls in classes if cls.value != 0 or cls.target is not none %}<tr><td>{{ cls.name }}</td><td>{{ "%.1f"|format(cls.current_weight) }}%</td><td>{{ "%.1f"|format(cls.target) ~ '%' if cls.target is not none else '—' }}</td><td>{{ "%+.1f"|format(cls.gap) ~ '%' if cls.gap is not none else '—' }}</td><td>{{ cls.to_target|money(True) if cls.to_target is not none else '—' }}</td></tr>{% endfor %}</tbody></table></div>{% if not targets_complete %}<p class="muted small">Targets do not add up to 100%. <a href="/investments">Review targets</a></p>{% endif %}</details>{% endif %}
@@ -21,7 +20,10 @@
     <div class="plan-figure">{% if pos.if_you_sold_today is not none %}{{ pos.if_you_sold_today|money }} <small>{{ base }}</small>{% else %}Unavailable{% endif %}</div>
     <div class="compact-list"><div class="compact-row"><span>{{ fig.cash_you_own.label }}</span><b>{{ pos.cash_you_own|money }}</b></div><div class="compact-row"><span>{{ fig.reserves.label }}</span><b>{% if pos.reserves is not none %}−{{ pos.reserves|money }}{% else %}Unavailable{% endif %}</b></div><a class="compact-row" href="/plan"><span>{{ fig.bills_due.label }}</span><b>{{ ('−' ~ (pos.bills_due|money)) if pos.bills_due > 0 else '0.00' }}</b></a><div class="compact-row compact-row-total"><span>{{ fig.free_cash.label }}</span><b>{{ pos.free_cash|money if pos.free_cash is not none else 'Unavailable' }}</b></div>{% for cls in classes if cls.value %}<a class="compact-row" data-popup-open href="/birdview/class/{{ cls.id }}?as_of={{ as_of }}"><span>{{ cls.name }} <small>{{ cls.value|money }} × {{ '%g'|format(cls.factor) }}%</small></span><b>{{ cls.after_sale|money }}</b></a>{% endfor %}<div class="compact-row compact-row-total"><span>{{ fig.investments_after_sale.label }}</span><b>{{ pos.investments_after_sale|money }}</b></div></div>
     {% if pos.if_you_sold_today is none %}<p class="muted small">{{ pos.unavailable_reason }}</p>{% endif %}
-    {{ formula('if_you_sold_today', 'Reserves stay part of what you own. Sale factors are estimates, not booked losses.', 'free_cash', 'investments_after_sale') }}
   </section>
 </div>
+<section class="overview-section birdview-trend" aria-labelledby="trend-heading">
+  <header class="overview-section-head"><h2 id="trend-heading">Month by month</h2><span>Money in and money out{% if flow_trend.labels %} · {{ flow_trend.labels[0].text }} to {{ flow_trend.labels[-1].text }}{% endif %}</span></header>
+  <article class="card wide-card overview-trend-card">{{ trend(flow_trend, 'Money in and money out per month') }}</article>
+</section>
 {% endblock %}

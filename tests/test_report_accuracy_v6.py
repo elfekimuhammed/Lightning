@@ -35,6 +35,6 @@ def test_period_returns_keep_holdings_sold_out_in_the_period(c):
     client.post(f"/accounts/{thndr.id}/investment-entry", data={**entry, "date": "2026-09-20",
                 "instrument_key": f"asset:{comi.id}", "units": "100", "total": "8000", "trade_action": "sell"})
     page = client.get("/?period=month&month=2026-09").text
-    returns = page[page.index("Result by asset class"):page.index("Biggest movers")]
+    returns = page[page.index("Net gain or loss by asset class"):page.index("Biggest movers")]
     assert "Stocks" in returns and "+1,000.00" in returns
 

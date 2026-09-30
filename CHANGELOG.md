@@ -8,6 +8,17 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### Month picker, no explainers, clearer investment gains · 2026-09-30
+- **Picking a month:** every month box opens a small picker instead of being typed. Pick the year with ‹ › and then the month; months after this one are greyed out. This covers the period controls on every page (Monthly and Custom), the Transactions month filter and the carryover month.
+- **No explanation toggles:** "How is this worked out?" is gone from every page. A figure's name has to explain itself; one that doesn't gets renamed.
+- **Result is now "Net gain or loss"**, everywhere, including "Net gain or loss by asset class". It adds sales, price changes, and dividends and interest, so it isn't only unrealized gains.
+- **Overview:**
+  - A closed **Needs you** row sits at the top: it shows the count and the first item, and opens to the full list. When nothing is due it reads "Nothing needs you today".
+  - The key note under it is what is safe to spend.
+  - Net flow shows the savings rate on the right, behind a divider.
+  - Month by month moves to Birdview.
+- **Wide cards** (the ones that span the page) get a third gradient: the lead card's soft green on the left, fading to white on the right.
+
 ### Crisp pass: one look on every page, less text · 2026-09-30
 - **One type scale:**
   - Text: 12 (labels), 13 (notes), 14 (body), 15 (key-note titles), 17 (card titles), 20 (sections) and 28 (page titles).

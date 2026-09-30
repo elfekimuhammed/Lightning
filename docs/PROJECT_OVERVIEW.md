@@ -220,7 +220,7 @@ Still missing, ordered by value for a hurried user:
 | 9 | **Watchlists** | Simplifi watchlists | Category budgets only | Tracks one habit (eating out, one merchant) without a full budget |
 | 10 | **Shared household** | Monarch partner access | Single user, single device | Couples manage money together |
 | 11 | **Guided first setup** | Monarch and YNAB onboarding | Empty welcome page, then free exploration | Omar's first run needed six account forms before seeing anything |
-| 12 | **Less reading per screen** | Copilot: one number, details on tap | Figures show one formula line with details behind "How is this worked out?" (#129); the Plan tab still has about 310 words, mostly data rows | Keep new screens to one number and one line per card |
+| 12 | **Less reading per screen** | Copilot: one number, details on tap | Figures carry names that explain themselves, with no explanation toggles; a name that needs explaining is renamed. The Plan tab has about 200 words, mostly data rows | Keep new screens to one number and one line per card |
 | 13 | Receipts and attachments | Monarch, Lunch Money | None | Warranty and gold purchase receipts |
 | 14 | Credit cards and interest | All reference apps | Out of scope by decision (loans are schedules) | Revisit if card use grows |
 

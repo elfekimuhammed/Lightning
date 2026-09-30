@@ -239,13 +239,13 @@ async def dashboard(request: Request):
     investment_share = (investment_flow / cash_flow.inflows * 100
                         if cash_flow.inflows > ZERO else None)
     savings_rate = cash_flow.savings_rate
-    # One note: what needs you, or what is safe to spend. The cards below already show the change
-    # in what you own and the savings rate, so the notes don't repeat them.
-    key_notes = [keynotes.needs_you(attention, today_forecast.safe_to_spend, today_forecast.next_income_date)]
+    # "Needs you" is its own list at the top, so the one note is what is safe to spend. The cards
+    # below already show the change in what you own and the savings rate.
+    key_notes = [keynotes.needs_you([], today_forecast.safe_to_spend, today_forecast.next_income_date)]
     return render(
         request,
         "dashboard/index.html",
-        notes=key_notes, flow_trend=visuals.flow_trend(c, as_of),
+        notes=key_notes,
         where_it_went=visuals.spending_bars(c, first, as_of),
         investment_donut=visuals.holdings_donut(position),
         month=month, this_month=month_of(today()), period=period, period_error=period_error,

@@ -105,7 +105,7 @@ Every figure a screen shows is listed here once. **From** says which layer its i
 | **Change in unrealized gain** | How unrealized gain moved in the period. | Unrealized gain at the end − Unrealized gain at the start | `investments.report.investment_period` |
 | **Realized gain** | Sale proceeds less the cost of the units sold. | Read directly from the ledger | `investments.report.build_investment_report` |
 | **Dividends and interest** | Distributions and interest received. | Read directly from the ledger | `investments.report.build_investment_report` |
-| **Result** | What your investments earned in the period. | Realized gain + Change in unrealized gain + Dividends and interest | `investments.report.investment_period` |
+| **Net gain or loss** | What your investments earned or lost in the period: sales, price changes and payouts. | Realized gain + Change in unrealized gain + Dividends and interest | `investments.report.investment_period` |
 | **New money in** | Cash moved into investment accounts from outside, less cash taken out. | Read directly from the ledger | `investments.report.build_investment_report` |
 
 ### From the plan — what-if
@@ -204,9 +204,10 @@ These names no longer appear on screens. Each is now called:
 | Change in unrealized value | Change in unrealized gain |
 | Realized gain or loss | Realized gain |
 | Distributions | Dividends and interest |
-| Investment result | Result |
-| Period result | Result |
-| Period gain/loss | Result |
+| Investment result | Net gain or loss |
+| Period result | Net gain or loss |
+| Period gain/loss | Net gain or loss |
+| Result | Net gain or loss |
 | New money added this period | New money in |
 | Cash added and withdrawn | New money in |
 <!-- figures:end -->
