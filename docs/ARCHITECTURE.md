@@ -233,6 +233,8 @@ Start with bounded local candidate lists and a small result limit. If size or me
 4. **Smoke test on clean Windows 10/11:** double-click launch, create accounts, post, edit and restore, import a CSV, create a budget and reserve, record an investment, restart, restore a backup, and launch a second time with the port already in use.
 5. **Distribution:** only after that, publish a setup guide and choose between a source checkout with launcher and a packaged installer.
 
+The planned desktop app (one `Lightning.exe` window through pywebview and WebView2, an encrypted database, a protected local server) is specified in [Desktop build spec](desktop/BUILD_SPEC.md). It is a draft and has not been verified on Windows.
+
 ## Working rules
 
 1. Check `git status` first and preserve existing user changes and personal data.

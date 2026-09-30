@@ -3,3 +3,4 @@
 *.bat text eol=crlf
 *.sh text eol=lf
 *.db binary
+docs/desktop/reference/*.patch -whitespace

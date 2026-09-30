@@ -8,6 +8,15 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### Desktop build spec (draft) · 2026-09-30
+- New `docs/desktop/BUILD_SPEC.md` describes the Windows desktop app: one `Lightning.exe` window (pywebview, WebView2, PyInstaller) and data in `%LOCALAPPDATA%\Lightning`.
+  - The database and backups are encrypted with SQLCipher. The key comes from a recovery key, and the app opens automatically through Windows DPAPI or asks for a password.
+  - The local server needs a per-launch secret on every request.
+  - It ends with ordered milestones, each with acceptance tests.
+- It is a draft: nothing in it has run on Windows, and it has had no verification pass.
+- `docs/desktop/WORK_LOG.md` records this session's work and the research behind the spec. `docs/desktop/reference/` holds the encryption prototype patch and the key-management sketch. Neither is production code.
+- No application code changed.
+
 ### A chart with its numbers: net worth trend, free cash steps, richer Expense analysis · 2026-09-30
 - **Overview:**
   - A net worth trend (the end of each month) sits at the top of Your position, with the breakdown cards under it.
