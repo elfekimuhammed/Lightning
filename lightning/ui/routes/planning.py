@@ -80,6 +80,13 @@ def _back(form, default: str) -> str:
     return back if back.startswith("/plan") else default
 
 
+def _paying_accounts(c):
+    """Accounts a bill is paid from or income is paid into: banks and wallets first, then brokerage."""
+    order = {"BANK": 0, "CASH": 1, "BROKERAGE": 2}
+    return sorted((a for a in c.accounts.list(active_only=True) if a.account_type.value in order),
+                  key=lambda a: order[a.account_type.value])
+
+
 # ------------------------------------------------------------------- tabs
 @router.get("")
 async def plan_page(request: Request):
@@ -139,8 +146,7 @@ def _item_form(request: Request, c, values: dict, item=None, error: str = "", er
     return render(request, "planning/item_form.html", status_code=status_code, values=values, item=item,
                   kinds=kinds, is_loan=kind == PlanKind.LOAN.value,
                   frequencies=[(f.value, FREQUENCY_LABELS[f]) for f in Frequency],
-                  accounts=[a for a in c.accounts.list(active_only=True)
-                            if a.account_type.value in ("BANK", "CASH", "BROKERAGE", "DEPOSIT")],
+                  accounts=_paying_accounts(c),
                   categories=_category_options(c, movement), counterparties=c.counterparties.list_active(),
                   error=error, error_field=error_field, back=back)
 
@@ -230,8 +236,7 @@ async def pay_form(request: Request, item_id: int, error: str = ""):
     linked = c.planning.linked_transaction_ids()
     return render(request, "planning/pay.html", item=item, payment=payment,
                   exact=[r for r in exact if r["id"] not in linked], others=[r for r in others if r["id"] not in linked][:8],
-                  accounts=[a for a in c.accounts.list(active_only=True)
-                            if a.account_type.value in ("BANK", "CASH", "BROKERAGE", "DEPOSIT")],
+                  accounts=_paying_accounts(c),
                   back=str(request.query_params.get("back", "/plan")), today=fmt_date(today()), error=error)
 
 

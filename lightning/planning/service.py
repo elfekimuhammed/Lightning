@@ -112,9 +112,9 @@ class PlanningService:
                                     fmt_date(due - timedelta(days=window)),
                                     fmt_date(min(due + timedelta(days=window), day)))
         if loose:
-            # Wider window for manual linking, but only plausible rows: a similar amount,
-            # or the same category or counterparty.
-            return [r for r in rows if abs(r["amount"] - item.amount) <= item.amount / 2
+            # Wider window for manual linking, but only plausible rows: the same counterparty
+            # or category, or an amount within 10%. A 2,000 gift is not a 2,500 loan payment.
+            return [r for r in rows if abs(r["amount"] - item.amount) <= item.amount * DEFAULT_TOLERANCE
                     or (item.counterparty_id and r["counterparty_id"] == item.counterparty_id)
                     or (item.category_id and item.category_id in r["category_ids"])]
         tolerance = MATCH_TOLERANCE.get(item.kind, DEFAULT_TOLERANCE)

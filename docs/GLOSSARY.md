@@ -125,7 +125,9 @@ Every figure on a reporting tab has exactly one name and one calculation. A deri
 
 | Figure | Meaning | Formula |
 |---|---|---|
-| **Safe to spend** | Free cash after what is promised before your next income. An estimate. | Free cash − Bills and loan payments before next income − Left in plan this month − Saving for goals |
+| **Safe to spend** | Free cash after what is promised before your next income. An estimate. | Free cash − Bills and loan payments before next income − Left in plan after bills − Saving for goals |
+| **Bills inside the plan** | This month's scheduled bills, due or upcoming, in a category that has a budget. They are part of that budget. | — (read from the ledger) |
+| **Left in plan after bills** | This month's left in plan less the scheduled bills it already covers, so a bill is never counted twice. | Left in plan − Bills inside the plan |
 | **Bills and loan payments before next income** | Scheduled bills, subscriptions and loan payments that are not due yet, up to your next income. | — (read from the ledger) |
 | **Saving for goals** | What dated reserve goals still need this month, spread over the months left. | — (read from the ledger) |
 
@@ -181,6 +183,7 @@ These names no longer appear on screens. Each is now called:
 | Estimated liquid investments | Deposits and holdings after sale (estimate) |
 | Estimated cash after sale | Holdings after sale (estimate) |
 | Estimated available value | If you sold today (estimate) |
+| Yours | What you own |
 | Total spending | Money out |
 | Net income less spending | Net flow |
 | Cashflow | Net flow |

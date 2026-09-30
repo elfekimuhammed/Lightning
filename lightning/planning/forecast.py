@@ -74,13 +74,17 @@ class CashForecaster:
         horizon_end = parse_month(month_keys[-1])[1]
         upcoming = [p for p in self.planning.all_payments(horizon_end, day)
                     if p.status == PaymentStatus.UPCOMING]
+        # Payments already due: bills are in free cash already (Bills due); income not yet received
+        # is still expected this month.
+        due = [p for p in self.planning.all_payments(day, day) if p.status == PaymentStatus.DUE]
         has_scheduled_income = any(i.kind == PlanKind.INCOME for i in self.planning.items((PlanKind.INCOME,)))
 
         rows, opening = [], free
         for index, key in enumerate(month_keys):
             current = index == 0
             in_month = [p for p in upcoming if p.due_date[:7] == key]
-            income = sum((p.amount for p in in_month if p.item.is_income), ZERO)
+            due_now = due if current else []
+            income = sum((p.amount for p in in_month + due_now if p.item.is_income), ZERO)
             estimated = False
             if not has_scheduled_income and average:
                 received = (self.reporting.cash_flow(parse_month(key)[0], day).inflows if current else ZERO)
@@ -89,8 +93,11 @@ class CashForecaster:
             budget_room, covered = self._budget(key, current)
             covered_bills = sum((p.amount for p in outgoing if p.item.category_id in covered), ZERO)
             other_bills = sum((p.amount for p in outgoing if p.item.category_id not in covered), ZERO)
-            # A bill in a budgeted category is part of that budget, not on top of it.
-            budget_spending = max(budget_room - covered_bills, ZERO)
+            # A bill in a budgeted category is part of that budget, not on top of it. That holds for
+            # bills already due too: they come off free cash, so they come off the budget room here.
+            due_covered = sum((p.amount for p in due_now if not p.item.is_income
+                               and p.item.category_id in covered), ZERO)
+            budget_spending = max(budget_room - covered_bills - due_covered, ZERO)
             commitments = covered_bills + other_bills
             goals = self._goal_need(key, day)
             closing = opening + income - commitments - budget_spending - goals
@@ -116,5 +123,5 @@ class CashForecaster:
         this_month = first.budget_spending if first else ZERO
         goals = first.goal_saving if first else ZERO
         parts = [("Free cash", free), ("Bills and loan payments before next income", -bills),
-                 ("Left in plan this month", -this_month), ("Saving for goals", -goals)]
+                 ("Left in plan after bills", -this_month), ("Saving for goals", -goals)]
         return free - bills - this_month - goals, [(label, value) for label, value in parts if value or label == "Free cash"]

@@ -8,6 +8,13 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### Cash planning fixes from the Omar re-run · 2026-09-30
+- Safe to spend and the cash forecast no longer count a due bill twice (once as a bill due, again as budget still to spend). Income that is due but not received stays in this month's forecast.
+- "Left in plan this month" on the Plan tab is now **Left in plan after bills** (Left in plan − Bills inside the plan), so it no longer shares a name with the Budget's Left in plan.
+- "Already in your transactions?" only suggests the same counterparty, the same category, or an amount within 10%.
+- The pay and item forms list banks and wallets first, then brokerage, and no longer offer deposits.
+- Account pages say **In this account · What you own · Held for others** instead of Total · Yours.
+
 ### One name and one calculation per figure · 2026-09-30
 - Every reported figure now has one name, one meaning and one formula (`lightning/core/figures.py`, mirrored in the Glossary). Derived figures show their formula under them, e.g. "Free cash = Cash you own − Reserves − Bills due".
 - One position calculation (`lightning/planning/position.py`) feeds the Overview, Birdview, Investments, Settings, Reserves and the cash forecast. The tabs no longer re-add balances their own way.

@@ -36,7 +36,7 @@
 {% if account %}
 <div class="acct-title"><h1>{{ account.name }}</h1></div>
 <div class="acct-figures">
-  {% if account_held_value %}<div><span class="muted small">Total</span><b>{{ account_value|money }}</b></div><div><span class="muted small">Yours</span><b>{{ account_owned_value|money }}</b></div><div><span class="muted small">{{ fig.held_for_others.label }}</span><b>{{ account_held_value|money }}</b></div>{% else %}<div><span class="muted small">Balance</span><b>{{ account_value|money }}</b></div>{% endif %}
+  {% if account_held_value %}<div><span class="muted small">In this account</span><b>{{ account_value|money }}</b></div><div><span class="muted small">{{ fig.what_you_own.label }}</span><b>{{ account_owned_value|money }}</b></div><div><span class="muted small">{{ fig.held_for_others.label }}</span><b>{{ account_held_value|money }}</b></div>{% else %}<div><span class="muted small">Balance</span><b>{{ account_value|money }}</b></div>{% endif %}
   <span class="muted small">{{ account.currency }} · {{ account.type_label }}</span>
 </div>
 {% else %}
@@ -75,7 +75,7 @@
 <section class="card account-asset-breakdown">
   <div class="strip-head"><b>By asset class</b><span class="muted small">Level 2 · largest share first</span></div>
   {% if account_asset_breakdown %}<div class="table-scroll"><table>
-    <thead><tr><th>Asset class</th><th class="num">Total</th><th class="num">Yours</th><th class="num">Held for others</th></tr></thead>
+    <thead><tr><th>Asset class</th><th class="num">In this account</th><th class="num">{{ fig.what_you_own.label }}</th><th class="num">{{ fig.held_for_others.label }}</th></tr></thead>
     <tbody>{% for row in account_asset_breakdown %}<tr>
       <td>{{ row.name }}</td>
       <td class="num"><span>{{ row.total|money }}</span><small class="weight-note">{{ row.weight_total|money }}% of total</small></td>

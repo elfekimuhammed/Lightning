@@ -162,3 +162,34 @@ def test_overview_lists_due_bills_under_needs_my_attention(c, setup, monkeypatch
     attention = page[page.index("Needs my attention"):]
     assert "Bill due: Electricity" in attention and "Due 2026-09-25 · 480.00" in attention
     assert "Loan payment due: Car loan" in attention and "Mark paid" in attention
+
+
+def test_a_due_bill_inside_a_budget_is_not_counted_twice(c, setup, monkeypatch):
+    # Rent is due and unpaid: it comes off free cash as a bill due, so it must not also be
+    # budget still to spend (Omar, 2026-10-06: Safe to spend was 12,000 too low).
+    monkeypatch.setenv("LIGHTNING_TODAY", "2026-10-06")
+    accounts, cats = setup
+    housing = c.categories.get_by_code("EXP.PERSONAL.HOUSING")
+    c.budgets.set_budget(housing.id, "2026-10", "12000")
+    c.planning.create(kind="BILL", name="Rent", amount="12000", frequency="MONTHLY", start_date="2026-10-03",
+                      category_id=str(housing.id))
+    day = date(2026, 10, 6)
+    october = c.forecaster.forecast(day).months[0]
+    assert c.planning.what_you_owe(day).bills_due == Decimal("12000")
+    assert october.budget_spending == 0
+    parts = dict(c.forecaster.forecast(day).safe_to_spend_parts)
+    assert "Left in plan after bills" not in parts  # nothing left once the due rent is counted
+
+
+def test_manual_link_suggests_only_plausible_transactions(c, setup, monkeypatch):
+    monkeypatch.setenv("LIGHTNING_TODAY", "2026-10-06")
+    accounts, cats = setup
+    item_id = c.planning.create(kind="LOAN", name="Car loan", amount="2500", frequency="MONTHLY",
+                                start_date="2026-10-05", payment_count="24")
+    c.transactions.record_outflow("2026-09-25", accounts["cib"].id, "2000", cats["EXP.PERSONAL.FOOD"].id,
+                                  counterparty="Mom")
+    c.transactions.record_outflow("2026-10-04", accounts["cib"].id, "2480", cats["EXP.PERSONAL.FOOD"].id,
+                                  counterparty="Toyota")
+    payment = c.planning.payments(c.planning.get(item_id), "2026-10-05", date(2026, 10, 6))[0]
+    amounts = [r["amount"] for r in c.planning.candidates(payment, date(2026, 10, 6), loose=True)]
+    assert amounts == [Decimal("2480")]  # the 2,000 gift to Mom is not offered
