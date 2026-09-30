@@ -24,10 +24,11 @@ class IntegrityCheck:
 class IntegrityService:
     """Cross-check independently derived totals without changing ledger data."""
 
-    def __init__(self, reporting: ReportingService, reserves, budgets):
+    def __init__(self, reporting: ReportingService, reserves, budgets, planning=None):
         self.reporting = reporting
         self.reserves = reserves
         self.budgets = budgets
+        self.planning = planning
 
     def checks(self, as_of: date | str) -> list[IntegrityCheck]:
         day = fmt_date(parse_date(as_of))
@@ -78,10 +79,11 @@ class IntegrityService:
                                   "Budget actuals should reconcile to posted money-out categories."))
 
         cash = self.reporting.owned_liquid_cash(day)
-        reserve = self.reserves.cash_summary(cash)
-        checks.append(self._check("Free cash plus reserves equals owned liquid cash",
-                                  reserve["free_cash"] + reserve["allocated"], cash,
-                                  "Budget limits are intentionally excluded; reserves assign real cash."))
+        bills_due = self.planning.what_you_owe(parse_date(day)).bills_due if self.planning else ZERO
+        reserve = self.reserves.cash_summary(cash, bills_due)
+        checks.append(self._check("Free cash plus reserves and bills due equals owned liquid cash",
+                                  reserve["free_cash"] + reserve["allocated"] + reserve["bills_due"], cash,
+                                  "Budget limits are intentionally excluded; reserves assign real cash and bills due are owed now."))
 
         bridge = self.reporting.bridge(first, parse_date(day))
         checks.append(self._check("Month-to-date net-worth bridge", bridge.expected_closing, bridge.closing,

@@ -303,7 +303,7 @@ def _page(request: Request, month: str, values: dict | None = None, error: str =
                   overall_ceiling=c.settings.get("budget_overall_ceiling"), this_month=month_of(today()),
                   personal_group=next((cat.id for cat in c.categories.tree(Movement.OUTFLOW)
                                        if cat.depth == 1 and cat.scope == Scope.PERSONAL), None),
-                  free_cash=c.reserves.cash_summary(c.reporting.owned_liquid_cash(today()))["free_cash"],
+                  free_cash=c.reserves.cash_summary(c.reporting.owned_liquid_cash(today()), c.planning.what_you_owe().bills_due)["free_cash"],
                   period=period, period_actual=period_actual, period_budgeted=period_budgeted,
                   period_left=period_left, period_carryover=period_carryover, group_totals=group_totals,
                   group_rows=group_rows,

@@ -8,6 +8,12 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### Cash planning · 2026-09-30
+- Reserves became **Cash planning** with four sub-tabs: **Plan** (safe to spend until the next income, what you owe, the next 30 days, a three-month cash forecast), **Recurring** (bills, subscriptions and income, with suggestions from payments that repeat in your history), **Loans** (loans and installment plans with progress and payoff date) and **Reserves** (the previous page). `/reserves` now opens `/plan/reserves`.
+- Scheduled payments are marked paid automatically when exactly one posted transaction matches; otherwise pick the transaction, record the payment, or skip it. Voiding the transaction makes the payment due again.
+- **What you owe** (bills due + loans still to pay) is shown as its own item: bills due come off free cash, and the Overview and Birdview show **Net worth** = what you own − what you owe. Forecasts never change either figure. The free-cash integrity check now includes bills due.
+- Migration `0034_cash_planning.sql` adds `planned_items` and `planned_payments`. Also recorded: `0033_reserve_account_matching.sql` links reserves to a payment account.
+
 ### Guideline 2.1 controls, month reports and report fixes · 2026-09-30
 - Buttons follow the guideline: 48 px pills on pages and 36 px inside cards and rows; the date button and month arrows are 48 px circles. Textareas keep a 96 px minimum.
 - Every date reads `yyyy-mm-dd` (hints, placeholders, period labels, the investments chart and Reserves use `yyyy-mm`). The period control is one `‹ yyyy-mm ›` stepper, and custom reports take a from/to month; Enter keeps the selected period.

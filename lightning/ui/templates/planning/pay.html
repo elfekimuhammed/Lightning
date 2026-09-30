@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}{{ item.name }} · {{ payment.due_date }}{% endblock %}
+{% block heading %}<div><h1>{{ item.name }}</h1><p class="muted small page-subtitle">{{ item.kind_label }} due {{ payment.due_date }} · {{ payment.amount|money }} {{ base }}</p></div>{% endblock %}
+{% block content %}
+{% if msg %}<div class="flash error">{{ msg }}</div>{% endif %}
+{% if not payment.outstanding %}
+<section class="card stack">
+  <h2>{{ 'Paid' if payment.status.value == 'PAID' else 'Skipped' }}</h2>
+  {% if payment.transaction_id %}<p><a href="/transactions/{{ payment.transaction_id }}">Open the transaction</a></p>{% endif %}
+  <form method="post" action="/plan/items/{{ item.id }}/pay"><input type="hidden" name="due" value="{{ payment.due_date }}"><input type="hidden" name="back" value="{{ back }}"><input type="hidden" name="outcome" value="reopen"><button class="btn">Mark unpaid</button></form>
+</section>
+{% else %}
+<section class="card stack">
+  <h2>Already in your transactions?</h2>
+  {% set rows = exact + others %}
+  {% if rows %}<div class="compact-list">{% for r in rows %}
+    <form method="post" action="/plan/items/{{ item.id }}/pay" class="compact-row"><input type="hidden" name="due" value="{{ payment.due_date }}"><input type="hidden" name="back" value="{{ back }}"><input type="hidden" name="transaction_id" value="{{ r.id }}"><input type="hidden" name="outcome" value="link">
+      <span><b>{{ r.counterparty or r.ref }}</b><small class="muted">{{ r.date }} · {{ r.ref }}{% if r in exact %} · close match{% endif %}</small></span>
+      <span class="plan-payment-side"><b>{{ r.amount|money }}</b><button class="btn small">Use this</button></span></form>{% endfor %}</div>
+  {% else %}<p class="muted">No posted transaction near {{ payment.due_date }} looks like this payment.</p>{% endif %}
+</section>
+<form method="post" action="/plan/items/{{ item.id }}/pay" class="card stack">
+  <h2>Record it now</h2>
+  <input type="hidden" name="due" value="{{ payment.due_date }}"><input type="hidden" name="back" value="{{ back }}">
+  <div class="row">
+    <div class="field"><label for="date_paid">Date {{ 'received' if item.is_income else 'paid' }} <span class="muted small">yyyy-mm-dd</span></label><input id="date_paid" name="date_paid" value="{{ [payment.due_date, today]|min }}" data-smart-date inputmode="numeric"></div>
+    <div class="field"><label for="pay-amount">Amount ({{ base }})</label><input id="pay-amount" name="amount" value="{{ '%.2f'|format(payment.amount) }}" inputmode="decimal" class="money-input"></div>
+  </div>
+  <div class="field"><label for="pay-account">Account</label><select id="pay-account" name="account_id">{% for a in accounts %}<option value="{{ a.id }}" {{ 'selected' if a.id == item.account_id }}>{{ a.name }}</option>{% endfor %}</select></div>
+  <input type="hidden" name="outcome" value="record">
+  <div class="actions"><button class="btn primary">Record and mark {{ 'received' if item.is_income else 'paid' }}</button></div>
+</form>
+<form method="post" action="/plan/items/{{ item.id }}/pay" class="plan-skip"><input type="hidden" name="due" value="{{ payment.due_date }}"><input type="hidden" name="back" value="{{ back }}"><input type="hidden" name="outcome" value="skip"><button class="btn">Skip this one</button><span class="muted small">It won't count as due or in the forecast.</span></form>
+{% endif %}
+{% endblock %}

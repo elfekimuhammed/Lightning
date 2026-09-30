@@ -99,7 +99,8 @@ async def birdview(request: Request):
         allocation = c.reserves.cash_summary(owned_cash)["allocated"]
         reserves_known = True
     allocation = allocation or ZERO
-    free_cash = owned_cash - allocation if reserves_known else None
+    owe = c.planning.what_you_owe(last)
+    free_cash = owned_cash - allocation - owe.bills_due if reserves_known else None
     estimated_available = free_cash + estimated_investments if free_cash is not None and not wealth.unvalued else None
     unavailable_reason = ("A required valuation is missing for this date." if wealth.unvalued else
                           "Reserve history is incomplete for this date." if not reserves_known else "")
@@ -146,7 +147,7 @@ async def birdview(request: Request):
                   date_from=fmt_date(first), date_to=fmt_date(last), range_start_display=selected.start_display,
                   range_end_display=selected.end_display, as_of=day, net_worth=wealth, cash=wallet_bank,
                   brokerage_cash=brokerage_cash, owned_cash=owned_cash, reserves=allocation, reserves_known=reserves_known,
-                  free_cash=free_cash, investment_value=investment_value, other_owned=other_owned,
+                  free_cash=free_cash, owe=owe, investment_value=investment_value, other_owned=other_owned,
                   estimated_investments=estimated_investments,
                   unavailable_reason=unavailable_reason,
                   asset_total=estimated_available, classes=classes, spending=spending, income=income,

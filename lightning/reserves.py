@@ -33,12 +33,13 @@ class CashReserveService:
             "ORDER BY r.due_date DESC,r.id DESC LIMIT 100"
         )]
 
-    def cash_summary(self, owned_liquid_cash: Decimal):
+    def cash_summary(self, owned_liquid_cash: Decimal, bills_due: Decimal = ZERO):
+        """Free cash = owned liquid cash − assigned reserves − bills due (unpaid and already due)."""
         allocated = ZERO
         for row in self.list_active():
             allocated += row["effective_allocated"]
-        return {"owned_liquid_cash": owned_liquid_cash, "allocated": allocated,
-                "free_cash": owned_liquid_cash - allocated}
+        return {"owned_liquid_cash": owned_liquid_cash, "allocated": allocated, "bills_due": bills_due,
+                "free_cash": owned_liquid_cash - allocated - bills_due}
 
     def allocation_at(self, as_of: str):
         """Return active effective assignments at a date, or None if history is incomplete."""

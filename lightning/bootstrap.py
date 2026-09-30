@@ -11,6 +11,8 @@ from pathlib import Path
 from lightning.accounts.service import AccountService
 from lightning.assets.service import AssetService
 from lightning.budgeting.service import BudgetService
+from lightning.planning.forecast import CashForecaster
+from lightning.planning.service import PlanningService
 from lightning.bank_imports import BankImportService
 from lightning.categories.service import CategoryService
 from lightning.counterparties import CounterpartyService
@@ -58,6 +60,8 @@ class Container:
     investments: InvestmentService
     account_flows: AccountWorkflows
     integrity: IntegrityService
+    planning: PlanningService
+    forecaster: CashForecaster
 
     @property
     def base_currency(self) -> str:
@@ -91,6 +95,8 @@ def build(db_path: str | Path | None = None, backup_on_start: bool = False) -> C
     reporting = ReportingService(db, accounts, assets, categories, base, money_from_others)
     budgets = BudgetService(db, categories, reporting)
     reevaluations = ReevaluationService(db, accounts, transactions, reporting)
+    planning = PlanningService(db, accounts, categories, counterparties, transactions)
+    forecaster = CashForecaster(planning, reporting, reserves, budgets, categories)
     return Container(
         db=db,
         data_dir=data_dir,
@@ -111,5 +117,7 @@ def build(db_path: str | Path | None = None, backup_on_start: bool = False) -> C
         budgets=budgets,
         investments=InvestmentService(db, accounts, assets, categories, transactions, reporting, reevaluations),
         account_flows=AccountWorkflows(db, accounts, transactions, reporting),
-        integrity=IntegrityService(reporting, reserves, budgets),
+        integrity=IntegrityService(reporting, reserves, budgets, planning),
+        planning=planning,
+        forecaster=forecaster,
     )

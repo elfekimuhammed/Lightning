@@ -126,8 +126,14 @@ async def dashboard(request: Request):
                         for row in c.reserves.list_active()]
     assigned = (sum((row["effective_allocated"] for row in reserve_rows), ZERO)
                 if reserve_rows is not None else None)
+    # Certain obligations only: bills already due come off free cash, and loans still to pay
+    # come off net worth. Forecasts never change either figure.
+    if as_of == today():
+        c.planning.match_payments(as_of)
+    owe = c.planning.what_you_owe(as_of)
     reserve_summary = (None if assigned is None else {
-        "eligible_cash": eligible_cash, "allocated": assigned, "free_cash": eligible_cash - assigned,
+        "eligible_cash": eligible_cash, "allocated": assigned, "bills_due": owe.bills_due,
+        "free_cash": eligible_cash - assigned - owe.bills_due,
         "shortfall": max(assigned - eligible_cash, ZERO),
     })
     free_cash = reserve_summary["free_cash"] if reserve_summary is not None else None
@@ -336,7 +342,7 @@ async def dashboard(request: Request):
                      if period.key == "all" and not first_activity else f"{fmt_date(first)} to {fmt_date(as_of)} · Position as of {fmt_date(as_of)}"),
         eligible_cash=eligible_cash, brokerage_cash=brokerage_cash, reserve_summary=reserve_summary,
         cash_accounts=cash_accounts, reserve_rows=reserve_rows,
-        free_cash=free_cash, investment_value=investment_value,
+        free_cash=free_cash, owe=owe, investment_value=investment_value,
         estimated_investments=estimated_investments, estimated_available=estimated_available,
         unvalued=unvalued,
         change=change, change_reason=change_reason, change_label=change_label,
@@ -386,7 +392,8 @@ async def explain_overview_figure(request: Request, kind: str):
         title = "Free cash"
         eligible = c.reporting.owned_liquid_cash(day)
         allocated = c.reserves.allocation_at(day)
-        explanation = "Free cash = owned liquid cash (wallet, bank, and brokerage cash) − assigned reserves. Brokerage cash is included in the total, but move it to a bank or wallet before everyday spending."
+        explanation = "Free cash = owned liquid cash (wallet, bank, and brokerage cash) − assigned reserves − bills due. Bills due are scheduled bills, subscriptions and loan payments whose date has passed and that nothing has paid yet. Brokerage cash is included in the total, but move it to a bank or wallet before everyday spending."
+        bills_due = c.planning.what_you_owe(parse_date(day)).bills_due
         rows = _owned_account_type_rows(
             c, c.accounts.list(), day, {AccountType.CASH, AccountType.BANK})
         rows.append({"label": "Brokerage cash · transfer before everyday spending",
@@ -394,9 +401,12 @@ async def explain_overview_figure(request: Request, kind: str):
         if allocated is None:
             total, foot = None, "Historical free cash unavailable: reserve assignments cannot be reconstructed for this date."
         else:
-            rows.append({"label": "Assigned to reserves", "value": -allocated, "href": "/reserves"})
-            total, foot = eligible - allocated, f"Owned liquid cash {eligible} less reserve assignments {allocated}. Period end: {day}."
-        action = ("Open Reserves", "/reserves")
+            rows.append({"label": "Assigned to reserves", "value": -allocated, "href": "/plan/reserves"})
+            if bills_due:
+                rows.append({"label": "Bills due", "value": -bills_due, "href": "/plan"})
+            total = eligible - allocated - bills_due
+            foot = f"Owned liquid cash {eligible} less reserve assignments {allocated} and bills due {bills_due}. Period end: {day}."
+        action = ("Open Cash planning", "/plan")
     elif kind == "flow":
         title = "Income and spending"
         flow = c.reporting.cash_flow(first, day)

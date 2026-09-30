@@ -67,7 +67,7 @@ def _context(request: Request, error: str = ""):
     return {"reserves": listed, "completed_reserves": completed,
             "emergency": emergency, "salary_average": average_salary, "salary_months": salary_months,
             "salary_period": f"{first_month:%Y-%m} to {last_month:%Y-%m}", "salary_months_seen": salary_months_seen,
-            "summary": c.reserves.cash_summary(cash), "error": error,
+            "summary": c.reserves.cash_summary(cash, c.planning.what_you_owe().bills_due), "error": error,
             "counterparties": c.counterparties.list_active(),
             "accounts": [account for account in c.accounts.list(active_only=True)
                          if account.account_type.value in ("CASH", "BANK", "DEPOSIT", "BROKERAGE")],
@@ -77,7 +77,9 @@ def _context(request: Request, error: str = ""):
 
 @router.get("")
 async def list_reserves(request: Request):
-    return render(request, "reserves.html", **_context(request))
+    # Reserves live under Cash planning; old links and form redirects land there.
+    query = request.url.query
+    return redirect("/plan/reserves" + (f"?{query}" if query else ""))
 
 
 @router.post("")

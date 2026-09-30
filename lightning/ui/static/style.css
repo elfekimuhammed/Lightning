@@ -1340,3 +1340,33 @@ summary > b + .muted { margin-left:8px; }
   height:var(--control-h); min-height:var(--control-h); padding:0 20px; border-radius:999px; font-size:14px;
 }
 .topbar .icon-btn:not(#_):not(.x_) { width:var(--control-h); padding:0; font-size:18px; }
+
+/* ── Cash planning ───────────────────────────────────────────────────────── */
+.plan-tabs { margin-bottom:24px; }
+.plan-section { margin:0 0 40px; }
+.plan-pair { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; align-items:start; }
+.plan-figure { font:800 clamp(28px,3.4vw,44px)/1.1 var(--display, inherit); letter-spacing:-.03em; font-variant-numeric:tabular-nums; margin:4px 0 14px; }
+.plan-figure small { font-size:14px; font-weight:600; color:var(--muted); letter-spacing:0; }
+.plan-figure-small { font-size:clamp(24px,2.6vw,32px); }
+.plan-payment-row, .plan-item-row { align-items:center; gap:12px; }
+.plan-payment-row > span:first-child, .plan-item-row > span:first-child { display:grid; gap:2px; min-width:0; }
+.plan-payment-side { display:inline-flex; align-items:center; gap:12px; flex-wrap:wrap; justify-content:flex-end; }
+.plan-status { display:inline-flex; align-items:center; height:24px; padding:0 10px; border-radius:999px; font-size:12px; font-weight:700; background:var(--surface-2, #eef3f2); color:var(--ink-2, #304A5C); white-space:nowrap; }
+.plan-status-due { background:var(--rose-soft, #FCEEF3); color:var(--rose-strong, #C93D72); }
+.plan-status-paid { background:var(--tint-growth, #EAF8F0); color:var(--pos, #097852); }
+.plan-status-upcoming { background:var(--tint-held, #EAF3FD); color:var(--azure, #0B6DD6); }
+.plan-forecast-table { width:100%; }
+.plan-forecast-table tr.plan-low td { font-weight:700; }
+.plan-meter { height:10px; border-radius:999px; background:var(--track, #e6eeec); overflow:hidden; margin:4px 0 14px; }
+.plan-meter > span { display:block; height:100%; border-radius:999px; background:var(--meadow-dark, #0B8A5F); }
+.plan-loan { margin-bottom:16px; }
+.plan-repeat { display:flex; gap:8px; align-items:center; }
+.plan-repeat select { flex:1; }
+.plan-every { display:inline-flex; align-items:center; gap:6px; white-space:nowrap; color:var(--muted); }
+.plan-every input:not(#_):not(.x_) { width:64px; text-align:center; }
+.plan-delete { display:flex; align-items:center; gap:12px; margin-top:12px; }
+.plan-metrics { grid-template-columns:repeat(3,minmax(0,1fr)); }
+@media (max-width: 860px) { .plan-pair, .plan-metrics { grid-template-columns:1fr; } }
+.plan-payment-row > span:first-child, .plan-item-row > span:first-child { justify-items:start; text-align:left; }
+.plan-payment-row > span:first-child > b, .plan-item-row > span:first-child b { text-align:left; }
+.plan-skip { display:flex; align-items:center; gap:12px; margin-top:12px; }

@@ -2,8 +2,8 @@
 
 ## Document status
 
-- **Last updated:** 2026-09-28
-- **Document revision:** 2026-09-28.2
+- **Last updated:** 2026-09-30
+- **Document revision:** 2026-09-30.1
 - **App version:** 0.3.0 (`lightning/__init__.py`); `pyproject.toml` packaging metadata remains at 0.1.0.
 - **Role:** canonical product and technical terms. Current workflow and roadmap live in [Project Overview](PROJECT_OVERVIEW.md); calculation contracts live in [Architecture](ARCHITECTURE.md).
 
@@ -45,10 +45,22 @@ This is Lightning's canonical language for product, database, code, and UI. Use 
 | **Budget carryover** | Optional unused spending room added to a later month's limit. It never sets aside cash, creates a transaction, or reduces free cash. | 500 EGP of unused Food limit carried into October |
 | **Reserve** | A plan assigning some already-owned cash to an emergency fund or future goal. Assignment does not itself move money or change net worth; the actual payment is a normal ledger transaction. | Rent reserve |
 | **Emergency fund** | Permanent, dedicated reserve section. Its progress can be compared with the completed six-month average salary to express coverage in salary-months. | 13 months of average salary |
-| **Full owned wealth** | The known value of all tracked assets that belong to the user, including assigned reserves and brokerage cash, after excluding custody. Missing valuations are called out; liabilities and receivables are outside the current model. | 400,000 EGP of owned assets; 10,000 EGP held for Dad is excluded |
-| **Free cash** | Owned liquid cash in wallets, banks, and brokerage accounts less effective reserve assignments for the selected date. Brokerage cash is included but must be transferred before everyday spending. Historical values are unavailable when reserve history cannot be reconstructed. | 380,000 EGP owned liquid cash − 51,000 assigned = 329,000 EGP free cash |
+| **Full owned wealth** | The known value of all tracked assets that belong to the user, including assigned reserves and brokerage cash, after excluding custody. Missing valuations are called out. What you owe is shown beside it as a separate item (see Net worth); receivables are outside the current model. | 400,000 EGP of owned assets; 10,000 EGP held for Dad is excluded |
+| **Free cash** | Owned liquid cash in wallets, banks, and brokerage accounts less effective reserve assignments **and bills due** for the selected date. Brokerage cash is included but must be transferred before everyday spending. Historical values are unavailable when reserve history cannot be reconstructed. A cash forecast never changes it. | 380,000 EGP owned liquid cash − 51,000 assigned − 480 bills due = 328,520 EGP free cash |
+| **What you own** | Owned wealth: in your accounts minus money held for others. Shown as the lead figure whenever nothing is owed. | 255,717.74 EGP |
+| **What you owe** | Certain obligations only: bills due plus loans still to pay, each payment counted once. Upcoming bills and forecasts are not included. | 480 EGP electricity due + 60,000 EGP car loan = 60,480 EGP |
+| **Net worth** | What you own minus what you owe. When nothing is owed it equals what you own, and the Overview shows What you own instead. | 255,717.74 − 60,000 = 195,717.74 EGP |
+| **Cash planning** | The tab for spendable cash and commitments. Sub-tabs: Plan, Recurring, Loans, Reserves. Nothing in it posts to the ledger on its own. | — |
+| **Recurring item** | A bill, subscription or income that repeats on a schedule (weekly, monthly, every 3 months, yearly, or once). | WE Internet · 650 EGP monthly on day 20 |
+| **Loan** | A loan or installment plan, entered as its payments: amount per payment, the next payment date, and payments left. Optional amount borrowed. | Car loan · 24 × 2,500 EGP from 2026-10-05 |
+| **Payment status** | For each scheduled date: **Paid** (settled by a posted transaction), **Skipped** (the user says it won't happen), **Due** (the date is today or earlier and nothing settled it) or **Upcoming**. Voiding the linked transaction makes it Due again. | Rent · 2026-10-03 · Upcoming |
+| **Bills due** | Every Due bill, subscription and loan payment. It comes off free cash now. | 480 EGP electricity dated 2026-09-25, unpaid |
+| **Loans still to pay** | Every unpaid loan payment, due or upcoming. It comes off net worth; only the due ones come off free cash. | 24 × 2,500 = 60,000 EGP |
+| **Cash forecast** | An estimate that carries free cash forward month by month with scheduled payments, the budget still planned and reserve goals. A bill in a budgeted category counts inside that budget, never on top. It never changes net worth or free cash. | 2026-11 ends with 93,220 EGP |
+| **Average income** | Owned income averaged over the last three completed months that had income. The forecast uses it only when no income is scheduled, and labels it. | 45,000 EGP over 2 months |
+| **Safe to spend** | Free cash less the bill and loan payments before the next income, the budget still planned this month, and what reserve goals still need. Shown with its parts as an estimate. | 57,815 − 1,845 = 55,970 EGP until 2026-10-01 |
 | **Change during this period** | Owned value at the selected range end minus owned value immediately before its start. It describes tracked wealth movement, not investment return. | 420,000 EGP ending value − 400,000 EGP opening value = +20,000 EGP |
-| **Owned wealth / full owned value** | The user's known share of all tracked assets after excluding money belonging to others. Reserves remain owned. Lightning does not currently track liabilities or money owed to the user. | Account total 20,000; Dad's 5,000 excluded; owned 15,000 |
+| **Owned wealth / full owned value** | The user's known share of all tracked assets after excluding money belonging to others. Reserves remain owned. Certain obligations are tracked in cash planning as What you owe and shown beside it; money owed to the user is not tracked. | Account total 20,000; Dad's 5,000 excluded; owned 15,000 |
 | **Estimated available value** | Birdview scenario: free cash plus the sum of owned investment value in each asset class multiplied by that class's current liquidation factor. Brokerage cash is counted once in free cash. It is not full owned wealth, a sale quote, or a ledger loss. | 329,000 EGP free cash + 95% of a 20,050 EGP investment class |
 | **Liquidation factor** | User-selected 0–100% estimate applied to one owned investment asset class. It does not change holdings or full owned wealth. Historical scenarios use current factor settings. | Gold 90%; equity funds 95% |
 | **Money from others / custody** | The separately attributable amount that belongs to another person but sits in an account the user tracks. It remains in the full account balance but is excluded from owned totals, net worth, and relevant budget/overview totals. | Dad's 10,000 in CIB |

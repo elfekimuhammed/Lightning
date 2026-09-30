@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% from "planning/_macros.html" import plan_tabs, status %}
+{% block title %}Recurring · Cash planning{% endblock %}
+{% block heading %}<div><h1>Cash planning</h1><p class="muted small page-subtitle">Bills, subscriptions and income that repeat.</p></div>{% endblock %}
+{% block top_actions %}<a class="btn primary" data-popup-open href="/plan/items/new?kind=BILL">Add recurring item</a>{% endblock %}
+{% block content %}
+{{ plan_tabs(tabs, plan_tab) }}
+<section class="plan-section" aria-labelledby="recurring-totals">
+  <header class="overview-section-head"><h2 id="recurring-totals">Every month</h2><span>As of {{ as_of }}</span></header>
+  <div class="metric-grid plan-metrics">
+    <article class="metric-card"><div class="metric-label">Bills and subscriptions</div><div class="metric-value">{{ monthly_out|money }} <small>{{ base }}</small></div><p class="metric-note">A month, on average</p></article>
+    <article class="metric-card"><div class="metric-label">Subscriptions</div><div class="metric-value">{{ subscriptions_per_year|money }} <small>{{ base }}</small></div><p class="metric-note">A year</p></article>
+    <article class="metric-card"><div class="metric-label">Scheduled income</div><div class="metric-value">{{ monthly_in|money }} <small>{{ base }}</small></div><p class="metric-note">A month, on average</p></article>
+  </div>
+</section>
+
+<section class="plan-section" aria-labelledby="recurring-list">
+  <header class="overview-section-head"><h2 id="recurring-list">Recurring items</h2><span>{{ rows|length }} active</span></header>
+  <article class="card">
+    {% if rows %}<div class="compact-list">{% for r in rows %}{% set i = r.item %}
+      <div class="compact-row plan-item-row">
+        <span><a href="/plan/items/{{ i.id }}/edit" data-popup-open><b>{{ i.name }}</b></a><small class="muted">{{ i.kind_label }} · {{ r.schedule }}{% if r.category %} · {{ r.category }}{% endif %}{% if r.account %} · {{ r.account }}{% endif %}</small></span>
+        <span class="plan-payment-side">
+          {% if r.due %}<a class="plan-status plan-status-due" data-popup-open href="/plan/items/{{ i.id }}/pay?due={{ r.due[0].due_date }}&amp;back=%2Fplan%2Frecurring">{{ r.due|length }} due</a>{% elif r.next %}<small class="muted">Next {{ r.next.due_date }}</small>{% else %}<small class="muted">No more payments</small>{% endif %}
+          <b class="{{ 'pos' if i.is_income }}">{{ '+' if i.is_income else '−' }}{{ i.amount|money }}</b>
+        </span>
+      </div>{% endfor %}</div>
+    {% else %}<p class="muted">Nothing yet. Add rent, internet, phone, subscriptions and your salary so the plan knows what is coming.</p>{% endif %}
+  </article>
+</section>
+
+{% if suggestions %}<section class="plan-section" aria-labelledby="recurring-suggest">
+  <header class="overview-section-head"><h2 id="recurring-suggest">Looks recurring</h2><span>From your last six months</span></header>
+  <article class="card">
+    <p class="muted small">These repeated about monthly with a similar amount. Nothing is tracked until you add it.</p>
+    <div class="compact-list">{% for s in suggestions %}
+      <div class="compact-row plan-item-row">
+        <span><b>{{ s.name }}</b><small class="muted">{{ s.months }} months · usually around day {{ s.day }} · last {{ s.last_date }}</small></span>
+        <span class="plan-payment-side"><b class="{{ 'pos' if s.kind == 'INCOME' }}">{{ '+' if s.kind == 'INCOME' else '−' }}{{ s.amount|money }}</b>
+        <a class="btn small" data-popup-open href="/plan/items/new?kind={{ s.kind }}&amp;name={{ s.name|urlencode }}&amp;amount={{ s.amount }}&amp;frequency=MONTHLY&amp;counterparty={{ s.name|urlencode }}&amp;account_id={{ s.account_id or '' }}&amp;category_id={{ s.category_id or '' }}&amp;start_date={{ as_of[:8] }}{{ '%02d'|format([s.day, 28]|min) }}">Track</a></span>
+      </div>{% endfor %}</div>
+  </article>
+</section>{% endif %}
+
+{% if stopped %}<details class="card context-detail"><summary>Stopped · {{ stopped|length }}</summary><div class="compact-list">{% for i in stopped %}<div class="compact-row"><span>{{ i.name }}<small class="muted">{{ i.kind_label }}</small></span><b>{{ i.amount|money }}</b></div>{% endfor %}</div></details>{% endif %}
+{% endblock %}
