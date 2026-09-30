@@ -64,8 +64,8 @@ python -m pytest          # 100+ tests incl. randomized net-worth reconciliation
 lint-imports              # architecture contracts
 ```
 
-- [docs/PROJECT_OVERVIEW.md](docs/PROJECT_OVERVIEW.md) — start here: the full hand-off brief
+- [docs/PROJECT_OVERVIEW.md](docs/PROJECT_OVERVIEW.md) — start here: what Lightning is, what it answers, the roadmap
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — structure, rules, data model
 - [docs/GLOSSARY.md](docs/GLOSSARY.md) — what every term and code means
-- [docs/UI_AUDIT.md](docs/UI_AUDIT.md) — the tab-by-tab UI audit and what the demo pass changed
+- [docs/APPLICATION_BRAND_GUIDE.md](docs/APPLICATION_BRAND_GUIDE.md) — colour, type, cards, charts and words
 - [CHANGELOG.md](CHANGELOG.md) — every change, every time

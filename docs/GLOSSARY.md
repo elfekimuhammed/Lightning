@@ -5,7 +5,7 @@
 - **Last updated:** 2026-09-30
 - **Document revision:** 2026-09-30.3
 - **App version:** 0.3.0 (`lightning/__init__.py`); `pyproject.toml` packaging metadata remains at 0.1.0.
-- **Role:** canonical product and technical terms. Current workflow and roadmap live in [Project Overview](PROJECT_OVERVIEW.md); calculation contracts live in [Architecture](ARCHITECTURE.md).
+- **Role:** canonical product and technical terms. The product story lives in [Project Overview](PROJECT_OVERVIEW.md), calculation contracts in [Architecture](ARCHITECTURE.md), and the visual system in the [App brand guideline](APPLICATION_BRAND_GUIDE.md).
 
 This is Lightning's canonical language for product, database, code, and UI. Use these definitions consistently. The user's visible label is the **Name**; IDs and codes support data integrity and lookup and should not clutter ordinary screens.
 

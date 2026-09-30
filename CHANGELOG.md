@@ -8,6 +8,10 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### Docs: four files · 2026-09-30
+- `docs/` now holds four files. Project Overview tells the story, Architecture holds the technical side, the App brand guideline holds the visual side, and the Glossary defines terms.
+- Merged into those files and then removed: `PRODUCT_UX_ARCHITECTURE.md`, `UX_REVIEW.md`, `BUDGET_APP_GAPS.md`, `UI_AUDIT.md`, the Omar persona reports in `docs/personas/`, and `application-brand-guide.html`, which is now written out in `APPLICATION_BRAND_GUIDE.md`. All of them remain in Git history.
+
 ### Crisp pass: one look on every page, less text · 2026-09-30
 - **One type scale:**
   - Text: 12 (labels), 13 (notes), 14 (body), 15 (key-note titles), 17 (card titles), 20 (sections) and 28 (page titles).
