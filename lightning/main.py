@@ -2,6 +2,7 @@
 
     python -m lightning                 # opens http://127.0.0.1:8765 in your browser
     python -m lightning --db my.db --port 9000 --no-browser
+    python -m lightning --demo          # a sample household in its own database, on port 8766
 """
 
 from __future__ import annotations
@@ -28,7 +29,16 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--db", default=str(DEFAULT_DATA_DIR / "lightning.db"), help="database file")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--no-browser", action="store_true")
+    parser.add_argument("--demo", action="store_true",
+                        help="open a sample household in a separate demo database (rebuilt on every start)")
     args = parser.parse_args(argv)
+    if args.demo:
+        # The demo file is deleted and rebuilt on every start, so it can never be pointed at real data.
+        if args.db != str(DEFAULT_DATA_DIR / "lightning.db"):
+            parser.error("--demo always uses its own database (data/demo.db); leave out --db")
+        args.db = str(DEFAULT_DATA_DIR / "demo.db")
+        if args.port == 8765:
+            args.port = 8766  # never collide with (or reuse) your real Lightning
 
     url = f"http://127.0.0.1:{args.port}"
     # Reuse the server on repeated desktop launches before backing up or refreshing prices.
@@ -45,7 +55,15 @@ def main(argv: list[str] | None = None) -> None:
     except OSError:
         pass
 
-    container = build(args.db, backup_on_start=True)
+    if args.demo:  # only once no demo server is using the file
+        from pathlib import Path
+        for suffix in ("", "-wal", "-shm"):
+            Path(args.db + suffix).unlink(missing_ok=True)
+    container = build(args.db, backup_on_start=not args.demo)
+    if args.demo:
+        from lightning.demo import build_demo
+        summary = build_demo(container)
+        print(f"Demo household ready: {summary['accounts']} accounts, {summary['from']} to {summary['to']}.")
     from lightning.assets.market_data import refresh_market_prices, refresh_reevaluation_prices
 
     try:

@@ -3,7 +3,7 @@
 ## Document status
 
 - **Last updated:** 2026-09-30
-- **Document revision:** 2026-09-30.2
+- **Document revision:** 2026-09-30.3
 - **App version:** 0.3.0 (`lightning/__init__.py`); packaging metadata in `pyproject.toml` still says 0.1.0.
 - **Role:** module boundaries and financial calculation contracts. Product workflow and roadmap live in [Project Overview](PROJECT_OVERVIEW.md); term definitions live in [Glossary](GLOSSARY.md).
 
@@ -107,7 +107,7 @@ The Investments report uses posted, non-void main-ledger entries dated by transa
 
 For a selected interval, new money is the positive posted change across that boundary and withdrawals are the absolute negative change. New money in is their difference. Realized gain is net sale proceeds less average cost removed, with basis per owner/account/asset; purchase costs and net sale proceeds already include fees. Distributions use the cash actually posted. Change in unrealized gain is the end balance less the balance immediately before the interval. Result adds realized gain, unrealized change, distributions, and any separately identified FX/cost effects once. No balancing `other return` is permitted. If historical prices/ownership are missing, report the result unavailable.
 
-At the as-of date, cost of holdings still owned is remaining basis; holdings value is units times a dated confirmed valuation; unrealized gain is value less remaining basis. Brokerage cash is owned cash in investment accounts. Holdings after sale (estimate) comes from the shared position (see below), not the investment report. A cost fallback is not a confirmed price. Dividend asset attribution is stored in `investment_dividend_assets`; legacy memo attribution is migrated only when it uniquely matches an asset code, otherwise the dividend remains unresolved while its cash amount is retained. Fiscal-year dates are unconfigured, so YTD is labeled Calendar 2026.
+At the as-of date, cost of holdings still owned is remaining basis; holdings value is units times a dated confirmed valuation; unrealized gain is value less remaining basis. Brokerage cash is owned cash in investment accounts. Holdings after sale (estimate) comes from the shared position (see below), not the investment report. Before an asset has any typed or trade price, it is valued at its remaining cost (no gain yet) and listed in the report's `at_cost` notices; this keeps the Result available and consistent with the per-class breakdown. A missing price after that point still makes the Result unavailable. Dividend asset attribution is stored in `investment_dividend_assets`; legacy memo attribution is migrated only when it uniquely matches an asset code, otherwise the dividend remains unresolved while its cash amount is retained. Fiscal-year dates are unconfigured, so YTD is labeled Calendar 2026.
 
 - **Position figures** (What you own, Cash you own, Deposits, Holdings value, Reserves, Bills due, What you owe, Net worth, Free cash, Portfolio value, Holdings after sale, If you sold today) are computed once by `PositionService.at(date)` in `lightning/planning/position.py`. Base values are read from reporting, reserves and planning; every other figure is a property that composes them (for example `free_cash = cash_you_own − reserves − bills_due`). Routes and templates read the `Position`; they never re-add balances. Names, meanings and formulas come from `lightning/core/figures.py` and match the Glossary.
 - **Sale factors:** each asset class's 0–100% factor (95% when unset, `investments.domain.DEFAULT_SALE_FACTOR`). Holdings after sale = Σ holdings value × factor; Deposits and holdings after sale adds deposits × factor; If you sold today = Free cash + that. This is a scenario using current settings, not a sale quote or a booked loss.
@@ -182,7 +182,8 @@ Budget's ordinary view is a compact plan summary and Personal/Work/Investment ro
 | `lightning/bank_imports.py` + `reconciliation.py` | Staged CSV review, inline corrections, posting and statement reconciliation |
 | `lightning/budgeting` + `reserves.py` | Spending plans and cash-reserve goals (separate concepts) |
 | `lightning/reporting` | Read-only queries and computed portfolio/net-worth/budget reporting |
-| `lightning/ui` | Browser routes, templates, static assets |
+| `lightning/ui` | Browser routes, templates, static assets. `charts.py` turns figures into chart geometry, `visuals.py` reads the figures a chart needs from services, `keynotes.py` phrases a page's key notes; none of them computes a financial figure |
+| `lightning/demo.py` | The sample household (`python -m lightning --demo`, or the welcome page on an empty database), entered through the same services as the screens |
 
 ## Extension rules
 
@@ -190,7 +191,7 @@ Budget's ordinary view is a compact plan summary and Personal/Work/Investment ro
 2. Add persistent state through a new migration and a module that owns its repository/table.
 3. Put cross-module actions in a workflow/service and wrap all writes in one database transaction.
 4. Post all main-ledger effects through `TransactionService`; generated valuation journals use `source=SYSTEM` and stable links to their reevaluation details.
-5. Keep UI thin: parse form values, call services, display results/errors. No SQL or financial calculations in route/template/JavaScript code.
+5. Keep UI thin: parse form values, call services, display results/errors. No SQL or financial calculations in route/template/JavaScript code. Charts and key notes follow the same rule: they position and phrase figures a service computed (a key note may compare two of them, never derive a new one).
 6. Add focused tests for date/money edge cases, ownership/net-worth effects, posting invariants, and archive/void behavior; run the full pytest suite and import-boundary checks.
 7. Add release/version notes to `CHANGELOG.md` when shipping a version; update the overview at the owner's request.
 

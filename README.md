@@ -14,6 +14,11 @@ python.org, with "Add python.exe to PATH" ticked). Your browser opens at `http:/
 
 Options: `python -m lightning --db path\to\file.db --port 9000 --no-browser`
 
+**Try it with sample data:** `python -m lightning --demo` opens Omar's household (three months of
+money in and out, investments, gold, a budget, bills, an emergency fund and a car loan, dated up to
+today) at `http://127.0.0.1:8766`. It lives in its own `data/demo.db`, rebuilt on every start, so
+your own database is never touched. An empty Lightning also offers it on the welcome page.
+
 ## Run it on another computer (GitHub)
 
 The code lives on GitHub; **your data never does** (`data/` is excluded by `.gitignore`).
@@ -62,4 +67,5 @@ lint-imports              # architecture contracts
 - [docs/PROJECT_OVERVIEW.md](docs/PROJECT_OVERVIEW.md) — start here: the full hand-off brief
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — structure, rules, data model
 - [docs/GLOSSARY.md](docs/GLOSSARY.md) — what every term and code means
+- [docs/UI_AUDIT.md](docs/UI_AUDIT.md) — the tab-by-tab UI audit and what the demo pass changed
 - [CHANGELOG.md](CHANGELOG.md) — every change, every time

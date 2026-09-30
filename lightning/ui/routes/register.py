@@ -296,11 +296,10 @@ def _resolve(request: Request, row_account: int | None, values: dict, allow_miss
                 names = ", ".join(name for name, _ in guesses[:3])
                 raise ValidationError(f"Review similar Counterparties before saving: {names}.", "counterparty_review")
         else:
-            if choice == "create":
-                canonical = raw
-                c.counterparties.create(canonical)
-            else:
-                raise ValidationError("Confirm whether to create this new Counterparty.", "counterparty_review")
+            # Nothing similar exists, so a new name cannot duplicate one: save it without an extra
+            # question. Similar spellings above still need a deliberate choice.
+            canonical = raw
+            c.counterparties.create(canonical)
 
     category_text = values["category"].strip()
     category_choice = _int(values.get("category_choice"))
@@ -461,8 +460,6 @@ async def create_investment_entry(request: Request, account_id: int):
         unit_price = values["unit_price"]
         if (action == "dividend" or units is None) and not total:
             raise ValidationError("Enter a dividend amount, or add units for a buy or sell.", "total")
-        if action != "dividend" and units is None:
-            raise ValidationError("Enter the number of units.", "units")
         if units == ZERO:
             raise ValidationError("Units must be greater than zero.", "units")
         ticker_row = None
@@ -496,6 +493,25 @@ async def create_investment_entry(request: Request, account_id: int):
                 if not party or not party["active"]:
                     raise ValidationError("Choose an active saved Counterparty in Whom.", "whom")
                 owner, owner_id = party["name"], party["id"]
+            if units is None and action != "dividend":
+                # Bought or sold by amount (typical for a money market fund): units = amount ÷ price,
+                # using the price typed here or the fund's latest price.
+                price = to_decimal(unit_price, "unit_price") if unit_price else (
+                    c.reporting.value_of(asset.id, Decimal(1),
+                                         fmt_date(parse_date(values["date"], "date")) if values["date"] else fmt_date(today())).price)
+                if not price or not total:
+                    raise ValidationError("Enter the number of units, or a price per unit so they can be worked out.",
+                                          "units")
+                amount = to_decimal(total, "total")
+                fee = to_decimal(values["fees"], "fees") if values["fees"] else ZERO
+                gross = amount - fee if values["fees_included"] != "0" else amount
+                units = (gross / price).quantize(Decimal("0.0001"))
+                if units <= ZERO:
+                    raise ValidationError("The amount is too small for one unit at that price.", "total")
+                if action == "sell":
+                    units = -units
+                signed_units = units
+                values["price_basis"] = "total"
             if units is None:
                 if not total:
                     raise ValidationError("Enter the dividend amount.", "total")

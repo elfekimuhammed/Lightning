@@ -1,9 +1,9 @@
 {% macro plan_tabs(tabs, plan_tab) -%}
-<nav class="birdview-tabs plan-tabs" aria-label="Cash planning">{% for key, label, href in tabs %}<a href="{{ href }}"{% if key == active %} class="selected" aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}</nav>
+<nav class="birdview-tabs plan-tabs" aria-label="Cash planning">{% for key, label, href in tabs %}<a href="{{ href }}"{% if key == plan_tab %} class="selected" aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}</nav>
 {%- endmacro %}
 
 {% macro status(payment) -%}
-{% if payment.status.value == 'PAID' %}<span class="plan-status plan-status-paid">Paid</span>{% elif payment.status.value == 'SKIPPED' %}<span class="plan-status">Skipped</span>{% elif payment.status.value == 'DUE' %}<span class="plan-status plan-status-due">Due</span>{% else %}<span class="plan-status plan-status-upcoming">Upcoming</span>{% endif %}
+{% if payment.status.value == 'PAID' %}<span class="plan-status plan-status-paid">Paid</span>{% elif payment.status.value == 'SKIPPED' %}<span class="plan-status">Skipped</span>{% elif payment.status.value == 'DUE' %}<span class="plan-status plan-status-due">Due</span>{% endif %}
 {%- endmacro %}
 
 {% macro payment_row(p, back) -%}

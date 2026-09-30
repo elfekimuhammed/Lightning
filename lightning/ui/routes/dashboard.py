@@ -10,7 +10,7 @@ from fastapi import APIRouter, Request
 
 from lightning.accounts.domain import AccountType
 from lightning.core.dates import fmt_date, month_of, parse_date, parse_month, today
-from lightning.core.errors import ValidationError
+from lightning.core.errors import LightningError, ValidationError
 from lightning.core.figures import FIGURES, label
 from lightning.core.money import ZERO, fmt, to_decimal
 from lightning.investments.report import investment_period, results_by_asset
@@ -18,6 +18,7 @@ from lightning.investments.report import investment_period, results_by_asset
 from ..web import container, render
 from ..web import redirect
 from ..periods import Period, parse_period
+from .. import keynotes, visuals
 
 router = APIRouter()
 
@@ -137,7 +138,8 @@ async def dashboard(request: Request):
                           "detail": f"Due {payment.due_date} · {fmt(payment.amount)} {c.base_currency} · not paid yet.",
                           "href": f"/plan/items/{payment.item.id}/pay?due={payment.due_date}&back=%2F",
                           "popup": True, "action": "Mark paid", "priority": 1})
-    lowest = c.forecaster.forecast(today()).lowest
+    today_forecast = c.forecaster.forecast(today())
+    lowest = today_forecast.lowest
     if lowest is not None and lowest.closing < ZERO:
         attention.append({"label": "Cash may run short",
                           "detail": f"The cash forecast ends {lowest.month} at {fmt(lowest.closing)} {c.base_currency}.",
@@ -210,6 +212,7 @@ async def dashboard(request: Request):
         "portfolio_value": portfolio_value, "new_money": closing_report["net_money"],
         "period_result": period_result, "period_result_available": period_result is not None,
         "missing": closing_report["missing"] + opening_report["missing"],
+        "at_cost": closing_report["at_cost"],
         "holdings_count": sum(1 for row in closing_report["holdings"] if row["price_source"] != "CASH"),
     }
     investment_holdings = [
@@ -236,9 +239,15 @@ async def dashboard(request: Request):
     investment_share = (investment_flow / cash_flow.inflows * 100
                         if cash_flow.inflows > ZERO else None)
     savings_rate = cash_flow.savings_rate
+    # One note: what needs you, or what is safe to spend. The cards below already show the change
+    # in what you own and the savings rate, so the notes don't repeat them.
+    key_notes = [keynotes.needs_you(attention, today_forecast.safe_to_spend, today_forecast.next_income_date)]
     return render(
         request,
         "dashboard/index.html",
+        notes=key_notes, flow_trend=visuals.flow_trend(c, as_of),
+        where_it_went=visuals.spending_bars(c, first, as_of),
+        investment_donut=visuals.holdings_donut(position),
         month=month, this_month=month_of(today()), period=period, period_error=period_error,
         date_from=fmt_date(first), date_to=fmt_date(as_of), as_of=fmt_date(as_of),
         range_label=(f"No recorded activity · Position as of {fmt_date(as_of)}"
@@ -255,6 +264,20 @@ async def dashboard(request: Request):
         cash_flow=cash_flow, investment_flow=investment_flow,
         investment_share=investment_share, savings_rate=savings_rate,
     )
+
+
+@router.post("/demo")
+async def add_demo_household(request: Request):
+    """Fill an empty Lightning with the sample household (only while nothing has been added yet)."""
+    c = container(request)
+    if c.accounts.list():
+        return redirect("/", "The sample household can only be added to an empty Lightning.")
+    from lightning.demo import build_demo
+    try:
+        summary = build_demo(c)
+    except (LightningError, ValueError) as exc:  # nothing is kept: the ledger part is one transaction
+        return redirect("/", f"The sample household could not be added: {getattr(exc, 'message', exc)}")
+    return redirect("/", f"Sample household added: Omar's money from {summary['from']} to {summary['to']}.")
 
 
 @router.get("/explain/{kind}")
@@ -318,10 +341,12 @@ async def explain_overview_figure(request: Request, kind: str):
 @router.get("/money-from-others")
 async def money_from_others(request: Request):
     c = container(request)
+    owners = c.reporting.money_from_others_by_owner(today())
+    investments = c.reporting.money_from_others_investments(today())
+    held_total = c.position.at(today()).held_for_others
     return render(request, "money_from_others.html", accounts=c.accounts.list(active_only=True),
-                  counterparties=c.counterparties.list_active(),
-                  owners=c.reporting.money_from_others_by_owner(today()),
-                  investments=c.reporting.money_from_others_investments(today()),
+                  counterparties=c.counterparties.list_active(), held_total=held_total,
+                  owners=owners, investments=investments,
                   entries=c.reporting.money_from_others_history(),
                   investment_entries=c.money_from_others.investment_history())
 

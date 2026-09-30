@@ -141,3 +141,8 @@ class IncomeAverage:
     @property
     def window(self) -> str:
         return f"{self.first_month} to {self.last_month}" if self.first_month else ""
+
+    @property
+    def six_months(self) -> Decimal | None:
+        """The emergency-fund target: six months of average monthly income."""
+        return None if self.amount is None else self.amount * 6

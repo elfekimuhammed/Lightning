@@ -185,7 +185,7 @@ class TestTrades:
         assert report["dividends"] == D("3")
         assert report["unrealized"] == D("12")
 
-    def test_traceable_report_excludes_tagged_custody_and_marks_cost_fallback_unavailable(self, inv):
+    def test_traceable_report_excludes_tagged_custody_and_values_unpriced_holdings_at_cost(self, inv):
         from lightning.investments.report import build_investment_report
         c, accounts, _, stock, _ = inv
         buy = c.investments.add_holding(accounts["thndr"].id, stock.id, "10", "950", "2026-09-10")
@@ -195,9 +195,9 @@ class TestTrades:
         owned = next(row for row in report["holdings"] if row["asset"] == stock.name)
         assert owned["units"] == D("6")
         assert owned["cost"] == D("570")
-        assert report["value"] is None
-        assert any(item["asset"] == stock.name and "cost fallback" in item["reason"]
-                   for item in report["missing"])
+        # No price yet: counted at what was paid (no gain), flagged, and the result stays available.
+        assert report["value"] == D("570") and report["unrealized"] == ZERO
+        assert [item["asset"] for item in report["at_cost"]] == [stock.name] and not report["missing"]
 
     def test_traceable_report_counts_direct_physical_purchase_as_new_money(self, inv):
         from lightning.investments.report import build_investment_report
@@ -403,3 +403,22 @@ def test_inline_investment_workflow(setup, c):
     })
     assert dividend.status_code == 303
     assert c.investments.holding(thndr.id, asset.id) == D("6")
+
+
+def test_a_fund_can_be_bought_by_amount_and_a_new_name_needs_no_extra_step(c, setup):
+    from fastapi.testclient import TestClient
+    from lightning.ui.web import create_app
+    accounts, cats = setup
+    thndr = accounts["thndr"]
+    c.transactions.record_transfer("2026-09-01", accounts["cib"].id, thndr.id, "10000")
+    fund = c.assets.create_investment("Money Market Fund", "FUND.MONEY_MARKET", "MMF1")
+    c.assets.set_price(fund.id, "2026-09-01", "120")
+    client = TestClient(create_app(c), base_url="http://127.0.0.1")
+    entry = {"price_basis": "total", "fees": "", "fees_included": "1", "trade_action": "buy",
+             "instrument_key": f"asset:{fund.id}", "date": "2026-09-02"}
+    response = client.post(f"/accounts/{thndr.id}/investment-entry", data={**entry, "total": "3000"})
+    assert response.status_code in (200, 303)
+    assert c.investments.holding(thndr.id, fund.id, "2026-09-30") == D("25")  # 3,000 ÷ the latest price 120
+    saved = client.post(f"/accounts/{accounts['cib'].id}/register", data={
+        "date": "2026-09-25", "counterparty": "Zzq Bakery", "category": "Food & Groceries", "amount": "-40"})
+    assert saved.status_code == 200 and c.counterparties.resolve("Zzq Bakery") is not None

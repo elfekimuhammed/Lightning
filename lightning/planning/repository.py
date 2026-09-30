@@ -46,6 +46,14 @@ class PlanningRepository:
         self.db.execute(f"UPDATE planned_items SET {','.join(c + '=?' for c in _COLUMNS)},updated_at=? WHERE id=?",
                         (*self._row(values), now_iso(), item_id))
 
+    def set_amount(self, item_id: int, amount) -> None:
+        self.db.execute("UPDATE planned_items SET amount_e6=?, updated_at=? WHERE id=?",
+                        (to_e6(amount), now_iso(), item_id))
+
+    def set_start(self, item_id: int, start_date: str) -> None:
+        self.db.execute("UPDATE planned_items SET start_date=?, updated_at=? WHERE id=?",
+                        (start_date, now_iso(), item_id))
+
     def set_active(self, item_id: int, active: bool) -> None:
         self.db.execute("UPDATE planned_items SET active=?,updated_at=? WHERE id=?", (int(active), now_iso(), item_id))
 
@@ -58,7 +66,7 @@ class PlanningRepository:
     def settled(self) -> dict[tuple[int, str], dict]:
         """Settled payments whose transaction is still posted (a voided payment is unpaid again)."""
         rows = self.db.all(
-            "SELECT p.planned_item_id,p.due_date,p.status,p.transaction_id FROM planned_payments p "
+            "SELECT p.planned_item_id,p.due_date,p.status,p.transaction_id,p.amount_e6 FROM planned_payments p "
             "LEFT JOIN transactions t ON t.id=p.transaction_id "
             "WHERE p.status='SKIPPED' OR t.status='POSTED'")
         return {(row["planned_item_id"], row["due_date"]): dict(row) for row in rows}

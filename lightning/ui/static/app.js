@@ -352,8 +352,11 @@ document.querySelectorAll(".trade-total").forEach((total) => {
   const feeField = form.querySelector('[data-fees-field]');
   const syncFeeField = () => {
     if (!feeChoice || !feeField) return;
-    feeField.hidden = !feeChoice.checked;
-    if (feeInput) feeInput.disabled = !feeChoice.checked;
+    // Fees can always be typed: inside the amount by default, on top of it when ticked.
+    feeField.hidden = false;
+    if (feeInput) feeInput.disabled = false;
+    const feeLabel = feeField.querySelector("label");
+    if (feeLabel) feeLabel.textContent = feeChoice.checked ? "Fees (on top of the amount)" : "Fees (inside the amount)";
   };
   const update = () => {
     const units = Number(quantity.value.replace(/,/g, ""));
@@ -432,9 +435,11 @@ if (tradeCatalogueNode) {
     units.disabled = isDividend;
     if (dividendBasisField) dividendBasisField.hidden = !isDividend;
     if (priceField) priceField.hidden = isDividend;
-    if (feesField) feesField.hidden = isDividend || !feesExcluded?.checked;
+    if (feesField) feesField.hidden = isDividend;
     if (feesToggleField) feesToggleField.hidden = isDividend;
-    if (fees) fees.disabled = isDividend || !feesExcluded?.checked;
+    if (fees) fees.disabled = isDividend;
+    const feesLabel = feesField?.querySelector("label");
+    if (feesLabel) feesLabel.textContent = feesExcluded?.checked ? "Fees (on top of the amount)" : "Fees (inside the amount)";
     if (feesExcluded) feesExcluded.disabled = isDividend;
     if (unitPrice) unitPrice.disabled = isDividend;
     if (isDividend) {
@@ -906,10 +911,18 @@ document.querySelectorAll("[data-counterparty-filter]").forEach((search) => {
   let dirty = false;
   let activePopupUrl = null;
 
-  const canDiscard = () => !dirty || window.confirm("Discard your unsaved changes?");
+  // Changed means the form data differs from what the popup opened with (or a save just failed).
+  // Formatting a field when the popup opens is not a change.
+  let snapshot = "";
+  const formState = () => [...content.querySelectorAll("form")]
+    .map((form) => new URLSearchParams(new FormData(form)).toString()).join("&");
+  const changed = () => dirty && formState() !== snapshot;
+  let keepAfterError = false;
+  const canDiscard = () => !(keepAfterError || changed()) || window.confirm("Discard your unsaved changes?");
   const close = (goBack = true) => {
     if (!dialog.open || !canDiscard()) return false;
     dirty = false;
+    keepAfterError = false;
     dialog.close();
     document.body.classList.remove("popup-open");
     content.replaceChildren();
@@ -928,10 +941,14 @@ document.querySelectorAll("[data-counterparty-filter]").forEach((search) => {
     if (h) { h.id = "app-popup-title"; dialog.setAttribute("aria-labelledby", h.id); }
     else { dialog.removeAttribute("aria-labelledby"); dialog.setAttribute("aria-label", title); }
     dirty = false;
+    keepAfterError = false;
     document.body.classList.add("popup-open");
     if (!dialog.open) dialog.showModal();
     initPopupFields();
     initTransactionForm();
+    snapshot = formState();
+    // Money fields are formatted by a MutationObserver after this runs; take the snapshot after it.
+    setTimeout(() => { snapshot = formState(); dirty = false; }, 0);
     requestAnimationFrame(() => (content.querySelector("[autofocus], input:not([type=hidden]), select, button, a[href]") ||
       dialog.querySelector("[data-popup-close]")).focus());
   };
@@ -1101,7 +1118,7 @@ document.querySelectorAll("[data-counterparty-filter]").forEach((search) => {
       if (response.status >= 400) {
         const doc = new DOMParser().parseFromString(text, "text/html");
         show(extract(doc), doc.title);
-        dirty = true;
+        keepAfterError = true;  // the form holds what the user typed; closing would lose it
         const firstError = content.querySelector(".flash.error,.error,[aria-invalid=true]");
         firstError?.focus?.();
       } else {

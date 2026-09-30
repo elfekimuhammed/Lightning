@@ -40,10 +40,9 @@
   <span class="muted small">{{ account.currency }} · {{ account.type_label }}</span>
 </div>
 {% else %}
-<div class="acct-title"><h1>Transactions</h1><p class="muted small">Every account</p></div>
+<div class="acct-title"><h1>Transactions</h1><p class="muted small">Every account · {{ base }}</p></div>
 <div class="acct-figures">
   {% if sidebar_total != sidebar_owned_total %}<div><span class="muted small">{{ fig.in_your_accounts.label }}</span><b>{{ sidebar_total|money }}</b></div><div><span class="muted small">{{ fig.what_you_own.label }}</span><b>{{ sidebar_owned_total|money }}</b></div><div><span class="muted small">{{ fig.held_for_others.label }}</span><b>{{ (sidebar_total - sidebar_owned_total)|money }}</b></div>{% else %}<div><span class="muted small">{{ fig.in_your_accounts.label }}</span><b>{{ sidebar_total|money }}</b></div>{% endif %}
-  <span class="muted small">{{ base }}</span>
 </div>
 {% endif %}
 {% endblock %}
@@ -157,7 +156,7 @@
         <input id="investment-unit-price" type="text" name="unit_price" value="{{ investment_entry.get('unit_price', '') }}" placeholder="Or enter unit price" inputmode="decimal" class="money-input">
       </div>
       <div class="field investment-fees-toggle" id="investment-fees-toggle-field"><label><input id="investment-fees-included" type="checkbox" name="fees_included" value="0" data-fees-excluded {{ 'checked' if investment_entry.get('fees_included') == '0' }}> Fees are extra (not in the amount)</label></div>
-      <div class="field" id="investment-fees-field" {{ 'hidden' if investment_entry.get('fees_included') != '0' }}>
+      <div class="field" id="investment-fees-field">
         <label for="investment-fees">Fees</label>
         <input id="investment-fees" type="text" name="fees" value="{{ investment_entry.get('fees', '') }}" placeholder="0.00" inputmode="decimal" class="money-input">
       </div>
@@ -205,7 +204,7 @@
 </div>
 {% endif %}
 
-<div class="register-intro section-head"><div><h2>Transactions</h2><p>{{ 'Add and edit activity in this account' if account else 'Add and edit activity across your accounts' }}</p></div></div>
+{% if account %}<div class="register-intro section-head"><div><h2>Transactions</h2></div></div>{% endif %}
 <div class="toolbar register-filters">
   <form method="get" class="toolbar-filters" data-auto-filter>
     <input type="search" name="q" value="{{ q }}" placeholder="Search: counterparty, notes, category, amount, ref…">
@@ -223,10 +222,10 @@
   </div>
   <table>
     <colgroup>
-      <col style="width:42px"><col style="width:176px">{% if show_account %}<col style="width:12%">{% endif %}
-      <col style="width:12%"><col style="width:12%">
-      <col class="whom-column" style="width:{{ '10%' if custody_present else '0' }}"><col><col style="width:110px">
-      {% if with_balance %}<col style="width:110px">{% endif %}<col style="width:72px">
+      <col style="width:42px"><col style="width:176px">{% if show_account %}<col style="width:10%">{% endif %}
+      <col style="width:15%"><col style="width:13%">
+      <col class="whom-column" style="width:{{ '6%' if custody_present else '0' }}"><col><col style="width:120px">
+      {% if with_balance %}<col style="width:110px">{% endif %}<col style="width:64px">
     </colgroup>
     <thead><tr>
       <th id="select-visible-header" class="select-visible-header" title="Select or clear all visible transactions"><input id="select-visible" type="checkbox" aria-label="Select all visible transactions"></th><th>Date</th>{% if show_account %}<th>Account</th>{% endif %}<th>Counterparty</th><th>Category</th><th class="whom-head {{ 'is-hidden' if not custody_present }}">Held for</th><th>Notes</th>
@@ -263,9 +262,9 @@
         <td class="code {{ 'same-day' if r.date == ns.last_date }}">{{ r.date }}</td>
         {% if show_account %}<td class="small">{{ r.account_label }}</td>{% endif %}
         <td>{% if r.type == 'TRF' %}<span class="pill transfer">↔</span> {{ r.other_account_label }}{% else %}{{ r.counterparty or r.description or '—' }}{% endif %}</td>
-        <td class="small">{{ r.category_label }}</td>
+        {% set cat = r.type_label if r.type in ('BUY', 'SEL', 'DIV') else r.category_label.split(' › ')[-1] %}<td class="small" title="{{ r.category_label }}">{{ cat if cat != (r.counterparty or r.description) else '' }}</td>
         <td class="small whom-cell {{ 'is-hidden' if not custody_owners.get(r.txn_id) }}">{{ custody_owners.get(r.txn_id, '') }}</td>
-        <td class="small muted">{{ r.notes }}{% if r.type == 'TRF' and r.description %} {{ r.description }}{% endif %}</td>
+        {% set note_text = (r.notes ~ ((' ' ~ r.description) if r.type == 'TRF' and r.description else ''))|trim %}<td class="small muted register-note" title="{{ note_text }}">{{ note_text }}</td>
         <td class="num amount {{ r.amount|tone }}">{{ r.amount|money(True) }}</td>
         {% if with_balance %}<td class="num muted">{{ r.balance|money }}</td>{% endif %}
         <td><a class="small" href="{{ href }}">{{ 'Edit' if r.type in ('IN','OUT','TRF') else 'Details' }}</a></td>

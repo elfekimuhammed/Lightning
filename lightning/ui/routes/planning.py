@@ -9,12 +9,13 @@ from fastapi import APIRouter, Request
 from lightning.categories.domain import Movement
 from lightning.core.dates import fmt_date, today
 from lightning.core.errors import LightningError
-from lightning.core.money import ZERO
+from lightning.core.money import ZERO, fmt, to_decimal
 from lightning.planning.domain import (FREQUENCY_LABELS, KIND_LABELS, RECURRING_KINDS, Frequency, PaymentStatus,
                                        PlanKind)
 from lightning.planning.schedule import describe
 from lightning.planning.service import LOAN_CATEGORY
 
+from .. import charts, keynotes, visuals
 from ..web import container, redirect, render
 from . import reserves as reserve_routes
 
@@ -99,7 +100,10 @@ async def plan_page(request: Request):
     window_end = day + timedelta(days=30)
     next_payments = [p for p in c.planning.all_payments(window_end, day)
                      if p.status in (PaymentStatus.DUE, PaymentStatus.UPCOMING)]
+    # The next payment heads the Next 30 days list, so the note is only the forecast's lowest point.
+    notes = [n for n in (keynotes.lowest_point(forecast),) if n]
     return render(request, "planning/plan.html", tabs=TABS, plan_tab="plan", forecast=forecast, owe=owe,
+                  notes=notes, forecast_chart=visuals.forecast_trend(forecast),
                   next_payments=next_payments, as_of=fmt_date(day), window_end=fmt_date(window_end),
                   has_items=bool(c.planning.items()), labels=_labels(c))
 
@@ -116,7 +120,12 @@ async def recurring_page(request: Request):
     subscriptions = sum((r["per_year"] for r in rows if r["item"].kind == PlanKind.SUBSCRIPTION), ZERO)
     monthly_out = sum((r["per_year"] for r in rows if not r["item"].is_income), ZERO) / 12
     monthly_in = sum((r["per_year"] for r in rows if r["item"].is_income), ZERO) / 12
+    notes = [n for n in (keynotes.recurring_summary(monthly_out, monthly_in, subscriptions),) if n]
+    bill_bars = charts.bars([{"label": r["item"].name, "value": r["per_year"] / 12,
+                              "note": r["item"].kind_label + (" · " + r["category"] if r["category"] else "")}
+                             for r in rows if not r["item"].is_income])
     return render(request, "planning/recurring.html", tabs=TABS, plan_tab="recurring", rows=rows, stopped=stopped,
+                  notes=notes, bill_bars=bill_bars,
                   suggestions=c.planning.suggestions(day), subscriptions_per_year=subscriptions,
                   monthly_out=monthly_out, monthly_in=monthly_in, labels=labels, as_of=fmt_date(day))
 
@@ -129,7 +138,10 @@ async def loans_page(request: Request):
     labels = _labels(c)
     loans = [{"item": item, "progress": c.planning.loan_progress(item, day), "schedule": describe(item),
               "account": labels["accounts"].get(item.account_id)} for item in c.planning.items((PlanKind.LOAN,))]
-    return render(request, "planning/loans.html", tabs=TABS, plan_tab="loans", loans=loans,
+    for entry in loans:
+        entry["meter"] = charts.meter(entry["progress"]["paid_amount"], entry["progress"]["total_amount"])
+    notes = [n for n in (keynotes.loans_summary(loans),) if n]
+    return render(request, "planning/loans.html", tabs=TABS, plan_tab="loans", loans=loans, notes=notes,
                   still_to_pay=sum((l["progress"]["still_to_pay"] for l in loans), ZERO), as_of=fmt_date(day))
 
 
@@ -179,10 +191,15 @@ async def create_item(request: Request):
     values = _form_values(form)
     back = _back(form, "/plan/loans" if values["kind"] == "LOAN" else "/plan/recurring")
     try:
-        c.planning.create(**_save_values(c, values))
+        item_id = c.planning.create(**_save_values(c, values))
     except LightningError as exc:
         return _item_form(request, c, values, error=exc.message, error_field=exc.field or "", status_code=400, back=back)
-    return redirect(back, f"{values['name']} added.")
+    message = f"{values['name']} added."
+    if str(form.get("past_due", "paid")) == "paid":
+        moved = c.planning.start_after_paid(item_id)
+        if moved:
+            message = f"{values['name']} added. Already paid, so the next one is due {moved}."
+    return redirect(back, message)
 
 
 @router.get("/items/{item_id:int}/edit")
@@ -213,6 +230,18 @@ async def update_item(request: Request, item_id: int):
         return _item_form(request, c, values, item=item, error=exc.message, error_field=exc.field or "",
                           status_code=400, back=back)
     return redirect(back, f"{values['name']} saved.")
+
+
+@router.post("/items/{item_id:int}/amount")
+async def set_item_amount(request: Request, item_id: int):
+    c = container(request)
+    form = await request.form()
+    item = c.planning.get(item_id)
+    try:
+        c.planning.set_amount(item_id, str(form.get("amount", "")))
+    except LightningError as exc:
+        return redirect(_back(form, "/plan/recurring"), exc.message)
+    return redirect(_back(form, "/plan/recurring"), f"{item.name} is now planned at {fmt(to_decimal(str(form.get('amount')), 'amount'))}.")
 
 
 @router.post("/items/{item_id:int}/delete")
@@ -259,6 +288,10 @@ async def settle_payment(request: Request, item_id: int):
             c.planning.record_payment(item_id, due, str(form.get("date_paid", "")), str(form.get("amount", "")),
                                       int(str(form.get("account_id"))) if str(form.get("account_id", "")).isdigit() else None)
             message = f"{item.name} · {due} recorded and marked paid."
+            paid = to_decimal(str(form.get("amount", "")), "amount")
+            if paid != item.amount and item.frequency != Frequency.ONCE:
+                message += (f" You paid {fmt(paid)} instead of {fmt(item.amount)}; Recurring offers to use "
+                            f"{fmt(paid)} from now on.")
         elif action == "skip":
             c.planning.skip(item_id, due)
             message = (f"{item.name} · {due} moved to the end of the loan." if item.kind == PlanKind.LOAN

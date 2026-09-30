@@ -13,6 +13,7 @@ from lightning.core.errors import LightningError, ValidationError
 from lightning.categories.domain import CategoryFamily, Movement, Scope
 from lightning.core.money import ZERO, to_decimal
 
+from .. import charts, keynotes
 from ..web import container, redirect, render
 from ..periods import parse_period
 
@@ -292,7 +293,22 @@ def _page(request: Request, month: str, values: dict | None = None, error: str =
                 bulk_undo = token
         except (ValueError, TypeError):
             pass
-    return render(request, "budget.html", loan_planned=sum(c.budgets.loan_lines(month).values(), ZERO), status_code=status_code, view=view, month=month,
+    # Spent of plan for each planned category in the month, over plan first (guide 08 · budget meters).
+    meter_lines = []
+    for section in view.sections:
+        for line in section.lines:
+            if line.depth > 1 and line.available is not None and (line.available or line.planned_actual):
+                meter_lines.append({"label": line.name, "used": line.planned_actual, "total": line.available,
+                                    "m": charts.meter(line.planned_actual, line.available),
+                                    "href": f"/transactions?category_id={line.category_id}&date_from={month}-01"})
+    meter_lines.sort(key=lambda r: (not r["m"]["over"], -(r["m"].get("share") or 0)))
+    month_first, month_last = parse_month(month)
+    days_left = (month_last - today()).days + 1 if month_first <= today() <= month_last else 0
+    notes = keynotes.budget_left(view.available - view.actual, days_left,
+                                 [r["label"] for r in meter_lines if r["m"]["over"]], "#budget-meters") if c.budgets.has_plan(month) else []
+    left_note = keynotes.per_day(view.available - view.actual, days_left) if c.budgets.has_plan(month) else ""
+    return render(request, "budget.html", notes=notes, meter_lines=meter_lines, left_note=left_note,
+                  loan_planned=sum(c.budgets.loan_lines(month).values(), ZERO), status_code=status_code, view=view, month=month,
                   prev_month=prev_month, next_month=next_month, values=values or {}, error=error,
                   has_plan=has_plan, suggestions=suggestions_view,
                   tracked=tracked, averages=averages,

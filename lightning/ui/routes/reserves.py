@@ -11,6 +11,7 @@ from lightning.transactions.domain import TxnFilter
 from lightning.core.refs import DocType
 from lightning.categories.domain import Movement
 
+from .. import charts, keynotes
 from ..web import container, redirect, render
 
 router = APIRouter(prefix="/reserves")
@@ -44,9 +45,15 @@ def _context(request: Request, error: str = ""):
     for item in completed:
         item["payments"] = [row | {"amount": from_e6(row["amount_e6"])}
                             for row in c.reserves.links_for_reserve(item["id"])]
-    return {"reserves": listed, "completed_reserves": completed,
+    set_aside = emergency["effective_allocated"] if emergency else ZERO
+    emergency_meter = charts.meter(set_aside, income.six_months) if income.six_months else None
+    position = c.position.at(today())
+    # Free cash is the last tile below, so the one note is how long the emergency fund lasts.
+    notes = [n for n in (keynotes.emergency(emergency_months, income.six_months),) if n]
+    return {"reserves": listed, "completed_reserves": completed, "notes": notes, "emergency_meter": emergency_meter,
+            "emergency_set_aside": set_aside,
             "emergency": emergency, "income": income, "emergency_months": emergency_months,
-            "pos": c.position.at(today()), "error": error,
+            "pos": position, "error": error,
             "counterparties": c.counterparties.list_active(),
             "accounts": [account for account in c.accounts.list(active_only=True)
                          if account.account_type.value in ("CASH", "BANK", "DEPOSIT", "BROKERAGE")],

@@ -45,7 +45,7 @@
     <input type="hidden" name="fees" value="{{ values.fees }}">
   </div>
   {% else %}
-  <div data-fees-field {{ 'hidden' if values.get('fees_included') != '0' }}>
+  <div data-fees-field>
     {{ field('fees', 'Fees (' ~ base ~ ')', values, error_field, placeholder='e.g. 25', attrs='inputmode="decimal" class="money-input"') }}
   </div>
   {% endif %}

@@ -8,6 +8,84 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### Crisp pass: one look on every page, less text · 2026-09-30
+- **One type scale:**
+  - Text: 12 (labels), 13 (notes), 14 (body), 15 (key-note titles), 17 (card titles), 20 (sections) and 28 (page titles).
+  - Numbers: 40 (lead card), 30 (other cards) and 24 (tiles).
+  - Pages use 5–10 sizes instead of 10–14, and nothing is smaller than 12 px.
+- **Currency once:** "EGP" appears small beside a card's main number. Row amounts show only the number.
+- **One look for shared parts:**
+  - Card shape, lead-card style and tile style.
+  - One expander with a chevron on the right.
+  - The same button sizes, and one primary action per header.
+  - A settings icon in place of the ⚙ emoji.
+  - "Back" sits with the actions on Settings.
+- **Fixes:**
+  - The Cash planning tabs show which one is open.
+  - Transactions amounts are no longer cut off.
+  - Dates and numbers no longer break across lines.
+  - Tabs don't wrap on a phone.
+- **Less text, nothing said twice:**
+  - Formulas move inside "How is this worked out?".
+  - Key notes only say what the page doesn't already show.
+  - Repeated dates and "As of" labels are removed where the page header gives the period.
+  - "Upcoming" labels are removed; only due payments are marked.
+  - Empty tables show one line instead of headers.
+  - Birdview, Expense analysis and Investments lose the sub-tabs that repeated the sidebar.
+  - Birdview is two cards: What you own (or Net worth) with what it is made of, and If you sold today.
+  - The Plan forecast table has 5 columns.
+  - Investments hides the Horizon column until a horizon is set, and shows units without trailing zeros.
+  - Transactions show the category name without its group (the full path shows on hover), trade descriptions without internal codes, and notes on one line.
+- Word counts fell 20–64% per page (Birdview 403 → 145, Overview 383 → 269, Plan 319 → 201).
+
+### Demo pass: visuals, key notes and a sample household · 2026-09-30
+- **Key notes:** each main tab opens with up to three one-sentence notes: the answer, what changed, and what needs you. Each note has its number and one link.
+  - Overview: safe to spend until payday, or what needs you; the change in what you own; how much of money in you kept.
+  - Budget: the categories over plan, and what is left per remaining day.
+  - Loans: the payoff date and the next payment.
+  - The other tabs follow the same pattern.
+- **Charts follow the app guideline** on every tab, with colours by meaning and bars from zero. Every trend has a "Show the numbers" table.
+  - Overview: a month-by-month money in and out trend, "Where it went" spending bars, and a "What you hold" donut.
+  - Birdview: a donut of what you own.
+  - Expense analysis: category bars and a spending trend against the plan.
+  - Budget: spent-of-plan meters, over plan first.
+  - Investments: a portfolio trend that starts at the first holding, and an allocation donut.
+  - Cash planning: the forecast line, the bills bars, a payment meter on each loan, and the emergency-fund meter.
+- **Simpler screens:**
+  - Lead cards use the soft gradient with dark text, so formulas on them can be read.
+  - "Needs my attention" is now **Needs you** and appears only when something does.
+  - The holdings table has 5 columns instead of 8, and "Update prices" is under More actions.
+  - Recurring shows one bar card instead of three tiles.
+  - Budget's summary cards fill one row.
+- **Sample household:**
+  - `python -m lightning --demo` opens Omar's last three months (accounts, spending, investments, gold, money kept for Mom, a budget, the emergency fund, bills and a car loan) in a separate `data/demo.db` on port 8766.
+  - It is rebuilt on every start and dated up to today.
+  - An empty Lightning offers the same household from its welcome page.
+- The tab-by-tab audit and what this pass changed are in `docs/UI_AUDIT.md`.
+
+### Open findings fixed (Omar runs) · 2026-09-30
+- **#111:** a holding with no price yet is valued at what you paid (no gain yet) and flagged "valued at cost". The investment Result is no longer "Unavailable", and it now matches Result by asset class.
+- **#129:** each derived figure shows its number, one formula line and one closed "How is this worked out?" toggle with the meanings and notes, the same on every tab. The Plan tab shows about 20% fewer words.
+- **#130:** adding a recurring item whose date has passed asks once: "I paid it — start from the next one" (the default) or "Not paid yet — show it as due".
+- **#131:** recurring amounts under 50 are no longer suggested.
+- **#132:** closing a popup asks to discard only when something was changed.
+- **#133:** paying a different amount says so, and Recurring offers "Use … from now on".
+- **Import review:** answering one row fills the other rows with the same imported name (16 decisions instead of 40 for Omar's statement).
+- **Fees:** the fee field can always be typed: inside the amount by default, on top of it when "Fees are extra" is ticked.
+- **Buying by amount:** leave Units blank to buy or sell a fund by amount; units come from the price per unit or the latest price.
+- **New names:** a new name with no similar existing name is saved without an extra confirmation. Similar spellings still ask.
+
+### Project overview: workflow, questions and gaps · 2026-09-30
+- The Project Overview describes the three layers and the hurried-user principle. It adds Omar's month as the reference workflow, the seven main questions each with follow-up questions (where each is answered, or the gap), and what is still missing compared with the best budgeting apps.
+- Outdated decisions are corrected: loans and What you owe now count, and the emergency fund uses Average monthly income.
+- The Omar persona reports are kept in `docs/personas/`.
+
+### Glossary by layer: ledger, plan, report · 2026-09-30
+- The Glossary and Architecture describe three layers: the **ledger** (real money that actually moved), the **plan** (what-if: budgets, reserves, scheduled bills and loans, sale factors, the forecast; it moves no money) and the **report** (reads both, stores nothing).
+- Every reported figure lists its layer (Ledger, Plan, or Ledger + Plan), how it is calculated, and the one function that computes it. The tables are generated from `lightning/core/figures.py` (`python -m lightning.core.figures`), and a test fails if the Glossary drifts or a listed function doesn't exist.
+- The basic terms and entry-form fields are marked by layer too.
+- Calculations moved out of screens into one function each: Savings rate (`CashFlow.savings_rate`), Change in what you own (`PositionService.change_in_what_you_own`), and Result with Change in unrealized gain (`investment_period`, `results_by_asset`). The Overview and Investments no longer compute Result separately.
+
 ### Fixes from the Omar v7.1 re-run · 2026-09-30
 - Skipping a loan payment no longer forgives it: the payment moves to the end of the loan ("Move to the end of the loan"), and skipped payments show on Loans and Recurring with an undo.
 - Amounts and dates accept Arabic-Indic digits (٦٠٠, ٥/١٠) and the Arabic decimal and thousands marks.
