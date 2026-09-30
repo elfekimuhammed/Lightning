@@ -61,9 +61,13 @@ def today() -> date:
     return date.fromisoformat(pinned) if pinned else date.today()
 
 
+def _local_now() -> datetime:
+    return datetime.now().astimezone()
+
+
 def now_iso() -> str:
     """Local timestamp with UTC offset, e.g. 2026-09-25T16:00:00+03:00."""
-    return datetime.now().astimezone().isoformat(timespec="seconds")
+    return _local_now().isoformat(timespec="seconds")
 
 
 def parse_month(value: str, field: str = "month") -> tuple[date, date]:
