@@ -27,7 +27,8 @@ def run(argv=None) -> int:
             from lightning.desktop.window import run_window
             server = LocalServer(checks).start()
             try:
-                if run_window(server.launch_url, server.origin, smoke=args.smoke) != 0:
+                if run_window(server.launch_url, server.origin, smoke=args.smoke,
+                              diagnostics=report.setdefault("window", {})) != 0:
                     raise RuntimeError("The WebView2 window check failed")
                 report["checks"]["window"] = True
             finally:

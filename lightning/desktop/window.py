@@ -55,11 +55,13 @@ def _show_error(message: str) -> None:
     ctypes.windll.user32.MessageBoxW(None, message, "Lightning", 0x10)
 
 
-def run_window(url: str, origin: str, *, smoke: bool = False) -> int:
+def run_window(url: str, origin: str, *, smoke: bool = False, diagnostics: dict | None = None) -> int:
     """Run one guarded WebView2 window; return nonzero for startup or smoke failures."""
     if __import__("sys").platform != "win32":
         raise RuntimeError("The Lightning desktop window is available only on Windows")
 
+    diagnostics = diagnostics if diagnostics is not None else {}
+    diagnostics["stage"] = "initializing"
     try:
         allowed_origin = _origin(origin)
         target = urlsplit(url)
@@ -84,6 +86,7 @@ def run_window(url: str, origin: str, *, smoke: bool = False) -> int:
         result = {"code": 1 if smoke else 0}
 
         def fail(reason: str) -> None:
+            diagnostics["failure"] = reason
             state["failure"] = reason
             result["code"] = 1
             smoke_done.set()
@@ -101,6 +104,7 @@ def run_window(url: str, origin: str, *, smoke: bool = False) -> int:
                         pass
 
         def before_show(*_args) -> None:
+            diagnostics["stage"] = "native-window"
             try:
                 if webview.renderer != "edgechromium":
                     raise RuntimeError("WebView2 renderer was not selected")
@@ -132,6 +136,7 @@ def run_window(url: str, origin: str, *, smoke: bool = False) -> int:
                         core.NavigationStarting += navigation_starting
                         core.NewWindowRequested += new_window
                         state["guard"] = True
+                        diagnostics["stage"] = "navigation-guard-installed"
 
                         def navigate() -> None:
                             if not window.events.shown.wait(10):
@@ -190,6 +195,7 @@ def run_window(url: str, origin: str, *, smoke: bool = False) -> int:
                                         if state["rejected"].wait(2):
                                             if not window_closed.is_set():
                                                 result["code"] = 0
+                                                diagnostics["stage"] = "smoke-passed"
                                         else:
                                             result["code"] = 1
                                         smoke_done.set()
@@ -254,7 +260,8 @@ def run_window(url: str, origin: str, *, smoke: bool = False) -> int:
             _show_error(str(state["failure"]))
             return 1
         return int(result["code"])
-    except Exception:
+    except Exception as exc:
+        diagnostics["error_type"] = type(exc).__name__
         # Do not surface exception text: framework errors can contain the launch URL.
         if not smoke:
             try:

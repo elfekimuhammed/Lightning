@@ -1,0 +1,3 @@
+# Build the one source-only pywebview dependency with pinned tooling.
+setuptools==84.0.0
+wheel>=0.45,<1
