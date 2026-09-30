@@ -12,6 +12,7 @@ from lightning.accounts.service import AccountService
 from lightning.assets.service import AssetService
 from lightning.budgeting.service import BudgetService
 from lightning.planning.forecast import CashForecaster
+from lightning.planning.position import PositionService
 from lightning.planning.service import PlanningService
 from lightning.bank_imports import BankImportService
 from lightning.categories.service import CategoryService
@@ -62,6 +63,7 @@ class Container:
     integrity: IntegrityService
     planning: PlanningService
     forecaster: CashForecaster
+    position: PositionService
 
     @property
     def base_currency(self) -> str:
@@ -96,7 +98,9 @@ def build(db_path: str | Path | None = None, backup_on_start: bool = False) -> C
     budgets = BudgetService(db, categories, reporting)
     reevaluations = ReevaluationService(db, accounts, transactions, reporting)
     planning = PlanningService(db, accounts, categories, counterparties, transactions)
-    forecaster = CashForecaster(planning, reporting, reserves, budgets, categories)
+    investments = InvestmentService(db, accounts, assets, categories, transactions, reporting, reevaluations)
+    position = PositionService(reporting, assets, investments, money_from_others, reserves, planning)
+    forecaster = CashForecaster(planning, reporting, reserves, budgets, categories, position)
     return Container(
         db=db,
         data_dir=data_dir,
@@ -115,9 +119,10 @@ def build(db_path: str | Path | None = None, backup_on_start: bool = False) -> C
         money_from_others=money_from_others,
         physical_items=physical_items,
         budgets=budgets,
-        investments=InvestmentService(db, accounts, assets, categories, transactions, reporting, reevaluations),
+        investments=investments,
         account_flows=AccountWorkflows(db, accounts, transactions, reporting),
         integrity=IntegrityService(reporting, reserves, budgets, planning),
         planning=planning,
         forecaster=forecaster,
+        position=position,
     )

@@ -10,19 +10,19 @@
   <header class="overview-section-head"><h2 id="plan-now">Your cash</h2><span>As of {{ as_of }}</span></header>
   <div class="plan-pair">
     <article class="card plan-lead">
-      <div class="section-head"><div><h2>Safe to spend</h2><p>{% if f.next_income_date %}Until {{ 'expected income on' if f.next_income_estimated else 'your next income on' }} {{ f.next_income_date }}{% else %}Over the next 3 months · no income is scheduled{% endif %} · estimate</p></div></div>
+      <div class="section-head"><div><h2>{{ fig.safe_to_spend.label }}</h2><p>{% if f.next_income_date %}Until {{ 'expected income on' if f.next_income_estimated else 'your next income on' }} {{ f.next_income_date }}{% else %}Over the next 3 months · no income is scheduled{% endif %} · estimate</p></div></div>
       <div class="plan-figure">{{ f.safe_to_spend|money }} <small>{{ base }}</small></div>
       <div class="compact-list">{% for label, value in f.safe_to_spend_parts %}<div class="compact-row"><span>{{ label }}</span><b>{{ value|money }} {{ base }}</b></div>{% endfor %}</div>
-      {% if f.safe_to_spend < 0 %}<p class="flash error">Promised payments are larger than your free cash.</p>{% endif %}
+      {{ formula('safe_to_spend') }}{% if f.safe_to_spend < 0 %}<p class="flash error">Promised payments are larger than your free cash.</p>{% endif %}
     </article>
     <article class="card">
-      <div class="section-head"><div><h2>What you owe</h2><p>Certain obligations: bills already due and loans still to pay</p></div><a class="quiet-link" href="/plan/loans">Loans</a></div>
+      <div class="section-head"><div><h2>{{ fig.what_you_owe.label }}</h2><p>{{ fig.what_you_owe.meaning }}</p></div><a class="quiet-link" href="/plan/loans">Loans</a></div>
       <div class="plan-figure plan-figure-small">{{ owe.total|money }} <small>{{ base }}</small></div>
       <div class="compact-list">
-        <div class="compact-row"><span>Bills due</span><b>{{ owe.bills_due|money }} {{ base }}</b></div>
-        <div class="compact-row"><span>Loans still to pay</span><b>{{ owe.loans_still_to_pay|money }} {{ base }}</b></div>
+        <div class="compact-row"><span>{{ fig.bills_due.label }} <small>other than loan payments</small></span><b>{{ owe.other_bills_due|money }} {{ base }}</b></div>
+        <div class="compact-row"><span>{{ fig.loans_still_to_pay.label }}</span><b>{{ owe.loans_still_to_pay|money }} {{ base }}</b></div>
       </div>
-      <p class="muted small">Bills due come off free cash now. The whole loan balance comes off net worth; upcoming payments stay in the forecast.</p>
+      {{ formula('what_you_owe') }}<p class="muted small">{{ fig.bills_due.label }} ({{ owe.bills_due|money }} {{ base }}, loan payments included) come off {{ fig.free_cash.label|lower }} now. {{ fig.what_you_owe.label }} comes off {{ fig.net_worth.label|lower }}; upcoming payments stay in the forecast.</p>
     </article>
   </div>
 </section>
@@ -39,10 +39,10 @@
 <section class="plan-section" aria-labelledby="plan-forecast">
   <header class="overview-section-head"><h2 id="plan-forecast">Cash forecast</h2><span>{{ f.months[0].month }} to {{ f.months[-1].month }}</span></header>
   <article class="card">
-    <p class="muted small">An estimate from free cash today, scheduled payments, your budget and reserve goals. It never changes net worth or free cash.{% if f.average_income is not none %} Average income: {{ f.average_income|money }} {{ base }} a month over {{ f.average_income_months }} completed month{{ '' if f.average_income_months == 1 else 's' }}.{% endif %}</p>
+    <p class="muted small">Starts with = last month's ends with (the first month starts with {{ fig.free_cash.label|lower }}). Ends with = Starts with + Income − Bills and loan payments − {{ fig.left_in_plan.label }} − {{ fig.saving_for_goals.label }}. An estimate from free cash today, scheduled payments, your budget and reserve goals. It never changes {{ fig.net_worth.label|lower }} or {{ fig.free_cash.label|lower }}.{% if f.average_income is not none %} {{ fig.average_monthly_income.label }}: {{ f.average_income|money }} {{ base }} over {{ f.average_income_months }} completed month{{ '' if f.average_income_months == 1 else 's' }}, the same figure the budget uses.{% endif %}</p>
     <div class="table-scroll"><table class="plan-forecast-table">
-      <thead><tr><th>Month</th><th class="num">Starts with</th><th class="num">Income</th><th class="num">Bills and loans</th><th class="num">Budget</th><th class="num">Goals</th><th class="num">Ends with</th></tr></thead>
-      <tbody>{% for m in f.months %}<tr class="{{ 'plan-low' if f.lowest and m.month == f.lowest.month }}"><td>{{ m.month }}</td><td class="num">{{ m.opening|money }}</td><td class="num">{{ ('+' ~ (m.income|money)) if m.income else '0.00' }}{% if m.income_estimated %} <small class="muted">average</small>{% endif %}</td><td class="num">{{ (m.commitments * -1)|money }}</td><td class="num">{{ (m.budget_spending * -1)|money }}</td><td class="num">{{ (m.goal_saving * -1)|money }}</td><td class="num"><b class="{{ 'neg' if m.closing < 0 }}">{{ m.closing|money }}</b></td></tr>{% endfor %}</tbody>
+      <thead><tr><th>Month</th><th class="num">Starts with</th><th class="num">Income</th><th class="num">Bills and loan payments</th><th class="num">{{ fig.left_in_plan.label }}</th><th class="num">{{ fig.saving_for_goals.label }}</th><th class="num">Ends with</th></tr></thead>
+      <tbody>{% for m in f.months %}<tr class="{{ 'plan-low' if f.lowest and m.month == f.lowest.month }}"><td>{{ m.month }}</td><td class="num">{{ m.opening|money }}</td><td class="num">{{ ('+' ~ (m.income|money)) if m.income else '0.00' }}{% if m.income_estimated %} <small class="muted">average monthly income</small>{% endif %}</td><td class="num">{{ (m.commitments * -1)|money }}</td><td class="num">{{ (m.budget_spending * -1)|money }}</td><td class="num">{{ (m.goal_saving * -1)|money }}</td><td class="num"><b class="{{ 'neg' if m.closing < 0 }}">{{ m.closing|money }}</b></td></tr>{% endfor %}</tbody>
     </table></div>
     {% if f.lowest %}<p class="{{ 'flash error' if f.lowest.closing < 0 else 'muted small' }}">Lowest point: {{ f.lowest.closing|money }} {{ base }} at the end of {{ f.lowest.month }}.</p>{% endif %}
   </article>

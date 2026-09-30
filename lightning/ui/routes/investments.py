@@ -226,6 +226,7 @@ async def portfolio(request: Request):
     period_interest = c.investments.period_interest(interest_id, period.start_text, period.end_text)
     period_distributions = p.dividends-prior.dividends+period_interest
     return render(request, "investments/index.html", p=p, asset_class_rows=asset_class_rows,
+                  pos=c.position.at(period.end),
                   accounts=c.investments.investment_accounts(),
                   has_assets=bool(c.assets.investments(active_only=True)), owned_value=owned_value,
                   owned_cost=owned_cost, owned_unrealized=owned_unrealized, custody_units=custody,

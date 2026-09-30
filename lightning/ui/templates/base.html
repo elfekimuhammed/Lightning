@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=Manrope:wght@400..800&display=swap">
-  <link rel="stylesheet" href="/static/style.css?v=43">
+  <link rel="stylesheet" href="/static/style.css?v=44">
 </head>
 <body>
 <div class="shell">
@@ -19,7 +19,7 @@
       Lightning
     </a>
     <nav class="nav" aria-label="Main navigation">
-      {% for href, label, icon in [('/', 'Overview', 'overview'), ('/budget', 'Budget', 'budget'), ('/birdview', 'Birdview', 'birdview'), ('/investments', 'Investments', 'investments'), ('/birdview/expenses', 'Expense analysis', 'expenses'), ('/plan', 'Cash planning', 'reserves'), ('/money-from-others', 'Money from others', 'people'), ('/settings', 'Settings', 'settings')] %}
+      {% for href, label, icon in [('/', 'Overview', 'overview'), ('/budget', 'Budget', 'budget'), ('/birdview', 'Birdview', 'birdview'), ('/investments', 'Investments', 'investments'), ('/birdview/expenses', 'Expense analysis', 'expenses'), ('/plan', 'Cash planning', 'reserves'), ('/money-from-others', 'Held for others', 'people'), ('/settings', 'Settings', 'settings')] %}
         {% set active = (path == '/' if href == '/' else (path == '/birdview' if href == '/birdview' else path.startswith(href))) or (href == '/settings' and (path.startswith('/counterparties') or path.startswith('/categories') or path.startswith('/checks'))) %}
         <a href="{{ href }}" class="{{ 'active' if active }}" {% if active %}aria-current="page"{% endif %}>
           <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24">
@@ -39,7 +39,7 @@
       <summary class="mobile-accounts-summary"><span>Accounts</span><b>{{ sidebar_total|money }} {{ base }}</b></summary>
       <div class="sidebar-heading">Accounts <span>· Balances in {{ base }}</span></div>
       <a class="side-row side-total {{ 'active' if path == '/transactions' }}" href="/transactions" {% if path == '/transactions' %}aria-current="page"{% endif %}>
-        <span>All accounts</span><span class="num" title="Gross balances, including money held for others">{{ sidebar_total|money }}</span></a>
+        <span>{{ fig.in_your_accounts.label }}</span><span class="num" title="{{ fig.in_your_accounts.equation }}">{{ sidebar_total|money }}</span></a>
       {% for g in sidebar_groups %}
         <div class="side-row side-group"><span>{{ g.label }}</span></div>
         {% for a in g.children %}

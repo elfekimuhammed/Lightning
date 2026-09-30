@@ -17,7 +17,7 @@
   {{ field('name', 'Name', values, error_field, placeholder='e.g. Commercial International Bank', attrs='required') }}
   <div class="row">
     <div class="field {{ 'has-error' if error_field == 'class_code' }}">
-      <label for="class_code">Kind</label>
+      <label for="class_code">Type</label>
       <select id="class_code" name="class_code">
         {% for c in classes %}<option value="{{ c.code }}" {{ 'selected' if values.class_code == c.code }}>{{ c.name if c.depth == 0 else 'Fund · ' ~ c.name }}</option>{% endfor %}
       </select>

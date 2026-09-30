@@ -1,13 +1,13 @@
 {% extends "base.html" %}
-{% block title %}Expense Analysis · Birdview{% endblock %}
+{% block title %}Expense analysis · Birdview{% endblock %}
 {% block top_actions %}{% from "partials/macros.html" import period_control %}{{ period_control("/birdview/expenses", period, month, this_month, date_from, date_to, category_filter) }}{% endblock %}
-{% block heading %}<div class="birdview-title"><div><h1>Expense Analysis</h1><div class="muted small">{% if category_name %}{{ category_name }} · {% endif %}{{ start_display }} to {{ end_display }}</div></div></div>{% endblock %}
+{% block heading %}<div class="birdview-title"><div><h1>Expense analysis</h1><div class="muted small">{% if category_name %}{{ category_name }} · {% endif %}{{ start_display }} to {{ end_display }}</div></div></div>{% endblock %}
 {% block content %}
-<nav class="birdview-tabs"><a href="/birdview?period={{ period }}&amp;month={{ month }}&amp;date_from={{ custom_from }}&amp;date_to={{ custom_to }}{% if category_filter %}&amp;category_id={{ category_filter }}{% endif %}">Overview</a><a class="selected" href="/birdview/expenses?period={{ period }}&amp;month={{ month }}&amp;date_from={{ custom_from }}&amp;date_to={{ custom_to }}{% if category_filter %}&amp;category_id={{ category_filter }}{% endif %}">Expense Analysis</a><a href="/investments?period={{ period }}&amp;month={{ month }}&amp;date_from={{ custom_from }}&amp;date_to={{ custom_to }}">Investments</a></nav>
+<nav class="birdview-tabs"><a href="/birdview?period={{ period }}&amp;month={{ month }}&amp;date_from={{ custom_from }}&amp;date_to={{ custom_to }}{% if category_filter %}&amp;category_id={{ category_filter }}{% endif %}">Wealth composition</a><a class="selected" href="/birdview/expenses?period={{ period }}&amp;month={{ month }}&amp;date_from={{ custom_from }}&amp;date_to={{ custom_to }}{% if category_filter %}&amp;category_id={{ category_filter }}{% endif %}">Expense analysis</a><a href="/investments?period={{ period }}&amp;month={{ month }}&amp;date_from={{ custom_from }}&amp;date_to={{ custom_to }}">Investments</a></nav>
 {% if error %}<div class="flash error">{{ error }}</div>{% endif %}
 {% if category_filter %}<p class="muted small"><a href="/birdview/expenses?period={{ period }}&amp;month={{ month }}&amp;date_from={{ custom_from }}&amp;date_to={{ custom_to }}">All spending</a> / {{ category_name }}</p>{% endif %}
 <section class="metric-grid" aria-label="Spending summary">
-  <div class="metric-card metric-card--focal"><span class="metric-label">{{ category_name ~ ' spending' if category_name else 'Total spending' }}</span><strong class="metric-value">{{ spending_total|money }} {{ base }}</strong><span class="metric-note">Owned spending after refunds</span></div>
+  <div class="metric-card metric-card--focal"><span class="metric-label">{{ fig.money_out.label }}{{ ' · ' ~ category_name if category_name }}</span><strong class="metric-value">{{ spending_total|money }} {{ base }}</strong><span class="metric-note">{{ fig.money_out.meaning }}</span></div>
   {% if prior_spending is not none %}{% set change = spending_total-prior_spending %}<div class="metric-card"><span class="metric-label">Change from comparable period</span><strong class="metric-value">{% if change < 0 %}{{ change|abs|money }} less{% elif change > 0 %}{{ change|money }} more{% else %}No change{% endif %}</strong><span class="metric-note">Previously {{ prior_spending|money }} {{ base }}</span></div>{% endif %}
 </section>
 {% if spending_total == 0 and not l1 and not l2 %}

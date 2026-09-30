@@ -19,7 +19,7 @@
       {% for effect in cash_effects %}<tr><td class="muted">Effect · {{ effect.owner }}</td><td>Cash in {{ effect.account }} {{ 'increases' if effect.quantity > 0 else 'decreases' }} by {{ effect.quantity|abs|money }} {{ effect.currency }}</td></tr>{% endfor %}
       {% if txn.counterparty %}<tr><td class="muted">Counterparty</td><td>{{ txn.counterparty }}</td></tr>{% endif %}
       {% set owner = lines|selectattr('owner_id', 'defined')|selectattr('owner_id')|first %}
-      {% if owner %}<tr><td class="muted">Owned by</td><td>{{ owner.owner_name }}</td></tr>{% endif %}
+      {% if owner %}<tr><td class="muted">Held for</td><td>{{ owner.owner_name }}</td></tr>{% endif %}
       {% if txn.notes %}<tr><td class="muted">Notes</td><td>{{ txn.notes }}</td></tr>{% endif %}
       <tr><td class="muted">Recorded</td><td class="small">{{ txn.created_at }}{% if txn.updated_at != txn.created_at %} · updated {{ txn.updated_at }}{% endif %}</td></tr>
     </table>

@@ -105,7 +105,7 @@ class ForecastMonth:
     month: str
     opening: Decimal
     income: Decimal
-    income_estimated: bool          # True when the 3-month average stands in for scheduled income
+    income_estimated: bool          # True when Average monthly income stands in for scheduled income
     commitments: Decimal            # bills, subscriptions and loan payments scheduled in the month
     budget_spending: Decimal        # remaining budget plan not already covered by scheduled bills
     goal_saving: Decimal            # what reserves with due dates still need this month

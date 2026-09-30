@@ -13,28 +13,28 @@
 {% block content %}
 {% if tabs %}{{ plan_tabs(tabs, plan_tab) }}{% endif %}
 {% if error %}<p class="flash error">{{ error }}</p>{% endif %}
-<section class="metric-grid reserve-overview" aria-label="Reserve cash summary">
-  <div class="metric-card"><div class="metric-label">Cash you own</div><div class="metric-value">{{ summary.owned_liquid_cash|money }}</div></div>
-  <div class="metric-card"><div class="metric-label">Assigned to reserves</div><div class="metric-value">{{ summary.allocated|money }}</div></div>
-  {% if summary.bills_due > 0 %}<a class="metric-card" href="/plan"><div class="metric-label">Bills due</div><div class="metric-value">{{ summary.bills_due|money }}</div></a>{% endif %}
-  <div class="metric-card"><div class="metric-label">Free cash</div><div class="metric-value {{ summary.free_cash|tone }}">{{ summary.free_cash|money }}</div></div>
+<section class="metric-grid reserve-overview" aria-label="{{ fig.free_cash.label }}">
+  <div class="metric-card"><div class="metric-label">{{ fig.cash_you_own.label }}</div><div class="metric-value">{{ pos.cash_you_own|money }}</div></div>
+  <div class="metric-card"><div class="metric-label">{{ fig.reserves.label }}</div><div class="metric-value">{{ pos.reserves|money }}</div></div>
+  <a class="metric-card" href="/plan"><div class="metric-label">{{ fig.bills_due.label }}</div><div class="metric-value">{{ pos.bills_due|money }}</div></a>
+  <div class="metric-card"><div class="metric-label">{{ fig.free_cash.label }}</div><div class="metric-value {{ pos.free_cash|tone }}">{{ pos.free_cash|money }}</div></div>
 </section>
-<p class="muted small">Owned liquid cash includes brokerage cash. Transfer that portion to a bank or wallet before everyday spending.</p>
+{{ formula('free_cash') }}<p class="muted small">{{ fig.cash_you_own.label }} includes {{ fig.brokerage_cash.label|lower }}. Move that part to a bank or wallet before everyday spending.</p>
 <section class="card emergency-fund">
   <div class="emergency-heading"><div><span class="pill">Always included</span><h2>Emergency fund</h2>
     <p class="muted small">A permanent section for money set aside for emergencies. Its type and name cannot be changed.</p></div>
     <div class="emergency-multiple">
-      {% if salary_average > 0 %}<b>{{ '%.1f'|format(salary_months or 0) }} months</b><span>of average salary</span>
-      {% else %}<b>—</b><span>salary average unavailable</span>{% endif %}
+      {% if income.amount %}<b>{{ '%.1f'|format(emergency_months or 0) }} months</b><span>of {{ fig.average_monthly_income.label|lower }}</span>
+      {% else %}<b>—</b><span>{{ fig.average_monthly_income.label|lower }} unavailable</span>{% endif %}
     </div>
   </div>
   <div class="emergency-stats">
-    <div><span class="muted small">Reserved for emergencies</span><b>{{ (emergency.effective_allocated if emergency else 0)|money }}</b></div>
-    <div><span class="muted small">Average monthly salary</span><b>{{ salary_average|money }}</b><small class="muted">{{ salary_period }} · {{ salary_months_seen }} month{{ '' if salary_months_seen == 1 else 's' }} with salary · {{ (salary_average * 6)|money }} six-month target</small></div>
+    <div><span class="muted small">{{ fig.reserves.label }} for emergencies</span><b>{{ (emergency.effective_allocated if emergency else 0)|money }}</b></div>
+    <div><span class="muted small">{{ fig.average_monthly_income.label }}</span><b>{{ (income.amount or 0)|money }}</b><small class="muted">{% if income.manual %}Set by hand in Settings{% else %}{{ income.window }} · {{ income.months_counted }} month{{ '' if income.months_counted == 1 else 's' }} with income{% endif %} · {{ ((income.amount or 0) * 6)|money }} six-month target</small></div>
   </div>
-  {% if salary_average <= 0 %}<p class="muted small">Categorize salary deposits as Work › Salary to calculate this benchmark.</p>{% endif %}
+  <p class="muted small">Months covered = {{ fig.reserves.label }} for emergencies ÷ {{ fig.average_monthly_income.label }}. {% if not income.amount %}Choose your income categories in <a href="/settings?section=budget">Settings</a> to calculate it.{% endif %}</p>
   <form method="post" action="/reserves/emergency" class="emergency-form" data-autosave-form>
-    <label>Cash reserved<input class="money-input" type="text" name="allocated" value="{{ emergency.allocated|money(False, 2) if emergency else '0.00' }}" inputmode="decimal" required></label>
+    <label>Amount set aside<input class="money-input" type="text" name="allocated" value="{{ emergency.allocated|money(False, 2) if emergency else '0.00' }}" inputmode="decimal" required></label>
     <span class="inline-save-status" aria-live="polite"></span>
   </form>
 </section>
@@ -42,13 +42,13 @@
 <section class="card reserve-list data-panel">
   <div class="section-head"><div><h2>What are you saving for?</h2><p class="muted small">Due dates, funding progress, and linked payments.</p></div><a class="btn primary reserve-add-link" href="#add-reserve">Add reserve</a></div>
   <div class="table-wrap"><table class="reserve-table">
-    <thead><tr><th>Reserve</th><th class="num">Expected</th><th>Cash assigned</th><th>Due</th><th>Funding and payment</th><th>Actions</th></tr></thead>
+    <thead><tr><th>Reserve</th><th class="num">Expected</th><th>Set aside</th><th>Due</th><th>Funding and payment</th><th>Actions</th></tr></thead>
     <tbody>
     {% for reserve in reserves %}<tr>
       <td><b>{{ reserve.name }}</b>{% if reserve.kind == 'PROJECT' %}<div class="muted small">{{ 'Upcoming payment' if reserve.due_date else 'Savings goal' }}</div>{% endif %}</td>
       <td class="num">{{ reserve.target|money }}</td>
       <td><form method="post" action="/reserves/{{ reserve.id }}/allocate" class="reserve-allocate" data-autosave-form>
-        <input class="money-input" type="text" name="allocated" value="{{ reserve.allocated|money(False, 2) }}" inputmode="decimal" aria-label="Cash assigned to {{ reserve.name }}" required>
+        <input class="money-input" type="text" name="allocated" value="{{ reserve.allocated|money(False, 2) }}" inputmode="decimal" aria-label="Amount set aside for {{ reserve.name }}" required>
         <span class="inline-save-status" aria-live="polite"></span>
       </form></td>
       <td>{% if reserve.due_date %}{{ reserve.due_date }}{% else %}<span class="muted">—</span>{% endif %}{% if reserve.recurrence != 'NONE' %}<div class="muted small">{{ reserve.recurrence|lower }}</div>{% endif %}</td>
@@ -61,8 +61,8 @@
           <label>Repeat<select name="recurrence"><option value="NONE" {{ 'selected' if reserve.recurrence == 'NONE' }}>Does not repeat</option><option value="WEEKLY" {{ 'selected' if reserve.recurrence == 'WEEKLY' }}>Weekly</option><option value="MONTHLY" {{ 'selected' if reserve.recurrence == 'MONTHLY' }}>Monthly</option><option value="YEARLY" {{ 'selected' if reserve.recurrence == 'YEARLY' }}>Yearly</option></select></label>
           <label>Match by<select name="match_by" data-reserve-match><option value="none" {{ 'selected' if not reserve.counterparty_id and not reserve.category_id and not reserve.account_id }}>Ask every time</option><option value="account" {{ 'selected' if reserve.account_id }}>Account</option><option value="counterparty" {{ 'selected' if reserve.counterparty_id }}>Counterparty</option><option value="category" {{ 'selected' if reserve.category_id }}>Category</option></select></label>
           <label data-match-picker="account">Account<select name="account_id"><option value="">Choose an account</option>{% for account in accounts %}<option value="{{ account.id }}" {{ 'selected' if reserve.account_id == account.id }}>{{ account.name }}</option>{% endfor %}</select></label>
-          <label data-match-picker="counterparty">Search counterparty<input type="search" data-option-filter placeholder="Find a name"><select name="counterparty_id"><option value="">Choose a saved Counterparty</option>{% for party in counterparties %}<option value="{{ party.id }}" {{ 'selected' if reserve.counterparty_id == party.id }}>{{ party.name }}</option>{% endfor %}</select></label>
-          <label data-match-picker="category">Search category<input type="search" data-option-filter placeholder="Find a category"><select name="category_id"><option value="">Choose a spending category</option>{% for parent_id, children in categories|groupby("parent_id") %}<optgroup label="{{ category_parent_names.get(parent_id, 'Other') }}">{% for category in children %}<option value="{{ category.id }}" {{ 'selected' if reserve.category_id == category.id }}>{{ category.name }}</option>{% endfor %}</optgroup>{% endfor %}</select></label>
+          <label data-match-picker="counterparty">Counterparty<input type="search" data-option-filter placeholder="Find a name"><select name="counterparty_id"><option value="">Choose a saved counterparty</option>{% for party in counterparties %}<option value="{{ party.id }}" {{ 'selected' if reserve.counterparty_id == party.id }}>{{ party.name }}</option>{% endfor %}</select></label>
+          <label data-match-picker="category">Category<input type="search" data-option-filter placeholder="Find a category"><select name="category_id"><option value="">Choose a spending category</option>{% for parent_id, children in categories|groupby("parent_id") %}<optgroup label="{{ category_parent_names.get(parent_id, 'Other') }}">{% for category in children %}<option value="{{ category.id }}" {{ 'selected' if reserve.category_id == category.id }}>{{ category.name }}</option>{% endfor %}</optgroup>{% endfor %}</select></label>
           <span class="inline-save-status" role="status" aria-live="polite"></span>
         </form>
       </details>
@@ -83,9 +83,9 @@
     <label>Repeat<select name="recurrence"><option value="NONE">Does not repeat</option><option value="WEEKLY">Weekly</option><option value="MONTHLY">Monthly</option><option value="YEARLY">Yearly</option></select></label>
     <label>Match by<select name="match_by" data-reserve-match><option value="none">Ask every time</option><option value="account">Account</option><option value="counterparty">Counterparty</option><option value="category">Category</option></select></label>
     <label data-match-picker="account">Account<select name="account_id"><option value="">Choose an account</option>{% for account in accounts %}<option value="{{ account.id }}">{{ account.name }}</option>{% endfor %}</select></label>
-    <label data-match-picker="counterparty">Search counterparty<input type="search" data-option-filter="new-reserve-counterparty" placeholder="Find a name"><select id="new-reserve-counterparty" name="counterparty_id"><option value="">Choose a saved Counterparty</option>{% for party in counterparties %}<option value="{{ party.id }}">{{ party.name }}</option>{% endfor %}</select></label>
-    <label data-match-picker="category">Search category<input type="search" data-option-filter="new-reserve-category" placeholder="Find a category"><select id="new-reserve-category" name="category_id"><option value="">Choose a spending category</option>{% for parent_id, children in categories|groupby("parent_id") %}<optgroup label="{{ category_parent_names.get(parent_id, 'Other') }}">{% for category in children %}<option value="{{ category.id }}">{{ category.name }}</option>{% endfor %}</optgroup>{% endfor %}</select></label>
-    <label>Cash assigned<input class="money-input" type="text" name="allocated" inputmode="decimal" value="0.00"></label>
+    <label data-match-picker="counterparty">Counterparty<input type="search" data-option-filter="new-reserve-counterparty" placeholder="Find a name"><select id="new-reserve-counterparty" name="counterparty_id"><option value="">Choose a saved counterparty</option>{% for party in counterparties %}<option value="{{ party.id }}">{{ party.name }}</option>{% endfor %}</select></label>
+    <label data-match-picker="category">Category<input type="search" data-option-filter="new-reserve-category" placeholder="Find a category"><select id="new-reserve-category" name="category_id"><option value="">Choose a spending category</option>{% for parent_id, children in categories|groupby("parent_id") %}<optgroup label="{{ category_parent_names.get(parent_id, 'Other') }}">{% for category in children %}<option value="{{ category.id }}">{{ category.name }}</option>{% endfor %}</optgroup>{% endfor %}</select></label>
+    <label>Amount set aside<input class="money-input" type="text" name="allocated" inputmode="decimal" value="0.00"></label>
     <button class="btn primary">Add reserve</button>
   </form>
 </details>

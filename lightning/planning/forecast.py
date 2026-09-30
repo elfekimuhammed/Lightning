@@ -4,7 +4,7 @@ An estimate. It reads the plan, the budget and reserves and never changes net wo
 """
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date
 from decimal import Decimal
 
 from lightning.core.dates import fmt_date, month_of, parse_month, today
@@ -12,7 +12,6 @@ from lightning.core.money import ZERO
 
 from .domain import CashForecast, ForecastMonth, Payment, PaymentStatus, PlanKind
 
-INCOME_MONTHS = 3
 HORIZON_MONTHS = 3
 
 
@@ -22,8 +21,9 @@ def _months(start: date, count: int) -> list[str]:
 
 
 class CashForecaster:
-    def __init__(self, planning, reporting, reserves, budgets, categories):
+    def __init__(self, planning, reporting, reserves, budgets, categories, position):
         self.planning = planning
+        self.position = position
         self.reporting = reporting
         self.reserves = reserves
         self.budgets = budgets
@@ -31,21 +31,16 @@ class CashForecaster:
 
     # -------------------------------------------------------------- inputs
     def average_income(self, as_of: date) -> tuple[Decimal | None, int]:
-        """Owned income averaged over the last three completed months that had income."""
-        start, _ = parse_month(month_of(as_of))
-        values = []
-        for _ in range(INCOME_MONTHS):
-            end = start - timedelta(days=1)
-            start, _ = parse_month(month_of(end))
-            total = sum((g.value for g in self.reporting.money_in_by_category(start, end)
-                         if not g.code.startswith("EXP.INVEST") and "UNACCOUNTED" not in g.code), ZERO)
-            if total > ZERO:
-                values.append(total)
-        return ((sum(values, ZERO) / len(values)).quantize(Decimal("0.01")) if values else None), len(values)
+        """Average monthly income: the same figure the budget uses (BudgetService.income_average)."""
+        average = self.budgets.income_average(month_of(as_of))
+        return average.amount, average.months_counted
 
-    def free_cash(self, as_of: date, bills_due: Decimal) -> Decimal:
-        owned = self.reporting.owned_liquid_cash(as_of)
-        return self.reserves.cash_summary(owned, bills_due)["free_cash"]
+    def free_cash(self, as_of: date) -> Decimal:
+        """Free cash from the position: Cash you own − Reserves − Bills due."""
+        position = self.position.at(as_of)
+        if position.free_cash is not None:
+            return position.free_cash
+        return position.cash_you_own - self.reserves.cash_summary(ZERO)["allocated"] - position.bills_due
 
     def _budget(self, month: str, current: bool) -> tuple[Decimal, set[int]]:
         """Budget still to spend in the month, and the categories a budget covers."""
@@ -73,9 +68,7 @@ class CashForecaster:
     # -------------------------------------------------------------- forecast
     def forecast(self, as_of: date | None = None, months: int = HORIZON_MONTHS) -> CashForecast:
         day = as_of or today()
-        self.planning.match_payments(day)
-        owe = self.planning.what_you_owe(day)
-        free = self.free_cash(day, owe.bills_due)
+        free = self.free_cash(day)
         average, average_months = self.average_income(day)
         month_keys = _months(day, months)
         horizon_end = parse_month(month_keys[-1])[1]
@@ -122,6 +115,6 @@ class CashForecaster:
         bills = sum((p.amount for p in before), ZERO)
         this_month = first.budget_spending if first else ZERO
         goals = first.goal_saving if first else ZERO
-        parts = [("Free cash", free), ("Bills and loan payments before then", -bills),
-                 ("Budget still planned this month", -this_month), ("Saving for goals", -goals)]
+        parts = [("Free cash", free), ("Bills and loan payments before next income", -bills),
+                 ("Left in plan this month", -this_month), ("Saving for goals", -goals)]
         return free - bills - this_month - goals, [(label, value) for label, value in parts if value or label == "Free cash"]

@@ -11,13 +11,13 @@ from fastapi import APIRouter, Request
 from lightning.accounts.domain import AccountType
 from lightning.core.dates import fmt_date, month_of, parse_date, parse_month, today
 from lightning.core.errors import ValidationError
+from lightning.core.figures import FIGURES, label
 from lightning.core.money import ZERO, fmt, to_decimal
 from lightning.investments.report import build_investment_report
 
 from ..web import container, render
 from ..web import redirect
 from ..periods import Period, parse_period
-from .birdview import _own_holdings
 
 router = APIRouter()
 
@@ -94,23 +94,10 @@ async def dashboard(request: Request):
     accounts = c.accounts.list()
     if not accounts:
         return render(request, "dashboard/welcome.html")
+    # Every position figure comes from one calculation; see lightning/planning/position.py.
+    position = c.position.at(as_of)
     net_worth = c.reporting.net_worth(as_of)
     account_contributions = _owned_account_type_rows(c, accounts, as_of)
-    holdings, unvalued = _own_holdings(c, fmt_date(as_of))
-    class_values = {}
-    classes_by_id = {item.id: item for item in c.assets.list_classes()}
-    for holding in holdings:
-        cls = next((item for item in classes_by_id.values() if item.code == holding["class_code"]), None)
-        if cls is not None:
-            class_values[cls.id] = class_values.get(cls.id, ZERO) + (holding["value"] or ZERO)
-    factor_records = c.investments.liquidation_factors()
-    for cls in c.assets.investment_classes():
-        class_values.setdefault(cls.id, ZERO)
-    investment_value = sum(class_values.values(), ZERO)
-    estimated_investments = sum((value * factor_records.get(class_id, Decimal(95)) / 100
-                                 for class_id, value in class_values.items()), ZERO)
-    eligible_cash = c.reporting.owned_liquid_cash(as_of)
-    brokerage_cash = c.reporting.owned_brokerage_cash(as_of)
     cash_accounts = [
         {"id": account.id, "label": account.label,
          "value": c.reporting.owned_account_value(account.id, as_of),
@@ -119,26 +106,7 @@ async def dashboard(request: Request):
     ]
     cash_accounts.extend({**row, "type": "Brokerage cash"}
                          for row in c.reporting.owned_brokerage_cash_by_account(as_of))
-    reserve_rows = c.reserves.breakdown_at(fmt_date(as_of))
-    if reserve_rows is None and as_of == today():
-        reserve_rows = [{"id": row["id"], "name": row["name"], "kind": row["kind"],
-                         "effective_allocated": row["effective_allocated"]}
-                        for row in c.reserves.list_active()]
-    assigned = (sum((row["effective_allocated"] for row in reserve_rows), ZERO)
-                if reserve_rows is not None else None)
-    # Certain obligations only: bills already due come off free cash, and loans still to pay
-    # come off net worth. Forecasts never change either figure.
-    if as_of == today():
-        c.planning.match_payments(as_of)
-    owe = c.planning.what_you_owe(as_of)
-    reserve_summary = (None if assigned is None else {
-        "eligible_cash": eligible_cash, "allocated": assigned, "bills_due": owe.bills_due,
-        "free_cash": eligible_cash - assigned - owe.bills_due,
-        "shortfall": max(assigned - eligible_cash, ZERO),
-    })
-    free_cash = reserve_summary["free_cash"] if reserve_summary is not None else None
-    estimated_available = (free_cash + estimated_investments
-                           if free_cash is not None and not net_worth.unvalued else None)
+    owe = position.owe
     # The Overview lists actions a user can take. Reconciliation diagnostics
     # remain in the dedicated Integrity checks management view.
     attention = [{"label": "Missing valuation", "detail": item, "href": "/investments/prices", "priority": 0}
@@ -182,14 +150,14 @@ async def dashboard(request: Request):
                               "href": "/budget", "priority": 2})
     attention = sorted(attention, key=lambda item: item["priority"])
     change, change_reason = None, "No recorded position is available for comparison."
-    change_label = "Change during this period"
+    change_label = label("change_in_what_you_own")
     if not net_worth.unvalued:
         if period.key == "all":
             initial = c.reporting.net_worth(first - timedelta(days=1)) if first_activity else None
             change = net_worth.total - initial.total if initial is not None and not initial.unvalued else None
             if initial is not None and initial.unvalued:
                 change_reason = "The first recorded position is missing a required valuation."
-            change_label = "Change since first recorded position"
+            change_label = f"{label('change_in_what_you_own')} since your first record"
         else:
             before = c.reporting.net_worth(first - timedelta(days=1))
             if not before.unvalued:
@@ -258,8 +226,8 @@ async def dashboard(request: Request):
     portfolio_value = (holdings_value + investment_cash
                        if holdings_value is not None and investment_cash is not None else None)
     investment_report = {
-        "holdings_value": holdings_value, "investment_cash": investment_cash,
-        "portfolio_value": portfolio_value, "new_money": closing_report["new_money"],
+        "holdings_value": holdings_value, "brokerage_cash": investment_cash,
+        "portfolio_value": portfolio_value, "new_money": closing_report["net_money"],
         "period_result": period_result, "period_result_available": period_result is not None,
         "missing": closing_report["missing"] + opening_report["missing"],
         "holdings_count": sum(1 for row in closing_report["holdings"] if row["price_source"] != "CASH"),
@@ -352,11 +320,7 @@ async def dashboard(request: Request):
         date_from=fmt_date(first), date_to=fmt_date(as_of), as_of=fmt_date(as_of),
         range_label=(f"No recorded activity · Position as of {fmt_date(as_of)}"
                      if period.key == "all" and not first_activity else f"{fmt_date(first)} to {fmt_date(as_of)} · Position as of {fmt_date(as_of)}"),
-        eligible_cash=eligible_cash, brokerage_cash=brokerage_cash, reserve_summary=reserve_summary,
-        cash_accounts=cash_accounts, reserve_rows=reserve_rows,
-        free_cash=free_cash, owe=owe, investment_value=investment_value,
-        estimated_investments=estimated_investments, estimated_available=estimated_available,
-        unvalued=unvalued,
+        pos=position, cash_accounts=cash_accounts, owe=owe,
         change=change, change_reason=change_reason, change_label=change_label,
         attention=attention,
         net_worth=net_worth,
@@ -379,58 +343,60 @@ async def explain_overview_figure(request: Request, kind: str):
         period = parse_period({"period": "month", "month": month_of(today())}, today(), c.reporting.first_activity_date())
     day, first = fmt_date(period.end), fmt_date(period.start)
     destination = "/birdview?" + request.url.query
+    position = c.position.at(day)
     if kind == "owned":
-        position = c.reporting.net_worth(day)
-        title = "Known owned value" if position.unvalued else "What you own"
-        explanation = "Owned value is the value in your accounts after money and investments owned by others are excluded."
-        rows = _owned_account_type_rows(c, c.accounts.list(), day)
-        total = position.total
+        wealth = c.reporting.net_worth(day)
+        title = f"{label('what_you_own')} · known subtotal" if position.unvalued else label("what_you_own")
+        figure = "what_you_own"
+        explanation = FIGURES["what_you_own"].meaning + " Money and units held for others are left out."
+        rows = [{"label": label("cash_you_own"), "value": position.cash_you_own},
+                {"label": label("deposits"), "value": position.deposits},
+                {"label": label("holdings_value"), "value": position.holdings_value}]
+        if position.other_you_own:
+            rows.append({"label": label("other_you_own"), "value": position.other_you_own})
+        total = position.what_you_own
         missing = f" Missing valuation: {'; '.join(position.unvalued)}." if position.unvalued else ""
         if period.key == "all":
             initial = c.reporting.net_worth(parse_date(first) - timedelta(days=1)) if c.reporting.first_activity_date() else None
-            change_value = (position.total - initial.total if not position.unvalued and initial and not initial.unvalued else None)
-            change_label = "Change since first recorded position"
+            change_value = (wealth.total - initial.total if not wealth.unvalued and initial and not initial.unvalued else None)
+            change_label = f"{label('change_in_what_you_own')} since your first record"
             change_reason = "The first recorded position is missing a required valuation." if initial and initial.unvalued else "No reliable first recorded position is available."
         else:
             initial = c.reporting.net_worth(period.start - timedelta(days=1))
-            change_value = position.total - initial.total if not position.unvalued and not initial.unvalued else None
-            change_label = "Change during this period"
+            change_value = wealth.total - initial.total if not wealth.unvalued and not initial.unvalued else None
+            change_label = label("change_in_what_you_own")
             change_reason = "The position immediately before this period is missing a required valuation."
-        rows.append({"label": change_label if change_value is not None else f"Change unavailable · {change_reason}",
-                     "value": change_value})
-        foot = f"Position as of {day}. Change is tracked wealth movement, not investment return. The total excludes custody balances and assets.{missing}"
+        foot = (f"Position as of {day}. {change_label}: "
+                + (fmt(change_value, 2, True) if change_value is not None else f"unavailable · {change_reason}")
+                + f". This is wealth movement, not investment return.{missing}")
         action = ("Open Birdview", destination)
     elif kind == "free-cash":
-        title = "Free cash"
-        eligible = c.reporting.owned_liquid_cash(day)
-        allocated = c.reserves.allocation_at(day)
-        explanation = "Free cash = owned liquid cash (wallet, bank, and brokerage cash) − assigned reserves − bills due. Bills due are scheduled bills, subscriptions and loan payments whose date has passed and that nothing has paid yet. Brokerage cash is included in the total, but move it to a bank or wallet before everyday spending."
-        bills_due = c.planning.what_you_owe(parse_date(day)).bills_due
-        rows = _owned_account_type_rows(
-            c, c.accounts.list(), day, {AccountType.CASH, AccountType.BANK})
-        rows.append({"label": "Brokerage cash · transfer before everyday spending",
-                     "value": c.reporting.owned_brokerage_cash(day)})
-        if allocated is None:
-            total, foot = None, "Historical free cash unavailable: reserve assignments cannot be reconstructed for this date."
+        title = label("free_cash")
+        figure = "free_cash"
+        explanation = (FIGURES["free_cash"].meaning + " " + FIGURES["bills_due"].meaning
+                       + " Brokerage cash counts, but move it to a bank or wallet before everyday spending.")
+        rows = [{"label": label("bank_and_wallet_cash"), "value": position.bank_and_wallet_cash},
+                {"label": label("brokerage_cash"), "value": position.brokerage_cash}]
+        if position.reserves is None:
+            total, foot = None, "Free cash is unavailable: reserve history cannot be rebuilt for this date."
         else:
-            rows.append({"label": "Assigned to reserves", "value": -allocated, "href": "/plan/reserves"})
-            if bills_due:
-                rows.append({"label": "Bills due", "value": -bills_due, "href": "/plan"})
-            total = eligible - allocated - bills_due
-            foot = f"Owned liquid cash {eligible} less reserve assignments {allocated} and bills due {bills_due}. Period end: {day}."
+            rows.append({"label": label("reserves"), "value": -position.reserves, "href": "/plan/reserves"})
+            if position.bills_due:
+                rows.append({"label": label("bills_due"), "value": -position.bills_due, "href": "/plan"})
+            total, foot = position.free_cash, f"Position as of {day}."
         action = ("Open Cash planning", "/plan")
     elif kind == "flow":
-        title = "Income and spending"
+        title = label("net_flow")
+        figure = "net_flow"
         flow = c.reporting.cash_flow(first, day)
-        explanation = "Money in is owned posted income. Money out is owned posted expenses net of refunds; transfers, investment trades, custody activity, and valuation entries are excluded."
-        rows = [{"label": "Money in", "value": flow.inflows}, {"label": "Money out", "value": flow.outflows},
-                {"label": "Net income less spending", "value": flow.net}]
+        explanation = FIGURES["money_in"].meaning + " " + FIGURES["money_out"].meaning
+        rows = [{"label": label("money_in"), "value": flow.inflows}, {"label": label("money_out"), "value": -flow.outflows}]
         total = flow.net
-        foot = f"Selected period: {first} to {day}. This is cash flow, not wealth change or investment return."
+        foot = f"{first} to {day}. This is cash flow, not wealth change or investment return."
         action = ("Open Birdview", destination)
     else:
         return render(request, "not_found.html", status_code=404, message="Explanation not found.")
-    return render(request, "dashboard/explanation.html", title=title, explanation=explanation,
+    return render(request, "dashboard/explanation.html", title=title, explanation=explanation, figure=figure,
                   rows=rows, total=total, foot=foot, recent=[], action=action)
 
 

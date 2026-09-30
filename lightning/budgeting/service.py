@@ -14,7 +14,7 @@ from lightning.core.money import ZERO, check_places, fmt, to_decimal
 from lightning.database.connection import Database
 from lightning.reporting.service import ReportingService
 
-from .domain import BudgetLine, BudgetMonth, BudgetSection
+from .domain import BudgetLine, BudgetMonth, BudgetSection, IncomeAverage
 from .repository import BudgetRepository
 
 SECTION_NAMES = {Scope.PERSONAL: "Personal", Scope.WORK: "Work"}
@@ -87,7 +87,13 @@ class BudgetService:
         return result
 
     def budgeting_income(self, month: str) -> Decimal | None:
-        """Average monthly owned budgeting income over prior completed months."""
+        """Average monthly income for a month's budget (see income_average)."""
+        return self.income_average(month).amount
+
+    def income_average(self, month: str) -> IncomeAverage:
+        """Average monthly income: owned income in the chosen income categories, averaged over
+        the last 3 (or 6) completed months before `month` that had any. A manual amount in
+        Settings replaces the average. The budget, reserves and the cash forecast all use this."""
         configured = self.db.scalar("SELECT value FROM settings WHERE key='budget_income_categories'")
         try:
             chosen = {int(value) for value in json.loads(configured)} if configured else set()
@@ -98,12 +104,13 @@ class BudgetService:
         if configured is None:
             chosen = {category.id for category in categories if category.family == CategoryFamily.WORK or
                       any(word in category.name.casefold() for word in ("salary", "wage", "pay"))}
-        manual = self.db.scalar("SELECT value FROM settings WHERE key='budget_manual_monthly_income'")
-        if manual:
-            return to_decimal(manual, "manual_income")
         raw_months = self.db.scalar("SELECT value FROM settings WHERE key='budget_income_months'") or "3"
         lookback = 6 if str(raw_months) == "6" else 3
+        manual = self.db.scalar("SELECT value FROM settings WHERE key='budget_manual_monthly_income'")
+        if manual:
+            return IncomeAverage(to_decimal(manual, "manual_income"), 0, lookback, "", "", True)
         end = parse_month(month)[0] - timedelta(days=1)
+        last_month = month_of(end)
         observed = []
         for _ in range(lookback):
             start, last = parse_month(month_of(end))
@@ -114,7 +121,8 @@ class BudgetService:
             if rows:
                 observed.append(sum((row.value for row in rows), ZERO))
             end = start - timedelta(days=1)
-        return (sum(observed, ZERO) / len(observed)).quantize(Decimal("0.01")) if observed else None
+        amount = (sum(observed, ZERO) / len(observed)).quantize(Decimal("0.01")) if observed else None
+        return IncomeAverage(amount, len(observed), lookback, month_of(end + timedelta(days=1)), last_month, False)
 
     def has_plan(self, month: str) -> bool:
         return bool(self.amounts_for(month))

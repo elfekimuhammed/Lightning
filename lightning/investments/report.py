@@ -15,7 +15,7 @@ def build_investment_report(db, accounts, assets, reporting, start: str, end: st
         return {"new_money": ZERO, "withdrawn": ZERO, "net_money": ZERO,
                 "dividends": ZERO, "realized": ZERO, "unresolved_dividends": 0,
                 "holdings": [], "investment_cash": ZERO, "missing": [], "cost": ZERO,
-                "value": ZERO, "unrealized": ZERO, "estimated_cash": ZERO}
+                "value": ZERO, "unrealized": ZERO}
     rows = db.all(
         f"SELECT le.*,t.type,t.ref,t.status,c.code AS category_code, "
         f"da.asset_id AS dividend_asset_id "
@@ -73,10 +73,8 @@ def build_investment_report(db, accounts, assets, reporting, start: str, end: st
         elif delta < ZERO:
             withdrawn -= delta
     period_realized = _realized_between(rows, start, end)
-    holdings = []; total_cost = total_value = unrealized = estimated = ZERO; missing=[]
+    holdings = []; total_cost = total_value = unrealized = ZERO; missing=[]
     holdings_unavailable = False
-    factors = {r["asset_class_id"]: Decimal(str(r["factor"])) / 100
-               for r in db.all("SELECT asset_class_id,factor FROM investment_liquidation_factors")}
     for (owner_id, account_id, asset_id), b in books.items():
         if b["units"] <= ZERO:
             continue
@@ -89,7 +87,6 @@ def build_investment_report(db, accounts, assets, reporting, start: str, end: st
         else:
             total_value += value
             unrealized += value-b["cost"]
-            estimated += value*factors.get(asset.asset_class_id, Decimal(1))
         total_cost += b["cost"]
         holdings.append({"account": accounts.get(account_id).label, "asset": asset.name,
                          "units": b["units"], "cost": b["cost"], "value": value,
@@ -118,7 +115,6 @@ def build_investment_report(db, accounts, assets, reporting, start: str, end: st
             "investment_cash": None if cash_unavailable else cash, "cost": total_cost,
             "value": None if holdings_unavailable else total_value,
             "unrealized": None if holdings_unavailable else unrealized,
-            "estimated_cash": None if missing or cash_unavailable else cash+estimated,
             "missing": missing, "unresolved_dividends": unresolved}
 
 

@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-from datetime import date, timedelta
-from decimal import Decimal
 
 from fastapi import APIRouter, Request, Response
 
-from lightning.core.dates import today
+from lightning.core.dates import month_of, today
 from lightning.core.errors import LightningError
 from lightning.core.money import ZERO, from_e6
 from lightning.core.money import to_decimal
@@ -25,35 +23,17 @@ def _allocate(c, reserve_id: int, amount: str):
     assigned = c.reserves.cash_summary(cash)["allocated"]
     next_effective = max(value - current["spent"], ZERO)
     if assigned - current["effective_allocated"] + next_effective > cash:
-        raise LightningError("Assigned reserves cannot exceed your owned liquid cash.")
+        raise LightningError("Reserves cannot be more than the cash you own.")
     return c.reserves.allocate(reserve_id, value)
 
 
 def _context(request: Request, error: str = ""):
     c = container(request)
-    cash = c.reporting.owned_liquid_cash(today())
     reserves = c.reserves.list_active()
     emergency = next((item for item in reserves if item["kind"] == "EMERGENCY"), None)
-    last_month = date(today().year, today().month, 1) - timedelta(days=1)
-    month_index = last_month.year * 12 + last_month.month - 1 - 5
-    first_month = date(month_index // 12, month_index % 12 + 1, 1)
-    salary_root = c.categories.get_by_code("EXP.WORK.SALARY")
-    salary_total = ZERO
-    salary_months_seen = 0
-    if salary_root:
-        # Average over the completed months that actually received salary, so a
-        # new user with two months of history isn't divided by six.
-        cursor = first_month
-        while cursor <= last_month:
-            month_end = (date(cursor.year + cursor.month // 12, cursor.month % 12 + 1, 1) - timedelta(days=1))
-            received = sum((group.value for group in c.reporting.money_in_by_category(cursor, month_end)
-                            if group.code == salary_root.code or group.code.startswith(salary_root.code + ".")), ZERO)
-            if received > ZERO:
-                salary_total += received
-                salary_months_seen += 1
-            cursor = month_end + timedelta(days=1)
-    average_salary = salary_total / Decimal(salary_months_seen) if salary_months_seen else ZERO
-    salary_months = (emergency["effective_allocated"] / average_salary) if emergency and average_salary else None
+    # Emergency coverage uses Average monthly income, the same figure the budget and forecast use.
+    income = c.budgets.income_average(month_of(today()))
+    emergency_months = (emergency["effective_allocated"] / income.amount) if emergency and income.amount else None
     listed = [item for item in reserves if item["kind"] != "EMERGENCY"]
     for item in listed:
         item["payments"] = [row | {"amount": from_e6(row["amount_e6"])}
@@ -65,9 +45,8 @@ def _context(request: Request, error: str = ""):
         item["payments"] = [row | {"amount": from_e6(row["amount_e6"])}
                             for row in c.reserves.links_for_reserve(item["id"])]
     return {"reserves": listed, "completed_reserves": completed,
-            "emergency": emergency, "salary_average": average_salary, "salary_months": salary_months,
-            "salary_period": f"{first_month:%Y-%m} to {last_month:%Y-%m}", "salary_months_seen": salary_months_seen,
-            "summary": c.reserves.cash_summary(cash, c.planning.what_you_owe().bills_due), "error": error,
+            "emergency": emergency, "income": income, "emergency_months": emergency_months,
+            "pos": c.position.at(today()), "error": error,
             "counterparties": c.counterparties.list_active(),
             "accounts": [account for account in c.accounts.list(active_only=True)
                          if account.account_type.value in ("CASH", "BANK", "DEPOSIT", "BROKERAGE")],
@@ -109,14 +88,14 @@ async def save_emergency_fund(request: Request):
     c = container(request)
     form = await request.form()
     try:
-        salary_target = _context(request)["salary_average"] * 6
+        salary_target = (c.budgets.income_average(month_of(today())).amount or ZERO) * 6
         amount = str(form.get("allocated", ""))
         existing = next((row for row in c.reserves.list_active() if row["kind"] == "EMERGENCY"), None)
         assigned = c.reserves.cash_summary(c.reporting.owned_liquid_cash(today()))["allocated"]
         value = to_decimal(amount, "allocated")
         old_effective = existing["effective_allocated"] if existing else ZERO
         if assigned - old_effective + value > c.reporting.owned_liquid_cash(today()):
-            raise LightningError("Assigned reserves cannot exceed your owned liquid cash.")
+            raise LightningError("Reserves cannot be more than the cash you own.")
         reserve = c.reserves.set_emergency_fund(amount, salary_target)
     except LightningError as exc:
         if request.headers.get("X-Requested-With") == "fetch":

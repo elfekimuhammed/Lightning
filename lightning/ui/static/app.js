@@ -215,7 +215,7 @@ document.querySelectorAll(".category-input").forEach((category) => {
     const input = cell.querySelector("input");
     if (input) {
       input.disabled = !visible;
-      input.placeholder = isTransfer ? "Whom? (if held for someone)" : "Whom?";
+      input.placeholder = "Held for (if not you)";
     }
   };
   category.addEventListener("input", syncWhom);
@@ -434,12 +434,12 @@ if (tradeCatalogueNode) {
     if (unitPrice) unitPrice.disabled = isDividend;
     if (isDividend) {
       const perShare = dividendBasis?.value === "per_share";
-      amountLabel.textContent = perShare ? "Dividend per share" : "Total dividend amount";
-      total.placeholder = perShare ? "Amount per share" : "Total amount received";
+      amountLabel.textContent = perShare ? "Amount per unit" : "Amount";
+      total.placeholder = perShare ? "Amount per unit" : "Amount received";
     }
     else {
-      amountLabel.textContent = actionKind === "sell" ? "Total received" : "Total paid";
-      total.placeholder = "Total amount";
+      amountLabel.textContent = "Amount";
+      total.placeholder = actionKind === "sell" ? "Amount received" : "Amount paid";
     }
     if (qty !== null && Math.abs(qty) > 0) {
       if (basis.value === "unit_price" && price !== null) {

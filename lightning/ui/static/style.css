@@ -1370,3 +1370,9 @@ summary > b + .muted { margin-left:8px; }
 .plan-payment-row > span:first-child, .plan-item-row > span:first-child { justify-items:start; text-align:left; }
 .plan-payment-row > span:first-child > b, .plan-item-row > span:first-child b { text-align:left; }
 .plan-skip { display:flex; align-items:center; gap:12px; margin-top:12px; }
+
+/* Figure formulas — the calculation line under a derived figure (lightning/core/figures.py). */
+.figure-formula { margin: 4px 0 8px; color: var(--muted); font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; }
+.metric-card .figure-formula, .overview-block .figure-formula { margin-top: 2px; }
+.overview-subtotal { font-weight: 600; }
+.overview-section .overview-wealth-card .overview-static-row,.overview-section .overview-wealth-card .overview-static-row b { color:var(--ink); }

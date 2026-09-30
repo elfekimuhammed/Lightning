@@ -8,6 +8,38 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### One name and one calculation per figure · 2026-09-30
+- Every reported figure now has one name, one meaning and one formula (`lightning/core/figures.py`, mirrored in the Glossary). Derived figures show their formula under them, e.g. "Free cash = Cash you own − Reserves − Bills due".
+- One position calculation (`lightning/planning/position.py`) feeds the Overview, Birdview, Investments, Settings, Reserves and the cash forecast. The tabs no longer re-add balances their own way.
+- One **Average monthly income** (`BudgetService.income_average`): the budget, emergency-fund coverage and the cash forecast use the same categories, months and manual override. Before, Reserves averaged salary over six months and the forecast averaged all income over three.
+- Investments' after-sale estimate now applies the same sale factors as Birdview (95% when unset). It is now **Holdings after sale (estimate)**; before, it added holdings at full value. "Liquidation factor" is now **sale factor**.
+- What you own adds up the same way everywhere: Cash you own + Deposits + Holdings value + Other you own. Birdview no longer groups deposits with investments.
+- Renamed on screens (full list in the Glossary):
+  - All accounts / Gross balances → In your accounts
+  - Money from others → Held for others
+  - Liquid cash / Owned liquid cash → Cash you own
+  - Investment cash → Brokerage cash
+  - Assigned reserves → Reserves
+  - Estimated liquid investments → Deposits and holdings after sale (estimate)
+  - Cashflow → Net flow
+  - Invested capital → Cost
+  - Period result / Investment result → Result
+  - Cash added and withdrawn / New money added → New money in (net on every tab)
+  - Budgeted / Current budget → Planned
+  - Left → Left in plan
+- Entry forms use the same field names:
+  - Held for (was Whom, Owned by, Owner)
+  - Amount (was Total paid, Each payment)
+  - Units (was Pieces, Quantity, Units you hold)
+  - Cost (was What you paid in total)
+  - Account and Cash account (was Held in, Paid from, Paid into)
+  - Counterparty (was Paid to, From)
+  - As of (was Price date, Statement date)
+  - Due date (was Next date)
+  - Type (was Kind, Action)
+  - Notes (was Details)
+  - Fees (the checkbox is now "Fees are extra")
+
 ### Cash planning · 2026-09-30
 - Reserves became **Cash planning** with four sub-tabs: **Plan** (safe to spend until the next income, what you owe, the next 30 days, a three-month cash forecast), **Recurring** (bills, subscriptions and income, with suggestions from payments that repeat in your history), **Loans** (loans and installment plans with progress and payoff date) and **Reserves** (the previous page). `/reserves` now opens `/plan/reserves`.
 - Scheduled payments are marked paid automatically when exactly one posted transaction matches; otherwise pick the transaction, record the payment, or skip it. Voiding the transaction makes the payment due again.

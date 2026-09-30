@@ -125,3 +125,18 @@ class BudgetMonth:
     @property
     def unbudgeted(self) -> Decimal:
         return sum((s.unbudgeted for s in self.sections), ZERO)
+
+
+@dataclass(frozen=True)
+class IncomeAverage:
+    """Average monthly income, and the completed months it was averaged over."""
+    amount: Decimal | None
+    months_counted: int        # completed months in the window that had income
+    lookback: int              # 3 or 6, from Settings
+    first_month: str           # yyyy-mm, the window (empty for a manual amount)
+    last_month: str
+    manual: bool = False
+
+    @property
+    def window(self) -> str:
+        return f"{self.first_month} to {self.last_month}" if self.first_month else ""

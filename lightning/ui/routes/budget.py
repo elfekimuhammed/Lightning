@@ -197,7 +197,7 @@ def _page(request: Request, month: str, values: dict | None = None, error: str =
             group_id = parent.id
             tracking_suggestions.append({"id": category.id, "name": line.name, "share": share,
                                          "group_id": group_id, "spent": spent_six,
-                                         "reason": (f"{share:.1f}% of budgeting income" if crossed_percent else
+                                         "reason": (f"{share:.1f}% of average monthly income" if crossed_percent else
                                                     f"Average {monthly_average:,.2f} EGP crossed fixed threshold")})
 
     # Background estimates are monthly expectations for untracked leaf
@@ -270,7 +270,7 @@ def _page(request: Request, month: str, values: dict | None = None, error: str =
     ceiling_percent = to_decimal(c.settings.get("budget_monthly_ceiling_percent") or "100")
     ceiling = period_income * ceiling_percent / Decimal(100)
     ceiling_warning = ("" if period_income <= ZERO else
-                       "Planned amounts exceed 100% of budgeting income" if period_base > period_income else
+                       "Planned amounts exceed 100% of average monthly income" if period_base > period_income else
                        f"Base plan exceeds the {ceiling_percent}% monthly spending ceiling" if period_base > ceiling else "")
     period_left = period_budgeted-period_actual
     group_rows = sorted(group_totals.items(),
@@ -444,7 +444,7 @@ async def save_budget_settings(request: Request):
     try:
         income_months = str(form.get("income_months", "3"))
         if income_months not in {"3", "6"}:
-            raise ValidationError("Income basis must use three or six completed months.")
+            raise ValidationError("Average monthly income must use three or six completed months.")
         for key, label, upper in (("ceiling_percent", "Monthly spending ceiling", 10000),):
             number = to_decimal(str(form.get(key, "")), key)
             if number < ZERO or number > upper:
