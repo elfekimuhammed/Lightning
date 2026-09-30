@@ -116,7 +116,10 @@ async def all_accounts(request: Request):
 async def deleted_transactions(request: Request):
     c = container(request)
     rows, _ = c.transactions.find(TxnFilter(include_void=True, limit=1000))
-    deleted = [row for row in rows if row.status == TxnStatus.VOID]
+    # System revaluations replaced by a recalculation were never deleted by the
+    # user and can't be restored, so they stay out of this list.
+    replaced = c.transactions.replaced_revaluation_ids()
+    deleted = [row for row in rows if row.status == TxnStatus.VOID and row.id not in replaced]
     return render(request, "transactions/deleted.html", rows=deleted)
 
 
@@ -201,6 +204,7 @@ async def transaction_detail(request: Request, txn_id: int):
                                        "covered_remaining": shown.remaining if shown is not budget_line else None,
                                        "month": txn.date[:7]})
     return render(request, "transactions/detail.html", txn=txn, summary=c.transactions.summarize(txn),
+                  replaced_revaluation=txn.id in c.transactions.replaced_revaluation_ids(),
                   lines=lines, history=c.transactions.history(txn_id), can_split=can_split,
                   cash_effects=cash_effects,
                   expense_categories=expense_categories, split_lines=split_lines,

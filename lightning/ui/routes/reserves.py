@@ -39,11 +39,20 @@ def _context(request: Request, error: str = ""):
     first_month = date(month_index // 12, month_index % 12 + 1, 1)
     salary_root = c.categories.get_by_code("EXP.WORK.SALARY")
     salary_total = ZERO
+    salary_months_seen = 0
     if salary_root:
-        for group in c.reporting.money_in_by_category(first_month, last_month):
-            if group.code == salary_root.code or group.code.startswith(salary_root.code + "."):
-                salary_total += group.value
-    average_salary = salary_total / Decimal(6)
+        # Average over the completed months that actually received salary, so a
+        # new user with two months of history isn't divided by six.
+        cursor = first_month
+        while cursor <= last_month:
+            month_end = (date(cursor.year + cursor.month // 12, cursor.month % 12 + 1, 1) - timedelta(days=1))
+            received = sum((group.value for group in c.reporting.money_in_by_category(cursor, month_end)
+                            if group.code == salary_root.code or group.code.startswith(salary_root.code + ".")), ZERO)
+            if received > ZERO:
+                salary_total += received
+                salary_months_seen += 1
+            cursor = month_end + timedelta(days=1)
+    average_salary = salary_total / Decimal(salary_months_seen) if salary_months_seen else ZERO
     salary_months = (emergency["effective_allocated"] / average_salary) if emergency and average_salary else None
     listed = [item for item in reserves if item["kind"] != "EMERGENCY"]
     for item in listed:
@@ -57,7 +66,7 @@ def _context(request: Request, error: str = ""):
                             for row in c.reserves.links_for_reserve(item["id"])]
     return {"reserves": listed, "completed_reserves": completed,
             "emergency": emergency, "salary_average": average_salary, "salary_months": salary_months,
-            "salary_period": f"{first_month.strftime('%b %Y')}–{last_month.strftime('%b %Y')}",
+            "salary_period": f"{first_month:%Y-%m} to {last_month:%Y-%m}", "salary_months_seen": salary_months_seen,
             "summary": c.reserves.cash_summary(cash), "error": error,
             "counterparties": c.counterparties.list_active(),
             "accounts": [account for account in c.accounts.list(active_only=True)

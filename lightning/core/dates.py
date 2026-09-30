@@ -34,8 +34,16 @@ def parse_date(value: object, field: str = "date") -> date:
         if year_text:
             year = 2000 + int(year_text) if len(year_text) == 2 else int(year_text)
         else:
+            # This year, unless that would be more than a month ahead
+            # (typing 20/12 in January means last December).
             current = today()
-            year = current.year - (1 if (month, day) > (current.month, current.day) else 0)
+            month_ahead = date(current.year + (current.month == 12), current.month % 12 + 1,
+                               min(current.day, 28))
+            try:
+                candidate = date(current.year, month, day)
+            except ValueError:
+                candidate = None
+            year = current.year - (1 if candidate and candidate > month_ahead else 0)
     try:
         return date(year, month, day)
     except ValueError:

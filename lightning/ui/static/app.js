@@ -23,9 +23,12 @@ const isoDate = (value) => {
     if (!match) return null;
     [, day, month, year] = match;
     if (!year) {
+      // A day/month without a year means this year, unless that is more than a
+      // month ahead (typing 20/12 in January means last December).
       const now = new Date();
-      year = String(now.getFullYear() - ((Number(month) - 1 > now.getMonth() ||
-        (Number(month) - 1 === now.getMonth() && Number(day) > now.getDate())) ? 1 : 0));
+      const candidate = new Date(now.getFullYear(), Number(month) - 1, Number(day));
+      const monthAhead = new Date(now.getFullYear(), now.getMonth() + 1, now.getDate());
+      year = String(now.getFullYear() - (candidate > monthAhead ? 1 : 0));
     }
     else if (year.length === 2) year = `20${year}`;
   }
@@ -37,7 +40,7 @@ const isoDate = (value) => {
 // Every date field is one component: a typeable ISO text box plus the same
 // calendar button. Plain [data-smart-date] boxes and leftover native date
 // inputs are upgraded here, so templates only need a text input.
-const DATE_ERROR = "Enter a real date like 31/1, 31/1/2026, or 2026-01-31.";
+const DATE_ERROR = "Use yyyy-mm-dd, like 2026-01-31.";
 let dateFieldCount = 0;
 const normalizeDateField = (input) => {
   if (!input.value.trim()) { input.setCustomValidity(""); return true; }
@@ -50,14 +53,14 @@ const initDateFields = (root = document) => {
   root.querySelectorAll('input[type="date"]:not(.date-picker-native)').forEach((native) => {
     native.type = "text";
     native.dataset.smartDate = "";
-    if (!native.placeholder) native.placeholder = "31/1";
+    if (!native.placeholder) native.placeholder = "yyyy-mm-dd";
     native.inputMode = "numeric";
     native.autocomplete = "off";
   });
   root.querySelectorAll("[data-smart-date]").forEach((input) => {
     if (input.closest(".iso-date-control")) return;
     if (!input.id) input.id = `date-field-${++dateFieldCount}`;
-    if (!input.placeholder) input.placeholder = "31/1";
+    if (!input.placeholder) input.placeholder = "yyyy-mm-dd";
     const wrapper = document.createElement("span");
     wrapper.className = "iso-date-control";
     input.parentNode.insertBefore(wrapper, input);
@@ -1151,87 +1154,54 @@ document.querySelectorAll("[data-counterparty-filter]").forEach((search) => {
 
 // Shared period controls use separate month/year fields and a bounded scroll list.
 document.querySelectorAll("[data-month-picker]").forEach((picker) => {
+  // One month stepper: ‹ yyyy-mm ›. The box is typeable; arrows move a month.
   const monthValue = picker.querySelector("[data-month-select]");
-  const monthField = picker.querySelector("[data-month-part]");
-  const yearField = picker.querySelector("[data-year-toggle]");
-  const yearList = picker.querySelector("[data-year-options]");
-  const form = picker.matches("form") ? picker : picker.closest("form") || picker.querySelector("form");
+  const form = picker.matches("form") ? picker : picker.closest("form");
   const currentMonth = picker.dataset.currentMonth;
-  const selectedMonth = picker.dataset.selectedMonth || currentMonth;
   const monthlyButton = form?.querySelector('[name="period"][value="month"]');
-  if (monthlyButton) monthlyButton.addEventListener("click", () => {
-    if (monthField && yearField) {
-      monthField.value = currentMonth.slice(5, 7);
-      yearField.textContent = currentMonth.slice(0, 4);
-      monthValue.value = currentMonth;
-    }
-  });
-  if (!monthValue || !monthField || !yearField || !yearList || !form || !/^\d{4}-\d{2}$/.test(currentMonth || "")) return;
   const toIndex = (value) => {
     const [year, month] = value.split("-").map(Number);
     return year * 12 + month - 1;
   };
   const fromIndex = (index) => `${Math.floor(index / 12)}-${String(index % 12 + 1).padStart(2, "0")}`;
-  const currentIndex = toIndex(currentMonth);
-  const currentYear = Number(currentMonth.slice(0, 4));
-  const selectedYear = Number(selectedMonth.slice(0, 4));
-  const firstYear = Math.min(currentYear - 50, selectedYear);
-  const monthNames = Array.from({ length: 12 }, (_, index) => new Date(Date.UTC(2020, index, 1)).toLocaleDateString(undefined, { month: "long", timeZone: "UTC" }));
-  monthNames.forEach((name, index) => {
-    const option = document.createElement("option");
-    option.value = String(index + 1).padStart(2, "0");
-    option.textContent = name;
-    monthField.append(option);
-  });
-  for (let year = currentYear; year >= firstYear; year -= 1) {
-    const option = document.createElement("button");
-    option.type = "button";
-    option.className = "year-picker-option";
-    option.setAttribute("role", "option");
-    option.textContent = String(year);
-    option.dataset.year = String(year);
-    yearList.append(option);
-  }
-  const [initialYear, initialMonth] = selectedMonth.split("-");
-  monthField.value = initialMonth;
-  yearField.textContent = initialYear;
-  const closeYears = () => {
-    yearList.hidden = true;
-    yearField.setAttribute("aria-expanded", "false");
-  };
-  const updateValue = () => {
-    monthValue.value = `${yearField.textContent}-${monthField.value}`;
-    const selectedIndex = toIndex(monthValue.value);
-    picker.querySelector('[data-month-shift="-1"]').disabled = selectedIndex <= toIndex(`${firstYear}-01`);
-    picker.querySelector('[data-month-shift="1"]').disabled = selectedIndex >= currentIndex;
-  };
-  const submit = () => { updateValue(); form.requestSubmit(); };
-  yearField.addEventListener("click", () => {
-    yearList.hidden = !yearList.hidden;
-    yearField.setAttribute("aria-expanded", String(!yearList.hidden));
-    if (!yearList.hidden) {
-      const current = yearList.querySelector(`[data-year="${yearField.textContent}"]`);
-      if (current) yearList.scrollTop = current.offsetTop - yearList.offsetTop;
+  const currentIndex = /^\d{4}-\d{2}$/.test(currentMonth || "") ? toIndex(currentMonth) : Infinity;
+  const valid = (value) => /^\d{4}-(0[1-9]|1[0-2])$/.test(value) && toIndex(value) <= currentIndex;
+  if (monthlyButton && monthValue) monthlyButton.addEventListener("click", () => { monthValue.value = currentMonth; });
+  // Enter in a month box keeps the selected period; the browser would
+  // otherwise submit with the first button (All time).
+  form?.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" || !event.target.matches("input")) return;
+    event.preventDefault();
+    if (!event.target.checkValidity() || (event.target === monthValue && !valid(monthValue.value.trim()))) {
+      if (event.target === monthValue) monthValue.setCustomValidity(`Use yyyy-mm, up to ${currentMonth}.`);
+      event.target.reportValidity();
+      return;
     }
+    form.requestSubmit(form.querySelector(".period-button.selected") || undefined);
   });
-  yearList.addEventListener("click", (event) => {
-    const option = event.target.closest("[data-year]");
-    if (!option) return;
-    yearField.textContent = option.dataset.year;
-    closeYears();
-    submit();
+  if (!monthValue || !form || !/^\d{4}-\d{2}$/.test(currentMonth || "")) return;
+  const updateButtons = () => {
+    const index = valid(monthValue.value) ? toIndex(monthValue.value) : currentIndex;
+    picker.querySelector('[data-month-shift="1"]').disabled = index >= currentIndex;
+  };
+  monthValue.addEventListener("input", () => monthValue.setCustomValidity(""));
+  monthValue.addEventListener("change", () => {
+    const value = monthValue.value.trim();
+    if (!valid(value)) {
+      monthValue.setCustomValidity(`Use yyyy-mm, up to ${currentMonth}.`);
+      monthValue.reportValidity();
+      return;
+    }
+    monthValue.value = value;
+    form.requestSubmit(monthlyButton || undefined);
   });
-  document.addEventListener("click", (event) => { if (!picker.contains(event.target)) closeYears(); });
-  yearField.addEventListener("keydown", (event) => { if (event.key === "Escape") closeYears(); });
-  monthField.addEventListener("change", submit);
   picker.querySelectorAll("[data-month-shift]").forEach((button) => {
     button.addEventListener("click", () => {
-      const nextMonth = fromIndex(toIndex(monthValue.value) + Number(button.dataset.monthShift));
-      if (toIndex(nextMonth) > currentIndex) return;
-      yearField.textContent = nextMonth.slice(0, 4);
-      monthField.value = nextMonth.slice(5, 7);
-      submit();
+      const base = valid(monthValue.value) ? toIndex(monthValue.value) : currentIndex;
+      const next = Math.min(base + Number(button.dataset.monthShift), currentIndex);
+      monthValue.value = fromIndex(next);
+      form.requestSubmit(monthlyButton || undefined);
     });
   });
-  updateValue();
+  updateButtons();
 });

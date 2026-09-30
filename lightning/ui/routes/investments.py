@@ -3,7 +3,7 @@ from __future__ import annotations
 from decimal import Decimal, ROUND_HALF_UP
 from dataclasses import replace
 from collections import defaultdict
-from datetime import timedelta
+from datetime import date, timedelta
 
 from fastapi import APIRouter, Request
 
@@ -53,6 +53,12 @@ FIELDS = ("date", "account_id", "asset_id", "quantity", "price", "fees", "fees_i
 def _int(value) -> int | None:
     text = str(value or "").strip()
     return int(text) if text.isdigit() else None
+
+
+def _year_of_history(c, as_of) -> bool:
+    """An annualised return is shown only after a full year of holdings."""
+    first = c.investments.first_holding_date()
+    return bool(first) and (as_of - date.fromisoformat(first)).days >= 365
 
 
 @router.get("")
@@ -107,7 +113,7 @@ async def portfolio(request: Request):
                                            fmt_date(trend_cursor), fmt_date(snapshot_end))
         total = (snapshot["value"] + snapshot["investment_cash"]
                  if snapshot["value"] is not None and snapshot["investment_cash"] is not None else None)
-        investment_trend.append({"month": trend_cursor.strftime("%b %Y"), "value": total,
+        investment_trend.append({"month": trend_cursor.strftime("%Y-%m"), "value": total,
                                   "date": fmt_date(snapshot_end)})
         trend_cursor = (trend_cursor.replace(day=28) + timedelta(days=4)).replace(day=1)
     investment_trend_max = max((point["value"] for point in investment_trend
@@ -224,7 +230,7 @@ async def portfolio(request: Request):
                   has_assets=bool(c.assets.investments(active_only=True)), owned_value=owned_value,
                   owned_cost=owned_cost, owned_unrealized=owned_unrealized, custody_units=custody,
                   own_by_holding=own_by_holding, period=period, period_realized=p.realized-prior.realized,
-                  period_dividends=period_distributions, since_xirr=(p.xirr if not any(custody.values()) else None),
+                  period_dividends=period_distributions, since_xirr=(p.xirr if not any(custody.values()) and _year_of_history(c, period.end) else None),
                   owned_rows=owned_rows, horizons=horizons,
                   buckets=buckets, targets=targets, target_total=target_total, planner=planner, amount=amount,
                   owned_positions=owned_positions, max_class_result=max_class_result,

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Data checks{% endblock %}
 {% block heading %}<h1>Settings</h1><div class="muted">Data checks · compare totals across your ledger and reports</div>{% endblock %}
-{% block top_actions %}<form method="get" class="actions"><label for="check-date" class="small">As of</label><input id="check-date" name="date" type="text" placeholder="31/1" inputmode="numeric" autocomplete="off" data-smart-date value="{{ as_of }}"><button class="btn small">Check</button></form>{% endblock %}
+{% block top_actions %}<form method="get" class="actions"><label for="check-date" class="small">As of</label><input id="check-date" name="date" type="text" placeholder="yyyy-mm-dd" inputmode="numeric" autocomplete="off" data-smart-date value="{{ as_of }}"><button class="btn small">Check</button></form>{% endblock %}
 {% block content %}
 {% set settings_section = 'checks' %}{% include 'partials/settings_nav.html' %}
 <section class="metric-grid integrity-summary" aria-label="Check results">

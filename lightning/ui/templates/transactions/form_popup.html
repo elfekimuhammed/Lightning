@@ -18,7 +18,7 @@
     <div class="row">
       <div class="field {{ 'has-error' if error_field == 'date' }}">
         <label for="popup-date">Date</label>
-        <input id="popup-date" name="date" type="text" value="{{ values.date }}" placeholder="31/1" inputmode="numeric" data-smart-date required>
+        <input id="popup-date" name="date" type="text" value="{{ values.date }}" placeholder="yyyy-mm-dd" inputmode="numeric" data-smart-date required>
         {% if error_field == 'date' %}<small class="field-error">Check the date.</small>{% endif %}
       </div>
       <div class="field {{ 'has-error' if error_field == 'amount' }}">

@@ -159,6 +159,8 @@ async def trade_item(request: Request, account_id: int, asset_id: int):
             owner = party["id"]
         if action not in ("buy", "sell", "holding"):
             raise LightningError("Choose Add holding, Purchase, or Sale.", "action")
+        if action in ("buy", "sell") and not cash_id:
+            raise LightningError("Choose the cash account that paid or received the money.", "cash_account_id")
         with c.db.transaction():
             if action == "buy":
                 txn = c.investments.buy_total(date, account_id, asset_id, quantity, total, cash_id, notes,

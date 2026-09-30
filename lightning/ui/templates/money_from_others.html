@@ -21,13 +21,13 @@
   <p class="muted">Use the account’s transaction form and choose the person in <b>Owned by</b>. For cash already held for someone else, record money in; record a return with a negative amount. Both paths update the owner’s balance.</p>
   <a class="btn primary" href="/transactions">Open transactions</a>
 </details>
-<details class="card data-panel"><summary><b>Cash ownership history</b><span class="muted small">{{ entries|length }} entries</span></summary>
+<details class="card data-panel"><summary><b>Cash ownership history</b><span class="muted small">{{ entries|length }} {{ 'entry' if entries|length == 1 else 'entries' }}</span></summary>
   <table><thead><tr><th>Date</th><th>Owner</th><th>Account</th><th>Notes</th><th class="num">Change</th></tr></thead><tbody>
   {% for row in entries %}<tr><td>{{ row.date }}</td><td>{{ row.owner }}</td><td>{{ row.account_name }}</td><td>{{ row.notes }}</td><td class="num">{{ row.amount|money(True) }} {{ row.currency }}</td>
   {% else %}<tr><td class="empty" colspan="5">No entries yet.</td></tr>{% endfor %}
   </tbody></table>
 </details>
-<details class="card data-panel"><summary><b>Investment ownership history</b><span class="muted small">{{ investment_entries|length }} entries</span></summary>
+<details class="card data-panel"><summary><b>Investment ownership history</b><span class="muted small">{{ investment_entries|length }} {{ 'entry' if investment_entries|length == 1 else 'entries' }}</span></summary>
   <table><thead><tr><th>Date</th><th>Owner</th><th>Account</th><th>Investment</th><th class="num">Units change</th><th>Reference</th></tr></thead><tbody>
   {% for row in investment_entries %}<tr><td>{{ row.date }}</td><td>{{ row.owner }}</td><td>{{ row.account_name }}</td><td>{{ row.asset_name }}</td>
     <td class="num">{{ row.units|money(True, 4) }} {{ row.unit }}</td><td>{{ row.ref }}</td>

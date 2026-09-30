@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Budget{% endblock %}
 {% block top_actions %}{% from "partials/macros.html" import period_control %}{{ period_control("/budget", period.key, month, this_month, period.start_text, period.end_text) }}{% endblock %}
-{% block heading %}<div class="budget-heading"><div><h1>Budget</h1><div class="muted">Your spending plan · {{ period.start_display }} to {{ period.end_display }} · {{ base }}</div></div><a id="budget-settings-link" class="btn small" aria-label="Budget settings" title="Budget settings" href="/settings?section=budget&amp;return_to={{ request.url.path|urlencode }}%3F{{ request.url.query|urlencode }}">⚙</a></div>{% endblock %}
+{% block heading %}<div class="budget-heading"><div><h1>Budget</h1><div class="muted">Your spending plan · {{ period.start_display }} to {{ period.end_display }} · {{ base }}</div></div><a id="budget-settings-link" class="btn small icon-btn" aria-label="Budget settings" title="Budget settings" href="/settings?section=budget&amp;return_to={{ request.url.path|urlencode }}%3F{{ request.url.query|urlencode }}">⚙</a></div>{% endblock %}
 {% block content %}
 
 {% if error %}<p class="notice error" role="alert">{{ error }}</p>{% endif %}

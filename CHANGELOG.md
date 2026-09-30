@@ -8,6 +8,16 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### Guideline 2.1 controls, month reports and report fixes · 2026-09-30
+- Buttons follow the guideline: 48 px pills on pages and 36 px inside cards and rows; the date button and month arrows are 48 px circles. Textareas keep a 96 px minimum.
+- Every date reads `yyyy-mm-dd` (hints, placeholders, period labels, the investments chart and Reserves use `yyyy-mm`). The period control is one `‹ yyyy-mm ›` stepper, and custom reports take a from/to month; Enter keeps the selected period.
+- Screens use a true minus (−5,000.00); big figures shrink to their tile instead of breaking mid-number; the cash-flow figure no longer runs into the savings ring; the register's date and notes fields fit.
+- CSV import: a merchant typed as new on several rows is created once; a row error no longer crashes the review (500), and the error view lists only the rows to fix.
+- Emergency-fund coverage averages salary over the months that received it, instead of always dividing by six.
+- "Returns by asset class" and "Biggest movers" include holdings sold out during the period.
+- Revaluations replaced by the engine no longer appear in Deleted transactions and can't be restored into duplicates.
+- "Add existing holding" on a physical item no longer asks for a cash account; the XIRR row waits for a year of holdings; a yearless date like 30/9 no longer jumps to last year; Birdview names deposits with investments ("Investments and deposits"); wording and favicon fixes.
+
 ### Uniform controls and date fields · 2026-09-29
 - Buttons, text and number fields, dropdowns, month boxes and segmented toggles share one font, a 40 px height (30 px for small buttons), one border and an 8 px radius; checkboxes keep their natural 16 px size.
 - Every date field is the same component: a typeable ISO box (`31/1`, `31/1/2026` or `2026-01-31`) with the same calendar button, including the register, CSV review, reconcile, data checks, custom periods, prices and physical items. Dates are normalised on submit as well as on blur.

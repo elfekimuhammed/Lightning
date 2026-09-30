@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% macro date_control(name, value, control_id) -%}
 <span class="iso-date-control">
-  <input id="{{ control_id }}" type="text" name="{{ name }}" value="{{ value or '' }}" placeholder="31/1"
-         inputmode="numeric" title="Date such as 31/1 or 2026-01-31" data-smart-date>
+  <input id="{{ control_id }}" type="text" name="{{ name }}" value="{{ value or '' }}" placeholder="yyyy-mm-dd"
+         inputmode="numeric" title="yyyy-mm-dd, like 2026-01-31" data-smart-date>
   <input class="date-picker-native" type="date" data-date-picker-for="{{ control_id }}" tabindex="-1" aria-hidden="true">
   <button class="btn small date-picker-button" type="button" data-open-date-picker="{{ control_id }}" aria-label="Choose date">▦</button>
 </span>
@@ -27,7 +27,7 @@
   </div>
   <div class="emergency-stats">
     <div><span class="muted small">Reserved for emergencies</span><b>{{ (emergency.effective_allocated if emergency else 0)|money }}</b></div>
-    <div><span class="muted small">6-month average salary</span><b>{{ salary_average|money }}</b><small class="muted">{{ salary_period }} · {{ (salary_average * 6)|money }} six-month target</small></div>
+    <div><span class="muted small">Average monthly salary</span><b>{{ salary_average|money }}</b><small class="muted">{{ salary_period }} · {{ salary_months_seen }} month{{ '' if salary_months_seen == 1 else 's' }} with salary · {{ (salary_average * 6)|money }} six-month target</small></div>
   </div>
   {% if salary_average <= 0 %}<p class="muted small">Categorize salary deposits as Work › Salary to calculate this benchmark.</p>{% endif %}
   <form method="post" action="/reserves/emergency" class="emergency-form" data-autosave-form>

@@ -452,6 +452,10 @@ class TransactionService:
             if t.type == DocType.VAL and t.source == TxnSource.SYSTEM:
                 post = self.db.one("SELECT period_id,account_id FROM reevaluation_account_posts WHERE transaction_id=?",
                                    (t.id,))
+                if not post:
+                    # The engine voided it when it recalculated the checkpoint;
+                    # the replacement is already posted.
+                    raise ValidationError("This revaluation was replaced by a newer calculation, so it can't be restored.")
                 if post:
                     self.db.execute("DELETE FROM reevaluation_suppressed_accounts WHERE period_id=? AND account_id=?",
                                     (post["period_id"], post["account_id"]))
@@ -469,6 +473,12 @@ class TransactionService:
     # ======================================================================
     # Reading
     # ======================================================================
+    def replaced_revaluation_ids(self) -> set[int]:
+        """System revaluations voided because the engine recalculated their checkpoint."""
+        return {int(row["id"]) for row in self.db.all(
+            "SELECT t.id FROM transactions t WHERE t.type='VAL' AND t.source='SYSTEM' AND t.status='VOID' "
+            "AND NOT EXISTS (SELECT 1 FROM reevaluation_account_posts p WHERE p.transaction_id=t.id)")}
+
     def get(self, txn_id: int) -> Transaction:
         found = self.repo.get(txn_id)
         if not found:

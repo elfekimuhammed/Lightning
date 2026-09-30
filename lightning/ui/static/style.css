@@ -1306,3 +1306,37 @@ body:has(.overview-stack) .overview-stack { overflow:visible; }
   .site-period-control { justify-content:flex-start; }
   .site-period-control .period-buttons { max-width:100%; overflow-x:auto; }
 }
+
+/* ── Guideline 2.1 · control shape, dates and fit ──────────────────────────
+   Pressable controls are pills: 48px on the page, 36px inside cards and rows.
+   `:not(.x_)` lifts these just above the equal-specificity rules before them. */
+.btn:not(#_):not(.small) { height:var(--control-h); min-height:var(--control-h); padding:0 22px; font-size:15px; }
+:is(.card,.data-panel,.metric-card,.overview-block,.ledger,td,.compact-row,dialog) .btn:not(#_):not(.small) {
+  height:var(--control-h-small); min-height:var(--control-h-small); padding:0 16px; font-size:13px;
+}
+.iso-date-control .date-picker-button:not(#_):not(.x_) { width:var(--control-h); height:var(--control-h); min-height:var(--control-h); border-radius:999px; padding:0; }
+/* One month stepper: ‹ yyyy-mm › */
+.period-month-picker { display:flex; align-items:center; gap:8px; }
+.site-period-control .period-month-picker > .period-step[data-month-shift]:not(#_), .period-month-picker .period-step:not(#_):not(.x_) { width:var(--control-h); height:var(--control-h); min-height:var(--control-h); padding:0; border-radius:999px; font-size:18px; }
+.period-month-picker .period-month-value:not(#_):not(.x_), .period-date-range .month-input:not(#_):not(.x_) { width:112px; text-align:center; font-variant-numeric:tabular-nums; }
+/* Multi-line text keeps room for more than one line. */
+textarea:not(#_):not(.x_) { height:auto; min-height:96px; padding:12px 16px; line-height:24px; }
+/* Big figures shrink to their tile instead of breaking mid-number. */
+.metric-grid > .metric-card { container-type:inline-size; }
+.metric-grid .metric-value:not(#_) { overflow-wrap:normal; word-break:normal; font-size:clamp(22px, 13cqi, 48px); }
+.metric-value { overflow-wrap:normal; }
+/* Cash-flow lead: the savings ring sits under the net figure, not on top of it. */
+.overview-flow-summary:not(#_) { grid-template-columns:1fr; gap:12px; }
+.overview-flow-summary .overview-savings-rate { margin-left:0; }
+/* Register rows at 48px: tighter field padding, a date column that fits, no clipped checkbox cell. */
+.ledger :is(tr.add-row,tr.editing) :is(input,select):not(#_):not(.x_) { padding:0 10px; }
+.ledger td input[type=checkbox]:not(#_) { margin:0; }
+/* A folded row's title and its muted note read as two phrases. */
+summary > b + .muted { margin-left:8px; }
+.physical-items-table td small.muted { display:block; }
+/* Page header bar: every control is 48px, so the bar lines up top and bottom. */
+.topbar :is(.btn, .action-menu > summary):not(#_):not(.x_) {
+  display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box;
+  height:var(--control-h); min-height:var(--control-h); padding:0 20px; border-radius:999px; font-size:14px;
+}
+.topbar .icon-btn:not(#_):not(.x_) { width:var(--control-h); padding:0; font-size:18px; }

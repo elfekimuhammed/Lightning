@@ -2,8 +2,8 @@
 {% block title %}{{ account.name if account else 'All accounts' }}{% endblock %}
 
 {% macro inputs(form_id, v, is_edit) -%}
-  <td><input id="{{ form_id }}-date" form="{{ form_id }}" type="text" name="date" value="{{ v.get('date', '') }}" placeholder="31/1"
-             inputmode="numeric" autocomplete="off" data-smart-date title="For example 31/1 or 2026-01-31" required class="{{ 'bad' if error_field == 'date' }}"></td>
+  <td><input id="{{ form_id }}-date" form="{{ form_id }}" type="text" name="date" value="{{ v.get('date', '') }}" placeholder="yyyy-mm-dd"
+             inputmode="numeric" autocomplete="off" data-smart-date title="yyyy-mm-dd, like 2026-01-31" required class="{{ 'bad' if error_field == 'date' }}"></td>
   {% if show_account %}
   <td><select form="{{ form_id }}" name="account_id" required class="{{ 'bad' if error_field == 'account' }}">
         <option value="">Account…</option>
@@ -120,7 +120,7 @@
     <div class="investment-entry-grid">
       <div class="field {{ 'has-error' if investment_error_field == 'date' }}">
         <label for="investment-date">Date</label>
-        <input id="investment-date" type="text" name="date" value="{{ investment_entry.get('date', '') }}" placeholder="31/1" inputmode="numeric" data-smart-date title="For example 31/1 or 2026-01-31" required>
+        <input id="investment-date" type="text" name="date" value="{{ investment_entry.get('date', '') }}" placeholder="yyyy-mm-dd" inputmode="numeric" data-smart-date title="yyyy-mm-dd, like 2026-01-31" required>
       </div>
       <div class="field instrument-picker {{ 'has-error' if investment_error_field == 'instrument' }}">
         <label for="trade-instrument-search">Investment</label>
@@ -223,9 +223,9 @@
   </div>
   <table>
     <colgroup>
-      <col style="width:42px"><col style="width:164px">{% if show_account %}<col style="width:12%">{% endif %}
-      <col style="width:{{ '14%' if show_account else '14%' }}"><col style="width:{{ '14%' if show_account else '14%' }}">
-      <col class="whom-column" style="width:{{ '12%' if custody_present else '0' }}"><col><col style="width:110px">
+      <col style="width:42px"><col style="width:176px">{% if show_account %}<col style="width:12%">{% endif %}
+      <col style="width:12%"><col style="width:12%">
+      <col class="whom-column" style="width:{{ '10%' if custody_present else '0' }}"><col><col style="width:110px">
       {% if with_balance %}<col style="width:110px">{% endif %}<col style="width:72px">
     </colgroup>
     <thead><tr>
