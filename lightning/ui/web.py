@@ -51,10 +51,14 @@ templates.env.filters["tone"] = _tone
 templates.env.globals["abs"] = abs
 
 
-def _formula(key: str) -> Markup:
-    """The calculation line shown under a derived figure: "Free cash = Cash you own − …"."""
+def _formula(key: str, note: str = "", *more: str) -> Markup:
+    """Under a figure: its formula in one visible line, then one closed "How is this worked out?"
+    toggle with the meaning of it and of the figures it uses (``more``) and an optional note."""
     figure = FIGURES[key]
-    return Markup(f'<p class="figure-formula">{escape(figure.equation)}</p>') if figure.formula else Markup("")
+    line = f'<p class="figure-formula">{escape(figure.equation)}</p>' if figure.formula else ""
+    items = "".join(f"<li><b>{escape(FIGURES[k].label)}</b>: {escape(FIGURES[k].meaning)}</li>" for k in (key, *more))
+    body = f"<ul>{items}</ul>" + (f"<p>{escape(note)}</p>" if note else "")
+    return Markup(f'{line}<details class="figure-explain"><summary>How is this worked out?</summary>{body}</details>')
 
 
 templates.env.globals["fig"] = FIGURES

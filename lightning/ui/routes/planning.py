@@ -9,7 +9,7 @@ from fastapi import APIRouter, Request
 from lightning.categories.domain import Movement
 from lightning.core.dates import fmt_date, today
 from lightning.core.errors import LightningError
-from lightning.core.money import ZERO
+from lightning.core.money import ZERO, fmt, to_decimal
 from lightning.planning.domain import (FREQUENCY_LABELS, KIND_LABELS, RECURRING_KINDS, Frequency, PaymentStatus,
                                        PlanKind)
 from lightning.planning.schedule import describe
@@ -179,10 +179,15 @@ async def create_item(request: Request):
     values = _form_values(form)
     back = _back(form, "/plan/loans" if values["kind"] == "LOAN" else "/plan/recurring")
     try:
-        c.planning.create(**_save_values(c, values))
+        item_id = c.planning.create(**_save_values(c, values))
     except LightningError as exc:
         return _item_form(request, c, values, error=exc.message, error_field=exc.field or "", status_code=400, back=back)
-    return redirect(back, f"{values['name']} added.")
+    message = f"{values['name']} added."
+    if str(form.get("past_due", "paid")) == "paid":
+        moved = c.planning.start_after_paid(item_id)
+        if moved:
+            message = f"{values['name']} added. Already paid, so the next one is due {moved}."
+    return redirect(back, message)
 
 
 @router.get("/items/{item_id:int}/edit")
@@ -213,6 +218,18 @@ async def update_item(request: Request, item_id: int):
         return _item_form(request, c, values, item=item, error=exc.message, error_field=exc.field or "",
                           status_code=400, back=back)
     return redirect(back, f"{values['name']} saved.")
+
+
+@router.post("/items/{item_id:int}/amount")
+async def set_item_amount(request: Request, item_id: int):
+    c = container(request)
+    form = await request.form()
+    item = c.planning.get(item_id)
+    try:
+        c.planning.set_amount(item_id, str(form.get("amount", "")))
+    except LightningError as exc:
+        return redirect(_back(form, "/plan/recurring"), exc.message)
+    return redirect(_back(form, "/plan/recurring"), f"{item.name} is now planned at {fmt(to_decimal(str(form.get('amount')), 'amount'))}.")
 
 
 @router.post("/items/{item_id:int}/delete")
@@ -259,6 +276,10 @@ async def settle_payment(request: Request, item_id: int):
             c.planning.record_payment(item_id, due, str(form.get("date_paid", "")), str(form.get("amount", "")),
                                       int(str(form.get("account_id"))) if str(form.get("account_id", "")).isdigit() else None)
             message = f"{item.name} · {due} recorded and marked paid."
+            paid = to_decimal(str(form.get("amount", "")), "amount")
+            if paid != item.amount and item.frequency != Frequency.ONCE:
+                message += (f" You paid {fmt(paid)} instead of {fmt(item.amount)}; Recurring offers to use "
+                            f"{fmt(paid)} from now on.")
         elif action == "skip":
             c.planning.skip(item_id, due)
             message = (f"{item.name} · {due} moved to the end of the loan." if item.kind == PlanKind.LOAN

@@ -8,6 +8,18 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### Open findings fixed (Omar runs) · 2026-09-30
+- **#111:** a holding with no price yet is valued at what you paid (no gain yet) and flagged "valued at cost". The investment Result is no longer "Unavailable", and it now matches Result by asset class.
+- **#129:** each derived figure shows its number, one formula line and one closed "How is this worked out?" toggle with the meanings and notes, the same on every tab. The Plan tab shows about 20% fewer words.
+- **#130:** adding a recurring item whose date has passed asks once: "I paid it — start from the next one" (the default) or "Not paid yet — show it as due".
+- **#131:** recurring amounts under 50 are no longer suggested.
+- **#132:** closing a popup asks to discard only when something was changed.
+- **#133:** paying a different amount says so, and Recurring offers "Use … from now on".
+- **Import review:** answering one row fills the other rows with the same imported name (16 decisions instead of 40 for Omar's statement).
+- **Fees:** the fee field can always be typed: inside the amount by default, on top of it when "Fees are extra" is ticked.
+- **Buying by amount:** leave Units blank to buy or sell a fund by amount; units come from the price per unit or the latest price.
+- **New names:** a new name with no similar existing name is saved without an extra confirmation. Similar spellings still ask.
+
 ### Project overview: workflow, questions and gaps · 2026-09-30
 - The Project Overview describes the three layers and the hurried-user principle. It adds Omar's month as the reference workflow, the seven main questions each with follow-up questions (where each is answered, or the gap), and what is still missing compared with the best budgeting apps.
 - Outdated decisions are corrected: loans and What you owe now count, and the emergency fund uses Average monthly income.

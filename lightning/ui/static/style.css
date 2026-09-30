@@ -1376,3 +1376,14 @@ summary > b + .muted { margin-left:8px; }
 .metric-card .figure-formula, .overview-block .figure-formula { margin-top: 2px; }
 .overview-subtotal { font-weight: 600; }
 .overview-section .overview-wealth-card .overview-static-row,.overview-section .overview-wealth-card .overview-static-row b { color:var(--ink); }
+
+/* "How is this worked out?" — one closed toggle per figure, the same on every tab. */
+.figure-explain { margin: 6px 0 4px; font-size: 13px; color: var(--muted); }
+.figure-explain > summary { cursor: pointer; list-style: none; display: inline-flex; align-items: center; gap: 6px; min-height: 32px; color: var(--muted); font-weight: 600; }
+.figure-explain > summary::-webkit-details-marker { display: none; }
+.figure-explain > summary::before { content: "ⓘ"; font-weight: 400; }
+.figure-explain[open] > summary { color: var(--text); }
+.figure-explain ul { margin: 4px 0 0; padding-left: 18px; display: grid; gap: 6px; }
+.figure-explain p { margin: 6px 0 0; }
+.plan-past-due { display: grid; gap: 4px; margin-top: 6px; font-size: 14px; }
+.plan-past-due label { display: flex; align-items: center; gap: 8px; min-height: 32px; font-weight: 400; }

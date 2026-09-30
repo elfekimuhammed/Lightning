@@ -210,6 +210,7 @@ async def dashboard(request: Request):
         "portfolio_value": portfolio_value, "new_money": closing_report["net_money"],
         "period_result": period_result, "period_result_available": period_result is not None,
         "missing": closing_report["missing"] + opening_report["missing"],
+        "at_cost": closing_report["at_cost"],
         "holdings_count": sum(1 for row in closing_report["holdings"] if row["price_source"] != "CASH"),
     }
     investment_holdings = [

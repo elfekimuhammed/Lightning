@@ -7,7 +7,7 @@ from decimal import Decimal
 
 from lightning.core.dates import fmt_date, parse_date, parse_month, today
 from lightning.core.errors import NotFoundError, ValidationError
-from lightning.core.money import ZERO, to_decimal
+from lightning.core.money import ZERO, from_e6, to_decimal
 from lightning.database.connection import Database
 
 from .domain import (Frequency, Payment, PaymentStatus, PlanKind, PlannedItem, WhatYouOwe)
@@ -19,6 +19,7 @@ from .schedule import payment_dates
 MATCH_WINDOW_DAYS = 7
 MATCH_TOLERANCE = {PlanKind.LOAN: Decimal("0.01")}
 DEFAULT_TOLERANCE = Decimal("0.10")
+SUGGESTION_MINIMUM = Decimal("50")  # recurring amounts below this are not suggested
 LOAN_CATEGORY = "EXP.PERSONAL.LOANS"
 
 
@@ -53,6 +54,35 @@ class PlanningService:
         with self.db.transaction():
             self.repo.update(item_id, clean)
 
+    def start_after_paid(self, item_id: int, as_of: date | None = None) -> str | None:
+        """The user says payments dated up to today are already paid: link any posted transaction
+        that matches, and start the schedule at the next date instead of showing the rest as due.
+        Returns the new first due date, or None when nothing changed. Not for loans."""
+        day = as_of or today()
+        self.match_payments(day)
+        item = self.get(item_id)
+        if item.kind == PlanKind.LOAN:
+            return None
+        payments = self.payments(item, fmt_date(day), day)
+        if any(p.status == PaymentStatus.PAID for p in payments) or not any(
+                p.status == PaymentStatus.DUE for p in payments):
+            return None
+        later = [d for _, d in payment_dates(item, fmt_date(day + timedelta(days=400))) if d > fmt_date(day)]
+        if not later:
+            return None
+        with self.db.transaction():
+            self.repo.set_start(item_id, later[0])
+        return later[0]
+
+    def set_amount(self, item_id: int, amount) -> None:
+        """Plan every later payment at a new amount (for example after paying a higher rent)."""
+        value = to_decimal(amount, "amount")
+        if value <= ZERO:
+            raise ValidationError("Enter an amount above zero.", "amount")
+        self.get(item_id)
+        with self.db.transaction():
+            self.repo.set_amount(item_id, value)
+
     def has_history(self, item_id: int) -> bool:
         return self.repo.has_payments(item_id)
 
@@ -84,7 +114,8 @@ class PlanningService:
                 status = PaymentStatus(row["status"])
             else:
                 status = PaymentStatus.DUE if due <= fmt_date(day) else PaymentStatus.UPCOMING
-            out.append(Payment(original, due, number, status, row["transaction_id"] if row else None))
+            paid = from_e6(row["amount_e6"]) if row and status == PaymentStatus.PAID and row["amount_e6"] else None
+            out.append(Payment(original, due, number, status, row["transaction_id"] if row else None, paid))
         return out
 
     def all_payments(self, until: str | date, as_of: date | None = None,
@@ -196,8 +227,8 @@ class PlanningService:
                 continue  # repeats monthly, not several times a month
             amounts = [r["amount"] for r in rows]
             typical = median(amounts)
-            if typical <= ZERO or any(abs(a - typical) > typical * Decimal("0.2") for a in amounts):
-                continue
+            if typical < SUGGESTION_MINIMUM or any(abs(a - typical) > typical * Decimal("0.2") for a in amounts):
+                continue  # too small to plan around (bank fees), or the amount varies too much
             latest = rows[-1]
             out.append({"counterparty_id": party, "name": latest["counterparty"],
                         "kind": "INCOME" if effect == "INFLOW" else "BILL", "amount": Decimal(typical).quantize(Decimal("0.01")),

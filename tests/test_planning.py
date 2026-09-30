@@ -113,7 +113,7 @@ def test_screens_show_bills_due_and_net_worth(c, setup, monkeypatch):
     created = client.post("/plan/items", data={
         "kind": "BILL", "name": "Electricity", "amount": "480", "frequency": "MONTHLY", "interval_count": "1",
         "start_date": "2026-09-25", "account_id": str(accounts["cib"].id),
-        "category_id": str(cats["EXP.PERSONAL.FOOD"].id), "counterparty": "Electricity Co"})
+        "category_id": str(cats["EXP.PERSONAL.FOOD"].id), "counterparty": "Electricity Co", "past_due": "due"})
     assert created.status_code == 200 and "Electricity added." in created.text
     client.post("/plan/items", data={"kind": "LOAN", "name": "Car loan", "amount": "2500", "frequency": "MONTHLY",
                                      "interval_count": "1", "start_date": "2026-10-05", "payment_count": "2"})
@@ -247,3 +247,44 @@ def test_lazy_input_and_next_month(c, setup, monkeypatch):
     c.planning.skip(item_id, "2026-10-05")
     form = client.get(f"/plan/items/{item_id}/edit").text
     assert ">Stop<" in form and "First due date" in form
+
+
+def test_a_past_first_date_that_was_paid_starts_from_the_next_one(c, setup, monkeypatch):
+    monkeypatch.setenv("LIGHTNING_TODAY", "2026-10-06")
+    client = TestClient(create_app(c), base_url="http://127.0.0.1")
+    base = {"kind": "BILL", "amount": "600", "frequency": "MONTHLY", "interval_count": "1", "start_date": "2026-10-05"}
+    added = client.post("/plan/items", data={**base, "name": "Gym"}, follow_redirects=False)
+    assert "next%20one%20is%20due%202026-11-05" in added.headers["location"]
+    gym = next(i for i in c.planning.items() if i.name == "Gym")
+    assert gym.start_date == "2026-11-05" and c.planning.what_you_owe(date(2026, 10, 6)).bills_due == 0
+    client.post("/plan/items", data={**base, "name": "Club", "past_due": "due"})
+    assert c.planning.what_you_owe(date(2026, 10, 6)).bills_due == Decimal("600")  # still unpaid, so due
+
+
+def test_paying_a_new_amount_offers_to_plan_it_from_now_on(c, setup, monkeypatch):
+    monkeypatch.setenv("LIGHTNING_TODAY", "2026-10-06")
+    accounts, _ = setup
+    housing = c.categories.get_by_code("EXP.PERSONAL.HOUSING")
+    item_id = c.planning.create(kind="BILL", name="Rent", amount="12000", frequency="MONTHLY", start_date="2026-10-03",
+                                account_id=str(accounts["cib"].id), category_id=str(housing.id))
+    client = TestClient(create_app(c), base_url="http://127.0.0.1")
+    paid = client.post(f"/plan/items/{item_id}/pay", data={"due": "2026-10-03", "back": "/plan", "outcome": "record",
+                       "date_paid": "2026-10-03", "amount": "12500", "account_id": str(accounts["cib"].id)},
+                       follow_redirects=False)
+    assert "12%2C500.00%20from%20now%20on" in paid.headers["location"]
+    page = client.get("/plan/recurring").text
+    assert "Use 12,500.00 from now on" in page
+    client.post(f"/plan/items/{item_id}/amount", data={"amount": "12500", "back": "/plan/recurring"})
+    assert c.planning.get(item_id).amount == Decimal("12500")
+
+
+def test_tiny_repeats_are_not_suggested(c, setup, monkeypatch):
+    monkeypatch.setenv("LIGHTNING_TODAY", "2026-10-06")
+    accounts, cats = setup
+    for month in ("07", "08", "09"):
+        c.transactions.record_outflow(f"2026-{month}-28", accounts["cib"].id, "15", cats["EXP.PERSONAL.FOOD"].id,
+                                      counterparty="Bank fee")
+        c.transactions.record_outflow(f"2026-{month}-20", accounts["cib"].id, "650", cats["EXP.PERSONAL.FOOD"].id,
+                                      counterparty="WE")
+    names = [s["name"] for s in c.planning.suggestions(date(2026, 10, 6))]
+    assert "WE" in names and "Bank fee" not in names

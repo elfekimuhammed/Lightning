@@ -32,7 +32,7 @@ def build_investment_report(db, accounts, assets, reporting, start: str, end: st
     if not placeholders:
         return {"new_money": ZERO, "withdrawn": ZERO, "net_money": ZERO,
                 "dividends": ZERO, "realized": ZERO, "unresolved_dividends": 0,
-                "holdings": [], "investment_cash": ZERO, "missing": [], "cost": ZERO,
+                "holdings": [], "investment_cash": ZERO, "missing": [], "at_cost": [], "cost": ZERO,
                 "value": ZERO, "unrealized": ZERO}
     rows = db.all(
         f"SELECT le.*,t.type,t.ref,t.status,c.code AS category_code, "
@@ -91,7 +91,7 @@ def build_investment_report(db, accounts, assets, reporting, start: str, end: st
         elif delta < ZERO:
             withdrawn -= delta
     period_realized = _realized_between(rows, start, end)
-    holdings = []; total_cost = total_value = unrealized = ZERO; missing=[]
+    holdings = []; total_cost = total_value = unrealized = ZERO; missing=[]; at_cost=[]
     holdings_unavailable = False
     for (owner_id, account_id, asset_id), b in books.items():
         if b["units"] <= ZERO:
@@ -99,10 +99,14 @@ def build_investment_report(db, accounts, assets, reporting, start: str, end: st
         asset = assets.get_asset(asset_id)
         valuation = reporting.value_of(asset_id, b["units"], end)
         value = valuation.value
-        if value is None or valuation.source == "COST":
-            missing.append({"asset": asset.name, "reason": "Missing confirmed market price" if value is None else "Only cost fallback is available"})
+        if value is None:
+            missing.append({"asset": asset.name, "reason": valuation.reason or "Missing confirmed market price"})
             holdings_unavailable = True
         else:
+            # Before an asset's first price, what you paid is the best value there is: count it at
+            # cost (no gain yet) and say so, rather than making the whole result unavailable.
+            if valuation.source == "COST":
+                at_cost.append({"asset": asset.name, "since": valuation.price_date})
             total_value += value
             unrealized += value-b["cost"]
         total_cost += b["cost"]
@@ -133,7 +137,7 @@ def build_investment_report(db, accounts, assets, reporting, start: str, end: st
             "investment_cash": None if cash_unavailable else cash, "cost": total_cost,
             "value": None if holdings_unavailable else total_value,
             "unrealized": None if holdings_unavailable else unrealized,
-            "missing": missing, "unresolved_dividends": unresolved}
+            "missing": missing, "at_cost": at_cost, "unresolved_dividends": unresolved}
 
 
 def _realized_between(rows, start, end):

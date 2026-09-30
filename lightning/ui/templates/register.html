@@ -157,7 +157,7 @@
         <input id="investment-unit-price" type="text" name="unit_price" value="{{ investment_entry.get('unit_price', '') }}" placeholder="Or enter unit price" inputmode="decimal" class="money-input">
       </div>
       <div class="field investment-fees-toggle" id="investment-fees-toggle-field"><label><input id="investment-fees-included" type="checkbox" name="fees_included" value="0" data-fees-excluded {{ 'checked' if investment_entry.get('fees_included') == '0' }}> Fees are extra (not in the amount)</label></div>
-      <div class="field" id="investment-fees-field" {{ 'hidden' if investment_entry.get('fees_included') != '0' }}>
+      <div class="field" id="investment-fees-field">
         <label for="investment-fees">Fees</label>
         <input id="investment-fees" type="text" name="fees" value="{{ investment_entry.get('fees', '') }}" placeholder="0.00" inputmode="decimal" class="money-input">
       </div>

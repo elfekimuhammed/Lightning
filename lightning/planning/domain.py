@@ -73,6 +73,7 @@ class Payment:
     number: int                     # 1-based position in the schedule
     status: PaymentStatus
     transaction_id: int | None = None
+    paid_amount: Decimal | None = None  # what was actually paid, when it was recorded or linked
 
     @property
     def amount(self) -> Decimal:

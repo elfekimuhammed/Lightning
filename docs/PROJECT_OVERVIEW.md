@@ -167,7 +167,7 @@ Each tab answers one main question first, then its natural follow-ups. **Answere
 | How much did I put in? | New money in | Answered |
 | What would I get if I sold? | Investments › Holdings after sale (estimate); Birdview › If you sold today (estimate) | Answered |
 | Am I on my target mix? | Birdview › Compare with target weights; Investments › Set target allocation | Answered |
-| Why is the result "Unavailable"? | A missing price before the first valuation | Partial (#111) |
+| Why does a holding show no gain? | No price yet: it is valued at cost and flagged "valued at cost" | Answered |
 
 ### 6. Am I safe if something goes wrong? → Cash planning › Reserves · **Emergency fund** in months of Average monthly income
 | Follow-up | Where it is answered | Status |
@@ -180,7 +180,7 @@ Each tab answers one main question first, then its natural follow-ups. **Answere
 | Follow-up | Where it is answered | Status |
 |---|---|---|
 | Does my balance match the bank? | Account › Reconcile | Answered |
-| Did the import miss or duplicate anything? | Import review; duplicates flagged | Answered (review is long: all rows open) |
+| Did the import miss or duplicate anything? | Import review; duplicates flagged; one answer fills rows with the same name | Answered |
 | Is a price old? | Missing-valuation notices | Partial (no stale-price warning) |
 
 All owned-position, budget-actual and performance views exclude money held for others. Internal transfers do not create income or expense. Refunds reduce spending in their original category.
@@ -205,7 +205,7 @@ Still missing, ordered by value for a hurried user:
 |---|---|---|---|---|
 | 1 | **Capture on the phone in seconds** | Copilot and Monarch mobile apps; quick add from a widget | Local web app on the computer; entry needs the account page | Cash and Vodafone Cash spending is forgotten unless it can be logged on the spot |
 | 2 | **Automatic transaction feed** | Bank sync in Monarch, YNAB, Copilot | CSV import only; no Egyptian aggregator | Import is the heaviest step. A cheaper local route: parse bank and wallet SMS, or e-statement PDFs |
-| 3 | **Learned categorization rules** | Monarch and Copilot rules and learning; Lunch Money rules | Counterparty default categories; every new name needs a decision | Fewer decisions per import (104 interactions for 40 rows) |
+| 3 | **Learned categorization rules** | Monarch and Copilot rules and learning; Lunch Money rules | Counterparty default categories; import copies one answer to rows with the same name | A first import still needs one decision per distinct name (16 for Omar) |
 | 4 | **One review inbox** | Monarch and Copilot "to review" | Import review and Overview attention are separate | One place to clear everything, exceptions first |
 | 5 | **Reminders and notifications** | Bill reminders in Monarch, Rocket Money and Simplifi | Due bills show only when the Overview is open | A lazy user won't open the app to check |
 | 6 | **Multi-currency** | Lunch Money, YNAB (per budget), Monarch | Base currency only (M4 planned) | Many Egyptians keep USD savings or receive USD income |
@@ -214,21 +214,11 @@ Still missing, ordered by value for a hurried user:
 | 9 | **Watchlists** | Simplifi watchlists | Category budgets only | Tracks one habit (eating out, one merchant) without a full budget |
 | 10 | **Shared household** | Monarch partner access | Single user, single device | Couples manage money together |
 | 11 | **Guided first setup** | Monarch and YNAB onboarding | Empty welcome page, then free exploration | Omar's first run needed six account forms before seeing anything |
-| 12 | **Less reading per screen** | Copilot: one number, details on tap | The Plan tab has about 400 words of explanation | Finding #129: collapse explanations behind "How is this worked out?" |
+| 12 | **Less reading per screen** | Copilot: one number, details on tap | Figures show one formula line with details behind "How is this worked out?" (#129); the Plan tab still has about 310 words, mostly data rows | Keep new screens to one number and one line per card |
 | 13 | Receipts and attachments | Monarch, Lunch Money | None | Warranty and gold purchase receipts |
 | 14 | Credit cards and interest | All reference apps | Out of scope by decision (loans are schedules) | Revisit if card use grows |
 
-Open findings from the Omar runs, not yet scheduled:
-- **#111:** Result is "Unavailable" before the first price.
-- **#129:** the Plan tab has too much text.
-- **#130:** a bill whose first date has already passed is instantly due.
-- **#131:** noisy recurring suggestions.
-- **#132:** needless "Discard your unsaved changes?" prompts.
-- **#133:** paying more than a bill's amount doesn't offer to update the bill.
-- **Import review:** all rows open at once.
-- **Fees:** "Fees are extra" must be ticked before typing a fee.
-- **Money market funds:** can't be bought by amount.
-- **New names:** each needs an extra confirmation.
+The open findings from the Omar runs (#111, #129–#133, import review, fees, buying by amount, new-name confirmation) were fixed on 2026-09-30. See `CHANGELOG.md`.
 
 ## Customer workflow and UI decisions
 
