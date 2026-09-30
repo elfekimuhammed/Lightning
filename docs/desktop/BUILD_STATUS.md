@@ -64,6 +64,25 @@ checks. Final validation evidence is recorded below after the build completes.
 - Local screenshots and scratch profiles are synthetic, outside Documents.
   Windows build and ordinary-PC checks are tracked separately; local browser
   results do not claim Windows acceptance.
+- The locally frozen Linux bundle passed every crypto/resource and real profile
+  lifecycle self-check. This verifies packaging, not a Linux desktop-window build.
+
+### Connected-preview Windows CI
+
+[Build 36781108690](https://github.com/elfekimuhammed/Lightning/actions/runs/36781108690)
+on code revision `2fd2a99` passed: Linux full regression suite, all four import
+contracts on both platforms, and **152 focused Windows tests**. Both frozen
+executables passed their synthetic checks. The existing probe and the new profile
+chooser each passed a real WebView2 window/navigation smoke test.
+
+The build produced `Lightning-windows-x64.zip` (the new finance preview) alongside
+`LightningProbe-windows-x64.zip` (the old engineering check). Artifact
+`11128445521` retains both ZIPs, checksums and non-secret reports for seven days.
+No GitHub Release or public website download was published. The new ZIP still
+needs ordinary-user Windows testing with dummy data before valuable data is used.
+Both downloaded ZIPs matched their SHA-256 checksum files. A local copy of the
+new ZIP is in `dist/windows-preview-2fd2a99/dist/Lightning-windows-x64.zip` in the
+desktop-beta worktree. This evidence-only update does not trigger another build.
 
 ## P1/P2 foundation milestone (historical)
 
