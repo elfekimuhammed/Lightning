@@ -13,6 +13,7 @@ from lightning.core.money import ZERO
 from lightning.planning.domain import (FREQUENCY_LABELS, KIND_LABELS, RECURRING_KINDS, Frequency, PaymentStatus,
                                        PlanKind)
 from lightning.planning.schedule import describe
+from lightning.planning.service import LOAN_CATEGORY
 
 from ..web import container, redirect, render
 from . import reserves as reserve_routes
@@ -153,6 +154,11 @@ async def new_item(request: Request):
     values["frequency"] = values["frequency"] or "MONTHLY"
     values["interval_count"] = values["interval_count"] or "1"
     values["start_date"] = values["start_date"] or fmt_date(today())
+    if values["kind"] == "LOAN" and not values["category_id"]:
+        try:
+            values["category_id"] = str(c.categories.get_by_code(LOAN_CATEGORY).id)
+        except LightningError:
+            pass
     back = "/plan/loans" if values["kind"] == "LOAN" else "/plan/recurring"
     return _item_form(request, c, values, back=str(q.get("back", back)))
 

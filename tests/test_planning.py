@@ -131,3 +131,22 @@ def test_screens_show_bills_due_and_net_worth(c, setup, monkeypatch):
         "account_id": str(accounts["cib"].id)}, follow_redirects=False)
     assert paid.status_code == 303 and "marked%20paid" in paid.headers["location"]
     assert c.planning.what_you_owe(date(2026, 9, 30)).bills_due == 0
+
+
+def test_loan_payments_count_as_spending_and_leave_net_worth_unchanged(c, setup, monkeypatch):
+    monkeypatch.setenv("LIGHTNING_TODAY", "2026-10-31")
+    accounts, cats = setup
+    loans_category = c.categories.get_by_code("EXP.PERSONAL.LOANS")
+    assert loans_category.name == "Loan payments"
+    item_id = c.planning.create(kind="LOAN", name="Car loan", amount="2500", frequency="MONTHLY",
+                                start_date="2026-10-05", payment_count="24", account_id=str(accounts["cib"].id))
+    assert c.planning.get(item_id).category_id == loans_category.id  # default when none is chosen
+    day = date(2026, 10, 31)
+    before_owe = c.planning.what_you_owe(day).total
+    before_net = c.reporting.net_worth(day).total - before_owe
+    before_spent = c.reporting.cash_flow(date(2026, 10, 1), day).outflows
+    c.planning.record_payment(item_id, "2026-10-05", "2026-10-05", "2500", None)
+    after_owe = c.planning.what_you_owe(day).total
+    assert c.reporting.cash_flow(date(2026, 10, 1), day).outflows - before_spent == Decimal("2500")
+    assert before_owe - after_owe == Decimal("2500")
+    assert c.reporting.net_worth(day).total - after_owe == before_net

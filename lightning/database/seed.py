@@ -65,6 +65,7 @@ CATEGORIES: list[tuple[str, str, dict]] = [
     ("EXP.PERSONAL.OTHER", "Other Personal", {}),
     ("EXP.PERSONAL.FEES", "Fees & Charges", {"scope": "PERSONAL"}),
     ("EXP.PERSONAL.TAXES", "Taxes", {"scope": "PERSONAL"}),
+    ("EXP.PERSONAL.LOANS", "Loan payments", {"scope": "PERSONAL"}),
     ("EXP.WORK", "Work", {"scope": "WORK", "family": "WORK", "default_reimbursable": 1}),
     ("EXP.WORK.SALARY", "Salary", {"movement": "INFLOW", "income_class": "HOUSEHOLD"}),
     ("EXP.WORK.BONUS", "Bonus", {"movement": "INFLOW", "income_class": "HOUSEHOLD"}),

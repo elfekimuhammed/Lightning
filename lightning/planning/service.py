@@ -18,6 +18,7 @@ from .schedule import payment_dates
 MATCH_WINDOW_DAYS = 7
 MATCH_TOLERANCE = {PlanKind.LOAN: Decimal("0.01")}
 DEFAULT_TOLERANCE = Decimal("0.10")
+LOAN_CATEGORY = "EXP.PERSONAL.LOANS"
 
 
 class PlanningService:
@@ -256,6 +257,12 @@ class PlanningService:
         category_id = self._id(values.get("category_id"))
         if category_id:
             self.categories.get(category_id)
+        elif kind == PlanKind.LOAN:
+            # Loan payments count as spending; without a choice they land in Loan payments.
+            try:
+                category_id = self.categories.get_by_code(LOAN_CATEGORY).id
+            except NotFoundError:
+                category_id = None
         counterparty_id = self._id(values.get("counterparty_id"))
         if counterparty_id:
             self.counterparties.get(counterparty_id)

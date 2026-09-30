@@ -12,6 +12,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - Reserves became **Cash planning** with four sub-tabs: **Plan** (safe to spend until the next income, what you owe, the next 30 days, a three-month cash forecast), **Recurring** (bills, subscriptions and income, with suggestions from payments that repeat in your history), **Loans** (loans and installment plans with progress and payoff date) and **Reserves** (the previous page). `/reserves` now opens `/plan/reserves`.
 - Scheduled payments are marked paid automatically when exactly one posted transaction matches; otherwise pick the transaction, record the payment, or skip it. Voiding the transaction makes the payment due again.
 - **What you owe** (bills due + loans still to pay) is shown as its own item: bills due come off free cash, and the Overview and Birdview show **Net worth** = what you own − what you owe. Forecasts never change either figure. The free-cash integrity check now includes bills due.
+- Loan payments count as spending: a new loan defaults to **Personal › Loan payments** (migration `0035_loan_payments_category.sql`), so its payments show in the budget and cash flow; paying one also lowers loans still to pay, so net worth is unchanged.
 - Migration `0034_cash_planning.sql` adds `planned_items` and `planned_payments`. Also recorded: `0033_reserve_account_matching.sql` links reserves to a payment account.
 
 ### Guideline 2.1 controls, month reports and report fixes · 2026-09-30
