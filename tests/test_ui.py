@@ -45,7 +45,7 @@ def test_full_flow(client, c):
 
     # the sidebar lists every account with its balance
     page = client.get(f"/accounts/{cib.id}")
-    assert "All accounts" in page.text and "51,000.00" in page.text and "CIB Current" in page.text
+    assert "In your accounts" in page.text and "51,000.00" in page.text and "CIB Current" in page.text
     assert "CIB-CUR-EGP" not in page.text  # ordinary account UI leads with the name, not its code
 
     r = client.post(f"/accounts/{cib.id}/register", data={"date": "2026-09-25", "counterparty": "Carrefour",
@@ -154,8 +154,8 @@ def test_overview_horizons_keep_the_same_status_layout_and_popup_range(client, c
 def test_birdview_other_assets_has_no_empty_disclosure(client, setup):
     response = client.get("/birdview")
     assert response.status_code == 200
-    assert "Other owned assets" in response.text
-    assert "Investment mix" in response.text
+    assert "How what you own adds up" in response.text
+    assert "Deposit and holding mix" in response.text
 
 
 def test_not_found(client):

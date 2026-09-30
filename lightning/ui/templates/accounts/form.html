@@ -40,7 +40,7 @@
       </div>
     </div>
     <div class="field {{ 'has-error' if error_field == 'owner_id' }}">
-      <label for="owner_id">Owned by</label>
+      <label for="owner_id">Held for</label>
       <select id="owner_id" name="owner_id"><option value="">You</option>
         {% for person in counterparties %}<option value="{{ person.id }}" {{ 'selected' if values.owner_id == person.id|string }}>{{ person.name }}</option>{% endfor %}
       </select>

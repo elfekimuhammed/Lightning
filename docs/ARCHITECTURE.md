@@ -2,12 +2,29 @@
 
 ## Document status
 
-- **Last updated:** 2026-09-28
-- **Document revision:** 2026-09-28.2
+- **Last updated:** 2026-09-30
+- **Document revision:** 2026-09-30.2
 - **App version:** 0.3.0 (`lightning/__init__.py`); packaging metadata in `pyproject.toml` still says 0.1.0.
 - **Role:** module boundaries and financial calculation contracts. Product workflow and roadmap live in [Project Overview](PROJECT_OVERVIEW.md); term definitions live in [Glossary](GLOSSARY.md).
 
 Lightning is a local-first, single-user **modular monolith**: one Python process, one SQLite database, and a server-rendered browser UI. The architecture prioritizes correctness, understandable ownership of data, and adding new financial-asset types without duplicating transaction logic.
+
+## Three layers: ledger, plan, report
+
+The product has three layers. They are separate from the import layers below: they describe what the data *is*, not which package may import which.
+
+| Layer | Holds | Modules | Moves money? |
+|---|---|---|---|
+| **Ledger** (real money) | Accounts, posted transactions and their ledger lines, prices and valuations, custody (held for others) | `accounts`, `transactions`, `assets`, trades in `investments`, `money_from_others`, `physical_items` | Yes. Only `TransactionService` writes postings. |
+| **Plan** (what-if) | Budget rules and carryover, reserves (amounts set aside), planned items and their payments, sale factors, the cash forecast | `budgeting`, `reserves`, `planning` | No. A plan never changes a ledger balance. "Record and mark paid" posts an ordinary transaction through `TransactionService`, and the plan then links to it. |
+| **Report** | Nothing of its own: figures computed on read from the ledger and the plan | `reporting`, `planning.position` (`PositionService`), `investments.report`, `integrity`, `ui` | No. |
+
+Rules:
+
+- **Real money is only what the ledger says.** Cash you own, holdings value, money in and out, and investment results are ledger figures. A budget, a reserve, a scheduled bill or a forecast never appears in them.
+- **A plan figure is labelled as one.** What you owe, reserves, planned amounts, safe to spend, the forecast and every "(estimate)" figure come from the plan, alone or combined with the ledger.
+- **Report figures are formulas of the other two.** Each figure has one name, one formula and one function, listed in `lightning/core/figures.py` with its layer (Ledger, Plan, or Ledger + Plan). The Glossary's figure tables are generated from that file (`python -m lightning.core.figures`), and `tests/test_figures.py` checks that they match and that every named function exists.
+- **Routes never compute figures.** A screen calls the function named in the registry; for example the Overview reads `PositionService.at`, `CashFlow.savings_rate`, `PositionService.change_in_what_you_own`, `investment_period` and `results_by_asset`.
 
 ## Runtime and dependency direction
 
@@ -15,6 +32,7 @@ Lightning is a local-first, single-user **modular monolith**: one Python process
 ui/                   FastAPI routes, Jinja templates, small vanilla JS/CSS
   ↓                   calls application services; no SQL or financial calculations
 workflows/            transactional use-cases spanning modules
+planning/             cash planning: recurring items, loans, what you owe, cash forecast (read-only)
 domain services/      accounts, assets, categories, transactions, investments, budgeting
 reporting/            read-only queries and derived views (net worth, budgets, Birdview)
 database/             SQLite, migrations, seed data, backup, settings, audit
@@ -87,23 +105,37 @@ Start with bounded local candidate lists and a small result limit. If size or me
 
 The Investments report uses posted, non-void main-ledger entries dated by transaction date. It scopes every calculation to `owner_id IS NULL` and keeps cost lots keyed by owner, account, and asset; an opening (`OPN`) holding is a baseline adjustment and never new money. The portfolio boundary includes investment holdings and cash in brokerage, physical-asset, and other investment accounts. Investment-account cash transfers and trades net internally; direct physical purchases/sales count only their portfolio-side holding change. Dividends are distributions, not contributions. Valuation checkpoint rows (`return_base_e6`) and aggregate `VAL` journals are reconciliation data and are excluded from return.
 
-For a selected interval, new money is the positive posted change across that boundary and withdrawals are the absolute negative change. Net money added is their difference. Realized gain is net sale proceeds less average cost removed, with basis per owner/account/asset; purchase costs and net sale proceeds already include fees. Distributions use the cash actually posted. Change in unrealized gain is the end balance less the balance immediately before the interval. Investment result adds realized gain, unrealized change, distributions, and any separately identified FX/cost effects once. No balancing `other return` is permitted. If historical prices/ownership are missing, report the result unavailable.
+For a selected interval, new money is the positive posted change across that boundary and withdrawals are the absolute negative change. New money in is their difference. Realized gain is net sale proceeds less average cost removed, with basis per owner/account/asset; purchase costs and net sale proceeds already include fees. Distributions use the cash actually posted. Change in unrealized gain is the end balance less the balance immediately before the interval. Result adds realized gain, unrealized change, distributions, and any separately identified FX/cost effects once. No balancing `other return` is permitted. If historical prices/ownership are missing, report the result unavailable.
 
-At the as-of date, cost of holdings still owned is remaining basis; holdings value is units times a dated confirmed valuation; unrealized gain is value less remaining basis. Uninvested investment cash is owned cash in investment accounts. Estimated cash after sale adds that cash to each owned holding value times its asset-class liquidation factor; it is a scenario and excludes reserves. A cost fallback is not a confirmed price. Dividend asset attribution is stored in `investment_dividend_assets`; legacy memo attribution is migrated only when it uniquely matches an asset code, otherwise the dividend remains unresolved while its cash amount is retained. Fiscal-year dates are unconfigured, so YTD is labeled Calendar 2026.
+At the as-of date, cost of holdings still owned is remaining basis; holdings value is units times a dated confirmed valuation; unrealized gain is value less remaining basis. Brokerage cash is owned cash in investment accounts. Holdings after sale (estimate) comes from the shared position (see below), not the investment report. A cost fallback is not a confirmed price. Dividend asset attribution is stored in `investment_dividend_assets`; legacy memo attribution is migrated only when it uniquely matches an asset code, otherwise the dividend remains unresolved while its cash amount is retained. Fiscal-year dates are unconfigured, so YTD is labeled Calendar 2026.
 
-- **Full owned wealth:** known value of all tracked assets belonging to the user, including assigned reserves and brokerage cash, after custody is excluded. Missing valuations are reported; liabilities and receivables remain outside the model.
-- **Free cash:** owned wallet, bank, and brokerage cash less effective reserve assignments as of the selected date. Brokerage cash is included once but needs a transfer before everyday spending. Reserve history begins at the recorded baseline; earlier dates are unavailable instead of borrowing today's assignments.
-- **Estimated available value:** free cash plus each owned investment class's value multiplied by its own 0–100% liquidation factor. Class settings use stable asset-class IDs. This is a scenario estimate using current factor settings, not full owned wealth, a sale quote, or a booked loss.
+- **Position figures** (What you own, Cash you own, Deposits, Holdings value, Reserves, Bills due, What you owe, Net worth, Free cash, Portfolio value, Holdings after sale, If you sold today) are computed once by `PositionService.at(date)` in `lightning/planning/position.py`. Base values are read from reporting, reserves and planning; every other figure is a property that composes them (for example `free_cash = cash_you_own − reserves − bills_due`). Routes and templates read the `Position`; they never re-add balances. Names, meanings and formulas come from `lightning/core/figures.py` and match the Glossary.
+- **Sale factors:** each asset class's 0–100% factor (95% when unset, `investments.domain.DEFAULT_SALE_FACTOR`). Holdings after sale = Σ holdings value × factor; Deposits and holdings after sale adds deposits × factor; If you sold today = Free cash + that. This is a scenario using current settings, not a sale quote or a booked loss.
+- **Average monthly income:** `BudgetService.income_average(month)` is the only income average. It covers the chosen income categories over the last 3 or 6 completed months that had income, or a manual amount. Budget percentages, emergency-fund coverage and the cash forecast all read it.
 - **Period income/spending:** posted external activity in the selected date range. Internal transfers and investment purchases are not income or expense; refunds reduce their original expense category. Custody activity is excluded from owned analysis.
 - **Investment return:** remaining holdings' market value less remaining cost, plus realized gains and dividends. The current portfolio and management XIRR must not be assumed owned-only until historical custody cash flows are verified.
 
-Overview and Birdview share the date-range parser. Positions in both are valued at the selected range end. Birdview expense and flow views use the selected interval; its asset-class weights divide by owned investment value and exclude cash and custody. A missing valuation is disclosed and an unavailable reserve history makes free cash and estimated available value unavailable. Historical liquidation estimates use current factor settings.
+Overview and Birdview share the date-range parser. Positions in both are valued at the selected range end. Birdview expense and flow views use the selected interval; its asset-class weights divide by owned investment value and exclude cash and custody. A missing valuation is disclosed and an unavailable reserve history makes free cash and If you sold today unavailable. Historical after-sale estimates use current sale factors.
 
 ### Birdview history and performance
 
 Birdview's four horizons apply consistently to flow, expense, and position views; the position and reserve assignments are as of the range end. Internal transfers and investment purchases are excluded from cash-flow totals. Expense categories roll up consistently across the ranked overview, L1/L2 analysis, and linked transactions. Wealth movement remains distinct from investment return.
 
 XIRR is an annualized money-weighted rate using dated investment cash flows and an ending value. Since-inception XIRR is a separate measure from the selected period's currency return. A period-specific XIRR needs an opening valuation as an initial cash flow. If dates, flows, or ending value are inadequate, show an unavailable reason rather than 0%. Build owned-only cash flows before placing XIRR in Birdview; missing prices must not become invented historical quotes.
+
+## Cash planning contract
+
+`lightning/planning/` owns planned items (`planned_items`) and their settled payments (`planned_payments`). It reads the ledger, budget and reserves through their services and never posts on its own; recording a payment goes through `TransactionService` like any other entry.
+
+Loan budget lines are derived, not stored: `BudgetService.amounts_for` asks `PlanningService.loan_payments_by_category(month)` (wired in `bootstrap.py`, so budgeting never imports planning) and plans a category with no rule of its own at the loan payments scheduled that month (paid, due or upcoming; not skipped). A rule the user sets wins. `has_plan` ignores these lines, so a loan alone does not count as having made a plan.
+
+- **Items.** A planned item is a bill, subscription, income or loan with an amount per payment and a schedule: frequency (once, weekly, monthly, every 3 months, yearly) every N periods from a first date, optionally ending at a last date or after a number of payments. Monthly-type dates keep the first date's day, clamped to the month's last day. Loans must have a number of payments or a last date.
+- **Payment status.** Each scheduled date is Paid (linked to a posted transaction), Skipped, Due (on or before today, not settled) or Upcoming. A voided linked transaction makes the payment Due again. A transaction settles at most one payment.
+- **Matching.** A posted, owned money-out (money-in for income) transaction settles a payment automatically when it is the only candidate within 7 days of the date, on the item's account if set, matching its counterparty or category, within 10% of the amount (1% for loans). Anything ambiguous is left for the user; recurring-payment suggestions never create items.
+- **What you owe** = bills due + loans still to pay, each payment once. **Bills due** are Due bills, subscriptions and loan payments; **loans still to pay** are every unpaid loan payment. **Net worth** = what you own − what you owe. **Free cash** = owned liquid cash − effective reserves − bills due. The Integrity check verifies free cash + reserves + bills due = owned liquid cash.
+- **Cash forecast** (an estimate; changes nothing): starts from free cash today and, per month, adds scheduled income (or the three-completed-month income average when no income is scheduled, labelled), subtracts upcoming bill and loan payments, the budget still planned (current month: plan less spending so far) with bills in budget-covered categories counted inside that budget rather than on top, and what dated reserve goals still need ((target − assigned) ÷ months left). Safe to spend = free cash − payments before the next income − budget still planned this month − goal saving, shown with its parts.
+- **Loan payments are spending.** Recording or matching a loan payment is an ordinary money-out transaction in its category (default `EXP.PERSONAL.LOANS`, Personal › Loan payments, from migration 0035), so it counts in budget actuals and cash flow. The same payment leaves loans still to pay, so net worth is unchanged by paying it. The loan itself is never a ledger account.
+- Historical dates use today's payment status; schedules are not versioned.
 
 ## Budget and reserve contract
 

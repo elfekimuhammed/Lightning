@@ -10,11 +10,13 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from markupsafe import Markup, escape
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from lightning.bootstrap import Container
 from lightning.core.dates import fmt_date, month_of, today
 from lightning.core.errors import NotFoundError
+from lightning.core.figures import FIGURES
 from lightning.core.money import ZERO, fmt
 
 UI_DIR = Path(__file__).parent
@@ -47,6 +49,16 @@ def _tone(value) -> str:
 templates.env.filters["money"] = _money
 templates.env.filters["tone"] = _tone
 templates.env.globals["abs"] = abs
+
+
+def _formula(key: str) -> Markup:
+    """The calculation line shown under a derived figure: "Free cash = Cash you own − …"."""
+    figure = FIGURES[key]
+    return Markup(f'<p class="figure-formula">{escape(figure.equation)}</p>') if figure.formula else Markup("")
+
+
+templates.env.globals["fig"] = FIGURES
+templates.env.globals["formula"] = _formula
 
 
 def container(request: Request) -> Container:
@@ -83,7 +95,7 @@ def redirect(url: str, msg: str = "") -> RedirectResponse:
 
 
 def create_app(c: Container) -> FastAPI:
-    from .routes import accounts, bank_imports, birdview, budget, categories, counterparties, dashboard, integrity, investments, physical_items, reserves, search, settings, transactions
+    from .routes import accounts, bank_imports, birdview, budget, categories, counterparties, dashboard, integrity, investments, physical_items, planning, reserves, search, settings, transactions
 
     app = FastAPI(title="Lightning", docs_url=None, redoc_url=None, openapi_url=None)
     app.state.container = c
@@ -105,7 +117,7 @@ def create_app(c: Container) -> FastAPI:
         return PlainTextResponse("lightning-ok")
 
     app.mount("/static", StaticFiles(directory=str(UI_DIR / "static")), name="static")
-    for module in (dashboard, accounts, bank_imports, birdview, transactions, budget, investments, physical_items, reserves, integrity, counterparties, categories, settings, search):
+    for module in (dashboard, accounts, bank_imports, birdview, transactions, budget, investments, physical_items, planning, reserves, integrity, counterparties, categories, settings, search):
         app.include_router(module.router)
 
     @app.exception_handler(NotFoundError)

@@ -98,7 +98,13 @@ class CashFlow:
 
     @property
     def net(self) -> Decimal:
+        """Net flow = Money in − Money out."""
         return self.inflows - self.outflows
+
+    @property
+    def savings_rate(self) -> Decimal | None:
+        """Savings rate = Net flow ÷ Money in, as a percentage; None without money in."""
+        return self.net / self.inflows * 100 if self.inflows > ZERO else None
 
 
 @dataclass

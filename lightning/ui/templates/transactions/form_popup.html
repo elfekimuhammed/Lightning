@@ -52,12 +52,12 @@
       </div>
     </div>
     <div class="field">
-      <label for="popup-owner-search">Owned by</label>
+      <label for="popup-owner-search">Held for</label>
       <input id="popup-owner-search" type="search" placeholder="Search saved owners" autocomplete="off" data-owner-filter="popup-owner">
       <select id="popup-owner" name="owner_id"><option value="">You</option>
         {% for person in owners %}<option value="{{ person.id }}" {{ 'selected' if values.owner_id == person.id|string }}>{{ person.name }}</option>{% endfor %}
       </select>
-      <small class="muted">Leave blank if you own this money. Add a person from Money from others first.</small>
+      <small class="muted">Leave blank if this money is yours. Add a person under Held for others first.</small>
     </div>
     <div class="field"><label for="popup-notes">Notes <span class="muted">(optional)</span></label><input id="popup-notes" name="notes" value="{{ values.notes }}"></div>
     <div class="transaction-effect" data-transaction-effect role="status" aria-live="polite"></div>

@@ -11,6 +11,9 @@ from pathlib import Path
 from lightning.accounts.service import AccountService
 from lightning.assets.service import AssetService
 from lightning.budgeting.service import BudgetService
+from lightning.planning.forecast import CashForecaster
+from lightning.planning.position import PositionService
+from lightning.planning.service import PlanningService
 from lightning.bank_imports import BankImportService
 from lightning.categories.service import CategoryService
 from lightning.counterparties import CounterpartyService
@@ -58,6 +61,9 @@ class Container:
     investments: InvestmentService
     account_flows: AccountWorkflows
     integrity: IntegrityService
+    planning: PlanningService
+    forecaster: CashForecaster
+    position: PositionService
 
     @property
     def base_currency(self) -> str:
@@ -91,6 +97,11 @@ def build(db_path: str | Path | None = None, backup_on_start: bool = False) -> C
     reporting = ReportingService(db, accounts, assets, categories, base, money_from_others)
     budgets = BudgetService(db, categories, reporting)
     reevaluations = ReevaluationService(db, accounts, transactions, reporting)
+    planning = PlanningService(db, accounts, categories, counterparties, transactions)
+    budgets.scheduled_loans = planning.loan_payments_by_category
+    investments = InvestmentService(db, accounts, assets, categories, transactions, reporting, reevaluations)
+    position = PositionService(reporting, assets, investments, money_from_others, reserves, planning)
+    forecaster = CashForecaster(planning, reporting, reserves, budgets, categories, position)
     return Container(
         db=db,
         data_dir=data_dir,
@@ -109,7 +120,10 @@ def build(db_path: str | Path | None = None, backup_on_start: bool = False) -> C
         money_from_others=money_from_others,
         physical_items=physical_items,
         budgets=budgets,
-        investments=InvestmentService(db, accounts, assets, categories, transactions, reporting, reevaluations),
+        investments=investments,
         account_flows=AccountWorkflows(db, accounts, transactions, reporting),
-        integrity=IntegrityService(reporting, reserves, budgets),
+        integrity=IntegrityService(reporting, reserves, budgets, planning),
+        planning=planning,
+        forecaster=forecaster,
+        position=position,
     )

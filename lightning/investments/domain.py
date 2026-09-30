@@ -15,6 +15,9 @@ from decimal import Decimal
 
 from lightning.core.money import ZERO
 
+# Sale factor (percent of value a class would fetch if sold today) when none is set in Settings.
+DEFAULT_SALE_FACTOR = Decimal(95)
+
 
 @dataclass
 class Position:

@@ -9,7 +9,7 @@ def _client(c):
     return TestClient(create_app(c), base_url="http://127.0.0.1")
 
 
-def test_emergency_fund_average_uses_months_with_salary(c, setup, monkeypatch):
+def test_emergency_fund_uses_average_monthly_income_over_months_with_income(c, setup, monkeypatch):
     monkeypatch.setenv("LIGHTNING_TODAY", "2026-12-15")
     accounts, cats = setup
     client = _client(c)
@@ -19,8 +19,9 @@ def test_emergency_fund_average_uses_months_with_salary(c, setup, monkeypatch):
             "category": "Work › Salary", "amount": "30000"})
     c.reserves.set_emergency_fund("15000")
     page = client.get("/reserves").text
-    assert "30,000.00" in page and "2 months with salary" in page
-    assert "0.5 months" in page  # 15,000 of a 30,000 salary, not 15,000 of 10,000
+    assert "30,000.00" in page and "2 months with income" in page
+    assert "0.5 months" in page  # 15,000 of 30,000 average monthly income, not 15,000 of 10,000
+    assert c.budgets.income_average("2026-12").amount == 30000  # the same figure the budget uses
 
 
 def test_period_returns_keep_holdings_sold_out_in_the_period(c):
@@ -34,6 +35,6 @@ def test_period_returns_keep_holdings_sold_out_in_the_period(c):
     client.post(f"/accounts/{thndr.id}/investment-entry", data={**entry, "date": "2026-09-20",
                 "instrument_key": f"asset:{comi.id}", "units": "100", "total": "8000", "trade_action": "sell"})
     page = client.get("/?period=month&month=2026-09").text
-    returns = page[page.index("Returns by asset class"):page.index("Biggest movers")]
+    returns = page[page.index("Result by asset class"):page.index("Biggest movers")]
     assert "Stocks" in returns and "+1,000.00" in returns
 

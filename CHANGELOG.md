@@ -8,6 +8,61 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### Fixes from the Omar v7.1 re-run · 2026-09-30
+- Skipping a loan payment no longer forgives it: the payment moves to the end of the loan ("Move to the end of the loan"), and skipped payments show on Loans and Recurring with an undo.
+- Amounts and dates accept Arabic-Indic digits (٦٠٠, ٥/١٠) and the Arabic decimal and thousands marks.
+- Opening a budget month that hasn't started returns to this month with an explanation instead of an error.
+- Popup actions (mark paid, skip, stop, undo) always show a confirmation.
+- Plan items with paid history show **Stop** instead of Delete, with matching confirmation text. Editing a loan says First due date and Number of payments.
+- The Budget summary shows the loan payments included in Planned. The Plan tab's loans link reads "See your loans".
+
+### Cash planning fixes from the Omar re-run · 2026-09-30
+- A loan adds its payments to the budget: while Personal › Loan payments (or the loan's category) has no budget rule, it is planned at the payments scheduled that month. It ends when the loan ends; setting an amount replaces it.
+- Safe to spend and the cash forecast no longer count a due bill twice (once as a bill due, again as budget still to spend). Income that is due but not received stays in this month's forecast.
+- "Left in plan this month" on the Plan tab is now **Left in plan after bills** (Left in plan − Bills inside the plan), so it no longer shares a name with the Budget's Left in plan.
+- "Already in your transactions?" only suggests the same counterparty, the same category, or an amount within 10%.
+- The pay and item forms list banks and wallets first, then brokerage, and no longer offer deposits.
+- Account pages say **In this account · What you own · Held for others** instead of Total · Yours.
+
+### One name and one calculation per figure · 2026-09-30
+- Every reported figure now has one name, one meaning and one formula (`lightning/core/figures.py`, mirrored in the Glossary). Derived figures show their formula under them, e.g. "Free cash = Cash you own − Reserves − Bills due".
+- One position calculation (`lightning/planning/position.py`) feeds the Overview, Birdview, Investments, Settings, Reserves and the cash forecast. The tabs no longer re-add balances their own way.
+- One **Average monthly income** (`BudgetService.income_average`): the budget, emergency-fund coverage and the cash forecast use the same categories, months and manual override. Before, Reserves averaged salary over six months and the forecast averaged all income over three.
+- Investments' after-sale estimate now applies the same sale factors as Birdview (95% when unset). It is now **Holdings after sale (estimate)**; before, it added holdings at full value. "Liquidation factor" is now **sale factor**.
+- What you own adds up the same way everywhere: Cash you own + Deposits + Holdings value + Other you own. Birdview no longer groups deposits with investments.
+- Renamed on screens (full list in the Glossary):
+  - All accounts / Gross balances → In your accounts
+  - Money from others → Held for others
+  - Liquid cash / Owned liquid cash → Cash you own
+  - Investment cash → Brokerage cash
+  - Assigned reserves → Reserves
+  - Estimated liquid investments → Deposits and holdings after sale (estimate)
+  - Cashflow → Net flow
+  - Invested capital → Cost
+  - Period result / Investment result → Result
+  - Cash added and withdrawn / New money added → New money in (net on every tab)
+  - Budgeted / Current budget → Planned
+  - Left → Left in plan
+- Entry forms use the same field names:
+  - Held for (was Whom, Owned by, Owner)
+  - Amount (was Total paid, Each payment)
+  - Units (was Pieces, Quantity, Units you hold)
+  - Cost (was What you paid in total)
+  - Account and Cash account (was Held in, Paid from, Paid into)
+  - Counterparty (was Paid to, From)
+  - As of (was Price date, Statement date)
+  - Due date (was Next date)
+  - Type (was Kind, Action)
+  - Notes (was Details)
+  - Fees (the checkbox is now "Fees are extra")
+
+### Cash planning · 2026-09-30
+- Reserves became **Cash planning** with four sub-tabs: **Plan** (safe to spend until the next income, what you owe, the next 30 days, a three-month cash forecast), **Recurring** (bills, subscriptions and income, with suggestions from payments that repeat in your history), **Loans** (loans and installment plans with progress and payoff date) and **Reserves** (the previous page). `/reserves` now opens `/plan/reserves`.
+- Scheduled payments are marked paid automatically when exactly one posted transaction matches; otherwise pick the transaction, record the payment, or skip it. Voiding the transaction makes the payment due again.
+- **What you owe** (bills due + loans still to pay) is shown as its own item: bills due come off free cash, and the Overview and Birdview show **Net worth** = what you own − what you owe. Forecasts never change either figure. The free-cash integrity check now includes bills due.
+- Loan payments count as spending: a new loan defaults to **Personal › Loan payments** (migration `0035_loan_payments_category.sql`), so its payments show in the budget and cash flow; paying one also lowers loans still to pay, so net worth is unchanged.
+- Migration `0034_cash_planning.sql` adds `planned_items` and `planned_payments`. Also recorded: `0033_reserve_account_matching.sql` links reserves to a payment account.
+
 ### Guideline 2.1 controls, month reports and report fixes · 2026-09-30
 - Buttons follow the guideline: 48 px pills on pages and 36 px inside cards and rows; the date button and month arrows are 48 px circles. Textareas keep a 96 px minimum.
 - Every date reads `yyyy-mm-dd` (hints, placeholders, period labels, the investments chart and Reserves use `yyyy-mm`). The period control is one `‹ yyyy-mm ›` stepper, and custom reports take a from/to month; Enter keeps the selected period.

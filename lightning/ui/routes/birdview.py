@@ -18,30 +18,8 @@ router = APIRouter(prefix="/birdview")
 
 
 def _own_holdings(c, day):
-    rows, unvalued = c.reporting.holdings(day)
-    custody = {(r["account_id"], r["asset_id"]): r["units"] for r in c.money_from_others.investment_positions(day)}
-    result = []
-    for row in rows:
-        asset = c.assets.get_asset(row.asset_id)
-        if asset.is_cash and row.asset_class_code.split(".")[0] == "CASH":
-            continue
-        held = custody.get((row.account.id, row.asset_id), ZERO)
-        if asset.is_cash:
-            held = c.money_from_others.cash_total_for_account(row.account.id, day)
-        quantity = max(ZERO, row.quantity - held)
-        valuation = c.reporting.value_of(row.asset_id, quantity, day) if held else None
-        value = valuation.value if held and valuation else row.value
-        if held and row.value is not None and value is not None:
-            value = max(ZERO, row.value - value)
-        elif held and asset.is_cash:
-            held_value = c.reporting.value_of(row.asset_id, min(held, row.quantity), day).value
-            value = max(ZERO, (row.value or ZERO) - (held_value or ZERO))
-        elif held:
-            value = None
-        result.append({"account_id": row.account.id, "account": row.account.label, "asset_id": row.asset_id,
-                       "asset": asset.name, "class_code": row.asset_class_code, "quantity": quantity,
-                       "value": value, "unit": asset.unit})
-    return result, unvalued
+    rows, unvalued = c.position.owned_holdings(day)
+    return rows, unvalued
 
 
 def _period(c, query):
@@ -63,46 +41,12 @@ async def birdview(request: Request):
         period_error = exc.message
     first, last = selected.start, selected.end
     day = fmt_date(last)
-    wealth = c.reporting.net_worth(day)
-    holdings, unvalued = _own_holdings(c, day)
-    classes_by_code = {a.code: a for a in c.assets.list_classes()}
-    class_rows = {}
-    for item in holdings:
-        cls = classes_by_code.get(item["class_code"])
-        if cls is None:
-            continue
-        row = class_rows.setdefault(cls.id, {"id": cls.id, "code": cls.code, "name": cls.name, "value": ZERO, "items": []})
-        row["value"] += item["value"] or ZERO
-        row["items"].append(item)
-    factor_records = c.investments.liquidation_factors()
-    for cls in c.assets.investment_classes():
-        if cls.id not in class_rows:
-            class_rows[cls.id] = {"id": cls.id, "code": cls.code, "name": cls.name, "value": ZERO, "items": []}
-    for cls in c.assets.list_classes():
-        if cls.id not in class_rows and cls.code.split(".")[0] not in {"CASH", "CUSTODY"} and cls.active:
-            if any(asset.asset_class_id == cls.id and not asset.is_cash and asset.active for asset in c.assets.list_assets()):
-                class_rows[cls.id] = {"id": cls.id, "code": cls.code, "name": cls.name, "value": ZERO, "items": []}
-    classes = sorted(class_rows.values(), key=lambda x: (-x["value"], x["name"].casefold()))
-    for row in classes:
-        row["factor"] = factor_records.get(row["id"], Decimal(95))
-        row["estimated"] = row["value"] * row["factor"] / 100
-    investment_value = sum((r["value"] for r in classes), ZERO)
-    estimated_investments = sum((r["estimated"] for r in classes), ZERO)
-
-    brokerage_cash = c.reporting.owned_brokerage_cash(day)
-    owned_cash = c.reporting.owned_liquid_cash(day)
-    other_owned = wealth.total - owned_cash - investment_value
-    wallet_bank = owned_cash - brokerage_cash
-    allocation = c.reserves.allocation_at(day)
-    reserves_known = allocation is not None
-    if last == today() and not reserves_known:
-        allocation = c.reserves.cash_summary(owned_cash)["allocated"]
-        reserves_known = True
-    allocation = allocation or ZERO
-    free_cash = owned_cash - allocation if reserves_known else None
-    estimated_available = free_cash + estimated_investments if free_cash is not None and not wealth.unvalued else None
-    unavailable_reason = ("A required valuation is missing for this date." if wealth.unvalued else
-                          "Reserve history is incomplete for this date." if not reserves_known else "")
+    # Every position figure comes from one calculation; see lightning/planning/position.py.
+    position = c.position.at(last)
+    classes = [{"id": row.id, "code": row.code, "name": row.name, "value": row.value, "factor": row.factor,
+                "after_sale": row.after_sale, "items": row.items}
+               for row in position.classes if row.value or not row.is_deposit]
+    investment_value = position.deposits + position.holdings_value
 
     cash_flow = c.reporting.cash_flow(first, last)
     spending = c.reporting.spending_by_category(first, last, depth=1)
@@ -144,15 +88,11 @@ async def birdview(request: Request):
     return render(request, "birdview.html", period=selected.key, month=last.strftime("%Y-%m"),
                   custom_from=request.query_params.get("date_from", ""), custom_to=request.query_params.get("date_to", ""),
                   date_from=fmt_date(first), date_to=fmt_date(last), range_start_display=selected.start_display,
-                  range_end_display=selected.end_display, as_of=day, net_worth=wealth, cash=wallet_bank,
-                  brokerage_cash=brokerage_cash, owned_cash=owned_cash, reserves=allocation, reserves_known=reserves_known,
-                  free_cash=free_cash, investment_value=investment_value, other_owned=other_owned,
-                  estimated_investments=estimated_investments,
-                  unavailable_reason=unavailable_reason,
-                  asset_total=estimated_available, classes=classes, spending=spending, income=income,
+                  range_end_display=selected.end_display, as_of=day, pos=position, owe=position.owe,
+                  classes=classes, spending=spending, income=income,
                   cash_flow=cash_flow, monthly_flow=monthly_flow, prior=prior, period_error=period_error,
                   flow_max=flow_max,
-                  unvalued=list(dict.fromkeys(wealth.unvalued + unvalued)), targets_set=bool(targets),
+                  unvalued=list(position.unvalued), targets_set=bool(targets),
                   targets_complete=total_targets == Decimal(100), first_activity=c.reporting.first_activity_date(),
                   category_filter=category_filter, category_name=category_name,
                   base=c.reporting.base_currency)

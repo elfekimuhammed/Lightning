@@ -8,6 +8,7 @@ import re
 from datetime import date, datetime, timedelta
 
 from .errors import ValidationError
+from .money import ascii_digits
 
 _ISO_DATE_RE = re.compile(r"^(\d{4})-(\d{1,2})-(\d{1,2})$")
 _DAY_FIRST_DATE_RE = re.compile(r"^(\d{1,2})/(\d{1,2})(?:/(\d{2}|\d{4}))?$")
@@ -19,7 +20,7 @@ def parse_date(value: object, field: str = "date") -> date:
         return value.date()
     if isinstance(value, date):
         return value
-    text = str(value or "").strip()
+    text = ascii_digits(str(value or "")).strip()
     match = _ISO_DATE_RE.fullmatch(text)
     if match:
         year, month, day = map(int, match.groups())

@@ -5,7 +5,7 @@
 {% block content %}
 {% if pending %}<div class="card" style="margin-bottom:14px"><b>{{ pending|length }} price input(s) needed.</b> <a href="/investments/prices">Review missing prices</a></div>{% endif %}
 <div class="card wide">
-  <table><thead><tr><th>Date</th><th>Type</th><th>Investment</th><th>Account</th><th>Owned by</th><th class="num">Units</th><th class="num">Price</th><th>Source</th><th class="num">Return</th><th>Main journal</th></tr></thead>
+  <table><thead><tr><th>Date</th><th>Type</th><th>Investment</th><th>Account</th><th>Held for</th><th class="num">Units</th><th class="num">Price</th><th>Source</th><th class="num">Return</th><th>Main journal</th></tr></thead>
   {% for row in rows %}<tr>
     <td>{{ row.date }}</td><td>{{ 'Sale-day' if row.reason == 'SALE' else 'Month-end' }}</td>
     <td>{{ row.asset_name }}</td><td>{{ row.account_name }}</td><td>{{ row.owner_name or 'You' }}</td>

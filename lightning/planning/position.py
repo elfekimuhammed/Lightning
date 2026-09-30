@@ -1,0 +1,252 @@
+"""Your position on a date: one calculation for every figure the reporting tabs show.
+
+Base figures are read from the ledger once; every other figure is a formula of them, so a tab
+never re-adds balances its own way. The names match docs/GLOSSARY.md and the UI figure registry.
+
+    In your accounts            = What you own + Held for others
+    What you own                = Cash you own + Deposits + Holdings value + Other you own
+    Cash you own                = Bank and wallet cash + Brokerage cash
+    What you owe                = Bills due (other than loan payments) + Loans still to pay
+    Net worth                   = What you own − What you owe
+    Free cash                   = Cash you own − Reserves − Bills due
+    Portfolio value             = Holdings value + Brokerage cash
+    Investments after sale      = Σ (Deposits and Holdings value by class × sale factor)
+    If you sold today           = Free cash + Investments after sale
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from datetime import date, timedelta
+from decimal import Decimal
+
+from lightning.core.dates import fmt_date, parse_date, today
+from lightning.core.money import ZERO
+
+from lightning.investments.domain import DEFAULT_SALE_FACTOR
+
+from .domain import WhatYouOwe
+
+
+@dataclass
+class OwnedHolding:
+    account_id: int
+    account: str
+    asset_id: int
+    asset: str
+    class_code: str
+    quantity: Decimal
+    value: Decimal | None
+    unit: str
+
+    def __getitem__(self, key):  # templates and older callers read rows as mappings
+        return getattr(self, key)
+
+
+@dataclass
+class ClassValue:
+    """Owned value of one asset class, and what it would fetch if sold."""
+    id: int
+    code: str
+    name: str
+    value: Decimal
+    factor: Decimal
+    items: list[OwnedHolding] = field(default_factory=list)
+
+    @property
+    def is_deposit(self) -> bool:
+        return self.code.split(".")[0] == "DEPOSIT"
+
+    @property
+    def after_sale(self) -> Decimal:
+        return self.value * self.factor / 100
+
+    def __getitem__(self, key):
+        return getattr(self, key)
+
+
+@dataclass(frozen=True)
+class Position:
+    as_of: str
+    what_you_own: Decimal
+    held_for_others: Decimal
+    unvalued: tuple[str, ...]
+    bank_and_wallet_cash: Decimal
+    brokerage_cash: Decimal
+    classes: tuple[ClassValue, ...]
+    reserves: Decimal | None            # None when reserve history cannot be rebuilt for the date
+    reserve_rows: tuple[dict, ...] | None
+    owe: WhatYouOwe
+
+    # ------------------------------------------------------------ base parts
+    @property
+    def deposits(self) -> Decimal:
+        return sum((c.value for c in self.classes if c.is_deposit), ZERO)
+
+    @property
+    def holdings_value(self) -> Decimal:
+        return sum((c.value for c in self.classes if not c.is_deposit), ZERO)
+
+    @property
+    def bills_due(self) -> Decimal:
+        return self.owe.bills_due
+
+    @property
+    def loans_still_to_pay(self) -> Decimal:
+        return self.owe.loans_still_to_pay
+
+    # ------------------------------------------------------------- formulas
+    @property
+    def in_your_accounts(self) -> Decimal:
+        return self.what_you_own + self.held_for_others
+
+    @property
+    def cash_you_own(self) -> Decimal:
+        return self.bank_and_wallet_cash + self.brokerage_cash
+
+    @property
+    def other_you_own(self) -> Decimal:
+        return self.what_you_own - self.cash_you_own - self.deposits - self.holdings_value
+
+    @property
+    def what_you_owe(self) -> Decimal:
+        return self.owe.total
+
+    @property
+    def net_worth(self) -> Decimal:
+        return self.what_you_own - self.what_you_owe
+
+    @property
+    def free_cash(self) -> Decimal | None:
+        return None if self.reserves is None else self.cash_you_own - self.reserves - self.bills_due
+
+    @property
+    def portfolio_value(self) -> Decimal:
+        return self.holdings_value + self.brokerage_cash
+
+    @property
+    def holdings_after_sale(self) -> Decimal:
+        return sum((c.after_sale for c in self.classes if not c.is_deposit), ZERO)
+
+    @property
+    def deposits_after_sale(self) -> Decimal:
+        return sum((c.after_sale for c in self.classes if c.is_deposit), ZERO)
+
+    @property
+    def investments_after_sale(self) -> Decimal:
+        return self.deposits_after_sale + self.holdings_after_sale
+
+    @property
+    def if_you_sold_today(self) -> Decimal | None:
+        if self.free_cash is None or self.unvalued:
+            return None
+        return self.free_cash + self.investments_after_sale
+
+    @property
+    def unavailable_reason(self) -> str:
+        if self.unvalued:
+            return "A required valuation is missing for this date."
+        if self.reserves is None:
+            return "Reserve history is incomplete for this date."
+        return ""
+
+
+class PositionService:
+    def __init__(self, reporting, assets, investments, money_from_others, reserves, planning):
+        self.reporting = reporting
+        self.assets = assets
+        self.investments = investments
+        self.money_from_others = money_from_others
+        self.reserves = reserves
+        self.planning = planning
+
+    def owned_holdings(self, as_of: date | str) -> tuple[list[OwnedHolding], list[str]]:
+        """Owned units and value per holding (not cash), after money held for others."""
+        day = fmt_date(as_of) if isinstance(as_of, date) else str(as_of)
+        rows, unvalued = self.reporting.holdings(day)
+        custody = {(r["account_id"], r["asset_id"]): r["units"]
+                   for r in self.money_from_others.investment_positions(day)}
+        result = []
+        for row in rows:
+            asset = self.assets.get_asset(row.asset_id)
+            if asset.is_cash and row.asset_class_code.split(".")[0] == "CASH":
+                continue
+            held = custody.get((row.account.id, row.asset_id), ZERO)
+            if asset.is_cash:
+                held = self.money_from_others.cash_total_for_account(row.account.id, day)
+            quantity = max(ZERO, row.quantity - held)
+            valuation = self.reporting.value_of(row.asset_id, quantity, day) if held else None
+            value = valuation.value if held and valuation else row.value
+            if held and row.value is not None and value is not None:
+                value = max(ZERO, row.value - value)
+            elif held and asset.is_cash:
+                held_value = self.reporting.value_of(row.asset_id, min(held, row.quantity), day).value
+                value = max(ZERO, (row.value or ZERO) - (held_value or ZERO))
+            elif held:
+                value = None
+            result.append(OwnedHolding(row.account.id, row.account.label, row.asset_id, asset.name,
+                                       row.asset_class_code, quantity, value, asset.unit))
+        return result, unvalued
+
+    def class_values(self, as_of: date | str) -> tuple[list[ClassValue], list[str]]:
+        holdings, unvalued = self.owned_holdings(as_of)
+        factors = self.investments.liquidation_factors()
+        by_code = {cls.code: cls for cls in self.assets.list_classes()}
+        rows: dict[int, ClassValue] = {}
+        for item in holdings:
+            cls = by_code.get(item.class_code)
+            if cls is None:
+                continue
+            row = rows.setdefault(cls.id, ClassValue(cls.id, cls.code, cls.name, ZERO,
+                                                     factors.get(cls.id, DEFAULT_SALE_FACTOR)))
+            row.value += item.value or ZERO
+            row.items.append(item)
+        for cls in self.assets.investment_classes():
+            rows.setdefault(cls.id, ClassValue(cls.id, cls.code, cls.name, ZERO,
+                                               factors.get(cls.id, DEFAULT_SALE_FACTOR)))
+        return sorted(rows.values(), key=lambda r: (-r.value, r.name.casefold())), unvalued
+
+    def reserve_rows(self, as_of: date | str) -> list[dict] | None:
+        """Effective reserve assignments on the date; today's are always known."""
+        day = fmt_date(as_of) if isinstance(as_of, date) else str(as_of)
+        rows = self.reserves.breakdown_at(day)
+        if rows is None and day == fmt_date(today()):
+            rows = [{"id": r["id"], "name": r["name"], "kind": r["kind"],
+                     "effective_allocated": r["effective_allocated"]} for r in self.reserves.list_active()]
+        return rows
+
+    def change_in_what_you_own(self, start: date | str, end: date | str,
+                               since_first_record: bool = False) -> tuple[Decimal | None, str]:
+        """Change in what you own = What you own at the end − What you own the day before the start.
+
+        Returns (change, reason); change is None, with the reason, when a valuation is missing."""
+        start_day, end_day = parse_date(start), parse_date(end)
+        closing = self.reporting.net_worth(fmt_date(end_day))
+        if closing.unvalued:
+            return None, "A required valuation is missing from the ending position."
+        if since_first_record and not self.reporting.first_activity_date():
+            return None, "No recorded position is available for comparison."
+        opening = self.reporting.net_worth(fmt_date(start_day - timedelta(days=1)))
+        if opening.unvalued:
+            return None, ("The first recorded position is missing a required valuation." if since_first_record
+                          else "The position immediately before this period is missing a required valuation.")
+        return closing.total - opening.total, ""
+
+    def at(self, as_of: date | str | None = None) -> Position:
+        day = parse_date(as_of) if as_of is not None else today()
+        text = fmt_date(day)
+        if day == today():
+            # Settle bills that a posted transaction already paid before counting what is due.
+            self.planning.match_payments(day)
+        wealth = self.reporting.net_worth(text)
+        classes, unvalued = self.class_values(text)
+        brokerage = self.reporting.owned_brokerage_cash(text)
+        rows = self.reserve_rows(text)
+        return Position(
+            as_of=text, what_you_own=wealth.total,
+            held_for_others=self.reporting.money_from_others_total(text),
+            unvalued=tuple(dict.fromkeys(wealth.unvalued + unvalued)),
+            bank_and_wallet_cash=self.reporting.owned_liquid_cash(text) - brokerage,
+            brokerage_cash=brokerage, classes=tuple(classes),
+            reserves=None if rows is None else sum((r["effective_allocated"] for r in rows), ZERO),
+            reserve_rows=None if rows is None else tuple(rows),
+            owe=self.planning.what_you_owe(day))

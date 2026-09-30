@@ -197,7 +197,7 @@ def _page(request: Request, month: str, values: dict | None = None, error: str =
             group_id = parent.id
             tracking_suggestions.append({"id": category.id, "name": line.name, "share": share,
                                          "group_id": group_id, "spent": spent_six,
-                                         "reason": (f"{share:.1f}% of budgeting income" if crossed_percent else
+                                         "reason": (f"{share:.1f}% of average monthly income" if crossed_percent else
                                                     f"Average {monthly_average:,.2f} EGP crossed fixed threshold")})
 
     # Background estimates are monthly expectations for untracked leaf
@@ -270,7 +270,7 @@ def _page(request: Request, month: str, values: dict | None = None, error: str =
     ceiling_percent = to_decimal(c.settings.get("budget_monthly_ceiling_percent") or "100")
     ceiling = period_income * ceiling_percent / Decimal(100)
     ceiling_warning = ("" if period_income <= ZERO else
-                       "Planned amounts exceed 100% of budgeting income" if period_base > period_income else
+                       "Planned amounts exceed 100% of average monthly income" if period_base > period_income else
                        f"Base plan exceeds the {ceiling_percent}% monthly spending ceiling" if period_base > ceiling else "")
     period_left = period_budgeted-period_actual
     group_rows = sorted(group_totals.items(),
@@ -292,7 +292,7 @@ def _page(request: Request, month: str, values: dict | None = None, error: str =
                 bulk_undo = token
         except (ValueError, TypeError):
             pass
-    return render(request, "budget.html", status_code=status_code, view=view, month=month,
+    return render(request, "budget.html", loan_planned=sum(c.budgets.loan_lines(month).values(), ZERO), status_code=status_code, view=view, month=month,
                   prev_month=prev_month, next_month=next_month, values=values or {}, error=error,
                   has_plan=has_plan, suggestions=suggestions_view,
                   tracked=tracked, averages=averages,
@@ -303,7 +303,7 @@ def _page(request: Request, month: str, values: dict | None = None, error: str =
                   overall_ceiling=c.settings.get("budget_overall_ceiling"), this_month=month_of(today()),
                   personal_group=next((cat.id for cat in c.categories.tree(Movement.OUTFLOW)
                                        if cat.depth == 1 and cat.scope == Scope.PERSONAL), None),
-                  free_cash=c.reserves.cash_summary(c.reporting.owned_liquid_cash(today()))["free_cash"],
+                  free_cash=c.reserves.cash_summary(c.reporting.owned_liquid_cash(today()), c.planning.what_you_owe().bills_due)["free_cash"],
                   period=period, period_actual=period_actual, period_budgeted=period_budgeted,
                   period_left=period_left, period_carryover=period_carryover, group_totals=group_totals,
                   group_rows=group_rows,
@@ -444,7 +444,7 @@ async def save_budget_settings(request: Request):
     try:
         income_months = str(form.get("income_months", "3"))
         if income_months not in {"3", "6"}:
-            raise ValidationError("Income basis must use three or six completed months.")
+            raise ValidationError("Average monthly income must use three or six completed months.")
         for key, label, upper in (("ceiling_percent", "Monthly spending ceiling", 10000),):
             number = to_decimal(str(form.get(key, "")), key)
             if number < ZERO or number > upper:
@@ -660,6 +660,10 @@ async def budget_page(request: Request):
         month = _month(request)
     except ValidationError:
         return redirect("/budget", "That month is invalid. Use YYYY-MM, for example 2026-09.")
+    if month > month_of(today()):
+        # Budget amounts repeat into later months, so this month's plan is next month's plan too.
+        return redirect("/budget", f"{month} has not started yet. This month's amounts carry on into it "
+                                   "until you change them.")
     return _page(request, month)
 
 

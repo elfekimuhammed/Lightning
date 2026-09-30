@@ -5,8 +5,8 @@
 {% block content %}
 <section class="card reconcile-summary">
   <form method="get" action="/accounts/{{ account.id }}/reconcile" class="reconcile-controls">
-    <label>Statement date<input type="text" placeholder="yyyy-mm-dd" inputmode="numeric" autocomplete="off" data-smart-date name="date" value="{{ through }}" required></label>
-    <label>Statement closing balance<input type="text" name="balance" value="{{ balance_input }}" placeholder="e.g. 12,500.00" inputmode="decimal"></label>
+    <label>As of <small class="muted">statement date</small><input type="text" placeholder="yyyy-mm-dd" inputmode="numeric" autocomplete="off" data-smart-date name="date" value="{{ through }}" required></label>
+    <label>Balance <small class="muted">on the statement</small><input type="text" name="balance" value="{{ balance_input }}" placeholder="e.g. 12,500.00" inputmode="decimal"></label>
     <button class="btn primary">Compare</button>
   </form>
   {% if error %}<p class="flash error">{{ error }}</p>{% endif %}

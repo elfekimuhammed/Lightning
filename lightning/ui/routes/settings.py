@@ -5,6 +5,7 @@ from fastapi import Response
 from decimal import Decimal
 
 from lightning.core.errors import LightningError
+from lightning.investments.domain import DEFAULT_SALE_FACTOR
 from lightning.core.money import ZERO
 from lightning.core.dates import fmt_date, today
 
@@ -27,21 +28,12 @@ async def settings_page(request: Request):
     except Exception:
         return_to = "/"
     classes = [x for x in c.assets.list_classes() if x.active and x.root_code != "CASH" and x.code != "CUSTODY"]
-    values = {}
-    rows, _ = c.reporting.holdings(fmt_date(today()))
-    custody = {(r["account_id"], r["asset_id"]): r["units"] for r in c.money_from_others.investment_positions(fmt_date(today()))}
-    for h in rows:
-        asset = c.assets.get_asset(h.asset_id)
-        if (not asset.is_cash or h.asset_class_code.split(".")[0] != "CASH") and h.value is not None:
-            other_units = custody.get((h.account.id, h.asset_id), ZERO)
-            if asset.is_cash:
-                other_units = c.money_from_others.cash_total_for_account(h.account.id, fmt_date(today()))
-            other_value = c.reporting.value_of(h.asset_id, other_units, fmt_date(today())).value if other_units else ZERO
-            values[h.asset_class_code] = values.get(h.asset_class_code, ZERO) + max(ZERO, h.value - (other_value or ZERO))
+    # The same class values and factors as Birdview's "If you sold today".
+    values = {row.code: row.value for row in c.position.class_values(today())[0]}
     factors = c.investments.liquidation_factors()
     factor_rows = [{"id": cls.id, "code": cls.code, "name": cls.name, "value": values.get(cls.code, ZERO),
-                    "factor": factors.get(cls.id, Decimal(95)),
-                    "estimate": values.get(cls.code, ZERO) * factors.get(cls.id, Decimal(95)) / 100}
+                    "factor": factors.get(cls.id, DEFAULT_SALE_FACTOR),
+                    "estimate": values.get(cls.code, ZERO) * factors.get(cls.id, DEFAULT_SALE_FACTOR) / 100}
                    for cls in classes]
     income_categories = [x for x in c.categories.tree(Movement.INFLOW) if not x.is_root and x.income_class is not None]
     expense_categories = [x for x in c.categories.tree(Movement.OUTFLOW) if not x.is_root]

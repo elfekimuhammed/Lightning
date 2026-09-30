@@ -11,13 +11,13 @@ from fastapi import APIRouter, Request
 from lightning.accounts.domain import AccountType
 from lightning.core.dates import fmt_date, month_of, parse_date, parse_month, today
 from lightning.core.errors import ValidationError
+from lightning.core.figures import FIGURES, label
 from lightning.core.money import ZERO, fmt, to_decimal
-from lightning.investments.report import build_investment_report
+from lightning.investments.report import investment_period, results_by_asset
 
 from ..web import container, render
 from ..web import redirect
 from ..periods import Period, parse_period
-from .birdview import _own_holdings
 
 router = APIRouter()
 
@@ -94,23 +94,10 @@ async def dashboard(request: Request):
     accounts = c.accounts.list()
     if not accounts:
         return render(request, "dashboard/welcome.html")
+    # Every position figure comes from one calculation; see lightning/planning/position.py.
+    position = c.position.at(as_of)
     net_worth = c.reporting.net_worth(as_of)
     account_contributions = _owned_account_type_rows(c, accounts, as_of)
-    holdings, unvalued = _own_holdings(c, fmt_date(as_of))
-    class_values = {}
-    classes_by_id = {item.id: item for item in c.assets.list_classes()}
-    for holding in holdings:
-        cls = next((item for item in classes_by_id.values() if item.code == holding["class_code"]), None)
-        if cls is not None:
-            class_values[cls.id] = class_values.get(cls.id, ZERO) + (holding["value"] or ZERO)
-    factor_records = c.investments.liquidation_factors()
-    for cls in c.assets.investment_classes():
-        class_values.setdefault(cls.id, ZERO)
-    investment_value = sum(class_values.values(), ZERO)
-    estimated_investments = sum((value * factor_records.get(class_id, Decimal(95)) / 100
-                                 for class_id, value in class_values.items()), ZERO)
-    eligible_cash = c.reporting.owned_liquid_cash(as_of)
-    brokerage_cash = c.reporting.owned_brokerage_cash(as_of)
     cash_accounts = [
         {"id": account.id, "label": account.label,
          "value": c.reporting.owned_account_value(account.id, as_of),
@@ -119,20 +106,7 @@ async def dashboard(request: Request):
     ]
     cash_accounts.extend({**row, "type": "Brokerage cash"}
                          for row in c.reporting.owned_brokerage_cash_by_account(as_of))
-    reserve_rows = c.reserves.breakdown_at(fmt_date(as_of))
-    if reserve_rows is None and as_of == today():
-        reserve_rows = [{"id": row["id"], "name": row["name"], "kind": row["kind"],
-                         "effective_allocated": row["effective_allocated"]}
-                        for row in c.reserves.list_active()]
-    assigned = (sum((row["effective_allocated"] for row in reserve_rows), ZERO)
-                if reserve_rows is not None else None)
-    reserve_summary = (None if assigned is None else {
-        "eligible_cash": eligible_cash, "allocated": assigned, "free_cash": eligible_cash - assigned,
-        "shortfall": max(assigned - eligible_cash, ZERO),
-    })
-    free_cash = reserve_summary["free_cash"] if reserve_summary is not None else None
-    estimated_available = (free_cash + estimated_investments
-                           if free_cash is not None and not net_worth.unvalued else None)
+    owe = position.owe
     # The Overview lists actions a user can take. Reconciliation diagnostics
     # remain in the dedicated Integrity checks management view.
     attention = [{"label": "Missing valuation", "detail": item, "href": "/investments/prices", "priority": 0}
@@ -155,7 +129,19 @@ async def dashboard(request: Request):
         if reserve.get("due_date") and reserve["due_date"] < fmt_date(today()) and reserve["effective_allocated"] > ZERO:
             attention.append({"label": f"Overdue reserve: {reserve['name']}",
                               "detail": f"Due {reserve['due_date']} · {fmt(reserve['effective_allocated'])} {c.base_currency} remains assigned.",
-                              "href": "/reserves", "priority": 2})
+                              "href": "/plan/reserves", "priority": 2})
+    # Payments that are due and unpaid today, whatever period is selected.
+    for payment in c.planning.what_you_owe(today()).bills_due_items:
+        kind = "Loan payment due" if payment.item.kind.value == "LOAN" else "Bill due"
+        attention.append({"label": f"{kind}: {payment.item.name}",
+                          "detail": f"Due {payment.due_date} · {fmt(payment.amount)} {c.base_currency} · not paid yet.",
+                          "href": f"/plan/items/{payment.item.id}/pay?due={payment.due_date}&back=%2F",
+                          "popup": True, "action": "Mark paid", "priority": 1})
+    lowest = c.forecaster.forecast(today()).lowest
+    if lowest is not None and lowest.closing < ZERO:
+        attention.append({"label": "Cash may run short",
+                          "detail": f"The cash forecast ends {lowest.month} at {fmt(lowest.closing)} {c.base_currency}.",
+                          "href": "/plan", "priority": 1})
     current_budget = c.budgets.month_view(month_of(today()))
     for section in current_budget.sections:
         if section.planned_actual > section.available:
@@ -163,23 +149,9 @@ async def dashboard(request: Request):
                               "detail": f"{fmt(section.planned_actual - section.available)} {c.base_currency} over plan this month.",
                               "href": "/budget", "priority": 2})
     attention = sorted(attention, key=lambda item: item["priority"])
-    change, change_reason = None, "No recorded position is available for comparison."
-    change_label = "Change during this period"
-    if not net_worth.unvalued:
-        if period.key == "all":
-            initial = c.reporting.net_worth(first - timedelta(days=1)) if first_activity else None
-            change = net_worth.total - initial.total if initial is not None and not initial.unvalued else None
-            if initial is not None and initial.unvalued:
-                change_reason = "The first recorded position is missing a required valuation."
-            change_label = "Change since first recorded position"
-        else:
-            before = c.reporting.net_worth(first - timedelta(days=1))
-            if not before.unvalued:
-                change = net_worth.total - before.total
-            else:
-                change_reason = "The position immediately before this period is missing a required valuation."
-    else:
-        change_reason = "A required valuation is missing from the ending position."
+    change, change_reason = c.position.change_in_what_you_own(first, as_of, since_first_record=period.key == "all")
+    change_label = (f"{label('change_in_what_you_own')} since your first record" if period.key == "all"
+                    else label("change_in_what_you_own"))
     cash_flow = c.reporting.cash_flow(first, as_of)
     spending_groups = c.reporting.spending_by_category(first, as_of, depth=2)
     categorized_spending = sum((max(group.value, ZERO) for group in spending_groups), ZERO)
@@ -226,22 +198,16 @@ async def dashboard(request: Request):
                 "other_total": sum((child["value"] for child in other_children), ZERO),
             })
     expense_groups = selected_groups
-    closing_report = build_investment_report(c.db, c.accounts, c.assets, c.reporting,
-                                              fmt_date(first), fmt_date(as_of))
-    opening_report = build_investment_report(c.db, c.accounts, c.assets, c.reporting,
-                                              fmt_date(first), fmt_date(first - timedelta(days=1)))
-    unrealized_change = (closing_report["unrealized"] - opening_report["unrealized"]
-                         if closing_report["unrealized"] is not None and opening_report["unrealized"] is not None
-                         else None)
-    period_result = (closing_report["realized"] + closing_report["dividends"] + unrealized_change
-                     if unrealized_change is not None else None)
+    closing_report = investment_period(c.db, c.accounts, c.assets, c.reporting, fmt_date(first), fmt_date(as_of))
+    opening_report = closing_report["opening"]
+    period_result = closing_report["result"]
     holdings_value = closing_report["value"]
     investment_cash = closing_report["investment_cash"]
     portfolio_value = (holdings_value + investment_cash
                        if holdings_value is not None and investment_cash is not None else None)
     investment_report = {
-        "holdings_value": holdings_value, "investment_cash": investment_cash,
-        "portfolio_value": portfolio_value, "new_money": closing_report["new_money"],
+        "holdings_value": holdings_value, "brokerage_cash": investment_cash,
+        "portfolio_value": portfolio_value, "new_money": closing_report["net_money"],
         "period_result": period_result, "period_result_available": period_result is not None,
         "missing": closing_report["missing"] + opening_report["missing"],
         "holdings_count": sum(1 for row in closing_report["holdings"] if row["price_source"] != "CASH"),
@@ -256,64 +222,8 @@ async def dashboard(request: Request):
     # Reuse the investment ledger's dated positions for asset-class and asset
     # performance. Returns combine each holding's unrealized movement,
     # realized gain/loss and distributions across the selected range.
-    current_day, opening_day = fmt_date(as_of), fmt_date(first - timedelta(days=1))
-    current_portfolio = c.investments.portfolio(current_day)
-    opening_portfolio = c.investments.portfolio(opening_day)
-    current_by_key = {(h.account_id, h.asset_id): h for h in current_portfolio.positions}
-    opening_by_key = {(h.account_id, h.asset_id): h for h in opening_portfolio.positions}
-
-    def owned_values(portfolio, on_day):
-        custody_units = defaultdict(lambda: ZERO)
-        for row in c.money_from_others.investment_positions(on_day):
-            custody_units[(row["account_id"], row["asset_id"])] += row["units"]
-        values = {}
-        for holding in portfolio.open:
-            key = (holding.account_id, holding.asset_id)
-            others = custody_units.get(key, ZERO)
-            other_value = (c.reporting.value_of(holding.asset_id, others, on_day).value or ZERO) if others else ZERO
-            share = ((holding.value or ZERO) - other_value) / holding.value if holding.value else ZERO
-            values[key] = (share, (holding.value or ZERO) - other_value,
-                           holding.cost_basis * (holding.quantity - others) / holding.quantity
-                           if holding.quantity else ZERO)
-        return values
-
-    current_owned = owned_values(current_portfolio, current_day)
-    opening_owned = owned_values(opening_portfolio, opening_day)
-    class_results = defaultdict(lambda: ZERO)
-    asset_results = defaultdict(lambda: {"label": "", "result": ZERO})
-    for key, holding in current_by_key.items():
-        previous = opening_by_key.get(key)
-        old_share, old_value, old_cost = opening_owned.get(key, (ZERO, ZERO, ZERO))
-        if not holding.is_open:
-            # Sold out during the period: its sale gain and distributions still
-            # belong to the period result, less any gain it carried in.
-            realized = holding.realized - (previous.realized if previous else ZERO)
-            dividends = holding.dividends - (previous.dividends if previous else ZERO)
-            if not realized and not dividends:
-                continue
-            share = old_share if previous and old_share else Decimal(1)
-            result = (realized + dividends) * share - ((old_value - old_cost) if previous else ZERO)
-            class_results[holding.asset_class.split(" › ")[-1]] += result
-            asset_result = asset_results[holding.asset_id]
-            asset_result["label"] = holding.asset_name
-            asset_result["result"] += result
-            continue
-        if holding.value is None:
-            continue
-        share, owned_value, owned_cost = current_owned.get(key, (ZERO, ZERO, ZERO))
-        if previous and previous.value is not None:
-            unrealized_change = (owned_value - owned_cost) - (old_value - old_cost)
-            realized_change = (holding.realized - previous.realized) * share
-            distribution_change = (holding.dividends - previous.dividends) * share
-        else:
-            unrealized_change = owned_value - owned_cost
-            realized_change = holding.realized * share
-            distribution_change = holding.dividends * share
-        result = unrealized_change + realized_change + distribution_change
-        class_results[holding.asset_class.split(" › ")[-1]] += result
-        asset_result = asset_results[holding.asset_id]
-        asset_result["label"] = holding.asset_name
-        asset_result["result"] += result
+    class_results, asset_results = results_by_asset(c.investments, c.money_from_others, c.reporting,
+                                                    fmt_date(first - timedelta(days=1)), fmt_date(as_of))
     class_rows = [{"label": name, "result": value} for name, value in
                   sorted(class_results.items(), key=lambda item: (-abs(item[1]), item[0].casefold()))]
     asset_result_rows = list(asset_results.values())
@@ -325,8 +235,7 @@ async def dashboard(request: Request):
     investment_flow = closing_report["new_money"]
     investment_share = (investment_flow / cash_flow.inflows * 100
                         if cash_flow.inflows > ZERO else None)
-    savings_rate = (cash_flow.net / cash_flow.inflows * 100
-                    if cash_flow.inflows > ZERO else None)
+    savings_rate = cash_flow.savings_rate
     return render(
         request,
         "dashboard/index.html",
@@ -334,11 +243,7 @@ async def dashboard(request: Request):
         date_from=fmt_date(first), date_to=fmt_date(as_of), as_of=fmt_date(as_of),
         range_label=(f"No recorded activity · Position as of {fmt_date(as_of)}"
                      if period.key == "all" and not first_activity else f"{fmt_date(first)} to {fmt_date(as_of)} · Position as of {fmt_date(as_of)}"),
-        eligible_cash=eligible_cash, brokerage_cash=brokerage_cash, reserve_summary=reserve_summary,
-        cash_accounts=cash_accounts, reserve_rows=reserve_rows,
-        free_cash=free_cash, investment_value=investment_value,
-        estimated_investments=estimated_investments, estimated_available=estimated_available,
-        unvalued=unvalued,
+        pos=position, cash_accounts=cash_accounts, owe=owe,
         change=change, change_reason=change_reason, change_label=change_label,
         attention=attention,
         net_worth=net_worth,
@@ -361,54 +266,52 @@ async def explain_overview_figure(request: Request, kind: str):
         period = parse_period({"period": "month", "month": month_of(today())}, today(), c.reporting.first_activity_date())
     day, first = fmt_date(period.end), fmt_date(period.start)
     destination = "/birdview?" + request.url.query
+    position = c.position.at(day)
     if kind == "owned":
-        position = c.reporting.net_worth(day)
-        title = "Known owned value" if position.unvalued else "What you own"
-        explanation = "Owned value is the value in your accounts after money and investments owned by others are excluded."
-        rows = _owned_account_type_rows(c, c.accounts.list(), day)
-        total = position.total
+        title = f"{label('what_you_own')} · known subtotal" if position.unvalued else label("what_you_own")
+        figure = "what_you_own"
+        explanation = FIGURES["what_you_own"].meaning + " Money and units held for others are left out."
+        rows = [{"label": label("cash_you_own"), "value": position.cash_you_own},
+                {"label": label("deposits"), "value": position.deposits},
+                {"label": label("holdings_value"), "value": position.holdings_value}]
+        if position.other_you_own:
+            rows.append({"label": label("other_you_own"), "value": position.other_you_own})
+        total = position.what_you_own
         missing = f" Missing valuation: {'; '.join(position.unvalued)}." if position.unvalued else ""
-        if period.key == "all":
-            initial = c.reporting.net_worth(parse_date(first) - timedelta(days=1)) if c.reporting.first_activity_date() else None
-            change_value = (position.total - initial.total if not position.unvalued and initial and not initial.unvalued else None)
-            change_label = "Change since first recorded position"
-            change_reason = "The first recorded position is missing a required valuation." if initial and initial.unvalued else "No reliable first recorded position is available."
-        else:
-            initial = c.reporting.net_worth(period.start - timedelta(days=1))
-            change_value = position.total - initial.total if not position.unvalued and not initial.unvalued else None
-            change_label = "Change during this period"
-            change_reason = "The position immediately before this period is missing a required valuation."
-        rows.append({"label": change_label if change_value is not None else f"Change unavailable · {change_reason}",
-                     "value": change_value})
-        foot = f"Position as of {day}. Change is tracked wealth movement, not investment return. The total excludes custody balances and assets.{missing}"
+        change_value, change_reason = c.position.change_in_what_you_own(first, day, since_first_record=period.key == "all")
+        change_label = (f"{label('change_in_what_you_own')} since your first record" if period.key == "all"
+                        else label("change_in_what_you_own"))
+        foot = (f"Position as of {day}. {change_label}: "
+                + (fmt(change_value, 2, True) if change_value is not None else f"unavailable · {change_reason}")
+                + f". This is wealth movement, not investment return.{missing}")
         action = ("Open Birdview", destination)
     elif kind == "free-cash":
-        title = "Free cash"
-        eligible = c.reporting.owned_liquid_cash(day)
-        allocated = c.reserves.allocation_at(day)
-        explanation = "Free cash = owned liquid cash (wallet, bank, and brokerage cash) − assigned reserves. Brokerage cash is included in the total, but move it to a bank or wallet before everyday spending."
-        rows = _owned_account_type_rows(
-            c, c.accounts.list(), day, {AccountType.CASH, AccountType.BANK})
-        rows.append({"label": "Brokerage cash · transfer before everyday spending",
-                     "value": c.reporting.owned_brokerage_cash(day)})
-        if allocated is None:
-            total, foot = None, "Historical free cash unavailable: reserve assignments cannot be reconstructed for this date."
+        title = label("free_cash")
+        figure = "free_cash"
+        explanation = (FIGURES["free_cash"].meaning + " " + FIGURES["bills_due"].meaning
+                       + " Brokerage cash counts, but move it to a bank or wallet before everyday spending.")
+        rows = [{"label": label("bank_and_wallet_cash"), "value": position.bank_and_wallet_cash},
+                {"label": label("brokerage_cash"), "value": position.brokerage_cash}]
+        if position.reserves is None:
+            total, foot = None, "Free cash is unavailable: reserve history cannot be rebuilt for this date."
         else:
-            rows.append({"label": "Assigned to reserves", "value": -allocated, "href": "/reserves"})
-            total, foot = eligible - allocated, f"Owned liquid cash {eligible} less reserve assignments {allocated}. Period end: {day}."
-        action = ("Open Reserves", "/reserves")
+            rows.append({"label": label("reserves"), "value": -position.reserves, "href": "/plan/reserves"})
+            if position.bills_due:
+                rows.append({"label": label("bills_due"), "value": -position.bills_due, "href": "/plan"})
+            total, foot = position.free_cash, f"Position as of {day}."
+        action = ("Open Cash planning", "/plan")
     elif kind == "flow":
-        title = "Income and spending"
+        title = label("net_flow")
+        figure = "net_flow"
         flow = c.reporting.cash_flow(first, day)
-        explanation = "Money in is owned posted income. Money out is owned posted expenses net of refunds; transfers, investment trades, custody activity, and valuation entries are excluded."
-        rows = [{"label": "Money in", "value": flow.inflows}, {"label": "Money out", "value": flow.outflows},
-                {"label": "Net income less spending", "value": flow.net}]
+        explanation = FIGURES["money_in"].meaning + " " + FIGURES["money_out"].meaning
+        rows = [{"label": label("money_in"), "value": flow.inflows}, {"label": label("money_out"), "value": -flow.outflows}]
         total = flow.net
-        foot = f"Selected period: {first} to {day}. This is cash flow, not wealth change or investment return."
+        foot = f"{first} to {day}. This is cash flow, not wealth change or investment return."
         action = ("Open Birdview", destination)
     else:
         return render(request, "not_found.html", status_code=404, message="Explanation not found.")
-    return render(request, "dashboard/explanation.html", title=title, explanation=explanation,
+    return render(request, "dashboard/explanation.html", title=title, explanation=explanation, figure=figure,
                   rows=rows, total=total, foot=foot, recent=[], action=action)
 
 

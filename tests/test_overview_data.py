@@ -25,16 +25,16 @@ def test_overview_cash_reserves_spending_and_investments_reconcile(c, setup, mon
     response = TestClient(create_app(c)).get("/?period=custom&date_from=2026-12-01&date_to=2026-12-31")
     assert response.status_code == 200
     assert captured["net_worth"].total == sum((group["value"] for group in captured["account_contributions"]), Decimal(0))
-    assert captured["eligible_cash"] == sum((row["value"] for row in captured["cash_accounts"]), Decimal(0))
-    assert captured["brokerage_cash"] == Decimal("1000")
-    assert captured["reserve_summary"]["allocated"] == sum(
-        (row["effective_allocated"] for row in captured["reserve_rows"]), Decimal(0))
-    assert captured["free_cash"] == captured["eligible_cash"] - Decimal("500")
+    pos = captured["pos"]
+    assert pos.cash_you_own == sum((row["value"] for row in captured["cash_accounts"]), Decimal(0))
+    assert pos.brokerage_cash == Decimal("1000")
+    assert pos.reserves == sum((row["effective_allocated"] for row in pos.reserve_rows), Decimal(0))
+    assert pos.free_cash == pos.cash_you_own - Decimal("500")
     assert captured["spending"][0]["value"] == Decimal("100")
     assert "Food" in captured["spending"][0]["label"]
     assert captured["spending"][0]["share"] == Decimal("100")
     assert "category_id=" in captured["spending"][0]["href"]
-    assert captured["investment_report"]["investment_cash"] == Decimal("1000")
+    assert captured["investment_report"]["brokerage_cash"] == Decimal("1000")
     assert captured["investment_report"]["new_money"] == Decimal("1000")
     assert captured["investment_report"]["period_result"] == Decimal("0")
 

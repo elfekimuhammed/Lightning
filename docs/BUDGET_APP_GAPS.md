@@ -1,6 +1,6 @@
 # Budget app patterns worth adopting
 
-Reviewed 28 September 2026. This is a prioritized follow-up brief for user review, not a promise that the features below are implemented. Existing Lightning behavior was checked against templates, services, and PROJECT_OVERVIEW.md.
+Reviewed 28 September 2026; updated 30 September 2026 when Cash planning shipped (rows 1, 3 and 5). The remaining rows are a prioritized follow-up brief, not a promise that they are implemented. Existing Lightning behavior was checked against templates, services, and PROJECT_OVERVIEW.md.
 
 | Priority / question | Reference pattern | Lightning today and proposed next task | Model |
 |---|---|---|---|
@@ -26,7 +26,9 @@ The current pass simplifies presentation and adds AI CSV preparation plus activi
 
 Budget room, current unassigned cash, and projected spendable cash are different concepts. Do not label any of them “safe to spend” without clearly defining which future obligations and income are included. Simplifi itself documents that its cash projection excludes planned spending and savings goals; this is a useful example of why forecast scope must be explicit.
 
-Lightning deliberately excludes liabilities today. Competitors' debt and credit-card features would change that product scope and should not be copied as an incidental UX change. Bank synchronization also needs a provider and regional coverage assessment; local CSV workflows remain the current foundation.
+**Decision (2026-09-30):** certain obligations now count. Bills due and loans still to pay form *What you owe*, shown as a separate item: bills due come off free cash, the full loan balance comes off net worth, and the forecast changes neither. Loans are entered as payment schedules, not as ledger debt accounts, so credit-card accounts and interest accrual remain out of scope.
+
+**Adopted from other apps (Cash planning):** recurring-payment suggestions from history that never create items on their own (Monarch, Rocket Money, Copilot); an upcoming-payments list with paid/due status and automatic "paid" matching that the user can undo (Monarch); a projected balance with its lowest point (Simplifi); the monthly amount a dated goal still needs (YNAB); subscriptions totalled per year (Rocket Money); loan progress and payoff date (Monarch, YNAB). Not adopted: bank sync and bill negotiation. Bank synchronization also needs a provider and regional coverage assessment; local CSV workflows remain the current foundation.
 
 ## External analysis contract
 

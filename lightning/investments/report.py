@@ -6,6 +6,24 @@ from lightning.accounts.domain import INVESTMENT_ACCOUNT_TYPES
 from lightning.core.money import ZERO, from_e6
 
 
+def investment_period(db, accounts, assets, reporting, start: str, end: str):
+    """The investment report for a period, with its Result.
+
+    Change in unrealized gain = Unrealized gain at the end − Unrealized gain the day before the start.
+    Result = Realized gain + Change in unrealized gain + Dividends and interest (None if a price is missing).
+    """
+    from datetime import date, timedelta
+    closing = build_investment_report(db, accounts, assets, reporting, start, end)
+    before = (date.fromisoformat(start) - timedelta(days=1)).isoformat()
+    opening = build_investment_report(db, accounts, assets, reporting, start, before)
+    change = (None if closing["unrealized"] is None or opening["unrealized"] is None
+              else closing["unrealized"] - opening["unrealized"])
+    closing["unrealized_change"] = change
+    closing["result"] = None if change is None else closing["realized"] + change + closing["dividends"]
+    closing["opening"] = opening
+    return closing
+
+
 def build_investment_report(db, accounts, assets, reporting, start: str, end: str):
     """Return period flows and end positions for the user's own investment portfolio."""
     investment_account_ids = {a.id for a in accounts.list(active_only=False)
@@ -15,7 +33,7 @@ def build_investment_report(db, accounts, assets, reporting, start: str, end: st
         return {"new_money": ZERO, "withdrawn": ZERO, "net_money": ZERO,
                 "dividends": ZERO, "realized": ZERO, "unresolved_dividends": 0,
                 "holdings": [], "investment_cash": ZERO, "missing": [], "cost": ZERO,
-                "value": ZERO, "unrealized": ZERO, "estimated_cash": ZERO}
+                "value": ZERO, "unrealized": ZERO}
     rows = db.all(
         f"SELECT le.*,t.type,t.ref,t.status,c.code AS category_code, "
         f"da.asset_id AS dividend_asset_id "
@@ -73,10 +91,8 @@ def build_investment_report(db, accounts, assets, reporting, start: str, end: st
         elif delta < ZERO:
             withdrawn -= delta
     period_realized = _realized_between(rows, start, end)
-    holdings = []; total_cost = total_value = unrealized = estimated = ZERO; missing=[]
+    holdings = []; total_cost = total_value = unrealized = ZERO; missing=[]
     holdings_unavailable = False
-    factors = {r["asset_class_id"]: Decimal(str(r["factor"])) / 100
-               for r in db.all("SELECT asset_class_id,factor FROM investment_liquidation_factors")}
     for (owner_id, account_id, asset_id), b in books.items():
         if b["units"] <= ZERO:
             continue
@@ -89,7 +105,6 @@ def build_investment_report(db, accounts, assets, reporting, start: str, end: st
         else:
             total_value += value
             unrealized += value-b["cost"]
-            estimated += value*factors.get(asset.asset_class_id, Decimal(1))
         total_cost += b["cost"]
         holdings.append({"account": accounts.get(account_id).label, "asset": asset.name,
                          "units": b["units"], "cost": b["cost"], "value": value,
@@ -118,7 +133,6 @@ def build_investment_report(db, accounts, assets, reporting, start: str, end: st
             "investment_cash": None if cash_unavailable else cash, "cost": total_cost,
             "value": None if holdings_unavailable else total_value,
             "unrealized": None if holdings_unavailable else unrealized,
-            "estimated_cash": None if missing or cash_unavailable else cash+estimated,
             "missing": missing, "unresolved_dividends": unresolved}
 
 
@@ -142,3 +156,70 @@ def _realized_between(rows, start, end):
             b["cost"]-=removed; b["units"]+=q
             if not b["units"]: b["cost"]=ZERO
     return realized
+
+
+def results_by_asset(investments, money_from_others, reporting, opening_day: str, current_day: str):
+    """Result per asset class and per asset between two dates, for the user's own share.
+
+    Each holding's Result = Change in unrealized gain + Realized gain + Dividends and interest; a
+    holding sold out during the period keeps its realized gain and distributions.
+    Returns ({class name: result}, {asset id: {"label", "result"}}).
+    """
+    current_portfolio = investments.portfolio(current_day)
+    opening_portfolio = investments.portfolio(opening_day)
+    current_by_key = {(h.account_id, h.asset_id): h for h in current_portfolio.positions}
+    opening_by_key = {(h.account_id, h.asset_id): h for h in opening_portfolio.positions}
+
+    def owned_values(portfolio, on_day):
+        custody_units = defaultdict(lambda: ZERO)
+        for row in money_from_others.investment_positions(on_day):
+            custody_units[(row["account_id"], row["asset_id"])] += row["units"]
+        values = {}
+        for holding in portfolio.open:
+            key = (holding.account_id, holding.asset_id)
+            others = custody_units.get(key, ZERO)
+            other_value = (reporting.value_of(holding.asset_id, others, on_day).value or ZERO) if others else ZERO
+            share = ((holding.value or ZERO) - other_value) / holding.value if holding.value else ZERO
+            values[key] = (share, (holding.value or ZERO) - other_value,
+                           holding.cost_basis * (holding.quantity - others) / holding.quantity
+                           if holding.quantity else ZERO)
+        return values
+
+    current_owned = owned_values(current_portfolio, current_day)
+    opening_owned = owned_values(opening_portfolio, opening_day)
+    class_results = defaultdict(lambda: ZERO)
+    asset_results = defaultdict(lambda: {"label": "", "result": ZERO})
+    for key, holding in current_by_key.items():
+        previous = opening_by_key.get(key)
+        old_share, old_value, old_cost = opening_owned.get(key, (ZERO, ZERO, ZERO))
+        if not holding.is_open:
+            # Sold out during the period: its sale gain and distributions still
+            # belong to the period result, less any gain it carried in.
+            realized = holding.realized - (previous.realized if previous else ZERO)
+            dividends = holding.dividends - (previous.dividends if previous else ZERO)
+            if not realized and not dividends:
+                continue
+            share = old_share if previous and old_share else Decimal(1)
+            result = (realized + dividends) * share - ((old_value - old_cost) if previous else ZERO)
+            class_results[holding.asset_class.split(" › ")[-1]] += result
+            asset_result = asset_results[holding.asset_id]
+            asset_result["label"] = holding.asset_name
+            asset_result["result"] += result
+            continue
+        if holding.value is None:
+            continue
+        share, owned_value, owned_cost = current_owned.get(key, (ZERO, ZERO, ZERO))
+        if previous and previous.value is not None:
+            unrealized_change = (owned_value - owned_cost) - (old_value - old_cost)
+            realized_change = (holding.realized - previous.realized) * share
+            distribution_change = (holding.dividends - previous.dividends) * share
+        else:
+            unrealized_change = owned_value - owned_cost
+            realized_change = holding.realized * share
+            distribution_change = holding.dividends * share
+        result = unrealized_change + realized_change + distribution_change
+        class_results[holding.asset_class.split(" › ")[-1]] += result
+        asset_result = asset_results[holding.asset_id]
+        asset_result["label"] = holding.asset_name
+        asset_result["result"] += result
+    return class_results, asset_results

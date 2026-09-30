@@ -14,7 +14,7 @@ from lightning.core.money import ZERO, check_places, fmt, to_decimal
 from lightning.database.connection import Database
 from lightning.reporting.service import ReportingService
 
-from .domain import BudgetLine, BudgetMonth, BudgetSection
+from .domain import BudgetLine, BudgetMonth, BudgetSection, IncomeAverage
 from .repository import BudgetRepository
 
 SECTION_NAMES = {Scope.PERSONAL: "Personal", Scope.WORK: "Work"}
@@ -26,6 +26,9 @@ class BudgetService:
         self.repo = BudgetRepository(db)
         self.categories = categories
         self.reporting = reporting
+        # Set by the composition root: month -> {category_id: loan payments scheduled that month}.
+        # A category with no budget rule is planned at exactly that amount.
+        self.scheduled_loans = lambda month: {}
 
     def first_owned_spending_date(self) -> str | None:
         """Earliest posted, personally owned entry in a spending category."""
@@ -59,8 +62,17 @@ class BudgetService:
                                 tuple(row.get(key) for key in columns))
 
     # ------------------------------------------------------------------ reading
-    def amounts_for(self, month: str) -> dict[int, tuple[Decimal | None, bool, int | None, Decimal | None]]:
-        """Effective amount, one-off flag, average window, and income percentage."""
+    def loan_lines(self, month: str) -> dict[int, Decimal]:
+        """Categories planned from scheduled loan payments because no budget rule is set for them."""
+        explicit = self.amounts_for(month, loans=False)
+        return {cid: amount for cid, amount in self.scheduled_loans(month).items()
+                if amount and cid not in explicit}
+
+    def amounts_for(self, month: str, loans: bool = True) -> dict[int, tuple[Decimal | None, bool, int | None, Decimal | None]]:
+        """Effective amount, one-off flag, average window, and income percentage.
+
+        With ``loans``, a category that has scheduled loan payments and no rule of its own is
+        planned at the payments due that month (Planned = scheduled loan payments)."""
         parse_month(month)
         repeating: dict[int, tuple[Decimal | None, int | None, Decimal | None]] = {}
         one_off: dict[int, tuple[Decimal | None, int | None, Decimal | None]] = {}
@@ -84,10 +96,20 @@ class BudgetService:
                         children.setdefault(cat.parent_id, []).append(cat.id)
                 amount = self._rolling_average(cid, month, period, children, {})
             result[cid] = (amount, oneoff, period, percent)
+        if loans:
+            for cid, amount in self.scheduled_loans(month).items():
+                if amount and cid not in result:
+                    result[cid] = (amount, False, None, None)
         return result
 
     def budgeting_income(self, month: str) -> Decimal | None:
-        """Average monthly owned budgeting income over prior completed months."""
+        """Average monthly income for a month's budget (see income_average)."""
+        return self.income_average(month).amount
+
+    def income_average(self, month: str) -> IncomeAverage:
+        """Average monthly income: owned income in the chosen income categories, averaged over
+        the last 3 (or 6) completed months before `month` that had any. A manual amount in
+        Settings replaces the average. The budget, reserves and the cash forecast all use this."""
         configured = self.db.scalar("SELECT value FROM settings WHERE key='budget_income_categories'")
         try:
             chosen = {int(value) for value in json.loads(configured)} if configured else set()
@@ -98,12 +120,13 @@ class BudgetService:
         if configured is None:
             chosen = {category.id for category in categories if category.family == CategoryFamily.WORK or
                       any(word in category.name.casefold() for word in ("salary", "wage", "pay"))}
-        manual = self.db.scalar("SELECT value FROM settings WHERE key='budget_manual_monthly_income'")
-        if manual:
-            return to_decimal(manual, "manual_income")
         raw_months = self.db.scalar("SELECT value FROM settings WHERE key='budget_income_months'") or "3"
         lookback = 6 if str(raw_months) == "6" else 3
+        manual = self.db.scalar("SELECT value FROM settings WHERE key='budget_manual_monthly_income'")
+        if manual:
+            return IncomeAverage(to_decimal(manual, "manual_income"), 0, lookback, "", "", True)
         end = parse_month(month)[0] - timedelta(days=1)
+        last_month = month_of(end)
         observed = []
         for _ in range(lookback):
             start, last = parse_month(month_of(end))
@@ -114,14 +137,16 @@ class BudgetService:
             if rows:
                 observed.append(sum((row.value for row in rows), ZERO))
             end = start - timedelta(days=1)
-        return (sum(observed, ZERO) / len(observed)).quantize(Decimal("0.01")) if observed else None
+        amount = (sum(observed, ZERO) / len(observed)).quantize(Decimal("0.01")) if observed else None
+        return IncomeAverage(amount, len(observed), lookback, month_of(end + timedelta(days=1)), last_month, False)
 
     def has_plan(self, month: str) -> bool:
-        return bool(self.amounts_for(month))
+        return bool(self.amounts_for(month, loans=False))
 
     def month_view(self, month: str) -> BudgetMonth:
         first, last = parse_month(month)
         direct = self.amounts_for(month)
+        from_loans = self.loan_lines(month)
         spent = self._owned_spending(first, last)
         cats = [c for c in self.categories.tree(Movement.OUTFLOW) if not c.is_root]
         by_id = {c.id: c for c in cats}
@@ -185,7 +210,7 @@ class BudgetService:
                 planned_actual=planned_actual[c.id], covered=covered,
                 opening_carryover=opening_carryovers.get(c.id, ZERO),
                 carryover_enabled=carryover_settings.get(c.id, False),
-                income_percent=income_percent,
+                income_percent=income_percent, from_loans=c.id in from_loans,
             ))
             kids_total = sum(((budget[k] or ZERO) + opening_carryovers.get(k, ZERO)
                               for k in children.get(c.id, []) if budget[k] is not None), ZERO)
