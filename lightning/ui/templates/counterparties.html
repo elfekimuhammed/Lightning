@@ -15,7 +15,7 @@
       </select>
     </label>
     <button class="btn primary">Add Counterparty</button>
-  </form>
+  <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
  </details>
 <section class="card data-panel">
   <div class="section-head"><div><h2>Find and correct names</h2><p class="muted small">{{ parties|length }} shown · {{ total_parties }} saved. Rename, add aliases, or change the suggested category.</p></div></div>
@@ -31,7 +31,7 @@
         <input type="hidden" name="counterparty_id" value="{{ party.id }}">
         <input type="text" name="name" value="{{ party.name }}" aria-label="Counterparty name">
         <span class="inline-save-status" role="status" aria-live="polite"></span>
-      </form>
+      <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
       {% if aliases or aliases|length < alias_limit %}<details class="alias-details"><summary>Aliases · {{ aliases|length }}</summary>
       {% if aliases %}<div class="alias-list muted small">{% for item in aliases %}
         <form method="post" action="/counterparties" class="alias-row" data-counterparty-autosave>
@@ -40,13 +40,13 @@
           <input type="hidden" name="alias_id" value="{{ item.id }}">
           <input type="text" name="alias" value="{{ item.alias }}" aria-label="Alias for {{ party.name }}">
           <span class="inline-save-status" role="status" aria-live="polite"></span>
-        </form>
+        <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
         <form method="post" action="/counterparties" class="alias-remove">
           <input type="hidden" name="counterparty_action" value="remove_alias">
           <input type="hidden" name="counterparty_id" value="{{ party.id }}">
           <input type="hidden" name="alias_id" value="{{ item.id }}">
           <button class="btn small danger" aria-label="Remove alias {{ item.alias }}">×</button>
-        </form>
+        <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
       {% endfor %}</div>{% endif %}
       {% if aliases|length < alias_limit %}<div class="alias-entry">
         <form method="post" action="/counterparties" class="alias-add">
@@ -54,7 +54,7 @@
           <input type="hidden" name="counterparty_id" value="{{ party.id }}">
           <input type="text" name="alias" placeholder="Add alias…" required aria-label="Add alias for {{ party.name }}">
           <button class="alias-submit" aria-label="Save alias">Save alias</button>
-        </form>
+        <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
         <div class="alias-enter-hint" role="status">Press Enter to save alias</div>
       </div>{% else %}<span class="muted small">Alias limit reached</span>{% endif %}</details>{% endif %}
       {% if not party.active %}<span class="small muted">Archived</span>{% endif %}
@@ -63,8 +63,8 @@
       <option value="">No default</option>{% for category in categories %}<option value="{{ category.id }}" {{ 'selected' if party.default_category_id == category.id }}>{{ category_labels[category.id] }}</option>{% endfor %}
     </select></td>
     <td><div class="counterparty-actions">
-      {% if not party.active %}<form method="post" action="/counterparties"><input type="hidden" name="counterparty_id" value="{{ party.id }}"><button class="btn small" name="counterparty_action" value="activate">Activate</button></form>{% endif %}
-      <form method="post" action="/counterparties" data-counterparty-delete><input type="hidden" name="counterparty_id" value="{{ party.id }}"><button class="btn small danger" name="counterparty_action" value="delete">Delete</button></form>
+      {% if not party.active %}<form method="post" action="/counterparties"><input type="hidden" name="counterparty_id" value="{{ party.id }}"><button class="btn small" name="counterparty_action" value="activate">Activate</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>{% endif %}
+      <form method="post" action="/counterparties" data-counterparty-delete><input type="hidden" name="counterparty_id" value="{{ party.id }}"><button class="btn small danger" name="counterparty_action" value="delete">Delete</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
     </div></td></tr>{% endfor %}
   </tbody></table>
   {% else %}<p class="muted">No saved counterparties yet.</p>{% endif %}
@@ -78,17 +78,17 @@
       {% for match in similar_counterparties %}<li><form method="post" action="/counterparties">
         <input type="hidden" name="name" value="{{ entered_name }}"><input type="hidden" name="default_category_id" value="{{ entered_category_id }}">
         <button class="btn" name="counterparty_action" value="existing:{{ match.id }}">Use {{ match.name }}</button>
-      </form></li>{% endfor %}
+      <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form></li>{% endfor %}
     </ul>{% else %}<p class="muted">No close match found.</p>{% endif %}
     {% if not exact_existing %}<form method="post" action="/counterparties">
       <input type="hidden" name="name" value="{{ entered_name }}"><input type="hidden" name="default_category_id" value="{{ entered_category_id }}">
       <button class="btn primary" name="counterparty_action" value="create">Create “{{ entered_name }}” as a new Counterparty</button>
       <a class="btn" href="/counterparties">Cancel</a>
-    </form>{% else %}<a class="btn" href="/counterparties">Cancel</a>{% endif %}
+    <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>{% else %}<a class="btn" href="/counterparties">Cancel</a>{% endif %}
   </section>
 </div>
 {% endif %}
-<script>
+<script nonce="{{ request.state.csp_nonce|default('') }}">
 document.querySelectorAll('[data-counterparty-autosave]').forEach(form=>{const input=form.querySelector('input[type=text]'),status=form.querySelector('.inline-save-status');let prior=input.value,busy=false;const save=()=>{if(!input.value.trim()||input.value===prior||busy)return;form.requestSubmit()};input.addEventListener('blur',save);input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();save()}});form.addEventListener('submit',async event=>{event.preventDefault();if(busy)return;busy=true;status.textContent='Saving…';try{const response=await fetch(form.action,{method:'POST',body:new FormData(form),headers:{'X-Requested-With':'fetch'}});if(!response.ok){const html=await response.text(),doc=new DOMParser().parseFromString(html,'text/html');throw Error(doc.querySelector('.flash.error,.error')?.textContent?.trim()||'Could not save. Correct the value and retry.')}prior=input.value;status.textContent='Saved'}catch(error){status.textContent=error.message}finally{busy=false}})});
 document.querySelectorAll('[data-submit-on-change]').forEach(input=>input.addEventListener('change',()=>input.form.requestSubmit()));
 (()=>{const form=document.querySelector('[data-counterparty-search]'),input=form?.elements.q;let timer;input?.addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(()=>form.requestSubmit(),300)});input?.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();clearTimeout(timer);form.requestSubmit()}})})();

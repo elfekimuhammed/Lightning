@@ -3,12 +3,15 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  {% if request.state.secure_profiles|default(false) %}<meta name="lightning-session" content="{{ request.state.session_token|default('') }}">{% endif %}
   <title>{% block title %}Lightning{% endblock %} · Lightning</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27%3E%3Cpath fill=%27%230B8A5F%27 d=%27M13 2 4 14h7l-1 8 9-12h-7z%27/%3E%3C/svg%3E">
   <link rel="stylesheet" href="/static/fonts/fonts.css">
+  {% if not request.state.secure_profiles|default(false) %}
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=Manrope:wght@400..800&display=swap">
+  {% endif %}
   <link rel="stylesheet" href="/static/style.css?v=61">
 </head>
 <body>
@@ -34,6 +37,7 @@
           </svg></span><span>{{ label }}</span>
         </a>
       {% endfor %}
+      {% if request.state.secure_profiles|default(false) %}<a href="/profiles">Profiles &amp; lock</a>{% endif %}
     </nav>
     <details class="side-accounts" id="sidebar-accounts">
       <summary class="mobile-accounts-summary"><span>Accounts</span><b>{{ sidebar_total|money }} {{ base }}</b></summary>
@@ -66,8 +70,9 @@
     <div id="app-popup-content"></div>
   </div>
 </dialog>
-<script src="/static/app.js?v=25"></script>
-<script src="/static/ai-handoff.js?v=1" defer></script>
-<script>(()=>{const section=document.getElementById('sidebar-accounts'),mobile=window.matchMedia('(max-width: 900px)');if(!section)return;const sync=()=>{section.open=!mobile.matches};sync();mobile.addEventListener('change',sync)})();</script>
+<script nonce="{{ request.state.csp_nonce|default('') }}" src="/static/app.js?v=25"></script>
+<script nonce="{{ request.state.csp_nonce|default('') }}" src="/static/ai-handoff.js?v=1" defer></script>
+<script nonce="{{ request.state.csp_nonce|default('') }}">(()=>{const section=document.getElementById('sidebar-accounts'),mobile=window.matchMedia('(max-width: 900px)');if(!section)return;const sync=()=>{section.open=!mobile.matches};sync();mobile.addEventListener('change',sync)})();</script>
+{% if request.state.secure_profiles|default(false) %}<script nonce="{{ request.state.csp_nonce|default('') }}" src="/static/session.js?v=1"></script>{% endif %}
 </body>
 </html>

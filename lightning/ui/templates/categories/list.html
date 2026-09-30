@@ -12,7 +12,7 @@
     <button class="btn small" name="action" value="archive">Archive selected</button>
     <button class="btn small danger" name="action" value="delete">Delete selected</button>
   </div>
-</form>
+<input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
 <div class="workspace-grid">
   {% for group, items in groups %}
   <section class="card data-panel">
@@ -27,7 +27,7 @@
           <button class="btn small" name="action" value="activate" {{ 'disabled' if c.active }}>Activate</button>
           <button class="btn small" name="action" value="archive" {{ 'disabled' if not c.active }}>Archive</button>
           <button class="btn small danger" name="action" value="delete">Delete</button>
-        </form></details>
+        <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form></details>
       </li>
       {% endfor %}
     </ul>
@@ -35,7 +35,7 @@
   </section>
   {% endfor %}
 </div>
-<script>
+<script nonce="{{ request.state.csp_nonce|default('') }}">
 (() => {
   const checks = [...document.querySelectorAll('.category-select')];
   const all = document.getElementById('select-all-categories');

@@ -51,7 +51,7 @@
 {% if account %}
 {% else %}<a class="btn primary" href="/accounts">Choose an account</a>
 {% endif %}
-<details class="action-menu"><summary>More actions</summary><div>{% if account %}<a href="/accounts/{{ account.id }}/import">Import CSV</a>{% endif %}<a href="/transactions/deleted">Deleted transactions</a>{% if account %}<a href="/accounts/{{ account.id }}/reconcile">Reconcile</a><a data-popup-open href="/accounts/{{ account.id }}/edit">Edit account</a>{% if account.active %}<form method="post" action="/accounts/{{ account.id }}/deactivate"><button class="danger-text">Deactivate</button></form>{% else %}<form method="post" action="/accounts/{{ account.id }}/reactivate"><button>Reactivate</button></form>{% endif %}{% endif %}</div></details>
+<details class="action-menu"><summary>More actions</summary><div>{% if account %}<a href="/accounts/{{ account.id }}/import">Import CSV</a>{% endif %}<a href="/transactions/deleted">Deleted transactions</a>{% if account %}<a href="/accounts/{{ account.id }}/reconcile">Reconcile</a><a data-popup-open href="/accounts/{{ account.id }}/edit">Edit account</a>{% if account.active %}<form method="post" action="/accounts/{{ account.id }}/deactivate"><button class="danger-text">Deactivate</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>{% else %}<form method="post" action="/accounts/{{ account.id }}/reactivate"><button>Reactivate</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>{% endif %}{% endif %}</div></details>
 {% endblock %}
 
 {% block content %}
@@ -65,9 +65,9 @@
 {% endif %}
 
 <datalist id="counterparty-options"><option value="My money"></option>{% for name in counterparty_options %}<option value="{{ name }}"></option>{% endfor %}</datalist>
-<script id="category-catalogue" type="application/json">{{ category_choices|tojson }}</script>
-<form id="f-new" method="post" action="{{ post_url }}" autocomplete="off"></form>
-{% if edit_id is not none %}<form id="f-edit" method="post" action="{{ post_url }}/{{ edit_id }}" autocomplete="off"></form>{% endif %}
+<script nonce="{{ request.state.csp_nonce|default('') }}" id="category-catalogue" type="application/json">{{ category_choices|tojson }}</script>
+<form id="f-new" method="post" action="{{ post_url }}" autocomplete="off"><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
+{% if edit_id is not none %}<form id="f-edit" method="post" action="{{ post_url }}/{{ edit_id }}" autocomplete="off"><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>{% endif %}
 {% set review_form_id = 'f-edit' if edit_id is not none else 'f-new' %}
 {% if entry.get('counterparty_choice') and review_mode != 'counterparty' %}<input form="{{ review_form_id }}" type="hidden" name="counterparty_choice" value="{{ entry.counterparty_choice }}">{% endif %}
 {% if account and account.account_type.value == 'BROKERAGE' %}
@@ -184,8 +184,8 @@
       </div>
     </div>
     <div class="small"><a href="/investments/new?kind=holding&account={{ account.id }}">Add an existing holding</a></div>
-  </form>
-  <script id="trade-instrument-catalogue" type="application/json">{{ trade_choices | tojson }}</script>
+  <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
+  <script nonce="{{ request.state.csp_nonce|default('') }}" id="trade-instrument-catalogue" type="application/json">{{ trade_choices | tojson }}</script>
 </details>
 {% endif %}
 
@@ -213,7 +213,7 @@
   </form>
   {% if search_suggestions %}<div class="muted small">Did you mean {% for name, score in search_suggestions %}<a href="{{ base_url }}?q={{ name|urlencode }}">{{ name }}</a>{% if not loop.last %} · {% endif %}{% endfor %}?</div>{% endif %}
 </div>
-<script>(()=>{const form=document.querySelector('[data-auto-filter]');if(!form)return;const search=form.elements.q,month=form.elements.month;let timer;search?.addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(()=>form.requestSubmit(),350)});month?.addEventListener('change',()=>form.requestSubmit());search?.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();clearTimeout(timer);form.requestSubmit()}})})();</script>
+<script nonce="{{ request.state.csp_nonce|default('') }}">(()=>{const form=document.querySelector('[data-auto-filter]');if(!form)return;const search=form.elements.q,month=form.elements.month;let timer;search?.addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(()=>form.requestSubmit(),350)});month?.addEventListener('change',()=>form.requestSubmit());search?.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();clearTimeout(timer);form.requestSubmit()}})})();</script>
 
 <div class="card ledger" data-counterparties='{{ counterparty_categories|tojson }}' data-accounts='{{ account_options|tojson }}'>
   <div class="selection-tools" id="selection-tools" hidden>
@@ -251,7 +251,7 @@
       </tr>
       <tr class="edit-bar"><td colspan="{{ ncols }}">
         <a href="{{ base_url }}{{ '?' ~ keep_qs if keep_qs }}" class="btn small" data-cancel>Cancel</a>
-        <form method="post" action="/transactions/{{ r.txn_id }}/delete?back={{ base_url|urlencode }}" style="display:inline" data-confirm-delete><button class="btn small danger">Delete</button></form>
+        <form method="post" action="/transactions/{{ r.txn_id }}/delete?back={{ base_url|urlencode }}" style="display:inline" data-confirm-delete><button class="btn small danger">Delete</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
         <a class="btn small" href="/transactions/{{ r.txn_id }}">Details &amp; history</a>
         <span class="muted small code">{{ r.ref }}</span>
       </td></tr>
@@ -269,7 +269,7 @@
         {% if with_balance %}<td class="num muted">{{ r.balance|money }}</td>{% endif %}
         <td><a class="small" href="{{ href }}">{{ 'Edit' if r.type in ('IN','OUT','TRF') else 'Details' }}</a></td>
       </tr>
-      {% if reserve_suggestions.get(r.txn_id) %}<tr class="reserve-match-prompt"><td colspan="{{ ncols }}"><div class="reserve-match-actions"><span>Is this the payment for {% for reserve in reserve_suggestions[r.txn_id] %}{{ reserve.name }}{% if not loop.last %} or {% endif %}{% endfor %}?</span>{% for reserve in reserve_suggestions[r.txn_id] %}<form method="post" action="/transactions/{{ r.txn_id }}/reserve?back={{ request.url.path|urlencode }}"><input type="hidden" name="reserve_id" value="{{ reserve.id }}"><input type="hidden" name="amount" value="{{ reserve.amount }}"><input type="hidden" name="complete" value="1"><button class="btn small primary">Yes, close {{ reserve.name }}</button></form>{% endfor %}<button type="button" class="btn small" onclick="this.closest('tr').remove()">Not this payment</button></div></td></tr>{% endif %}
+      {% if reserve_suggestions.get(r.txn_id) %}<tr class="reserve-match-prompt"><td colspan="{{ ncols }}"><div class="reserve-match-actions"><span>Is this the payment for {% for reserve in reserve_suggestions[r.txn_id] %}{{ reserve.name }}{% if not loop.last %} or {% endif %}{% endfor %}?</span>{% for reserve in reserve_suggestions[r.txn_id] %}<form method="post" action="/transactions/{{ r.txn_id }}/reserve?back={{ request.url.path|urlencode }}"><input type="hidden" name="reserve_id" value="{{ reserve.id }}"><input type="hidden" name="amount" value="{{ reserve.amount }}"><input type="hidden" name="complete" value="1"><button class="btn small primary">Yes, close {{ reserve.name }}</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>{% endfor %}<button type="button" class="btn small" data-remove-row>Not this payment</button></div></td></tr>{% endif %}
       {% set ns.last_date = r.date %}
       {% endif %}
     {% else %}

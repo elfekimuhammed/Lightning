@@ -21,7 +21,7 @@
   <div class="label">Just looking?</div>
   <h2>See Lightning with a sample household</h2>
   <p class="muted">Omar's last three months in Cairo: salary, rent and groceries, a THNDR portfolio, gold at home, money kept for his mother, a budget, an emergency fund and a car loan. Everything is sample data; every screen works with it.</p>
-  <form method="post" action="/demo"><button class="btn">Add the sample household</button></form>
-  <p class="muted small">This fills this empty Lightning. To keep a demo apart from your own money, start Lightning with <code>--demo</code>; it opens a separate database.</p>
+  <form method="post" action="/demo"><button class="btn">Add the sample household</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
+  <p class="muted small">{% if request.state.secure_profiles|default(false) %}This fills this empty profile. Create a separate profile for sample data to keep it apart from your own money.{% else %}This fills this empty Lightning. To keep a demo apart from your own money, start Lightning with <code>--demo</code>; it opens a separate database.{% endif %}</p>
 </section>
 {% endblock %}

@@ -26,12 +26,12 @@
     {% endif %}
     <a class="btn" href="/categories">Cancel</a>
   </div>
-</form>
+<input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
 {% if category and not category.is_system and category.depth >= 2 %}
 <form method="post" action="/categories/{{ category.id }}/delete" style="margin-top:10px"
-      onsubmit="return confirm('Delete this category? If it has transactions or is otherwise in use, it will be archived instead.')">
+      data-confirm="Delete this category? If it has transactions or is otherwise in use, it will be archived instead.">
   <button class="btn danger">Delete</button>
-</form>
+<input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
 {% endif %}
 {% if review_required and similar_categories %}
 <div class="review-backdrop">
@@ -44,7 +44,7 @@
       <input type="hidden" name="default_reimbursable" value="{{ values.default_reimbursable }}">
       <button class="btn primary" name="confirm_similar" value="1">Create a separate category anyway</button>
       <a class="btn" href="/categories">Cancel</a>
-    </form>
+    <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
   </section>
 </div>
 {% endif %}

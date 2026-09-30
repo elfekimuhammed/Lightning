@@ -66,6 +66,6 @@
       <button type="button" class="btn" data-popup-close>Cancel</button>
       {% if not txn_id %}<button type="submit" class="btn primary">Add transaction</button>{% endif %}
     </div>
-  </form>
+  <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
 </section>
 {% endblock %}

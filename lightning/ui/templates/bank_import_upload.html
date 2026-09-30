@@ -21,6 +21,6 @@
   <form method="post" enctype="multipart/form-data" action="/accounts/{{ account.id }}/import">
     <label for="bank-csv">CSV file</label><input id="bank-csv" type="file" name="file" accept=".csv,text/csv" required>
     <div class="actions"><button class="btn primary">Review statement</button><a class="btn" href="/accounts/{{ account.id }}">Cancel</a></div>
-  </form>
+  <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
 </section>
 {% endblock %}

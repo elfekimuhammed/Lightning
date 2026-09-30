@@ -55,7 +55,8 @@ def _show_error(message: str) -> None:
     ctypes.windll.user32.MessageBoxW(None, message, "Lightning", 0x10)
 
 
-def run_window(url: str, origin: str, *, smoke: bool = False, diagnostics: dict | None = None) -> int:
+def run_window(url: str, origin: str, *, smoke: bool = False, diagnostics: dict | None = None,
+               profile_mode: bool = False) -> int:
     """Run one guarded WebView2 window; return nonzero for startup or smoke failures."""
     if __import__("sys").platform != "win32":
         raise RuntimeError("The Lightning desktop window is available only on Windows")
@@ -178,9 +179,11 @@ def run_window(url: str, origin: str, *, smoke: bool = False, diagnostics: dict 
                 while time.monotonic() < end and not smoke_done.is_set():
                     if app_ready.is_set() and state["guard"]:
                         try:
-                            if window.evaluate_js("Boolean(document.querySelector('#probe-ready'))"):
+                            selector = "#profile-ready" if profile_mode else "#probe-ready"
+                            check_path = "/profiles/health" if profile_mode else "/api/check"
+                            if window.evaluate_js(f"Boolean(document.querySelector('{selector}'))"):
                                 window.run_js(
-                                    "(async()=>{try{const r=await fetch('/api/check');"
+                                    "(async()=>{try{const r=await fetch('" + check_path + "');"
                                     "const j=await r.json();document.documentElement.dataset.lightningSmoke="
                                     "(r.ok&&new URL(r.url).origin===location.origin&&j.ok===true?"
                                     "'ok':'fail')}catch(e){"

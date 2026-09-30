@@ -1,0 +1,58 @@
+"""Windows finance window using the shared password/profile runtime."""
+from __future__ import annotations
+
+import argparse
+import json
+import multiprocessing
+import sys
+import tempfile
+from contextlib import ExitStack
+from pathlib import Path
+
+
+def run(argv=None) -> int:
+    multiprocessing.freeze_support()
+    parser = argparse.ArgumentParser(description="Lightning encrypted profiles")
+    parser.add_argument("--profile-root", type=Path, help="alternate profile folder")
+    parser.add_argument("--self-check", action="store_true", help="synthetic encryption/resource tests only")
+    parser.add_argument("--smoke", action="store_true", help="open/check/close isolated profile chooser")
+    parser.add_argument("--report", type=Path, help="non-secret diagnostic JSON")
+    args = parser.parse_args(argv)
+    report = {"ok": False, "mode": "self-check" if args.self_check else "profiles"}
+    try:
+        if args.self_check:
+            from lightning.security.selfcheck import run_checks
+            from lightning.runtime.selfcheck import run_profile_checks
+            checks = run_checks()
+            checks.update(run_profile_checks())
+            report["checks"] = checks
+            if not checks or not all(value is True for value in checks.values()):
+                raise RuntimeError("A self-check failed")
+        else:
+            from lightning.runtime.app import profile_app
+            from lightning.runtime.http import Host
+            from lightning.desktop.window import run_window
+            with ExitStack() as stack:
+                root = args.profile_root
+                if args.smoke:
+                    root = Path(stack.enter_context(tempfile.TemporaryDirectory(prefix="lightning-profile-smoke-"))) / "Profiles"
+                host = Host(lambda credentials: profile_app(credentials, root)).start()
+                try:
+                    result = run_window(host.launch_url, host.origin, smoke=args.smoke,
+                                        diagnostics=report.setdefault("window", {}), profile_mode=True)
+                    if result != 0:
+                        raise RuntimeError("The profile window could not start")
+                finally:
+                    host.stop()
+        report["ok"] = True
+    except Exception as exc:
+        report["error_type"] = type(exc).__name__
+    if args.report:
+        args.report.parent.mkdir(parents=True, exist_ok=True)
+        args.report.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    if sys.stdout is not None:
+        print(json.dumps(report))
+    if not report["ok"] and sys.platform == "win32" and not (args.self_check or args.smoke):
+        import ctypes
+        ctypes.windll.user32.MessageBoxW(None, "Lightning could not start. Check the selected folder and Microsoft Edge WebView2 Runtime. Python is bundled; you do not need to install it. Run with --self-check --report result.json for a diagnostic check.", "Lightning", 0x10)
+    return 0 if report["ok"] else 1

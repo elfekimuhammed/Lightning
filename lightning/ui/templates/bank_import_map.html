@@ -20,9 +20,9 @@
     </fieldset>
     {% for key in optional %}<label>{{ key }} <select name="map_{{ key }}"><option value="">Not in file</option>{% for h in headers %}<option value="{{ h }}" {{ 'selected' if mapping.get(key) == h }}>{{ h }}</option>{% endfor %}</select></label>{% endfor %}
     <div class="actions"><button class="btn primary">Preview rows</button><a class="btn" href="/accounts/{{ account.id }}/import">Cancel</a></div>
-  </form>
+  <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
 </section>
-<script>
+<script nonce="{{ request.state.csp_nonce|default('') }}">
 (() => {
   const form = document.querySelector('.import-amount-model');
   if (!form) return;

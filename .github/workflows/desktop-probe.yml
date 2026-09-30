@@ -45,7 +45,8 @@ jobs:
         run: >-
           python -m pytest -o addopts= -o faulthandler_timeout=60 -vv
           tests/test_desktop_crypto.py tests/test_desktop_window.py
-          tests/test_desktop_server.py tests/test_desktop_packaging.py
+          tests/test_desktop_server.py tests/test_desktop_packaging.py tests/test_profile_packaging.py
+          tests/test_profile_app.py tests/test_profile_session.py
           tests/test_runtime_paths.py tests/test_runtime_instance.py
           tests/test_encrypted_database.py tests/test_database_staging.py
           tests/test_migration_safety.py tests/test_database.py
@@ -53,7 +54,9 @@ jobs:
       - name: Check import contracts
         run: lint-imports
       - name: Build one-folder executable
-        run: pyinstaller --clean --noconfirm packaging/desktop-probe.spec
+        run: |
+          pyinstaller --clean --noconfirm packaging/desktop-probe.spec
+          pyinstaller --clean --noconfirm packaging/desktop-app.spec
       - name: Test frozen encryption and resources
         shell: pwsh
         run: |
@@ -71,17 +74,36 @@ jobs:
           }
           Get-Content reports/window-check.json
           if ($taskProcess.ExitCode -ne 0) { throw 'Window smoke failed' }
+      - name: Test frozen finance app profile encryption
+        shell: pwsh
+        run: |
+          $taskProcess = Start-Process -FilePath dist/Lightning/Lightning.exe -ArgumentList '--self-check --report reports/app-self-check.json' -Wait -PassThru
+          Get-Content reports/app-self-check.json
+          if ($taskProcess.ExitCode -ne 0) { throw 'Frozen finance app self-check failed' }
+      - name: Test real profile chooser in WebView2
+        shell: pwsh
+        run: |
+          $taskProcess = Start-Process -FilePath dist/Lightning/Lightning.exe -ArgumentList '--smoke --report reports/profile-chooser-smoke.json' -PassThru
+          if (-not $taskProcess.WaitForExit(90000)) {
+            Stop-Process -Id $taskProcess.Id -Force
+            throw 'Profile chooser smoke timed out'
+          }
+          Get-Content reports/profile-chooser-smoke.json
+          if ($taskProcess.ExitCode -ne 0) { throw 'Profile chooser smoke failed' }
       - name: Collect notices and package ZIP
         shell: pwsh
         run: |
           python packaging/package_probe.py
+          python packaging/package_app.py
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
-          name: lightning-windows-feasibility-${{ github.sha }}
+          name: lightning-windows-builds-${{ github.sha }}
           path: |
             dist/LightningProbe-windows-x64.zip
             dist/SHA256SUMS
+            dist/Lightning-windows-x64.zip
+            dist/APP_SHA256SUMS
             reports/*.json
           if-no-files-found: warn
           retention-days: 7

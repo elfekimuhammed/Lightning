@@ -88,7 +88,10 @@ templates.env.globals["fig"] = FIGURES
 
 
 def container(request: Request) -> Container:
-    return request.app.state.container
+    current = request.app.state.container
+    if current is None:
+        raise RuntimeError("Financial routes require an unlocked profile")
+    return current
 
 
 def render(request: Request, name: str, status_code: int = 200, **context) -> HTMLResponse:
@@ -108,6 +111,9 @@ def render(request: Request, name: str, status_code: int = 200, **context) -> HT
             "sidebar_total": total,
             "sidebar_owned_total": owned_total,
             "sidebar_groups": groups,
+            "csrf": getattr(request.state, "csrf", ""),
+            "session_epoch": getattr(request.state, "session_epoch", ""),
+            "session_token": getattr(request.state, "session_token", ""),
             **context,
         },
         status_code=status_code,
@@ -120,7 +126,7 @@ def redirect(url: str, msg: str = "") -> RedirectResponse:
     return RedirectResponse(url, status_code=303)
 
 
-def create_app(c: Container) -> FastAPI:
+def create_app(c: Container | None = None) -> FastAPI:
     from .routes import accounts, bank_imports, birdview, budget, categories, counterparties, dashboard, integrity, investments, physical_items, planning, reserves, search, settings, transactions
 
     app = FastAPI(title="Lightning", docs_url=None, redoc_url=None, openapi_url=None)

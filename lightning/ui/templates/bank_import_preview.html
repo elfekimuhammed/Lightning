@@ -23,8 +23,8 @@
 <h3>Possible duplicates</h3>{% set ns=namespace(count=0) %}{% for r in rows if r._reference_duplicate or r._similarity_warning %}{{ review_row(r, true) }}{% set ns.count=ns.count+1 %}{% endfor %}{% if ns.count == 0 %}<p class="muted small">None.</p>{% endif %}
 <details class="import-ready-group"><summary>Ready rows</summary>{% for r in rows if r._reference_duplicate == false and r._similarity_warning == false and r._category_id and not r._suggestions and not r._row_error and not r._errors %}{{ review_row(r) }}{% endfor %}</details>
 {% endif %}
-<div class="actions"><button class="btn primary">Post ready rows</button><a class="btn" href="/accounts/{{ account.id }}">Cancel</a></div></section></form>
-{% endif %}<script>(()=>{
+<div class="actions"><button class="btn primary">Post ready rows</button><a class="btn" href="/accounts/{{ account.id }}">Cancel</a></div></section><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
+{% endif %}<script nonce="{{ request.state.csp_nonce|default('') }}">(()=>{
 // Same name, same answer: copy a decision to the other rows with the same imported name,
 // unless the user already changed that row's field by hand.
 const rows=[...document.querySelectorAll('details.import-review-row[data-import-key]')];
@@ -37,4 +37,4 @@ rows.forEach(row=>fields.forEach(prefix=>{const input=field(row,prefix);if(!inpu
       const tag=other.querySelector('summary .muted');if(tag&&prefix==='category_'&&input.value!=='__uncategorized__')tag.textContent='Filled from a row with the same name';});
     if(filled){let note=row.querySelector('.import-same-name');if(!note){note=document.createElement('small');note.className='import-same-name muted';row.querySelector('.import-review-fields')?.prepend(note)}note.textContent=`Also applied to ${filled} other row${filled===1?'':'s'} with the same name.`}
   });}));
-})();</script><script>(()=>{const target=location.hash?document.getElementById(location.hash.slice(1)):null;if(target?.matches('details.import-review-row')){target.open=true;target.scrollIntoView({block:'center'})}})();</script>{% endblock %}
+})();</script><script nonce="{{ request.state.csp_nonce|default('') }}">(()=>{const target=location.hash?document.getElementById(location.hash.slice(1)):null;if(target?.matches('details.import-review-row')){target.open=true;target.scrollIntoView({block:'center'})}})();</script>{% endblock %}

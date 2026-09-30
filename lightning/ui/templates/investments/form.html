@@ -71,7 +71,7 @@
       <div class="help">Enter the amount after any tax withheld.</div>
     </div>
   </div>
-  <script>const basis=document.getElementById('dividend-basis'),label=document.getElementById('dividend-amount-label');function syncDividendBasis(){label.textContent=basis.value==='per_share'?'Amount per unit ({{ base }})':'Amount ({{ base }})'}basis.addEventListener('change',syncDividendBasis);syncDividendBasis();</script>
+  <script nonce="{{ request.state.csp_nonce|default('') }}">const basis=document.getElementById('dividend-basis'),label=document.getElementById('dividend-amount-label');function syncDividendBasis(){label.textContent=basis.value==='per_share'?'Amount per unit ({{ base }})':'Amount ({{ base }})'}basis.addEventListener('change',syncDividendBasis);syncDividendBasis();</script>
   {% else %}
   <div class="row">
     {{ field('quantity', 'Units', values, error_field, attrs='inputmode="decimal" required') }}
@@ -96,5 +96,5 @@
     <a class="btn" href="/investments">Cancel</a>
     {% if txn %}<a class="btn" href="/transactions/{{ txn.id }}">Details &amp; history</a>{% endif %}
   </div>
-</form>
+<input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
 {% endblock %}

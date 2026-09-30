@@ -5,7 +5,7 @@
 <form method="post" action="/investments/planner" data-popup-return="popup" class="card planner-popup-form">
   <label>Amount in EGP<input autofocus name="amount" type="text" inputmode="decimal" class="money-input" autocomplete="off" value="{{ amount }}" required></label>
   <button class="btn primary">Show suggested split</button>
-</form>
+<input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
 {% if not rows %}<div class="card empty">No current owned investments to plan against.</div>
 {% elif not planner_ready %}<div class="card"><b>Set target allocation first</b><p>Target weights must total 100% before the helper can suggest where new money could go.</p><p>Current target total: {{ target_total|round(2) }}%</p><a class="btn small" href="/investments">Set targets on Investments</a></div>
 {% else %}<section class="card planner-popup-results"><div class="card-heading"><h3>Suggested allocation</h3><b>{{ amount|money }}</b></div>

@@ -64,8 +64,8 @@
     <button class="btn primary">{{ 'Save' if account else 'Add account' }}</button>
     <a class="btn" href="{{ '/accounts/' ~ account.id if account else '/accounts' }}">Cancel</a>
   </div>
-</form>
-<script>
+<input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
+<script nonce="{{ request.state.csp_nonce|default('') }}">
 (() => {
   const type = document.getElementById('account_type');
   const help = document.getElementById('account-type-help');

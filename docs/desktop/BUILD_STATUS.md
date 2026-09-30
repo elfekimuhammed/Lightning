@@ -3,7 +3,69 @@
 The owner approved building the amended plan. Work started from GitHub main
 `991563e` in the isolated `codex/desktop-beta` branch.
 
-## Current milestone: P1/P2 profile and encrypted-storage foundations
+## Current milestone: connected encrypted-profile development preview
+
+The profile chooser, password/recovery screens and real finance UI are now
+connected through a shared loopback runtime. This is a development preview,
+not yet a generally distributable financial beta.
+
+- `python -m lightning --profiles` starts the password-protected browser app on
+  Linux. Windows `Lightning.exe` uses the same runtime in the guarded WebView2
+  window. The existing `python -m lightning` legacy workflow remains unchanged.
+- Start locked, discover Documents/Lightning profiles and their backups, or
+  explicitly enter another folder/database path. No database is selected by age.
+  Names retain the stable name/date/sequence/ID convention. Alternate selection
+  currently uses path fields, not an operating-system file-picker dialog.
+- Create a named encrypted profile with a 12-character-minimum passphrase,
+  display its recovery key, and require an explicit saved-key confirmation.
+  Setup does not write anything before confirmation. Each setup attempt gets a
+  new confirmation token to prevent two tabs acknowledging different keys.
+- Unlock, change password, reset a password using a verified recovery key,
+  lock, and switch profiles. Recovery validates the database read-only before
+  atomically replacing its password slot; it does not replace financial data.
+- All encrypted connections stay on the ASGI owning thread. Complete requests
+  serialize with lock/shutdown transitions. Finance writes carry a per-profile
+  generation token, so a stale tab cannot save into a different profile.
+- Idle lock after 15 minutes; trusted foreground keyboard/pointer activity is
+  throttled, while background health polling never extends the session. Other
+  open tabs clear on a lock broadcast or their next health check (15 seconds).
+- Exact loopback Host and Origin, single-use launch exchange, per-instance
+  HttpOnly/SameSite cookies, no-store responses, nonce-based script CSP, no
+  inline event attributes, and a streamed 512 KiB request cap below the upload
+  spool threshold. Fonts stay local in profile mode. HTTP access logs are off.
+- A separate `Lightning.exe` / `Lightning-windows-x64.zip` build accompanies,
+  but does not replace, the engineering probe. Its self-check exercises actual
+  synthetic profile creation, finance route loading, backup, reopen and recovery.
+  Window smoke uses a disposable root, never the user's Documents.
+
+No personal database has been opened, moved, converted or replaced. Selecting
+legacy plaintext or a backup as a live database fails with an explanation.
+Legacy import and backup-restore UI/promotion remain pending. Do not work around
+this by renaming a backup as a live profile. The current preview also does not
+automatically refresh network market prices or perform the legacy launcher's
+startup reevaluation catch-up. It uses saved data until a future explicit flow.
+
+Two small-model workers produced the profile screens, packaging and browser
+session helper, plus the first mechanical template changes. The architect
+implemented/reviewed the lifecycle, security, finance integration and acceptance
+checks. Final validation evidence is recorded below after the build completes.
+
+### Connected-preview local validation
+
+- Linux: **404 passed, 1 Windows-only skip**; all four import contracts and
+  `git diff --check` passed.
+- Chromium and Firefox: setup and saved-key confirmation, full-page account
+  creation, popup account creation, cross-tab lock, password reopen, persistent
+  records, mobile chooser/backups and CSP checks passed on disposable profiles.
+- These checks caught and fixed Chromium's Origin:null behavior with a global
+  no-referrer policy, a Firefox canceled-health-fetch navigation race, and long
+  backup labels overflowing a narrow screen. Ordinary pages now use same-origin
+  referrers; the launch-token exchange alone uses no-referrer.
+- Local screenshots and scratch profiles are synthetic, outside Documents.
+  Windows build and ordinary-PC checks are tracked separately; local browser
+  results do not claim Windows acceptance.
+
+## P1/P2 foundation milestone (historical)
 
 The owner confirmed the probe launches on their Windows laptop. A different
 Windows PC failed at window startup; its cause remains unresolved (it is not a
@@ -35,8 +97,8 @@ Implemented in this stage:
 - Readable dated backup names, per-database retention and Settings listing.
   No real database has been moved, converted or imported during this work.
 
-Profile selection, password/recovery screens and the full finance window are **not
-yet connected**. Documents may sync through OneDrive; local process locks do not
+At this earlier milestone, profile selection, password/recovery screens and the
+full finance window were not yet connected. Documents may sync through OneDrive; local process locks do not
 make live multi-computer database synchronization safe. The future chooser must
 explain this and allow a non-synced folder.
 
@@ -48,7 +110,7 @@ SQLCipher, authenticated password slots, recovery keys, encrypted backups,
 bundled resources, a protected loopback server, and WebView2 navigation.
 
 The existing Linux browser app is still available through `python -m lightning`.
-The new password primitives are not yet wired into that app's database lifecycle.
+The legacy mode is unchanged; use the new `--profiles` mode for password unlock.
 Do not mistake a successful probe for a completed encrypted finance beta.
 
 Run source self-checks:
@@ -69,11 +131,11 @@ the other PC's launch failure remain acceptance work.
 
 ## Remaining implementation
 
-Remaining P3–P8 and P1/P2 integration in `REVIEW_AND_BUILD_PLAN.md`: full-app
-HTTP/CSP hardening; profile picker and password/recovery screens; shared session/lifecycle;
-safe candidate promotion/live restore;
-the actual finance window; beta ZIP/update validation; Windows and Linux
-acceptance. Existing financial data must remain untouched until explicit import.
+Remaining work in `REVIEW_AND_BUILD_PLAN.md`: explicit legacy import and safe
+candidate promotion/backup restore, broader finance/CSP acceptance, ordinary
+Windows machine compatibility (including the earlier failing PC), ZIP/update
+acceptance, native file pickers, and final Windows/Linux beta checks. Existing
+financial data must remain untouched until explicit import.
 
 Two small-model workers implemented the bounded window adapter and crypto checks.
 The architect reviewed their changes and integrated the loopback host and build.

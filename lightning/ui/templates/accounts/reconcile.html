@@ -35,7 +35,7 @@
         <input type="hidden" name="line_id" value="{{ line.line_id }}">
         {% if line.cleared %}<button class="btn small" name="action" value="unclear">Mark uncleared</button>
         {% else %}<button class="btn small" name="action" value="clear">Clear</button>{% endif %}
-      </form>{% endif %}</td>
+      <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>{% endif %}</td>
     </tr>
     {% else %}<tr><td colspan="6" class="empty">No cash transactions on or before this date.</td></tr>{% endfor %}
     </tbody>

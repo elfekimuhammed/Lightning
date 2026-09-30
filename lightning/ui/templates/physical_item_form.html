@@ -15,5 +15,5 @@
   <div class="field {{ 'has-error' if error_field == 'reference_asset_id' }}"><label for="reference_asset_id">Gold price reference</label><select id="reference_asset_id" name="reference_asset_id" required data-karat-reference><option value="">Choose matching-karat price per gram…</option>{% for a in references %}<option value="{{ a.id }}" data-karat="{{ (a.purity * 24)|int }}" {{ 'selected' if values.reference_asset_id == a.id|string }}>{{ a.name }} · {{ a.unit }} · {{ a.currency }}</option>{% endfor %}</select><small class="muted">Only references for the selected karat are shown. The quoted price already reflects purity.</small></div>
   <div class="field"><label for="details">Notes</label><textarea id="details" name="details" rows="3" placeholder="Stone, workmanship, or identifying details">{{ values.details }}</textarea></div>
   {% if item %}<span class="inline-save-status" role="status" aria-live="polite"></span><div class="actions"><button type="button" class="btn" data-popup-close>Close</button></div>{% else %}<div class="actions"><button class="btn primary">Create item</button><a class="btn" href="/accounts/{{ account.id }}">Cancel</a></div>{% endif %}
-</form>
+<input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
 {% endblock %}

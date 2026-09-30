@@ -1,0 +1,205 @@
+"""Profile screens and serialized access to the existing finance application."""
+from __future__ import annotations
+
+import asyncio
+import time
+from contextlib import suppress
+from contextlib import asynccontextmanager
+from pathlib import Path
+
+from starlette.requests import Request
+from starlette.responses import JSONResponse, PlainTextResponse, RedirectResponse, Response
+
+from lightning.database.backup import list_backups
+from lightning.ui.web import create_app, templates
+
+from .http import Credentials, Guard, body_receiver, equal
+from .paths import choose_data_root, discover_profiles, resolve_profile
+from .session import ProfileError, ProfileSession
+
+
+class SessionGate:
+    """Serialize entire requests, including awaits, with lifecycle transitions.
+
+    Every write also carries the token rendered with its profile. An old tab can
+    never write into a new profile, even if it submits after that profile unlocks.
+    """
+    def __init__(self, app, session: ProfileSession):
+        self.app, self.session = app, session
+        self.mutex = asyncio.Lock()
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            return await self.app(scope, receive, send)
+        generation = self.session.token
+        async with self.mutex:
+            request = Request(scope)
+            profile_route = request.url.path == "/profiles" or request.url.path.startswith("/profiles/")
+            public = profile_route or request.url.path.startswith("/static/")
+            if not public and self.session.container is None:
+                return await RedirectResponse("/profiles", 303)(scope, receive, send)
+            if scope["method"] not in ("GET", "HEAD"):
+                if generation != self.session.token:
+                    return await PlainTextResponse("Profile changed. Reload before submitting.", 409)(scope, receive, send)
+                body = scope["state"]["request_body"]
+                parsed = Request(scope, body_receiver(body))
+                try:
+                    async with parsed.form(max_files=1, max_fields=2000, max_part_size=512*1024) as form:
+                        token = form.get("csrf" if profile_route else "__session", "")
+                        expected = self.session.csrf if profile_route else self.session.token
+                        valid = isinstance(token, str) and equal(token, expected)
+                except Exception:
+                    valid = False
+                if not valid:
+                    return await PlainTextResponse("This form expired. Reload the page and try again.", 403)(scope, receive, send)
+            scope.setdefault("state", {}).update(secure_profiles=True, csrf=self.session.csrf,
+                                                  session_token=self.session.token)
+            self.app.state.container = self.session.container
+            if self.session.container is not None and request.url.path != "/profiles/health" and not request.url.path.startswith("/static/"):
+                self.session.last_activity = time.monotonic()
+            await self.app(scope, receive, send)
+
+
+def profile_app(credentials: Credentials, root: Path | str | None = None):
+    session = ProfileSession(root)
+    app = create_app(None)
+    app.state.profile_session = session
+    gate = SessionGate(app, session)
+
+    async def expire_sessions():
+        while True:
+            await asyncio.sleep(1)
+            async with gate.mutex:
+                if session.pending and time.monotonic() >= session.pending.expires:
+                    session.pending = None
+                if session.container and time.monotonic() - session.last_activity >= session.idle_seconds:
+                    session.close()
+                    app.state.container = None
+
+    @asynccontextmanager
+    async def lifespan(_app):
+        expiry = asyncio.create_task(expire_sessions())
+        try:
+            yield
+        finally:
+            expiry.cancel()
+            with suppress(asyncio.CancelledError):
+                await expiry
+            session.close()
+            app.state.container = None
+
+    app.router.lifespan_context = lifespan
+
+    @app.get("/profiles/health")
+    async def health():
+        return JSONResponse({"ok": True, "locked": session.container is None, "session": session.token})
+
+    @app.post("/__activity")
+    async def activity():
+        # Admitted under the current profile token; JS sends only in response to
+        # trusted keyboard/pointer input, never from the background health poll.
+        return Response(status_code=204)
+
+    def page(request: Request, mode: str, *, error="", status=200, **context):
+        values = dict(mode=mode, csrf=session.csrf, error=error, root=str(session.root),
+                      profiles=[], backups=[], selected="", name="", recovery="",
+                      active_name=session.name, notice="")
+        values.update(context)
+        return templates.TemplateResponse(request, "profiles.html", values, status_code=status)
+
+    async def action(request, mode, operation, **context):
+        try:
+            result = operation()
+            app.state.container = session.container
+            return result or RedirectResponse("/" if session.container else "/profiles", 303)
+        except ProfileError as exc:
+            return page(request, mode, error=str(exc), status=400, **context)
+        except Exception:
+            # Never render native exception strings (paths, SQL, secrets).
+            return page(request, mode, error="The operation could not finish. Your existing database was not replaced. Check the folder permissions, available space and app version.", status=400, **context)
+
+    @app.get("/profiles")
+    async def profiles(request: Request):
+        if session.container:
+            return page(request, "manage")
+        try:
+            root_value = request.query_params.get("root")
+            if root_value:
+                session.root = choose_data_root(root_value)
+            found = discover_profiles(session.root)
+            backups = []
+            for info in found:
+                paths = resolve_profile(info.path)
+                backups.extend({"path": str(item.path), "label": item.path.name}
+                               for item in list_backups(paths.backups_dir, paths.db_path))
+            return page(request, "choose", profiles=found, backups=backups)
+        except (OSError, ValueError):
+            return page(request, "choose", error="That folder could not be read. Choose another location.", status=400)
+
+    @app.get("/profiles/new")
+    async def new(request: Request):
+        if session.container:
+            return RedirectResponse("/profiles", 303)
+        return page(request, "setup")
+
+    @app.post("/profiles/new")
+    async def prepare(request: Request):
+        form = await request.form()
+        def operation():
+            pending = session.prepare(str(form.get("name", "")), str(form.get("password", "")), str(form.get("confirm", "")))
+            return page(request, "recovery-key", recovery=pending.recovery, name=pending.paths.profile.name,
+                        notice="Will create: " + str(pending.paths.db_path))
+        return await action(request, "setup", operation)
+
+    @app.post("/profiles/confirm")
+    async def confirm(request: Request):
+        form = await request.form()
+        return await action(request, "setup", lambda: session.confirm(form.get("saved") == "yes"))
+
+    @app.post("/profiles/cancel")
+    async def cancel(request: Request):
+        session.pending = None
+        return RedirectResponse("/profiles", 303)
+
+    @app.get("/profiles/unlock")
+    async def unlock_page(request: Request):
+        if session.container:
+            return RedirectResponse("/profiles", 303)
+        return page(request, "unlock", selected=request.query_params.get("db", ""))
+
+    @app.post("/profiles/unlock")
+    async def unlock(request: Request):
+        form = await request.form()
+        selected = str(form.get("db", ""))
+        return await action(request, "unlock", lambda: session.unlock(selected, str(form.get("password", ""))), selected=selected)
+
+    @app.get("/profiles/recover")
+    async def recover_page(request: Request):
+        if session.container:
+            return RedirectResponse("/profiles", 303)
+        return page(request, "recover", selected=request.query_params.get("db", ""))
+
+    @app.post("/profiles/recover")
+    async def recover(request: Request):
+        form = await request.form()
+        selected = str(form.get("db", ""))
+        def operation():
+            session.recover(selected, str(form.get("recovery", "")), str(form.get("password", "")), str(form.get("confirm", "")))
+            return page(request, "unlock", selected=selected, notice="Password reset. Unlock with your new password.")
+        return await action(request, "recover", operation, selected=selected)
+
+    @app.post("/profiles/password")
+    async def password(request: Request):
+        form = await request.form()
+        def operation():
+            session.change_password(str(form.get("current_password", "")), str(form.get("password", "")), str(form.get("confirm", "")))
+            return page(request, "manage", notice="Password changed. Your recovery key is unchanged.")
+        return await action(request, "manage", operation)
+
+    @app.post("/profiles/lock")
+    async def lock(request: Request):
+        return await action(request, "manage", session.close)
+
+    secured = Guard(gate, credentials)
+    secured.session = session  # Lifecycle tests inspect synthetic state only.
+    return secured
