@@ -98,7 +98,7 @@ Every figure a screen shows is listed here once. **From** says which layer its i
 | **Net flow** | What was left of money in after money out. | Money in − Money out | `reporting.service.CashFlow.net` |
 | **Savings rate** | The share of money in that you kept. | Net flow ÷ Money in | `reporting.service.CashFlow.savings_rate` |
 | **Change in what you own** | How much what you own grew or shrank in the period. | What you own at the end − What you own the day before the start | `planning.position.PositionService.change_in_what_you_own` |
-| **Investing rate** | The share of money in that you moved into investments. | Money added ÷ Money in | `investments.report.investing_rate` |
+| **Investing rate** | The share of money in that you moved into investments, out of what you saved, so it is never more than the savings rate. | Money added ÷ Money in | `investments.report.investing_rate` |
 | **Average monthly income** | Income in your chosen income categories, averaged over the last 3 or 6 completed months that had any (Settings › Budget). The budget, reserves and the cash forecast all use it. | Read directly from the ledger | `budgeting.service.BudgetService.income_average` |
 | **Spent** | Money out in the category this month. | Read directly from the ledger | `budgeting.domain.BudgetLine.actual` |
 | **Cost** | What you paid for the units you still hold. | Read directly from the ledger | `investments.report.build_investment_report` |

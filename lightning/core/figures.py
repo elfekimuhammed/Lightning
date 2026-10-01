@@ -85,7 +85,7 @@ _TABLE = [
      "What you own at the end − What you own the day before the start"),
     ("change_in_net_worth", "Change in net worth", "How much net worth grew or shrank in the period.",
      "Net worth at the end − Net worth the day before the start"),
-    ("investing_rate", "Investing rate", "The share of money in that you moved into investments.",
+    ("investing_rate", "Investing rate", "The share of money in that you moved into investments, out of what you saved, so it is never more than the savings rate.",
      "Money added ÷ Money in"),
     ("average_monthly_income", "Average monthly income",
      "Income in your chosen income categories, averaged over the last 3 or 6 completed months that had any "

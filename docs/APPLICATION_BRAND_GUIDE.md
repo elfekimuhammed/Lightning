@@ -221,6 +221,8 @@ There are three kinds. Choosing from your own data is always type-and-pick, neve
 
 **Percent fields** have our own up and down chevrons inside the field, left of the "%". Each click moves one whole percent, and a short pause saves like Enter.
 
+**Report pages carry no add buttons**: records are made from their account; the one call to action is the Investment planner, in the Meadow green gradient (#14A874 → #0B8A5F).
+
 **Numbers on reporting pages** are whole units (12,500, not 12,500.00); amounts are stored with their decimals, and registers, entry fields and the money you type keep cents.
 
 **Settings tables** are tables of rows: 40px rows on hairlines with a soft hover, no white boxes, and the name taking the room. Actions are small icon buttons. Cards stacked on a page always keep one block gap (20px) between them.

@@ -305,7 +305,7 @@ def _period_stats(c, period, first, as_of, position, cash_flow, change, change_r
         "spark": visuals.savings_rate_spark(c, as_of), "spark_tone": "in",
         "href": f"/transactions?date_from={fmt_date(first)}&date_to={fmt_date(as_of)}",
     })
-    invest = investing_rate(money_added, cash_flow.inflows)
+    invest = investing_rate(money_added, cash_flow.inflows, cash_flow.net)
     stats.append({
         "key": "investing", "surface": "mint", "label": label("investing_rate"), "value": invest, "kind": "rate",
         "badge": {"tone": sign(money_added), "text": period_name},

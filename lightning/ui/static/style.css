@@ -2454,3 +2454,41 @@ a.chart-sankey-label:hover b { color:var(--azure); }
 .main .heatmap tr.is-net th { color:var(--ink); }
 .main .heatmap tr.is-net td { font-weight:700; }
 .main .heat-key [class^="flow-"] { display:inline-block; width:12px; height:12px; border-radius:3px; margin:0 4px 0 10px; vertical-align:middle; }
+
+/* Investment planner: the Meadow green gradient (no blue), the one call to action on report pages. */
+.btn.btn-planner:not(#_) { background:linear-gradient(135deg,#14A874 0%,#0C9B63 45%,#0B8A5F 100%)!important; box-shadow:0 10px 22px -14px rgba(11,138,95,.85); }
+/* Net cash flow heatmap: only the net row carries colour (green kept, rose short); in and out are neutral. */
+.main .heatmap.is-flow tr:not(.is-net) td:is(.flow-in-1,.flow-out-1) { background:#F1F5F4; color:var(--ink-2); }
+.main .heatmap.is-flow tr:not(.is-net) td:is(.flow-in-2,.flow-out-2) { background:#E3EBE8; color:var(--ink-2); }
+.main .heatmap.is-flow tr:not(.is-net) td:is(.flow-in-3,.flow-out-3) { background:#CFDCD7; color:var(--ink); }
+.main .heatmap.is-flow tr:not(.is-net) td:is(.flow-in-4,.flow-out-4) { background:#A9BDB6; color:var(--ink); }
+.main .settings-links { margin:10px 0 0; font:600 var(--fs-2)/1.6 var(--body); }
+/* Saved and invested: one light bar of money in. Invested (azure) sits inside saved, then kept (green),
+   then spent (soft rose); the two rates above it, investing never above saving. */
+.main .inv-top { grid-template-columns:minmax(0,1.4fr) repeat(2,minmax(0,1fr)); }
+.main .inv-saved-figures { display:flex; gap:22px; margin-top:12px; }
+.main .inv-saved-figures > span { display:grid; gap:2px; }
+.main .inv-saved-figures b { font:800 var(--num-card)/1 var(--display); color:var(--meadow-dark); font-variant-numeric:tabular-nums; }
+.main .inv-saved-figures .is-invest b { color:var(--azure); }
+.main .inv-saved-figures b small { margin-left:2px; font:700 var(--fs-2)/1 var(--body); }
+.main .inv-saved-figures em { font:600 var(--fs-meta)/1.3 var(--body); font-style:normal; color:var(--ink-2); }
+.main .saved-bar { display:flex; height:14px; margin:12px 0 8px; border-radius:7px; overflow:hidden; background:var(--track); }
+.main .saved-bar i { display:block; height:100%; }
+.main .saved-bar i + i { box-shadow:inset 2px 0 0 #fff; }
+.main .saved-bar .invested { background:var(--azure); } .main .saved-bar .kept { background:var(--meadow-dark); } .main .saved-bar .spent { background:#F2C3D3; }
+.main .saved-key { display:flex; flex-wrap:wrap; gap:4px 14px; font:600 var(--fs-meta)/1.3 var(--body); color:var(--ink-2); }
+.main .saved-key span { display:inline-flex; align-items:center; gap:5px; font-variant-numeric:tabular-nums; }
+.main i.k.invested { background:var(--azure); } .main i.k.kept { background:var(--meadow-dark); } .main i.k.spent { background:#F2C3D3; }
+.main .inv-saved-note { margin-top:6px; font-size:var(--fs-meta); }
+/* Holdings: no hairlines between rows; a total row first; class rows as soft bands. */
+.main .holdings-grouped :is(th,td) { border-bottom:0!important; }
+.main .holdings-grouped thead th { border-bottom:1px solid var(--line)!important; }
+.main .holding-total :is(th,td) { padding-top:12px; padding-bottom:12px; background:var(--tint-growth)!important; font-weight:800; color:var(--ink); }
+.main .holding-total th { font:800 var(--fs-body)/1.3 var(--display)!important; text-align:left; border-radius:10px 0 0 10px; }
+.main .holding-total td:last-child { border-radius:0 10px 10px 0; }
+.main .holding-total th small { margin-left:8px; font:600 var(--fs-meta)/1 var(--body); color:var(--muted); }
+.main .holding-total td.num small { display:block; font-size:var(--fs-meta); }
+.main .holding-class :is(th,td) { background:rgba(10,36,66,.035)!important; padding-top:10px!important; padding-bottom:10px!important; }
+.main .holding-class th { border-radius:10px 0 0 10px; } .main .holding-class td:last-child { border-radius:0 10px 10px 0; }
+.main .holdings-grouped { border-collapse:separate; border-spacing:0 2px; }
+.main .holding-group tr[data-search]:hover td { background:var(--hover); }

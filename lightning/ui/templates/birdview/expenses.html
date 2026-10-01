@@ -52,7 +52,7 @@
     <div class="table-wrap"><table class="heatmap is-compact is-flow"><thead><tr><th></th>{% for k in a.heat_keys %}<th class="num{{ ' is-now' if loop.index0 >= a.heat_now }}">{{ k[5:] if k|length == 7 else k }}</th>{% endfor %}</tr></thead><tbody>
     {% for row in a.flow_heat %}<tr class="{{ 'is-net' if row.net }}"><th>{{ row.name }}</th>{% for cell in row.cells %}<td class="flow-{{ cell.tone }}-{{ cell.step }}{{ ' is-now' if loop.index0 >= a.heat_now }}" title="{{ a.heat_keys[loop.index0] }} · {{ cell.value|money(row.net) }}">{{ cell.value|compact if cell.value else '·' }}</td>{% endfor %}</tr>{% endfor %}
     </tbody></table></div>
-    <p class="muted small heat-key"><span class="flow-in-3"></span>money in, or kept <span class="flow-out-3"></span>money out, or short · darker is more</p></section>{% else %}<section><div class="overview-block-head"><div><h3>Net cash flow</h3><p>For all your money · clear the category filter to see it</p></div></div></section>{% endif %}
+    <p class="muted small heat-key"><span class="flow-in-3"></span>net flow kept <span class="flow-out-3"></span>net flow short · money in and out in grey, darker is more</p></section>{% else %}<section><div class="overview-block-head"><div><h3>Net cash flow</h3><p>For all your money · clear the category filter to see it</p></div></div></section>{% endif %}
 </div></section>
 
 {% endif %}

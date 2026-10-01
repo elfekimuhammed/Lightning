@@ -8,6 +8,18 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### Investments and report pages, lighter · 2026-10-01
+- Saved and invested is one light bar of money in: invested inside saved, then kept, then spent. Investing rate
+  now counts only what came out of this period's savings, so it is never more than the savings rate; money
+  moved in from earlier savings is noted.
+- Report tabs carry no add buttons: Add holding, Target allocation and More actions are gone from Investments
+  (holdings are recorded from their account; prices, the reevaluation ledger, new investments and targets are
+  linked from Settings › Valuations). The Investment planner stays, now in the Meadow green gradient.
+- Holdings open with an All holdings total row; class rows are soft bands and rows have no hairlines.
+- The Reconcile portfolio value card is gone from the middle of the page.
+- In the net cash flow heatmap only Net flow is coloured (green kept, rose short); money in and out are grey.
+- Unit prices round to the unit too, except prices under 10.
+
 ### Expense analysis: five then Others · 2026-10-01
 - Every item chart shows the five biggest categories, then everything else as one "Others".
 - Small multiples sit beside the treemap. Month by month is two heatmaps side by side: money out by category,

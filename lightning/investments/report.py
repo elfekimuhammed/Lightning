@@ -33,9 +33,16 @@ def period_growth(result: Decimal | None, opening_value: Decimal | None, money_a
     return result / base * 100 if base > ZERO else None
 
 
-def investing_rate(money_added: Decimal, money_in: Decimal) -> Decimal | None:
-    """Investing rate = Money added ÷ Money in, as a percentage; None without money in."""
-    return money_added / money_in * 100 if money_in > ZERO else None
+def investing_rate(money_added: Decimal, money_in: Decimal, net_flow: Decimal | None = None) -> Decimal | None:
+    """Investing rate = Money added ÷ Money in, as a percentage; None without money in.
+
+    What you invest is part of what you saved (money in − money out − saved = 0), so with ``net_flow``
+    the amount counted is at most this period's net flow: money taken from earlier savings is not
+    this period's investing, and the investing rate never exceeds the savings rate."""
+    if money_in <= ZERO:
+        return None
+    invested = money_added if net_flow is None else min(money_added, max(net_flow, ZERO))
+    return max(invested, ZERO) / money_in * 100
 
 
 def build_investment_report(db, accounts, assets, reporting, start: str, end: str):
