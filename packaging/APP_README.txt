@@ -1,4 +1,4 @@
-Lightning for Windows — development preview
+Lightning for Windows — v@VERSION@ development preview
 
 This unsigned preview includes private profiles protected by a password and a
 recovery key, plus the Lightning finance app. Please test it with dummy data
@@ -14,8 +14,8 @@ No Python installation is needed.
 
 Getting started
 ---------------
-1. Extract the entire ZIP to a folder you can write to.
-2. Double-click Lightning.exe and create a profile.
+1. Extract the downloaded ZIP once into a new folder you can write to.
+2. Double-click Lightning.exe in that folder and create a profile.
 3. Choose a passphrase of at least 12 characters. Save the displayed recovery
    key offline in a safe place. The recovery key can reset a forgotten password.
 4. Create or open financial data in the profile.
@@ -26,10 +26,11 @@ same time, including through a synced Documents folder.
 
 Updating and backups
 --------------------
-To update Lightning, close it and replace the entire extracted application folder
-with the contents of the new ZIP. This replaces application files only; it does
-not replace profile data in Documents/Lightning. Keep a separate copy of the
-profile backup folder before making changes to valuable data.
+To update Lightning, close it, extract the new ZIP to a fresh folder, and open
+the new Lightning.exe. Keep the old app folder until the new build opens. You
+can then remove the old app folder; profile data in Documents/Lightning stays
+separate. Keep a separate copy of the profile backup folder before making
+changes to valuable data.
 
 Current limits
 --------------

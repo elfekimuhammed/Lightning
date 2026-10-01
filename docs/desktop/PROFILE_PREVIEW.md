@@ -24,8 +24,8 @@ The profile launcher does not auto-import the legacy database.
 
 ## Windows
 
-Extract the entire `Lightning-windows-x64.zip`; run `Lightning/Lightning.exe`.
-Do not run `LightningProbe.exe` expecting the finance app. Python is bundled;
+Extract the versioned Lightning ZIP once into a new folder; run `Lightning.exe`
+directly from that folder. The download contains only the finance app. Python is bundled;
 Microsoft Edge WebView2 Runtime is a separate Windows prerequisite.
 
 Create a profile, save its recovery key separately, then confirm. Use a strong

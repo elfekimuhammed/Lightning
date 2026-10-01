@@ -8,6 +8,13 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+## [0.4.0b1] — 2026-10-01 — First Windows desktop beta
+
+### Desktop beta v0.4.0-beta.1 packaging · 2026-10-01
+- Show the version in the Windows title and Settings. Align package metadata with it.
+- Download one readable GitHub ZIP containing only the Lightning app, not a ZIP
+  inside another ZIP with engineering-probe reports. Use one extraction.
+
 ### Key notes: the number first · 2026-10-01
 - Every key note and the small cards on Expense analysis now read like a stat card:
   - a short label with a small tone icon;

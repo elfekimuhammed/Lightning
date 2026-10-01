@@ -6,6 +6,8 @@ import importlib.metadata
 import shutil
 from pathlib import Path
 
+from lightning import DISPLAY_VERSION
+
 ROOT = Path(__file__).resolve().parent.parent
 FORBIDDEN_DIRS = {"data", "profiles", "backups", "logs", ".venv", ".git"}
 DATABASE_SUFFIXES = {
@@ -29,7 +31,8 @@ def package() -> Path:
     if not (bundle / "Lightning.exe").is_file():
         raise RuntimeError("Missing Windows Lightning executable")
 
-    shutil.copyfile(ROOT / "packaging" / "APP_README.txt", bundle / "README.txt")
+    readme = (ROOT / "packaging" / "APP_README.txt").read_text(encoding="utf-8")
+    (bundle / "README.txt").write_text(readme.replace("@VERSION@", DISPLAY_VERSION), encoding="utf-8")
     notices = bundle / "licenses"
     notices.mkdir(exist_ok=True)
     inventory = []

@@ -6,6 +6,8 @@ import importlib.metadata
 import threading
 from urllib.parse import urlsplit
 
+from lightning import DISPLAY_VERSION
+
 _PYWEBVIEW_VERSION = "6.2.1"
 _SMOKE_TIMEOUT = 20.0
 _STARTUP_TIMEOUT = 30.0
@@ -157,7 +159,7 @@ def run_window(url: str, origin: str, *, smoke: bool = False, diagnostics: dict 
                 fail("Could not attach the WebView2 initialization guard")
 
         window = webview.create_window(
-            "Lightning", "about:blank", width=1200, height=800, js_api=None
+            f"Lightning v{DISPLAY_VERSION}", "about:blank", width=1200, height=800, js_api=None
         )
 
         def require_edgechromium(renderer: str) -> bool | None:

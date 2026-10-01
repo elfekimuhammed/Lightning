@@ -14,6 +14,7 @@ from fastapi.templating import Jinja2Templates
 from markupsafe import Markup, escape
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
+from lightning import DISPLAY_VERSION
 from lightning.bootstrap import Container
 from lightning.core.dates import fmt_date, month_of, today
 from lightning.core.errors import NotFoundError
@@ -85,6 +86,7 @@ def _back_url(request) -> str:
 
 templates.env.globals["back_url"] = _back_url
 templates.env.globals["fig"] = FIGURES
+templates.env.globals["app_version"] = DISPLAY_VERSION
 
 
 def container(request: Request) -> Container:

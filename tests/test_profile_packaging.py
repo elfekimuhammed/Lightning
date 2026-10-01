@@ -1,9 +1,23 @@
 from __future__ import annotations
 
 import importlib.util
+import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+
+
+def test_desktop_version_and_one_extract_artifact_agree():
+    from lightning import DISPLAY_VERSION, __version__
+
+    metadata = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    assert metadata["project"]["version"] == __version__
+    assert DISPLAY_VERSION == __version__.replace("b", "-beta.")
+    workflow = (ROOT / ".github" / "workflows" / "desktop-probe.yml").read_text(encoding="utf-8")
+    assert "path: dist/Lightning/" in workflow
+    assert "name: ${{ env.LIGHTNING_ARTIFACT_NAME }}" in workflow
+    assert "dist/Lightning-windows-x64.zip" not in workflow
+    assert "dist/LightningProbe-windows-x64.zip" not in workflow
 
 
 def test_profile_acceptance_checks_only_use_temporary_data():
@@ -76,3 +90,21 @@ def test_package_stops_before_zipping_any_user_database(tmp_path, monkeypatch):
     else:
         raise AssertionError("packager created a ZIP containing profile data")
     assert not (tmp_path / "dist" / "Lightning-windows-x64.zip").exists()
+
+
+def test_packaged_readme_displays_current_version(tmp_path, monkeypatch):
+    from lightning import DISPLAY_VERSION
+
+    package_app = _packager()
+    monkeypatch.setattr(package_app, "ROOT", tmp_path)
+    monkeypatch.setattr(package_app.importlib.metadata, "distributions", lambda: ())
+    bundle = tmp_path / "dist" / "Lightning"
+    bundle.mkdir(parents=True)
+    (bundle / "Lightning.exe").write_bytes(b"test executable")
+    packaging_dir = tmp_path / "packaging"
+    packaging_dir.mkdir()
+    (packaging_dir / "APP_README.txt").write_text("Lightning v@VERSION@\n", encoding="utf-8")
+
+    package_app.package()
+
+    assert (bundle / "README.txt").read_text(encoding="utf-8") == f"Lightning v{DISPLAY_VERSION}\n"

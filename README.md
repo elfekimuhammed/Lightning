@@ -10,13 +10,13 @@ desktop build instructions (`packaging/` and `.github/workflows/desktop-probe.ym
 and the [desktop build status](docs/desktop/BUILD_STATUS.md). It does not contain
 anyone's financial databases, passwords, recovery keys or installed app.
 
-The current **Windows desktop preview** is a separate `Lightning-windows-x64.zip`
-produced by the [Windows desktop feasibility workflow](https://github.com/elfekimuhammed/Lightning/actions/workflows/desktop-probe.yml).
-Download the ZIP from a successful workflow run's artifacts, extract the whole
-`Lightning` folder, and run `Lightning.exe` inside it. No Python installation is
-needed; Microsoft Edge WebView2 Runtime is required. Read the `README.txt` inside
-the ZIP before testing. The older `LightningProbe-windows-x64.zip` is an
-engineering check, not the finance app. This repository is private, so only
+The current **Windows desktop preview** is v0.4.0-beta.1. A separate, versioned
+app ZIP is produced by the [Windows desktop feasibility workflow](https://github.com/elfekimuhammed/Lightning/actions/workflows/desktop-probe.yml).
+Download the ZIP from a successful workflow run's artifacts and extract it once
+into a new folder. `Lightning.exe` and `README.txt` are directly inside the
+extracted folder. No Python installation is needed; Microsoft Edge WebView2
+Runtime is required. The download contains only the Lightning app, not the
+older engineering probe or test reports. This repository is private, so only
 people with repository access can download Actions artifacts. A website link for
 outside testers will need a separately published download.
 

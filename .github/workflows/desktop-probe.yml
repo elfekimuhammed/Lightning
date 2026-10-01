@@ -90,20 +90,22 @@ jobs:
           }
           Get-Content reports/profile-chooser-smoke.json
           if ($taskProcess.ExitCode -ne 0) { throw 'Profile chooser smoke failed' }
-      - name: Collect notices and package ZIP
+      - name: Collect notices and package app
         shell: pwsh
         run: |
-          python packaging/package_probe.py
           python packaging/package_app.py
+      - name: Name downloadable app
+        shell: pwsh
+        run: |
+          $version = python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])"
+          $version = $version -replace 'b([0-9]+)$', '-beta.$1'
+          $date = (Get-Date).ToUniversalTime().ToString('yyyy-MM-dd')
+          $shortSha = $env:GITHUB_SHA.Substring(0, 8)
+          $name = 'Lightning-v{0}-Windows-x64-{1}-r{2}-{3}' -f $version, $date, $env:GITHUB_RUN_NUMBER, $shortSha
+          "LIGHTNING_ARTIFACT_NAME=$name" >> $env:GITHUB_ENV
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        if: always()
         with:
-          name: lightning-windows-builds-${{ github.sha }}
-          path: |
-            dist/LightningProbe-windows-x64.zip
-            dist/SHA256SUMS
-            dist/Lightning-windows-x64.zip
-            dist/APP_SHA256SUMS
-            reports/*.json
-          if-no-files-found: warn
+          name: ${{ env.LIGHTNING_ARTIFACT_NAME }}
+          path: dist/Lightning/
+          if-no-files-found: error
           retention-days: 7
