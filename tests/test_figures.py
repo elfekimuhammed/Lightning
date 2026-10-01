@@ -78,7 +78,7 @@ def test_formulas_only_use_names_from_the_table():
         for name in labels:
             rest = rest.replace(name, "")
         rest = re.sub(r"\b(last month|at the end|at the start|the day before the start|of each class|its sale factor|"
-                      r"sale factor|other than loan payments|before next income|this month|Payments)\b", "", rest)
+                      r"sale factor|other than loan payments|before next income|this month|Payments|Units)\b", "", rest)
         leftover = re.sub(r"[\s+−÷×Σ()]", "", rest)
         assert not leftover, f"{figure.key}: {figure.formula!r} uses a name that is not in the table ({leftover})"
 

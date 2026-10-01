@@ -176,3 +176,14 @@
   <span class="bullet-status">{% if b.is_over %}<em class="over">{{ (used - plan)|money }} over</em>{% elif b.left == 0 %}<em>On plan</em>{% else %}<em class="left">{{ b.left|money }} left</em>{% endif %}</span>
 </{{ tag }}>
 {% endmacro %}
+
+{# Diverging bars: differences both ways from one centre line. Positive to the right in azure (put in,
+   grew), negative to the left in soft rose (taken out, shrank). Grouped rows get a quiet divider. #}
+{% macro diverging(d, caption, unit='money', tones='flow') %}
+<figure class="chart chart-diverging tones-{{ tones }}" aria-label="{{ caption }}">
+  {% for r in d.rows %}{% if loop.first or r.group != loop.previtem.group %}<div class="div-group">{{ {'money': 'Money', 'class': 'Change in value'}.get(r.group, '') }}</div>{% endif %}
+  <div class="div-row"><span class="div-label">{{ r.label }}</span><span class="div-track"><i class="div-zero"></i><i class="div-bar {{ 'is-neg' if r.value < 0 else 'is-pos' }}" style="{{ 'right' if r.value < 0 else 'left' }}:50%;width:{{ '%.2f'|format(r.width) }}%"></i></span><b class="div-value {{ r.value|tone }}">{% if unit == 'pct' %}{{ '%+.1f'|format(r.value)|replace('-', '−') }}%{% else %}{{ r.value|money(True) }}{% endif %}</b></div>
+  {% else %}<p class="chart-empty">Nothing moved in this period.</p>{% endfor %}
+  <figcaption class="sr-only">{{ caption }}</figcaption>
+</figure>
+{% endmacro %}

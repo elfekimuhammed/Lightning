@@ -422,3 +422,31 @@ def test_a_fund_can_be_bought_by_amount_and_a_new_name_needs_no_extra_step(c, se
     saved = client.post(f"/accounts/{accounts['cib'].id}/register", data={
         "date": "2026-09-25", "counterparty": "Zzq Bakery", "category": "Food & Groceries", "amount": "-40"})
     assert saved.status_code == 200 and c.counterparties.resolve("Zzq Bakery") is not None
+
+
+def test_holding_page_tells_the_journey_of_one_asset(c, setup, monkeypatch):
+    from datetime import date
+    from fastapi.testclient import TestClient
+    from lightning.ui import visuals
+    from lightning.ui.web import create_app
+    monkeypatch.setenv("LIGHTNING_TODAY", "2027-06-30")
+    accounts, _ = setup
+    comi = c.assets.create_investment("Commercial International Bank", "STOCK", "COMI")
+    thndr = accounts["thndr"].id
+    c.transactions.record_transfer("2026-09-02", accounts["cib"].id, thndr, "30000")
+    c.investments.buy("2026-09-10", thndr, comi.id, "100", "100")
+    for month, price in (("2026-09-30", 100), ("2026-10-31", 110), ("2026-11-30", 99), ("2026-12-31", 88),
+                         ("2027-01-31", 95), ("2027-02-28", 121), ("2027-03-31", 118)):
+        c.assets.set_price(comi.id, month, str(price))
+    j = visuals.holding_journey(c, thndr, comi.id, date(2027, 3, 31))
+    assert j["labels"][0] == "2026-09" and j["labels"][-1] == "2027-03"
+    assert j["best"][0] == "2027-02" and round(j["best"][1], 1) == Decimal("27.4")
+    assert j["worst"][0] == "2026-12" and round(j["worst"][1], 1) == Decimal("-11.1")  # 99 to 88
+    assert round(j["max_drawdown"], 1) == -20.0  # 88 against the 110 high
+    assert (j["up"], j["down"]) == (3, 3) and j["typical"] is not None
+    assert not j["price"]["too_short"] and j["price"]["plan"]["value"] == 100  # average cost line
+    assert [t["kind"] for t in j["trades"]] == ["Bought"]
+    page = TestClient(create_app(c)).get(f"/investments/holding/{comi.id}?account={thndr}&date=2027-03-31")
+    assert page.status_code == 200
+    for question in ("Is it making money?", "How bumpy has it been?", "The journey", "Fall from its high"):
+        assert question in page.text

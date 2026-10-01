@@ -24,6 +24,15 @@ def investment_period(db, accounts, assets, reporting, start: str, end: str):
     return closing
 
 
+def period_growth(result: Decimal | None, opening_value: Decimal | None, money_added: Decimal) -> Decimal | None:
+    """Growth = Net gain or loss ÷ (Portfolio value at the start + Money added), as a percentage.
+    None when the result is unavailable or nothing was invested."""
+    if result is None or opening_value is None:
+        return None
+    base = opening_value + money_added
+    return result / base * 100 if base > ZERO else None
+
+
 def investing_rate(money_added: Decimal, money_in: Decimal) -> Decimal | None:
     """Investing rate = Money added ÷ Money in, as a percentage; None without money in."""
     return money_added / money_in * 100 if money_in > ZERO else None

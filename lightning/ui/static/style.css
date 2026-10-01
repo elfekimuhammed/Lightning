@@ -2177,3 +2177,66 @@ a.chart-sankey-label:hover b { color:var(--azure); }
 .category-option.is-detail { padding-left:28px!important; }
 .category-option.is-detail::before { content:"↳ "; color:var(--muted); }
 .main select option.option-head { font-weight:700; }
+/* Investments · 2.7: three tiles (period waffle, period result, six-month value line), allocation beside
+   the biggest holdings, holdings grouped by class, dividends beside the period's flows, horizon last. */
+.main .inv-top { grid-template-columns:minmax(0,1.25fr) repeat(2,minmax(0,1fr)); }
+.main .inv-waffle-body { display:flex; align-items:center; gap:16px; margin-top:12px; }
+.main .inv-waffle-tile .waffle { grid-template-columns:repeat(10,10px); grid-auto-rows:10px; gap:2px; }
+.main .waffle i.inv { background:var(--azure); }
+.main .inv-waffle-text { display:grid; gap:3px; font:500 var(--fs-2)/1.35 var(--body); color:var(--ink-2); }
+.main .inv-waffle-text b { font:800 var(--num-card)/1.1 var(--display); color:var(--ink); font-variant-numeric:tabular-nums; }
+.main .inv-waffle-text b small { margin-left:4px; font:600 var(--fs-meta)/1 var(--body); color:var(--muted); }
+.main .inv-waffle-text span { display:flex; align-items:center; gap:6px; }
+.main i.k.inv { background:var(--azure); } .main i.k.on { background:var(--meadow-dark); }
+.main .inv-notes { display:flex; flex-wrap:wrap; gap:4px 14px; align-items:center; }
+.main .inv-notes span { display:inline-flex; align-items:center; gap:5px; }
+.main .inv-notes b.pos { color:var(--positive); } .main .inv-notes b.neg { color:var(--rose); }
+.main .inv-notes .info-tip { width:16px; height:16px; font-size:10px!important; }
+.main .inv-alloc, .main .inv-flows { margin:0 0 var(--gap-block); }
+.main .inv-head { margin-top:28px; }
+.main .holdings-grouped { width:100%; border-collapse:collapse; }
+.main .holdings-grouped :is(th,td) { padding:8px 8px; border-bottom:1px solid var(--line); vertical-align:middle; }
+.main .holdings-grouped td.num small { display:block; font-size:var(--fs-meta); }
+.main .holding-class th, .main .holding-class td { padding-top:16px; font:700 var(--fs-2)/1.3 var(--body); color:var(--ink); border-bottom:1px solid var(--line-control); background:transparent; }
+.main .holding-class th { font:800 var(--fs-body)/1.3 var(--display)!important; text-align:left; }
+.main .holding-class th small { margin-left:8px; font:600 var(--fs-meta)/1 var(--body); color:var(--muted); }
+.main .holding-group tr[data-search] td:first-child { padding-left:20px; }
+.main .holdings-toolbar { display:flex; justify-content:flex-end; margin-bottom:8px; }
+.main .holdings-filters { display:flex; gap:8px; }
+.main .holdings-filters :is(input,select):not(#_) { height:36px!important; min-height:36px!important; width:220px; font-size:var(--fs-2)!important; }
+.main .horizon-badge { display:inline-grid; place-items:center; width:26px; height:26px; padding:0; border:0; border-radius:8px; font:800 12px/1 var(--body); cursor:pointer; }
+.main span.horizon-badge { width:20px; height:20px; font-size:11px; cursor:default; vertical-align:middle; }
+.main .horizon-badge.horizon-short { background:#DCEBFB; color:#0A5AB0; }
+.main .horizon-badge.horizon-medium { background:#D9F2E4; color:#08744A; }
+.main .horizon-badge.horizon-long { background:#FBEBD0; color:#8A5A00; }
+.main .horizon-pick[hidden] { display:none; }
+.chart-diverging { display:grid; gap:2px; }
+.div-group { margin:8px 0 2px; font:700 var(--fs-meta)/1.3 var(--body); color:var(--muted); }
+.div-row { display:grid; grid-template-columns:minmax(100px,1fr) minmax(0,1.6fr) 120px; align-items:center; gap:12px; min-height:32px; font-size:var(--fs-2); }
+.div-label { color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.div-track { position:relative; height:12px; }
+.div-zero { position:absolute; left:50%; top:-4px; bottom:-4px; border-left:1px solid var(--line-control); }
+.div-bar { position:absolute; top:0; bottom:0; }
+.div-bar.is-pos { background:var(--azure); border-radius:0 4px 4px 0; }
+.div-bar.is-neg { background:var(--tone-spend); border-radius:4px 0 0 4px; }
+.div-value { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.div-value.pos { color:var(--ink); } .div-value.neg { color:var(--ink); }
+@media (max-width:1100px) { .main .inv-top { grid-template-columns:1fr 1fr; } .main .inv-waffle-tile { grid-column:1 / -1; } }
+@media (max-width:560px) { .main .inv-top { grid-template-columns:1fr; } .main .holdings-filters :is(input,select):not(#_) { width:100%; } }
+.main .wide-card .overview-split .overview-block-head h3 { color:var(--ink); }
+.main .wide-card .overview-split .overview-block-head { border-bottom:1px solid var(--line); padding-bottom:10px; margin-bottom:12px; }
+/* Holding page: four tiles, then three questions, each a wide split card. */
+.main .vol-stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin-top:14px; padding-top:12px; border-top:1px solid var(--line); }
+.main .vol-stats div { display:grid; gap:2px; }
+.main .vol-stats span { font:600 var(--fs-meta)/1.3 var(--body); color:var(--ink-2); }
+.main .vol-stats b { font:800 var(--num-tile)/1.15 var(--display); color:var(--ink); font-variant-numeric:tabular-nums; }
+.main .vol-stats b.pos { color:var(--positive); } .main .vol-stats b.neg { color:var(--rose); }
+.main .vol-stats small { color:var(--muted); font-size:var(--fs-meta); }
+.main .journey-table { width:100%; border-collapse:collapse; font-size:var(--fs-2); }
+.main .journey-table :is(th,td) { padding:7px 6px; border-bottom:1px solid var(--line); }
+.main .journey-table th { font:700 var(--fs-meta)/1.2 var(--body); color:var(--muted); text-align:left; }
+.main .journey-table .num { text-align:right; font-variant-numeric:tabular-nums; }
+@media (max-width:700px) { .main .vol-stats { grid-template-columns:1fr 1fr; } }
+/* Diverging, growth style: green when it grew, soft rose when it fell (the flow style keeps azure for
+   money put in). Same form, different goal. */
+.tones-growth .div-bar.is-pos { background:var(--meadow-dark); }

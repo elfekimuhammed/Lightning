@@ -277,6 +277,13 @@ def waffle(rate: Decimal | None) -> dict:
     return {"filled": int(max(min(rate, Decimal(100)), ZERO).to_integral_value()), "cells": 100, "rate": rate}
 
 
+def diverging(rows: list[dict]) -> dict:
+    """Differences both ways from one centre line: rows [{"label", "value", "group"?, "tone"?}].
+    Bars are a share of the largest size; the sign picks the side."""
+    scale = max((abs(r["value"]) for r in rows), default=ZERO) or Decimal(1)
+    return {"rows": [{**r, "width": float(abs(r["value"]) / scale * 50)} for r in rows]}
+
+
 def donut(slices: list[dict], limit: int = 6) -> dict:
     """Parts of one whole: at most ``limit`` slices, the rest folded into "Other".
 

@@ -16,7 +16,9 @@ from ..web import container, redirect, render
 from ..charts import line_chart
 from ...assets.catalog import instruments
 from ..periods import parse_period
-from ...investments.report import build_investment_report, investment_period, results_by_asset
+from ...investments.report import (build_investment_report, investing_rate, investment_period, period_growth,
+                                    results_by_asset)
+from .. import charts
 from lightning.core.figures import label
 
 from .. import keynotes, visuals
@@ -226,7 +228,8 @@ async def portfolio(request: Request):
     class_results, _ = results_by_asset(c.investments, c.money_from_others, c.reporting, before_day, day)
     notes = [n for n in (keynotes.best_class([{"label": k, "result": v} for k, v in class_results.items()]),
                          keynotes.at_cost(investment_report.get("at_cost", []))) if n]
-    return render(request, "investments/index.html", p=p, asset_class_rows=asset_class_rows,
+    extras = _page_extras(c, period, p, prior, owned_rows, prior_custody, before_day, investment_report)
+    return render(request, "investments/index.html", p=p, asset_class_rows=asset_class_rows, **extras,
                   pos=position, notes=notes, investment_donut=visuals.holdings_donut(position),
                   portfolio_chart=visuals.portfolio_trend([(pt["month"], pt["value"]) for pt in investment_trend]),
                   accounts=c.investments.investment_accounts(),
@@ -242,6 +245,97 @@ async def portfolio(request: Request):
                   investment_report=investment_report, investment_trend=investment_trend,
                   investment_trend_max=investment_trend_max,
                   investment_trend_chart=investment_trend_chart, base=c.reporting.base_currency)
+
+
+def _first_trade_dates(c, day: str) -> dict[tuple[int, int], str]:
+    first: dict[tuple[int, int], str] = {}
+    for line in c.reporting.investment_lines(day):
+        if line.get("asset_id") is None or line["type"] == "DIV":
+            continue
+        key = (line["account_id"], line["asset_id"])
+        first.setdefault(key, line["date"])
+    return first
+
+
+def _portfolio_value_spark(c, end: date) -> dict:
+    """Portfolio value (holdings and brokerage cash) at each of the last six month ends, up to ``end``.
+    Always six months back, whatever period the page shows."""
+    values, cursor = [], end.replace(day=1)
+    months = []
+    for _ in range(6):
+        months.append(cursor)
+        cursor = (cursor - timedelta(days=1)).replace(day=1)
+    for first in reversed(months):
+        _, last = parse_month(first.strftime("%Y-%m"))
+        snap = build_investment_report(c.db, c.accounts, c.assets, c.reporting, fmt_date(first), fmt_date(min(last, end)))
+        values.append(snap["value"] + snap["investment_cash"]
+                      if snap["value"] is not None and snap["investment_cash"] is not None else None)
+    return {"spark": charts.sparkline(values), "values": values, "latest": values[-1] if values else None,
+            "first": next((v for v in values if v), None)}
+
+
+def _page_extras(c, period, p, prior, owned_rows, prior_custody, before_day, report) -> dict:
+    """The Investments page in four parts (guideline 2.7): this period's waffle and result, the fixed
+    six-month value line, allocation and biggest holdings, the holdings table grouped by class,
+    year-to-date dividends and the period's flows by class."""
+    day = period.end_text
+    flow = c.reporting.cash_flow(period.start, period.end)
+    saved, invested = flow.savings_rate, investing_rate(report["net_money"], flow.inflows)
+    saved_cells = int(max(min(saved or ZERO, Decimal(100)), ZERO).to_integral_value()) if saved is not None else 0
+    invest_cells = min(int(max(min(invested or ZERO, Decimal(100)), ZERO).to_integral_value()), saved_cells) if invested is not None else 0
+    opening = report.get("recon_opening")
+    growth = period_growth(report["result"], opening, report["net_money"])
+    spark = _portfolio_value_spark(c, today())
+    holdings_total = sum((yours or ZERO for _, yours, *_ in owned_rows), ZERO)
+    first_dates = _first_trade_dates(c, day)
+    end_day = parse_date(day)
+    groups: dict[str, dict] = {}
+    for h, yours, bucket, horizon, capital, unrealized, units in owned_rows:
+        name = h.asset_class.split(" › ")[-1]
+        g = groups.setdefault(name, {"name": name, "value": ZERO, "cost": ZERO, "rows": []})
+        g["value"] += yours or ZERO
+        g["cost"] += capital
+        first = first_dates.get((h.account_id, h.asset_id))
+        held_a_year = bool(first) and (end_day - parse_date(first)).days >= 365
+        g["rows"].append({"h": h, "units": units, "average_cost": capital / units if units else None, "cost": capital,
+                          "price": h.price, "value": yours, "gain": unrealized,
+                          "gain_pct": unrealized / capital * 100 if unrealized is not None and capital else None,
+                          "xirr": h.xirr * 100 if h.xirr is not None and held_a_year and units == h.quantity else None,
+                          "horizon": horizon, "weight": (yours or ZERO) / holdings_total * 100 if holdings_total else ZERO})
+    for g in groups.values():
+        g["rows"].sort(key=lambda r: (-(r["value"] or ZERO), r["h"].asset_name.casefold()))
+        g["weight"] = g["value"] / holdings_total * 100 if holdings_total else ZERO
+        g["gain"] = g["value"] - g["cost"]
+    holding_groups = sorted(groups.values(), key=lambda g: (-g["value"], g["name"].casefold()))
+    biggest = charts.bars([{"label": r["h"].asset_name, "value": r["value"], "note": f"{r['weight']:.1f}% · {r['h'].asset_class.split(' › ')[-1]}",
+                            "href": f"/investments/holding/{r['h'].asset_id}?account={r['h'].account_id}&date={day}&start={period.start_text}"}
+                           for g in holding_groups for r in g["rows"] if r["value"]], 6)
+    # Dividends collected this year, per holding (fixed: 1 January to today).
+    now = today()
+    year_start = fmt_date(date(now.year, 1, 1) - timedelta(days=1))
+    current, before = c.investments.portfolio(fmt_date(now)), c.investments.portfolio(year_start)
+    paid_before = {(x.account_id, x.asset_id): x.dividends for x in before.positions}
+    dividends = charts.bars([{"label": x.asset_name, "value": x.dividends - paid_before.get((x.account_id, x.asset_id), ZERO)}
+                             for x in current.positions], 8)
+    # The period's flows: money added and taken out, then how each class's value moved.
+    start_values: dict[str, Decimal] = defaultdict(lambda: ZERO)
+    for old in prior.positions:
+        if not old.quantity or old.value is None:
+            continue
+        others = prior_custody.get((old.account_id, old.asset_id), ZERO)
+        held = c.reporting.value_of(old.asset_id, others, before_day).value if others else ZERO
+        start_values[old.asset_class.split(" › ")[-1]] += old.value - (held or ZERO)
+    end_values = {g["name"]: g["value"] for g in holding_groups}
+    class_changes = sorted(((name, end_values.get(name, ZERO) - start_values.get(name, ZERO))
+                            for name in set(start_values) | set(end_values)), key=lambda item: -abs(item[1]))
+    flow_rows = ([{"label": "Money in", "value": report["new_money"], "group": "money"},
+                  {"label": "Money out", "value": -report["withdrawn"], "group": "money"}]
+                 + [{"label": name, "value": change, "group": "class"} for name, change in class_changes if change])
+    return {"waffle": {"saved": saved, "invested": invested, "saved_cells": saved_cells, "invest_cells": invest_cells,
+                       "money_in": flow.inflows, "net": flow.net, "money_added": report["net_money"]},
+            "growth": growth, "value_spark": spark, "holding_groups": holding_groups, "biggest": biggest,
+            "holdings_total": holdings_total, "ytd_dividends": dividends, "ytd_year": now.year,
+            "flows": charts.diverging(flow_rows)}
 
 
 @router.get("/planner")
@@ -308,7 +402,19 @@ async def holding_detail(request: Request, asset_id: int):
     horizon=saved_horizon or "Unassigned"
     before=c.investments.portfolio(fmt_date(parse_date(start).fromordinal(parse_date(start).toordinal()-1)))
     previous=next((x for x in before.positions if x.asset_id==asset_id and x.account_id==h.account_id),None)
+    journey = visuals.holding_journey(c, h.account_id, asset_id, parse_date(day))
+    period_realized = h.realized-(previous.realized if previous else ZERO)
+    first = journey.get("first")
+    held_a_year = bool(first) and (parse_date(day) - parse_date(first)).days >= 365
+    gain_pct = h.unrealized / h.cost_basis * 100 if h.unrealized is not None and h.cost_basis else None
+    total_return = h.total_return
+    breakdown = charts.waterfall(("What you paid", h.cost_basis),
+                                 [("Price change", h.unrealized or ZERO), ("Gain from sales", h.realized),
+                                  ("Dividends and interest", h.dividends)],
+                                 ("Value plus what it paid you", h.cost_basis + total_return))
     return render(request,"investments/holding.html",h=h,asset=asset,bucket=bucket,horizon=horizon,day=day,
+                  journey=journey, gain_pct=gain_pct, total_return=total_return, breakdown=breakdown,
+                  xirr_pct=h.xirr * 100 if h.xirr is not None and held_a_year else None,
                   start=start,period_realized=h.realized-(previous.realized if previous else ZERO),
                   period_dividends=h.dividends-(previous.dividends if previous else ZERO),
                   allocation_classes=_allocation_classes(c),

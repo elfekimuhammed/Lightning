@@ -107,6 +107,9 @@ _TABLE = [
     ("result", "Net gain or loss", "What your investments earned or lost in the period: sales, price changes and payouts.",
      "Gain from sales + Price change on what you hold + Dividends and interest"),
     ("new_money_in", "Money added", "Cash moved into investment accounts from outside, less cash taken out."),
+    ("average_cost", "Average cost", "What you paid for each unit you still hold, fees included.", "Cost ÷ Units"),
+    ("period_growth", "Growth", "Net gain or loss as a share of what the portfolio started the period with, plus money added.",
+     "Net gain or loss ÷ (Portfolio value at the start + Money added)"),
     # ------------------------------------------------------------ cash planning
     ("safe_to_spend", "Safe to spend", "Free cash after what is promised before your next income. An estimate.",
      "Free cash − Bills and loan payments before next income − Budget left to spend − Saving for goals"),
@@ -163,6 +166,8 @@ _SOURCES = {
     "dividends_and_interest": (LEDGER, f"{INV}.build_investment_report"),
     "result": (LEDGER, f"{INV}.investment_period"),
     "new_money_in": (LEDGER, f"{INV}.build_investment_report"),
+    "average_cost": (LEDGER, "lightning.investments.domain.Position.average_cost"),
+    "period_growth": (LEDGER, f"{INV}.period_growth"),
     "safe_to_spend": (BOTH, f"{FC}._safe_to_spend"),
     "bills_inside_the_plan": (PLAN, f"{FC}.forecast"),
     "left_in_plan_after_bills": (BOTH, "lightning.planning.domain.ForecastMonth.budget_spending"),

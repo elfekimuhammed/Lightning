@@ -108,6 +108,8 @@ Every figure a screen shows is listed here once. **From** says which layer its i
 | **Dividends and interest** | Distributions and interest received. | Read directly from the ledger | `investments.report.build_investment_report` |
 | **Net gain or loss** | What your investments earned or lost in the period: sales, price changes and payouts. | Gain from sales + Price change on what you hold + Dividends and interest | `investments.report.investment_period` |
 | **Money added** | Cash moved into investment accounts from outside, less cash taken out. | Read directly from the ledger | `investments.report.build_investment_report` |
+| **Average cost** | What you paid for each unit you still hold, fees included. | Cost ÷ Units | `investments.domain.Position.average_cost` |
+| **Growth** | Net gain or loss as a share of what the portfolio started the period with, plus money added. | Net gain or loss ÷ (Portfolio value at the start + Money added) | `investments.report.period_growth` |
 
 ### From the plan — what-if
 
