@@ -27,7 +27,7 @@ async def list_counterparties(request: Request):
                   total_parties=len(all_parties), search_suggestions=suggestions,
                   category_labels={item.id: c.categories.display_name(item.id) for item in categories},
                   aliases_by_id={party["id"]: aliases[party["id"]] for party in parties},
-                  alias_limit=MAX_ALIASES_PER_COUNTERPARTY)
+                  alias_limit=MAX_ALIASES_PER_COUNTERPARTY, usual=c.transactions.usual_categories())
 
 
 @router.post("")

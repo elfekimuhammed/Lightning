@@ -245,6 +245,21 @@ class TransactionRepository:
         )
         return {r["counterparty"]: r["category_id"] for r in rows}
 
+    def recent_categories(self, window: int) -> list:
+        """Each counterparty's last ``window`` categorised transactions, newest first, under its saved
+        name (so aliases count together); one row per transaction and category."""
+        return self.db.all(
+            "SELECT counterparty, category_id, date, id FROM ("
+            " SELECT COALESCE(cp.name, t.counterparty) AS counterparty, le.category_id, t.date, t.id,"
+            "  DENSE_RANK() OVER (PARTITION BY COALESCE(cp.name, t.counterparty) ORDER BY t.date DESC, t.id DESC) AS n"
+            " FROM transactions t JOIN ledger_entries le ON le.transaction_id = t.id"
+            " LEFT JOIN counterparties cp ON cp.id = t.counterparty_id"
+            " WHERE t.status = 'POSTED' AND t.counterparty != '' AND le.category_id IS NOT NULL"
+            " GROUP BY t.id, le.category_id"
+            ") WHERE n <= ? ORDER BY counterparty, date DESC, id DESC",
+            (window,),
+        )
+
     def earliest_activity(self, account_id: int) -> str | None:
         return self.db.scalar(
             "SELECT MIN(le.date) FROM ledger_entries le JOIN transactions t ON t.id = le.transaction_id"

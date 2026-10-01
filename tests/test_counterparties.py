@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from lightning.core.errors import ConflictError
+from lightning.core.errors import ConflictError, ValidationError
 
 
 def test_alias_resolves_to_one_canonical_counterparty(c):
@@ -66,3 +66,29 @@ def test_delete_unused_counterparty_removes_aliases_but_used_one_archives(c, set
     assert any(party["id"] == used for party in c.counterparties.list_all())
     c.counterparties.set_active(used, True)
     assert c.counterparties.get(used)["active"] == 1
+
+
+def test_usual_category_is_the_most_picked_in_the_last_20(c, setup):
+    accounts, cats = setup
+    food, soft = cats["EXP.PERSONAL.FOOD"].id, cats["EXP.WORK.SOFTWARE"].id
+    c.counterparties.create("Talabat", alias="Talabaat")
+    for day, cat, name in [("2026-09-01", food, "Talabat"), ("2026-09-02", food, "Talabaat"),
+                           ("2026-09-03", soft, "Talabat")]:
+        c.transactions.record_outflow(day, accounts["cib"].id, "10", cat, counterparty=name)
+    usual = c.transactions.usual_categories()["Talabat"]
+    assert usual == {"category_id": food, "count": 2, "total": 3}  # the alias counts with its counterparty
+    # A tie goes to the most recent pick.
+    c.transactions.record_outflow("2026-09-04", accounts["cib"].id, "10", soft, counterparty="Talabat")
+    assert c.transactions.usual_categories()["Talabat"]["category_id"] == soft
+    # Only the last 20 count: 20 newer software payments outweigh the older food ones.
+    for day in range(5, 25):
+        c.transactions.record_outflow(f"2026-09-{day:02d}", accounts["cib"].id, "10", soft, counterparty="Talabat")
+    assert c.transactions.usual_categories()["Talabat"] == {"category_id": soft, "count": 20, "total": 20}
+
+
+def test_a_counterparty_holds_up_to_20_aliases(c):
+    cid = c.counterparties.create("Vodafone")
+    for i in range(20):
+        c.counterparties.add_alias(cid, f"Vodafone branch {i}")
+    with pytest.raises(ValidationError, match="at most 20"):
+        c.counterparties.add_alias(cid, "Vodafone branch 99")

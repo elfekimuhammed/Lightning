@@ -240,7 +240,7 @@ There are three kinds. Choosing from your own data is always type-and-pick, neve
 
 **Pick field:**
 
-- Type, then pick from a menu grouped as your accounts (a transfer), used before, categories, and create.
+- Type, then pick from a menu grouped as your accounts (a transfer), used before, categories, and create. Counterparty menus add **Did you mean** with close spellings. Picking one saves what you typed as an alias. Picking a counterparty fills in its category: the one set on it, else the one it is usually filed under in its last 20 transactions.
 - It replaces every dropdown over five options and every "Search X" + "Choose X" pair.
 - The date field adds Today and Yesterday chips and a calendar button.
 

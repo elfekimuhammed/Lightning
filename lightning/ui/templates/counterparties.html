@@ -60,8 +60,9 @@
       {% if not party.active %}<span class="small muted">Archived</span>{% endif %}
       </div>
     </td><td><select form="{{ edit_form }}" name="default_category_id" aria-label="Suggested category" data-submit-on-change>
-      <option value="">No default</option>{% from "partials/macros.html" import category_options %}{{ category_options(category_groups(categories), party.default_category_id or '') }}
-    </select></td>
+      {% set learned = (usual or {}).get(party.name) %}{% set learned_label = category_labels.get(learned.category_id) if learned else none %}
+      <option value="">{{ ('Learned: ' ~ learned_label) if learned_label else 'No default' }}</option>{% from "partials/macros.html" import category_options %}{{ category_options(category_groups(categories), party.default_category_id or '') }}
+    </select>{% if learned_label and not party.default_category_id %}<small class="muted learned-note">{{ learned.count }} of the last {{ learned.total }}</small>{% endif %}</td>
     <td><div class="counterparty-actions">
       {% if not party.active %}<form method="post" action="/counterparties"><input type="hidden" name="counterparty_id" value="{{ party.id }}"><button class="btn small" name="counterparty_action" value="activate">Activate</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>{% endif %}
       <form method="post" action="/counterparties" data-counterparty-delete><input type="hidden" name="counterparty_id" value="{{ party.id }}"><button class="cat-icon is-danger" name="counterparty_action" value="delete" title="Delete" aria-label="Delete {{ party.name }}"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>

@@ -737,6 +737,21 @@ if (categoryCatalogueNode) {
   });
 }
 
+// How alike two spellings are, 0 to 1 (1 − edit distance / longer length).
+const similar = (a, b) => {
+  if (a === b) return 1;
+  const row = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i += 1) {
+    let prev = row[0]; row[0] = i;
+    for (let j = 1; j <= b.length; j += 1) {
+      const keep = row[j];
+      row[j] = Math.min(row[j] + 1, row[j - 1] + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1));
+      prev = keep;
+    }
+  }
+  return 1 - row[b.length] / Math.max(a.length, b.length, 1);
+};
+
 if (ledger) {
   const known = JSON.parse(ledger.dataset.counterparties || "{}");
   const accounts = JSON.parse(ledger.dataset.accounts || "[]");
@@ -777,9 +792,17 @@ if (ledger) {
         const type = document.createElement("span"); type.className = "counterparty-kind"; type.textContent = tag;
         button.append(label, type);
         button.addEventListener("click", () => {
+          // Picking a different name than what was typed teaches Lightning the typed spelling (an alias).
+          const typed = counterparty.value.trim();
+          const learn = typed && !name.toLocaleLowerCase().includes(typed.toLocaleLowerCase());
           counterparty.value = name; closeResults();
           counterparty.dispatchEvent(new Event("input", { bubbles: true }));
           counterparty.dispatchEvent(new Event("change", { bubbles: true }));
+          if (learn) {
+            const hint = document.createElement("input");
+            hint.type = "hidden"; hint.name = "counterparty_typed"; hint.value = typed; hint.setAttribute("form", form);
+            counterparty.closest(".counterparty-picker")?.append(hint);
+          }
         });
         results.append(button);
       });
@@ -792,7 +815,9 @@ if (ledger) {
       const saved = parties.filter((name) => name.toLocaleLowerCase().includes(query)).slice(0, 8);
       addGroup("Your accounts · internal transfers", internal, "Internal");
       addGroup("People & businesses", saved, "External");
-      if (!internal.length && !saved.length) {
+      const close = query.length >= 3 ? parties.filter((name) => !saved.includes(name) && similar(query, name.toLocaleLowerCase()) >= 0.68).slice(0, 3) : [];
+      addGroup("Did you mean", close, "External");
+      if (!internal.length && !saved.length && !close.length) {
         const empty = document.createElement("div"); empty.className = "counterparty-group-title";
         empty.textContent = "No saved match · press Enter to review this new name"; results.append(empty);
       }
@@ -803,7 +828,7 @@ if (ledger) {
       results.hidden = false; counterparty.setAttribute("aria-expanded", "true");
     };
     counterparty.addEventListener("change", sync);
-    counterparty.addEventListener("input", () => { clearDecision("counterparty_choice"); sync(); renderResults(); });
+    counterparty.addEventListener("input", () => { clearDecision("counterparty_choice"); clearDecision("counterparty_typed"); sync(); renderResults(); });
     category?.addEventListener("input", () => {
       clearDecision("category_choice");
       delete category.dataset.autofilled;
