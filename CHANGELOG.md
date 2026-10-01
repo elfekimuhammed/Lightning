@@ -8,6 +8,29 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### Key notes: the number first · 2026-10-01
+- Every key note and the small cards on Expense analysis now read like a stat card:
+  - a short label with a small tone icon;
+  - **one big figure**, green when good, rose when it needs you;
+  - one line of context;
+  - one pill button.
+
+  Examples: "Saved · 2026-09 → 32.4%", "Safe to spend until … → 49,520.84", "Bills · share of income → 30%".
+- `keynotes.note()` gains `label` and `figure`. The full sentence stays as the title and the screen-reader label.
+- App guideline 2.4 · Meadowlark documents the structure.
+
+### Key notes that stand out, softer register fields, row actions on right-click · 2026-10-01
+- **Key notes and the small cards on Expense analysis:**
+  - Each card is a full tint of its tone with a matching border.
+  - A solid colour tile holds a white icon that matches what the note says: trend up or down, wallet, share, alert, calendar, shield, people or tag.
+  - Links take the tone's dark shade.
+- **Register editing:**
+  - The fields of the row you edit are a soft shade of the row, not white.
+  - The field you are in turns a deeper shade with the green edge forms use.
+  - The add row behaves the same way.
+- **The bar under an edited row is gone.** Right-click the row for Save, Details and history, Cancel edit and Delete. Enter saves and Esc cancels. Other rows' right-click menu gains Details and history.
+- **App guideline 2.3 · Glade** documents all three. Both halves are updated, and the azure-versus-green focus gap is closed.
+
 ### Desktop profiles and encrypted storage foundations · 2026-10-01
 - Add Documents/Lightning profile paths, explicit alternate locations, read-only discovery, human-readable date/sequence/ID names and OS-backed profile locks. This is the upcoming launcher's storage contract; existing user files are not moved.
 - Add an opt-in SQLCipher database driver, verified encrypted snapshots and explicit staged legacy import/recovery candidates that preserve their sources. Password screens and live restore are not yet connected.

@@ -57,7 +57,25 @@ const assert = require('node:assert/strict');
       await page.locator('select[name="account_type"]').selectOption('CASH');
       await page.locator('form[method="post"] button[type="submit"], form[method="post"] button:not([type])').click();
       await page.waitForURL(url => url.pathname !== '/accounts/new');
+      const accountPath = new URL(page.url()).pathname;
       assert((await page.locator('body').innerText()).includes(name + ' wallet'));
+      const sessionToken = await page.locator('meta[name="lightning-session"]').getAttribute('content');
+      const saved = await page.request.post(origin + accountPath + '/register', {
+        form: {
+          __session: sessionToken, date: '2026-09-25', counterparty: name + ' sample merchant',
+          counterparty_choice: 'create', category: 'Personal › Food & Groceries', amount: '-12', notes: 'Browser check',
+        },
+      });
+      assert.equal(saved.status(), 200);
+      await page.goto(origin + accountPath);
+      const transaction = page.locator('.ledger tr[data-href]').filter({hasText: name + ' sample merchant'});
+      assert.equal(await transaction.count(), 1);
+      await transaction.click({button: 'right'});
+      page.once('dialog', dialog => dialog.accept());
+      await page.locator('#transaction-context-menu [data-context-delete]').click();
+      await page.waitForURL(url => url.pathname === accountPath && url.searchParams.has('msg'));
+      assert((await page.locator('body').innerText()).includes('Deleted 1 transaction'));
+      assert.equal(await page.locator('.ledger tr[data-href]').filter({hasText: name + ' sample merchant'}).count(), 0);
       await page.goto(origin + '/');
       await page.screenshot({path: path.join(root, name + '-finance.png'), fullPage: true});
       violations.push(...await page.evaluate(() => window.cspFailures));
@@ -93,7 +111,7 @@ const assert = require('node:assert/strict');
       storage = await context.storageState();
       await runningBrowser.close();
       runningBrowser = null;
-      console.log(name + ': setup, finance save, popup, lock, unlock, mobile and CSP passed');
+      console.log(name + ': setup, finance save, context delete, popup, lock, unlock, mobile and CSP passed');
     }
     console.log('Synthetic screenshots: ' + root);
   } catch (error) {

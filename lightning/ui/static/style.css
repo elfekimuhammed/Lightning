@@ -1597,7 +1597,7 @@ a.chart-meter:hover { background:var(--hover); }
 .main :is(.card,.data-panel,.metric-card,.overview-block,.key-note,details.context-detail.card) { border-radius:var(--r-card)!important; }
 .main .key-note { padding:16px 18px; box-shadow:none; }
 .main .key-notes { margin:0 0 var(--gap-block); gap:12px; }
-.main .key-note b { font-size:var(--fs-note)!important; line-height:1.35; }
+.main .key-note b:not(.kn-figure) { font-size:var(--fs-note)!important; line-height:1.35; }
 .main .key-note a { font-size:var(--fs-2)!important; }
 
 /* Expanders: a title on the left, one chevron on the right that turns when open. */
@@ -1850,3 +1850,47 @@ a.chart-meter:hover { background:var(--hover); }
 .main .ledger :is(tr.add-row,tr.editing) .btn:not(#_), .main .ledger :is(tr.add-row,tr.editing) button:not(#_) { height:30px!important; min-height:30px!important; font-size:var(--fs-2)!important; }
 .main .ledger :is(tr.add-row,tr.editing) .date-picker-button:not(#_) { width:30px!important; min-width:30px!important; background:#F2F8F6!important; border-color:transparent!important; }
 .main .ledger tr.add-row td > .muted.small { font-size:var(--fs-meta)!important; }
+/* ===================================================================================
+   Guideline 2.3 · key notes that stand out, softer register fields, row actions on right-click
+   =================================================================================== */
+/* Key notes: a full tint of the tone (no fade to white), a solid icon tile, a tone border. */
+.main .key-note { border:1px solid var(--note-line)!important; box-shadow:0 10px 26px -20px var(--note-strong)!important;
+  background:linear-gradient(135deg,var(--note-tint) 0%,var(--note-tint-2) 100%)!important; }
+.main .key-note::before { display:none; }
+.main .key-note.tone-good { --note-tint:#D6F1E1; --note-tint-2:#EDF9F2; --note-line:#BDE5CD; --note-strong:#0B8A5F; --note-ink:#08744A; }
+.main .key-note.tone-info { --note-tint:#D9E8FB; --note-tint-2:#EEF5FE; --note-line:#C2D8F4; --note-strong:#0B6DD6; --note-ink:#0A5AB0; }
+.main .key-note.tone-attention { --note-tint:#F8DAE5; --note-tint-2:#FDEFF4; --note-line:#F0C0D1; --note-strong:#C93D72; --note-ink:#A02E5A; }
+.main .key-note .key-note-icon { width:40px; height:40px; border-radius:12px; background:var(--note-strong)!important; color:#fff!important;
+  box-shadow:0 6px 14px -8px var(--note-strong)!important; }
+.main .key-note .key-note-icon svg { width:22px; height:22px; stroke-width:2; }
+.main .key-note b:not(.kn-figure) { color:var(--ink); }
+.main .key-note a { color:var(--note-ink); }
+/* Register fields: a soft shade of their row, never strong white; the field you're in gets a deeper shade and a green edge. */
+.main .ledger tr.add-row:not(.editing) :is(input,select):not(#_):not(.x_):focus { background:#E8F3EE!important; border-color:var(--meadow-dark)!important; box-shadow:0 0 0 3px rgba(11,138,95,.12)!important; }
+.main .ledger tr.editing :is(input,select):not(#_):not(.x_) { background:#F3F8FE!important; border-color:#D9E6F6!important; }
+.main .ledger tr.editing :is(input,select):not(#_):not(.x_):hover { border-color:#BFD3EE!important; }
+.main .ledger tr.editing :is(input,select):not(#_):not(.x_):focus { background:#E3EEFB!important; border-color:var(--meadow-dark)!important; box-shadow:0 0 0 3px rgba(11,138,95,.12)!important; }
+.main .ledger :is(tr.add-row,tr.editing) .date-picker-button:not(#_) { background:transparent!important; }
+/* Row actions live in the right-click menu. */
+.context-menu { min-width:200px; padding:6px; border:0; border-radius:12px; background:var(--surface); box-shadow:var(--shadow-float); }
+.context-menu button { min-height:36px; padding:0 12px; border-radius:8px; font:600 var(--fs-2)/1 var(--body); color:var(--ink); }
+.context-menu button:hover, .context-menu button:focus-visible { background:var(--hover); outline:0; }
+.context-menu button[hidden] { display:none; }
+.context-menu hr { border:0; border-top:1px solid var(--line); margin:4px 6px; }
+.context-menu .danger-text { color:var(--rose); }
+/* Key notes · guideline 2.4: the number is the highlight. Label, big figure, one line, one button. */
+.main .key-note { display:flex!important; flex-direction:column; align-items:flex-start; gap:4px; padding:16px 18px!important; }
+.main .key-note .kn-head { display:flex; align-items:center; gap:8px; color:var(--ink-2); font:500 var(--fs-note)/1.35 var(--body); }
+.main .key-note .key-note-icon { width:28px!important; height:28px!important; border-radius:9px!important; }
+.main .key-note .key-note-icon svg { width:16px!important; height:16px!important; }
+.main .key-note .kn-figure { display:block; margin:2px 0 0; font:800 var(--num-card)/1.1 var(--display)!important; letter-spacing:-.02em; font-variant-numeric:tabular-nums; white-space:nowrap; color:var(--ink); }
+.main .key-note.tone-good .kn-figure { color:var(--positive); }
+.main .key-note.tone-attention .kn-figure { color:var(--rose); }
+.main .key-note p { margin:0!important; font-size:var(--fs-2)!important; color:var(--ink-2)!important; }
+.main .key-note .kn-action, .main .stat-card .kn-action { display:inline-flex; align-items:center; height:32px; margin-top:8px; padding:0 14px; border-radius:999px;
+  background:var(--note-strong, var(--action)); color:#fff!important; font:700 var(--fs-2)/1 var(--body); text-decoration:none; }
+.main .key-note .kn-action:hover, .main a.stat-card:hover .kn-action { filter:brightness(1.08); }
+.main .stat-card.lead-card .stat-label { font:500 var(--fs-note)/1.35 var(--body); }
+.main .stat-card.lead-card .stat-value { font-size:var(--num-card); }
+.main .stat-card.lead-card .kn-action { align-self:flex-start; }
+.main .stat-row .stat-card.key-note { min-height:118px; }
