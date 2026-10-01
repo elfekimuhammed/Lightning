@@ -7,8 +7,9 @@ from decimal import Decimal
 from fastapi import APIRouter, Request
 
 from lightning.categories.domain import Movement
-from lightning.core.dates import fmt_date, today
+from lightning.core.dates import fmt_date, parse_date, today
 from lightning.core.errors import LightningError
+from lightning.core.figures import label
 from lightning.core.money import ZERO, fmt, to_decimal
 from lightning.planning.domain import (FREQUENCY_LABELS, KIND_LABELS, RECURRING_KINDS, Frequency, PaymentStatus,
                                        PlanKind)
@@ -100,12 +101,38 @@ async def plan_page(request: Request):
     window_end = day + timedelta(days=30)
     next_payments = [p for p in c.planning.all_payments(window_end, day)
                      if p.status in (PaymentStatus.DUE, PaymentStatus.UPCOMING)]
-    # The next payment heads the Next 30 days list, so the note is only the forecast's lowest point.
-    notes = [n for n in (keynotes.lowest_point(forecast),) if n]
+    plan = visuals.cash_plan(c, forecast, day)
+    stats = _plan_stats(forecast, plan, day)
     return render(request, "planning/plan.html", tabs=TABS, plan_tab="plan", forecast=forecast, owe=owe,
-                  notes=notes, forecast_chart=visuals.forecast_trend(forecast),
+                  notes=[], plan=plan, stats=stats, forecast_chart=visuals.forecast_trend(forecast),
                   next_payments=next_payments, as_of=fmt_date(day), window_end=fmt_date(window_end),
                   has_items=bool(c.planning.items()), labels=_labels(c))
+
+
+def _plan_stats(f, plan, day) -> list[dict]:
+    """Four cards: safe to spend, free cash, what is due before the next income, the lowest point ahead."""
+    until = f.next_income_date
+    days = (parse_date(until) - day).days if until else 90
+    per_day = f.safe_to_spend / days if days > 0 and f.safe_to_spend > 0 else None
+    low = f.lowest
+    nxt = plan["before_income"][0] if plan["before_income"] else None
+    return [
+        {"key": "safe", "surface": "lead", "label": label("safe_to_spend"), "value": f.safe_to_spend, "kind": "money",
+         "badge": {"tone": "over" if f.safe_to_spend < 0 else "flat", "text": f"until {until}" if until else "3 months"},
+         "sub": (f"About {fmt(per_day, 0)} a day for {days} days" if per_day is not None
+                 else "Promised payments are larger than your free cash" if f.safe_to_spend < 0 else "Nothing left to spend safely"),
+         "href": "#plan-build"},
+        {"key": "free", "surface": "white", "label": label("free_cash"), "value": f.free_cash, "kind": "money",
+         "sub": "Cash you own after reserves and bills due · today", "href": "/"},
+        {"key": "before", "surface": "mint", "label": "Due before your next income", "value": plan["before_total"], "kind": "money",
+         "badge": {"tone": "flat", "text": f"{len(plan['before_income'])} payment{'s' if len(plan['before_income']) != 1 else ''}"},
+         "sub": f"Next: {nxt.item.name} · {nxt.due_date}" if nxt else "Nothing is due before then",
+         "href": "#plan-next"},
+        {"key": "low", "surface": "white", "label": "Lowest point ahead", "value": low.closing if low else None, "kind": "money",
+         "empty": "—", "badge": {"tone": "over" if low and low.closing < 0 else "flat", "text": low.month if low else "—"},
+         "sub": "Cash at its lowest month end in the forecast" if low else "Add your bills and income to see it",
+         "spark": plan["forecast_spark"], "spark_tone": "over" if low and low.closing < 0 else "hold", "href": "#plan-forecast"},
+    ]
 
 
 @router.get("/recurring")

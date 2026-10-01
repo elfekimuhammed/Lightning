@@ -94,9 +94,9 @@
       const row = card.querySelector(`[data-add-row="${add.dataset.addUnder}"]`); row.hidden = false; row.elements.name.focus(); return; }
     if (e.target.closest('[data-cancel]')) e.target.closest('form').hidden = true;
   });
-  card.querySelectorAll('[data-confirm-delete]').forEach((b) => b.addEventListener('click', (e) => {
-    if (!window.confirm('Delete this category? If it has history or is in use, it will be archived instead.')) e.preventDefault();
-  }));
+  card.addEventListener('submit', (e) => {
+    if (e.submitter?.matches('[data-confirm-delete]')) window.confirmSubmit(e, 'Delete this category? If it has history or is in use, it is archived instead.');
+  });
   const checks = [...document.querySelectorAll('.category-select')];
   const all = document.getElementById('select-all-categories');
   const count = document.getElementById('category-selection-count');
@@ -105,8 +105,9 @@
   all?.addEventListener('change', () => { checks.forEach((b) => { b.checked = all.checked; }); syncSel(); });
   checks.forEach((b) => b.addEventListener('change', syncSel));
   document.querySelector('[data-category-bulk]')?.addEventListener('submit', (e) => {
-    if (!checks.some((b) => b.checked)) { e.preventDefault(); window.alert('Select at least one category first.'); return; }
-    if (e.submitter?.value === 'delete' && !window.confirm('Delete selected categories? Categories in use will be archived instead.')) e.preventDefault();
+    if (!checks.some((b) => b.checked)) { e.preventDefault(); window.ask({ title: 'Select at least one category first', message: 'Tick the categories to archive or delete, then choose the action again.', ok: 'Got it', cancel: false }); return; }
+    if (e.submitter?.value === 'delete') { const n = checks.filter((b) => b.checked).length;
+      window.confirmSubmit(e, { title: `Delete ${n === 1 ? 'this category' : n + ' categories'}?`, message: 'Categories in use are archived instead.', ok: 'Delete', tone: 'danger' }); }
   });
   const search = document.getElementById('category-search');
   const resultCount = document.getElementById('category-result-count');

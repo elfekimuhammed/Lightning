@@ -14,7 +14,7 @@
     <svg class="chart-marks" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
       {% for s in t.series %}{% if s.area %}<path class="chart-area tone-{{ s.tone }}" d="{{ s.area }}"/>{% endif %}{% endfor %}
       {% if t.plan %}<line class="chart-plan" x1="0" x2="100" y1="{{ '%.2f'|format(t.plan.y) }}" y2="{{ '%.2f'|format(t.plan.y) }}" vector-effect="non-scaling-stroke"/>{% endif %}
-      {% for s in t.series %}<polyline class="chart-line tone-{{ s.tone }}" points="{{ s.line }}" vector-effect="non-scaling-stroke"/>{% endfor %}
+      {% for s in t.series %}<polyline class="chart-line tone-{{ s.tone }}{{ ' is-dashed' if s.dashed }}" points="{{ s.line }}" vector-effect="non-scaling-stroke"/>{% endfor %}
     </svg>
     {% for s in t.series %}{% for d in s.dots %}<span class="chart-dot tone-{{ s.tone }}{{ ' is-over' if d.over }}" style="left:{{ '%.2f'|format(d.x) }}%;top:{{ '%.2f'|format(d.y) }}%" tabindex="0" data-tip="{{ d.label }} · {{ s.name }} {{ d.value|money }}{{ ' · over plan' if d.over }}" aria-label="{{ d.label }}, {{ s.name }} {{ d.value|money }}"></span>{% endfor %}
     {% if s.last %}<span class="chart-end" style="left:{{ '%.2f'|format(s.last.x) }}%;top:{{ '%.2f'|format(s.last.y) }}%">{{ s.last.value|money }}</span>{% endif %}{% endfor %}

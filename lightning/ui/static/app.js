@@ -1,5 +1,67 @@
 // Small helpers only — no financial logic lives in the browser.
 
+// The app's own question dialog, in place of the browser's confirm and alert boxes.
+// ask({title, message, ok, cancel, tone}) resolves true for the action, false for Cancel or Escape.
+// cancel: false leaves one button (a notice). tone: "danger" (a red action), "warn" or "info".
+window.ask = (() => {
+  const icons = {
+    danger: '<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/>',
+    warn: '<path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>',
+    info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>',
+  };
+  let queue = Promise.resolve();
+  const open = ({ title, message = "", ok = "OK", cancel = "Cancel", tone = "info" }) => new Promise((resolve) => {
+    const dialog = document.createElement("dialog");
+    dialog.className = `ask-dialog tone-${tone}`;
+    dialog.setAttribute("aria-labelledby", "ask-title");
+    if (message) dialog.setAttribute("aria-describedby", "ask-message");
+    dialog.innerHTML = `<form method="dialog" class="ask-frame">
+      <span class="ask-icon" aria-hidden="true"><svg viewBox="0 0 24 24">${icons[tone] || icons.info}</svg></span>
+      <div class="ask-text"><h2 id="ask-title"></h2>${message ? '<p id="ask-message"></p>' : ""}</div>
+      <div class="ask-actions">${cancel === false ? "" : '<button type="button" class="btn" data-ask="no"></button>'}
+        <button type="submit" class="btn ${tone === "danger" ? "is-danger" : "primary"}" data-ask="yes"></button></div></form>`;
+    dialog.querySelector("h2").textContent = title;
+    if (message) dialog.querySelector("p").textContent = message;
+    dialog.querySelector('[data-ask="yes"]').textContent = ok;
+    const no = dialog.querySelector('[data-ask="no"]');
+    if (no) no.textContent = cancel;
+    const back = document.activeElement;
+    let answer = false;
+    const finish = () => { dialog.remove(); if (back?.isConnected) back.focus?.(); resolve(answer); };
+    dialog.querySelector("form").addEventListener("submit", () => { answer = true; });
+    no?.addEventListener("click", () => dialog.close());
+    dialog.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); });
+    dialog.addEventListener("close", finish, { once: true });
+    document.body.append(dialog);
+    dialog.showModal();
+    // A destructive action never takes the first focus; Enter must not delete by accident.
+    (tone === "danger" && no ? no : dialog.querySelector('[data-ask="yes"]')).focus();
+  });
+  return (options) => (queue = queue.then(() => open(typeof options === "string" ? { title: options } : options)));
+})();
+// "Delete this category? If it is in use, it is archived instead." → a title and a line under it.
+window.askFrom = (text, extra = {}) => {
+  const [title, ...rest] = String(text).split(/(?<=\?)\s+/);
+  const danger = /\b(delete|remove)\b/i.test(title);
+  return window.ask({ title, message: rest.join(" "), ok: danger ? "Delete" : "OK", tone: danger ? "danger" : "info", ...extra });
+};
+// For a submit handler: stop this submit, ask, and send the same form (and button) again on yes.
+window.confirmSubmit = (() => {
+  const passed = new WeakSet();
+  return (event, options) => {
+    const form = event.target;
+    if (passed.has(form)) return true;
+    event.preventDefault(); event.stopImmediatePropagation();
+    const submitter = event.submitter?.form === form ? event.submitter : undefined;
+    (typeof options === "string" ? window.askFrom(options) : window.ask(options)).then((yes) => {
+      if (!yes) return;
+      passed.add(form);
+      try { form.requestSubmit(submitter); } finally { passed.delete(form); }
+    });
+    return false;
+  };
+})();
+
 // Date quick buttons (Today / Yesterday) — always yyyy-mm-dd.
 document.addEventListener("click", (e) => {
   const btn = e.target.closest("[data-date]");
@@ -128,9 +190,8 @@ document.addEventListener("click", (e) => {
 // Keep repeated Enter presses from posting the quick-add form twice.
 document.addEventListener("submit", (event) => {
   const form = event.target;
-  if (form.matches("[data-confirm-delete]") && !window.confirm(form.dataset.confirmDelete || "Delete this transaction? You can restore it from its history page.")) {
-    event.preventDefault(); return;
-  }
+  if (form.matches("[data-confirm-delete]") && !window.confirmSubmit(event,
+    form.dataset.confirmDelete || "Delete this transaction? You can restore it from its history page.")) return;
   if (!(form.matches("#f-new, #f-edit, .investment-entry-form"))) return;
   if (form.dataset.submitting === "true") { event.preventDefault(); return; }
   form.dataset.submitting = "true";
@@ -160,7 +221,11 @@ if (ledger) {
       selected.length > 1 ? `Delete ${selected.length} selected` : "Delete";
   };
   const deleteTransactions = (ids, backTo) => {
-    if (!ids.length || !window.confirm(`Delete ${ids.length === 1 ? "this transaction" : `${ids.length} transactions`}? They will be removed from the register and can be restored from transaction history.`)) return;
+    if (!ids.length) return;
+    window.ask({ title: `Delete ${ids.length === 1 ? "this transaction" : `${ids.length} transactions`}?`, tone: "danger", ok: "Delete",
+      message: `${ids.length === 1 ? "It leaves" : "They leave"} the register and can be restored from transaction history.` }).then((yes) => { if (yes) send(ids, backTo); });
+  };
+  const send = (ids, backTo) => {
     const form = document.createElement("form");
     form.method = "post"; form.action = "/transactions/bulk-delete";
     const back = document.createElement("input"); back.type = "hidden"; back.name = "back"; back.value = backTo || location.pathname + location.search; form.append(back);
@@ -975,9 +1040,13 @@ document.querySelectorAll("[data-counterparty-filter]").forEach((search) => {
     .map((form) => new URLSearchParams(new FormData(form)).toString()).join("&");
   const changed = () => dirty && formState() !== snapshot;
   let keepAfterError = false;
-  const canDiscard = () => !(keepAfterError || changed()) || window.confirm("Discard your unsaved changes?");
-  const close = (goBack = true) => {
-    if (!dialog.open || !canDiscard()) return false;
+  const unsaved = () => keepAfterError || changed();
+  const askDiscard = () => window.ask({ title: "Discard your changes?", message: "What you typed in this form has not been saved.",
+    ok: "Discard", cancel: "Keep editing", tone: "warn" });
+  // Closing with unsaved changes asks first, then closes on yes; it returns false while it asks.
+  const close = (goBack = true, force = false) => {
+    if (!dialog.open) return false;
+    if (!force && unsaved()) { askDiscard().then((yes) => { if (yes) close(goBack, true); }); return false; }
     dirty = false;
     keepAfterError = false;
     dialog.close();
@@ -1113,7 +1182,8 @@ document.querySelectorAll("[data-counterparty-filter]").forEach((search) => {
   const openUrl = async (url, trigger, push = true) => {
     const replacing = dialog.open;
     const priorOpener = opener;
-    if (dialog.open && !close(false)) return;
+    if (dialog.open && unsaved() && !(await askDiscard())) return;
+    if (dialog.open) close(false, true);
     opener = replacing ? priorOpener : (trigger || document.activeElement);
     if (!replacing) {
       baseUrl = location.href;
@@ -1140,11 +1210,14 @@ document.querySelectorAll("[data-counterparty-filter]").forEach((search) => {
     const expand = event.target.closest("[data-popup-expand]");
     if (expand) {
       event.preventDefault();
-      if (!activePopupUrl || !canDiscard()) return;
-      const target = new URL(activePopupUrl, location.href);
-      target.searchParams.delete("popup");
-      dirty = false;
-      location.href = target.href;
+      if (!activePopupUrl) return;
+      (unsaved() ? askDiscard() : Promise.resolve(true)).then((yes) => {
+        if (!yes) return;
+        const target = new URL(activePopupUrl, location.href);
+        target.searchParams.delete("popup");
+        dirty = false; keepAfterError = false;
+        location.href = target.href;
+      });
       return;
     }
     const link = event.target.closest("a[data-popup-open]");
@@ -1201,7 +1274,7 @@ document.querySelectorAll("[data-counterparty-filter]").forEach((search) => {
           return;
         }
         const next = new URL(goToResponse ? response.url : baseUrl, location.href);
-        close(false);
+        close(false, true);  // saved: nothing to discard
         history.replaceState(null, "", next.pathname + next.search + next.hash);
         if (msg) sessionStorage.setItem("lightning-popup-success", msg);
         if (goToResponse) location.href = next.href;
@@ -1217,10 +1290,13 @@ document.querySelectorAll("[data-counterparty-filter]").forEach((search) => {
   });
   window.addEventListener("popstate", () => {
     if (!dialog.open) return;
-    if (!close(false)) {
+    if (unsaved()) {
+      // Stay on the popup's address while asking; on yes, close and step back for real.
       history.pushState({ lightningPopup: true, baseUrl, baseScroll }, "", activePopupUrl || location.href);
+      askDiscard().then((yes) => { if (yes) close(true, true); });
       return;
     }
+    close(false, true);
     const base = new URL(baseUrl, location.href);
     if (base.pathname + base.search + base.hash !== location.pathname + location.search + location.hash) location.reload();
   });
@@ -1424,9 +1500,7 @@ document.querySelectorAll("[data-month-picker]").forEach((picker) => {
 // script-src-attr 'none' and with controls inserted into finance popups.
 document.addEventListener("submit", (event) => {
   const message = event.target.dataset.confirm;
-  if (message && !window.confirm(message)) {
-    event.preventDefault(); event.stopImmediatePropagation();
-  }
+  if (message) window.confirmSubmit(event, message);
 }, true);
 document.addEventListener("input", (event) => {
   if (event.target.matches("[data-filter-holdings]")) window.filterHoldings?.();

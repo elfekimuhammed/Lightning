@@ -8,6 +8,24 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### Cash planning, tab headers and the Ask dialog · 2026-10-01
+- Cash planning's Plan tab opens with four stat cards: Safe to spend (with about how much a day until your next
+  income), Free cash, Due before your next income and Lowest point ahead. Then three questions: How is safe to
+  spend worked out? (a waterfall from free cash, beside a 30-day timeline and its payment list), Where is my cash
+  heading? (five month-ends of free cash, then the forecast dashed, beside money in and out per forecast month)
+  and What is promised? (what you owe, beside the five biggest loans still to pay, then Others). The forecast
+  table moved under Show the numbers. Add bill and Add loan left the page header; adding stays on Recurring and
+  Loans.
+- Every Cash planning tab (Plan, Recurring, Loans, Reserves) sits in a pill bar with icons and opens with its
+  own header: an icon tile, the tab's name and one line on what it answers, in the tab's own accent.
+- The browser's confirm and alert boxes are gone. Discarding unsaved changes in a popup, deleting a
+  transaction, category or counterparty, applying budgets in bulk and the "select a category first" notice
+  all use the app's own dialog: a white card with an icon in its tone, the question, one line on what happens,
+  and buttons that say what they do. Escape and Cancel answer no; focus starts on Cancel before a delete.
+- The App guideline is 2.8 · Clover: the timeline, forecast trend and flow columns are now in the app, with
+  rules for tab headers and the Ask dialog. Its visual page is also written to
+  `docs/APPLICATION_BRAND_GUIDE.html` by `tools/brand_guide/build.py`.
+
 ### Investments and report pages, lighter · 2026-10-01
 - Saved and invested is one light bar of money in: invested inside saved, then kept, then spent. Investing rate
   now counts only what came out of this period's savings, so it is never more than the savings rate; money

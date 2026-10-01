@@ -14,7 +14,8 @@ import math
 from pathlib import Path
 
 OUT = Path(__file__).with_name("APPLICATION_BRAND_GUIDE.html")
-VERSION = "2.7 · Sorrel"
+DOCS_OUT = Path(__file__).resolve().parents[2] / "docs" / "APPLICATION_BRAND_GUIDE.html"  # the copy linked from the docs
+VERSION = "2.8 · Clover"
 UPDATED = "2026-10-01"
 
 # ---- tokens (same values as style.css) ---------------------------------------------------------
@@ -733,22 +734,50 @@ def c_loan_balance():
     return svg(body, "Loan still to pay, by year")
 
 
+TAB_ICONS = {'Plan': '<path d="M3 3v18h18M7 15l4-4 3 3 5-6"/>', 'Recurring': '<path d="M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3M18 3v4h-4M6 21v-4h4"/>', 'Loans': '<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h4"/>', 'Reserves': '<path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/>'}
+
+
 def c_timeline():
-    items = [(2, "Internet", 450), (5, "Rent", 6500), (9, "Car loan", 3200), (14, "School", 4800), (21, "Gym", 600), (27, "Salary", 42000)]
-    x0, x1 = 16, 344
-    body = f'<line x1="{x0}" x2="{x1}" y1="70" y2="70" stroke="{T["line_control"]}" stroke-width="1.5"/>'
-    for d in (0, 10, 20, 30):
+    items = [(2, "Landlord", -12000), (4, "Car loan", -2500), (8, "Vodafone", -350), (19, "WE Internet", -650), (23, "Electricity", -480), (27, "Salary", 42000)]
+    x0, x1, base = 20, 340, 34
+    body = f'<line x1="{x0}" x2="{x1}" y1="{base}" y2="{base}" stroke="{T["line_control"]}" stroke-width="1.5"/>'
+    body += text(x0, base - 10, "Today", "t") + text(x1, base - 10, "+30 days", "t", "end")
+    last = [-99.0, -99.0, -99.0]
+    for d, n, v in items:
         xx = x0 + d / 30 * (x1 - x0)
-        body += f'<line x1="{xx:.1f}" x2="{xx:.1f}" y1="66" y2="74" stroke="{T["line_control"]}"/>' + text(xx, 92, f"+{d}d" if d else "Today", "t", "middle")
-    for k, (d, n, v) in enumerate(items):
-        xx = x0 + d / 30 * (x1 - x0)
-        up = k % 2 == 0
-        col = IN if n == "Salary" else SPEND
-        body += f'<line x1="{xx:.1f}" x2="{xx:.1f}" y1="{70 - (22 if up else -2)}" y2="70" stroke="{col}" stroke-width="1.5"/>' if up else ""
-        body += dot(xx, 70, col, 5)
-        ty = 30 if up else 116
-        body += text(xx, ty, n, "l", "middle") + text(xx, ty + 13, ("+" if n == "Salary" else "−") + money(v), "t", "middle")
+        row = next((r for r in range(3) if xx - last[r] >= 48), 2)
+        last[row] = xx
+        col = IN if v > 0 else SPEND
+        body += dot(xx, base, col, 5)
+        ty = base + 20 + row * 30
+        body += text(xx, ty, n, "l", "middle") + text(xx, ty + 12, money(v, 0, sign=True), "v" if v > 0 else "t", "middle")
     return svg(body, "Bills and income in the next 30 days", h=136)
+
+
+def c_forecast_trend():
+    past = [61200, 66800, 70300, 68900, 74200]
+    ahead = [74200, 58400, 63100, 69800]
+    labels = ["05-31", "06-30", "07-31", "08-31", "09-30", "10-31", "11-30", "12-31"]
+    a = Axis(8, 0, 80000)
+    body = a.grid(labels, [0, 40000, 80000])
+    body += poly([(a.x(i), a.y(v)) for i, v in enumerate(past)], HOLD)
+    body += poly([(a.x(i + 4), a.y(v)) for i, v in enumerate(ahead)], HOLD, dash="5 4")
+    body += dot(a.x(4), a.y(past[-1]), HOLD) + text(a.x(4), a.y(past[-1]) - 10, "Today", "t", "middle")
+    body += dot(a.x(5), a.y(58400), HOLD, 3.5) + text(a.x(5), a.y(58400) + 16, "Lowest 58,400", "v", "middle")
+    return key([("Free cash at month-end", HOLD), ("--Forecast", HOLD)]) + svg(body, "Free cash: five month-ends, then the forecast dashed")
+
+
+def c_flow_cols():
+    months = [("2026-10", 42000, 57800), ("2026-11", 42000, 37300), ("2026-12", 45500, 38800)]
+    a = Axis(3, 0, 75000, band=True)
+    body = a.grid([m for m, _, _ in months], [0, 25000, 50000, 75000])
+    bw = a.step() * .26
+    for i, (_, inn, out) in enumerate(months):
+        for x, v, col in ((a.x(i) - bw - 2, inn, IN), (a.x(i) + 2, out, SPEND)):
+            body += rbar(x, a.y(v), bw, a.y(0) - a.y(v), col, end="top") + text(x + bw / 2, a.y(v) - 5, f"{v / 1000:.1f}k", "t", "middle")
+        net = inn - out
+        body += text(a.x(i), H + 12, money(net, 0, sign=True), "v pos" if net >= 0 else "v neg", "middle")
+    return key([("Money in", IN), ("Money out", SPEND)]) + svg(body, "Forecast money in and out per month, net under each month", h=H + 20)
 
 
 def c_table():
@@ -780,7 +809,13 @@ CHARTS = [
          "Account page · balance"),
         ("Forecast with range", "ready", c_forecast, "What comes next: the cash forecast, a goal date.",
          "Solid for what happened, dashed for the forecast, a light azure band for the likely range, a thin “Today” line. Mark the lowest point in strong rose with its value.",
-         "Cash planning · Plan (today a list)"),
+         "Cash planning · Plan draws it without the band, as the forecast trend"),
+        ("Forecast trend", "app", c_forecast_trend, "Where free cash is heading: past month-ends, then the forecast.",
+         "Five month-ends solid, the forecast dashed in the same azure from Today; the lowest point labelled; a month below zero in strong rose.",
+         "Cash planning · Where is my cash heading?"),
+        ("Flow columns", "app", c_flow_cols, "What each forecast month brings in and takes out.",
+         "Two columns per month from one baseline, money in green and out soft rose, each with its amount on top (9.7k); the net under the month in its sign colour. Months, not days.",
+         "Cash planning · Where is my cash heading?"),
         ("Pace (burn-up)", "ready", c_burnup, "Is spending on pace this month?",
          "Cumulative spending in soft rose against a dashed green line from zero to the plan. No second axis.",
          "Budget · this month"),
@@ -894,9 +929,9 @@ CHARTS = [
         ("Loan balance", "ready", c_loan_balance, "How much is left and when it ends.",
          "Azure line down to zero, a green dot and label at the payoff date.",
          "Cash planning · Loans"),
-        ("Timeline", "ready", c_timeline, "Bills and income in the next 30 days.",
-         "One date axis from Today, dots with name and amount, income green, bills soft rose, labels alternating above and below.",
-         "Cash planning · Next 30 days (today a list)"),
+        ("Timeline", "app", c_timeline, "Bills and income in the next 30 days.",
+         "One line from Today to +30 days, dots in soft rose (income green), name and amount under each dot in up to three rows so labels never touch. The payment list sits under it.",
+         "Cash planning · The next 30 days"),
     ]),
     ("Numbers behind every chart", [
         ("Show the numbers", "app", c_table, "Every chart's data as a table.",
@@ -1052,7 +1087,14 @@ def build() -> str:
 <li>One hairline 12px under the text and 16px above the cards; lead + support in 6 + 6 columns with 16px between, or one wide card.</li>
 <li>A page has two to four sections, answers one question, and never repeats a number from another section.</li>
 <li>Full pages opened from somewhere get one Back button in the header; popups get a full-page button beside close.</li>
-<li>On phones the line wraps, the pair stacks lead first, tabs scroll on one line.</li></ul>"""))
+<li>On phones the line wraps, the pair stacks lead first, tabs scroll on one line.</li></ul>
+<h3>Sub-tabs and their headers</h3>
+<div class="tabbar"><span class="on">Plan</span><span>Recurring</span><span>Loans</span><span>Reserves</span></div>
+<div class="tabheads">""" + "".join(f'<div class="tabhead" style="--ti:{ink};--tt:{tint}"><i><svg viewBox="0 0 24 24">{TAB_ICONS[n]}</svg></i><div><b>{n}</b><small>{d}</small></div></div>' for n, d, ink, tint in [
+        ("Plan", "What you can spend, and where your cash is heading", "#0B6DD6", "#EAF3FD"), ("Recurring", "Bills, subscriptions and income that repeat", "#0C7A86", "#E6F5F4"),
+        ("Loans", "What you still owe and when it ends", "#8A5A00", "#FFF6E0"), ("Reserves", "Money set aside for one purpose", "#0B8A5F", "#EAF8F0")]) + """</div>
+<ul class="bul"><li>One pill bar with icons; the chosen tab is a Nile pill. Each tab opens with its own header: an icon tile in the tab's accent, the name and one line on the question it answers, on a soft tint with a 4px accent edge.</li>
+<li>The accent only tells tabs apart; it never carries a tone (good, over, warning).</li></ul>"""))
     # 6 controls
     s.append(sec("controls", "06", "Controls", "Pills for pressing, 16px corners for typing. Selected always looks the same: a Nile fill.", """
 <div class="ctl"><span class="btn primary">Add transaction</span><span class="btn">Review</span><span class="btn quiet">See all</span><span class="btn danger">Deactivate</span></div>
@@ -1066,7 +1108,16 @@ def build() -> str:
 <li>Labels start with a verb, one to three words, no arrows. A page header holds Primary + Secondary + ⋯ at most.</li>
 <li><b>Chips</b> (36px) filter or fill in values; they are not actions. <b>Segments</b> offer two to four choices of one thing.</li>
 <li>The <b>period control</b> is one component (All time · YTD · Monthly · Custom). Every month box opens the <b>month picker</b>: a year row, twelve months, future months disabled.</li>
-<li><b>Toggle rows</b> are 48px, name and total left, chevron right; items indented and adding up to the row. They start closed, except the first group on the page that owns the number.</li></ul>"""))
+<li><b>Toggle rows</b> are 48px, name and total left, chevron right; items indented and adding up to the row. They start closed, except the first group on the page that owns the number.</li></ul>
+<h3>Ask dialog</h3>
+<div class="asks">
+<div class="ask danger"><i><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg></i><div><b>Delete this category?</b><small>If it has history or is in use, it is archived instead.</small></div><p><span class="btn small">Cancel</span><span class="btn small dangerfill">Delete</span></p></div>
+<div class="ask warn"><i>!</i><div><b>Discard your changes?</b><small>What you typed in this form has not been saved.</small></div><p><span class="btn small">Keep editing</span><span class="btn small primary">Discard</span></p></div>
+<div class="ask info"><i>i</i><div><b>Select at least one category first</b><small>Tick the categories, then choose the action again.</small></div><p><span class="btn small primary">Got it</span></p></div></div>
+<ul class="bul"><li>Never the browser's <code>confirm()</code> or <code>alert()</code>: every question and notice is the app's own dialog (<code>window.ask</code>), a 440px white card, 20px radius, float shadow, over a blurred backdrop.</li>
+<li>A 4px top edge and soft tint in its tone, a 44px icon tile, the question as the title, one line on what happens, pill buttons on the right that say what they do.</li>
+<li><b>Danger</b> (delete): strong rose, a solid Delete, focus starts on Cancel. <b>Warn</b> (discard): amber, “Keep editing” and a Nile “Discard”. <b>Info</b>: azure, a Nile action or one “Got it”.</li>
+<li>Escape, the backdrop and Cancel all answer no. On a phone it is a bottom sheet with full-width buttons.</li></ul>"""))
     # 7 fields
     s.append(sec("fields", "07", "Fields", "Three kinds: form fields on white, the one big Amount field, and soft fields inside register rows. Choosing from your own data is always type-and-pick, never a dropdown. Browser history suggestions are off everywhere.", f"""
 <div class="fgrid">
@@ -1175,7 +1226,8 @@ def build() -> str:
               ("Budget · top", "Savings waffle · plan bar (spent azure, left green, over rose)", "budget.html"),
               ("Budget · Spent of plan", "Bullet per category", "bullet_row"),
               ("Cash planning · reserves", "Meter", "meter"),
-              ("Cash planning · Plan", "Forecast trend", "trend"),
+              ("Cash planning · Plan", "Four stat cards (Safe to spend, Free cash, Due before your next income, Lowest point ahead) · waterfall from free cash to safe to spend · 30-day timeline and payment list · forecast trend (solid past, dashed ahead) · flow columns · What you owe · Loans still to pay bars", "stat_tiles, waterfall, trend, planning/plan.html"),
+              ("Cash planning · every tab", "Tab header in the tab's accent: icon tile, title, one line", "plan_tabs"),
               ("Cash planning · Recurring", "Bars", "bars")]
     stashed = [("Month by month (money in and money out per month)", "Two-line trend under a toggle on the Overview", "Removed in 2.5: no chart hides behind a toggle. visuals.flow_trend is kept; bring it back as a Columns: in and out chart, always open."),
                ("Where it went (grouped spending bars on the Overview)", "Grouped bars", "Replaced by the Sankey in 2.5. visuals.spending_bars is kept; Expense analysis still uses grouped bars."),
@@ -1186,6 +1238,7 @@ def build() -> str:
                ("Budget meters", "Meter per category", "Replaced by bullets in 2.6; the meter stays for reserves."),
                ("Budget summary cards", "Three stat cards", "Replaced by the savings waffle and plan bar in 2.6."),
                ("Expense analysis 2.6", "Grouped bars (Where did it go?), trend with plan (When did it change?), Who you paid and Paid from bars, the usual-month table", "Replaced in 2.7 by the treemap, clustered columns, usual range, small multiples and heatmap. visuals.spending_bars, counterparty_bars and account_bars are kept."),
+               ("Cash planning 2.7", "Key notes, Add bill and Add loan in the page header, the forecast as a table only", "Replaced in 2.8 by four stat cards and three questions; adding stays on the Recurring and Loans tabs; the table lives under Show the numbers."),
                ("Investments 2.6", "Result key card with toggle rows, portfolio trend, Analysis by asset class, result by class bars", "Replaced in 2.7 by the three tiles, allocation beside biggest holdings and the diverging flows."),
                ("Line chart (older helper)", "charts.line_chart", "Kept for the investments and Birdview helpers that still call it.")]
     s.append(sec("visuals", "16", "Visuals: active and stashed", "Every visual the app draws, and the ones it has built but set aside. Update this list in the same change that adds, moves or removes a chart.",
@@ -1194,6 +1247,7 @@ def build() -> str:
                  '<p class="note">Stashed code stays tested and keeps its spec in section 09, so it can come back without a redesign. Desktop (Windows) uses WebView2, the same Chromium engine as the browser, so every active visual renders the same there.</p>'))
     # 17 versions
     s.append(sec("versions", "17", "Versions", "", """<table class="plain"><thead><tr><th>Version</th><th>Date</th><th>What changed</th></tr></thead><tbody>
+<tr><td>2.8 · Clover</td><td>2026-10-01</td><td>Cash planning rebuilt questions first: four stat cards, then How is safe to spend worked out? (waterfall and the 30-day timeline), Where is my cash heading? (forecast trend, flow columns) and What is promised? Timeline, forecast trend and flow columns now in the app. Sub-tabs get a pill bar and a header per tab in its own accent. The Ask dialog replaces the browser's confirm and alert boxes. The visual page also lives in docs/</td></tr>
 <tr><td>2.7 · Sorrel</td><td>2026-10-01</td><td>Questions first: pages open with KPI cards, then one section per question. Big items only (under 1% folds away). The same chart type may have different styles for different goals. Each section states whether it follows the period or a fixed horizon. Investments and the holding page rebuilt; Expense analysis rebuilt with a treemap, clustered columns, usual range, small multiples and a heatmap; drawdown, diverging bars and the heatmap are now in the app</td></tr>
 <tr><td>2.6 · Fern</td><td>2026-10-01</td><td>Budget: a savings waffle and the plan bar replace the three cards; Spent of plan becomes bullets in a new style; investments are never budget spending. Inline row fields (a light green shade of the row, no border until focused) for every field inside a table; select boxes in the app's own style. Categories as a grouped table edited in place, with + / − / ± and L3. Pages use 90% of the space beside the sidebar</td></tr>
 <tr><td>2.5 · Willow</td><td>2026-10-01</td><td>Overview rebuilt as wide split cards: numbers and toggle lists on the left, the visual on the right (net worth trend, free cash waterfall, the new column waterfall for cash flow). The Sankey replaces Where it went. Investments gets its own section; no chart sits behind a toggle; Month by month is stashed. Stat cards redesigned: four in a row on alternating green and white surfaces, a period chip, one big figure and a quiet sparkline or meter. New figures Change in net worth and Investing rate. New section 16, Visuals: active and stashed</td></tr>
@@ -1269,6 +1323,13 @@ table.plain tr:last-child td{border-bottom:0}
 .btn{display:inline-flex;align-items:center;justify-content:center;height:48px;padding:0 22px;border-radius:999px;border:1px solid var(--lc);background:#fff;font:700 15px/1 var(--body);color:var(--ink);white-space:nowrap}
 .btn.primary{background:var(--nile);border-color:var(--nile);color:#fff}.btn.quiet{border-color:transparent;background:transparent;color:var(--azure)}.btn.danger{color:var(--rose);border-color:#F2C9D8}
 .btn.small{height:36px;padding:0 14px;font-size:13px}.btn.tiny{height:30px;padding:0 12px;font-size:13px}.btn.planner{border:0;color:#fff;background:linear-gradient(135deg,#0C9B63,#0A9E96 52%,#0B6DD6);box-shadow:0 10px 22px -14px rgba(10,110,120,.8)}
+.tabbar{display:inline-flex;gap:4px;padding:4px;border-radius:999px;background:#fff;border:1px solid var(--line);margin:4px 0 12px}.tabbar span{padding:8px 16px;border-radius:999px;font-weight:700;font-size:13px;color:var(--ink2)}.tabbar .on{background:var(--nile);color:#fff}
+.tabheads{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}.tabhead{display:flex;gap:14px;align-items:center;padding:16px 18px;border-radius:16px;background:linear-gradient(100deg,var(--tt),#fff 80%);border:1px solid var(--line);border-left:4px solid var(--ti)}
+.tabhead i{flex:none;display:grid;place-items:center;width:44px;height:44px;border-radius:14px;background:var(--ti);color:#fff;box-shadow:0 8px 18px -10px var(--ti)}.tabhead svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.tabhead b{display:block;font:700 20px/1.2 var(--display)}.tabhead small{color:var(--muted)}
+.asks{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;padding:18px;border-radius:16px;background:rgba(8,18,30,.42)}
+.ask{--ai:#0B5C95;--at:#E1EEFB;display:grid;grid-template-columns:44px 1fr;gap:12px 14px;padding:20px;border-radius:20px;background:linear-gradient(180deg,var(--at),#fff 80px);border-top:4px solid var(--ai);box-shadow:0 24px 48px -16px rgba(10,36,66,.35)}
+.ask.warn{--ai:#8A5A00;--at:#FFF6E0}.ask.danger{--ai:var(--rose);--at:#FCEEF3}.ask i{display:grid;place-items:center;width:44px;height:44px;border-radius:14px;background:var(--ai);color:#fff;font:800 18px/1 var(--body);font-style:normal}
+.ask b{display:block;font-size:16px}.ask small{color:var(--muted)}.ask p{grid-column:1/-1;display:flex;justify-content:flex-end;gap:8px;margin:4px 0 0}.btn.dangerfill{background:var(--rose);border-color:var(--rose);color:#fff}
 .btnrow,.ctl{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:10px 0}
 .info-tip{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;border:1px solid var(--lc);background:#fff;color:var(--ink2);font:700 12px/1 var(--body)}
 .page-back{display:inline-flex;align-items:center;height:36px;padding:0 14px 0 10px;border-radius:999px;border:1px solid var(--lc);background:#fff;font-weight:700;font-size:13px}
@@ -1334,7 +1395,8 @@ table.vis td:first-child{font-weight:700;white-space:nowrap}table.vis.stashed td
 .status{font:700 11px/1 var(--body);border-radius:999px;padding:5px 9px;white-space:nowrap}.st-app{background:var(--tg);color:var(--pos)}.st-ready{background:var(--th);color:#0A5AB0}.st-avoid{background:var(--rs);color:#A02E5A}
 .spec-body{flex:1;min-height:120px}.spec dl{display:grid;grid-template-columns:70px 1fr;gap:4px 10px;margin:14px 0 0;padding-top:12px;border-top:1px solid var(--line);font-size:12.5px}
 .spec dt{color:var(--muted);font-weight:700}.spec dd{margin:0;color:var(--ink2)}
-.spec-svg{display:block;width:100%;height:auto;overflow:visible}.spec-svg .t{font:500 10px var(--body);fill:var(--muted)}.spec-svg .v{font:700 10.5px var(--body);fill:var(--ink)}.spec-svg .l{font:600 11px var(--body);fill:var(--ink)}
+.spec-svg{display:block;width:100%;height:auto;overflow:visible}.spec-svg .t{font:500 10px var(--body);fill:var(--muted)}.spec-svg .v{font:700 10.5px var(--body);fill:var(--ink)}.spec-svg .v.pos{fill:var(--pos)}.spec-svg .v.neg{fill:var(--rose)}
+.spec-svg .l{font:600 11px var(--body);fill:var(--ink)}
 .spec-svg .g{stroke:var(--line);stroke-width:1}.spec-svg .g0{stroke:var(--lc);stroke-width:1}
 .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--ink2);margin:0 0 8px}.legend span{display:inline-flex;gap:6px;align-items:center}.legend i{width:10px;height:10px;border-radius:3px;display:inline-block}
 .legend i.dash{width:16px;height:0;border-top:2px dashed;border-radius:0}.legend.ramp{gap:3px;align-items:center}.legend.ramp i{width:22px;height:10px;border-radius:3px}.legend.ramp span{margin:0 6px}
@@ -1374,5 +1436,7 @@ main{padding:20px 16px 60px}.tiles,.tiles.two,.cardgrid,.fgrid,.dos,.split,.stat
 """
 
 if __name__ == "__main__":
-    OUT.write_text(build(), encoding="utf-8")
-    print(f"wrote {OUT} ({OUT.stat().st_size // 1024} KB)")
+    page = build()
+    for out in (DOCS_OUT, OUT):
+        out.write_text(page, encoding="utf-8")
+        print(f"wrote {out} ({out.stat().st_size // 1024} KB)")

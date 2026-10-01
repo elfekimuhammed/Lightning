@@ -2492,3 +2492,85 @@ a.chart-sankey-label:hover b { color:var(--azure); }
 .main .holding-class th { border-radius:10px 0 0 10px; } .main .holding-class td:last-child { border-radius:0 10px 10px 0; }
 .main .holdings-grouped { border-collapse:separate; border-spacing:0 2px; }
 .main .holding-group tr[data-search]:hover td { background:var(--hover); }
+/* Cash planning tabs: a pill bar, then a header for the tab you are on, each with its own accent. */
+.main .plan-tabs-bar { display:inline-flex; gap:4px; padding:4px; margin:0 0 14px; border-radius:999px; background:rgba(10,36,66,.05); }
+.main .plan-tab { display:inline-flex; align-items:center; gap:7px; height:36px; padding:0 16px; border-radius:999px; color:var(--ink-2); font:700 var(--fs-2)/1 var(--body); text-decoration:none; }
+.main .plan-tab svg { width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+.main .plan-tab:hover { background:rgba(255,255,255,.7); color:var(--ink); }
+.main .plan-tab[aria-current="page"] { background:var(--surface); color:var(--tab-ink); box-shadow:0 4px 12px -8px rgba(10,36,66,.5); }
+.main .tab-plan { --tab-ink:#08744A; --tab-tint:#D9F2E4; } .main .tab-recurring { --tab-ink:#0A5AB0; --tab-tint:#DCEBFB; }
+.main .tab-loans { --tab-ink:#8A5A00; --tab-tint:#FBEBD0; } .main .tab-reserves { --tab-ink:#00766A; --tab-tint:#D3F1EC; }
+.main .plan-tab-head { display:flex; align-items:center; gap:14px; margin:0 0 var(--gap-block); padding:16px 20px; border-radius:var(--r-card);
+  background:linear-gradient(100deg,var(--tab-tint) 0%,rgba(255,255,255,.75) 70%); border:1px solid rgba(255,255,255,.9); box-shadow:var(--shadow-card); }
+.main .plan-tab-icon { display:grid; place-items:center; width:44px; height:44px; flex:none; border-radius:13px; background:var(--tab-ink); color:#fff; box-shadow:0 8px 16px -10px var(--tab-ink); }
+.main .plan-tab-icon svg { width:22px; height:22px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+.main .plan-tab-head h2 { margin:0; font:800 var(--fs-section)/1.2 var(--display)!important; color:var(--ink); }
+.main .plan-tab-head p { margin:2px 0 0; font:500 var(--fs-2)/1.4 var(--body); color:var(--ink-2); }
+/* Plan · timeline of the next 30 days, columns of in and out each month ahead. */
+.main .timeline { position:relative; height:150px; margin:6px 0 10px; }
+.main .tl-axis { position:absolute; left:3%; right:3%; top:50%; border-top:2px solid var(--line-control); }
+.main .tl-today, .main .tl-end { position:absolute; top:calc(50% + 6px); font:700 10px/1 var(--body); color:var(--muted); }
+.main .tl-today { transform:translateX(-50%); } .main .tl-end { right:0; }
+.main .tl-mark { position:absolute; top:50%; display:grid; justify-items:center; gap:1px; transform:translateX(-50%); width:110px; text-align:center; font-size:10.5px; pointer-events:auto; }
+.main .tl-mark i { position:absolute; left:50%; top:-6px; width:12px; height:12px; margin-left:-6px; border-radius:50%; border:2px solid #fff; box-shadow:0 1px 3px rgba(10,36,66,.25); }
+.main .tl-mark.is-in i { background:var(--meadow-dark); } .main .tl-mark.is-out i { background:var(--tone-spend); } .main .tl-mark.is-late i { background:var(--rose); }
+.main .tl-mark b { font:700 11px/1.2 var(--body); color:var(--ink); max-width:110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.main .tl-mark small { font-variant-numeric:tabular-nums; color:var(--ink-2); font-weight:600; }
+.main .tl-mark.is-in small { color:var(--positive); }
+.main .tl-mark.is-in.row-0 { transform:translate(-50%,-58px); } .main .tl-mark.is-in.row-1 { transform:translate(-50%,-34px); }
+.main .tl-mark.is-out.row-0 { transform:translate(-50%,14px); } .main .tl-mark.is-out.row-1 { transform:translate(-50%,38px); }
+.main .tl-mark.is-in.row-0 i { top:52px; } .main .tl-mark.is-in.row-1 i { top:28px; }
+.main .tl-mark.is-out.row-0 i { top:-20px; } .main .tl-mark.is-out.row-1 i { top:-44px; }
+.main .plan-next-list { margin-top:4px; }
+.main .flow-cols { display:grid; grid-auto-flow:column; grid-auto-columns:minmax(0,1fr); gap:12px; margin-top:18px; }
+.main .flow-col { display:grid; justify-items:center; gap:2px; text-align:center; }
+.main .flow-bars { display:flex; align-items:flex-end; justify-content:center; gap:6px; height:180px; width:100%; border-bottom:1px solid var(--line-control); }
+.main .flow-bar-col { display:flex; flex-direction:column; justify-content:flex-end; align-items:center; height:100%; gap:4px; }
+.main .flow-bar-col small { font:700 10.5px/1 var(--body); color:var(--ink-2); font-variant-numeric:tabular-nums; }
+.main .flow-bar-col i { width:26px; border-radius:5px 5px 0 0; }
+.main .flow-bar-col i.in { background:var(--meadow-dark); } .main .flow-bar-col i.out { background:var(--tone-spend); }
+.main i.k.in { background:var(--meadow-dark); } .main i.k.outflow { background:var(--tone-spend); }
+.main .flow-month { margin-top:6px; font:700 var(--fs-meta)/1.2 var(--body); color:var(--ink); }
+.main .flow-col em { font:700 var(--fs-meta)/1.2 var(--body); font-style:normal; font-variant-numeric:tabular-nums; color:var(--ink-2); }
+.main .flow-col em.pos { color:var(--positive); } .main .flow-col em.neg { color:var(--rose); }
+.main .chart-line.is-dashed { stroke-dasharray:6 5; }
+.main .overview-split > section > .chart-waterfall { flex:none; }
+.main .timeline { height:132px; }
+.main .timeline:not(.has-in) .tl-axis { top:16px; } .main .timeline:not(.has-in) :is(.tl-today,.tl-end) { top:2px; }
+.main .timeline:not(.has-in) .tl-mark { top:16px; }
+.main .timeline.has-in { height:220px; }
+.main .tl-mark.is-out.row-0 { transform:translate(-50%,14px); } .main .tl-mark.is-out.row-1 { transform:translate(-50%,48px); } .main .tl-mark.is-out.row-2 { transform:translate(-50%,82px); }
+.main .tl-mark.is-out.row-0 i { top:-20px; } .main .tl-mark.is-out.row-1 i { top:-54px; } .main .tl-mark.is-out.row-2 i { top:-88px; }
+.main .tl-mark.is-in.row-0 { transform:translate(-50%,-44px); } .main .tl-mark.is-in.row-1 { transform:translate(-50%,-78px); } .main .tl-mark.is-in.row-2 { transform:translate(-50%,-112px); }
+.main .tl-mark.is-in.row-0 i { top:38px; } .main .tl-mark.is-in.row-1 i { top:72px; } .main .tl-mark.is-in.row-2 i { top:106px; }
+.main .tl-mark { width:92px; } .main .tl-mark b { max-width:92px; }
+
+/* Ask dialog: the app's own confirm and notice, in place of the browser's boxes (guide 06). */
+.ask-dialog { border:0; padding:0; background:transparent; width:min(440px, calc(100vw - 32px)); max-width:none; overflow:visible; color:var(--ink); }
+.ask-dialog::backdrop { background:rgb(8 18 30 / 46%); backdrop-filter:blur(2px); }
+.ask-dialog[open] { animation:ask-in .16s ease-out; }
+@keyframes ask-in { from { opacity:0; transform:translateY(8px) scale(.98); } to { opacity:1; transform:none; } }
+.ask-frame { --ask-ink:var(--sky-700); --ask-tint:var(--sky-50); display:grid; grid-template-columns:44px 1fr; gap:14px 16px; margin:0; padding:24px 24px 20px;
+  background:linear-gradient(180deg, var(--ask-tint) 0, var(--surface) 92px); border:1px solid var(--border); border-top:4px solid var(--ask-ink);
+  border-radius:var(--r-card, 20px); box-shadow:var(--shadow-float, 0 24px 60px rgb(10 36 66 / 24%)); }
+.ask-dialog.tone-warn .ask-frame { --ask-ink:var(--amber-700); --ask-tint:var(--amber-50); }
+.ask-dialog.tone-danger .ask-frame { --ask-ink:var(--neg); --ask-tint:var(--coral-50); }
+.ask-icon { display:grid; place-items:center; width:44px; height:44px; border-radius:14px; background:var(--ask-ink); color:#fff; box-shadow:0 8px 18px -8px var(--ask-ink); }
+.ask-icon svg { width:22px; height:22px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+.ask-text { align-self:center; min-width:0; }
+.ask-text h2 { margin:0; font-size:var(--fs-card, 17px); font-weight:700; line-height:1.3; color:var(--ink); }
+.ask-text p { margin:6px 0 0; color:var(--muted); font-size:var(--fs-body, 14px); line-height:1.5; }
+.ask-actions { grid-column:1 / -1; display:flex; justify-content:flex-end; gap:10px; padding-top:6px; }
+.ask-actions .btn { min-width:104px; min-height:40px; border-radius:999px; justify-content:center; font-weight:600; }
+.ask-actions .btn:not(.primary):not(.is-danger) { background:var(--surface-2); border:1px solid var(--border); color:var(--ink); }
+.ask-actions .btn:not(.primary):not(.is-danger):hover { background:var(--hover); }
+.ask-actions .btn.is-danger { background:var(--neg); border-color:var(--neg); color:#fff; box-shadow:0 6px 16px -8px var(--neg); }
+.ask-actions .btn.is-danger:hover { filter:brightness(1.06); }
+@media (max-width: 560px) {
+  .ask-dialog { width:100vw; margin:auto 0 0; }
+  .ask-dialog[open] { animation-name:ask-up; }
+  @keyframes ask-up { from { transform:translateY(24px); opacity:0; } to { transform:none; opacity:1; } }
+  .ask-frame { border-radius:20px 20px 0 0; padding-bottom:calc(20px + env(safe-area-inset-bottom)); }
+  .ask-actions .btn { flex:1; }
+}
+@media (prefers-reduced-motion: reduce) { .ask-dialog[open] { animation:none; } }

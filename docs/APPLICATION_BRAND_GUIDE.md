@@ -1,13 +1,13 @@
-# App guideline · 2.7 · Sorrel
+# App guideline · 2.8 · Clover
 
 **Last updated 2026-10-01.** This is the one guideline for how every screen looks, reads and adds up. It covers colour, type, cards, sections, controls, fields, lists, charts and words. It is built on the Meadow brand guidelines. The product story is in [Project Overview](PROJECT_OVERVIEW.md), code rules in [Architecture](ARCHITECTURE.md) and terms in the [Glossary](GLOSSARY.md).
 
 **The guideline has two halves with the same sections and numbering:**
 
 - this file, which holds the written rules;
-- [`tools/brand_guide/APPLICATION_BRAND_GUIDE.html`](../tools/brand_guide/APPLICATION_BRAND_GUIDE.html), which shows each rule as a live sample and draws every chart type. Open it in a browser.
+- [`APPLICATION_BRAND_GUIDE.html`](APPLICATION_BRAND_GUIDE.html), beside this file, which shows each rule as a live sample and draws every chart type. Open it in a browser. The build writes the same page to `tools/brand_guide/` too.
 
-Rebuild the page with `python tools/brand_guide/build.py` after changing either half. Its values mirror `lightning/ui/static/style.css`, and the app is the reference where the two differ. The sample figures are illustrative and don't change product requirements. The owner prefers a quiet, number-led look, and that preference outranks the brand's vivid gradients.
+Rebuild the page with `python tools/brand_guide/build.py` after changing either half; it writes both copies. Its values mirror `lightning/ui/static/style.css`, and the app is the reference where the two differ. The sample figures are illustrative and don't change product requirements. The owner prefers a quiet, number-led look, and that preference outranks the brand's vivid gradients.
 
 ## 01 Seven rules behind every screen
 
@@ -190,6 +190,7 @@ A section groups the cards that share one date. It is a line on the canvas with 
 - The period control appears once per page, in the page header. "As of" stays only where the period can move the date (the Overview).
 - A page has two to four sections, answers one question, and never repeats a number from another section. To change something, the primary button opens the drawer or popup; there are no forms at the bottom of a page.
 - Tabs switch views of one subject and never jump to another page. Sidebar pages are not repeated as sub-tabs.
+- **Sub-tabs** sit in one pill bar, each with its icon; the chosen tab is a Nile pill. Under the bar every tab opens with **its own header**: a 44px icon tile in the tab's accent, the tab's name (22px display) and one line on the question it answers, on a soft tint of the same accent with a 4px accent edge on the left. The accent tells the tabs apart at a glance; it is not a tone. Cash planning: Plan azure, Recurring teal, Loans amber, Reserves Meadow.
 - The Overview is the quick glance, and the reports under it (Budget, Expense analysis, Cash planning, Investments) hold the depth.
 - On phones the line wraps (title first), the pair stacks with the lead on top, and tabs scroll on one line.
 
@@ -208,6 +209,11 @@ A section groups the cards that share one date. It is a line on the canvas with 
 - **Month picker:** every month box opens it. It has a year row with ‹ ›, then twelve months, with future months disabled. Changing the year keeps it open. Months are never typed.
 - **Toggle rows** are 48px buttons: name and total on the left, chevron on the right. Their items are indented, quieter, and add up to the row's total; a takeaway shows − (Reserves −5,000.00). They start closed, except the first group on the page that owns the number. Leave out items at 0.00, and show six at most, then "N more". Enter or Space toggles a row, and it reports open or closed to screen readers.
 - **There are no explanation toggles.** A figure's name explains itself.
+- **Ask dialog, never the browser's box.** Every "Are you sure?" and every notice uses the app's own dialog (`window.ask`), never `confirm()` or `alert()`, which look foreign and say "OK". It is a 440px white card with the 20px radius and the float shadow over a blurred backdrop. It has a 4px top edge and a soft tint in its tone, a 44px icon tile, a question as the title ("Discard your changes?"), one line on what happens, and pill buttons on the right:
+  - *Danger* (delete): a trash icon, strong rose; the action button is solid strong rose and says what it does ("Delete"); focus starts on Cancel.
+  - *Warn* (discard unsaved changes): an amber warning icon; "Keep editing" and a Nile "Discard".
+  - *Info* (apply a change, or a notice with one "Got it" button): azure, a Nile action button.
+  - Escape, the backdrop and Cancel all answer no. On a phone it is a bottom sheet with full-width buttons.
 
 ## 07 Fields
 
@@ -329,7 +335,9 @@ Charts are hand-drawn SVG and CSS with no chart library. In the app, `lightning/
 | | Area trend | In the app | One total that builds up (net worth); 12% fill | Overview · Net worth trend |
 | | Stacked area | Ready | A total made of parts over time; four layers at most | Investments · allocation history |
 | | Step line | Ready | A balance that jumps on each transaction | Account page |
-| | Forecast with range | Ready | Solid past, dashed forecast, light azure range band, a Today line, the lowest point marked | Cash planning · Plan |
+| | Forecast with range | Ready | Solid past, dashed forecast, light azure range band, a Today line, the lowest point marked | Cash planning · Plan draws it without the band (see the forecast trend) |
+| | Forecast trend | In the app | Five month-ends of free cash solid, then the forecast dashed in the same azure; a month that goes below zero in strong rose | Cash planning · Where is my cash heading? |
+| | Flow columns | In the app | Per forecast month, money in (green) and out (soft rose) as two columns from one baseline, each with its amount on top (9.7k); the net under the month in its sign colour | Cash planning · Where is my cash heading? |
 | | Pace (burn-up) | Ready | Spending so far against an even pace to plan | Budget · this month |
 | | Columns: in and out | Ready | In above zero, out below it, net as a Nile mark on the same axis | Overview · Cash flow by month (stashed, see 16) |
 | | Drawdown | In the app | Percent below the highest month-end so far, a soft-rose area from zero, the worst point in the subtitle | Holding page · Fall from its high |
@@ -352,7 +360,7 @@ Charts are hand-drawn SVG and CSS with no chart library. In the app, `lightning/
 | | Treemap | In the app | Big categories only (over 1%, eight at most) plus a grey "Smaller categories" tile; squarified, six rose steps dark to light, name, value and share in each tile, each opens its transactions | Expense analysis · Where did it go? |
 | | Waffle | In the app | One share to feel (savings rate): 100 squares in Meadow dark on track grey, the % and "Of every 100.00 that came in, N stayed" beside it | Budget · top |
 | | Pie | Avoid | Use the donut | — |
-| How a number is built | Waterfall | In the app | Start in azure, takeaways soft rose, additions green, the result Meadow dark and bold | Overview · Free cash › How it is built |
+| How a number is built | Waterfall | In the app | Start in azure, takeaways soft rose, additions green, the result Meadow dark and bold | Overview · Free cash › How it is built; Cash planning · From free cash to safe to spend |
 | | Column waterfall | In the app | Money in green from zero, each kind of money out soft rose floating at the running total, net flow azure from zero (strong rose when short); dashed links, values on the columns, one zero line | Overview · Cash flow › From money in to net flow |
 | | Breakdown list | In the app | The waterfall as rows, each result on a soft band | Overview, Investments |
 | | Sankey | In the app | Sources (green) into one Money in hub, out to spending (soft rose) and Kept (azure); "From what you had" in strong rose when money out is larger. Never source-to-use flows: the ledger does not say which income paid which bill. Three sources, five uses, the rest in Other; flows at 22%; labels pushed apart; a table under it | Overview · Cash flow › Where money in went |
@@ -365,7 +373,7 @@ Charts are hand-drawn SVG and CSS with no chart library. In the app, `lightning/
 | | Heatmap table | In the app | Category × month: history, then every month of the chosen period (outlined); four rose steps against each row's own average, values in cells; always last | Expense analysis · Month by month |
 | Loans and schedules | Principal and interest | Ready | Stacked columns per year: azure principal, light azure interest | Cash planning · Loans |
 | | Loan balance | Ready | Line down to zero with the payoff date | Cash planning · Loans |
-| | Timeline | Ready | Bills and income over the next 30 days, labels above and below | Cash planning · Next 30 days |
+| | Timeline | In the app | Bills and income over the next 30 days on one line from Today; dots in soft rose (green for income), name and amount under the dot in up to three rows so labels never touch | Cash planning · The next 30 days |
 | Numbers | Show the numbers | In the app | Every chart's data as a table, closed by default | Every trend |
 
 **Never:**
@@ -493,7 +501,6 @@ The donut order (the rows above, top to bottom) passes the palette validator for
 
 - On a phone, the transactions register scrolls sideways inside its card.
 - These charts are drawn in the guideline but not yet built in the app, although the pages would use them:
-  - Cash planning: the forecast chart with its lowest point, and the 30-day timeline;
   - Budget: the pace chart and bullets;
   - Target allocation: the dumbbell and diverging bars.
 - Transactions, account pages and Settings have not had the key-notes and charts pass.
@@ -520,7 +527,8 @@ Every visual the app draws, and the ones built but set aside. Update this list i
 | Budget · top | Savings waffle · plan bar | `budget.html` |
 | Budget · Spent of plan | Bullet per category | `bullet_row` |
 | Cash planning · reserves | Meter | `meter` |
-| Cash planning · Plan | Forecast trend | `trend` |
+| Cash planning · Plan | Four stat cards (Safe to spend, Free cash, Due before your next income, Lowest point ahead with sparkline) · waterfall from free cash to safe to spend · 30-day timeline with its payment list · forecast trend (solid past, dashed ahead) · flow columns per month · What you owe list · Loans still to pay bars (five, then Others) | `stat_tiles`, `waterfall`, `trend`, `planning/plan.html` |
+| Cash planning · every tab | Tab header (icon tile, title, one line) in the tab's accent | `plan_tabs` |
 | Cash planning · Recurring | Bars | `bars` |
 
 **Stashed: built, not on any screen**
@@ -536,12 +544,14 @@ Every visual the app draws, and the ones built but set aside. Update this list i
 | Budget meters | Meter per category | Replaced by bullets in 2.6; the meter stays for reserves |
 | Budget summary cards | Three stat cards | Replaced by the savings waffle and plan bar in 2.6 |
 | Expense analysis 2.6 | Grouped bars, trend with plan, Who you paid and Paid from bars, the usual-month table | Replaced in 2.7 by the treemap, clustered columns, usual range, small multiples and heatmap; `visuals.spending_bars`, `counterparty_bars` and `account_bars` are kept |
+| Cash planning 2.7 | Key notes, Add bill and Add loan in the page header, the forecast as a table only | Replaced in 2.8 by the four stat cards and the three questions; adding stays on the Recurring and Loans tabs; the table lives under Show the numbers |
 | Investments 2.6 | Result key card with toggle rows, portfolio trend, Analysis by asset class, result by class | Replaced in 2.7 by the three tiles, allocation beside biggest holdings and the diverging flows |
 
 ## 17 Versions
 
 | Version | Date | What changed |
 |---|---|---|
+| 2.8 · Clover | 2026-10-01 | Cash planning rebuilt questions first: four stat cards, then How is safe to spend worked out? (waterfall and the 30-day timeline), Where is my cash heading? (forecast trend with a dashed forecast, flow columns) and What is promised? Timeline, forecast trend and flow columns now in the app. Sub-tabs get a pill bar and a header per tab in its own accent. The Ask dialog replaces the browser's confirm and alert boxes. The visual page also lives in `docs/` |
 | 2.7 · Sorrel | 2026-10-01 | Questions first: KPI cards, then one section per question; big items only (under 1% folds away); the same chart type may have styles for different goals; every section states its time frame (period or fixed horizon). Investments and the holding page rebuilt; Expense analysis rebuilt with a treemap, clustered columns, usual range, small multiples and a heatmap; drawdown, diverging bars and the heatmap now in the app |
 | 2.6 · Fern | 2026-10-01 | Budget: savings waffle and plan bar replace the three cards; Spent of plan as bullets in a new style; investments never budget spending. Inline row fields for every field inside a table; select boxes in the app's own style; category lists as L1/L2 headers, never breadcrumbs; Categories edited in place with + / − / ± and L3. Pages use 90% of the space beside the sidebar |
 | 2.5 · Willow | 2026-10-01 | Overview as wide split cards (numbers and toggle list left, visual right); the column waterfall for cash flow; the Sankey replaces Where it went; Investments gets its own section; no chart behind a toggle; Month by month stashed. Stat cards redesigned: four in a row on alternating green and white, a period chip, one big figure and a sparkline or meter. New figures Change in net worth and Investing rate. New section 16, Visuals: active and stashed |

@@ -94,7 +94,7 @@ document.querySelectorAll('[data-counterparty-autosave]').forEach(form=>{const i
 document.querySelectorAll('[data-submit-on-change]').forEach(input=>input.addEventListener('change',()=>input.form.requestSubmit()));
 (()=>{const form=document.querySelector('[data-counterparty-search]'),input=form?.elements.q;let timer;input?.addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(()=>form.requestSubmit(),300)});input?.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();clearTimeout(timer);form.requestSubmit()}})})();
 document.querySelectorAll('[data-counterparty-delete]').forEach((form) => form.addEventListener('submit', (event) => {
-  if (!window.confirm('Delete this Counterparty? If it has transaction history, it will be archived instead.')) event.preventDefault();
+  window.confirmSubmit(event, 'Delete this counterparty? If it has transaction history, it is archived instead.');
 }));
 </script>
 {% endblock %}

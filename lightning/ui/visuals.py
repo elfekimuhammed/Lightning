@@ -11,6 +11,8 @@ from urllib.parse import urlencode
 from lightning.core.dates import fmt_date, month_of, parse_date, parse_month
 from lightning.core.money import ZERO, from_e6
 
+from lightning.planning.domain import PlanKind
+
 from . import charts
 
 
@@ -427,3 +429,65 @@ def expense_analysis(c, first: date, last: date, code_filter: str = "", history:
             "history_months": len(keys), "usual_total": usual_total, "usual_out": usual_out,
             "per_month": total / months_in,
             "has_history": len(keys) >= 1, "has_range": len(keys) >= 3}
+
+
+def cash_plan(c, forecast, day: date) -> dict:
+    """Cash planning in four questions: the gist (stat cards), how safe to spend is worked out, where
+    cash is heading (actual month ends, then the forecast) and what is promised."""
+    f = forecast
+    parts = dict(f.safe_to_spend_parts)
+    steps = [(name, value) for name, value in f.safe_to_spend_parts[1:]]
+    build = charts.waterfall((f.safe_to_spend_parts[0][0], f.free_cash), steps, ("Safe to spend", f.safe_to_spend))
+    # Next 30 days on one date axis from today: money in above the line, bills below.
+    end = day + timedelta(days=30)
+    upcoming = [p for p in c.planning.all_payments(end, day) if p.status.value in ("DUE", "UPCOMING")]
+    marks, last_x = [], {True: [-99.0] * 3, False: [-99.0] * 3}
+    for p in sorted(upcoming, key=lambda p: (p.due_date, -p.amount)):
+        offset = max(0, (parse_date(p.due_date) - day).days)
+        x = 3 + 94 * min(offset, 30) / 30
+        rows_used = last_x[p.item.is_income]
+        row = next((r for r in range(3) if x - rows_used[r] >= 15), None)  # labels never overlap
+        if row is None:
+            continue  # the list under the timeline still shows it
+        rows_used[row] = x
+        marks.append({"name": p.item.name, "amount": p.amount, "income": p.item.is_income, "due": p.due_date,
+                      "x": x, "row": row, "late": p.status.value == "DUE"})
+    before_income = [p for p in upcoming if not p.item.is_income and (f.next_income_date is None or p.due_date < f.next_income_date)]
+    # Where cash is heading: free cash at the last five month ends, then the forecast's month ends.
+    past_keys = months_back(day.replace(day=1) - timedelta(days=1), 5, c.reporting.first_activity_date())
+    past = []
+    for key in past_keys:
+        pos = c.position.at(parse_month(key)[1])
+        past.append(pos.free_cash)
+    future_keys = [m.month for m in f.months]
+    labels = past_keys + future_keys
+    actual = past + [None] * len(future_keys)
+    ahead = ([None] * (len(past_keys) - 1) + [past[-1]] if past_keys else []) + [m.closing for m in f.months]
+    over = [False] * len(past_keys) + [m.closing < 0 for m in f.months]
+    series = []
+    if past_keys:
+        series.append({"name": "Free cash", "tone": "hold", "values": actual, "area": True})
+    series.append({"name": "Forecast", "tone": "hold", "values": ahead, "dashed": True, "over": over})
+    heading = charts.trend(labels, series)
+    # In and out for each month ahead: money in up, what goes out down, one scale.
+    rows = [{"month": m.month, "in": m.income, "out": m.commitments + m.budget_spending + m.goal_saving,
+             "net": m.income - (m.commitments + m.budget_spending + m.goal_saving), "estimated": m.income_estimated}
+            for m in f.months]
+    top = max([r["in"] for r in rows] + [r["out"] for r in rows] + [ZERO]) or Decimal(1)
+    for r in rows:
+        r["in_h"], r["out_h"] = float(r["in"] / top * 100), float(r["out"] / top * 100)
+    # What is promised: each loan's money still to pay, largest first, five then Others.
+    loans = []
+    for item in c.planning.items((PlanKind.LOAN,)):
+        progress = c.planning.loan_progress(item, day)
+        if progress["still_to_pay"] > 0:
+            loans.append({"label": item.name, "value": progress["still_to_pay"],
+                          "note": f"ends {progress['last_date']}" if progress["last_date"] else ""})
+    loans.sort(key=lambda r: -r["value"])
+    if len(loans) > 5:
+        rest = loans[5:]
+        loans = loans[:5] + [{"label": "Others", "value": sum((r["value"] for r in rest), ZERO), "note": f"{len(rest)} loans"}]
+    return {"build": build, "marks": marks, "upcoming": upcoming, "before_income": before_income,
+            "before_total": sum((p.amount for p in before_income), ZERO), "heading": heading, "flows": rows,
+            "loan_bars": charts.bars(loans, 6), "forecast_spark": charts.sparkline([m.closing for m in f.months]),
+            "parts": parts}

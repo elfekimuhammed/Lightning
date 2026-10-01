@@ -170,6 +170,9 @@ def test_every_tab_of_the_demo_opens_with_its_key_notes(demo):
             assert page.text.count('class="stat-tile surface-') == 4, url  # four stat cards, no key notes
         elif url == "/birdview/expenses":  # four KPI cards give the gist of the period
             assert page.text.count('class="stat-tile surface-') == 4, url
+        elif url == "/plan":  # safe to spend, free cash, what's due and the lowest point ahead
+            assert page.text.count('class="stat-tile surface-') == 4 and "chart-waterfall" in page.text, url
+            assert "timeline" in page.text and "plan-tab-head" in page.text, url
         elif url == "/investments":  # the period's waffle, result and six-month value line
             assert page.text.count('class="stat-tile surface-') == 3 and 'class="key-note' not in page.text, url
         elif url in with_notes:

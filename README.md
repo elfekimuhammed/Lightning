@@ -96,5 +96,5 @@ lint-imports              # architecture contracts
 - [docs/PROJECT_OVERVIEW.md](docs/PROJECT_OVERVIEW.md) — start here: what Lightning is, what it answers, the roadmap
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — structure, rules, data model
 - [docs/GLOSSARY.md](docs/GLOSSARY.md) — what every term and code means
-- [docs/APPLICATION_BRAND_GUIDE.md](docs/APPLICATION_BRAND_GUIDE.md) — the app guideline: colour, type, cards, fields, charts and words; open [the visual page](tools/brand_guide/APPLICATION_BRAND_GUIDE.html) to see every sample and chart type
+- [docs/APPLICATION_BRAND_GUIDE.md](docs/APPLICATION_BRAND_GUIDE.md) — the app guideline: colour, type, cards, fields, charts and words; open [the visual page](docs/APPLICATION_BRAND_GUIDE.html) to see every sample and chart type
 - [CHANGELOG.md](CHANGELOG.md) — every change, every time
