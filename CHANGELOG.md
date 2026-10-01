@@ -8,6 +8,10 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### Page width · 2026-10-01
+- Every screen uses 80% of the space beside the sidebar, centred, and never less than the 1,120px content
+  width (or the whole space on smaller screens).
+
 ### Valuations and target allocation · 2026-10-01
 - Sale factors are grouped by asset class and compact. A factor on a class (Funds) applies to every
   kind left empty (Equity Fund, Gold Fund…); a kind's own factor overrides it, and clearing it goes back

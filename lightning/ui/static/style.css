@@ -2093,3 +2093,6 @@ a.chart-sankey-label:hover b { color:var(--azure); }
 .main .targets-table tr.is-empty td:not(:nth-child(3)) { color:var(--muted); }
 .main .targets-table td { height:40px; vertical-align:middle; }
 .main .targets-table .row-field { width:76px; }
+/* Page width · every screen uses 80% of the space beside the sidebar, centred; never less than the
+   1,120px content width (or the whole space when that is narrower). */
+.shell > .main, body .main, body:has(.overview-stack) .main { width:100%; max-width:max(80%, min(100%, 1120px))!important; margin-inline:auto; min-width:0; box-sizing:border-box; }
