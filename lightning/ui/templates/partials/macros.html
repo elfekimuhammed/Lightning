@@ -61,3 +61,9 @@
   {% if period=='custom' %}<div class="period-date-range"><label>From month<input type="text" name="date_from" value="{{ date_from[:7] if date_from else '' }}" class="month-input" pattern="\d{4}-\d{2}" inputmode="numeric" placeholder="yyyy-mm" autocomplete="off" required></label><label>To month<input type="text" name="date_to" value="{{ date_to[:7] if date_to else '' }}" class="month-input" pattern="\d{4}-\d{2}" inputmode="numeric" placeholder="yyyy-mm" autocomplete="off" required></label><button type="submit" name="period" value="custom" class="btn small">Apply</button></div>{% endif %}
 </form>
 {%- endmacro %}
+
+{# Category choices in a select: L1 as the group header, each category by its own name; an L2 with L3
+   detail reads as a header with its details indented under it. Never "Personal › Food". #}
+{% macro category_options(groups, selected='') -%}
+{% for g in groups %}<optgroup label="{{ g.label }}">{% for o in g.options %}{% if o.id is none %}<option disabled>{{ o.name }}</option>{% else %}<option value="{{ o.id }}" data-movement="{{ o.movement }}" {{ 'selected' if selected|string == o.id|string }}{% if o.header %} class="option-head"{% endif %}>{{ '  ' if o.level == 3 }}{{ o.name }}</option>{% endif %}{% endfor %}</optgroup>{% endfor %}
+{%- endmacro %}

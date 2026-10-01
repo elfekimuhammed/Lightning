@@ -116,6 +116,7 @@ def render(request: Request, name: str, status_code: int = 200, **context) -> HT
             "csrf": getattr(request.state, "csrf", ""),
             "session_epoch": getattr(request.state, "session_epoch", ""),
             "session_token": getattr(request.state, "session_token", ""),
+            "category_groups": c.categories.select_groups,
             **context,
         },
         status_code=status_code,

@@ -2174,3 +2174,6 @@ a.chart-sankey-label:hover b { color:var(--azure); }
 .main .bullet-row { grid-template-columns:minmax(140px,1fr) minmax(120px,1.5fr) auto; }
 .main i.k.plan { background:#DCEBE5; box-shadow:none; border-right:2px solid var(--ink); border-radius:3px 0 0 3px; }
 .main .bullet-row { grid-template-columns:150px minmax(0,1fr) 150px; }
+.category-option.is-detail { padding-left:28px!important; }
+.category-option.is-detail::before { content:"↳ "; color:var(--muted); }
+.main select option.option-head { font-weight:700; }

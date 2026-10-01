@@ -256,7 +256,7 @@
         <td class="code {{ 'same-day' if r.date == ns.last_date }}">{{ r.date }}</td>
         {% if show_account %}<td class="small">{{ r.account_label }}</td>{% endif %}
         <td>{% if r.type == 'TRF' %}<span class="pill transfer">↔</span> {{ r.other_account_label }}{% else %}{{ r.counterparty or r.description or '—' }}{% endif %}</td>
-        {% set cat = r.type_label if r.type in ('BUY', 'SEL', 'DIV') else r.category_label.split(' › ')[-1] %}<td class="small" title="{{ r.category_label }}">{{ cat if cat != (r.counterparty or r.description) else '' }}</td>
+        {% set cat = r.type_label if r.type in ('BUY', 'SEL', 'DIV') else r.category_label.split(' › ')[-1] %}<td class="small" title="{{ r.category_label.split(' › ')[-1] ~ (' · in ' ~ r.category_label.split(' › ')[:-1]|join(' · ') if ' › ' in r.category_label else '') }}">{{ cat if cat != (r.counterparty or r.description) else '' }}</td>
         <td class="small whom-cell {{ 'is-hidden' if not custody_owners.get(r.txn_id) }}">{{ custody_owners.get(r.txn_id, '') }}</td>
         {% set note_text = (r.notes ~ ((' ' ~ r.description) if r.type == 'TRF' and r.description else ''))|trim %}<td class="small muted register-note" title="{{ note_text }}">{{ note_text }}</td>
         <td class="num amount {{ r.amount|tone }}">{{ r.amount|money(True) }}</td>

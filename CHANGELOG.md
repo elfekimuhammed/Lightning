@@ -8,6 +8,12 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### Category lists without breadcrumbs · 2026-10-01
+- Every category picker (counterparties, bills and loans, bank imports, reserves, splits, the transaction
+  form and the register's type-to-pick list) groups categories under their L1 as a header, each by its
+  own name; an L2 with L3 detail reads as a header with its details indented under it. "Personal › Food"
+  no longer appears anywhere, including tooltips and messages ("Added Groceries under Food & Groceries").
+
 ### Budget · 2026-10-01
 - The top is a savings-rate waffle beside one plan bar: spent in azure, what is left in green, over plan in
   strong rose past the plan. The three cards are gone; their figures sit under the bar.

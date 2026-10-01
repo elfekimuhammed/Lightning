@@ -219,7 +219,7 @@ def test_categories_table_edits_in_place_and_keeps_flags_with_the_budget(c):
     assert "Personal ›" not in page  # names, never a breadcrumb list
     food = c.categories.get_by_code("EXP.PERSONAL.FOOD")
     r = client.post("/categories/add-row", data={"parent_id": food.id, "name": "Groceries", "direction": "OUT"})
-    assert r.status_code == 200 and "Added Personal › Food &amp; Groceries › Groceries" in r.text
+    assert r.status_code == 200 and "Added Groceries under Food &amp; Groceries" in r.text
     groceries = c.categories.get_by_code("EXP.PERSONAL.FOOD.GROCERIES")
     assert 'class="cat-row level-3' in client.get("/categories").text
     travel = c.categories.get_by_code("EXP.PERSONAL.TRAVEL")
@@ -247,3 +247,17 @@ def test_one_off_spending_stays_in_cash_flow_but_out_of_the_budget(c, setup):
     assert personal(before).actual == 5200 and personal(after).actual == 200
     assert after.one_off == 5000
     assert c.reporting.cash_flow("2026-09-01", "2026-09-30").outflows == 5200  # cash flow still sees it
+
+
+def test_category_pickers_group_under_l1_and_never_show_breadcrumbs(c):
+    from fastapi.testclient import TestClient
+    from lightning.ui.web import create_app
+    food = c.categories.get_by_code("EXP.PERSONAL.FOOD")
+    c.categories.create(food.id, "Groceries")
+    groups = {g["label"]: g["options"] for g in c.categories.select_groups()}
+    assert list(groups)[:4] == ["Personal", "Work", "Investment", "System"]
+    names = [(o["name"], o["level"], o["header"]) for o in groups["Personal"]]
+    at = names.index(("Food & Groceries", 2, True))
+    assert names[at + 1] == ("Groceries", 3, False)  # the detail sits under its L2
+    page = TestClient(create_app(c)).get("/counterparties").text
+    assert '<optgroup label="Personal">' in page and "Personal › " not in page

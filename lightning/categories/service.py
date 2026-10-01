@@ -157,6 +157,40 @@ class CategoryService:
             result.append((l1, rows))
         return result
 
+    def select_groups(self, categories=None) -> list[dict]:
+        """Category choices for a picker, never as breadcrumbs: one group per L1 (its header), each
+        L2 by its own name, and an L2 that has L3 detail as a header with its details under it.
+
+        ``categories``: the choosable categories (Category objects or ids); default: pickable().
+        Returns [{"label": L1 name, "options": [{"id", "name", "level", "header"}]}]; a header option
+        whose L2 is not choosable itself has ``id`` None."""
+        chosen = [c if isinstance(c, Category) else self.get(int(c)) for c in
+                  (self.pickable() if categories is None else categories)]
+        allowed = {c.id for c in chosen}
+        all_items = {c.id: c for c in self.repo.list()}
+        by_l1: dict[int, dict[int, list[Category]]] = {}
+        for c in chosen:
+            path = [c]
+            while path[-1].parent_id is not None and all_items.get(path[-1].parent_id) and all_items[path[-1].parent_id].depth >= 1:
+                path.append(all_items[path[-1].parent_id])
+            l1 = path[-1] if path[-1].depth == 1 else c
+            l2 = next((p for p in path if p.depth == 2), c)
+            by_l1.setdefault(l1.id, {}).setdefault(l2.id, [])
+            if c.depth >= 3:
+                by_l1[l1.id][l2.id].append(c)
+        groups = []
+        for l1_id in sorted(by_l1, key=lambda i: (self.L1_ORDER.get(all_items[i].code, 9), all_items[i].name.casefold())):
+            options = []
+            for l2_id in sorted(by_l1[l1_id], key=lambda i: all_items[i].name.casefold()):
+                details = sorted(by_l1[l1_id][l2_id], key=lambda c: c.name.casefold())
+                l2 = all_items[l2_id]
+                options.append({"id": l2.id if l2.id in allowed else None, "name": l2.name, "level": 2,
+                                "header": bool(details), "movement": l2.movement.value})
+                options += [{"id": d.id, "name": d.name, "level": 3, "header": False, "movement": d.movement.value}
+                            for d in details]
+            groups.append({"label": all_items[l1_id].name if all_items[l1_id].depth == 1 else "Other", "options": options})
+        return groups
+
     def archived(self) -> list[Category]:
         """Archived L2 and L3 categories, for the page's Archived list."""
         return sorted((c for c in self.tree() if c.code.startswith("EXP.") and c.depth >= 2 and not c.active

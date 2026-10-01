@@ -2,7 +2,7 @@
 {% from "partials/macros.html" import field %}
 {% block title %}{{ 'Edit category' if category else 'New category' }}{% endblock %}
 {% block heading %}<h1>{{ ('Edit ' ~ category.name) if category else 'New L2 category' }}</h1>
-{% if parent_name %}<div class="muted">L1 · {{ parent_name }}{% if not category %} · new category will be L2{% endif %}</div>{% endif %}{% endblock %}
+{% if parent_name %}<div class="muted">In {{ parent_name.split(' › ')|join(' · ') }}{% if not category %} · the new category goes under it{% endif %}</div>{% endif %}{% endblock %}
 {% block content %}
 <form method="post" class="card" style="max-width:620px">
   {{ field('name', 'Name', values, error_field, placeholder='e.g. Pets', attrs='required autofocus') }}
@@ -38,7 +38,7 @@
   <section class="review-dialog" role="dialog" aria-modal="true" aria-labelledby="category-review-title">
     <h2 id="category-review-title">Check for a similar category</h2>
     <p>Before adding “{{ values.name }}”, check whether one of these broad categories already means the same thing.</p>
-    <ul class="review-matches">{% for match in similar_categories %}<li><a class="btn" href="/categories/{{ match.id }}/edit">Use {{ match.display_name }}</a></li>{% endfor %}</ul>
+    <ul class="review-matches">{% for match in similar_categories %}<li><a class="btn" href="/categories/{{ match.id }}/edit">Use {{ match.name }}{% if ' › ' in match.display_name %} <small>in {{ match.display_name.split(' › ')[:-1]|join(' · ') }}</small>{% endif %}</a></li>{% endfor %}</ul>
     <form method="post" action="/categories/new?parent={{ parent.id }}">
       <input type="hidden" name="name" value="{{ values.name }}"><input type="hidden" name="code" value="{{ values.code }}">
       <input type="hidden" name="default_reimbursable" value="{{ values.default_reimbursable }}">

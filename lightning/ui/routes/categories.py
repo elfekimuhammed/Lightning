@@ -44,7 +44,7 @@ async def save_category_row(request: Request, category_id: int):
             c.budgets.set_one_off(cat.id, form.get("one_off") == "1")
     except LightningError as exc:
         return redirect("/categories", exc.message)
-    return redirect("/categories", f"Saved {c.categories.display_name(category_id)}.")
+    return redirect("/categories", f"Saved {c.categories.get(category_id).name}.")
 
 
 @router.post("/add-row")
@@ -67,7 +67,7 @@ async def add_category_row(request: Request):
             c.budgets.set_one_off(cat.id, True)
     except LightningError as exc:
         return redirect("/categories", exc.message)
-    return redirect("/categories", f"Added {c.categories.display_name(cat.id)}.")
+    return redirect("/categories", f"Added {cat.name} under {c.categories.get(cat.parent_id).name}.")
 
 
 @router.get("/new")
@@ -105,7 +105,7 @@ async def create_category(request: Request):
         return render(request, "categories/form.html", status_code=400, parent=parent,
                       parent_name=c.categories.display_name(parent.id), category=None,
                       values=values, error=exc.message, error_field=exc.field or "")
-    return redirect("/categories", f"Added {c.categories.display_name(cat.id)}.")
+    return redirect("/categories", f"Added {cat.name} under {c.categories.get(cat.parent_id).name}.")
 
 
 @router.get("/{category_id:int}/edit")

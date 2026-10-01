@@ -168,7 +168,7 @@ def test_not_found(client):
 def test_category_pages(client, c):
     personal = c.categories.get_by_code("EXP.PERSONAL")
     r = client.post(f"/categories/new?parent={personal.id}", data={"name": "Pets", "code": ""})
-    assert "Added Personal › Pets" in r.text
+    assert "Added Pets under Personal" in r.text
     pets = c.categories.get_by_code("EXP.PERSONAL.PETS")
     r = client.post(f"/categories/{pets.id}/edit", data={"name": "Pets & Vet", "code": "PETS", "active": "1"})
     assert "Category saved" in r.text and c.categories.get(pets.id).name == "Pets & Vet"
@@ -195,7 +195,7 @@ def test_register_entry(client, c, setup):
     r = client.post(f"/accounts/{wallet.id}/register", data={"date": "2026-09-20", "counterparty": "Carrefour",
                     "counterparty_choice": "create", "category": "Personal › Food & Groceries",
                     "amount": "-150", "notes": "milk"})
-    assert "Saved OUT-2026-09-20-001" in r.text and 'title="Personal › Food &amp; Groceries">Food &amp; Groceries<' in r.text
+    assert "Saved OUT-2026-09-20-001" in r.text and 'title="Food &amp; Groceries · in Personal">Food &amp; Groceries<' in r.text
     assert c.reporting.account_balance(wallet.id) == 1200 - 150
 
     r = client.post(f"/accounts/{wallet.id}/register", data={"date": "2026-09-21", "counterparty": "CIB Current",
@@ -222,7 +222,7 @@ def test_register_entry(client, c, setup):
 
     # Counterparty remembers its category
     page = client.get(f"/accounts/{wallet.id}")
-    assert "Carrefour" in page.text and "Personal › Food &amp; Groceries" in page.text
+    assert "Carrefour" in page.text and "Food &amp; Groceries · in Personal" in page.text
 
 
 def test_account_form_has_no_class_picker(client):
@@ -266,7 +266,7 @@ def test_category_create_requires_review_when_a_similar_l2_exists(client, c):
     personal = c.categories.get_by_code("EXP.PERSONAL")
     response = client.post(f"/categories/new?parent={personal.id}", data={"name": "Food and Groceries"})
     assert response.status_code == 400 and "Check for a similar category" in response.text
-    assert "Use Personal › Food &amp; Groceries" in response.text
+    assert "Use Food &amp; Groceries <small>in Personal</small>" in response.text
     assert c.db.scalar("SELECT 1 FROM categories WHERE code=?", ("EXP.PERSONAL.FOOD_AND_GROCERIES",)) is None
 
 

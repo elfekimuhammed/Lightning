@@ -660,10 +660,10 @@ if (categoryCatalogueNode) {
         heading.className = "category-group-title";
         heading.textContent = parent;
         results.append(heading);
-        groups.get(parent).sort((a, b) => a.name.localeCompare(b.name)).forEach((item) => {
+        groups.get(parent).sort((a, b) => (a.order || a.name).localeCompare(b.order || b.name)).forEach((item) => {
           const option = document.createElement("button");
           option.type = "button";
-          option.className = "category-option";
+          option.className = "category-option" + (item.level === 3 ? " is-detail" : "");
           option.setAttribute("role", "option");
           option.textContent = item.name;
           option.addEventListener("mousedown", (event) => event.preventDefault());

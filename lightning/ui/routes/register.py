@@ -44,10 +44,16 @@ def _cash_account_id(value: str) -> int | None:
 def _lists(request: Request) -> dict:
     """Data for register typeahead pickers."""
     c = container(request)
-    categories = [{"id": cat.id, "name": cat.name,
-                   "parent": c.categories.get(cat.parent_id).name if cat.parent_id else "",
-                   "label": c.categories.display_name(cat.id)} for cat in c.categories.pickable()]
-    categories.sort(key=lambda row: (row["parent"].casefold(), row["name"].casefold(), row["id"]))
+    # L1 is the group header; an L3 sits indented under its L2 (sorted right after it).
+    categories = []
+    for cat in c.categories.pickable():
+        parent = c.categories.get(cat.parent_id) if cat.parent_id else None
+        l2 = parent if cat.depth >= 3 and parent else cat
+        l1 = c.categories.get(l2.parent_id) if l2.parent_id else None
+        categories.append({"id": cat.id, "name": cat.name, "parent": l1.name if l1 else "",
+                           "level": min(cat.depth, 3), "order": f"{l2.name.casefold()}\u0000{cat.name.casefold() if cat.depth >= 3 else ''}",
+                           "label": c.categories.display_name(cat.id)})
+    categories.sort(key=lambda row: (row["parent"].casefold(), row["order"], row["id"]))
     accounts = c.accounts.list(active_only=True)
     counterparty_options = c.counterparties.search_names()
     counterparty_categories = {}

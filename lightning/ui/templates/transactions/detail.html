@@ -53,13 +53,13 @@
     <div id="expense-split-rows">
       {% for row in split_lines %}<div class="split-row">
         <select name="split_category_id" aria-label="Expense category">
-          <option value="">Choose a category</option>{% for category in expense_categories %}<option value="{{ category.id }}" {{ 'selected' if row.category_id == category.id }}>{{ category.label }}</option>{% endfor %}
+          <option value="">Choose a category</option>{% from "partials/macros.html" import category_options %}{{ category_options(category_groups(expense_categories|map(attribute='id')|list), row.category_id) }}
         </select>
         <input type="text" name="split_amount" value="{{ row.amount }}" placeholder="Amount" inputmode="decimal" aria-label="Split amount">
       </div>{% endfor %}
       {% for _ in range(2) %}<div class="split-row">
         <select name="split_category_id" aria-label="Expense category">
-          <option value="">Choose a category</option>{% for category in expense_categories %}<option value="{{ category.id }}">{{ category.label }}</option>{% endfor %}
+          <option value="">Choose a category</option>{% from "partials/macros.html" import category_options %}{{ category_options(category_groups(expense_categories|map(attribute='id')|list)) }}
         </select>
         <input type="text" name="split_amount" placeholder="Amount" inputmode="decimal" aria-label="Split amount">
       </div>{% endfor %}
