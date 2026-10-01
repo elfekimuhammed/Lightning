@@ -8,6 +8,18 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### Omar's workflow covers a salaried year · 2026-10-01
+- **Steps 11–28 of the reference workflow** now carry Omar from October 2026 to September 2027. They are dated, and each step has the figures it must show. The year includes an ATM fee, a refund, a repair paid from the emergency fund, a dividend, a reimbursed work expense, a bonus, an early payday, a raise, Eid, phone installments, a share sale, a rent rise, a holiday goal, and a job change with a month between jobs.
+  - Each step says what is true today.
+  - What Lightning cannot record yet (a gam'eya, a maturing certificate, dollar savings, early loan payoff) is listed separately.
+- **`tests/test_omar_year.py`** runs those steps on the demo household, one test per step. The six steps that are wrong today are strict expected failures, so a fix shows up as an unexpected pass.
+- **The questions** gain the follow-ups a salaried user asks, and a new question 8, "What changes when my pay changes?".
+- **Wrong today** (recorded, not fixed):
+  - Average monthly income counts a bonus or end of service as pay.
+  - It skips months with no pay, so a month between jobs raises it (65,000).
+  - A salary paid early, or a raise over 10%, is not matched, so the forecast counts it twice.
+  - A rent rise matched within 10% leaves the plan at the old rent.
+
 ## [0.4.0b1] — 2026-10-01 — First Windows desktop beta
 
 ### Desktop beta v0.4.0-beta.1 packaging · 2026-10-01
