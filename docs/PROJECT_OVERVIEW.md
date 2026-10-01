@@ -1,6 +1,6 @@
 # Lightning — Project Overview
 
-**Last updated 2026-09-30 · app 0.3.0** (`lightning/__init__.py`; `pyproject.toml` still says 0.1.0 until the next release).
+**Last updated 2026-10-01 · app 0.4.0b1.**
 
 This file tells the story: what Lightning is, who it is for, what it answers and where it goes next. [Architecture](ARCHITECTURE.md) holds the technical side. The [App brand guideline](APPLICATION_BRAND_GUIDE.md) holds the visual side. The [Glossary](GLOSSARY.md) defines every term and figure. Shipped changes go in `CHANGELOG.md`.
 
@@ -31,7 +31,7 @@ Every number comes from one of three layers, and each screen says which:
 - **Physical gold** is tracked piece by piece: net gold weight per piece, karat and cost. It is valued at a price per gram for the same karat, and purity is never applied twice.
 - **People see names, not codes.** Summaries round to whole pounds; inputs keep cents. Dates are ISO. Entry also accepts `31/1` and `31/1/2026`, and Arabic-Indic digits.
 - **Each visual says its time frame: the period you chose, or a fixed horizon.** Most charts and cards follow the period picker. Some keep a fixed horizon on purpose, because their question does not change with the period. Every section header names its frame. See *Period and fixed-horizon visuals* below.
-- **Local only.** Data lives in one SQLite file on the user's computer and is never committed to Git.
+- **Local only.** Data lives on the user's computer and is never committed to Git. The desktop app keeps each profile encrypted under Documents/Lightning, opened by a password, with a recovery key the user keeps elsewhere.
 
 ## What you can do today
 
@@ -43,6 +43,7 @@ Every number comes from one of three layers, and each screen says which:
 - **Overview:** Needs you at the top (a closed row that opens into the list), then your position: Net worth, Free cash, *What it is made of* and *If you sold today (estimate)* with a sale factor per class. Below that come Cash flow with the savings rate, Where it went, Investments at a glance, and Month by month as a closed row. Birdview was folded in on 2026-09-30, and `/birdview` redirects here.
 - **Held for others:** money and units you hold for someone else. Account headers show *In this account · What you own · Held for others*.
 - **Every page:** months are picked from a month picker, never typed. Up to three key notes under the title give the page's answer in one sentence, and one set of charts follows the brand guideline.
+- **Desktop preview:** `Lightning.exe` on Windows (no Python needed), or `python -m lightning --profiles` on Linux. You get named profiles, each encrypted and opened with a password, with a recovery key shown once at setup. Use dummy data until the beta: legacy import and backup restore aren't in the UI yet.
 - **Demo:** `python -m lightning --demo`, or "See Lightning with a sample household" on an empty welcome page, opens Omar's last three months in a separate database.
 
 ## Period and fixed-horizon visuals
@@ -270,6 +271,6 @@ Bank sync and bill negotiation are not adopted. Any sync first needs a provider 
 | Physical gold items | In progress | Item purchase/sale and report integration |
 | M7 Planning and imports | Partial | Shipped: CSV import and Cash planning. Next: review inbox, matching manual entries with imports, reminders |
 | Search | Planned | One typo-tolerant search across pages and records (contract in Architecture) |
-| Windows readiness | Planned, launcher exists | Native verification; Windows stays provisional until it passes (checklist in Architecture) |
+| Desktop app (v0.4.0b1) | Development preview | Shipped: `Lightning.exe` for Windows and `--profiles` on Linux, with password-protected encrypted profiles in Documents/Lightning. Next: legacy import, backup restore, native file pickers, ordinary-PC testing, then a Windows-first beta for a few testers, hosted on the owner's website (design in Architecture) |
 
 **Next up:** matching manual entries with imports, then one review inbox.
