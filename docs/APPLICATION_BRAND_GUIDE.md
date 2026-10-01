@@ -221,6 +221,8 @@ There are three kinds. Choosing from your own data is always type-and-pick, neve
 
 **Percent fields** have our own up and down chevrons inside the field, left of the "%". Each click moves one whole percent, and a short pause saves like Enter.
 
+**Numbers on reporting pages** are whole units (12,500, not 12,500.00); amounts are stored with their decimals, and registers, entry fields and the money you type keep cents.
+
 **Settings tables** are tables of rows: 40px rows on hairlines with a soft hover, no white boxes, and the name taking the room. Actions are small icon buttons. Cards stacked on a page always keep one block gap (20px) between them.
 
 **Category lists** never read as breadcrumbs ("Personal › Food"). The L1 is a header; an L2 with L3 detail is a sub-header; each row shows its own name. The Categories page lists two categories side by side, each always in its edit look: name and + / − / ± as inline row fields, Recurring (income) and One-off (expense) as on/off pills (pressed: a tint of their meaning), and its actions always visible as small icon buttons (add detail, archive, delete). Every change saves as you make it; an L2 with L3 detail keeps its details indented under it.

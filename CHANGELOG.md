@@ -8,6 +8,13 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### Whole units on reporting pages · 2026-10-01
+- Overview, Budget, Expense analysis, Investments (with each holding and Target allocation), Cash planning's
+  Plan and the Settings tables show money rounded to the nearest unit, key notes included. Values are still
+  stored with their decimals, and registers, entry fields and their messages keep cents.
+- Clustered columns put each value on top of its bar, the name right under the bars and the change against
+  usual under the name.
+
 ### Expense analysis cards · 2026-10-01
 - Money out and the comparisons are one wider card: the amount and a six-month sparkline, then against the
   period before and against your usual month underneath.

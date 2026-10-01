@@ -52,7 +52,7 @@ def test_derived_figures_are_formulas_of_base_figures(c, setup):
 def test_every_tab_shows_the_same_free_cash_and_holdings_after_sale(c, setup):
     client = _household(c, setup)
     p = c.position.at(date(2026, 12, 31))
-    free, after_sale = f"{p.free_cash:,.2f}", f"{p.holdings_after_sale:,.2f}"
+    free, after_sale = f"{p.free_cash:,.0f}", f"{p.holdings_after_sale:,.0f}"  # reporting pages round to the unit
     for page in ("/", "/birdview", "/plan/reserves"):
         assert free in client.get(page).text, page
     # Investments used to add holdings at full value (no sale factor); it now uses Birdview's factors.

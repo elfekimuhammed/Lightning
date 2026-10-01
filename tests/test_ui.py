@@ -31,7 +31,7 @@ def test_welcome_then_first_account(client, c):
                                            "opening_balance_date": "2026-09-01", "opening_balance": "50,000"})
     assert r.status_code == 200 and "CIB Current" in r.text and "CIB-CUR-EGP" not in r.text
     r = client.get("/")
-    assert "What you own" in r.text and "50,000.00" in r.text
+    assert "What you own" in r.text and "50,000" in r.text
 
 
 def test_full_flow(client, c):

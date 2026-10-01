@@ -8,7 +8,12 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from lightning.core.money import ZERO, fmt
+from lightning.core.money import ZERO, fmt as _fmt
+
+
+def fmt(value, places: int = 0, signed: bool = False) -> str:
+    """Reporting text rounds to the nearest unit (stored values keep their decimals)."""
+    return _fmt(value, places, signed)
 
 
 # Icon by what the note is about (App guideline · Key notes); the first match wins.

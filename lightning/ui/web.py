@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import contextvars
+
 import re
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -30,7 +32,17 @@ def _minus(text: str) -> str:
     return "\u2212" + text[1:] if text.startswith("-") else text
 
 
-def _money(value, signed: bool = False, places: int = 2) -> str:
+# Reporting pages show money rounded to the nearest unit; stored values, entry fields and registers
+# keep their decimals. A template that asks for places explicitly (an input's value) gets them.
+_ROUND_MONEY: contextvars.ContextVar[bool] = contextvars.ContextVar("round_money", default=False)
+REPORTING_TEMPLATES = ("dashboard/", "budget.html", "birdview/", "investments/index.html", "investments/holding.html",
+                       "investments/_targets.html", "investments/targets.html", "investments/report_detail.html",
+                       "planning/plan.html", "settings/index.html")
+
+
+def _money(value, signed: bool = False, places: int | None = None) -> str:
+    if places is None:
+        places = 0 if _ROUND_MONEY.get() else 2
     if value is None or isinstance(value, Decimal):
         return _minus(fmt(value, places, signed))
     # Re-rendered forms hand back what the user typed ("45,000.00", "−450");
@@ -102,6 +114,14 @@ def render(request: Request, name: str, status_code: int = 200, **context) -> HT
     context.setdefault("error", "")
     context.setdefault("error_field", "")
     total, owned_total, groups = c.reporting.sidebar(today())
+    token = _ROUND_MONEY.set(name.startswith(REPORTING_TEMPLATES))
+    try:
+        return _render(request, name, status_code, c, total, owned_total, groups, context)
+    finally:
+        _ROUND_MONEY.reset(token)
+
+
+def _render(request, name, status_code, c, total, owned_total, groups, context) -> HTMLResponse:
     return templates.TemplateResponse(
         request,
         name,

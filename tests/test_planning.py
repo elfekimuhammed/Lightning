@@ -119,7 +119,7 @@ def test_screens_show_bills_due_and_net_worth(c, setup, monkeypatch):
                                      "interval_count": "1", "start_date": "2026-10-05", "payment_count": "2"})
     overview = client.get("/").text
     assert "Net worth" in overview and "What you owe" in overview and "Bills due" in overview
-    assert "−5,480.00" in overview  # 480 due + 5,000 of loan payments still to pay
+    assert "−5,480" in overview  # 480 due + 5,000 of loan payments still to pay
     checks = client.get("/checks").text
     assert "Free cash plus reserves and bills due equals owned liquid cash" in checks
     assert client.get("/reserves", follow_redirects=False).headers["location"] == "/plan/reserves"
@@ -162,7 +162,7 @@ def test_overview_lists_due_bills_under_needs_you(c, setup, monkeypatch):
     start = page.index('<details class="card needs-you"')
     attention = page[start:page.index("</details>", start)]  # a closed list at the very top
     assert page.index("needs-you") < page.index('class="stat-tiles"')
-    assert "Bill due: Electricity" in attention and "Due 2026-09-25 · 480.00" in attention
+    assert "Bill due: Electricity" in attention and "Due 2026-09-25 · 480" in attention
     assert "Loan payment due: Car loan" in attention and "Mark paid" in attention
     assert "and 1 more" in attention  # the closed summary names the first item and counts the rest
 

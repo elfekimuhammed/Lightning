@@ -347,6 +347,7 @@ def expense_analysis(c, first: date, last: date, code_filter: str = "", history:
     col_max = max([r["per_month"] for r in rows] + [r["usual"] or ZERO for r in rows] + [ZERO]) or Decimal(1)
     clusters = [{"name": r["name"], "now": r["per_month"], "usual": r["usual"],
                  "over": bool(r["usual"]) and r["per_month"] > r["usual"] * Decimal("1.1"),
+                 "change": (r["per_month"] - r["usual"]) / r["usual"] * 100 if r["usual"] else None,
                  "now_h": float(r["per_month"] / col_max * 100), "usual_h": float((r["usual"] or ZERO) / col_max * 100)}
                 for r in rows[:6]]
     # Small multiples: the same twelve months plus now, one scale for every panel.
