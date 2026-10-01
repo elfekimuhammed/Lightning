@@ -80,6 +80,9 @@ Each tab answers one main question first, then its natural follow-ups. **Partial
 | What is due next? | Overview › Needs you; Cash planning › Next 30 days | Answered |
 | Will I run short? | Cash forecast with its lowest point; Overview warns | Answered (3 months fixed) |
 | Is my salary late? | — | Left out by decision |
+| Can I afford this purchase now? | Safe to spend, before and after a new reserve | Partial: no "what if I buy it" check |
+| Does an early payday count twice? | Salary paid more than 7 days early is not matched to its scheduled payment, so the forecast adds it again | Wrong (Omar step 18) |
+| I have no salary this month: how long until the next one? | Safe to spend until the next scheduled income | Answered (Omar step 27) |
 
 **3. Where did my money go?**
 
@@ -90,6 +93,9 @@ Each tab answers one main question first, then its natural follow-ups. **Partial
 | How much did I keep? | Savings rate (Net flow ÷ Money in) | Answered |
 | What do subscriptions cost a year? | Cash planning › Recurring | Answered |
 | A merchant or a few categories I care about? | No saved watchlist | Missing |
+| A refund came back: did my spending go down? | It reduces the category in the month the refund arrives, not the month of the purchase | Partial (Omar step 13) |
+| How much did I spend on work that my employer owes me back? | Work categories; the reimbursement is a refund in the same category | Partial: nothing lists what is still unreimbursed |
+| How much went in fees and bank charges this year? | Expense analysis › Fees & Charges, YTD | Answered |
 
 **4. Am I sticking to my plan?**
 
@@ -100,6 +106,9 @@ Each tab answers one main question first, then its natural follow-ups. **Partial
 | Is my loan in the plan? | "Includes … of loan payments scheduled this month" | Answered |
 | What about next month? | Rules repeat; a future month cannot be opened yet | Partial |
 | Where should the rest of my income go? | No "ready to assign" view | Missing |
+| Rent went up, or I got a raise: does the plan follow? | Recurring › set a new amount for later payments; the popup offers it after a manual match | Wrong: a change over 10% is never matched on its own, and one under 10% is matched but the plan keeps the old amount (Omar steps 20, 24) |
+| What should I set aside for yearly bills (car licence, insurance, school fees)? | A reserve with a due date; Saving for goals spreads it over the months left | Answered (Omar step 19) |
+| Have I actually set it aside? | The goal's assigned cash, which moves only when he assigns it | Partial: nothing asks him to assign the monthly amount |
 
 **5. How are my investments doing?**
 
@@ -110,10 +119,30 @@ Each tab answers one main question first, then its natural follow-ups. **Partial
 | What would I get if I sold? | Investments › Holdings after sale; Overview › If you sold today | Answered |
 | Am I on my target mix? | Investments › Set target allocation | Answered |
 | Why does a holding show no gain? | No price yet: valued at cost and flagged | Answered |
+| What did I make when I sold? | Gain from sales, after fees | Answered |
+| When does my certificate mature, and what then? | — | Missing (M6) |
+| How are my dollar savings doing? | — | Missing (M4, multi-currency) |
 
 **6. Am I safe if something goes wrong?** The emergency fund shows months covered. Saving for goals shows what to set aside each month. Loans show payments made, what is left and the last payment; a skipped payment moves to the end of the loan.
 
+| Follow-up | Answered by | Status |
+|---|---|---|
+| How long could I live if I lost my job? | Emergency fund in months of Average monthly income | Partial: it should be months of *spending*, since spending is what continues when the salary stops |
+| I paid for a repair from the emergency fund: what now? | The fund shows what is left; Free cash is unchanged | Partial: nothing reminds him to refill it (Omar step 14) |
+| When is the car loan paid off? | Loans › last payment | Answered |
+| Can I pay the loan off early? | — | Missing: no early payoff or lump-sum payment |
+
+
 **7. Is my data right?** Reconcile against the bank, review imports for gaps and duplicates, and run Checks. There is no stale-price warning yet (partial).
+
+**8. What changes when my pay changes?** A salaried user's pay is not one flat number: raises, a yearly bonus or profit share, a 13th month, Ramadan and Eid grants, and paydays moved early for holidays.
+
+| Follow-up | Answered by | Status |
+|---|---|---|
+| Where did my bonus go? | Money in › Bonus; Expense analysis for the same period | Answered |
+| Does a bonus change my budget? | Average monthly income counts Bonus by default. On its own, one 90,000 bonus lifts the average from 45,000 to 75,000 for three months, and every `%` budget line, the emergency fund target and the estimated forecast move with it | Wrong (Omar step 17): until the default changes, untick Bonus under Settings › Budget › Income categories to include, or set the average by hand |
+| I changed jobs: what happens to my income figures? | Stop the old salary (its history stays) and add the new one | Bonus is irregular income, so neither the end of service nor the month with no pay lifts the average (Omar steps 26, 27) |
+| Was I paid my raise? | The account register shows the new amount; Cash planning › Recurring keeps the scheduled payment Due until he links it by hand | Partial |
 
 Money held for others is left out of every owned, budget and performance view. Transfers are never income or spending. Refunds reduce spending in their original category.
 
@@ -135,6 +164,39 @@ Drive it in a browser through the screens only, and re-run it after any workflow
 | 8 | Track suggested recurring items; add electricity and the car loan | Plan | September's payments matched; What you owe = 60,000; the loan is in the budget |
 | 9 | On 2026-10-06 mark salary, rent and a loan payment paid from the Overview | Plan → Ledger | Each posts a real transaction; Net worth moves only by the salary (+45,000); loans still to pay 57,500 |
 | 10 | Read every tab | Report | Free cash and What you own read the same everywhere; Checks pass |
+
+**The rest of Omar's year.** Steps 1–10 are one ordinary month. Steps 11–28 carry the same household from October 2026 to September 2027 through what a salaried year brings: fees, a refund, a repair, a bonus, an early payday, a raise, Eid, installments, a share sale, a rent rise, a holiday, and a job change with a month between jobs. Every month also has the routine: salary on the 1st, rent on the 3rd, the car loan on the 5th, groceries, phone, internet and electricity.
+
+`tests/test_omar_year.py` runs these steps through the services, one test per step. A step that is wrong today is a strict expected failure. When its fix lands, the test fails as an unexpected pass, and its marker and the **Today** column below must change together. Steps 1–10 are still driven in a browser.
+
+| # | When | Step | What must be true afterwards | Today |
+|---|---|---|---|---|
+| 11 | Oct | An ordinary month | Every recurring payment and the loan settle themselves; nothing is due at month end | Answered |
+| 12 | 10 Oct | Withdraws 2,000 at a CIB ATM, with a 25 fee | Net worth moves by −25 only; the fee is in Fees & Charges | Answered |
+| 13 | 15 Oct | Returns August's 1,299 Amazon purchase | Shopping goes down by 1,299 | Partial: it goes down in October (October reads −1,299) and August keeps the purchase |
+| 14 | 18 Oct | Pays a 6,500 car repair from the emergency fund | The fund drops to 13,500; Free cash is unchanged; cash drops by 6,500 | Answered; nothing reminds him to refill the fund |
+| 15 | 20 Nov | Gets a 300 COMI dividend | Money in shows Dividends next to Salary; pay is unchanged | Answered |
+| 16 | 10–22 Dec | Pays a 1,200 work Uber; ACME pays it back | Work spending for December is 0; the refund is not income | Answered |
+| 17 | 20 Dec | ACME pays a 90,000 year-end bonus | Net worth +90,000; Average monthly income stays 45,000 | **Wrong:** 90,000 for January (with step 18) |
+| 18 | 24 Dec | January's salary comes before the holidays | It settles January's payment; January's forecast expects no more pay | **Wrong:** January stays Due, the forecast adds 45,000 again, and the average for February reads 112,500 |
+| 19 | Jan–Apr | Plans 9,000 car insurance due 30 April, pays it from the goal | Saving for goals shows 2,250 a month | Answered; but no cash moves into the goal until he assigns it, and it cannot pay the bill until he does |
+| 20 | 1 Feb | Raise to 50,000 | February settles on its own; later payments are planned at 50,000; December stays paid at 45,000 | **Wrong:** 11% is over the 10% tolerance, so it stays Due until he links it; after that, the rest is right |
+| 21 | 9–10 Mar | Eid: gives 3,000 in cash, receives 1,000 | Gifts & Donations and Gifts Received; Average monthly income stays 50,000 | Answered |
+| 22 | Mar | Buys a phone on 12 installments of 2,000 from 15 April | What you owe +24,000; each installment settles itself | Answered (as a loan; credit cards are out of scope) |
+| 23 | 20 Apr | Sells 75 of 150 COMI for 7,100 after a 25 fee; moves it to CIB | 75 left; Gain from sales after fees; April's Money in is only the salary | Answered |
+| 24 | 3 Jun | Rent rises 10% to 13,200 | June settles; July onwards is planned at 13,200 | **Wrong:** matched at 13,200, but July stays planned at 12,000, so the forecast is 1,200 a month short |
+| 25 | Jul–Aug | Sets aside 15,000 for a Sahel trip; spends 14,200 | 800 left in the goal | Answered |
+| 26 | 31 Aug | Leaves ACME with 30,000 end of service; adds Valeo at 55,000 from 1 October | The old salary stops with its history; Average monthly income stays 50,000 | Right since Categories marks Bonus irregular |
+| 27 | Sep | Between jobs, no pay | Next income is Valeo on 1 October; the average does not rise | **Wrong:** months with no income are skipped, so the average for October reads 65,000 |
+| 28 | 30 Sep | Reads the year | Money in 651,300 and Money out 295,186; Change in what you own 357,364; loans still to pay 34,500; Checks pass; nothing is due | Answered, except *why* net worth changed (M3.2) and a net-worth history (missing) |
+
+**Not scripted, because Lightning cannot record them yet:**
+
+- **A gam'eya.** Example: 10 months of 5,000, with the 50,000 pot in month 4. The payments are commitments, and the pot is his own money back, not income. Lightning has no gam'eya type, and an inflow needs an income category.
+- **The NBE certificate maturing.** The principal should return to CIB as a transfer, not income. This waits for M6.
+- **Dollar savings.** This waits for M4.
+- **Paying the car loan off early.** There is no lump-sum payment.
+- **A payslip's deductions** (income tax, social insurance). These are left out: record net pay.
 
 ## Compared with the best budgeting apps
 
@@ -168,6 +230,13 @@ The reference apps are YNAB, Monarch, Copilot, Simplifi, Rocket Money, Lunch Mon
 | 10 | Shared household | Monarch partner access | Couples manage money together |
 | 11 | Guided first setup | Monarch, YNAB onboarding | Omar's first run needed six account forms before seeing anything |
 | 12 | Receipts and attachments | Monarch, Lunch Money | Warranty and gold purchase receipts |
+
+**Wrong today for a salaried user** (Omar steps 17, 18, 20, 24, 26 and 27), to fix before any new feature:
+
+- **Average monthly income** counts early pay in the month it arrived; date pay to the scheduled payment it settles. (Bonus is now irregular income by default, so a bonus or end of service is no longer averaged as pay.)
+- **Salary matching** ignores a raise over 10% and pay more than 7 days early, and the forecast then counts the salary twice. Match income by counterparty and category over a wider window, whatever the amount.
+- **A payment matched at a new amount** leaves the plan at the old one. Offer the new amount for later payments.
+- **The emergency fund** should count months of spending, not of income.
 
 Bank sync and bill negotiation are not adopted. Any sync first needs a provider and regional coverage; local CSV stays the foundation. A "safe to spend" figure must always say which obligations and income it includes. Simplifi's projection, which leaves out planned spending, shows why.
 

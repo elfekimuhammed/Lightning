@@ -244,5 +244,5 @@ The planned desktop app (one `Lightning.exe` window through pywebview and WebVie
 5. Post every main-ledger effect through `TransactionService`. Generated valuation journals use `source=SYSTEM` and stable links to their reevaluation details.
 6. Keep the UI thin (see UI contract).
 7. Test the changed workflow and its invariants: date and money edge cases, ownership and net-worth effects, posting, archive and void. Run the full pytest suite, the import-boundary checks and `git diff --check`. Keep meaningful business assertions when updating old tests.
-8. For UI changes, check populated and empty data and a 390px viewport in a browser, and re-run the Omar walkthrough when a workflow changes.
+8. For UI changes, check populated and empty data and a 390px viewport in a browser, and re-run the Omar walkthrough when a workflow changes (steps 11–28 run in `tests/test_omar_year.py`).
 9. Log changes under `Unreleased` in `CHANGELOG.md`, and change version headings only when releasing. Keep the four docs consistent.
