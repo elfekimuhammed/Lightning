@@ -1445,3 +1445,136 @@ document.addEventListener("click", (event) => {
     document.getElementById("holdings-table").scrollIntoView({behavior: "smooth"});
   }
 });
+
+/* Percent fields: our own up and down chevrons, one whole percent a step. A pause after the last
+   click saves the field the way Enter does. */
+(() => {
+  const chevron = (d) => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${d}"/></svg>`;
+  const enhance = (root = document) => root.querySelectorAll(".row-field-unit, .sc-unit").forEach((box) => {
+    const unit = box.querySelector("i"), input = box.querySelector("input");
+    if (!input || !unit || unit.textContent.trim() !== "%" || box.dataset.stepper) return;
+    box.dataset.stepper = "1";
+    box.classList.add("has-stepper");
+    const wrap = document.createElement("span");
+    wrap.className = "pct-stepper";
+    wrap.innerHTML = `<button type="button" tabindex="-1" aria-label="Up 1%" data-step="1">${chevron("m6 15 6-6 6 6")}</button>` +
+                     `<button type="button" tabindex="-1" aria-label="Down 1%" data-step="-1">${chevron("m6 9 6 6 6-6")}</button>`;
+    box.append(wrap);
+    let timer;
+    wrap.addEventListener("mousedown", (event) => event.preventDefault());
+    wrap.addEventListener("click", (event) => {
+      const button = event.target.closest("button[data-step]");
+      if (!button) return;
+      const current = parseFloat(input.value || input.placeholder || "0") || 0;
+      const max = input.max !== "" && input.max !== undefined ? parseFloat(input.max) : 100;
+      const next = Math.min(isNaN(max) ? 100 : max, Math.max(0, Math.round(current) + Number(button.dataset.step)));
+      input.value = String(next);
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      clearTimeout(timer);
+      timer = setTimeout(() => input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })), 700);
+    });
+  });
+  enhance();
+  new MutationObserver(() => enhance()).observe(document.body, { childList: true, subtree: true });
+})();
+
+/* Our dropdown list. The select box itself stays (its style, form value and change events); clicking
+   it, or Space / Enter / Down on it, opens our panel instead of the browser's flat list: group
+   headers, details indented, the current choice marked, and a search box on long lists. Phones keep
+   their own picker. */
+(() => {
+  if (window.matchMedia("(pointer: coarse)").matches) return;
+  let open = null;
+  const close = () => { if (!open) return; open.panel.remove(); open.select.setAttribute("aria-expanded", "false"); open = null; };
+  const choose = (select, value) => {
+    if (select.value !== value) {
+      select.value = value;
+      select.dispatchEvent(new Event("input", { bubbles: true }));
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    close(); select.focus();
+  };
+  const build = (select) => {
+    const panel = document.createElement("div");
+    panel.className = "pick-panel"; panel.setAttribute("role", "listbox");
+    const options = [...select.options];
+    const long = options.length > 10;
+    let search;
+    if (long) {
+      search = document.createElement("input");
+      search.type = "search"; search.className = "pick-search"; search.placeholder = "Type to find"; search.autocomplete = "off";
+      panel.append(search);
+    }
+    const list = document.createElement("div"); list.className = "pick-list"; panel.append(list);
+    const add = (opt) => {
+      const text = opt.textContent.replace(/^[ \s]+/, "");
+      const row = document.createElement("div");
+      if (opt.disabled) { row.className = "pick-head"; row.textContent = text; list.append(row); return; }
+      row.className = "pick-option" + (/^ /.test(opt.textContent) ? " is-detail" : "") + (opt.classList.contains("option-head") ? " is-head" : "");
+      row.setAttribute("role", "option"); row.dataset.value = opt.value; row.textContent = text || " ";
+      if (opt.value === select.value) row.setAttribute("aria-selected", "true");
+      row.addEventListener("mousedown", (e) => e.preventDefault());
+      row.addEventListener("click", () => choose(select, opt.value));
+      list.append(row);
+    };
+    [...select.children].forEach((child) => {
+      if (child.tagName === "OPTGROUP") {
+        const head = document.createElement("div"); head.className = "pick-group"; head.textContent = child.label; list.append(head);
+        [...child.children].forEach(add);
+      } else add(child);
+    });
+    const rows = () => [...list.querySelectorAll(".pick-option:not([hidden])")];
+    let active = Math.max(0, rows().findIndex((r) => r.getAttribute("aria-selected") === "true"));
+    const mark = () => { rows().forEach((r, i) => r.classList.toggle("is-active", i === active)); rows()[active]?.scrollIntoView({ block: "nearest" }); };
+    const filter = () => {
+      const q = search.value.trim().toLocaleLowerCase();
+      list.querySelectorAll(".pick-option").forEach((r) => { r.hidden = q && !r.textContent.toLocaleLowerCase().includes(q); });
+      list.querySelectorAll(".pick-group").forEach((g) => {
+        let n = g.nextElementSibling, any = false;
+        while (n && !n.classList.contains("pick-group")) { if (n.classList.contains("pick-option") && !n.hidden) any = true; n = n.nextElementSibling; }
+        g.hidden = !any;
+      });
+      active = 0; mark();
+    };
+    search?.addEventListener("input", filter);
+    panel.addEventListener("keydown", (e) => {
+      const r = rows();
+      if (e.key === "ArrowDown") { e.preventDefault(); active = Math.min(r.length - 1, active + 1); mark(); }
+      else if (e.key === "ArrowUp") { e.preventDefault(); active = Math.max(0, active - 1); mark(); }
+      else if (e.key === "Enter") { e.preventDefault(); if (r[active]) choose(select, r[active].dataset.value); }
+      else if (e.key === "Escape" || e.key === "Tab") { e.preventDefault(); close(); select.focus(); }
+    });
+    panel.tabIndex = -1;
+    return { panel, search, mark };
+  };
+  const show = (select) => {
+    if (select.disabled) return;
+    close();
+    const { panel, search, mark } = build(select);
+    document.body.append(panel);
+    const rect = select.getBoundingClientRect();
+    const width = Math.max(rect.width, 220);
+    panel.style.minWidth = `${width}px`;
+    const room = window.innerHeight - rect.bottom;
+    panel.style.left = `${Math.min(rect.left, window.innerWidth - width - 8)}px`;
+    if (room < 280 && rect.top > room) { panel.style.bottom = `${window.innerHeight - rect.top + 4}px`; panel.style.maxHeight = `${Math.min(360, rect.top - 16)}px`; }
+    else { panel.style.top = `${rect.bottom + 4}px`; panel.style.maxHeight = `${Math.min(360, room - 16)}px`; }
+    open = { select, panel };
+    select.setAttribute("aria-expanded", "true");
+    mark();
+    (search || panel).focus();
+  };
+  const eligible = (el) => el instanceof HTMLSelectElement && !el.multiple && el.size <= 1 && !el.hasAttribute("data-native") && el.closest(".main, .popup-sheet, dialog");
+  document.addEventListener("mousedown", (e) => {
+    const select = e.target.closest("select");
+    if (select && eligible(select)) { e.preventDefault(); select.focus(); open && open.select === select ? close() : show(select); return; }
+    if (open && !open.panel.contains(e.target)) close();
+  });
+  document.addEventListener("keydown", (e) => {
+    const select = e.target;
+    if (!eligible(select) || open) return;
+    if (e.key === " " || e.key === "Enter" || e.key === "ArrowDown" || (e.altKey && e.key === "ArrowDown")) { e.preventDefault(); show(select); }
+  });
+  window.addEventListener("resize", close);
+  document.addEventListener("scroll", (e) => { if (open && !open.panel.contains(e.target)) close(); }, true);
+})();

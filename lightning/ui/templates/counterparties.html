@@ -22,7 +22,7 @@
   <form method="get" action="/counterparties" class="toolbar-filters" data-counterparty-search><input type="search" name="q" value="{{ query }}" placeholder="Search names and aliases" autocomplete="off">{% if query %}<a class="btn small" href="/counterparties">Clear</a>{% endif %}</form>
   {% if search_suggestions %}<p class="muted small">Did you mean {% for name, score in search_suggestions %}<a href="/counterparties?q={{ name|urlencode }}">{{ name }}</a>{% if not loop.last %} · {% endif %}{% endfor %}?</p>{% endif %}
   {% if parties %}
-  <table><thead><tr><th>Counterparty and aliases</th><th>Suggested category</th><th>Actions</th></tr></thead><tbody>
+  <table class="cp-table"><colgroup><col><col class="c-cat"><col class="c-act"></colgroup><thead><tr><th>Counterparty and aliases</th><th>Suggested category</th><th class="num">Actions</th></tr></thead><tbody>
     {% for party in parties %}{% set aliases = aliases_by_id.get(party.id, []) %}{% set edit_form = 'counterparty-edit-' ~ party.id %}
     <tr class="{{ 'muted' if not party.active }}"><td>
       <div class="counterparty-one-line">
@@ -65,7 +65,7 @@
     </select>{% if learned_label and not party.default_category_id %}<small class="muted learned-note">{{ learned.count }} of the last {{ learned.total }}</small>{% endif %}</td>
     <td><div class="counterparty-actions">
       {% if not party.active %}<form method="post" action="/counterparties"><input type="hidden" name="counterparty_id" value="{{ party.id }}"><button class="btn small" name="counterparty_action" value="activate">Activate</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>{% endif %}
-      <form method="post" action="/counterparties" data-counterparty-delete><input type="hidden" name="counterparty_id" value="{{ party.id }}"><button class="btn small danger" name="counterparty_action" value="delete">Delete</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
+      <form method="post" action="/counterparties" data-counterparty-delete><input type="hidden" name="counterparty_id" value="{{ party.id }}"><button class="cat-icon is-danger" name="counterparty_action" value="delete" title="Delete" aria-label="Delete {{ party.name }}"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
     </div></td></tr>{% endfor %}
   </tbody></table>
   {% else %}<p class="muted">No saved counterparties yet.</p>{% endif %}

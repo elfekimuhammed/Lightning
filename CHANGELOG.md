@@ -20,6 +20,15 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
   - A full alias list never stops the save.
 - A counterparty can now hold **20 aliases** (was 10).
 
+### Our dropdowns, percent steppers and table rows · 2026-10-01
+- Every select box opens our own list: group headers, details indented, the current choice marked and a search
+  on long lists (phones keep their native picker).
+- Every % field has our own up and down chevrons, one whole percent a step; sale factors step by 1.
+- Sale factors drop the "a factor here applies…" line under each class.
+- Counterparties is a table of rows: inline row fields, the name takes the room, Delete is an icon.
+- Cards stacked on a page keep a 20px gap.
+- Target allocation can set a target on every class it lists, deposits included.
+
 ### Target allocation adds up to 100% · 2026-10-01
 - A target that would take the total past 100% is refused, and the message says how much is left.
 - Value to adjust is how much to buy (or sell) of that one class to reach its share with every other class
