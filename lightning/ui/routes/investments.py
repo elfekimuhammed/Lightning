@@ -16,8 +16,8 @@ from ..web import container, redirect, render
 from ..charts import line_chart
 from ...assets.catalog import instruments
 from ..periods import parse_period
-from ...investments.report import (build_investment_report, investing_rate, investment_period, period_growth,
-                                    results_by_asset)
+from ...investments.report import (PLANNER_MODES, build_investment_report, investing_rate, investment_period,
+                                    period_growth, results_by_asset, suggest_contributions)
 from .. import charts
 from lightning.core.figures import label
 
@@ -203,24 +203,7 @@ async def portfolio(request: Request):
     allocation_classes=_allocation_classes(c)
     max_class_result=max((abs(row["period_unrealized"]+row["realized"]+row["dividends"])
                           for _,row in asset_class_rows),default=ZERO) or Decimal(1)
-    planner=[]; target_total=sum(targets.values(),ZERO)
-    amount=to_decimal(request.query_params.get("amount","10000"),"amount")
-    total_owned=sum(buckets.values(),ZERO)
-    shortfalls={b:max(ZERO,(target* (total_owned+amount)/100)-v) for b,target in targets.items() for v in [buckets.get(b,ZERO)]}
-    eligible=sum(shortfalls.values(),ZERO)
-    cents=[]; allocated=ZERO
-    if target_total == Decimal(100) and eligible and amount>ZERO:
-        for b in sorted(targets):
-            suggested=(amount*shortfalls[b]/eligible).quantize(Decimal("0.01"))
-            cents.append([b,suggested]); allocated+=suggested
-        if cents: cents[0][1]+=amount-allocated
-    new_by_bucket=dict(cents)
-    for b,v in sorted(buckets.items(),key=lambda x:-x[1]):
-        after=(v+new_by_bucket.get(b,ZERO))/(total_owned+amount)*100 if total_owned+amount else ZERO
-        planner.append({"bucket":b,"value":v,"weight":v/total_owned*100 if total_owned else ZERO,
-                        "target":targets.get(b),"suggested":new_by_bucket.get(b,ZERO),"after":after})
-    for b,t in targets.items():
-        if b not in buckets: planner.append({"bucket":b,"value":ZERO,"weight":ZERO,"target":t,"suggested":new_by_bucket.get(b,ZERO),"after":new_by_bucket.get(b,ZERO)/(total_owned+amount)*100 if total_owned+amount else ZERO})
+    target_total=sum(targets.values(),ZERO)
     interest_id = next((cat.id for cat in c.categories.tree() if cat.code == "EXP.INVEST.INTEREST"), None)
     period_interest = c.investments.period_interest(interest_id, period.start_text, period.end_text)
     period_distributions = p.dividends-prior.dividends+period_interest
@@ -238,7 +221,7 @@ async def portfolio(request: Request):
                   own_by_holding=own_by_holding, period=period, period_realized=p.realized-prior.realized,
                   period_dividends=period_distributions, since_xirr=(p.xirr if not any(custody.values()) and _year_of_history(c, period.end) else None),
                   owned_rows=owned_rows, horizons=horizons,
-                  buckets=buckets, targets=targets, target_total=target_total, planner=planner, amount=amount,
+                  buckets=buckets, targets=targets, target_total=target_total,
                   owned_positions=owned_positions, max_class_result=max_class_result,
                   allocation_classes=allocation_classes, own_units_by_holding=own_units_by_holding,
                   starting_owned_value=starting_owned_value, period_value_change=owned_value-starting_owned_value,
@@ -346,12 +329,16 @@ async def planner_popup(request: Request):
 @router.post("/planner")
 async def calculate_planner(request: Request):
     form=await request.form()
+    mode=str(form.get("mode",""))
+    if mode in PLANNER_MODES: container(request).settings.set("investment_planner_mode", mode)
     return await _render_planner(request,str(form.get("amount","10000")))
 
 
 async def _render_planner(request: Request, raw_amount: str="10000"):
     c=container(request); amount=to_decimal(raw_amount,"amount")
     if amount<=ZERO: raise LightningError("Enter an amount greater than zero.","amount")
+    mode=c.settings.get("investment_planner_mode")
+    if mode not in PLANNER_MODES: mode="prorata"
     day=fmt_date(today()); portfolio=c.investments.portfolio(day)
     custody={(x["account_id"],x["asset_id"]):Decimal(str(x["units"]))
              for x in c.money_from_others.investment_positions(day)}
@@ -366,19 +353,14 @@ async def _render_planner(request: Request, raw_amount: str="10000"):
         values[bucket]+=value; total+=value
     targets = c.investments.target_weights()
     target_total=sum(targets.values(),ZERO)
-    shortfalls={b:max(ZERO,t*(total+amount)/100-values.get(b,ZERO)) for b,t in targets.items()}
-    deficit=sum(shortfalls.values(),ZERO); suggestions={}; rounded=ZERO
-    if target_total==100 and deficit:
-        for bucket in sorted(targets):
-            suggestions[bucket]=(amount*shortfalls[bucket]/deficit).quantize(Decimal("0.01")); rounded+=suggestions[bucket]
-        if suggestions: suggestions[sorted(suggestions)[0]]+=amount-rounded
+    suggestions=suggest_contributions(dict(values),targets,amount,mode)
     rows=[]
     for bucket in sorted(set(values)|set(targets),key=lambda b:(-values.get(b,ZERO),b.casefold())):
         value=values.get(bucket,ZERO); suggested=suggestions.get(bucket,ZERO)
         rows.append({"bucket":bucket,"value":value,"weight":value/total*100 if total else ZERO,
                      "target":targets.get(bucket),"suggested":suggested,
                      "after":(value+suggested)/(total+amount)*100 if total+amount else ZERO})
-    return render(request,"investments/planner.html",amount=amount,rows=rows,target_total=target_total,
+    return render(request,"investments/planner.html",amount=amount,mode=mode,rows=rows,target_total=target_total,
                   planner_ready=target_total==100,allocation_sum=sum((r["suggested"] for r in rows),ZERO))
 
 

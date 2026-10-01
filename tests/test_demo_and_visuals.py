@@ -262,6 +262,22 @@ def test_target_allocation_says_how_much_to_invest(demo):
     assert "Target allocation" in client.get("/settings?section=targets").text
 
 
+def test_the_planner_remembers_how_to_split_new_money(demo):
+    c, _ = demo
+    client = TestClient(create_app(c), base_url="http://127.0.0.1")
+    for name, weight in (("Gold", "40"), ("Stocks", "40"), ("Money Market Fund", "20")):
+        client.post("/investments/targets", data={"bucket": name, "target_weight": weight}, headers={"X-Requested-With": "fetch"})
+    assert sum(c.investments.target_weights().values()) == 100
+    page = client.get("/investments/planner").text
+    assert 'value="prorata" checked' in page and "same share of its gap" in page
+    page = client.post("/investments/planner", data={"amount": "5000", "mode": "fill_gaps"}).text
+    assert 'value="fill_gaps" checked' in page and "furthest below its target" in page
+    assert c.settings.get("investment_planner_mode") == "fill_gaps"
+    assert 'value="fill_gaps" checked' in client.get("/investments/planner").text  # remembered
+    client.post("/investments/planner", data={"amount": "5000", "mode": "nonsense"})
+    assert c.settings.get("investment_planner_mode") == "fill_gaps"
+
+
 def test_visuals_and_breakdowns_add_up(demo):
     from lightning.ui import visuals
     c, _ = demo

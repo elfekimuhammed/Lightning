@@ -4,6 +4,10 @@
 {% block content %}
 <form method="post" action="/investments/planner" data-popup-return="popup" class="card planner-popup-form">
   <label>Amount in EGP<input autofocus name="amount" type="text" inputmode="decimal" class="money-input" autocomplete="off" value="{{ amount }}" required></label>
+  <fieldset class="planner-mode"><legend>How to split it</legend>
+    <label title="Every class below target gets the same share of its gap"><input type="radio" name="mode" value="prorata"{% if mode=='prorata' %} checked{% endif %}><span>Spread across gaps</span></label>
+    <label title="The class furthest below target is filled first, until it catches up with the next"><input type="radio" name="mode" value="fill_gaps"{% if mode=='fill_gaps' %} checked{% endif %}><span>Biggest gaps first</span></label>
+  </fieldset>
   <button class="btn primary">Show suggested split</button>
 <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
 {% if not rows %}<div class="card empty">No current owned investments to plan against.</div>
@@ -11,5 +15,5 @@
 {% else %}<section class="card planner-popup-results"><div class="card-heading"><h3>Suggested allocation</h3><b>{{ amount|money }}</b></div>
 <div class="new-money-stack">{% for row in rows %}{% if row.suggested>0 %}<span title="{{ row.bucket }} · {{ row.suggested|money }}" style="width:{{ row.suggested/amount*100 if amount else 0 }}%;background:{{ ['#1586C5','#29A783','#E0A332','#8872CB','#CE6A64'][loop.index0%5] }}"></span>{% endif %}{% endfor %}</div>
 <div class="planner-popup-rows">{% for row in rows %}<div class="planner-popup-row"><span><b>{{ row.bucket }}</b><small>Current {{ row.value|money }} · {{ row.weight|round(1) }}% · Target {{ row.target|round(1) if row.target is not none }}%</small></span><strong>{{ row.suggested|money }}</strong></div>{% endfor %}</div>
-<p class="muted small">Suggestions split new money among under-target classes in proportion to their shortfalls. No bucket receives a negative amount.</p></section>{% endif %}
+<p class="muted small">{% if mode=='fill_gaps' %}The class furthest below its target, in percentage points, gets money first until it is level with the next; then both are filled together, and so on.{% else %}Every class below its target gets the same share of its gap, so each one moves part of the way.{% endif %} If the money covers every gap, both ways give the same split. Nothing is sold.</p></section>{% endif %}
 {% endblock %}

@@ -243,6 +243,49 @@ def results_by_asset(investments, money_from_others, reporting, opening_day: str
     return class_results, asset_results
 
 
+PLANNER_MODES = ("prorata", "fill_gaps")
+
+
+def suggest_contributions(values: dict[str, Decimal], targets: dict[str, Decimal], amount: Decimal,
+                          mode: str = "prorata") -> dict[str, Decimal]:
+    """Split new money across allocation classes to move toward their targets; nothing is ever sold.
+
+    A class's gap is how far below its target share it would sit once the new money is in, in
+    percentage points of that total. At a fixed total that is proportional to its shortfall in money,
+    so both modes work on shortfalls. ``prorata`` gives every under-target class the same fraction of
+    its gap. ``fill_gaps`` levels from the top: the furthest-behind class is filled until it matches
+    the next, then both together, and so on. When the money covers every gap the two agree.
+    Returns {} until the targets total 100%."""
+    if mode not in PLANNER_MODES:
+        raise ValueError(f"Unknown planner mode: {mode}")
+    if amount <= ZERO or sum(targets.values(), ZERO) != 100:
+        return {}
+    total = sum(values.values(), ZERO) + amount
+    shortfalls = {b: s for b, t in targets.items() if (s := t * total / 100 - values.get(b, ZERO)) > ZERO}
+    deficit = sum(shortfalls.values(), ZERO)
+    if not deficit:
+        return {}
+    if mode == "prorata":
+        raw = {b: amount * s / deficit for b, s in shortfalls.items()}
+    else:
+        # The level every gap is brought down to: the k largest gaps lose (sum - amount) / k each,
+        # as long as that stays at or above the next gap down.
+        ordered = sorted(shortfalls.values(), reverse=True)
+        level, running = ZERO, ZERO
+        for k, s in enumerate(ordered, 1):
+            running += s
+            level = (running - amount) / k
+            if k == len(ordered) or level >= ordered[k]:
+                break
+        level = max(ZERO, level)
+        raw = {b: s - level for b, s in shortfalls.items() if s > level}
+    cent = Decimal("0.01")
+    split = {b: x.quantize(cent) for b, x in raw.items()}
+    # Rounding leftovers go to the largest suggestion, so the split adds up and none turns negative.
+    split[max(split, key=lambda b: (split[b], b))] += amount - sum(split.values(), ZERO)
+    return {b: x for b, x in split.items() if x > ZERO}
+
+
 def allocation_plan(values: dict[str, Decimal], targets: dict[str, Decimal], classes: list[str]) -> dict:
     """Target allocation: for each class its current share, the required share, the difference, and
     the value to adjust (how much to invest, or take out when negative, to reach the required share

@@ -8,6 +8,14 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### Investment planner: biggest gaps first · 2026-10-01
+- The planner has two ways to split new money: **Spread across gaps** (as before: every class below target
+  gets the same share of its gap) and **Biggest gaps first** (the class furthest below its target, in
+  percentage points, is filled until it is level with the next, then both together, and so on). When the
+  money covers every gap both give the same split. The choice is remembered.
+- Rounding cents now go to the largest suggestion, so a split always adds up and never shows a negative amount.
+- One split function (`suggest_contributions`) serves the planner; the unused copy on the Investments page is gone.
+
 ### Categories, two by two · 2026-10-01
 - Two categories side by side, each always editable: name, + / − / ±, Recurring and One-off as on/off pills,
   and add detail, archive and delete always visible. Changes save as you make them.

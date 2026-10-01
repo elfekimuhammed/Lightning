@@ -450,3 +450,43 @@ def test_holding_page_tells_the_journey_of_one_asset(c, setup, monkeypatch):
     assert page.status_code == 200
     for question in ("Is it making money?", "How bumpy has it been?", "The journey", "Fall from its high"):
         assert question in page.text
+
+
+class TestPlanner:
+    """New money toward target allocation: spread across gaps, or biggest gaps first."""
+
+    def split(self, values, targets, amount, mode):
+        from lightning.investments.report import suggest_contributions
+        return suggest_contributions({k: D(v) for k, v in values.items()}, {k: D(v) for k, v in targets.items()},
+                                     D(amount), mode)
+
+    def test_when_the_money_covers_every_gap_both_modes_land_on_target(self):
+        values, targets = {"Stocks": 500, "Gold": 300, "MMF": 200}, {"Stocks": 50, "Gold": 30, "MMF": 20}
+        for mode in ("prorata", "fill_gaps"):
+            assert self.split(values, targets, 1000, mode) == {"Stocks": 500, "Gold": 300, "MMF": 200}
+
+    def test_short_money_is_shared_pro_rata_or_given_to_the_biggest_gap(self):
+        values, targets = {"Stocks": 7000, "Gold": 1000, "MMF": 2000}, {"Stocks": 50, "Gold": 30, "MMF": 20}
+        assert self.split(values, targets, 1000, "prorata") == {"Gold": 920, "MMF": 80}  # 2300 : 200
+        assert self.split(values, targets, 1000, "fill_gaps") == {"Gold": 1000}  # Gold is still the furthest behind
+
+    def test_biggest_gaps_first_levels_classes_once_they_meet(self):
+        values, targets = {"Stocks": 7500, "Gold": 1000, "MMF": 1500}, {"Stocks": 40, "Gold": 30, "MMF": 30}
+        split = self.split(values, targets, 1000, "fill_gaps")
+        assert split == {"Gold": 750, "MMF": 250}
+        gaps = {b: targets[b] - (values[b] + split[b]) / D(11000) * 100 for b in split}
+        assert gaps["Gold"] == gaps["MMF"]  # both end the same number of points below target
+
+    def test_the_split_adds_up_to_the_cent_and_never_goes_negative(self):
+        targets = {"A": D("33.33"), "B": D("33.33"), "C": D("33.34")}
+        for mode in ("prorata", "fill_gaps"):
+            split = self.split({"A": 0, "B": 0, "C": 0}, targets, "100", mode)
+            assert sum(split.values()) == 100 and all(x > 0 for x in split.values())
+            split = self.split({"A": 1, "B": 2, "C": 0}, targets, "0.01", mode)
+            assert sum(split.values()) == D("0.01") and all(x > 0 for x in split.values())
+
+    def test_no_split_until_targets_total_100(self):
+        assert self.split({"Gold": 100}, {"Gold": 60}, 1000, "fill_gaps") == {}
+        assert self.split({"Gold": 100}, {"Gold": 100}, 0, "prorata") == {}
+        with pytest.raises(ValueError):
+            self.split({"Gold": 100}, {"Gold": 100}, 1000, "largest")
