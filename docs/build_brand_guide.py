@@ -14,7 +14,7 @@ import math
 from pathlib import Path
 
 OUT = Path(__file__).with_name("APPLICATION_BRAND_GUIDE.html")
-VERSION = "2.3 · Glade"
+VERSION = "2.4 · Meadowlark"
 UPDATED = "2026-10-01"
 
 # ---- tokens (same values as style.css) ---------------------------------------------------------
@@ -903,9 +903,9 @@ ICON = {
 }
 
 
-def note(tone, title, textv, link="See details", icon=None):
-    return (f'<article class="keynote tone-{tone}"><span class="kicon">{ICON[icon or tone]}</span><div><b>{esc(title)}</b>'
-            f'<p>{esc(textv)}</p><a>{esc(link)}</a></div></article>')
+def note(tone, label, figure, textv, link="See details", icon=None):
+    return (f'<article class="keynote tone-{tone}"><div class="khead"><span class="kicon">{ICON[icon or tone]}</span>{esc(label)}</div>'
+            f'<b class="kfig">{esc(figure)}</b><p>{esc(textv)}</p>{f"<a>{esc(link)}</a>" if link else ""}</article>')
 
 
 def build() -> str:
@@ -981,14 +981,14 @@ def build() -> str:
 </div>
 <h3>Stat cards: one number, three in a row</h3>
 <div class="statrow">
-  <a class="stat lead"><span>Money out</span><b>40,300.00 <small>EGP</small></b><em>See transactions</em></a>
-  {note("attention", "Eating out 3,940.00", "31% above your usual month.", "See Eating out", "up")}
-  {note("good", "Transport is down 6%", "1,120.00 against 1,180.00 usually.", "See Transport", "down")}
+  <a class="stat lead"><span>Money out</span><b>40,300.00 <small>EGP</small></b><em class="pill nile">See transactions</em></a>
+  {note("attention", "Eating out · above usual", "+31%", "3,940.00 against 3,010.00 usually.", "See Eating out", "up")}
+  {note("good", "Saved this month", "32.4%", "13,600.00 of 42,000.00 that came in.", "Invest", "up")}
 </div>
 <p class="note">The first stat card carries the page’s number on the lead gradient; the other two are key notes at the same height (118px). On phones they stack.</p>
-<h3>Key notes: one sentence each</h3>
-<div class="notes">{note("good", "Safe to spend 12,400.00", "Until the salary on 2026-10-27.", "See the plan", "wallet")}{note("info", "Home is 38% of money out", "The largest share this month.", "See Home", "pie")}{note("attention", "2 categories over plan", "Personal and Eating out, 1,865.00 together.", "Review the budget", "alert")}</div>
-<p class="note">Up to three under the page title. Each is a full tint of its tone (good green, info azure, needs-you rose) with a 1px tone border, a solid 40px icon tile in the tone colour with a white icon chosen by what the note says (up, down, wallet, share, alert, calendar, shield), a bold title with its number, one line, and at most one link in the tone’s dark shade.</p>
+<h3>Key notes: the number first</h3>
+<div class="notes">{note("info", "Safe to spend until 2026-10-27", "12,400.00", "Free cash less what is due before your next income.", "See the plan", "wallet")}{note("info", "Home · share of money out", "38%", "15,300.00 of 40,300.00.", "See Home", "pie")}{note("attention", "Categories over plan", "2", "Personal and Eating out.", "See categories", "alert")}</div>
+<p class="note">The number is the highlight. Up to three under the page title, each in this order: a small tone icon with a short label (15px, ink 2), <b>one big figure</b> (30px Bricolage; green for good, strong rose for needs you, ink for info), one 13px line of context, and at most one 32px pill button in the tone colour. The card is a full tint of its tone with a 1px tone border. A note with no figure (\u201cNothing needs you today\u201d) shows its sentence as the label.</p>
 <h3>Special buttons</h3>
 <div class="btnrow"><span class="btn planner">↗ Investment planner</span><span class="info-tip" title="XIRR: yearly return that accounts for when you added money.">?</span><span class="page-back">‹ Back</span></div>
 """
@@ -1110,6 +1110,7 @@ def build() -> str:
     s.append(sec("classes", "15", "Asset class colours", "One hue family per kind of asset, a lighter shade for the fund version (<code>--class-*</code> in style.css). The order is the donut order and passes the palette validator for neighbouring slices. Some shades are under 3:1 on white, so charts always keep visible labels.", f'<div class="sws">{cls_rows}</div>'))
     # 16 versions
     s.append(sec("versions", "16", "Versions", "", """<table class="plain"><thead><tr><th>Version</th><th>Date</th><th>What changed</th></tr></thead><tbody>
+<tr><td>2.4 · Meadowlark</td><td>2026-10-01</td><td>Key notes put the number first: label, one big figure in the tone colour, one line, one pill button</td></tr>
 <tr><td>2.3 · Glade</td><td>2026-10-01</td><td>Key notes stand out: a full tone tint, a tone border and a solid icon tile with an icon chosen by meaning. Register fields are soft shades of their row, never white, with a green edge on the field you are in. Row actions move to the right-click menu</td></tr>
 <tr><td>2.2 · Grove</td><td>2026-09-30</td><td>One unified guideline with a visual page. Soft register fields and the 30px row height; stat cards; key notes with tone tints and an edge; the wide gradient card; the 20px card radius; the waterfall in azure, soft rose and green; a full chart catalogue (In the app, Ready to use, Avoid)</td></tr>
 <tr><td>2.1 · Bloom</td><td>2026-09-29</td><td>Soft rose for money out; the lead number always ink; strong rose only for over plan and errors</td></tr>
@@ -1208,13 +1209,13 @@ table.plain tr:last-child td{border-bottom:0}
 .alert{display:grid;padding:10px 14px;border-radius:12px;margin:8px 0}.alert span{font-size:13px;color:var(--ink2)}.alert.rose{background:var(--rs)}.alert.held{background:var(--th)}
 .statrow{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.statrow.one{grid-template-columns:minmax(0,320px)}
 .stat{display:flex;flex-direction:column;justify-content:space-between;gap:4px;min-height:118px;padding:16px 18px;border-radius:20px;box-shadow:var(--shadow);text-decoration:none;color:var(--ink)}
-.stat.lead{background:var(--lead)}.stat span{font:700 13px/1.35 var(--body);color:var(--ink2)}.stat b{font:800 24px/1.15 var(--display);font-variant-numeric:tabular-nums}.stat em{font:650 13px var(--body);color:var(--azure);font-style:normal}
+.stat.lead{background:var(--lead)}.stat span{font:500 15px/1.35 var(--body);color:var(--ink2)}.stat b{font:800 24px/1.15 var(--display);font-variant-numeric:tabular-nums}.stat em{font:650 13px var(--body);color:var(--azure);font-style:normal}
 .notes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
-.keynote{display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border-radius:20px;min-height:118px;border:1px solid var(--edge);box-shadow:0 10px 26px -20px var(--ic);background:linear-gradient(135deg,var(--tint) 0%,var(--tint2) 100%)}
+.keynote{display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:16px 18px;border-radius:20px;min-height:118px;border:1px solid var(--edge);box-shadow:0 10px 26px -20px var(--ic);background:linear-gradient(135deg,var(--tint) 0%,var(--tint2) 100%)}.khead{display:flex;align-items:center;gap:8px;color:var(--ink2);font:500 15px/1.35 var(--body)}.kfig{font:800 30px/1.1 var(--display);letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--ink)}.keynote.tone-good .kfig{color:var(--pos)}.keynote.tone-attention .kfig{color:var(--rose)}
 
 .keynote.tone-good{--tint:#D6F1E1;--tint2:#EDF9F2;--edge:#BDE5CD;--ic:#0B8A5F;--lk:#08744A}.keynote.tone-info{--tint:#D9E8FB;--tint2:#EEF5FE;--edge:#C2D8F4;--ic:#0B6DD6;--lk:#0A5AB0}.keynote.tone-attention{--tint:#F8DAE5;--tint2:#FDEFF4;--edge:#F0C0D1;--ic:#C93D72;--lk:#A02E5A}
-.kicon{flex:none;display:grid;place-items:center;width:40px;height:40px;border-radius:12px;background:var(--ic);color:#fff;box-shadow:0 6px 14px -8px var(--ic)}.kicon svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.keynote b{display:block;font-size:15px;line-height:1.35}.keynote p{margin:2px 0 0;font-size:13px;color:var(--ink2)}.keynote a{display:inline-block;margin-top:4px;font-size:13px;font-weight:650;color:var(--lk)}
+.kicon{flex:none;display:grid;place-items:center;width:28px;height:28px;border-radius:9px;background:var(--ic);color:#fff}.kicon svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.keynote p{margin:0;font-size:13px;color:var(--ink2)}.keynote a,.pill{display:inline-flex;align-items:center;height:32px;margin-top:8px;padding:0 14px;border-radius:999px;background:var(--ic);color:#fff;font:700 13px/1 var(--body);font-style:normal}.pill.nile{background:var(--nile);color:#fff!important;align-self:flex-start}
 .pagemock{max-width:620px;background:rgba(255,255,255,.35);border-radius:20px;padding:18px;border:1px dashed rgba(13,34,51,.2)}
 .pm-top{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding-bottom:10px}.pm-top b{font:700 20px var(--display)}.pm-top small{display:block;color:var(--muted)}.pm-top .btn{height:36px;font-size:13px}
 .pm-notes{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}.pm-notes i{height:34px;border-radius:12px;background:linear-gradient(135deg,#E1EEFC,#fff 70%);box-shadow:var(--shadow)}

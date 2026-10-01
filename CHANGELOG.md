@@ -8,6 +8,17 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### Key notes: the number first · 2026-10-01
+- Every key note and the small cards on Expense analysis now read like a stat card:
+  - a short label with a small tone icon;
+  - **one big figure**, green when good, rose when it needs you;
+  - one line of context;
+  - one pill button.
+
+  Examples: "Saved · 2026-09 → 32.4%", "Safe to spend until … → 49,520.84", "Bills · share of income → 30%".
+- `keynotes.note()` gains `label` and `figure`. The full sentence stays as the title and the screen-reader label.
+- App guideline 2.4 · Meadowlark documents the structure.
+
 ### Key notes that stand out, softer register fields, row actions on right-click · 2026-10-01
 - **Key notes and the small cards on Expense analysis:**
   - Each card is a full tint of its tone with a matching border.

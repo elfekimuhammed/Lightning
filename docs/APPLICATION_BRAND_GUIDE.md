@@ -1,4 +1,4 @@
-# App guideline · 2.3 · Glade
+# App guideline · 2.4 · Meadowlark
 
 **Last updated 2026-10-01.** This is the one guideline for how every screen looks, reads and adds up. It covers colour, type, cards, sections, controls, fields, lists, charts and words. It is built on the Meadow brand guidelines. The product story is in [Project Overview](PROJECT_OVERVIEW.md), code rules in [Architecture](ARCHITECTURE.md) and terms in the [Glossary](GLOSSARY.md).
 
@@ -137,12 +137,14 @@ There are no white or tinted panels inside a lead card.
 | Info | `#D9E8FB → #EEF5FE` | `#C2D8F4` | `#0B6DD6` tile · `#0A5AB0` link |
 | Needs you | `#F8DAE5 → #FDEFF4` | `#F0C0D1` | `#C93D72` tile · `#A02E5A` link |
 
-Each key note has:
+**The number is the highlight.** Each key note reads top to bottom:
 
-- a solid 40px icon tile in the tone colour with a white 22px icon;
-- a bold 15px ink title that carries its number;
-- one 13px ink 2 line;
-- at most one link, in the tone's dark shade.
+1. A 28px tone icon tile (white icon) and a short label, 15/500 ink 2: "Saved · 2026-09", "Safe to spend until 2026-11-01".
+2. **One big figure**, 30px Bricolage 800, tabular: green (positive) for good, strong rose for needs you, ink for info.
+3. One 13px ink 2 line of context: "13,600.00 of 42,000.00 that came in."
+4. At most one 32px pill button in the tone colour, with white text ("See the plan"). The lead stat card uses a Nile pill.
+
+A note with no figure ("Nothing needs you today") shows its sentence as the label. The full sentence stays as the card's screen-reader label. `keynotes.note()` takes `label` and `figure` for the card and `title` for the sentence.
 
 The icon follows what the note says, not just its tone (`lightning/ui/keynotes.py` picks it from the title):
 
@@ -461,6 +463,7 @@ The donut order (the rows above, top to bottom) passes the palette validator for
 
 | Version | Date | What changed |
 |---|---|---|
+| 2.4 · Meadowlark | 2026-10-01 | Key notes put the number first: label, one big figure in the tone colour, one line, one pill button |
 | 2.3 · Glade | 2026-10-01 | Key notes stand out: a full tone tint, a tone border, a solid icon tile, and icons chosen by meaning. Register fields are soft shades of their row, never white, with the green focus edge everywhere. Row actions move to the right-click menu |
 | 2.2 · Grove | 2026-09-30 | **One unified guideline** with a visual page (`APPLICATION_BRAND_GUIDE.html`), numbered the same. **Changes:**<ul><li>soft register fields and the 30px row height;</li><li>stat cards;</li><li>key notes with tone tints and an edge;</li><li>the wide gradient card;</li><li>the 20px card radius;</li><li>one type scale;</li><li>the waterfall in azure, soft rose and green (replacing hatched grey);</li><li>the vivid gradient allowed on the Investment planner button;</li><li>a full chart catalogue (In the app, Ready to use, Avoid).</li></ul> |
 | 2.1 · Bloom | 2026-09-29 | Soft rose for money out and spending bars, replacing grey. The lead number is always ink. Strong rose only for over plan, negative balances and errors |
@@ -468,4 +471,4 @@ The donut order (the rows above, top to bottom) passes the palette validator for
 | 1.1 | 2026-09-29 | Meadow light by default with a dark preview; a faint wash on white cards; a soft band under breakdown results |
 | 1.0 | 2026-09-29 | First app guideline |
 
-Additions are numbered 2.4, 2.5 and so on. A change to the card rules is 3.0. Each version gets a name.
+Additions are numbered 2.5, 2.6 and so on. A change to the card rules is 3.0. Each version gets a name.

@@ -10,7 +10,7 @@
   <a class="stat-card lead-card" href="/transactions?{% if category_filter %}category_id={{ category_filter }}&amp;{% endif %}date_from={{ date_from }}&amp;date_to={{ date_to }}">
     <span class="stat-label">{{ fig.money_out.label }}{{ ' · ' ~ category_name if category_name }}</span>
     <b class="stat-value">{{ spending_total|money }} <small>{{ base }}</small></b>
-    <span class="stat-link">See transactions</span>
+    <span class="kn-action">See transactions</span>
   </a>
   {% for n in notes[:2] %}{{ key_note(n, 'stat-card') }}{% endfor %}
 </section>

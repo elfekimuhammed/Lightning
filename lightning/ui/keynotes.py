@@ -1,4 +1,4 @@
-"""Key notes: each page's answer in up to three short sentences.
+"""Key notes: each page's answer in up to three small cards: a label, one big figure, one line.
 
 Notes only phrase figures that services already computed (the position, cash flow, budget,
 forecast, investment report); they never compute a figure of their own beyond comparing two of
@@ -27,9 +27,11 @@ def note_icon(tone: str, title: str) -> str:
 
 
 def note(tone: str, title: str, text: str, href: str = "", action: str = "", popup: bool = False,
-         icon: str = "") -> dict:
+         icon: str = "", label: str = "", figure: str = "") -> dict:
+    """``title`` is the whole sentence (read out to screen readers). A card shows ``label`` small,
+    ``figure`` big and ``text`` under it; a note without a figure shows its title instead."""
     return {"tone": tone, "title": title, "text": text, "href": href, "action": action, "popup": popup,
-            "icon": icon or note_icon(tone, title)}
+            "icon": icon or note_icon(tone, title), "label": label, "figure": figure}
 
 
 def _signed(value: Decimal) -> str:
@@ -40,10 +42,10 @@ def change_in_what_you_own(change: Decimal | None, period_label: str, href: str)
     if change is None:
         return None
     if change >= 0:
-        return note("good", f"What you own grew {fmt(change)}", f"{period_label}. Saving, price changes and new balances together.",
-                    href, "See how it adds up")
-    return note("attention", f"What you own fell {fmt(-change)}", f"{period_label}. Check spending and prices.",
-                href, "See how it adds up")
+        return note("good", f"What you own grew {fmt(change)}", f"{period_label} · saving, prices and new balances.",
+                    href, "See how", label="What you own grew", figure=_signed(change))
+    return note("attention", f"What you own fell {fmt(-change)}", f"{period_label} · check spending and prices.",
+                href, "See how", label="What you own fell", figure=_signed(change))
 
 
 def kept(flow, period_label: str, href: str) -> dict | None:
@@ -51,9 +53,11 @@ def kept(flow, period_label: str, href: str) -> dict | None:
         return None
     if flow.net >= 0 and flow.savings_rate is not None:
         return note("good", f"You kept {flow.savings_rate:.0f}% of money in",
-                    f"{fmt(flow.net)} left after spending {fmt(flow.outflows)} · {period_label}.", href, "See where it went")
+                    f"{fmt(flow.net)} of {fmt(flow.inflows)} that came in.", href, "See where it went",
+                    label=f"Saved · {period_label}", figure=f"{flow.savings_rate:.1f}%")
     return note("attention", f"You spent {fmt(-flow.net)} more than came in",
-                f"Money in {fmt(flow.inflows)}, money out {fmt(flow.outflows)} · {period_label}.", href, "See where it went")
+                f"{fmt(flow.outflows)} out against {fmt(flow.inflows)} in.", href, "See where it went",
+                label=f"Spent more than came in · {period_label}", figure=fmt(-flow.net))
 
 
 def needs_you(attention: list[dict], safe_to_spend: Decimal | None, next_income: str | None) -> dict:
@@ -65,7 +69,8 @@ def needs_you(attention: list[dict], safe_to_spend: Decimal | None, next_income:
     if safe_to_spend is not None:
         until = f" until {next_income}" if next_income else ""
         return note("info", f"{fmt(safe_to_spend)} safe to spend{until}",
-                    "Free cash less what is promised before your next income.", "/plan", "See cash planning")
+                    "Free cash less what is due before your next income.", "/plan", "See the plan",
+                    label="Safe to spend" + until, figure=fmt(safe_to_spend))
     return note("info", "Nothing needs you today", "No bills are due and nothing is waiting for a decision.")
 
 
@@ -75,7 +80,8 @@ def top_category(groups: list, total: Decimal, href: str) -> dict | None:
     top = max(groups, key=lambda g: g["value"])
     share = top["value"] / total * 100
     return note("info", f"{top['label']} took {share:.0f}% of spending", f"{fmt(top['value'])} of {fmt(total)}.",
-                top.get("href") or href, "See its transactions")
+                top.get("href") or href, "See transactions", label=f"{top['label']} · share of spending",
+                figure=f"{share:.0f}%")
 
 
 def compared(spent: Decimal, prior: Decimal | None, prior_label: str) -> dict | None:
@@ -85,9 +91,11 @@ def compared(spent: Decimal, prior: Decimal | None, prior_label: str) -> dict | 
         return note("info", "No earlier spending to compare", f"Nothing was spent in {prior_label}.")
     diff = spent - prior
     if diff > 0:
-        return note("attention", f"{fmt(diff)} more than {prior_label}", f"{fmt(spent)} against {fmt(prior)}.")
+        return note("attention", f"{fmt(diff)} more than {prior_label}", f"{fmt(spent)} against {fmt(prior)}.",
+                    label=f"More than {prior_label}", figure=_signed(diff))
     if diff < 0:
-        return note("good", f"{fmt(-diff)} less than {prior_label}", f"{fmt(spent)} against {fmt(prior)}.")
+        return note("good", f"{fmt(-diff)} less than {prior_label}", f"{fmt(spent)} against {fmt(prior)}.",
+                    label=f"Less than {prior_label}", figure=_signed(diff))
     return note("info", f"The same as {prior_label}", f"{fmt(spent)} both times.")
 
 
@@ -95,9 +103,11 @@ def budget_left(left: Decimal, days_left: int, over: list[str], href: str) -> li
     """Only what the summary cards don't say: which categories went over plan."""
     if over:
         names = ", ".join(over[:2]) + (f" and {len(over) - 2} more" if len(over) > 2 else "")
-        return [note("attention", f"{names} over plan", "Open a category to see what pushed it over.", href, "See categories")]
+        return [note("attention", f"{names} over plan", names + ".", href, "See categories",
+                     label="Categories over plan", figure=str(len(over)))]
     if left < 0:
-        return [note("attention", f"{fmt(-left)} over plan this month", "Cut back or raise a category's plan.")]
+        return [note("attention", f"{fmt(-left)} over plan this month", "Cut back or raise a category's plan.",
+                     label="Over plan this month", figure=fmt(-left))]
     return []
 
 
@@ -119,8 +129,10 @@ def best_class(class_rows: list[dict]) -> dict | None:
     best = max(gains, key=lambda r: r["result"])
     if best["result"] <= 0:
         worst = min(gains, key=lambda r: r["result"])
-        return note("attention", f"{worst['label']} lost {fmt(-worst['result'])}", "Its prices fell in this period.")
-    return note("good", f"{best['label']} earned the most: {_signed(best['result'])}", "Price changes, sales and dividends in this period.")
+        return note("attention", f"{worst['label']} lost {fmt(-worst['result'])}", "Its prices fell in this period.",
+                    label=f"{worst['label']} lost", figure=_signed(worst["result"]))
+    return note("good", f"{best['label']} earned the most: {_signed(best['result'])}", "Prices, sales and dividends in this period.",
+                label=f"Best class · {best['label']}", figure=_signed(best["result"]))
 
 
 def at_cost(items: list[dict]) -> dict | None:
@@ -128,7 +140,7 @@ def at_cost(items: list[dict]) -> dict | None:
         return None
     names = ", ".join(i["asset"] for i in items[:2]) + (f" and {len(items) - 2} more" if len(items) > 2 else "")
     return note("info", f"{len(items)} holding(s) valued at cost", f"{names}: no price yet, so no gain is shown.",
-                "/investments/prices", "Update prices")
+                "/investments/prices", "Update prices", label="Holdings valued at cost", figure=str(len(items)))
 
 
 def lowest_point(forecast) -> dict | None:
@@ -136,10 +148,10 @@ def lowest_point(forecast) -> dict | None:
     if low is None:
         return None
     if low.closing < 0:
-        return note("attention", f"Cash may run short in {low.month}", f"The forecast ends {low.month} at {fmt(low.closing)}.",
-                    "#plan-forecast", "See the forecast")
-    return note("good", f"Lowest point: {fmt(low.closing)}", f"At the end of {low.month}, in the next three months.",
-                "#plan-forecast", "See the forecast")
+        return note("attention", f"Cash may run short in {low.month}", "The lowest point in the next three months.",
+                    "#plan-forecast", "See the forecast", label=f"Cash may run short · {low.month}", figure=fmt(low.closing))
+    return note("good", f"Lowest point: {fmt(low.closing)}", "Your cash at its lowest in the next three months.",
+                "#plan-forecast", "See the forecast", label=f"Lowest point · {low.month}", figure=fmt(low.closing))
 
 
 def next_payment(payments: list) -> dict | None:
@@ -149,7 +161,8 @@ def next_payment(payments: list) -> dict | None:
     p = upcoming[0]
     return note("attention" if p.status.value == "DUE" else "info",
                 f"{p.item.name}: {fmt(p.amount)} {'due since' if p.status.value == 'DUE' else 'due'} {p.due_date}",
-                "Next payment going out.", f"/plan/items/{p.item.id}/pay?due={p.due_date}&back=%2Fplan", "Mark paid", popup=True)
+                "Next payment going out.", f"/plan/items/{p.item.id}/pay?due={p.due_date}&back=%2Fplan", "Mark paid", popup=True,
+                label=f"{p.item.name} · {'due since' if p.status.value == 'DUE' else 'due'} {p.due_date}", figure=fmt(p.amount))
 
 
 def emergency(months: Decimal | None, target: Decimal | None) -> dict | None:
@@ -157,7 +170,8 @@ def emergency(months: Decimal | None, target: Decimal | None) -> dict | None:
         return note("info", "Emergency fund not measured yet", "Set your income categories so months covered can be worked out.",
                     "/settings?section=budget", "Open settings")
     tone = "good" if months >= 6 else "attention" if months < 1 else "info"
-    return note(tone, f"Emergency fund covers {months:.1f} months", "Of average monthly income. The aim is six.")
+    return note(tone, f"Emergency fund covers {months:.1f} months", "Of average monthly income. The aim is six.",
+                label="Emergency fund covers", figure=f"{months:.1f} months")
 
 
 def largest_part(donut: dict, what: str, href: str = "") -> dict | None:
@@ -166,7 +180,7 @@ def largest_part(donut: dict, what: str, href: str = "") -> dict | None:
         return None
     top = max(segments, key=lambda s: s["value"])
     return note("info", f"{top['label']} is {top['share']:.0f}% of {what}", f"{fmt(top['value'])} of {fmt(donut['total'])}.",
-                href, "See it" if href else "")
+                href, "See it" if href else "", label=f"{top['label']} · share of {what}", figure=f"{top['share']:.0f}%")
 
 
 def sale_cost(position) -> dict | None:
@@ -175,7 +189,8 @@ def sale_cost(position) -> dict | None:
         return None
     cost = held - position.investments_after_sale
     return note("info", f"Selling everything would cost about {fmt(cost)}",
-                "What your sale factors expect to lose against today's value.")
+                "What your sale factors expect to lose against today's value.",
+                label="Cost of selling everything (estimate)", figure=fmt(cost))
 
 
 def cash_share(position) -> dict | None:
@@ -183,7 +198,8 @@ def cash_share(position) -> dict | None:
         return None
     share = position.cash_you_own / position.what_you_own * 100
     text = f"{fmt(position.cash_you_own)} is ready to use; {fmt(position.free_cash)} of it is free cash." if position.free_cash is not None else f"{fmt(position.cash_you_own)} is ready to use."
-    return note("good" if share >= 10 else "attention", f"{share:.0f}% of what you own is cash", text, "/plan/reserves", "See cash")
+    return note("good" if share >= 10 else "attention", f"{share:.0f}% of what you own is cash", text, "/plan/reserves", "See cash",
+                label="Cash · share of what you own", figure=f"{share:.0f}%")
 
 
 def recurring_summary(monthly_out: Decimal, monthly_in: Decimal, subscriptions_per_year: Decimal) -> dict | None:
@@ -193,7 +209,8 @@ def recurring_summary(monthly_out: Decimal, monthly_in: Decimal, subscriptions_p
     if not monthly_in:
         return note("info", "Add your income to see its share", "Bills are measured against scheduled income. " + subs)
     share = monthly_out / monthly_in * 100
-    return note("attention" if share > 50 else "info", f"Bills take {share:.0f}% of your {fmt(monthly_in)} income", subs)
+    return note("attention" if share > 50 else "info", f"Bills take {share:.0f}% of your {fmt(monthly_in)} income",
+                f"Of {fmt(monthly_in)} a month. {subs}".strip(), label="Bills · share of income", figure=f"{share:.0f}%")
 
 
 def loans_summary(loans: list[dict]) -> dict | None:
@@ -204,11 +221,13 @@ def loans_summary(loans: list[dict]) -> dict | None:
     due = sum(len(entry["progress"]["due"]) for entry in loans)
     if due:
         return note("attention", f"{due} loan payment{'s' if due > 1 else ''} due now",
-                    f"{fmt(left)} still to pay in all. The last payment is on {ends}.")
+                    f"{fmt(left)} still to pay. The last payment is on {ends}.",
+                    label="Loan payments due now", figure=str(due))
     paid = sum(entry["progress"]["paid"] for entry in loans)
     total = sum(entry["progress"]["total"] for entry in loans)
     return note("good" if paid else "info", f"Paid off on {ends}" if ends else f"{fmt(left)} still to pay",
-                f"{paid} of {total} payments made.")
+                f"{paid} of {total} payments made.", label="Paid off on" if ends else "Still to pay",
+                figure=ends or fmt(left))
 
 
 def held_for_others(owners: list[dict], total: Decimal | None) -> dict | None:
@@ -217,4 +236,5 @@ def held_for_others(owners: list[dict], total: Decimal | None) -> dict | None:
     names = sorted({row["owner"] for row in owners})
     who = ", ".join(names[:2]) + (f" and {len(names) - 2} more" if len(names) > 2 else "")
     amount = f"{fmt(total)} in all. " if total else ""
-    return note("info", f"You hold money for {who}", amount + "It stays in your accounts but is not counted as yours.")
+    return note("info", f"You hold money for {who}", "It stays in your accounts but is not counted as yours.",
+                label=f"Held for {who}", figure=fmt(total) if total else "")
