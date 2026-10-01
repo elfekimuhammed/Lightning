@@ -98,6 +98,7 @@ Every figure a screen shows is listed here once. **From** says which layer its i
 | **Net flow** | What was left of money in after money out. | Money in − Money out | `reporting.service.CashFlow.net` |
 | **Savings rate** | The share of money in that you kept. | Net flow ÷ Money in | `reporting.service.CashFlow.savings_rate` |
 | **Change in what you own** | How much what you own grew or shrank in the period. | What you own at the end − What you own the day before the start | `planning.position.PositionService.change_in_what_you_own` |
+| **Investing rate** | The share of money in that you moved into investments. | Money added ÷ Money in | `investments.report.investing_rate` |
 | **Average monthly income** | Income in your chosen income categories, averaged over the last 3 or 6 completed months that had any (Settings › Budget). The budget, reserves and the cash forecast all use it. | Read directly from the ledger | `budgeting.service.BudgetService.income_average` |
 | **Spent** | Money out in the category this month. | Read directly from the ledger | `budgeting.domain.BudgetLine.actual` |
 | **Cost** | What you paid for the units you still hold. | Read directly from the ledger | `investments.report.build_investment_report` |
@@ -130,6 +131,7 @@ Every figure a screen shows is listed here once. **From** says which layer its i
 | **Holdings after sale (estimate)** | What your holdings might fetch if sold, after each class's sale factor. | Σ Holdings value of each class × its sale factor | `planning.position.Position.holdings_after_sale` |
 | **Investments if sold (estimate)** | What deposits and holdings might fetch if cashed in today. | Deposits × sale factor + Holdings after sale (estimate) | `planning.position.Position.investments_after_sale` |
 | **If you sold today (estimate)** | Free cash plus what your deposits and holdings might fetch. | Free cash + Investments if sold (estimate) | `planning.position.Position.if_you_sold_today` |
+| **Change in net worth** | How much net worth grew or shrank in the period. | Net worth at the end − Net worth the day before the start | `planning.position.PositionService.change_in_net_worth` |
 | **Carryover** | Unused plan from last month, added to this month when carryover is on. | Left in plan last month | `budgeting.domain.BudgetLine.opening_carryover` |
 | **Planned** | What you plan to spend this month. | Base budget + Carryover | `budgeting.domain.BudgetLine.available` |
 | **Left in plan** | What is left of the plan. | Planned − Spent | `budgeting.domain.BudgetLine.remaining` |

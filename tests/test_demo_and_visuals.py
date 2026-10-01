@@ -166,10 +166,13 @@ def test_every_tab_of_the_demo_opens_with_its_key_notes(demo):
     for url in with_notes + ["/money-from-others", "/transactions", "/settings"]:
         page = client.get(url)
         assert page.status_code == 200, url
-        if url in with_notes:
+        if url in ("/", "/birdview"):  # Birdview redirects to the Overview
+            assert page.text.count('class="stat-tile surface-') == 4, url  # four stat cards, no key notes
+        elif url in with_notes:
             assert 'class="key-note' in page.text or 'class="stat-card key-note' in page.text, url
     overview = client.get("/").text
-    assert "chart-donut" in overview and "chart-bar-row" in overview
+    assert "chart-donut" in overview and "chart-sankey-plot" in overview and "chart-cfall-plot" in overview
+    assert "overview-month-toggle" not in overview and "investment-toggle" not in overview  # no chart hides behind a toggle
     assert "chart-trend" in client.get("/birdview").text  # month by month lives on Birdview
 
 

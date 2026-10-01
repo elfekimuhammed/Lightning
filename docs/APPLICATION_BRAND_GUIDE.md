@@ -1,4 +1,4 @@
-# App guideline · 2.4 · Meadowlark
+# App guideline · 2.5 · Willow
 
 **Last updated 2026-10-01.** This is the one guideline for how every screen looks, reads and adds up. It covers colour, type, cards, sections, controls, fields, lists, charts and words. It is built on the Meadow brand guidelines. The product story is in [Project Overview](PROJECT_OVERVIEW.md), code rules in [Architecture](ARCHITECTURE.md) and terms in the [Glossary](GLOSSARY.md).
 
@@ -114,7 +114,7 @@ Every card has a **20px radius** and **24px padding**; stat cards use 16/18. A c
 | **White** (support) card | Right of the lead, or full width alone | Paper wash, white 1px edge, card shadow | Explains or extends the lead. Six rows at most, then "N more" |
 | **Wide** card | Full width | Wide gradient, green left fading to white by 72% | A page-wide card. It may split in two with a hairline divider (What it is made of · Investments if sold). Holdings, budget meters, reserves, analysis cards |
 | **Entry** card | The drawer, popups and forms | White with a 1px line border, no shadow | Where you type. The only bordered card. One primary button |
-| **Stat** card | A row of three under the page title | The first on the lead gradient; the others are key notes | 118px tall; label 13/700 ink 2, value 24 Bricolage, small EGP, one link. Stack on phones |
+| **Stat** card | A row of up to four under the page title | Alternating surfaces: lead green, white, mint (`#EAF8F0 → #F6FCF8`), white; 1px line in its own shade, card shadow | 164px tall. Label (15 Bricolage, ink) top left; a period chip top right (24px pill: green tint with ↑ when up, rose tint with ↓ when down, strong rose filled for "Over plan", grey otherwise); one big figure (30 Bricolage, ink; strong rose for a shortfall) at the bottom with its unit; one 13px line under it with its supporting figure in green or rose. One quiet visual in the band between label and figure, right side: a sparkline (2px at 75%, 10% fill, dot on the last point) for a figure with history, or an 8px meter for a share. The whole card is the link. Four in a row, two from 1,100px, one on phones |
 | **Key note** | Up to three under the page title | A full tint of its tone, 135°, with a 1px tone border | See below |
 
 **Inside a lead card, always in this order:**
@@ -126,6 +126,10 @@ Every card has a **20px radius** and **24px padding**; stat cards use 16/18. A c
 5. One note, only if it asks you to act.
 
 There are no white or tinted panels inside a lead card.
+
+**Wide split cards (Overview, 2.5).** A wide card may hold one answer as two halves: the number and its toggle list on the left, the visual that explains it on the right, under a hairline divider. Net worth (list · trend over time), Free cash (list · waterfall), Net flow (list · column waterfall). No chart sits behind a toggle: if a chart is on the page, it is open.
+
+**Overview stat cards** are exactly four: Change in net worth (Change in what you own when nothing is owed), Savings rate, Investing rate and Left in plan for the period's month. Safe to spend stays the lead of Cash planning.
 
 **Inside a white card:** a list, bars, toggle groups, a breakdown with its result band, a chart, or "Needs you". A section with no single answer, such as every holding, is one wide card.
 
@@ -293,7 +297,7 @@ Charts are hand-drawn SVG and CSS with no chart library. In the app, `lightning/
 | | Step line | Ready | A balance that jumps on each transaction | Account page |
 | | Forecast with range | Ready | Solid past, dashed forecast, light azure range band, a Today line, the lowest point marked | Cash planning · Plan |
 | | Pace (burn-up) | Ready | Spending so far against an even pace to plan | Budget · this month |
-| | Columns: in and out | Ready | In above zero, out below it, net as a Nile mark on the same axis | Overview · Cash flow by month |
+| | Columns: in and out | Ready | In above zero, out below it, net as a Nile mark on the same axis | Overview · Cash flow by month (stashed, see 16) |
 | | Drawdown | Ready | Fall from the previous high; needs a year of month-ends | Investments · risk |
 | | Candlestick | Avoid | Lightning keeps one price per month-end; use a trend line | — |
 | | Calendar heatmap | Ready | Spending by day, one rose ramp in five steps | Expense analysis · by day |
@@ -313,12 +317,13 @@ Charts are hand-drawn SVG and CSS with no chart library. In the app, `lightning/
 | | Treemap | Ready | Many parts at once; one hue dark to light | Expense analysis · all categories |
 | | Waffle | Ready | One share to feel (savings rate), 100 squares | Overview · Savings rate |
 | | Pie | Avoid | Use the donut | — |
-| How a number is built | Waterfall | In the app | Start in azure, takeaways soft rose, additions green, the result Meadow dark and bold | Overview · Free cash |
+| How a number is built | Waterfall | In the app | Start in azure, takeaways soft rose, additions green, the result Meadow dark and bold | Overview · Free cash › How it is built |
+| | Column waterfall | In the app | Money in green from zero, each kind of money out soft rose floating at the running total, net flow azure from zero (strong rose when short); dashed links, values on the columns, one zero line | Overview · Cash flow › From money in to net flow |
 | | Breakdown list | In the app | The waterfall as rows, each result on a soft band | Overview, Investments |
-| | Sankey | Ready | Where money in went: sources left, uses right, flows at 28%, six destinations at most | Overview · this month |
+| | Sankey | In the app | Sources (green) into one Money in hub, out to spending (soft rose) and Kept (azure); "From what you had" in strong rose when money out is larger. Never source-to-use flows: the ledger does not say which income paid which bill. Three sources, five uses, the rest in Other; flows at 22%; labels pushed apart; a table under it | Overview · Cash flow › Where money in went |
 | Progress | Meter | In the app | Spent of plan or saved of target; the "over" badge or "left" on the right | Budget, Cash planning |
 | | Progress ring | Ready | One goal with its value in the middle | Cash planning · Emergency fund |
-| | Stat card | In the app | A number that needs no chart | Expense analysis |
+| | Stat card | In the app | A number that needs no chart, with a sparkline or meter | Overview · four stat cards; Expense analysis |
 | Spread | Histogram | Ready | Payments by size, touching columns | Expense analysis |
 | | Usual range | Ready | 12-month range pill, middle-month tick, this month as a dot | Expense analysis |
 | | Scatter | Ready | Return against how much it moves, labelled dots | Investments · risk and return |
@@ -459,10 +464,43 @@ The donut order (the rows above, top to bottom) passes the palette validator for
 - Transactions, account pages and Settings have not had the key-notes and charts pass.
 - Dark mode is not wired in.
 
-## 16 Versions
+## 16 Visuals: active and stashed
+
+Every visual the app draws, and the ones built but set aside. Update this list in the same change that adds, moves or removes a chart. Desktop (Windows) uses WebView2, the same Chromium engine as the browser, so every active visual renders the same there.
+
+**Active: on a screen now**
+
+| Where | Visual | Macro |
+|---|---|---|
+| Overview · stat cards | Sparkline (Change in net worth, Savings rate) · meter (Investing rate, Left in plan) | `stat_tiles` |
+| Overview · Net worth | Area trend beside its breakdown list | `trend` |
+| Overview · Free cash | Waterfall (How it is built) beside its list | `waterfall` |
+| Overview · What it is made of | Donut | `donut` |
+| Overview · Cash flow | Column waterfall (From money in to net flow) beside its list | `column_waterfall` |
+| Overview · Where money in went | Sankey | `sankey` |
+| Overview · Investments | Donut (What you hold) · gain-or-loss bars by asset class · movers list | `donut` |
+| Expense analysis | Stat card · trend with plan · grouped bars · bars (Who you paid, Paid from) · sparkline rows | `trend`, `bars`, `sparkline` |
+| Budget; Cash planning · reserves | Meter | `meter` |
+| Cash planning · Plan | Forecast trend | `trend` |
+| Investments | Area trend (portfolio value) · donut | `trend`, `donut` |
+| Cash planning · Recurring | Bars | `bars` |
+
+**Stashed: built, not on any screen**
+
+| Visual | Form | Why, and how to bring it back |
+|---|---|---|
+| Month by month (money in and out per month) | Two-line trend under a toggle | Removed from the Overview in 2.5: no chart hides behind a toggle. `visuals.flow_trend` is kept; bring it back as Columns: in and out, always open |
+| Where it went (Overview) | Grouped bars | Replaced by the Sankey in 2.5. `visuals.spending_bars` is kept; Expense analysis still uses grouped bars |
+| Money in and money out comparison | Two meters | Replaced by the Cash flow list and column waterfall in 2.5 |
+| Savings ring | Progress ring | Replaced by the Savings rate stat card in 2.5 |
+| Safe to spend key note (Overview) | Key note | Moved off the Overview in 2.5; it stays the lead of Cash planning |
+| Share bar | `charts.share` · `share_bar` | Built, used by no screen |
+
+## 17 Versions
 
 | Version | Date | What changed |
 |---|---|---|
+| 2.5 · Willow | 2026-10-01 | Overview as wide split cards (numbers and toggle list left, visual right); the column waterfall for cash flow; the Sankey replaces Where it went; Investments gets its own section; no chart behind a toggle; Month by month stashed. Stat cards redesigned: four in a row on alternating green and white, a period chip, one big figure and a sparkline or meter. New figures Change in net worth and Investing rate. New section 16, Visuals: active and stashed |
 | 2.4 · Meadowlark | 2026-10-01 | Key notes put the number first: label, one big figure in the tone colour, one line, one pill button |
 | 2.3 · Glade | 2026-10-01 | Key notes stand out: a full tone tint, a tone border, a solid icon tile, and icons chosen by meaning. Register fields are soft shades of their row, never white, with the green focus edge everywhere. Row actions move to the right-click menu |
 | 2.2 · Grove | 2026-09-30 | **One unified guideline** with a visual page (`APPLICATION_BRAND_GUIDE.html`), numbered the same. **Changes:**<ul><li>soft register fields and the 30px row height;</li><li>stat cards;</li><li>key notes with tone tints and an edge;</li><li>the wide gradient card;</li><li>the 20px card radius;</li><li>one type scale;</li><li>the waterfall in azure, soft rose and green (replacing hatched grey);</li><li>the vivid gradient allowed on the Investment planner button;</li><li>a full chart catalogue (In the app, Ready to use, Avoid).</li></ul> |

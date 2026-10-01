@@ -76,6 +76,74 @@ def spending_bars(c, first: date, last: date, limit: int = 6) -> dict:
     return charts.grouped_bars(rows, limit)
 
 
+def _leaf(name: str) -> str:
+    return name.split(" › ")[-1]
+
+
+def cash_flow_columns(c, first: date, last: date, cash_flow) -> dict:
+    """Money in, less money out by top-level category (Personal, Work, ...), down to net flow."""
+    groups = [g for g in c.reporting.spending_by_category(first, last, depth=1) if g.value]
+    steps = [(_leaf(g.label), -g.value) for g in groups]
+    rest = cash_flow.outflows - sum((g.value for g in groups), ZERO)
+    if rest:  # anything the category tree does not carry, so the path still ends at net flow
+        steps.append(("Other money out", -rest))
+    return charts.column_waterfall(("Money in", cash_flow.inflows), steps, ("Net flow", cash_flow.net))
+
+
+def money_out_groups(c, first: date, last: date) -> list[dict]:
+    """Money out by top-level category, each linking to its transactions (the Cash flow list)."""
+    rows = []
+    for g in c.reporting.spending_by_category(first, last, depth=1):
+        category = c.categories.get_by_code(g.code)
+        query = urlencode({"category_id": category.id, "date_from": fmt_date(first), "date_to": fmt_date(last)})
+        rows.append({"label": _leaf(g.label), "value": g.value, "href": f"/transactions?{query}"})
+    return rows
+
+
+def money_in_groups(c, first: date, last: date) -> list[dict]:
+    """Money in by income category, largest first, each linking to its transactions."""
+    rows = []
+    for g in c.reporting.money_in_by_category(first, last):
+        category = c.categories.get_by_code(g.code)
+        query = urlencode({"category_id": category.id, "date_from": fmt_date(first), "date_to": fmt_date(last)})
+        rows.append({"label": _leaf(g.label), "value": g.value, "href": f"/transactions?{query}"})
+    return rows
+
+
+def money_sankey(c, first: date, last: date, cash_flow, sources_shown: int = 3, targets_shown: int = 5) -> dict:
+    """Where money in went: income by category into money in, and money in out to spending
+    categories and what you kept. When money out is larger, the gap comes from what you had."""
+    incomes = money_in_groups(c, first, last)
+    sources = [{**r, "tone": "in"} for r in incomes[:sources_shown]]
+    rest_in = cash_flow.inflows - sum((r["value"] for r in sources), ZERO)
+    if rest_in > 0:
+        sources.append({"label": "Other income", "value": rest_in, "tone": "in"})
+    if cash_flow.net < 0:
+        sources.append({"label": "From what you had", "value": -cash_flow.net, "tone": "over"})
+    spending = []
+    for g in c.reporting.spending_by_category(first, last, depth=2):
+        if g.value <= 0:
+            continue
+        category = c.categories.get_by_code(g.code)
+        query = urlencode({"category_id": category.id, "date_from": fmt_date(first), "date_to": fmt_date(last)})
+        spending.append({"label": _leaf(g.label), "value": g.value, "tone": "spend", "href": f"/transactions?{query}"})
+    targets = spending[:targets_shown]
+    rest_out = cash_flow.outflows - sum((t["value"] for t in targets), ZERO)
+    if rest_out > 0:
+        targets.append({"label": "Other spending", "value": rest_out, "tone": "spend"})
+    if cash_flow.net > 0:
+        targets.append({"label": "Kept", "value": cash_flow.net, "tone": "hold"})
+    return charts.sankey(sources, targets, "Money in")
+
+
+def savings_rate_spark(c, end: date, count: int = 6) -> dict:
+    """Savings rate for each recent month (the service's own figure), as a sparkline."""
+    values = []
+    for key, day in month_ends(end, count, c.reporting.first_activity_date()):
+        values.append(c.reporting.cash_flow(parse_month(key)[0], day).savings_rate)
+    return charts.sparkline(values)
+
+
 def holdings_donut(position, include_deposits: bool = False, include_cash: bool = False) -> dict:
     """What you hold by asset class, in class colours (cash, deposits, gold, equity, other)."""
     slices = []
@@ -136,6 +204,12 @@ def free_cash_steps(position) -> dict | None:
     return charts.waterfall(("Cash you own", position.cash_you_own),
                             [("Reserves", -(position.reserves or ZERO)), ("Bills due", -position.bills_due)],
                             ("Free cash", position.free_cash))
+
+
+def trend_spark(t: dict) -> dict:
+    """The first series of a trend as a sparkline (a stat card's background line)."""
+    series = t.get("series") or []
+    return charts.sparkline(series[0]["values"] if series else [])
 
 
 def usual_rows(rows: list[dict], limit: int = 10) -> list[dict]:
