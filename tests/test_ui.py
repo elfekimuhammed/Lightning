@@ -339,3 +339,16 @@ def test_register_learns_alias_and_fills_the_usual_category(client, c, setup):
     # The register picker offers the usual category for autofill.
     page = client.get(f"/accounts/{account.id}")
     assert '"Talabat": {"id": %d' % food in page.text.replace("&#34;", '"')
+
+
+def test_the_period_picked_in_a_header_carries_over_between_pages(client, c, setup):
+    first = client.get("/birdview/expenses?period=month&month=2026-08")
+    assert first.status_code == 200
+    moved = client.get("/budget", follow_redirects=False)
+    assert moved.status_code == 303 and "period=month" in moved.headers["location"] and "month=2026-08" in moved.headers["location"]
+    other = client.get("/investments?msg=Saved", follow_redirects=False)  # other parameters are kept
+    assert "msg=Saved" in other.headers["location"] and "month=2026-08" in other.headers["location"]
+    client.get("/?period=ytd")  # a new pick replaces the old one
+    assert "period=ytd" in client.get("/budget", follow_redirects=False).headers["location"]
+    client.get("/budget?period=month&month=2999-01")  # a pick that fails is not remembered
+    assert "period=ytd" in client.get("/budget", follow_redirects=False).headers["location"]

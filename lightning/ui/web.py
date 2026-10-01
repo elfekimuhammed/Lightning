@@ -7,7 +7,7 @@ import contextvars
 import re
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from urllib.parse import quote, urlsplit
+from urllib.parse import parse_qsl, quote, urlencode, urlsplit
 
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
@@ -169,6 +169,12 @@ def redirect(url: str, msg: str = "") -> RedirectResponse:
     return RedirectResponse(url, status_code=303)
 
 
+# Pages whose header has the period control, and what they remember of it.
+PERIOD_PAGES = {"/", "/budget", "/birdview/expenses", "/investments"}
+PERIOD_KEYS = ("period", "month", "date_from", "date_to")
+PERIOD_COOKIE = "lightning_period"
+
+
 def create_app(c: Container | None = None) -> FastAPI:
     from .routes import accounts, bank_imports, birdview, budget, categories, counterparties, dashboard, integrity, investments, physical_items, planning, reserves, search, settings, transactions
 
@@ -186,6 +192,22 @@ def create_app(c: Container | None = None) -> FastAPI:
                 if value and urlsplit(value).netloc.lower() != host:
                     return PlainTextResponse("Cross-origin form submission blocked.", status_code=403)
         return await call_next(request)
+
+    @app.middleware("http")
+    async def remembered_period(request: Request, call_next):
+        """The period picked in a page header carries over to every page that has one."""
+        if request.method != "GET" or request.url.path not in PERIOD_PAGES or request.headers.get("x-lightning-popup"):
+            return await call_next(request)
+        picked = {k: v for k, v in request.query_params.items() if k in PERIOD_KEYS}
+        if not picked:
+            saved = dict(parse_qsl(request.cookies.get(PERIOD_COOKIE, "")))
+            if saved:  # same page, with the remembered period added to whatever else was asked for
+                return RedirectResponse(f"{request.url.path}?{urlencode({**dict(request.query_params), **saved})}", status_code=303)
+            return await call_next(request)
+        response = await call_next(request)
+        if response.status_code == 200:  # only a period that worked is remembered
+            response.set_cookie(PERIOD_COOKIE, urlencode(picked), httponly=True, samesite="strict")
+        return response
 
     @app.get("/__health", include_in_schema=False)
     async def health():
