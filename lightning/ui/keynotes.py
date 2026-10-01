@@ -11,8 +11,25 @@ from decimal import Decimal
 from lightning.core.money import ZERO, fmt
 
 
-def note(tone: str, title: str, text: str, href: str = "", action: str = "", popup: bool = False) -> dict:
-    return {"tone": tone, "title": title, "text": text, "href": href, "action": action, "popup": popup}
+# Icon by what the note is about (App guideline · Key notes); the first match wins.
+_ICONS = [("over plan", "alert"), ("run short", "alert"), ("safe to spend", "wallet"), ("lowest point", "chart"),
+          ("emergency fund", "shield"), ("loan", "calendar"), ("paid off", "calendar"), ("still to pay", "calendar"),
+          ("hold money for", "people"), ("hold nothing", "people"), ("valued at cost", "tag"), ("selling", "tag"),
+          ("grew", "up"), ("earned", "up"), ("kept", "up"), ("more than", "up"), ("above", "up"),
+          ("fell", "down"), ("lost", "down"), ("less than", "down"), ("down", "down"),
+          ("%", "pie"), ("nothing needs you", "check")]
+_DEFAULT_ICON = {"good": "check", "info": "bulb", "attention": "alert"}
+
+
+def note_icon(tone: str, title: str) -> str:
+    lower = title.lower()
+    return next((icon for word, icon in _ICONS if word in lower), _DEFAULT_ICON.get(tone, "bulb"))
+
+
+def note(tone: str, title: str, text: str, href: str = "", action: str = "", popup: bool = False,
+         icon: str = "") -> dict:
+    return {"tone": tone, "title": title, "text": text, "href": href, "action": action, "popup": popup,
+            "icon": icon or note_icon(tone, title)}
 
 
 def _signed(value: Decimal) -> str:

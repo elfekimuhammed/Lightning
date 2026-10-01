@@ -1,6 +1,6 @@
-# App guideline · 2.2 · Grove
+# App guideline · 2.3 · Glade
 
-**Last updated 2026-09-30.** This is the one guideline for how every screen looks, reads and adds up. It covers colour, type, cards, sections, controls, fields, lists, charts and words. It is built on the Meadow brand guidelines. The product story is in [Project Overview](PROJECT_OVERVIEW.md), code rules in [Architecture](ARCHITECTURE.md) and terms in the [Glossary](GLOSSARY.md).
+**Last updated 2026-10-01.** This is the one guideline for how every screen looks, reads and adds up. It covers colour, type, cards, sections, controls, fields, lists, charts and words. It is built on the Meadow brand guidelines. The product story is in [Project Overview](PROJECT_OVERVIEW.md), code rules in [Architecture](ARCHITECTURE.md) and terms in the [Glossary](GLOSSARY.md).
 
 **The guideline has two halves with the same sections and numbering:**
 
@@ -115,7 +115,7 @@ Every card has a **20px radius** and **24px padding**; stat cards use 16/18. A c
 | **Wide** card | Full width | Wide gradient, green left fading to white by 72% | A page-wide card. It may split in two with a hairline divider (What it is made of · Investments if sold). Holdings, budget meters, reserves, analysis cards |
 | **Entry** card | The drawer, popups and forms | White with a 1px line border, no shadow | Where you type. The only bordered card. One primary button |
 | **Stat** card | A row of three under the page title | The first on the lead gradient; the others are key notes | 118px tall; label 13/700 ink 2, value 24 Bricolage, small EGP, one link. Stack on phones |
-| **Key note** | Up to three under the page title | Tint of its tone fading to white at 70%, 135°, plus a 4px edge in the tone colour on the left | See below |
+| **Key note** | Up to three under the page title | A full tint of its tone, 135°, with a 1px tone border | See below |
 
 **Inside a lead card, always in this order:**
 
@@ -131,18 +131,33 @@ There are no white or tinted panels inside a lead card.
 
 **Key notes** say only what the page doesn't already show: what is safe to spend, the top category and its change, categories over plan, the best class, the lowest point, the bills' share of income, the payoff date, months covered.
 
-| Tone | Tint | Edge and icon | Icon |
+| Tone | Tint | Border | Icon tile and link |
 |---|---|---|---|
-| Good | `#DDF3E6` | Meadow / Meadow dark | Check circle |
-| Info | `#E1EEFC` | Azure | Bulb |
-| Needs you | `#FBE3EC` | Strong rose | Alert circle |
+| Good | `#D6F1E1 → #EDF9F2` | `#BDE5CD` | `#0B8A5F` tile · `#08744A` link |
+| Info | `#D9E8FB → #EEF5FE` | `#C2D8F4` | `#0B6DD6` tile · `#0A5AB0` link |
+| Needs you | `#F8DAE5 → #FDEFF4` | `#F0C0D1` | `#C93D72` tile · `#A02E5A` link |
 
 Each key note has:
 
-- a 32px icon tile in white at 85%;
-- a bold 15px title that carries its number;
-- one 13px line;
-- at most one azure link.
+- a solid 40px icon tile in the tone colour with a white 22px icon;
+- a bold 15px ink title that carries its number;
+- one 13px ink 2 line;
+- at most one link, in the tone's dark shade.
+
+The icon follows what the note says, not just its tone (`lightning/ui/keynotes.py` picks it from the title):
+
+| Icon | Note is about |
+|---|---|
+| Trend up · trend down | A figure that rose or fell (grew, earned, more than, less than, lost) |
+| Wallet | Safe to spend |
+| Pie | A share ("took 48% of spending") |
+| Alert triangle | Over plan, cash may run short |
+| Chart line | The forecast's lowest point |
+| Calendar | Loans, payoff dates, payments due |
+| Shield | The emergency fund |
+| People | Money held for others |
+| Tag | Valued at cost, the cost of selling |
+| Check · bulb | Defaults for good and info |
 
 **Alerts** sit inside the card they concern: rose soft for a problem, tint held for information, with an ink title and an ink 2 line. There are no page-wide banners. Alerts, section titles and the period control are not cards.
 
@@ -207,17 +222,14 @@ There are three kinds. Choosing from your own data is always type-and-pick, neve
 
 **Soft fields in a register row.** The register is edited in place, so its fields must not jump or shout.
 
-- **Add row:**
-  - fields 30px tall, the height of a line entry;
-  - fill `#F2F8F6`, a transparent border that turns line on hover, 8px corners, 13px text;
-  - on focus the field turns white with an azure border;
-  - placeholders name the column; there are no labels;
-  - the Add button is a 30px primary pill.
-- **Row being edited:**
-  - the row takes the held tint `#EAF3FD`;
-  - its fields are white with a `#D6E4F5` border;
-  - Save sits in the row;
-  - a bar under the row holds Cancel, Delete, "Details & history" and the ref, all as 30px pills.
+- **Fields are a soft shade of their row, never strong white.** The field you are in turns a deeper shade with a green edge (Meadow dark, plus a 3px ring at 12%), the same green as forms.
+- **Add row:** fields 30px tall, the height of a line entry, so nothing jumps. They are filled `#F2F8F6` (focus `#E8F3EE`) with a transparent border that turns line on hover, 8px corners and 13px text. Placeholders name the column, with no labels. Add is a 30px primary pill.
+- **Row being edited:** the row takes the held tint `#EAF3FD`. Its fields are a lighter shade of it (`#F3F8FE`, border `#D9E6F6`), and the field you are in a deeper one (`#E3EEFB`). Only **Save** shows in the row.
+- **Row actions live in the right-click menu**, never in a bar under the row:
+  - on the row being edited: Save, Details and history, Cancel edit, Delete;
+  - on any other row: Edit, Details and history, Delete (of the selection).
+
+  Enter saves and Esc cancels. The row's tooltip says so, along with its ref. The menu is a white popup with a 12px radius and 36px items, with Delete in strong rose below a hairline.
 - **Inline number fields**, such as Required % on Target allocation, are 34px and right-aligned. They save on Enter or blur without reloading the page.
 
 Fields never sit in read-only list rows. Arabic text gets `dir="auto"`. Group long forms by question and fold rare fields.
@@ -410,7 +422,7 @@ Red means a shortfall or overspend, not simply a negative number.
 - Strong rose or green text for everyday amounts, or grey spending bars.
 - The lead on the right, stretched to its neighbour's height, or with white panels inside it.
 - Text links with arrows ("Review →"), or dropdowns for your own data.
-- White, bordered or labelled fields in a register add row, or a fourth control height.
+- Strong white or labelled fields in a register row, a button bar under a row, or a fourth control height.
 - Grey, blue or rose body text on the lead card; ▼, ^ or − as open/close markers.
 - Dates like "30 Sep 2026" or "31/1"; "– 5,000.00" or "-455.00" instead of −5,000.00.
 - A period control above figures it doesn't change, or the same number under two names.
@@ -437,7 +449,6 @@ The donut order (the rows above, top to bottom) passes the palette validator for
 
 ## Open visual gaps
 
-- Register row fields focus with an azure border, while forms use the green ring. Both are documented as they ship; align them in one pass.
 - On a phone, the transactions register scrolls sideways inside its card.
 - These charts are drawn in the guideline but not yet built in the app, although the pages would use them:
   - Cash planning: the forecast chart with its lowest point, and the 30-day timeline;
@@ -450,10 +461,11 @@ The donut order (the rows above, top to bottom) passes the palette validator for
 
 | Version | Date | What changed |
 |---|---|---|
+| 2.3 · Glade | 2026-10-01 | Key notes stand out: a full tone tint, a tone border, a solid icon tile, and icons chosen by meaning. Register fields are soft shades of their row, never white, with the green focus edge everywhere. Row actions move to the right-click menu |
 | 2.2 · Grove | 2026-09-30 | **One unified guideline** with a visual page (`APPLICATION_BRAND_GUIDE.html`), numbered the same. **Changes:**<ul><li>soft register fields and the 30px row height;</li><li>stat cards;</li><li>key notes with tone tints and an edge;</li><li>the wide gradient card;</li><li>the 20px card radius;</li><li>one type scale;</li><li>the waterfall in azure, soft rose and green (replacing hatched grey);</li><li>the vivid gradient allowed on the Investment planner button;</li><li>a full chart catalogue (In the app, Ready to use, Avoid).</li></ul> |
 | 2.1 · Bloom | 2026-09-29 | Soft rose for money out and spending bars, replacing grey. The lead number is always ink. Strong rose only for over plan, negative balances and errors |
 | 2.0 · Clearing | 2026-09-29 | Lead left on the soft gradient, white support right; the vivid gradient leaves cards; toggle lists replace panels inside cards; the Sections part |
 | 1.1 | 2026-09-29 | Meadow light by default with a dark preview; a faint wash on white cards; a soft band under breakdown results |
 | 1.0 | 2026-09-29 | First app guideline |
 
-Additions are numbered 2.3, 2.4 and so on. A change to the card rules is 3.0. Each version gets a name.
+Additions are numbered 2.4, 2.5 and so on. A change to the card rules is 3.0. Each version gets a name.

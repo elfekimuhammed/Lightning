@@ -243,18 +243,12 @@
       {% set kind = 'in' if r.amount > 0 else 'out' %}
       {% if r.type == 'TRF' %}{% set kind = 'transfer' %}{% elif r.type in ('BUY', 'SEL', 'DIV') %}{% set kind = 'invest' %}{% elif r.type == 'OPN' %}{% set kind = 'opening' %}{% endif %}
       {% if edit_id == r.txn_id and edit_acct == r.account_id %}
-      <tr class="add-row editing">
-        <td><a class="small" href="/transactions/{{ r.txn_id }}" aria-label="Open transaction details">Details</a></td>
+      <tr class="add-row editing" data-txn="{{ r.txn_id }}" data-cancel-href="{{ base_url }}{{ '?' ~ keep_qs if keep_qs }}" title="{{ r.ref }} · Enter to save · Esc to cancel · right-click for more">
+        <td><a class="sr-only" href="{{ base_url }}{{ '?' ~ keep_qs if keep_qs }}" data-cancel>Cancel</a></td>
         {{ inputs('f-edit', edit, True) }}
         {% if with_balance %}<td class="num muted">{{ r.balance|money if r.balance is not none }}</td>{% endif %}
         <td><button form="f-edit" class="btn primary small">Save</button></td>
       </tr>
-      <tr class="edit-bar"><td colspan="{{ ncols }}">
-        <a href="{{ base_url }}{{ '?' ~ keep_qs if keep_qs }}" class="btn small" data-cancel>Cancel</a>
-        <form method="post" action="/transactions/{{ r.txn_id }}/delete?back={{ base_url|urlencode }}" style="display:inline" data-confirm-delete><button class="btn small danger">Delete</button></form>
-        <a class="btn small" href="/transactions/{{ r.txn_id }}">Details &amp; history</a>
-        <span class="muted small code">{{ r.ref }}</span>
-      </td></tr>
       {% else %}
       {% set href = (base_url ~ '?' ~ (keep_qs ~ '&' if keep_qs else '') ~ 'edit=' ~ r.txn_id ~ '&acct=' ~ r.account_id) if r.type in ('IN','OUT','TRF') else '/transactions/' ~ r.txn_id %}
       <tr class="clickable row-{{ kind }}" data-href="{{ href }}" title="{{ r.ref }} — {{ 'edit in this list' if r.type in ('IN','OUT','TRF') else 'view details' }}">
@@ -281,8 +275,12 @@
 {% if total_pages > 1 %}<nav class="register-pagination" aria-label="Transaction pages"><span class="muted small">Showing {{ (page_number-1)*50+1 }}–{{ [page_number*50,total_rows]|min }} of {{ total_rows }}</span>{% if page_number > 1 %}<a class="btn small" href="{{ base_url }}?{{ page_base_qs ~ '&' if page_base_qs else '' }}page={{ page_number-1 }}">Previous</a>{% endif %}{% if page_number < total_pages %}<a class="btn small" href="{{ base_url }}?{{ page_base_qs ~ '&' if page_base_qs else '' }}page={{ page_number+1 }}">Next</a>{% endif %}</nav>{% endif %}
 
 <div id="transaction-context-menu" class="context-menu" role="menu" hidden>
-  <button type="button" role="menuitem" data-context-edit>Edit transaction</button>
-  <button type="button" role="menuitem" class="danger-text" data-context-delete>Delete transaction</button>
+  <button type="button" role="menuitem" data-context-save hidden>Save</button>
+  <button type="button" role="menuitem" data-context-edit>Edit</button>
+  <button type="button" role="menuitem" data-context-details>Details and history</button>
+  <button type="button" role="menuitem" data-context-cancel hidden>Cancel edit</button>
+  <hr>
+  <button type="button" role="menuitem" class="danger-text" data-context-delete>Delete</button>
 </div>
 {% if account and account.notes %}<div class="card" style="margin-top:16px"><h2>Notes</h2>{{ account.notes }}</div>{% endif %}
 {% endblock %}

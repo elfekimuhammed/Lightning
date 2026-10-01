@@ -8,6 +8,18 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### Key notes that stand out, softer register fields, row actions on right-click · 2026-10-01
+- **Key notes and the small cards on Expense analysis:**
+  - Each card is a full tint of its tone with a matching border.
+  - A solid colour tile holds a white icon that matches what the note says: trend up or down, wallet, share, alert, calendar, shield, people or tag.
+  - Links take the tone's dark shade.
+- **Register editing:**
+  - The fields of the row you edit are a soft shade of the row, not white.
+  - The field you are in turns a deeper shade with the green edge forms use.
+  - The add row behaves the same way.
+- **The bar under an edited row is gone.** Right-click the row for Save, Details and history, Cancel edit and Delete. Enter saves and Esc cancels. Other rows' right-click menu gains Details and history.
+- **App guideline 2.3 · Glade** documents all three. Both halves are updated, and the azure-versus-green focus gap is closed.
+
 ### App guideline 2.2 · Grove: one guideline, with a visual page · 2026-09-30
 - `docs/APPLICATION_BRAND_GUIDE.md` is rewritten as one unified guideline in 16 numbered sections. Its visual half, `docs/APPLICATION_BRAND_GUIDE.html`, uses the same numbering and shows every rule as a live sample. Rebuild the page with `python docs/build_brand_guide.py`.
 - New in the guideline:

@@ -1850,3 +1850,31 @@ a.chart-meter:hover { background:var(--hover); }
 .main .ledger :is(tr.add-row,tr.editing) .btn:not(#_), .main .ledger :is(tr.add-row,tr.editing) button:not(#_) { height:30px!important; min-height:30px!important; font-size:var(--fs-2)!important; }
 .main .ledger :is(tr.add-row,tr.editing) .date-picker-button:not(#_) { width:30px!important; min-width:30px!important; background:#F2F8F6!important; border-color:transparent!important; }
 .main .ledger tr.add-row td > .muted.small { font-size:var(--fs-meta)!important; }
+/* ===================================================================================
+   Guideline 2.3 · key notes that stand out, softer register fields, row actions on right-click
+   =================================================================================== */
+/* Key notes: a full tint of the tone (no fade to white), a solid icon tile, a tone border. */
+.main .key-note { border:1px solid var(--note-line)!important; box-shadow:0 10px 26px -20px var(--note-strong)!important;
+  background:linear-gradient(135deg,var(--note-tint) 0%,var(--note-tint-2) 100%)!important; }
+.main .key-note::before { display:none; }
+.main .key-note.tone-good { --note-tint:#D6F1E1; --note-tint-2:#EDF9F2; --note-line:#BDE5CD; --note-strong:#0B8A5F; --note-ink:#08744A; }
+.main .key-note.tone-info { --note-tint:#D9E8FB; --note-tint-2:#EEF5FE; --note-line:#C2D8F4; --note-strong:#0B6DD6; --note-ink:#0A5AB0; }
+.main .key-note.tone-attention { --note-tint:#F8DAE5; --note-tint-2:#FDEFF4; --note-line:#F0C0D1; --note-strong:#C93D72; --note-ink:#A02E5A; }
+.main .key-note .key-note-icon { width:40px; height:40px; border-radius:12px; background:var(--note-strong)!important; color:#fff!important;
+  box-shadow:0 6px 14px -8px var(--note-strong)!important; }
+.main .key-note .key-note-icon svg { width:22px; height:22px; stroke-width:2; }
+.main .key-note b { color:var(--ink); }
+.main .key-note a { color:var(--note-ink); }
+/* Register fields: a soft shade of their row, never strong white; the field you're in gets a deeper shade and a green edge. */
+.main .ledger tr.add-row:not(.editing) :is(input,select):not(#_):not(.x_):focus { background:#E8F3EE!important; border-color:var(--meadow-dark)!important; box-shadow:0 0 0 3px rgba(11,138,95,.12)!important; }
+.main .ledger tr.editing :is(input,select):not(#_):not(.x_) { background:#F3F8FE!important; border-color:#D9E6F6!important; }
+.main .ledger tr.editing :is(input,select):not(#_):not(.x_):hover { border-color:#BFD3EE!important; }
+.main .ledger tr.editing :is(input,select):not(#_):not(.x_):focus { background:#E3EEFB!important; border-color:var(--meadow-dark)!important; box-shadow:0 0 0 3px rgba(11,138,95,.12)!important; }
+.main .ledger :is(tr.add-row,tr.editing) .date-picker-button:not(#_) { background:transparent!important; }
+/* Row actions live in the right-click menu. */
+.context-menu { min-width:200px; padding:6px; border:0; border-radius:12px; background:var(--surface); box-shadow:var(--shadow-float); }
+.context-menu button { min-height:36px; padding:0 12px; border-radius:8px; font:600 var(--fs-2)/1 var(--body); color:var(--ink); }
+.context-menu button:hover, .context-menu button:focus-visible { background:var(--hover); outline:0; }
+.context-menu button[hidden] { display:none; }
+.context-menu hr { border:0; border-top:1px solid var(--line); margin:4px 6px; }
+.context-menu .danger-text { color:var(--rose); }

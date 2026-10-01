@@ -14,8 +14,8 @@ import math
 from pathlib import Path
 
 OUT = Path(__file__).with_name("APPLICATION_BRAND_GUIDE.html")
-VERSION = "2.2 · Grove"
-UPDATED = "2026-09-30"
+VERSION = "2.3 · Glade"
+UPDATED = "2026-10-01"
 
 # ---- tokens (same values as style.css) ---------------------------------------------------------
 T = dict(
@@ -892,14 +892,19 @@ def chart_card(name, status, draw, use, rules, where):
 
 
 ICON = {
+    "up": '<svg viewBox="0 0 24 24"><path d="M22 7 13.5 15.5l-5-5L2 17"/><path d="M16 7h6v6"/></svg>',
+    "down": '<svg viewBox="0 0 24 24"><path d="m22 17-8.5-8.5-5 5L2 7"/><path d="M16 17h6v-6"/></svg>',
+    "wallet": '<svg viewBox="0 0 24 24"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg>',
+    "pie": '<svg viewBox="0 0 24 24"><path d="M21 12A9 9 0 0 0 12 3v9z"/><path d="M21.2 15.9A10 10 0 1 1 8 2.8"/></svg>',
+    "alert": '<svg viewBox="0 0 24 24"><path d="m21.7 18-8-14a2 2 0 0 0-3.4 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3"/><path d="M12 9v4M12 17h.01"/></svg>',
     "good": '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>',
     "info": '<svg viewBox="0 0 24 24"><path d="M9 18h6M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.3h6c0-1 .4-1.8 1-2.3A7 7 0 0 0 12 2Z"/></svg>',
     "attention": '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>',
 }
 
 
-def note(tone, title, textv, link="See details"):
-    return (f'<article class="keynote tone-{tone}"><span class="kicon">{ICON[tone]}</span><div><b>{esc(title)}</b>'
+def note(tone, title, textv, link="See details", icon=None):
+    return (f'<article class="keynote tone-{tone}"><span class="kicon">{ICON[icon or tone]}</span><div><b>{esc(title)}</b>'
             f'<p>{esc(textv)}</p><a>{esc(link)}</a></div></article>')
 
 
@@ -977,13 +982,13 @@ def build() -> str:
 <h3>Stat cards: one number, three in a row</h3>
 <div class="statrow">
   <a class="stat lead"><span>Money out</span><b>40,300.00 <small>EGP</small></b><em>See transactions</em></a>
-  {note("attention", "Eating out 3,940.00", "31% above your usual month.", "See Eating out")}
-  {note("good", "Transport is down 6%", "1,120.00 against 1,180.00 usually.", "See Transport")}
+  {note("attention", "Eating out 3,940.00", "31% above your usual month.", "See Eating out", "up")}
+  {note("good", "Transport is down 6%", "1,120.00 against 1,180.00 usually.", "See Transport", "down")}
 </div>
 <p class="note">The first stat card carries the page’s number on the lead gradient; the other two are key notes at the same height (118px). On phones they stack.</p>
 <h3>Key notes: one sentence each</h3>
-<div class="notes">{note("good", "Safe to spend 12,400.00", "Until the salary on 2026-10-27.", "See the plan")}{note("info", "Home is 38% of money out", "The largest share this month.", "See Home")}{note("attention", "2 categories over plan", "Personal and Eating out, 1,865.00 together.", "Review the budget")}</div>
-<p class="note">Up to three under the page title. Each has a tone (good green, info azure, needs-you rose), a 32px icon tile, a bold title with its number, one line and at most one link. The card is a tint of its tone fading to white, with a 4px edge in the tone colour on the left.</p>
+<div class="notes">{note("good", "Safe to spend 12,400.00", "Until the salary on 2026-10-27.", "See the plan", "wallet")}{note("info", "Home is 38% of money out", "The largest share this month.", "See Home", "pie")}{note("attention", "2 categories over plan", "Personal and Eating out, 1,865.00 together.", "Review the budget", "alert")}</div>
+<p class="note">Up to three under the page title. Each is a full tint of its tone (good green, info azure, needs-you rose) with a 1px tone border, a solid 40px icon tile in the tone colour with a white icon chosen by what the note says (up, down, wallet, share, alert, calendar, shield), a bold title with its number, one line, and at most one link in the tone’s dark shade.</p>
 <h3>Special buttons</h3>
 <div class="btnrow"><span class="btn planner">↗ Investment planner</span><span class="info-tip" title="XIRR: yearly return that accounts for when you added money.">?</span><span class="page-back">‹ Back</span></div>
 """
@@ -1032,12 +1037,12 @@ def build() -> str:
   <div class="lh"><span></span><span>Date</span><span>Counterparty</span><span>Category</span><span>Notes</span><span class="r">Amount</span><span></span></div>
   <div class="lr add"><span class="m">New</span><span class="sf">2026-09-30</span><span class="sf ph">Counterparty</span><span class="sf ph">Category</span><span class="sf ph">Notes</span><span class="sf r ph">0.00</span><span class="btn tiny primary">Add</span></div>
   <div class="lr"><span></span><span>2026-09-29</span><span>Carrefour</span><span>Groceries</span><span class="m">Weekly shop</span><span class="r">−1,250.00</span><span></span></div>
-  <div class="lr edit"><span class="lk">Details</span><span class="sf w">2026-09-28</span><span class="sf w focus">Uber|</span><span class="sf w">Transport</span><span class="sf w"></span><span class="sf w r">−185.00</span><span class="btn tiny primary">Save</span></div>
-  <div class="lr bar"><span class="btn tiny">Cancel</span><span class="btn tiny danger">Delete</span><span class="btn tiny">Details &amp; history</span><span class="m">T-2026-0412</span></div>
+  <div class="lr edit"><span></span><span class="sf w">2026-09-28</span><span class="sf w focus">Uber|</span><span class="sf w">Transport</span><span class="sf w"></span><span class="sf w r">−185.00</span><span class="btn tiny primary">Save</span>
+    <div class="cmenu"><span>Save</span><span>Details and history</span><span>Cancel edit</span><hr><span class="d">Delete</span></div></div>
   <div class="lr"><span></span><span>2026-09-27</span><span>Salary</span><span>Income</span><span></span><span class="r pos">+42,000.00</span><span></span></div>
 </div>
-<ul class="bul"><li><b>Add row:</b> fields 30px tall (a line entry’s height, so nothing jumps), fill <code>#F2F8F6</code>, no border until hover (line), 8px corners, 13px text. On focus the field turns white with an azure border.</li>
-<li><b>Row being edited:</b> the row takes the held tint <code>#EAF3FD</code>; its fields are white with a <code>#D6E4F5</code> border. Buttons in the row are 30px; the bar under it holds Cancel, Delete and Details.</li>
+<ul class="bul"><li><b>Add row:</b> fields 30px tall (a line entry’s height, so nothing jumps), fill <code>#F2F8F6</code>, no border until hover, 8px corners, 13px text. The field you are in turns a deeper shade (<code>#E8F3EE</code>) with a green edge, never white.</li>
+<li><b>Row being edited:</b> the row takes the held tint <code>#EAF3FD</code>; its fields are a lighter shade of it (<code>#F3F8FE</code>, border <code>#D9E6F6</code>), and the field you are in a deeper one (<code>#E3EEFB</code>) with the green edge. Only Save shows in the row. <b>Right-click</b> opens Save, Details and history, Cancel edit and Delete; Enter saves and Esc cancels.</li>
 <li>Row fields never carry labels; the column header names them once. Inline number fields (Required % on Target allocation) are 34px, right-aligned, and save on Enter or blur without reloading the page.</li>
 <li>Errors say what to type instead. Arabic text gets <code>dir="auto"</code>. Month boxes open the month picker; months are never typed.</li></ul>"""))
     # 8 lists
@@ -1105,6 +1110,7 @@ def build() -> str:
     s.append(sec("classes", "15", "Asset class colours", "One hue family per kind of asset, a lighter shade for the fund version (<code>--class-*</code> in style.css). The order is the donut order and passes the palette validator for neighbouring slices. Some shades are under 3:1 on white, so charts always keep visible labels.", f'<div class="sws">{cls_rows}</div>'))
     # 16 versions
     s.append(sec("versions", "16", "Versions", "", """<table class="plain"><thead><tr><th>Version</th><th>Date</th><th>What changed</th></tr></thead><tbody>
+<tr><td>2.3 · Glade</td><td>2026-10-01</td><td>Key notes stand out: a full tone tint, a tone border and a solid icon tile with an icon chosen by meaning. Register fields are soft shades of their row, never white, with a green edge on the field you are in. Row actions move to the right-click menu</td></tr>
 <tr><td>2.2 · Grove</td><td>2026-09-30</td><td>One unified guideline with a visual page. Soft register fields and the 30px row height; stat cards; key notes with tone tints and an edge; the wide gradient card; the 20px card radius; the waterfall in azure, soft rose and green; a full chart catalogue (In the app, Ready to use, Avoid)</td></tr>
 <tr><td>2.1 · Bloom</td><td>2026-09-29</td><td>Soft rose for money out; the lead number always ink; strong rose only for over plan and errors</td></tr>
 <tr><td>2.0 · Clearing</td><td>2026-09-29</td><td>Lead left, white support right; the vivid gradient leaves cards; toggle lists; Sections</td></tr>
@@ -1191,8 +1197,8 @@ table.plain tr:last-child td{border-bottom:0}
 .lh{font:700 12px var(--body);color:var(--muted);padding:6px 4px;border-bottom:1px solid var(--line)}.lr{padding:3px 4px;border-bottom:1px solid var(--line);font-size:13px;min-height:37px}
 .lr .r,.lh .r{text-align:right;font-variant-numeric:tabular-nums}.lr .m{color:var(--muted);font-size:12px}.lr .pos{color:var(--pos);font-weight:700}.lr .lk{color:var(--azure);font-size:12px;font-weight:600}
 .sf{height:30px;display:flex;align-items:center;padding:0 10px;border-radius:8px;background:#F2F8F6;border:1px solid transparent;font-size:13px}.sf.r{justify-content:flex-end}.sf.ph{color:#8AA0AA}
-.lr.edit{background:var(--th);border-radius:10px 10px 0 0}.lr.edit .sf.w{background:#fff;border-color:#D6E4F5}.sf.focus{border-color:var(--azure)!important;background:#fff}
-.lr.bar{display:flex!important;gap:8px;background:var(--th);border-radius:0 0 10px 10px;padding:2px 8px 8px}
+.lr.edit{position:relative;background:var(--th);border-radius:10px}.lr.edit .sf.w{background:#F3F8FE;border-color:#D9E6F6}.lr.add .sf.focus{background:#E8F3EE}.sf.focus{border-color:var(--md)!important;background:#E3EEFB;box-shadow:0 0 0 3px rgba(11,138,95,.12)}
+.cmenu{position:absolute;z-index:2;left:150px;top:32px;width:200px;display:grid;padding:6px;background:#fff;border-radius:12px;box-shadow:0 24px 48px -16px rgba(10,36,66,.35)}.cmenu span{padding:9px 12px;border-radius:8px;font-weight:600;font-size:13px}.cmenu span:first-child{background:var(--hover)}.cmenu hr{border:0;border-top:1px solid var(--line);margin:4px 6px}.cmenu .d{color:var(--rose)}.ledger{padding-bottom:150px!important}
 .row2{display:grid;grid-template-columns:36px 1fr auto;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}.row2 small{display:block;color:var(--muted);font-size:12px}
 .row2 .r{text-align:right;font-variant-numeric:tabular-nums}.row2 .pos{color:var(--pos)}.av{width:36px;height:36px;border-radius:12px;display:grid;place-items:center;font-weight:800}.av.out{background:var(--rs);color:var(--rose)}.av.in{background:var(--tg);color:var(--md)}.av.trf{background:var(--th);color:var(--azure)}
 .dayhead{font:700 12px var(--body);color:var(--muted);padding-bottom:4px;border-bottom:1px solid var(--line)}
@@ -1204,11 +1210,11 @@ table.plain tr:last-child td{border-bottom:0}
 .stat{display:flex;flex-direction:column;justify-content:space-between;gap:4px;min-height:118px;padding:16px 18px;border-radius:20px;box-shadow:var(--shadow);text-decoration:none;color:var(--ink)}
 .stat.lead{background:var(--lead)}.stat span{font:700 13px/1.35 var(--body);color:var(--ink2)}.stat b{font:800 24px/1.15 var(--display);font-variant-numeric:tabular-nums}.stat em{font:650 13px var(--body);color:var(--azure);font-style:normal}
 .notes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
-.keynote{position:relative;overflow:hidden;display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border-radius:20px;min-height:118px;box-shadow:var(--shadow);background:linear-gradient(135deg,var(--tint) 0%,rgba(255,255,255,.96) 70%)}
-.keynote::before{content:"";position:absolute;left:0;top:14px;bottom:14px;width:4px;border-radius:0 4px 4px 0;background:var(--edge)}
-.keynote.tone-good{--tint:#DDF3E6;--edge:var(--meadow);--ic:var(--md)}.keynote.tone-info{--tint:#E1EEFC;--edge:var(--azure);--ic:var(--azure)}.keynote.tone-attention{--tint:#FBE3EC;--edge:var(--rose);--ic:var(--rose)}
-.kicon{flex:none;display:grid;place-items:center;width:32px;height:32px;border-radius:10px;background:rgba(255,255,255,.85);color:var(--ic)}.kicon svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
-.keynote b{display:block;font-size:15px;line-height:1.35}.keynote p{margin:2px 0 0;font-size:13px;color:var(--ink2)}.keynote a{display:inline-block;margin-top:4px;font-size:13px;font-weight:650;color:var(--azure)}
+.keynote{display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border-radius:20px;min-height:118px;border:1px solid var(--edge);box-shadow:0 10px 26px -20px var(--ic);background:linear-gradient(135deg,var(--tint) 0%,var(--tint2) 100%)}
+
+.keynote.tone-good{--tint:#D6F1E1;--tint2:#EDF9F2;--edge:#BDE5CD;--ic:#0B8A5F;--lk:#08744A}.keynote.tone-info{--tint:#D9E8FB;--tint2:#EEF5FE;--edge:#C2D8F4;--ic:#0B6DD6;--lk:#0A5AB0}.keynote.tone-attention{--tint:#F8DAE5;--tint2:#FDEFF4;--edge:#F0C0D1;--ic:#C93D72;--lk:#A02E5A}
+.kicon{flex:none;display:grid;place-items:center;width:40px;height:40px;border-radius:12px;background:var(--ic);color:#fff;box-shadow:0 6px 14px -8px var(--ic)}.kicon svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.keynote b{display:block;font-size:15px;line-height:1.35}.keynote p{margin:2px 0 0;font-size:13px;color:var(--ink2)}.keynote a{display:inline-block;margin-top:4px;font-size:13px;font-weight:650;color:var(--lk)}
 .pagemock{max-width:620px;background:rgba(255,255,255,.35);border-radius:20px;padding:18px;border:1px dashed rgba(13,34,51,.2)}
 .pm-top{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding-bottom:10px}.pm-top b{font:700 20px var(--display)}.pm-top small{display:block;color:var(--muted)}.pm-top .btn{height:36px;font-size:13px}
 .pm-notes{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}.pm-notes i{height:34px;border-radius:12px;background:linear-gradient(135deg,#E1EEFC,#fff 70%);box-shadow:var(--shadow)}

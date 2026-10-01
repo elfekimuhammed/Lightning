@@ -156,14 +156,14 @@ if (ledger) {
       selectAll.checked = visibleChecks().length > 0 && visibleChecks().every((box) => box.checked);
       selectAll.indeterminate = selected.length > 0 && !selectAll.checked;
     }
-    if (menu && !menu.hidden) menu.querySelector("[data-context-delete]").textContent =
-      selected.length > 1 ? `Delete ${selected.length} selected` : "Delete transaction";
+    if (menu && !menu.hidden && !menu.dataset.editing) menu.querySelector("[data-context-delete]").textContent =
+      selected.length > 1 ? `Delete ${selected.length} selected` : "Delete";
   };
-  const deleteTransactions = (ids) => {
+  const deleteTransactions = (ids, backTo) => {
     if (!ids.length || !window.confirm(`Delete ${ids.length === 1 ? "this transaction" : `${ids.length} transactions`}? They will be removed from the register and can be restored from transaction history.`)) return;
     const form = document.createElement("form");
     form.method = "post"; form.action = "/transactions/bulk-delete";
-    const back = document.createElement("input"); back.type = "hidden"; back.name = "back"; back.value = location.pathname + location.search; form.append(back);
+    const back = document.createElement("input"); back.type = "hidden"; back.name = "back"; back.value = backTo || location.pathname + location.search; form.append(back);
     ids.forEach((id) => { const input = document.createElement("input"); input.type = "hidden"; input.name = "txn_ids"; input.value = id; form.append(input); });
     document.body.append(form); form.submit();
   };
@@ -177,14 +177,33 @@ if (ledger) {
     syncSelection();
   });
   document.getElementById("delete-selected")?.addEventListener("click", () => deleteTransactions(selectedIds()));
+  // One menu for every row action: the row being edited shows Save, Details, Cancel and Delete.
+  const showItems = (editing) => {
+    menu.querySelector("[data-context-save]").hidden = !editing;
+    menu.querySelector("[data-context-cancel]").hidden = !editing;
+    menu.querySelector("[data-context-edit]").hidden = editing;
+  };
   ledger.addEventListener("contextmenu", (event) => {
-    const row = event.target.closest("tr[data-href]");
-    if (!row || !menu) return;
-    const checkbox = row.querySelector(".transaction-select");
-    if (!checkbox || checkbox.disabled) return;
-    event.preventDefault();
-    if (!checkbox.checked) { visibleChecks().forEach((box) => { box.checked = false; }); checkbox.checked = true; }
-    menu.dataset.href = row.dataset.href;
+    if (!menu) return;
+    const editing = event.target.closest("tr.editing[data-txn]");
+    const row = editing || event.target.closest("tr[data-href]");
+    if (!row) return;
+    if (editing) {
+      event.preventDefault();
+      menu.dataset.editing = "1";
+      menu.dataset.txn = editing.dataset.txn;
+      menu.dataset.cancel = editing.dataset.cancelHref;
+      menu.querySelector("[data-context-delete]").textContent = "Delete";
+    } else {
+      const checkbox = row.querySelector(".transaction-select");
+      if (!checkbox || checkbox.disabled) return;
+      event.preventDefault();
+      if (!checkbox.checked) { visibleChecks().forEach((box) => { box.checked = false; }); checkbox.checked = true; }
+      delete menu.dataset.editing;
+      menu.dataset.href = row.dataset.href;
+      menu.dataset.txn = checkbox.value;
+    }
+    showItems(Boolean(editing));
     menu.hidden = false;
     const x = Math.min(event.clientX, window.innerWidth - menu.offsetWidth - 8);
     const y = Math.min(event.clientY, window.innerHeight - menu.offsetHeight - 8);
@@ -192,7 +211,14 @@ if (ledger) {
     syncSelection();
   });
   menu?.querySelector("[data-context-edit]").addEventListener("click", () => { if (menu.dataset.href) location.href = menu.dataset.href; });
-  menu?.querySelector("[data-context-delete]").addEventListener("click", () => { menu.hidden = true; deleteTransactions(selectedIds()); });
+  menu?.querySelector("[data-context-details]").addEventListener("click", () => { if (menu.dataset.txn) location.href = `/transactions/${menu.dataset.txn}`; });
+  menu?.querySelector("[data-context-save]").addEventListener("click", () => { menu.hidden = true; document.getElementById("f-edit")?.requestSubmit(); });
+  menu?.querySelector("[data-context-cancel]").addEventListener("click", () => { if (menu.dataset.cancel) location.href = menu.dataset.cancel; });
+  menu?.querySelector("[data-context-delete]").addEventListener("click", () => {
+    menu.hidden = true;
+    if (menu.dataset.editing) deleteTransactions([menu.dataset.txn], menu.dataset.cancel);
+    else deleteTransactions(selectedIds());
+  });
   document.addEventListener("click", (event) => { if (menu && !event.target.closest("#transaction-context-menu")) menu.hidden = true; });
   document.addEventListener("keydown", (event) => { if (event.key === "Escape" && menu) menu.hidden = true; });
   syncSelection();
