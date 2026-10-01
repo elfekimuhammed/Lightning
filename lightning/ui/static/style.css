@@ -2341,3 +2341,54 @@ a.chart-sankey-label:hover b { color:var(--azure); }
 /* The "?" tip inside tables: anchored to the left of the "?" so it never runs off the card. */
 .main .targets .table-wrap { overflow:visible; }
 .main .targets-table .info-tip:hover::after, .main .targets-table .info-tip:focus::after { left:-8px; transform:none; z-index:40; }
+/* Percent stepper: two small chevrons inside the field, left of the unit; one percent a step. */
+.main .has-stepper { position:relative; }
+.main .row-field-unit.has-stepper .row-field:not(#_) { padding-right:40px!important; }
+.main .sc-unit.has-stepper input:not(#_) { padding-right:56px!important; }
+.main .has-stepper > i { right:26px!important; }
+.main .pct-stepper { position:absolute; right:4px; top:50%; transform:translateY(-50%); display:grid; gap:1px; }
+.main .pct-stepper button { display:grid; place-items:center; width:18px; height:12px; padding:0; border:0; border-radius:4px; background:transparent; color:var(--ink-2); cursor:pointer; }
+.main .pct-stepper button:hover { background:rgba(11,138,95,.14); color:var(--meadow-dark); }
+.main .pct-stepper svg { width:11px; height:11px; fill:none; stroke:currentColor; stroke-width:2.6; stroke-linecap:round; stroke-linejoin:round; }
+.main .sc-unit .pct-stepper button { height:15px; }
+/* Our dropdown list (opened from any select box). Group headers in the display face, choices on a soft
+   hover, the current one with a green check, details indented, a search on long lists. */
+.pick-panel { position:fixed; z-index:200; display:flex; flex-direction:column; max-width:min(420px, calc(100vw - 16px)); padding:6px;
+  border:1px solid var(--line); border-radius:14px; background:var(--surface); box-shadow:0 18px 40px -18px rgba(10,36,66,.45); outline:0; overflow:hidden; }
+.pick-search { flex:none; height:34px; margin:2px 2px 6px; padding:0 12px; border:1px solid transparent; border-radius:10px; background:#EAF6EF; font:500 13px/1 var(--body); color:var(--ink); }
+.pick-search:focus { outline:0; background:#fff; border-color:var(--meadow-dark); box-shadow:0 0 0 3px rgba(11,138,95,.12); }
+.pick-list { overflow:auto; overscroll-behavior:contain; }
+.pick-group { padding:10px 10px 4px; font:800 12px/1.2 var(--display); color:var(--ink); letter-spacing:.01em; }
+.pick-group:first-child { padding-top:4px; }
+.pick-head { padding:6px 10px 2px 22px; font:700 12px/1.2 var(--body); color:var(--ink-2); }
+.pick-option { position:relative; padding:8px 30px 8px 22px; border-radius:9px; font:500 13px/1.3 var(--body); color:var(--ink); cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.pick-option:not(.is-detail) { padding-left:12px; }
+.pick-group ~ .pick-option:not(.is-detail) { padding-left:22px; }
+.pick-option.is-detail { padding-left:38px; color:var(--ink-2); }
+.pick-option.is-detail::before { content:"↳"; position:absolute; left:22px; color:var(--muted); }
+.pick-option.is-head { font-weight:700; }
+.pick-option:hover, .pick-option.is-active { background:var(--hover); }
+.pick-option.is-active { box-shadow:inset 2px 0 0 var(--meadow-dark); }
+.pick-option[aria-selected="true"] { background:var(--tint-growth); color:var(--positive); font-weight:700; }
+.pick-option[aria-selected="true"]::after { content:""; position:absolute; right:12px; top:50%; width:5px; height:9px; margin-top:-6px; border:solid var(--meadow-dark); border-width:0 2px 2px 0; transform:rotate(45deg); }
+.pick-option[hidden], .pick-group[hidden] { display:none; }
+/* Counterparties as a table of rows: the name takes the room, fields are row fields, Delete an icon. */
+.main .cp-table { width:100%; border-collapse:collapse; table-layout:fixed; }
+.main .cp-table col.c-cat { width:300px; } .main .cp-table col.c-act { width:96px; }
+.main .cp-table :is(th,td) { height:40px; padding:4px 8px; border-bottom:1px solid var(--line); vertical-align:middle; background:transparent; }
+.main .cp-table thead th { height:34px; font:700 var(--fs-meta)/1.2 var(--body); color:var(--muted); }
+.main .cp-table tbody tr:hover td { background:var(--hover); }
+.main .cp-table .counterparty-one-line { display:flex; align-items:center; gap:10px; min-width:0; }
+.main .cp-table .counterparty-name-edit { flex:1 1 auto; min-width:0; display:flex; }
+.main .cp-table :is(.counterparty-name-edit input[name=name], select):not(#_) { width:100%; height:30px!important; min-height:30px!important; padding:0 10px!important;
+  border:1px solid transparent!important; border-radius:8px!important; background-color:#EAF6EF!important; box-shadow:none!important; font:500 var(--fs-2)/1 var(--body)!important; color:var(--ink); }
+.main .cp-table select:not(#_) { padding-right:30px!important; background-position:right 10px center!important; font-weight:600!important; }
+.main .cp-table tr:hover :is(input[name=name], select):not(#_) { background-color:#E0F1E7!important; }
+.main .cp-table :is(.counterparty-name-edit input[name=name], select):not(#_):focus { background-color:#fff!important; border-color:var(--meadow-dark)!important; box-shadow:0 0 0 3px rgba(11,138,95,.12)!important; outline:0; }
+.main .cp-table .alias-details { flex:none; }
+.main .cp-table .alias-details > summary { font:600 var(--fs-meta)/1 var(--body); color:var(--muted); cursor:pointer; white-space:nowrap; }
+.main .cp-table .counterparty-actions { justify-content:flex-end; width:100%; }
+.main .cp-table td:last-child { text-align:right; }
+.main .cp-table .inline-save-status { font-size:var(--fs-meta); color:var(--muted); }
+/* Cards stacked on a page never touch: one block gap between them. */
+.main > :is(.card, section.card, details.card) + :is(.card, section.card, details.card) { margin-top:var(--gap-block)!important; }

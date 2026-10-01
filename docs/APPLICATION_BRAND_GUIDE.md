@@ -215,6 +215,12 @@ There are three kinds. Choosing from your own data is always type-and-pick, neve
 
 **Select boxes** use the app's own style everywhere: 12px corners, the line-control border, the app's chevron, ink 600 text, the green focus ring. No browser chrome.
 
+**Dropdown lists** are ours, not the browser's. Clicking a select box (or Space, Enter or Down on it) opens our panel: 14px corners, the float shadow, group headers in the display face, choices on a soft hover, the current one tinted green with a check, details indented with ↳, and a search field on lists longer than ten. Phones keep their own picker.
+
+**Percent fields** have our own up and down chevrons inside the field, left of the "%". Each click moves one whole percent, and a short pause saves like Enter.
+
+**Settings tables** are tables of rows: 40px rows on hairlines with a soft hover, no white boxes, and the name taking the room. Actions are small icon buttons. Cards stacked on a page always keep one block gap (20px) between them.
+
 **Category lists** never read as breadcrumbs ("Personal › Food"). The L1 is a header; an L2 with L3 detail is a sub-header; each row shows its own name. The Categories page lists two categories side by side, each always in its edit look: name and + / − / ± as inline row fields, Recurring (income) and One-off (expense) as on/off pills (pressed: a tint of their meaning), and its actions always visible as small icon buttons (add detail, archive, delete). Every change saves as you make it; an L2 with L3 detail keeps its details indented under it.
 
 **On/off choices** that belong to a row are pills, not checkboxes: outlined grey when off, the meaning tint when on (green for Recurring, amber for One-off). Checkboxes stay only for selecting rows.
