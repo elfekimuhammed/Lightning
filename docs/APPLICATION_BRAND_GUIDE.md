@@ -129,6 +129,8 @@ There are no white or tinted panels inside a lead card.
 
 **Wide split cards (Overview, 2.5).** A wide card may hold one answer as two halves: the number and its toggle list on the left, the visual that explains it on the right, under a hairline divider. Net worth (list · trend over time), Free cash (list · waterfall), Net flow (list · column waterfall). No chart sits behind a toggle: if a chart is on the page, it is open.
 
+**A comparison card** is a stat card one and a half times as wide: the number with its sparkline beside it, and a small block underneath with "Against the period before" and "Against your usual month", each with an arrow and the signed difference and %. Spending that rose reads rose; spending that fell reads green. Stat cards have depth: a soft top light, a tinted top edge on lead and mint cards, and a small lift on hover.
+
 **Overview stat cards** are exactly four: Change in net worth (Change in what you own when nothing is owed), Savings rate, Investing rate and Left in plan for the period's month. Safe to spend stays the lead of Cash planning.
 
 **Inside a white card:** a list, bars, toggle groups, a breakdown with its result band, a chart, or "Needs you". A section with no single answer, such as every holding, is one wide card.
