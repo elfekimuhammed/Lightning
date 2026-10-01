@@ -313,3 +313,29 @@ def test_register_near_match_requires_explicit_reuse_or_create(client, c, setup)
     assert response.status_code == 200
     row = c.db.one("SELECT counterparty,counterparty_id FROM transactions WHERE counterparty_id=?", (counterparty_id,))
     assert row["counterparty"] == "Talabat" and row["counterparty_id"] == counterparty_id
+
+
+def test_register_learns_alias_and_fills_the_usual_category(client, c, setup):
+    accounts, cats = setup
+    account = accounts["cib"]
+    food = cats["EXP.PERSONAL.FOOD"].id
+    talabat = c.counterparties.create("Talabat")
+    c.counterparties.create("Careem")
+    for day in ("2026-09-01", "2026-09-02"):
+        c.transactions.record_outflow(day, account.id, "10", food, counterparty="Talabat")
+    # Typed "Talabaat", then picked Talabat from the list: the spelling becomes an alias, and with no
+    # category typed the transaction is filed under Talabat's usual category.
+    response = client.post(f"/accounts/{account.id}/register", data={
+        "date": "2026-09-20", "counterparty": "Talabat", "counterparty_typed": "Talabaat", "amount": "-25"})
+    assert response.status_code == 200
+    assert c.counterparties.resolve("Talabaat")["id"] == talabat
+    row = c.db.one("SELECT le.category_id FROM transactions t JOIN ledger_entries le ON le.transaction_id=t.id "
+                   "WHERE t.date='2026-09-20' AND le.category_id IS NOT NULL")
+    assert row["category_id"] == food
+    # A different name picked instead of what was typed is not a spelling: no alias.
+    client.post(f"/accounts/{account.id}/register", data={
+        "date": "2026-09-21", "counterparty": "Careem", "counterparty_typed": "Uber", "category": "Food & Groceries", "amount": "-25"})
+    assert c.counterparties.resolve("Uber") is None
+    # The register picker offers the usual category for autofill.
+    page = client.get(f"/accounts/{account.id}")
+    assert '"Talabat": {"id": %d' % food in page.text.replace("&#34;", '"')

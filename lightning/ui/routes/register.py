@@ -17,13 +17,13 @@ from lightning.categories.domain import Movement
 from lightning.assets.catalog import instruments as catalog_instruments
 from lightning.core.codes import slug
 from lightning.core.dates import fmt_date, parse_date, parse_month, today
-from lightning.core.errors import LightningError, ValidationError
+from lightning.core.errors import ConflictError, LightningError, ValidationError
 from lightning.core.money import ZERO, fmt, to_decimal
 from lightning.core.refs import DocType
 
 from ..web import container, render
 
-ENTRY_FIELDS = ("date", "account_id", "counterparty", "counterparty_choice", "category", "category_choice", "whom", "notes", "amount")
+ENTRY_FIELDS = ("date", "account_id", "counterparty", "counterparty_choice", "counterparty_typed", "category", "category_choice", "whom", "notes", "amount")
 FAR_PAST, FAR_FUTURE = "1900-01-01", "9999-12-31"
 
 
@@ -57,13 +57,16 @@ def _lists(request: Request) -> dict:
     accounts = c.accounts.list(active_only=True)
     counterparty_options = c.counterparties.search_names()
     counterparty_categories = {}
+    usual = c.transactions.usual_categories()
+    pickable = {item.id for item in c.categories.pickable()}
     for name in counterparty_options:
         party = c.counterparties.resolve(name)
-        # Keep every saved Counterparty available to the register picker;
-        # the default category is optional and only affects autofill.
+        # Keep every saved Counterparty available to the register picker. Autofill uses the
+        # category set on the counterparty, else the one it is usually filed under.
         counterparty_categories[name] = None
-        if party and party["default_category_id"]:
-            category = c.categories.get(party["default_category_id"])
+        category_id = _category_for_party(party, usual, pickable)
+        if category_id:
+            category = c.categories.get(category_id)
             counterparty_categories[name] = {"id": category.id, "name": category.name}
     return {
         "category_choices": categories,
@@ -268,6 +271,29 @@ def page(request: Request, account_id: int | None, entry: dict | None = None, ed
     )
 
 
+def _learn_alias(c, party, typed: str) -> None:
+    """You typed a spelling, then picked this counterparty from the list instead: remember the
+    spelling as its alias, so it matches straight away next time. Only for a close spelling that
+    matches nothing yet; a full alias list never blocks the save."""
+    typed = " ".join((typed or "").split())
+    if not typed or c.counterparties.resolve(typed):
+        return
+    if party["name"] not in {name for name, _ in c.counterparties.suggestions(typed, limit=10)}:
+        return
+    try:
+        c.counterparties.add_alias(int(party["id"]), typed)
+    except (ValidationError, ConflictError):
+        pass
+
+
+def _category_for_party(party, usual: dict, pickable: set) -> int | None:
+    """The category set on the counterparty, else the one it is usually filed under (last 20)."""
+    if not party:
+        return None
+    chosen = party["default_category_id"] or (usual.get(party["name"]) or {}).get("category_id")
+    return int(chosen) if chosen and int(chosen) in pickable else None
+
+
 def _resolve(request: Request, row_account: int | None, values: dict, allow_missing_category: bool = False):
     """Typed counterparty text -> internal account transfer or external transaction party."""
     c = container(request)
@@ -285,6 +311,7 @@ def _resolve(request: Request, row_account: int | None, values: dict, allow_miss
         canonical = ""
     elif party:
         canonical = party["name"]
+        _learn_alias(c, party, values.get("counterparty_typed", ""))
     else:
         guesses = c.counterparties.suggestions(raw)
         if guesses:
@@ -311,10 +338,9 @@ def _resolve(request: Request, row_account: int | None, values: dict, allow_miss
     category_choice = _int(values.get("category_choice"))
     if allow_missing_category and not category_text and category_choice is None:
         return None, None, canonical
-    if not category_text and category_choice is None and party and party.get("default_category_id"):
-        default_category_id = int(party["default_category_id"])
-        if default_category_id in {item.id for item in c.categories.pickable()}:
-            category_choice = default_category_id
+    if not category_text and category_choice is None and party:
+        category_choice = _category_for_party(party, c.transactions.usual_categories(),
+                                              {item.id for item in c.categories.pickable()})
     if category_choice is not None:
         category = c.categories.get(category_choice)
         if category.id not in {item.id for item in c.categories.pickable()}:

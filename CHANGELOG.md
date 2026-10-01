@@ -8,6 +8,18 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### Counterparties learn their category and their spellings · 2026-10-01
+- **Usual category:** each counterparty is filed under the category picked most often in its last 20 transactions, or the most recent one on a tie. Aliases count with their counterparty.
+  - It fills in as soon as you pick the counterparty in the register, and when you save with no category.
+  - It also applies in bank imports.
+  - A default set on the Counterparties page still wins. That page shows the learned one as "Learned: Groceries", with "7 of the last 9" under it.
+- **Learned aliases:**
+  - The register's counterparty list now also offers close spellings under "Did you mean".
+  - If you type "Talabaat", then press Enter or pick "Talabat", the typed spelling is saved as Talabat's alias, so it matches straight away next time.
+  - Only close spellings that match nothing yet are learned. Picking a different name ("Uber" → Careem) is not.
+  - A full alias list never stops the save.
+- A counterparty can now hold **20 aliases** (was 10).
+
 ### Target allocation adds up to 100% · 2026-10-01
 - A target that would take the total past 100% is refused, and the message says how much is left.
 - Value to adjust is how much to buy (or sell) of that one class to reach its share with every other class
