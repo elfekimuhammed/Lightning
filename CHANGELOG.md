@@ -8,6 +8,14 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### CD terms, interest projections and Omar workflow fixes · 2026-10-02
+- `0038_cd_terms.sql` — store certificate terms separately from ledger balances and preserve the estimated schedule across restarts.
+- Add terms for each funded certificate account: principal, start, separate earliest-withdrawal and maturity dates, annual percentage rate, simple or compound interest, simple payout and compound capitalization frequency, and a bank/cash destination. Terms never create ledger entries; actual interest and principal transfers are recorded separately.
+- Project simple-interest payouts and compounded maturity proceeds into Cash planning using actual days/365. Show CD proceeds separately from income, and do not add future proceeds to today's Free cash or Safe to spend. Suppress projections for unfunded CDs and replace a maturity projection when a future transfer is already recorded.
+- Treat a CD as unavailable in *If you sold today* before its earliest withdrawal date. Use the CD class sale factor as an early-redemption estimate until maturity, then full remaining principal; Net worth and Free cash do not change. Bank fees and payout figures remain estimates, not bank quotes.
+- Suggest early or changed recurring payments for explicit confirmation, store the transaction's actual paid amount, attribute linked recurring salary to its scheduled month in the income average, and prompt a later-plan and reserve review after a changed amount. No plan or reserve amount changes automatically.
+- Bring Investments holdings down to five table columns with secondary details in an expandable row, and add progressively enhanced type-and-pick controls for reviewed own-data fields, retaining native form fallback.
+
 ### Release-readiness and finance audit · 2026-10-01
 - Verified UI fixes: Budget overlap near 941px; Cash planning's tab strip and the shared period pill at 390px; Settings data-card overflow; account and all-transactions registers scrolling inside their cards.
 - Updated Project Overview for the live net-worth history and income audit: Bonus is excluded from the average by default; early January salary booked in December drives the step 17 inflation. Four finance xfails remain open, and no-pay-month averaging has no dedicated assertion. Investments' nine holdings columns versus the guide's five and the own-data dropdown mismatch await owner choices.

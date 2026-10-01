@@ -45,18 +45,21 @@ def _labels(c) -> dict:
     return {"accounts": accounts, "categories": categories}
 
 
-def _row(c, item, labels, as_of):
+def _row(c, item, labels, as_of, linked):
     horizon = as_of + timedelta(days=400)
     payments = c.planning.payments(item, item.end_date or fmt_date(horizon), as_of)
     upcoming = next((p for p in payments if p.outstanding), None)
     due = [p for p in payments if p.status == PaymentStatus.DUE]
     last = next((p for p in reversed(payments) if p.status == PaymentStatus.PAID), None)
+    review_next = bool(upcoming and upcoming.status == PaymentStatus.UPCOMING and any(
+        candidate["id"] not in linked for candidate in c.planning.plausible_candidates(upcoming, as_of)))
     per_year = _per_year(item)
     recent = fmt_date(as_of - timedelta(days=62))
     skipped = [p for p in payments if p.status == PaymentStatus.SKIPPED and p.due_date >= recent]
+    reserve_links = c.reserves.links_for_transaction(last.transaction_id) if last and last.transaction_id else []
     return {"item": item, "schedule": describe(item), "next": upcoming, "due": due, "last_paid": last, "skipped": skipped,
             "account": labels["accounts"].get(item.account_id), "category": labels["categories"].get(item.category_id),
-            "per_year": per_year}
+            "per_year": per_year, "reserve_links": reserve_links, "review_next": review_next}
 
 
 def _per_year(item) -> Decimal:
@@ -141,7 +144,8 @@ async def recurring_page(request: Request):
     day = today()
     c.planning.match_payments(day)
     labels = _labels(c)
-    rows = [_row(c, item, labels, day) for item in c.planning.items(RECURRING_KINDS)]
+    linked = c.planning.linked_transaction_ids()
+    rows = [_row(c, item, labels, day, linked) for item in c.planning.items(RECURRING_KINDS)]
     stopped = c.planning.items(RECURRING_KINDS, active_only=False)
     stopped = [i for i in stopped if not i.active]
     subscriptions = sum((r["per_year"] for r in rows if r["item"].kind == PlanKind.SUBSCRIPTION), ZERO)
@@ -290,8 +294,7 @@ async def pay_form(request: Request, item_id: int, error: str = ""):
     if not payment:
         return redirect("/plan", "That payment is not on the schedule.")
     exact = c.planning.candidates(payment)
-    exact_ids = {r["id"] for r in exact}
-    others = [r for r in c.planning.candidates(payment, loose=True) if r["id"] not in exact_ids]
+    others = c.planning.plausible_candidates(payment)
     linked = c.planning.linked_transaction_ids()
     return render(request, "planning/pay.html", item=item, payment=payment,
                   exact=[r for r in exact if r["id"] not in linked], others=[r for r in others if r["id"] not in linked][:8],

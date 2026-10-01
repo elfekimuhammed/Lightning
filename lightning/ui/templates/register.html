@@ -5,7 +5,7 @@
   <td><input id="{{ form_id }}-date" form="{{ form_id }}" type="text" name="date" value="{{ v.get('date', '') }}" placeholder="yyyy-mm-dd"
              inputmode="numeric" autocomplete="off" data-smart-date title="yyyy-mm-dd, like 2026-01-31" required class="{{ 'bad' if error_field == 'date' }}"></td>
   {% if show_account %}
-  <td><select form="{{ form_id }}" name="account_id" required class="{{ 'bad' if error_field == 'account' }}">
+  <td><select form="{{ form_id }}" name="account_id" required class="{{ 'bad' if error_field == 'account' }}" data-own-picker>
         <option value="">Account…</option>
         {% for a in accounts %}<option value="{{ a.id }}" {{ 'selected' if v.get('account_id') == a.id|string }}>{{ a.label }}</option>{% endfor %}
       </select></td>
@@ -26,7 +26,7 @@
     <div id="{{ form_id }}-category-results" class="category-results" role="listbox" hidden></div>
   </div></td>
   <td class="whom-cell is-hidden"><input form="{{ form_id }}" type="text" name="whom" value="{{ v.get('whom', '') }}"
-             placeholder="Held for (if not you)" list="counterparty-options" class="{{ 'bad' if error_field == 'whom' }}"></td>
+             placeholder="Held for (if not you)" list="counterparty-options" data-own-suggestions class="{{ 'bad' if error_field == 'whom' }}"></td>
   <td><input form="{{ form_id }}" type="text" name="notes" value="{{ v.get('notes', '') }}" placeholder="Notes"></td>
   <td><input form="{{ form_id }}" type="text" name="amount" value="{{ v.get('amount', '') }}" placeholder="-450 or 1,200"
              inputmode="decimal" required class="num money-input {{ 'bad' if error_field == 'amount' }}"></td>

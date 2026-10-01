@@ -10,7 +10,7 @@
   <form method="post" action="/counterparties" class="stack">
     <label>Name<input type="text" name="name" value="{{ entered_name or '' }}" placeholder="e.g. Talabat" required></label>
     <label>Suggested category <span class="muted small">(optional)</span>
-      <select name="default_category_id"><option value="">No default</option>
+      <select name="default_category_id" data-own-picker><option value="">No default</option>
         {% from "partials/macros.html" import category_options %}{{ category_options(category_groups(categories), entered_category_id) }}
       </select>
     </label>
@@ -59,7 +59,7 @@
       </div>{% else %}<span class="muted small">Alias limit reached</span>{% endif %}</details>{% endif %}
       {% if not party.active %}<span class="small muted">Archived</span>{% endif %}
       </div>
-    </td><td><select form="{{ edit_form }}" name="default_category_id" aria-label="Suggested category" data-submit-on-change>
+    </td><td><select form="{{ edit_form }}" name="default_category_id" aria-label="Suggested category" data-submit-on-change data-own-picker>
       {% set learned = (usual or {}).get(party.name) %}{% set learned_label = category_labels.get(learned.category_id) if learned else none %}
       <option value="">{{ ('Learned: ' ~ learned_label) if learned_label else 'No default' }}</option>{% from "partials/macros.html" import category_options %}{{ category_options(category_groups(categories), party.default_category_id or '') }}
     </select>{% if learned_label and not party.default_category_id %}<small class="muted learned-note">{{ learned.count }} of the last {{ learned.total }}</small>{% endif %}</td>

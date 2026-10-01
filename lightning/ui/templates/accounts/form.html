@@ -41,7 +41,7 @@
     </div>
     <div class="field {{ 'has-error' if error_field == 'owner_id' }}">
       <label for="owner_id">Held for</label>
-      <select id="owner_id" name="owner_id"><option value="">You</option>
+      <select id="owner_id" name="owner_id" data-own-picker><option value="">You</option>
         {% for person in counterparties %}<option value="{{ person.id }}" {{ 'selected' if values.owner_id == person.id|string }}>{{ person.name }}</option>{% endfor %}
       </select>
       <small class="muted">Leave blank if you own this starting balance.</small>

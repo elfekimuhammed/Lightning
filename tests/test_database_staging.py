@@ -6,6 +6,7 @@ import pytest
 
 from lightning.bootstrap import build
 from lightning.database.connection import Database
+from lightning.database.migrator import BUNDLED_LATEST_VERSION
 from lightning.database.staging import stage_database
 
 KEY = bytes(range(32))
@@ -21,7 +22,7 @@ def test_staged_import_or_recovery_preserves_source(tmp_path, source_key):
     c.db.close()
     original = source.read_bytes()
     staged = stage_database(source, tmp_path / "stage", destination_key=OTHER_KEY, source_key=source_key)
-    assert staged.schema_version == 37
+    assert staged.schema_version == BUNDLED_LATEST_VERSION
     assert source.read_bytes() == original
     assert staged.path.suffix == ".partial"
     restored = build(staged.path, key=OTHER_KEY)

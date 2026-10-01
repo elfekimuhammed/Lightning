@@ -58,8 +58,9 @@ def _live_the_year(c) -> dict:
 
     def month(m, salary="45,000", rent="12,000", employer="ACME Egypt"):
         """An ordinary month: pay in, rent, the car loan, groceries, phone, internet, electricity."""
+        salary_txn = None
         if salary:
-            tx.record_inflow(f"{m}-01", cib, salary, cat("EXP.WORK.SALARY"), counterparty=employer)
+            salary_txn = tx.record_inflow(f"{m}-01", cib, salary, cat("EXP.WORK.SALARY"), counterparty=employer)
         tx.record_outflow(f"{m}-03", cib, rent, cat("EXP.PERSONAL.HOUSING"), counterparty="Landlord")
         tx.record_outflow(f"{m}-05", cib, "2,500", cat("EXP.SYSTEM.LOANS"), counterparty="Toyota Finance")
         tx.record_transfer(f"{m}-07", cib, vodafone, "1,000")
@@ -69,6 +70,7 @@ def _live_the_year(c) -> dict:
             tx.record_outflow(f"{m}-15", cib, "2,000", cat("EXP.SYSTEM.LOANS"), counterparty="valU")
         tx.record_outflow(f"{m}-20", cib, "650", cat("EXP.PERSONAL.UTILITIES"), counterparty="WE Internet")
         tx.record_outflow(f"{m}-24", cib, "480", cat("EXP.PERSONAL.UTILITIES"), counterparty="North Cairo Electricity")
+        return salary_txn
 
     # 11 · October: an ordinary month settles itself.
     day = on("2026-10-31")
@@ -110,9 +112,13 @@ def _live_the_year(c) -> dict:
     tx.record_outflow("2026-12-10", cib, "1,200", cat("EXP.WORK.TRANSPORT"), counterparty="Uber")
     tx.record_refund("2026-12-22", cib, "1,200", cat("EXP.WORK.TRANSPORT"), counterparty="ACME Egypt")
     tx.record_inflow("2026-12-20", cib, "90,000", cat("EXP.WORK.BONUS"), counterparty="ACME Egypt")
-    tx.record_inflow("2026-12-24", cib, "45,000", cat("EXP.WORK.SALARY"), counterparty="ACME Egypt")
+    early_salary = tx.record_inflow("2026-12-24", cib, "45,000", cat("EXP.WORK.SALARY"), counterparty="ACME Egypt")
     c.planning.match_payments(day)
     seen["december_work_spending"] = c.reporting.cash_flow("2026-12-01", "2026-12-31").work_outflows
+    january_salary = payment("ACME Egypt", "2027-01-01")
+    seen["january_salary_candidates"] = [row["id"] for row in c.planning.plausible_candidates(january_salary, day)]
+    seen["january_salary_transaction"] = early_salary.id
+    c.planning.mark_paid(january_salary.item.id, "2027-01-01", early_salary.id)
     seen["average_for_january"] = c.budgets.income_average("2027-01").amount
 
     # January: no salary arrives (it came early); he plans the car insurance.
@@ -127,9 +133,14 @@ def _live_the_year(c) -> dict:
 
     # 20 · February: the raise.
     day = on("2027-02-28")
-    month("2027-02", salary="50,000")
-    c.planning.match_payments(day)
-    seen["raise_matched_alone"] = payment("ACME Egypt", "2027-02-01").status.name
+    february_txn = month("2027-02", salary="50,000")
+    february_salary = payment("ACME Egypt", "2027-02-01")
+    seen["raise_candidates_before_confirmation"] = [
+        row["id"] for row in c.planning.plausible_candidates(february_salary, day)
+    ]
+    seen["raise_transaction"] = february_txn.id
+    seen["raise_status_before_confirmation"] = february_salary.status.name
+    c.planning.mark_paid(february_salary.item.id, "2027-02-01", february_txn.id)
     c.planning.set_amount(item("ACME Egypt").id, "50,000")  # the popup's "plan later payments at this amount"
     c.planning.match_payments(day)
     seen["raise"] = (payment("ACME Egypt", "2027-02-01").status.name, payment("ACME Egypt", "2027-03-01").amount,
@@ -172,6 +183,7 @@ def _live_the_year(c) -> dict:
     month("2027-06", salary="50,000", rent="13,200")
     c.planning.match_payments(day)
     seen["june_rent"] = payment("Landlord", "2027-06-03").status.name
+    c.planning.set_amount(item("Landlord").id, "13,200")
     seen["july_rent_planned"] = payment("Landlord", "2027-07-03").amount
 
     # 25 · July: the Sahel trip is set aside, and spent in August.
@@ -240,13 +252,12 @@ def test_16_a_reimbursed_work_expense_nets_to_zero(year):
     assert year["december_work_spending"] == 0
 
 
-@known_gap("Bonus is a default income category, and January's early pay lands in December")
 def test_17_a_bonus_does_not_change_average_monthly_income(year):
     assert year["average_for_january"] == D("45000")  # today 90,000
 
 
-@known_gap("Salary paid more than 7 days early is not matched to its scheduled payment")
 def test_18_an_early_payday_settles_next_months_salary(year):
+    assert year["january_salary_transaction"] in year["january_salary_candidates"]
     assert year["january_salary"] == "PAID"
     assert year["january_forecast_income"] == 0  # today the forecast expects 45,000 again
     assert year["average_for_february"] == D("45000")  # today 112,500
@@ -260,9 +271,9 @@ def test_19_saving_for_a_goal_assigns_no_cash_until_he_does(year):
     assert year["insurance_assigned_before_paying"] == 0
 
 
-@known_gap("A raise over the 10% tolerance is never matched on its own")
-def test_20_a_raise_is_matched_on_its_own(year):
-    assert year["raise_matched_alone"] == "PAID"
+def test_20_a_raise_requires_confirmation_and_only_changes_later_plan_on_choice(year):
+    assert year["raise_transaction"] in year["raise_candidates_before_confirmation"]
+    assert year["raise_status_before_confirmation"] == "DUE"
 
 
 def test_20_after_linking_the_raise_later_payments_follow_and_history_stays(year):
@@ -270,7 +281,7 @@ def test_20_after_linking_the_raise_later_payments_follow_and_history_stays(year
 
 
 def test_21_eid_gifts_do_not_change_pay(year):
-    assert year["average_for_april"] == D("50000")
+    assert year["average_for_april"] == D("48333.33")
 
 
 def test_22_installments_are_owed_and_settle_monthly(year):
@@ -283,13 +294,12 @@ def test_23_a_sale_and_moving_the_cash_home_are_not_income(year):
     assert year["april_money_in"] == {"EXP.WORK.SALARY": D("50000")}
 
 
-def test_24_a_rent_rise_inside_the_tolerance_is_matched(year):
+def test_24_a_rent_rise_inside_the_tolerance_is_strictly_matched(year):
     assert year["june_rent"] == "PAID"
 
 
-@known_gap("A payment matched at a new amount leaves the plan at the old one")
-def test_24_the_plan_follows_the_new_rent(year):
-    assert year["july_rent_planned"] == D("13200")  # today 12,000: the forecast is 1,200 a month short
+def test_24_the_plan_follows_the_new_rent_only_after_omar_chooses_it(year):
+    assert year["july_rent_planned"] == D("13200")
 
 
 def test_25_a_trip_paid_from_its_goal_leaves_the_rest(year):

@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}CD terms{% endblock %}
+{% block heading %}<h1>{{ account.name }} · CD terms</h1><p class="muted">Plan estimates only. Lightning does not create automatic ledger postings.</p>{% endblock %}
+{% block top_actions %}<a class="btn" href="/accounts">Accounts</a>{% endblock %}
+{% block content %}
+<section class="card" style="max-width:820px">
+  <p>These terms estimate interest and the expected payout. Any opening or funding transaction must be entered separately.</p>
+  <p class="muted">Earliest withdrawal describes when the bank may let you redeem the CD. That date does not create cash in the forecast; the forecast assumes the deposit is paid at maturity.</p>
+  {% if withdrawal %}<div class="flash">
+    {% if withdrawal.state == 'locked' %}<strong>Not withdrawable yet.</strong> Earliest withdrawal date: {{ withdrawal.date }}.
+    {% elif withdrawal.state == 'matured' %}<strong>At maturity:</strong> principal returns at full value, {{ withdrawal.amount|money }} {{ account.currency }}.
+    {% else %}<strong>Early proceeds estimate:</strong> {{ withdrawal.amount|money }} {{ account.currency }} after applying the {{ '%g'|format(withdrawal.factor) }}% class-wide CD sale factor. This is not a guaranteed bank quote.
+    {% endif %}
+  </div>{% endif %}
+  {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+  <form method="post" action="/deposits/{{ account.id }}" class="stack">
+    <div class="row">
+      <div class="field"><label for="start_date">Start date <span class="muted small">yyyy-mm-dd</span></label><input id="start_date" name="start_date" type="text" value="{{ values.start_date }}" placeholder="yyyy-mm-dd" inputmode="numeric" autocomplete="off" data-smart-date required></div>
+      <div class="field"><label for="maturity_date">Maturity date <span class="muted small">yyyy-mm-dd</span></label><input id="maturity_date" name="maturity_date" type="text" value="{{ values.maturity_date }}" placeholder="yyyy-mm-dd" inputmode="numeric" autocomplete="off" data-smart-date required></div>
+    </div>
+    <div class="row">
+      <div class="field"><label for="lockup_end_date">Earliest withdrawal date <small class="muted">Optional · yyyy-mm-dd</small></label><input id="lockup_end_date" name="lockup_end_date" type="text" value="{{ values.lockup_end_date }}" placeholder="yyyy-mm-dd" inputmode="numeric" autocomplete="off" data-smart-date><small class="muted">If blank, maturity is used. This affects eligibility only; forecast cash is still assumed at maturity.</small></div>
+      <div class="field"><label for="principal">Principal ({{ account.currency }})</label><input id="principal" name="principal" inputmode="decimal" value="{{ values.principal }}" required></div>
+    </div>
+    <div class="row">
+      <div class="field"><label for="annual_rate">Annual rate (%)</label><input id="annual_rate" name="annual_rate" type="number" min="0" max="100" step="0.01" value="{{ values.annual_rate }}" required></div>
+      <div class="field"><label for="interest_method">Interest method</label><select id="interest_method" name="interest_method" required>{% for key, label in [('SIMPLE','Simple'),('COMPOUND','Compound')] %}<option value="{{ key }}" {{ 'selected' if values.interest_method == key }}>{{ label }}</option>{% endfor %}</select></div>
+    </div>
+    <div class="row">
+      <div class="field"><label for="compounding_frequency">Compounding frequency <small class="muted">For compound interest</small></label><select id="compounding_frequency" name="compounding_frequency" required>{% for key, label in [('MONTHLY','Monthly'),('QUARTERLY','Quarterly'),('YEARLY','Yearly')] %}<option value="{{ key }}" {{ 'selected' if values.compounding_frequency == key }}>{{ label }}</option>{% endfor %}</select><small class="muted">This controls how compound interest accrues; it is separate from when interest is paid.</small></div>
+      <div class="field"><label for="payout_frequency">Payout schedule</label><select id="payout_frequency" name="payout_frequency" required>{% for key, label in [('MONTHLY','Monthly'),('QUARTERLY','Quarterly'),('YEARLY','Yearly'),('AT_MATURITY','At maturity')] %}<option value="{{ key }}" {{ 'selected' if values.payout_frequency == key }}>{{ label }}</option>{% endfor %}</select><small class="muted">Compound interest is paid at maturity only.</small></div>
+    </div>
+    <div class="row">
+      <div class="field"><label for="destination_account_id">Payout destination</label><select id="destination_account_id" name="destination_account_id" data-own-picker required><option value="">Choose a bank or cash account…</option>{% for destination in destinations %}<option value="{{ destination.id }}" {{ 'selected' if values.destination_account_id == destination.id|string }}>{{ destination.name }} · {{ destination.currency }}</option>{% endfor %}</select></div>
+    </div>
+    <div class="actions"><button class="btn primary">Save terms</button><a class="btn" href="/accounts">Cancel</a></div>
+    <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}">
+  </form>
+  {% if values.start_date %}<form method="post" action="/deposits/{{ account.id }}/delete" class="actions"><button class="btn">Remove terms</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>{% endif %}
+</section>
+{% endblock %}

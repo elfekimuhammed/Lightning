@@ -71,7 +71,8 @@ _TABLE = [
      "What your holdings might fetch if sold, after each class's sale factor.",
      "Σ Holdings value of each class × its sale factor"),
     ("investments_after_sale", "Investments if sold (estimate)",
-     "What deposits and holdings might fetch if cashed in today.",
+     "What redeemable deposits and holdings might fetch if cashed in today. CDs before earliest withdrawal "
+     "contribute 0; early-redeemable CDs use ledger balance × CD sale factor; matured CDs use ledger balance.",
      "Deposits × sale factor + Holdings after sale (estimate)"),
     ("if_you_sold_today", "If you sold today (estimate)",
      "Free cash plus what your deposits and holdings might fetch.",

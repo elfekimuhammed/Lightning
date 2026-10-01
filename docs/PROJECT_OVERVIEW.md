@@ -1,6 +1,6 @@
 # Lightning — Project Overview
 
-**Last updated 2026-10-01 · app 0.4.0b1.**
+**Last updated 2026-10-02 · app 0.4.0b1.**
 
 This file tells the story: what Lightning is, who it is for, what it answers and where it goes next. [Architecture](ARCHITECTURE.md) holds the technical side. The [App brand guideline](APPLICATION_BRAND_GUIDE.md) holds the visual side. The [Glossary](GLOSSARY.md) defines every term and figure. Shipped changes go in `CHANGELOG.md`.
 
@@ -24,7 +24,7 @@ Every number comes from one of three layers, and each screen says which:
 
 - **One ledger.** Account registers, the all-accounts view, budget actuals, investments, the Overview and the reports are all views of one transaction ledger.
 - **Other people's money** (*Held for others*) stays in the account balance but belongs to its owner. It is left out of *What you own*. It is not income, spending or money owed to you.
-- **Certain obligations count; forecasts never do.** Bills due and loans still to pay make up *What you owe*. Bills due come off Free cash, and What you owe comes off Net worth. Loans are payment schedules, not debt accounts. A loan payment counts as spending when it is paid. Credit cards, interest and money owed to you are out of scope.
+- **Certain obligations count; forecasts never do.** Bills due and loans still to pay make up *What you owe*. Bills due come off Free cash, and What you owe comes off Net worth. Loans are payment schedules, not debt accounts. A loan payment counts as spending when it is paid. Credit cards, loan-interest accounting and money owed to you are out of scope; CD interest schedules are in scope as estimates.
 - **Reserves are not budgets.** A reserve sets aside cash you already own and lowers Free cash. A budget limit changes only the spending plan. The two are never added together. The emergency fund is shown in months of *Average monthly income*, the same average the budget and the forecast use.
 - **Categories describe the activity, not the direction of money.** Level 1 is Personal / Work / Investment / System (money held for others and loan payments), level 2 is broad, and level 3 is optional detail under an L2. Each category is + income, − expense or ± both; income is recurring (counted in the average and the forecast) or irregular, and an expense can be one-off (in cash flow, out of the budget). A category that has been used is archived, never deleted.
 - **Names are canonical.** Similar spellings are suggestions the user must pick. Lightning never silently merges or creates a counterparty.
@@ -38,7 +38,8 @@ Every number comes from one of three layers, and each screen says which:
 - **Accounts and ledger:** open an account with a starting balance; record money in, money out and transfers; edit, void and restore, bulk select, search, and reconcile against a statement.
 - **CSV import:** stage a bank CSV with one signed column or separate in/out columns. Only rows that need a decision need attention; a new name typed on several rows is created once; duplicates are flagged.
 - **Budget:** Planned, Spent, then Left in plan. Each category takes one *Amount or %* field (`1,500`, or `12%` of average monthly income), or the average of recent months, with optional carryover. Views cover All time, YTD, Monthly and Custom. A loan's scheduled payments are planned automatically until you set your own amount.
-- **Cash planning (Plan · Recurring · Loans · Reserves):** *Safe to spend* until the next income, What you owe, the next 30 days and a three-month forecast. It also holds recurring bills, subscriptions and income (suggested from history, never created on their own), loans with progress and payoff date, and reserves with the emergency fund. A payment is marked paid automatically when exactly one transaction matches, or by hand from a popup, with undo.
+- **Cash planning (Plan · Recurring · Loans · Reserves):** *Safe to spend* until the next income, What you owe, the next 30 days and a three-month forecast. It also holds recurring bills, subscriptions and income (suggested from history, never created on their own), loans with progress and payoff date, and reserves with the emergency fund. A strict unique payment match settles automatically; an early or changed-amount payment is suggested for confirmation. The forecast separately shows estimated CD interest and maturity cash without calling returned principal income.
+- **Certificates and time deposits:** enter a CD's funded principal and terms on its deposit account: rate, simple versus compounding, payout or capitalization frequency, earliest withdrawal and maturity. Simple interest can pay monthly, quarterly, yearly or at maturity; compounded interest is paid at maturity. Terms never post money. Actual interest is recorded as income and returned principal as a transfer. The CD is outside Free cash while held.
 - **Investments:** buy, sell and dividends inside the brokerage account; prices typed in or fetched; the period's *Net gain or loss* (Gain from sales + Price change on what you hold + Dividends and interest) alongside current holdings and *Holdings after sale (estimate)*.
 - **Overview:** Needs you at the top (a closed row that opens into the list), then your position: Net worth, Free cash, *What it is made of* and *If you sold today (estimate)* with a sale factor per class. Below that come Cash flow with the savings rate, Where it went, Investments at a glance, and Month by month as a closed row. Birdview was folded in on 2026-09-30, and `/birdview` redirects here.
 - **Held for others:** money and units you hold for someone else. Account headers show *In this account · What you own · Held for others*.
@@ -97,7 +98,7 @@ Each tab answers one main question first, then its natural follow-ups. **Partial
 | Will I run short? | Cash forecast with its lowest point; Overview warns | Answered (3 months fixed) |
 | Is my salary late? | — | Left out by decision |
 | Can I afford this purchase now? | Safe to spend, before and after a new reserve | Partial: no "what if I buy it" check |
-| Does an early payday count twice? | Salary paid more than 7 days early is not matched to its scheduled payment, so the forecast adds it again | Wrong (Omar step 18) |
+| Does an early payday count twice? | Recurring shows a plausible early payment; once Omar confirms it, the January plan is settled and the average attributes it to January, while the bank-date cash-flow report stays unchanged | Answered with confirmation (Omar step 18) |
 | I have no salary this month: how long until the next one? | Safe to spend until the next scheduled income | Answered (Omar step 27) |
 
 **3. Where did my money go?**
@@ -122,7 +123,7 @@ Each tab answers one main question first, then its natural follow-ups. **Partial
 | Is my loan in the plan? | "Includes … of loan payments scheduled this month" | Answered |
 | What about next month? | Rules repeat; a future month cannot be opened yet | Partial |
 | Where should the rest of my income go? | No "ready to assign" view | Missing |
-| Rent went up, or I got a raise: does the plan follow? | Recurring › set a new amount for later payments; the popup offers it after a manual match | Wrong: a change over 10% is never matched on its own, and one under 10% is matched but the plan keeps the old amount (Omar steps 20, 24) |
+| Rent went up, or I got a raise: does the plan follow? | A changed amount prompts Omar to confirm the payment, choose the future planned amount and review any reserve target; neither plan nor reserve changes silently | Answered with confirmation (Omar steps 20, 24) |
 | What should I set aside for yearly bills (car licence, insurance, school fees)? | A reserve with a due date; Saving for goals spreads it over the months left | Answered (Omar step 19) |
 | Have I actually set it aside? | The goal's assigned cash, which moves only when he assigns it | Partial: nothing asks him to assign the monthly amount |
 
@@ -136,7 +137,7 @@ Each tab answers one main question first, then its natural follow-ups. **Partial
 | Am I on my target mix? | Investments › Set target allocation | Answered |
 | Why does a holding show no gain? | No price yet: valued at cost and flagged | Answered |
 | What did I make when I sold? | Gain from sales, after fees | Answered |
-| When does my certificate mature, and what then? | — | Missing (M6) |
+| When does my certificate mature, and what then? | Its terms page shows lock-up, maturity and estimated payouts; Cash planning projects spendable proceeds, while the real transfer remains a ledger action | Partial: no automated bank reconciliation or early-redemption transaction flow |
 | How are my dollar savings doing? | — | Missing (M4, multi-currency) |
 
 **6. Am I safe if something goes wrong?** The emergency fund shows months covered. Saving for goals shows what to set aside each month. Loans show payments made, what is left and the last payment; a skipped payment moves to the end of the loan.
@@ -157,7 +158,7 @@ Each tab answers one main question first, then its natural follow-ups. **Partial
 |---|---|---|
 | Where did my bonus go? | Money in › Bonus; Expense analysis for the same period | Answered |
 | Does a bonus change my budget? | `BudgetService.income_average` excludes `EXP.WORK.BONUS` by default; a bonus does not lift Average monthly income | Answered; Omar step 17's average is instead affected by January salary booked in December (step 18) |
-| I changed jobs: what happens to my income figures? | Stop the old salary (its history stays) and add the new one | End-of-service pay is irregular and excluded by default; the no-pay-month average remains a known gap without a dedicated assertion (Omar step 27) |
+| I changed jobs: what happens to my income figures? | Stop the old salary (its history stays) and add the new one | End-of-service pay is irregular and excluded by default; the no-pay-month average still skips zero-income months (Omar step 27) |
 | Was I paid my raise? | The account register shows the new amount; Cash planning › Recurring keeps the scheduled payment Due until he links it by hand | Partial |
 
 Money held for others is left out of every owned, budget and performance view. Transfers are never income or spending. Refunds reduce spending in their original category.
@@ -193,23 +194,23 @@ Drive it in a browser through the screens only, and re-run it after any workflow
 | 14 | 18 Oct | Pays a 6,500 car repair from the emergency fund | The fund drops to 13,500; Free cash is unchanged; cash drops by 6,500 | Answered; nothing reminds him to refill the fund |
 | 15 | 20 Nov | Gets a 300 COMI dividend | Money in shows Dividends next to Salary; pay is unchanged | Answered |
 | 16 | 10–22 Dec | Pays a 1,200 work Uber; ACME pays it back | Work spending for December is 0; the refund is not income | Answered |
-| 17 | 20 Dec | ACME pays a 90,000 year-end bonus | Net worth +90,000; Average monthly income stays 45,000 | **Wrong:** the average is inflated by January's salary booked in December (step 18); Bonus itself is excluded by default |
-| 18 | 24 Dec | January's salary comes before the holidays | It settles January's payment; January's forecast expects no more pay | **Wrong:** January stays Due, the forecast adds 45,000 again, and the average for February reads 112,500 |
+| 17 | 20 Dec | ACME pays a 90,000 year-end bonus | Net worth +90,000; Average monthly income stays 45,000 | Answered after Omar confirms the separately suggested early January salary; Bonus itself stays excluded |
+| 18 | 24 Dec | January's salary comes before the holidays | It settles January's payment; January's forecast expects no more pay | Answered after Omar confirms the early-pay suggestion; cash-flow reporting still uses 24 December |
 | 19 | Jan–Apr | Plans 9,000 car insurance due 30 April, pays it from the goal | Saving for goals shows 2,250 a month | Answered; but no cash moves into the goal until he assigns it, and it cannot pay the bill until he does |
-| 20 | 1 Feb | Raise to 50,000 | February settles on its own; later payments are planned at 50,000; December stays paid at 45,000 | **Wrong:** 11% is over the 10% tolerance, so it stays Due until he links it; after that, the rest is right |
-| 21 | 9–10 Mar | Eid: gives 3,000 in cash, receives 1,000 | Gifts & Donations and Gifts Received; Average monthly income stays 50,000 | Answered |
+| 20 | 1 Feb | Raise to 50,000 | February settles after Omar confirms the changed-amount suggestion; later payments are planned at 50,000 only after he chooses it; December stays paid at 45,000 | Answered with confirmation, not automatic plan changes |
+| 21 | 9–10 Mar | Eid: gives 3,000 in cash, receives 1,000 | Gifts & Donations and Gifts Received; gifts do not change the salary average | Answered; the rolling January–March salary average is 48,333.33 after January's 45,000 pay and two 50,000 pays |
 | 22 | Mar | Buys a phone on 12 installments of 2,000 from 15 April | What you owe +24,000; each installment settles itself | Answered (as a loan; credit cards are out of scope) |
 | 23 | 20 Apr | Sells 75 of 150 COMI for 7,100 after a 25 fee; moves it to CIB | 75 left; Gain from sales after fees; April's Money in is only the salary | Answered |
-| 24 | 3 Jun | Rent rises 10% to 13,200 | June settles; July onwards is planned at 13,200 | **Wrong:** matched at 13,200, but July stays planned at 12,000, so the forecast is 1,200 a month short |
+| 24 | 3 Jun | Rent rises 10% to 13,200 | June settles; July onwards is planned at 13,200 after Omar accepts the prompt; reserve target is reviewed separately | Answered with confirmation; neither future plan nor reserve changes silently |
 | 25 | Jul–Aug | Sets aside 15,000 for a Sahel trip; spends 14,200 | 800 left in the goal | Answered |
 | 26 | 31 Aug | Leaves ACME with 30,000 end of service; adds Valeo at 55,000 from 1 October | The old salary stops with its history; Average monthly income stays 50,000 | Right since Categories marks Bonus irregular |
-| 27 | Sep | Between jobs, no pay | Next income is Valeo on 1 October; the average does not rise | Known gap: no-pay months are skipped; no dedicated assertion currently covers this behavior |
+| 27 | Sep | Between jobs, no pay | Next income is Valeo on 1 October; the average does not rise | Known gap: zero-income months are skipped by the average; the test checks non-increase, not zero-month inclusion |
 | 28 | 30 Sep | Reads the year | Money in 651,300 and Money out 295,186; Change in what you own 357,364; loans still to pay 34,500; Checks pass; nothing is due | Answered, except *why* net worth changed (M3.2) |
 
 **Not scripted, because Lightning cannot record them yet:**
 
 - **A gam'eya.** Example: 10 months of 5,000, with the 50,000 pot in month 4. The payments are commitments, and the pot is his own money back, not income. Lightning has no gam'eya type, and an inflow needs an income category.
-- **The NBE certificate maturing.** The principal should return to CIB as a transfer, not income. This waits for M6.
+- **The NBE certificate maturing.** Terms and a projected maturity receipt now exist; Omar still needs to record the actual principal transfer from NBE to CIB and any interest credit. Automatic bank reconciliation is not built.
 - **Dollar savings.** This waits for M4.
 - **Paying the car loan off early.** There is no lump-sum payment.
 - **A payslip's deductions** (income tax, social insurance). These are left out: record net pay.
@@ -247,11 +248,11 @@ The reference apps are YNAB, Monarch, Copilot, Simplifi, Rocket Money, Lunch Mon
 | 11 | Guided first setup | Monarch, YNAB onboarding | Omar's first run needed six account forms before seeing anything |
 | 12 | Receipts and attachments | Monarch, Lunch Money | Warranty and gold purchase receipts |
 
-**Known finance gaps** (strict expected failures are Omar steps 17, 18, 20 and 24; no-pay-month averaging in step 27 has no dedicated assertion):
+**Known finance gaps** (the early-pay, raise and rent paths now require explicit confirmation; no-pay-month averaging in step 27 only has a non-increase assertion):
 
-- **Average monthly income** counts early pay in the month it arrived; date pay to the scheduled payment it settles. Bonus and end-of-service categories are excluded by default, so they are not the cause of step 17's average inflation.
-- **Salary matching** ignores a raise over 10% and pay more than 7 days early, and the forecast then counts the salary twice. Identify plausible early or changed-amount matches; the owner still needs to decide when to require confirmation and when to automate matching.
-- **A payment matched at a new amount** leaves the plan at the old one. Offer the new amount for later payments.
+- **Unconfirmed early salary** remains in the bank-posting month of the income average and may leave a future salary payment due. The Recurring tab suggests the plausible match; Omar must confirm the specific transaction before the scheduled-month average and forecast adjust.
+- **A changed recurring amount** prompts a future-plan update and a reserve review, but the user must choose them. A reserve is named only when the payment is explicitly linked to it; a name or category match does not silently change cash assignments.
+- **CD projections** use an actual/365 day-count estimate, not a bank guarantee. Missing or partial funding suppresses the projection, and earlier simple-interest payouts are not reconciled against bank statements automatically.
 - **The emergency fund** should count months of spending, not of income.
 
 Bank sync and bill negotiation are not adopted. Any sync first needs a provider and regional coverage; local CSV stays the foundation. A "safe to spend" figure must always say which obligations and income it includes. Simplifi's projection, which leaves out planned spending, shows why.
@@ -260,7 +261,7 @@ Bank sync and bill negotiation are not adopted. Any sync first needs a provider 
 
 ### Pre-ZIP release readiness
 
-Verified UI fixes: Budget overlap at about 941px, the Cash planning tab strip and shared period pill at 390px, Settings data-card overflow, and account/all-transactions registers now scrolling inside their cards. Investments still shows nine holdings columns against the guide's five, and the own-data dropdown differs from the guide; both await owner choices. Four finance xfails remain open (Omar steps 17, 18, 20 and 24). The profile selfcheck passed all six checks on synthetic data; the full suite passed with four xfails and two skips, which does not establish that every finance case is correct. Acceptance on an ordinary Windows PC remains outstanding before the ZIP release. These checks do not cover an interactive click-through of every control.
+Verified UI fixes: Budget overlap at about 941px, the Cash planning tab strip and shared period pill at 390px, Settings data-card overflow, and account/all-transactions registers scrolling inside their cards. Holdings now uses five columns with expandable details, and the reviewed own-data fields have type-and-pick controls. Omar's early salary, raise and rent scenarios pass with explicit confirmations; the CD terms and forecast mechanism is covered by focused tests. A full interactive click-through of every control and acceptance on an ordinary Windows PC remain outstanding before the ZIP release. No new ZIP is implied by these source changes.
 
 | Milestone | State | Next |
 |---|---|---|
@@ -271,7 +272,7 @@ Verified UI fixes: Budget overlap at about 941px, the Cash planning tab strip an
 | M3.1 Instrument catalogue | Partial | Coverage and identifier quality |
 | M3.2 Wealth history | Partial | Wealth-change bridge; owned-only XIRR (net-worth trend is shipped) |
 | M4 Market data and FX | Planned | Wider prices, multi-currency accounts, FX revaluation |
-| M6 Deposits and gold details | Planned | CD lifecycle, local gold costs and buyback |
+| M6 Deposits and gold details | Partial | CD terms, interest projections and maturity forecast built; next: bank reconciliation, early redemption posting, local gold costs and buyback |
 | Physical gold items | In progress | Item purchase/sale and report integration |
 | M7 Planning and imports | Partial | Shipped: CSV import and Cash planning. Next: review inbox, matching manual entries with imports, reminders |
 | Search | Planned | One typo-tolerant search across pages and records (contract in Architecture) |

@@ -9,7 +9,7 @@ from decimal import Decimal
 
 from lightning.core.dates import fmt_date, month_of, parse_month, today
 from lightning.core.figures import label
-from lightning.core.money import ZERO
+from lightning.core.money import ZERO, from_e6
 
 from .domain import CashForecast, ForecastMonth, Payment, PaymentStatus, PlanKind
 
@@ -21,14 +21,60 @@ def _months(start: date, count: int) -> list[str]:
     return [f"{(index + i) // 12}-{(index + i) % 12 + 1:02d}" for i in range(count)]
 
 
+def _deposit_cash_events(service, as_of: date, end: date):
+    """Return projected CD events, replacing maturity projections already posted as transfers."""
+    if service is None:
+        return []
+    events = service.future_events(as_of, end)
+    db = getattr(service, "db", None)
+    if db is None:
+        return events
+    replaced: set[tuple[int, int, str]] = set()
+    actual = {}
+    for event in events:
+        if event.kind not in ("PRINCIPAL", "MATURITY"):
+            continue
+        destination_id = getattr(event, "destination_account_id", getattr(event, "account_id", None))
+        key = (event.deposit_account_id, destination_id, event.date)
+        if key in actual:
+            continue
+        rows = db.all(
+            "SELECT dst.quantity_e6 FROM transactions t "
+            "JOIN ledger_entries src ON src.transaction_id=t.id "
+            "JOIN ledger_entries dst ON dst.transaction_id=t.id "
+            "WHERE t.status='POSTED' AND t.type='TRF' AND t.date=? "
+            "AND src.account_id=? AND src.effect='INTERNAL' "
+            "AND dst.account_id=? AND dst.effect='INTERNAL'",
+            (event.date, event.deposit_account_id, destination_id),
+        )
+        actual[key] = sum((abs(int(row["quantity_e6"])) for row in rows), 0)
+        if actual[key]:
+            replaced.add(key)
+    if not replaced:
+        return events
+    adjusted = [event for event in events if (
+        event.deposit_account_id,
+        getattr(event, "destination_account_id", getattr(event, "account_id", None)),
+        event.date,
+    ) not in replaced]
+    for deposit_id, destination_id, event_date in replaced:
+        amount_e6 = actual[(deposit_id, destination_id, event_date)]
+        adjusted.append(type("RecordedDepositEvent", (), {
+            "date": event_date, "amount": from_e6(amount_e6),
+            "deposit_account_id": deposit_id, "destination_account_id": destination_id,
+        })())
+    return adjusted
+
+
 class CashForecaster:
-    def __init__(self, planning, reporting, reserves, budgets, categories, position):
+    def __init__(self, planning, reporting, reserves, budgets, categories, position, deposits=None):
         self.planning = planning
         self.position = position
         self.reporting = reporting
         self.reserves = reserves
         self.budgets = budgets
         self.categories = categories
+        self.deposits = deposits
 
     # -------------------------------------------------------------- inputs
     def average_income(self, as_of: date) -> tuple[Decimal | None, int]:
@@ -73,6 +119,7 @@ class CashForecaster:
         average, average_months = self.average_income(day)
         month_keys = _months(day, months)
         horizon_end = parse_month(month_keys[-1])[1]
+        deposit_events = _deposit_cash_events(self.deposits, day, horizon_end)
         upcoming = [p for p in self.planning.all_payments(horizon_end, day)
                     if p.status == PaymentStatus.UPCOMING]
         # Payments already due: bills are in free cash already (Bills due); income not yet received
@@ -101,8 +148,10 @@ class CashForecaster:
             budget_spending = max(budget_room - covered_bills - due_covered, ZERO)
             commitments = covered_bills + other_bills
             goals = self._goal_need(key, day)
-            closing = opening + income - commitments - budget_spending - goals
-            rows.append(ForecastMonth(key, opening, income, estimated, commitments, budget_spending, goals, closing))
+            deposit_cash = sum((event.amount for event in deposit_events if event.date[:7] == key), ZERO)
+            closing = opening + income + deposit_cash - commitments - budget_spending - goals
+            rows.append(ForecastMonth(key, opening, income, estimated, commitments, budget_spending, goals, closing,
+                                      deposit_cash))
             opening = closing
 
         next_income = next((p for p in upcoming if p.item.is_income), None)

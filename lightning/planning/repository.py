@@ -108,6 +108,32 @@ class PlanningRepository:
                              "category_ids": {int(x) for x in (row["category_ids"] or "").split(",") if x}}
                 for row in rows]
 
+    def payment_transaction(self, transaction_id: int, incoming: bool, account_id: int | None,
+                            category_id: int | None, counterparty_id: int | None) -> dict | None:
+        """Read a posted, owned transaction that is valid for an explicit payment link."""
+        effect = "INFLOW" if incoming else "OUTFLOW"
+        doc_type = "IN" if incoming else "OUT"
+        where = ["t.id=?", "t.status='POSTED'", "t.type=?", "l.effect=?", "l.owner_id IS NULL"]
+        params: list = [transaction_id, doc_type, effect]
+        if account_id:
+            where.append("l.account_id=?")
+            params.append(account_id)
+        identity = []
+        if counterparty_id:
+            identity.append("t.counterparty_id=?")
+            params.append(counterparty_id)
+        if category_id:
+            identity.append("l.category_id=?")
+            params.append(category_id)
+        if not identity:
+            return None
+        where.append("(" + " OR ".join(identity) + ")")
+        row = self.db.one(
+            "SELECT t.id,t.date,SUM(ABS(l.amount_base_e6)) amount_e6 FROM transactions t "
+            "JOIN ledger_entries l ON l.transaction_id=t.id WHERE " + " AND ".join(where) + " GROUP BY t.id",
+            tuple(params))
+        return dict(row) | {"amount": from_e6(row["amount_e6"])} if row else None
+
     def history(self, date_from: str, date_to: str) -> list[dict]:
         """Owned money in and out with a counterparty, for spotting payments that repeat."""
         rows = self.db.all(

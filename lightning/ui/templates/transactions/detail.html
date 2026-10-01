@@ -52,13 +52,13 @@
   <form method="post" action="/transactions/{{ txn.id }}/split" id="expense-split-form">
     <div id="expense-split-rows">
       {% for row in split_lines %}<div class="split-row">
-        <select name="split_category_id" aria-label="Expense category">
+        <select name="split_category_id" aria-label="Expense category" data-own-picker>
           <option value="">Choose a category</option>{% from "partials/macros.html" import category_options %}{{ category_options(category_groups(expense_categories|map(attribute='id')|list), row.category_id) }}
         </select>
         <input type="text" name="split_amount" value="{{ row.amount }}" placeholder="Amount" inputmode="decimal" aria-label="Split amount">
       </div>{% endfor %}
       {% for _ in range(2) %}<div class="split-row">
-        <select name="split_category_id" aria-label="Expense category">
+        <select name="split_category_id" aria-label="Expense category" data-own-picker>
           <option value="">Choose a category</option>{% from "partials/macros.html" import category_options %}{{ category_options(category_groups(expense_categories|map(attribute='id')|list)) }}
         </select>
         <input type="text" name="split_amount" placeholder="Amount" inputmode="decimal" aria-label="Split amount">
@@ -79,7 +79,7 @@
     <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form></div>
   {% endfor %}</div>{% endif %}
   {% if reserves %}<form method="post" action="/transactions/{{ txn.id }}/reserve" class="reserve-allocate">
-    <select name="reserve_id" required aria-label="Reserve">{% for reserve in reserves %}<option value="{{ reserve.id }}">{{ reserve.name }} · {{ reserve.effective_allocated|money }} available</option>{% endfor %}</select>
+    <select name="reserve_id" required aria-label="Reserve" data-own-picker>{% for reserve in reserves %}<option value="{{ reserve.id }}">{{ reserve.name }} · {{ reserve.effective_allocated|money }} available</option>{% endfor %}</select>
     <input type="text" name="amount" value="{{ abs(summary.amount) }}" inputmode="decimal" aria-label="Amount paid from reserve" required>
     <button class="btn small primary">Apply payment</button>
   <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>{% else %}<p class="muted small">Create a reserve before assigning payments to one.</p>{% endif %}
