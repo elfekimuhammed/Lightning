@@ -26,6 +26,14 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
   rules for tab headers and the Ask dialog. Its visual page is also written to
   `docs/APPLICATION_BRAND_GUIDE.html` by `tools/brand_guide/build.py`.
 
+### Investment planner: biggest gaps first · 2026-10-01
+- The planner has two ways to split new money: **Spread across gaps** (as before: every class below target
+  gets the same share of its gap) and **Biggest gaps first** (the class furthest below its target, in
+  percentage points, is filled until it is level with the next, then both together, and so on). When the
+  money covers every gap both give the same split. The choice is remembered.
+- Rounding cents now go to the largest suggestion, so a split always adds up and never shows a negative amount.
+- One split function (`suggest_contributions`) serves the planner; the unused copy on the Investments page is gone.
+
 ### Investments and report pages, lighter · 2026-10-01
 - Saved and invested is one light bar of money in: invested inside saved, then kept, then spent. Investing rate
   now counts only what came out of this period's savings, so it is never more than the savings rate; money
