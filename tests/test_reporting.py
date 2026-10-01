@@ -37,6 +37,9 @@ def test_dated_reserve_assignments_allow_negative_spendable_cash_and_reject_unkn
     accounts, _ = setup
     c.money_from_others.record("2026-09-10", "Dad", accounts["cib"].id, "10000")
     reserve = c.reserves.create("Travel", "50000")
+    # The reserve existed before its assignment history starts, so earlier dates are unknown.
+    c.db.execute("UPDATE cash_reserves SET created_at='2026-09-01T09:00:00+03:00' WHERE id=?", (reserve["id"],))
+    c.db.execute("UPDATE reserve_allocation_history SET created_date='2026-09-01' WHERE reserve_id=?", (reserve["id"],))
     c.reserves.allocate(reserve["id"], "42000")
 
     assert c.reporting.owned_liquid_cash("2026-12-31") == Decimal("41200")

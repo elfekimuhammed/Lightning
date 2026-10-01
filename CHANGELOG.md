@@ -8,10 +8,18 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
-### Omar's workflow covers a salaried year · 2026-09-30
-- The reference workflow in the Project Overview gains steps 11–21 for the rest of Omar's year: a raise, a salary paid early for the holidays, a year-end bonus, a reimbursed work expense, yearly bills, selling shares, a maturing certificate, Eid gifts, a gam'eya, installments and the year-end read. Each step says what must be true and what happens today.
-- The questions gain the follow-ups a salaried user asks, and a new question 8, "What changes when my pay changes?".
-- Found by running these steps on the demo data (not fixed yet): a 90,000 bonus lifts Average monthly income from 45,000 to 75,000 for three months; a raise over 10%, or a salary paid more than 7 days early, is not matched to its scheduled payment, so the forecast counts it twice; the emergency fund is measured in months of income rather than spending.
+### Omar's workflow covers a salaried year · 2026-10-01
+- **Steps 11–28 of the reference workflow** now carry Omar from October 2026 to September 2027. They are dated, and each step has the figures it must show. The year includes an ATM fee, a refund, a repair paid from the emergency fund, a dividend, a reimbursed work expense, a bonus, an early payday, a raise, Eid, phone installments, a share sale, a rent rise, a holiday goal, and a job change with a month between jobs.
+  - Each step says what is true today.
+  - What Lightning cannot record yet (a gam'eya, a maturing certificate, dollar savings, early loan payoff) is listed separately.
+- **`tests/test_omar_year.py`** runs those steps on the demo household, one test per step. The six steps that are wrong today are strict expected failures, so a fix shows up as an unexpected pass.
+- **The questions** gain the follow-ups a salaried user asks, and a new question 8, "What changes when my pay changes?".
+- **Wrong today** (recorded, not fixed):
+  - Average monthly income counts a bonus or end of service as pay.
+  - It skips months with no pay, so a month between jobs raises it (65,000).
+  - A salary paid early, or a raise over 10%, is not matched, so the forecast counts it twice.
+  - A rent rise matched within 10% leaves the plan at the old rent.
+- **Fixed:** with `LIGHTNING_TODAY` pinned, `now_iso()` now uses the pinned date too. Reserves created in a test no longer look newer than "today", which had failed three tests once the real date passed 30 September. The two "unknown past" reserve tests now backdate the reserve explicitly instead of relying on that gap.
 
 ### No browser history under fields · 2026-09-30
 - Fields no longer show what you typed before, such as old names, amounts or "Gold 24k". The only suggestions left are the app's own: counterparties, categories and accounts. This applies to every form, popups included.

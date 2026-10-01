@@ -64,6 +64,9 @@ def test_overview_keeps_every_current_attention_item(c, setup, monkeypatch):
 
 def test_reserve_historical_breakdown_matches_total_and_rejects_unknown_past(c, setup):
     reserve = c.reserves.create("Travel", "1000")
+    # The reserve existed before its assignment history starts, so earlier dates are unknown.
+    c.db.execute("UPDATE cash_reserves SET created_at='2026-09-01T09:00:00+03:00' WHERE id=?", (reserve["id"],))
+    c.db.execute("UPDATE reserve_allocation_history SET created_date='2026-09-01' WHERE reserve_id=?", (reserve["id"],))
     c.reserves.allocate(reserve["id"], "500")
     assert c.reserves.breakdown_at("2026-09-30") is None
     rows = c.reserves.breakdown_at("2026-12-31")

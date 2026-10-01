@@ -62,8 +62,12 @@ def today() -> date:
 
 
 def now_iso() -> str:
-    """Local timestamp with UTC offset, e.g. 2026-09-25T16:00:00+03:00."""
-    return datetime.now().astimezone().isoformat(timespec="seconds")
+    """Local timestamp with UTC offset, e.g. 2026-09-25T16:00:00+03:00. A pinned LIGHTNING_TODAY
+    sets its date too, so records made "today" never look newer than today."""
+    stamp = datetime.now().astimezone()
+    if os.environ.get("LIGHTNING_TODAY"):
+        stamp = datetime.combine(today(), stamp.timetz())
+    return stamp.isoformat(timespec="seconds")
 
 
 def parse_month(value: str, field: str = "month") -> tuple[date, date]:
