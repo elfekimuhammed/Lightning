@@ -406,7 +406,7 @@ async def update(request: Request, account_id: int | None, txn_id: int):
 
 
 def _custody_owner(c, values: dict, category) -> str | None:
-    if not category or category.code != "EXP.PERSONAL.CUSTODY":
+    if not category or category.code != "EXP.SYSTEM.CUSTODY":
         return None
     name = values.get("whom", "").strip()
     party = c.counterparties.resolve(name)

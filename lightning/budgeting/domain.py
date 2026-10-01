@@ -72,6 +72,7 @@ class BudgetSection:
     name: str  # Personal / Work
     lines: list[BudgetLine] = field(default_factory=list)
     unbudgeted: Decimal = ZERO  # money out in categories with no budget on them or above them
+    one_off: Decimal = ZERO  # money out in one-off categories: in cash flow, outside the budget
 
     @property
     def groups(self) -> list[BudgetLine]:
@@ -126,6 +127,10 @@ class BudgetMonth:
     @property
     def unbudgeted(self) -> Decimal:
         return sum((s.unbudgeted for s in self.sections), ZERO)
+
+    @property
+    def one_off(self) -> Decimal:
+        return sum((s.one_off for s in self.sections), ZERO)
 
 
 @dataclass(frozen=True)

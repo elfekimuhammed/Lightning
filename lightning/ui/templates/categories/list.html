@@ -1,78 +1,121 @@
 {% extends "base.html" %}
 {% block title %}Categories{% endblock %}
-{% block heading %}<h1>Settings</h1><div class="muted">Categories · labels for grouping transactions</div>{% endblock %}
+{% block heading %}<h1>Settings</h1><div class="muted">Categories · why money moved</div>{% endblock %}
 {% block content %}
 {% set settings_section = 'categories' %}{% include 'partials/settings_nav.html' %}
-<div class="section-head"><label>Search categories<input type="search" id="category-search" placeholder="Find a category"></label><span id="category-result-count" class="muted small"></span></div>
-<form id="category-bulk-form" method="post" action="/categories/bulk-action" data-category-bulk>
-  <div class="category-bulk-toolbar">
-    <label><input id="select-all-categories" type="checkbox"> Select all categories</label>
-    <span id="category-selection-count" class="muted small">0 selected</span>
-    <button class="btn small" name="action" value="activate">Activate selected</button>
-    <button class="btn small" name="action" value="archive">Archive selected</button>
-    <button class="btn small danger" name="action" value="delete">Delete selected</button>
-  </div>
-<input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
-<div class="workspace-grid">
-  {% for group, items in groups %}
-  <section class="card data-panel">
-    <div class="section-head"><a href="/categories/{{ group.id }}/edit" class="{{ 'muted' if not group.active }}"><span class="level-tag">Activity</span><h2>{{ group.name }}</h2></a></div>
-    <ul class="category-tree">
-      {% for c in items %}
-      <li class="category-tree-item category-manage-item {{ 'off' if not c.active }}" data-category-name="{{ c.name|lower }}">
-        <input type="checkbox" class="category-select" name="category_ids" value="{{ c.id }}" form="category-bulk-form" aria-label="Select {{ c.name }}">
-        <a href="/categories/{{ c.id }}/edit">{{ c.name }}</a>{% if not c.active %}<span class="small muted">Archived</span>{% endif %}
-        <details class="category-row-actions"><summary class="btn small">More</summary><form method="post" action="/categories/bulk-action" data-category-row-action>
-          <input type="hidden" name="category_id" value="{{ c.id }}">
-          <button class="btn small" name="action" value="activate" {{ 'disabled' if c.active }}>Activate</button>
-          <button class="btn small" name="action" value="archive" {{ 'disabled' if not c.active }}>Archive</button>
-          <button class="btn small danger" name="action" value="delete">Delete</button>
-        <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form></details>
-      </li>
+{% set session = request.state.session_token|default('') %}
+{% macro sign(cat) %}<span class="cat-sign is-{{ cat.direction.value|lower }}" title="{{ {'IN': 'Income only', 'OUT': 'Expense only', 'BOTH': 'Income or expense'}[cat.direction.value] }}">{{ cat.sign }}</span>{% endmacro %}
+{% macro kinds(cat) %}{% if cat.income_class is not none and cat.direction.value != 'OUT' %}{% if cat.id in recurring %}<span class="cat-kind is-recurring">Recurring</span>{% else %}<span class="cat-kind">Irregular</span>{% endif %}{% endif %}{% if cat.direction.value != 'IN' and cat.id in one_offs %}<span class="cat-kind is-oneoff">One-off</span>{% endif %}{% endmacro %}
+{% macro edit_fields(cat, form_id) %}
+<span class="cat-edit-fields">
+  <input form="{{ form_id }}" name="name" value="{{ cat.name if cat else '' }}" placeholder="Category name" aria-label="Name" required>
+  <select form="{{ form_id }}" name="direction" aria-label="Income or expense" {{ 'disabled' if cat and cat.code == 'EXP.SYSTEM.CUSTODY' }}>
+    {% for value, text in (('OUT', '− Expense'), ('IN', '+ Income'), ('BOTH', '± Both')) %}<option value="{{ value }}" {{ 'selected' if cat and cat.direction.value == value }}>{{ text }}</option>{% endfor %}
+  </select>
+  <label class="cat-toggle" data-for="IN BOTH"><input form="{{ form_id }}" type="checkbox" name="recurring" value="1" {{ 'checked' if cat and cat.id in recurring }}> Recurring income</label>
+  <label class="cat-toggle" data-for="OUT BOTH"><input form="{{ form_id }}" type="checkbox" name="one_off" value="1" {{ 'checked' if cat and cat.id in one_offs }}> One-off</label>
+</span>
+{% endmacro %}
+
+<div class="cat-toolbar">
+  <label class="cat-search"><input type="search" id="category-search" placeholder="Find a category" aria-label="Find a category"></label>
+  <span id="category-result-count" class="muted small"></span>
+  <span class="cat-legend"><span class="cat-sign is-in">+</span> income <span class="cat-sign is-out">−</span> expense <span class="cat-sign is-both">±</span> both · <span class="cat-kind is-recurring">Recurring</span> counts toward the income average and forecast · <span class="cat-kind is-oneoff">One-off</span> stays in cash flow, out of the budget</span>
+  {% if archived %}<a class="btn small" href="/categories{{ '' if show_archived else '?archived=1' }}">{{ 'Hide archived' if show_archived else 'Archived (' ~ archived|length ~ ')' }}</a>{% endif %}
+</div>
+
+<form id="category-bulk-form" method="post" action="/categories/bulk-action" data-category-bulk><input type="hidden" name="__session" value="{{ session }}"></form>
+<div class="card cat-card">
+  <div class="cat-bulk"><label><input id="select-all-categories" type="checkbox"> Select all</label><span id="category-selection-count" class="muted small">0 selected</span>
+    <button class="btn small" form="category-bulk-form" name="action" value="archive">Archive selected</button>
+    <button class="btn small danger" form="category-bulk-form" name="action" value="delete">Delete selected</button></div>
+  <table class="cat-table">
+    <colgroup><col class="c-check"><col class="c-sign"><col><col class="c-kind"><col class="c-act"></colgroup>
+    {% for l1, rows in table %}
+    <tbody class="cat-group" data-group>
+      <tr class="cat-l1"><th colspan="4">{{ l1.name }}<small>{{ rows|selectattr('level', 'equalto', 2)|list|length }} categories</small></th>
+        <td class="cat-actions"><button type="button" class="btn small" data-add-under="{{ l1.id }}">Add category</button></td></tr>
+      <tr class="cat-add" data-add-row="{{ l1.id }}" hidden><td></td><td></td>
+        <td colspan="2"><form id="add-{{ l1.id }}" method="post" action="/categories/add-row"><input type="hidden" name="parent_id" value="{{ l1.id }}"><input type="hidden" name="__session" value="{{ session }}"></form>{{ edit_fields(none, 'add-' ~ l1.id) }}</td>
+        <td class="cat-actions"><button class="btn small primary" form="add-{{ l1.id }}">Add</button><button type="button" class="btn small" data-cancel>Cancel</button></td></tr>
+      {% for row in rows %}{% set cat = row.category %}{% set fid = 'row-' ~ cat.id %}
+      <tr class="cat-row level-{{ row.level }}{{ ' is-head' if row.has_children }}" data-category-name="{{ cat.name|lower }}" data-row tabindex="0" aria-label="Edit {{ cat.name }}">
+        <td><input type="checkbox" class="category-select" name="category_ids" value="{{ cat.id }}" form="category-bulk-form" aria-label="Select {{ cat.name }}"></td>
+        <td>{{ sign(cat) }}</td>
+        <td class="cat-name"><span class="cat-view">{{ cat.name }}</span>
+          <form id="{{ fid }}" method="post" action="/categories/{{ cat.id }}/row"><input type="hidden" name="__session" value="{{ session }}"></form>
+          <span class="cat-edit">{{ edit_fields(cat, fid) }}</span></td>
+        <td class="cat-kinds"><span class="cat-view">{{ kinds(cat) }}</span></td>
+        <td class="cat-actions"><span class="cat-edit">
+          <button class="btn small primary" form="{{ fid }}" name="action" value="save">Save</button>
+          {% if row.level == 2 %}<button type="button" class="btn small" data-add-under="{{ cat.id }}">Add detail</button>{% endif %}
+          <button class="btn small" form="{{ fid }}" name="action" value="archive">Archive</button>
+          <button class="btn small danger" form="{{ fid }}" name="action" value="delete" data-confirm-delete>Delete</button></span></td>
+      </tr>
+      {% if row.level == 2 %}<tr class="cat-add level-3" data-add-row="{{ cat.id }}" hidden><td></td><td></td>
+        <td colspan="2"><form id="add-{{ cat.id }}" method="post" action="/categories/add-row"><input type="hidden" name="parent_id" value="{{ cat.id }}"><input type="hidden" name="__session" value="{{ session }}"></form>{{ edit_fields(none, 'add-' ~ cat.id) }}</td>
+        <td class="cat-actions"><button class="btn small primary" form="add-{{ cat.id }}">Add</button><button type="button" class="btn small" data-cancel>Cancel</button></td></tr>{% endif %}
       {% endfor %}
-    </ul>
-    <div style="margin-top:12px"><a class="btn small" href="/categories/new?parent={{ group.id }}">Add category</a></div>
-  </section>
-  {% endfor %}
+    </tbody>
+    {% endfor %}
+    {% if show_archived and archived %}
+    <tbody class="cat-group is-archived">
+      <tr class="cat-l1"><th colspan="5">Archived<small>Not offered when you record a transaction</small></th></tr>
+      {% for cat in archived %}<tr class="cat-row level-2 is-off"><td><input type="checkbox" class="category-select" name="category_ids" value="{{ cat.id }}" form="category-bulk-form" aria-label="Select {{ cat.name }}"></td><td>{{ sign(cat) }}</td>
+        <td class="cat-name">{{ cat.name }}</td><td></td>
+        <td class="cat-actions"><form method="post" action="/categories/{{ cat.id }}/row"><input type="hidden" name="__session" value="{{ session }}"><button class="btn small" name="action" value="activate">Activate</button><button class="btn small danger" name="action" value="delete" data-confirm-delete>Delete</button></form></td></tr>{% endfor %}
+    </tbody>{% endif %}
+  </table>
 </div>
 <script nonce="{{ request.state.csp_nonce|default('') }}">
 (() => {
+  const table = document.querySelector('.cat-table');
+  const close = () => table.querySelectorAll('tr.editing').forEach((tr) => tr.classList.remove('editing'));
+  const syncToggles = (scope) => scope.querySelectorAll('.cat-edit-fields').forEach((box) => {
+    const dir = box.querySelector('select[name=direction]')?.value || 'OUT';
+    box.querySelectorAll('.cat-toggle').forEach((t) => { t.hidden = !t.dataset.for.split(' ').includes(dir); });
+  });
+  const open = (tr) => { if (tr.classList.contains('editing')) return; close(); tr.classList.add('editing'); syncToggles(tr); tr.querySelector('input[name=name]')?.focus(); };
+  table.addEventListener('click', (e) => {
+    const add = e.target.closest('[data-add-under]');
+    if (add) { e.stopPropagation(); close(); table.querySelectorAll('tr.cat-add').forEach((r) => { r.hidden = true; });
+      const row = table.querySelector(`tr[data-add-row="${add.dataset.addUnder}"]`); row.hidden = false; syncToggles(row); row.querySelector('input[name=name]').focus(); return; }
+    if (e.target.closest('[data-cancel]')) { e.stopPropagation(); close(); e.target.closest('tr.cat-add')?.setAttribute('hidden', ''); return; }
+    const tr = e.target.closest('tr[data-row]');
+    if (tr && !e.target.closest('input[type=checkbox],button,select,a')) open(tr);
+  });
+  document.addEventListener('click', (e) => { if (!e.target.closest('.cat-table')) close(); });
+  table.addEventListener('keydown', (e) => {
+    const tr = e.target.closest('tr[data-row]');
+    if (e.key === 'Enter' && e.target === tr) { e.preventDefault(); open(tr); }
+    if (e.key === 'Escape') close();
+  });
+  table.addEventListener('change', (e) => { if (e.target.name === 'direction') syncToggles(e.target.closest('tr')); });
+  document.querySelectorAll('[data-confirm-delete]').forEach((b) => b.addEventListener('click', (e) => {
+    if (!window.confirm('Delete this category? If it has history or is in use, it will be archived instead.')) e.preventDefault();
+  }));
   const checks = [...document.querySelectorAll('.category-select')];
   const all = document.getElementById('select-all-categories');
   const count = document.getElementById('category-selection-count');
+  const sync = () => { const n = checks.filter((b) => b.checked).length; count.textContent = `${n} selected`;
+    all.checked = checks.length > 0 && n === checks.length; all.indeterminate = n > 0 && n < checks.length; };
+  all?.addEventListener('change', () => { checks.forEach((b) => { b.checked = all.checked; }); sync(); });
+  checks.forEach((b) => b.addEventListener('change', sync));
+  document.querySelector('[data-category-bulk]')?.addEventListener('submit', (e) => {
+    if (!checks.some((b) => b.checked)) { e.preventDefault(); window.alert('Select at least one category first.'); return; }
+    if (e.submitter?.value === 'delete' && !window.confirm('Delete selected categories? Categories in use will be archived instead.')) e.preventDefault();
+  });
   const search = document.getElementById('category-search');
   const resultCount = document.getElementById('category-result-count');
-  const groups = [...document.querySelectorAll('.workspace-grid > section')];
   const filter = () => {
-    const query = search.value.trim().toLocaleLowerCase();
-    let visible = 0;
-    groups.forEach((group) => {
-      const rows = [...group.querySelectorAll('[data-category-name]')];
-      let groupVisible = 0;
-      rows.forEach((row) => { row.hidden = !row.dataset.categoryName.includes(query); if (!row.hidden) groupVisible++; });
-      group.hidden = groupVisible === 0;
-      visible += groupVisible;
+    const q = search.value.trim().toLocaleLowerCase(); let visible = 0;
+    document.querySelectorAll('[data-group]').forEach((g) => {
+      let n = 0; g.querySelectorAll('[data-category-name]').forEach((r) => { r.hidden = !r.dataset.categoryName.includes(q); if (!r.hidden) n++; });
+      g.hidden = q && n === 0; visible += n;
     });
-    resultCount.textContent = query ? `${visible} matching categories` : `${visible} categories`;
+    resultCount.textContent = q ? `${visible} matching` : `${visible} categories`;
   };
-  search?.addEventListener('input', filter);
-  const sync = () => {
-    const selected = checks.filter((box) => box.checked).length;
-    count.textContent = `${selected} selected`;
-    all.checked = checks.length > 0 && selected === checks.length;
-    all.indeterminate = selected > 0 && selected < checks.length;
-  };
-  all?.addEventListener('change', () => { checks.forEach((box) => { box.checked = all.checked; }); sync(); });
-  checks.forEach((box) => box.addEventListener('change', sync));
-  document.querySelectorAll('[data-category-row-action]').forEach((form) => form.addEventListener('submit', (event) => {
-    if (event.submitter?.value === 'delete' && !window.confirm('Delete this category? If it has history or is in use, it will be archived instead.')) event.preventDefault();
-  }));
-  document.querySelector('[data-category-bulk]')?.addEventListener('submit', (event) => {
-    if (!checks.some((box) => box.checked)) { event.preventDefault(); window.alert('Select at least one category first.'); return; }
-    if (event.submitter?.value === 'delete' && !window.confirm('Delete selected categories? Categories in use will be archived instead.')) event.preventDefault();
-  });
-  sync();
-  filter();
+  search.addEventListener('input', filter); sync(); filter();
 })();
 </script>
 {% endblock %}

@@ -102,6 +102,52 @@ class BudgetService:
                     result[cid] = (amount, False, None, None)
         return result
 
+    # -- category flags kept with the budget settings (one list each, edited from Categories or Budget)
+    def _id_list(self, key: str) -> set[int] | None:
+        raw = self.db.scalar("SELECT value FROM settings WHERE key=?", (key,))
+        if raw is None:
+            return None
+        try:
+            return {int(value) for value in json.loads(raw)}
+        except (ValueError, TypeError):
+            return set()
+
+    def _save_id_list(self, key: str, ids: set[int]) -> None:
+        from lightning.database.settings import SettingsStore
+        SettingsStore(self.db).set(key, json.dumps(sorted(ids)))
+
+    def recurring_income_ids(self) -> set[int]:
+        """Income categories you can count on (salary, rent received): the income average and the
+        forecast use these. Bonuses and other irregular income are left out."""
+        chosen = self._id_list("budget_income_categories")
+        if chosen is None:
+            chosen = {category.id for category in self.categories.tree() if category.income_class is not None
+                      and category.code != "EXP.WORK.BONUS" and (category.family == CategoryFamily.WORK or any(
+                          word in category.name.casefold() for word in ("salary", "wage", "pay")))}
+        return chosen
+
+    def set_recurring_income(self, category_id: int, recurring: bool) -> None:
+        ids = self.recurring_income_ids()
+        ids = ids | {category_id} if recurring else ids - {category_id}
+        self._save_id_list("budget_income_categories", ids)
+
+    def one_off_ids(self, with_children: bool = True) -> set[int]:
+        """Expense categories marked one-off: their spending stays in cash flow and analysis but is
+        left out of the budget's totals and of every estimate."""
+        ids = self._id_list("budget_one_off_exclusions") or set()
+        if with_children:
+            for category_id in list(ids):
+                try:
+                    ids |= {child.id for child in self.categories.descendants(category_id)}
+                except Exception:
+                    continue
+        return ids
+
+    def set_one_off(self, category_id: int, one_off: bool) -> None:
+        ids = self.one_off_ids(with_children=False)
+        ids = ids | {category_id} if one_off else ids - {category_id}
+        self._save_id_list("budget_one_off_exclusions", ids)
+
     def budgeting_income(self, month: str) -> Decimal | None:
         """Average monthly income for a month's budget (see income_average)."""
         return self.income_average(month).amount
@@ -110,16 +156,9 @@ class BudgetService:
         """Average monthly income: owned income in the chosen income categories, averaged over
         the last 3 (or 6) completed months before `month` that had any. A manual amount in
         Settings replaces the average. The budget, reserves and the cash forecast all use this."""
-        configured = self.db.scalar("SELECT value FROM settings WHERE key='budget_income_categories'")
-        try:
-            chosen = {int(value) for value in json.loads(configured)} if configured else set()
-        except (ValueError, TypeError):
-            chosen = set()
+        chosen = self.recurring_income_ids()
         categories = self.categories.tree()
         by_code = {category.code: category for category in categories}
-        if configured is None:
-            chosen = {category.id for category in categories if category.family == CategoryFamily.WORK or
-                      any(word in category.name.casefold() for word in ("salary", "wage", "pay"))}
         raw_months = self.db.scalar("SELECT value FROM settings WHERE key='budget_income_months'") or "3"
         lookback = 6 if str(raw_months) == "6" else 3
         manual = self.db.scalar("SELECT value FROM settings WHERE key='budget_manual_monthly_income'")
@@ -155,13 +194,16 @@ class BudgetService:
             if c.parent_id in by_id:
                 children.setdefault(c.parent_id, []).append(c.id)
 
+        one_offs = self.one_off_ids()
         actual: dict[int, Decimal] = {}
         planned_actual: dict[int, Decimal] = {}
         budget: dict[int, Decimal | None] = {}
         average_cache: dict[tuple[int, int], Decimal | None] = {}
         for c in reversed(cats):  # children before parents
             kids = children.get(c.id, [])
-            actual[c.id] = spent.get(c.id, ZERO) + sum((actual[k] for k in kids), ZERO)
+            # A one-off child keeps its own actual but does not add to its parent's (unless it has a plan).
+            actual[c.id] = spent.get(c.id, ZERO) + sum((actual[k] for k in kids
+                                                        if k not in one_offs or k in direct), ZERO)
             if c.id in direct:
                 amount, _, period, percent = direct[c.id]
                 budget[c.id] = amount
@@ -196,7 +238,10 @@ class BudgetService:
         for c in cats:
             section = sections["INVESTMENT"] if c.family == CategoryFamily.INVESTMENT else sections[c.scope or Scope.PERSONAL]
             covered = ancestor_has_direct(c)
-            if c.id not in direct and not covered:
+            if c.id in one_offs and c.id not in direct:
+                if c.parent_id not in one_offs:
+                    section.one_off += actual[c.id]
+            elif c.id not in direct and not covered:
                 section.unbudgeted += spent.get(c.id, ZERO)
             shows = c.active or actual[c.id] != ZERO or c.id in direct
             if c.is_system and actual[c.id] == ZERO and c.id not in direct:

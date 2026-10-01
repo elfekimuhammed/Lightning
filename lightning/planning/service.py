@@ -20,7 +20,7 @@ MATCH_WINDOW_DAYS = 7
 MATCH_TOLERANCE = {PlanKind.LOAN: Decimal("0.01")}
 DEFAULT_TOLERANCE = Decimal("0.10")
 SUGGESTION_MINIMUM = Decimal("50")  # recurring amounts below this are not suggested
-LOAN_CATEGORY = "EXP.PERSONAL.LOANS"
+LOAN_CATEGORY = "EXP.SYSTEM.LOANS"
 
 
 class PlanningService:

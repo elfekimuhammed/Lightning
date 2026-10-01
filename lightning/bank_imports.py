@@ -267,7 +267,7 @@ class BankImportService:
                 or self._transfer_target_suggestion(batch["account_id"], parsed["Counterparty"])
                 or self._matching_bank_transfer(batch["account_id"], parsed))
             category = self.categories.get(parsed["_category_id"]) if parsed["_category_id"] else None
-            parsed["_is_custody"] = bool(category and category.code == "EXP.PERSONAL.CUSTODY")
+            parsed["_is_custody"] = bool(category and category.code == "EXP.SYSTEM.CUSTODY")
             # Keep the canonical owner ready in the form: the user may choose
             # the custody category during review rather than in the CSV.
             parsed["_whom"] = cp["name"] if cp and cp["active"] else ""
@@ -485,7 +485,7 @@ class BankImportService:
                 notes=notes, source=TxnSource.IMPORT,
             )
             category = self.categories.get(int(category_id)) if category_id else None
-            if category and category.code == "EXP.PERSONAL.CUSTODY" and self.money_from_others:
+            if category and category.code == "EXP.SYSTEM.CUSTODY" and self.money_from_others:
                 owner_choice = str(decision.get("owner_choice", ""))
                 if owner_choice == "self":
                     whom = "self"
@@ -515,7 +515,7 @@ class BankImportService:
             self.categories.require(int(category_id), movement, allow_system=True)
             category = self.categories.get(int(category_id))
             owner = None
-            if category.code == "EXP.PERSONAL.CUSTODY":
+            if category.code == "EXP.SYSTEM.CUSTODY":
                 owner_choice = str(decision.get("owner_choice", ""))
                 if owner_choice == "self":
                     whom = "self"

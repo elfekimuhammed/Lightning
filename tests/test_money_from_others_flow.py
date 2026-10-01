@@ -7,7 +7,7 @@ from lightning.core.errors import ValidationError
 
 def test_custody_category_links_cash_transaction_and_excludes_it_from_owned_totals(c):
     bank = c.account_flows.open_account("CIB", "BANK", "2026-09-01", "1000")
-    category = c.categories.get_by_code("EXP.PERSONAL.CUSTODY")
+    category = c.categories.get_by_code("EXP.SYSTEM.CUSTODY")
     dad_id = c.counterparties.create("Dad")
     dad = c.counterparties.get(dad_id)["name"]
 
@@ -47,7 +47,7 @@ def test_investment_units_can_be_attributed_to_another_person(c, setup):
 
 def test_csv_import_can_tag_held_for_others_with_whom(c):
     bank = c.account_flows.open_account("CIB", "BANK", "2026-09-01", "1000")
-    category = c.categories.get_by_code("EXP.PERSONAL.CUSTODY")
+    category = c.categories.get_by_code("EXP.SYSTEM.CUSTODY")
     c.counterparties.create("Dad")
     batch_id, repeated = c.bank_imports.stage(
         bank.id, "statement.csv",
@@ -68,7 +68,7 @@ def test_csv_import_can_tag_held_for_others_with_whom(c):
 def test_import_uses_transfer_note_suggestion_and_posts_custody_rows_chronologically(c, setup):
     accounts, _ = setup
     source, target = accounts["cib"], accounts["thndr"]
-    category = c.categories.get_by_code("EXP.PERSONAL.CUSTODY")
+    category = c.categories.get_by_code("EXP.SYSTEM.CUSTODY")
     c.counterparties.create("Dad")
     # Banks commonly export newest first. Dad's receipt must post before the
     # later transfer, even though the transfer appears first in the CSV.
@@ -101,7 +101,7 @@ def test_import_uses_transfer_note_suggestion_and_posts_custody_rows_chronologic
 
 def test_import_posts_valid_rows_and_keeps_only_failed_rows_in_review(c):
     bank = c.account_flows.open_account("CIB", "BANK", "2026-09-01", "1000")
-    custody = c.categories.get_by_code("EXP.PERSONAL.CUSTODY")
+    custody = c.categories.get_by_code("EXP.SYSTEM.CUSTODY")
     c.counterparties.create("Dad")
     batch_id, _ = c.bank_imports.stage(
         bank.id, "partial.csv",
@@ -136,7 +136,7 @@ def test_internal_transfer_moves_custody_cash_without_double_counting(c, setup):
     source, target = accounts["cib"], accounts["thndr"]
     dad_id = c.counterparties.create("Dad")
     dad = c.counterparties.get(dad_id)["name"]
-    category = c.categories.get_by_code("EXP.PERSONAL.CUSTODY")
+    category = c.categories.get_by_code("EXP.SYSTEM.CUSTODY")
     receipt = c.transactions.record_in_account(source.id, "2026-09-10", "1000", category.id,
                                                owner_id=dad_id)
 

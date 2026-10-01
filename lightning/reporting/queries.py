@@ -51,7 +51,7 @@ class ReportQueries:
             f" FROM ledger_entries le {POSTED}"
             f" WHERE le.date BETWEEN ? AND ? AND le.category_id IS NOT NULL"
             f" AND le.effect IN ('INFLOW','OUTFLOW')"
-            " AND COALESCE(le.category_id,0) NOT IN (SELECT id FROM categories WHERE code='EXP.PERSONAL.CUSTODY')"
+            " AND COALESCE(le.category_id,0) NOT IN (SELECT id FROM categories WHERE code='EXP.SYSTEM.CUSTODY')"
             " AND le.owner_id IS NULL"
             " GROUP BY le.category_id, le.effect",
             (date_from, date_to),
@@ -67,7 +67,7 @@ class ReportQueries:
             f" FROM ledger_entries le {POSTED}"
             f" WHERE le.date BETWEEN ? AND ? AND le.category_id IS NOT NULL"
             f" AND le.effect IN ('INFLOW','OUTFLOW')"
-            " AND COALESCE(le.category_id,0) NOT IN (SELECT id FROM categories WHERE code='EXP.PERSONAL.CUSTODY')"
+            " AND COALESCE(le.category_id,0) NOT IN (SELECT id FROM categories WHERE code='EXP.SYSTEM.CUSTODY')"
             " AND le.owner_id IS NULL",
             (date_from, date_to),
         )
@@ -77,7 +77,7 @@ class ReportQueries:
         rows = self.db.all(
             f"SELECT substr(le.date, 1, 7) AS month, le.effect, SUM(le.amount_base_e6) AS total"
             f" FROM ledger_entries le {POSTED} WHERE le.date BETWEEN ? AND ?"
-            " AND COALESCE(le.category_id,0) NOT IN (SELECT id FROM categories WHERE code='EXP.PERSONAL.CUSTODY')"
+            " AND COALESCE(le.category_id,0) NOT IN (SELECT id FROM categories WHERE code='EXP.SYSTEM.CUSTODY')"
             " AND le.owner_id IS NULL"
             f" GROUP BY month, le.effect ORDER BY month",
             (date_from, date_to),

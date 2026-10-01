@@ -50,9 +50,9 @@ def build_demo(c, as_of: date | None = None) -> dict:
     cat = {code: c.categories.get_by_code(code).id for code in (
         "EXP.WORK.SALARY", "EXP.PERSONAL.HOUSING", "EXP.PERSONAL.FOOD", "EXP.PERSONAL.DINING",
         "EXP.PERSONAL.TRANSPORT", "EXP.PERSONAL.UTILITIES", "EXP.PERSONAL.GIFTS", "EXP.INVEST.INTEREST",
-        "EXP.PERSONAL.FEES", "EXP.PERSONAL.CUSTODY", "EXP.PERSONAL.SHOPPING")}
+        "EXP.PERSONAL.FEES", "EXP.SYSTEM.CUSTODY", "EXP.PERSONAL.SHOPPING")}
     flows, tx = c.account_flows, c.transactions
-    loan_category = c.categories.get_by_code("EXP.PERSONAL.LOANS").id
+    loan_category = c.categories.get_by_code("EXP.SYSTEM.LOANS").id
 
     with c.db.transaction():
         # ------------------------------------------------------------ ledger: accounts
@@ -97,7 +97,7 @@ def build_demo(c, as_of: date | None = None) -> dict:
         when = _on(months[1], 10, day)
         if when:
             mom = c.counterparties.resolve("Mom")
-            txn = tx.record_inflow(when, cib.id, "10,000", cat["EXP.PERSONAL.CUSTODY"], counterparty="Mom",
+            txn = tx.record_inflow(when, cib.id, "10,000", cat["EXP.SYSTEM.CUSTODY"], counterparty="Mom",
                                    owner_id=mom["id"] if mom else None)
             c.money_from_others.sync_transaction(txn.id, txn.date, "Mom", cib.id, D("10000"), "Kept for Mom")
 

@@ -7,7 +7,7 @@ import sqlite3
 from lightning.core.dates import now_iso
 from lightning.database.connection import Database
 
-from .domain import Category, CategoryFamily, IncomeClass, Movement, Scope
+from .domain import Category, CategoryFamily, Direction, IncomeClass, Movement, Scope
 
 
 def _row(row: sqlite3.Row) -> Category:
@@ -24,6 +24,7 @@ def _row(row: sqlite3.Row) -> Category:
         is_system=bool(row["is_system"]),
         active=bool(row["active"]),
         sort_order=row["sort_order"],
+        direction_set=Direction(row["direction"]) if "direction" in row.keys() and row["direction"] else None,
     )
 
 
@@ -57,8 +58,8 @@ class CategoryRepository:
         now = now_iso()
         cur = self.db.execute(
             "INSERT INTO categories(code, name, parent_id, movement, scope, income_class, family,"
-            " default_reimbursable, is_system, active, sort_order, created_at, updated_at)"
-            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            " default_reimbursable, is_system, active, sort_order, direction, created_at, updated_at)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (
                 c.code,
                 c.name,
@@ -71,6 +72,7 @@ class CategoryRepository:
                 int(c.is_system),
                 int(c.active),
                 c.sort_order,
+                c.direction_set.value if c.direction_set else None,
                 now,
                 now,
             ),
@@ -79,17 +81,19 @@ class CategoryRepository:
 
     def update(self, c: Category) -> None:
         self.db.execute(
-            "UPDATE categories SET code=?, name=?, scope=?, income_class=?, family=?, default_reimbursable=?,"
-            " active=?, sort_order=?, updated_at=? WHERE id=?",
+            "UPDATE categories SET code=?, name=?, movement=?, scope=?, income_class=?, family=?, default_reimbursable=?,"
+            " active=?, sort_order=?, direction=?, updated_at=? WHERE id=?",
             (
                 c.code,
                 c.name,
+                c.movement.value,
                 c.scope.value if c.scope else None,
                 c.income_class.value if c.income_class else None,
                 c.family.value if c.family else None,
                 int(c.default_reimbursable),
                 int(c.active),
                 c.sort_order,
+                c.direction_set.value if c.direction_set else None,
                 now_iso(),
                 c.id,
             ),

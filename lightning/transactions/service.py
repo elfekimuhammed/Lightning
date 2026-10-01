@@ -80,7 +80,7 @@ class TransactionService:
         category = self.categories.require(category_id, Movement.OUTFLOW, allow_system=category_obj.is_system)
         if category.movement != Movement.OUTFLOW:
             raise ValidationError("Choose an expense category for a refund.", "category")
-        if category.code == "EXP.PERSONAL.CUSTODY":
+        if category.code == "EXP.SYSTEM.CUSTODY":
             raise ValidationError("Money held for others cannot be recorded as an expense refund.", "category")
         line = PostingLine.cash(account.id, asset.id, value, Effect.OUTFLOW, category.id,
                                 memo="Refund", fx_rate=self._fx(account), owner_id=owner_id)
@@ -184,7 +184,7 @@ class TransactionService:
         category = self.categories.require(category_id, Movement.OUTFLOW, allow_system=category_obj.is_system)
         if category.movement != Movement.OUTFLOW:
             raise ValidationError("Choose an expense category for a refund.", "category")
-        if category.code == "EXP.PERSONAL.CUSTODY":
+        if category.code == "EXP.SYSTEM.CUSTODY":
             raise ValidationError("Money held for others cannot be recorded as an expense refund.", "category")
         line = PostingLine.cash(account.id, asset.id, value, Effect.OUTFLOW, category.id,
                                 memo="Refund", fx_rate=self._fx(account), owner_id=owner_id)
@@ -367,7 +367,7 @@ class TransactionService:
         if len(account_ids) != 1:
             raise ValidationError("This expense cannot be split across accounts.")
         total = -sum((line.quantity for line in cash_lines), ZERO)
-        if any(self.categories.get(line.category_id).code == "EXP.PERSONAL.CUSTODY"
+        if any(self.categories.get(line.category_id).code == "EXP.SYSTEM.CUSTODY"
                for line in cash_lines if line.category_id):
             raise ValidationError("Money held for others cannot be split as a personal expense.")
         parsed: list[tuple[int, Decimal]] = []
@@ -378,7 +378,7 @@ class TransactionService:
             category = self.categories.require(category_id, Movement.OUTFLOW)
             if category.movement != Movement.OUTFLOW:
                 raise ValidationError("Choose an expense category for each split row.", "split_category_id")
-            if category.code == "EXP.PERSONAL.CUSTODY":
+            if category.code == "EXP.SYSTEM.CUSTODY":
                 raise ValidationError("Money held for others cannot be split as a personal expense.")
             parsed.append((category.id, amount))
         if not parsed:

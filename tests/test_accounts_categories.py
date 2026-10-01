@@ -115,13 +115,45 @@ class TestCategories:
             c.categories.create(personal.id, "مواصلات")
         assert c.categories.create(personal.id, "مواصلات", "MICROBUS").name == "مواصلات"
 
-    def test_categories_stop_at_l2(self, c):
+    def test_categories_go_to_l3_and_stop_there(self, c):
         food = c.categories.get_by_code("EXP.PERSONAL.FOOD")
-        with pytest.raises(ValidationError, match="stop at L2"):
-            c.categories.create(food.id, "Groceries")
-        assert all(category.depth == 2 for category in c.categories.pickable())
-        assert all(category.depth <= 2 for _, items in c.categories.groups() for category in items)
-        assert [group.name for group, _ in c.categories.groups()] == ["Personal", "Work", "Investment"]
+        groceries = c.categories.create(food.id, "Groceries")
+        assert groceries.code == "EXP.PERSONAL.FOOD.GROCERIES" and groceries.depth == 3
+        with pytest.raises(ValidationError, match="stop at L3"):
+            c.categories.create(groceries.id, "Vegetables")
+        assert groceries.id in {category.id for category in c.categories.pickable()}
+        assert c.categories.find_by_text("Groceries").id == groceries.id
+        table = dict((l1.name, rows) for l1, rows in c.categories.table())
+        assert list(table) == ["Personal", "Work", "Investment", "System"]
+        personal = [(row["category"].name, row["level"], row["has_children"]) for row in table["Personal"]]
+        assert ("Food & Groceries", 2, True) in personal and ("Groceries", 3, False) in personal
+        assert personal.index(("Groceries", 3, False)) == personal.index(("Food & Groceries", 2, True)) + 1
+        # Money held for others and loan payments live in System, and keep working there.
+        system = [row["category"].code for row in table["System"]]
+        assert "EXP.SYSTEM.CUSTODY" in system and "EXP.SYSTEM.LOANS" in system
+
+    def test_direction_soft_groups_income_and_expense(self, c):
+        table = dict((l1.name, rows) for l1, rows in c.categories.table())
+        signs = [row["category"].sign for row in table["Work"] if row["level"] == 2]
+        assert signs == sorted(signs, key="+−±".index)  # + income first, then − expense, then ± both
+        meals = c.categories.get_by_code("EXP.WORK.MEALS")
+        c.categories.set_direction(meals.id, "BOTH")
+        assert c.categories.get(meals.id).sign == "±"
+        c.categories.set_direction(meals.id, "IN")
+        meals = c.categories.get(meals.id)
+        assert meals.sign == "+" and meals.income_class is not None and meals.scope is None
+        c.categories.set_direction(meals.id, "OUT")
+        meals = c.categories.get(meals.id)
+        assert meals.sign == "−" and meals.income_class is None and meals.scope.value == "WORK"
+        with pytest.raises(ValidationError):
+            c.categories.set_direction(c.categories.get_by_code("EXP.SYSTEM.CUSTODY").id, "OUT")
+
+    def test_archived_categories_leave_the_table(self, c):
+        travel = c.categories.get_by_code("EXP.PERSONAL.TRAVEL")
+        c.categories.update(travel.id, travel.name, active=False)
+        names = {row["category"].name for _, rows in c.categories.table() for row in rows}
+        assert "Travel" not in {row["category"].name for l1, rows in c.categories.table() if l1.name == "Personal" for row in rows}
+        assert travel.id in {category.id for category in c.categories.archived()}
 
     def test_category_suggestions_flag_near_duplicates(self, c):
         matches = c.categories.suggestions("Food and Groceries", c.categories.get_by_code("EXP.PERSONAL").id)
@@ -176,3 +208,42 @@ class TestCategories:
         c.categories.update(personal.id, personal.name, active=False)
         dining = c.categories.get_by_code("EXP.PERSONAL.DINING")
         assert dining.id not in {x.id for x in c.categories.pickable(Movement.OUTFLOW)}
+
+
+def test_categories_table_edits_in_place_and_keeps_flags_with_the_budget(c):
+    from fastapi.testclient import TestClient
+    from lightning.ui.web import create_app
+    client = TestClient(create_app(c))
+    page = client.get("/categories").text
+    assert "Personal" in page and "System" in page and 'class="cat-row level-2' in page
+    assert "Personal ›" not in page  # names, never a breadcrumb list
+    food = c.categories.get_by_code("EXP.PERSONAL.FOOD")
+    r = client.post("/categories/add-row", data={"parent_id": food.id, "name": "Groceries", "direction": "OUT"})
+    assert r.status_code == 200 and "Added Personal › Food &amp; Groceries › Groceries" in r.text
+    groceries = c.categories.get_by_code("EXP.PERSONAL.FOOD.GROCERIES")
+    assert 'class="cat-row level-3' in client.get("/categories").text
+    travel = c.categories.get_by_code("EXP.PERSONAL.TRAVEL")
+    client.post(f"/categories/{travel.id}/row", data={"name": "Travel", "direction": "OUT", "one_off": "1"})
+    assert travel.id in c.budgets.one_off_ids()
+    bonus = c.categories.get_by_code("EXP.WORK.BONUS")
+    salary = c.categories.get_by_code("EXP.WORK.SALARY")
+    assert salary.id in c.budgets.recurring_income_ids() and bonus.id not in c.budgets.recurring_income_ids()
+    client.post(f"/categories/{bonus.id}/row", data={"name": "Bonus", "direction": "IN", "recurring": "1"})
+    assert bonus.id in c.budgets.recurring_income_ids()
+    client.post(f"/categories/{groceries.id}/row", data={"action": "archive"})
+    assert not c.categories.get(groceries.id).active
+    assert "Archived (1)" in client.get("/categories").text
+
+
+def test_one_off_spending_stays_in_cash_flow_but_out_of_the_budget(c, setup):
+    accounts, cats = setup
+    travel = c.categories.get_by_code("EXP.PERSONAL.TRAVEL")
+    c.transactions.record_outflow("2026-09-12", accounts["cib"].id, "5000", travel.id)
+    c.transactions.record_outflow("2026-09-13", accounts["cib"].id, "200", cats["EXP.PERSONAL.FOOD"].id)
+    before = c.budgets.month_view("2026-09")
+    c.budgets.set_one_off(travel.id, True)
+    after = c.budgets.month_view("2026-09")
+    personal = lambda view: next(g for s in view.sections for g in s.groups if g.name == "Personal")
+    assert personal(before).actual == 5200 and personal(after).actual == 200
+    assert after.one_off == 5000
+    assert c.reporting.cash_flow("2026-09-01", "2026-09-30").outflows == 5200  # cash flow still sees it

@@ -24,6 +24,7 @@
 {% endif %}
 {% if not period_income %}<p class="muted small">Set your income categories to calculate {{ fig.average_monthly_income.label|lower }} and compare your plan with it. <a href="/settings?section=budget">Budget settings</a></p>{% endif %}
 {% if ceiling_warning %}<p class="notice">{{ ceiling_warning }}</p>{% endif %}
+{% if view.one_off > 0 %}<p class="notice">{{ view.one_off|money }} {{ base }} of one-off spending this month stays in cash flow and is left out of the budget. <a href="/categories">One-off categories</a></p>{% endif %}
 {% for warning in view.warnings %}<p class="notice">{{ warning }}</p>{% endfor %}
 {% if period.key == 'custom' %}<p class="muted small">Custom partial-month plan amounts are prorated reporting estimates; stored monthly rules are unchanged.</p>{% endif %}
 {% if carryover %}<p class="muted small"><a href="/budget/carryover-bridge?month={{ month }}">How carryover changed this plan</a></p>{% endif %}

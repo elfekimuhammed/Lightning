@@ -8,6 +8,27 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### Categories overhaul · 2026-10-01
+- Categories go one level deeper: an L2 can hold L3 detail (Food & Groceries › Groceries). L3 can be chosen
+  on a transaction and rolls up into its L2 everywhere.
+- A fourth top-level group, **System**, holds Money Held for Others and Loan payments (migration
+  `0036_category_direction_and_system.sql`). Both keep their ids, so every transaction keeps its category.
+- Every category shows **+** (income), **−** (expense) or **±** (both). You can change it; inside each group
+  categories are soft-grouped by it, then sorted by name.
+- Income categories are **Recurring** (counted in the income average and the forecast) or **Irregular**
+  (bonuses). Expense categories can be **One-off**: they stay in cash flow and analysis but leave the
+  budget's totals and estimates. Both flags are the same lists as Settings › Budget.
+- The Categories page is one table: L1 as a header, an L2 with detail as a sub-header, L3 indented. Click a
+  row to edit it in place. Archived categories are hidden behind an Archived link.
+- Settings › Budget is compact: fields side by side in groups, choices as chips grouped under their L1.
+
+### Overview 2.5 · 2026-10-01
+- Net worth, Free cash and Net flow are wide split cards: numbers and toggle list left, the visual right.
+- Where money in went is a Sankey; Cash flow has a column waterfall; Investments is its own section.
+- No chart sits behind a toggle; Month by month is stashed (App guideline § 16).
+- Four stat cards: Change in net worth, Savings rate, Investing rate and Left in plan. New figures
+  Change in net worth and Investing rate.
+
 ## [0.4.0b1] — 2026-10-01 — First Windows desktop beta
 
 ### Desktop beta v0.4.0-beta.1 packaging · 2026-10-01

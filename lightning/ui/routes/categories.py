@@ -12,8 +12,62 @@ router = APIRouter(prefix="/categories")
 @router.get("")
 async def list_categories(request: Request):
     c = container(request)
-    groups = [(group, items) for group, items in c.categories.groups() if group.family]
-    return render(request, "categories/list.html", groups=groups, root=c.categories.get_by_code("EXP"))
+    show_archived = request.query_params.get("archived") == "1"
+    return render(request, "categories/list.html", table=c.categories.table(), archived=c.categories.archived(),
+                  show_archived=show_archived, recurring=c.budgets.recurring_income_ids(),
+                  one_offs=c.budgets.one_off_ids(with_children=False), root=c.categories.get_by_code("EXP"))
+
+
+@router.post("/{category_id:int}/row")
+async def save_category_row(request: Request, category_id: int):
+    """The categories table's edit row: name, + / − / ±, recurring (income) or one-off (expense)."""
+    c = container(request)
+    form = await request.form()
+    action = str(form.get("action", "save"))
+    try:
+        cat = c.categories.get(category_id)
+        if action in ("archive", "activate"):
+            c.categories.update(cat.id, cat.name, active=action == "activate")
+            return redirect("/categories", f"{'Activated' if action == 'activate' else 'Archived'} {cat.name}.")
+        if action == "delete":
+            archived = c.categories.delete_or_archive(cat.id)
+            return redirect("/categories", f"{cat.name} has history or is in use, so it was archived."
+                            if archived else f"Deleted {cat.name}.")
+        c.categories.update(cat.id, str(form.get("name", cat.name)), active=cat.active)
+        direction = str(form.get("direction", "")).strip()
+        if direction and direction != cat.direction.value:
+            c.categories.set_direction(cat.id, direction)
+        cat = c.categories.get(cat.id)
+        if cat.direction.value in ("IN", "BOTH") and cat.income_class is not None:
+            c.budgets.set_recurring_income(cat.id, form.get("recurring") == "1")
+        if cat.direction.value in ("OUT", "BOTH"):
+            c.budgets.set_one_off(cat.id, form.get("one_off") == "1")
+    except LightningError as exc:
+        return redirect("/categories", exc.message)
+    return redirect("/categories", f"Saved {c.categories.display_name(category_id)}.")
+
+
+@router.post("/add-row")
+async def add_category_row(request: Request):
+    """Add a category from the table: under an L1 (a category) or under an L2 (L3 detail)."""
+    c = container(request)
+    form = await request.form()
+    try:
+        parent_text = str(form.get("parent_id", ""))
+        if not parent_text.isdigit():
+            raise LightningError("Choose where the category goes.")
+        cat = c.categories.create(int(parent_text), str(form.get("name", "")))
+        direction = str(form.get("direction", "")).strip()
+        if direction and direction != cat.direction.value:
+            c.categories.set_direction(cat.id, direction)
+        cat = c.categories.get(cat.id)
+        if form.get("recurring") == "1" and cat.income_class is not None:
+            c.budgets.set_recurring_income(cat.id, True)
+        if form.get("one_off") == "1" and cat.direction.value in ("OUT", "BOTH"):
+            c.budgets.set_one_off(cat.id, True)
+    except LightningError as exc:
+        return redirect("/categories", exc.message)
+    return redirect("/categories", f"Added {c.categories.display_name(cat.id)}.")
 
 
 @router.get("/new")

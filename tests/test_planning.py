@@ -136,7 +136,7 @@ def test_screens_show_bills_due_and_net_worth(c, setup, monkeypatch):
 def test_loan_payments_count_as_spending_and_leave_net_worth_unchanged(c, setup, monkeypatch):
     monkeypatch.setenv("LIGHTNING_TODAY", "2026-10-31")
     accounts, cats = setup
-    loans_category = c.categories.get_by_code("EXP.PERSONAL.LOANS")
+    loans_category = c.categories.get_by_code("EXP.SYSTEM.LOANS")
     assert loans_category.name == "Loan payments"
     item_id = c.planning.create(kind="LOAN", name="Car loan", amount="2500", frequency="MONTHLY",
                                 start_date="2026-10-05", payment_count="24", account_id=str(accounts["cib"].id))
@@ -201,7 +201,7 @@ def test_manual_link_suggests_only_plausible_transactions(c, setup, monkeypatch)
 def test_a_loan_adds_its_payments_as_a_budget_line(c, setup, monkeypatch):
     monkeypatch.setenv("LIGHTNING_TODAY", "2026-10-06")
     accounts, _ = setup
-    loans = c.categories.get_by_code("EXP.PERSONAL.LOANS")
+    loans = c.categories.get_by_code("EXP.SYSTEM.LOANS")
     assert not c.budgets.has_plan("2026-10")
     c.planning.create(kind="LOAN", name="Car loan", amount="2500", frequency="MONTHLY", start_date="2026-10-05",
                       payment_count="2", account_id=str(accounts["cib"].id))

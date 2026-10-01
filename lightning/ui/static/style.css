@@ -1981,3 +1981,84 @@ a.chart-sankey-label:hover b { color:var(--azure); }
 @media (max-width:560px) { .chart-sankey-label b { font-size:var(--fs-meta); } }
 .main .chart-table { max-width:100%; overflow-x:auto; }
 .main .chart-sankey-plot { overflow:hidden; }
+/* Settings · compact forms: 36px fields, grouped side by side, choices as chips. */
+.main .settings-compact .section-head { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; }
+.main .sc-groups { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; margin-top:12px; }
+.main .sc-group { margin:0; padding:14px 16px 16px; border:1px solid var(--line); border-radius:16px; background:rgba(255,255,255,.6); min-width:0; }
+.main .sc-group.sc-wide { grid-column:1 / -1; }
+.main .sc-group legend { padding:0 6px; font:700 var(--fs-2)/1.3 var(--display); color:var(--ink); }
+.main .sc-row { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px 14px; margin-top:8px; }
+.main .sc-row.three { grid-template-columns:repeat(3,minmax(0,1fr)); }
+.main .sc-row label { display:grid; gap:4px; font:600 var(--fs-meta)/1.3 var(--body); color:var(--ink-2); }
+.main .settings-compact :is(input:not([type=checkbox]),select):not(#_) { height:36px!important; min-height:36px!important; padding:0 12px!important; font-size:var(--fs-2)!important; border-radius:10px!important; }
+.main .sc-unit { position:relative; display:block; }
+.main .sc-unit input { width:100%; padding-right:44px!important; }
+.main .sc-unit i { position:absolute; right:12px; top:50%; transform:translateY(-50%); font:600 var(--fs-meta)/1 var(--body); font-style:normal; color:var(--muted); pointer-events:none; }
+.main .sc-check { display:flex; align-items:center; gap:8px; font:500 var(--fs-2)/1.4 var(--body); color:var(--ink); }
+.main .sc-chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; }
+.main .sc-chips-label { flex-basis:100%; font:600 var(--fs-meta)/1.3 var(--body); color:var(--ink-2); }
+.main .sc-chip { display:inline-flex; align-items:center; gap:6px; height:30px; padding:0 12px 0 8px; border:1px solid var(--line); border-radius:999px; background:var(--surface); font:500 var(--fs-2)/1 var(--body); color:var(--ink); cursor:pointer; }
+.main .sc-chip:has(input:checked) { background:var(--tint-growth); border-color:#BFE3CF; color:var(--positive); }
+.main .sc-chip input { width:14px; height:14px; margin:0; accent-color:var(--meadow-dark); }
+@media (max-width:760px) { .main .sc-groups, .main .sc-row, .main .sc-row.three { grid-template-columns:1fr; } }
+.main .sc-groups-label { display:block; margin-top:14px; }
+.main .sc-cat-groups { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:10px 16px; margin-top:6px; }
+.main .sc-cat-group { padding:10px 0 0; border-top:1px solid var(--line); }
+.main .sc-cat-head { display:flex; align-items:center; gap:8px; font:700 var(--fs-2)/1.3 var(--display); color:var(--ink); }
+.main .sc-cat-head input { accent-color:var(--meadow-dark); }
+.main .sc-cat-group .sc-chips { margin-top:8px; }
+/* Categories · a table you edit in place: L1 as a header, an L2 with detail as a sub-header, L3 indented.
+   Click a row and it becomes its edit form, in the register's soft field style. */
+.main .cat-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:10px 14px; margin:0 0 12px; }
+.main .cat-search input { width:260px; height:36px!important; min-height:36px!important; border-radius:999px!important; }
+.main .cat-legend { flex:1; min-width:260px; font:500 var(--fs-meta)/1.6 var(--body); color:var(--ink-2); }
+.main .cat-card { padding:12px 16px 8px!important; }
+.main .cat-bulk { display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; padding:4px 4px 10px; border-bottom:1px solid var(--line); }
+.main .cat-bulk label { display:flex; align-items:center; gap:6px; font:600 var(--fs-2)/1 var(--body); }
+.main .cat-table { width:100%; border-collapse:collapse; table-layout:fixed; }
+.main .cat-table col.c-check { width:34px; } .main .cat-table col.c-sign { width:36px; }
+.main .cat-table col.c-kind { width:180px; } .main .cat-table col.c-act { width:330px; }
+.main .cat-table td, .main .cat-table th { padding:0 6px; height:40px; border-bottom:1px solid var(--line); vertical-align:middle; text-align:left; }
+.main .cat-l1 th { height:48px; padding-top:14px; font:800 var(--fs-card)/1.2 var(--display); color:var(--ink); border-bottom:1px solid var(--line-control); }
+.main .cat-l1 th small { margin-left:10px; font:500 var(--fs-meta)/1 var(--body); color:var(--muted); }
+.main .cat-l1 td { padding-top:14px; }
+.main .cat-group + .cat-group .cat-l1 th, .main .cat-group + .cat-group .cat-l1 td { padding-top:26px; height:60px; }
+.main .cat-row { cursor:pointer; }
+.main .cat-row:hover td { background:var(--hover); }
+.main .cat-row:focus-visible { outline:2px solid var(--meadow-dark); outline-offset:-2px; }
+.main .cat-row .cat-name { font:500 var(--fs-body)/1.3 var(--body); color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.main .cat-row.is-head .cat-name { font:700 var(--fs-body)/1.3 var(--display); }
+.main .cat-row.level-3 .cat-name, .main .cat-add.level-3 td:nth-child(3) { padding-left:30px; }
+.main .cat-row.level-3 .cat-view::before { content:"↳ "; color:var(--muted); }
+.main .cat-row.is-off .cat-name { color:var(--muted); }
+.main .cat-sign { display:inline-grid; place-items:center; width:22px; height:22px; border-radius:7px; font:800 14px/1 var(--body); }
+.main .cat-sign.is-in { background:var(--tint-growth); color:var(--positive); }
+.main .cat-sign.is-out { background:var(--rose-soft); color:#A02E5A; }
+.main .cat-sign.is-both { background:var(--tint-held); color:#0A5AB0; }
+.main .cat-kind { display:inline-flex; align-items:center; height:22px; padding:0 8px; margin-right:4px; border-radius:999px; background:rgba(10,36,66,.06); font:600 var(--fs-meta)/1 var(--body); color:var(--ink-2); }
+.main .cat-kind.is-recurring { background:var(--tint-growth); color:var(--positive); }
+.main .cat-kind.is-oneoff { background:#FFF3DC; color:#8A5A00; }
+.main .cat-actions { text-align:right!important; white-space:nowrap; }
+.main .cat-actions .btn { margin-left:4px; }
+.main .cat-edit { display:none; }
+.main .cat-row.editing { cursor:default; }
+.main .cat-row.editing td, .main .cat-add td { background:#EEF7F2; }
+.main .cat-row.editing .cat-view { display:none; }
+.main .cat-row.editing .cat-edit { display:inline; }
+.main .cat-row.editing .cat-name { overflow:visible; }
+.main .cat-edit-fields { display:flex; align-items:center; gap:8px; flex-wrap:nowrap; }
+.main .cat-edit-fields :is(input[name=name],select):not(#_) { height:30px!important; min-height:30px!important; padding:0 10px!important; border-radius:8px!important;
+  border:1px solid transparent!important; background:#E2F1E9!important; font-size:var(--fs-2)!important; box-shadow:none!important; }
+.main .cat-edit-fields input[name=name] { flex:1; min-width:120px; }
+.main .cat-edit-fields select { width:118px; }
+.main .cat-edit-fields :is(input[name=name],select):focus { background:#FFFFFF!important; border-color:var(--meadow-dark)!important; outline:0; box-shadow:0 0 0 3px rgba(11,138,95,.12)!important; }
+.main .cat-toggle { display:inline-flex; align-items:center; gap:5px; white-space:nowrap; font:600 var(--fs-meta)/1 var(--body); color:var(--ink-2); }
+.main .cat-toggle[hidden] { display:none; }
+.main .cat-toggle input { accent-color:var(--meadow-dark); }
+.main .cat-row.editing td.cat-name { width:auto; }
+@media (max-width:900px) { .main .cat-table col.c-kind { width:0; } .main .cat-kinds { display:none; } .main .cat-table col.c-act { width:200px; }
+  .main .cat-row.editing td.cat-actions .btn:not(.primary):not([data-cancel]) { display:none; } .main .cat-edit-fields { flex-wrap:wrap; } }
+.main .cat-table col.c-kind { width:140px; } .main .cat-table col.c-act { width:350px; }
+.main .cat-actions .btn:not(#_) { height:30px!important; min-height:30px!important; padding:0 10px!important; font-size:var(--fs-meta)!important; margin-left:3px; }
+.main .cat-table .cat-l1 th:not(#_) { font:800 var(--fs-card)/1.2 var(--display)!important; color:var(--ink)!important; text-transform:none; letter-spacing:-.01em; }
+.main .cat-table .cat-l1 td { border-bottom:1px solid var(--line-control); }

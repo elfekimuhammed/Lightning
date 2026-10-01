@@ -10,7 +10,7 @@ from lightning.core.codes import path_segment, validate_path_code
 from lightning.core.errors import ConflictError, NotFoundError, ValidationError
 from lightning.database.connection import Database
 
-from .domain import Category, Movement
+from .domain import MAX_DEPTH, SYSTEM_CODE, Category, CategoryFamily, Direction, IncomeClass, Movement, Scope
 from .repository import CategoryRepository
 
 
@@ -42,11 +42,11 @@ class CategoryService:
         return ordered
 
     def pickable(self, movement: Movement | None = None) -> list[Category]:
-        """Broad L2 categories users can choose; L3 detail is intentionally not enabled."""
+        """L2 and L3 categories users can choose (an L2 with L3 detail can still be chosen)."""
         return sorted(
             (c for c in self.tree(active_only=True) if not c.is_root and not c.is_system
-             and c.depth == 2 and c.code.startswith("EXP.")
-             and not (movement is not None and c.code == "EXP.PERSONAL.CUSTODY")
+             and 2 <= c.depth <= MAX_DEPTH and c.code.startswith("EXP.")
+             and not (movement is not None and c.code == "EXP.SYSTEM.CUSTODY")
              and (movement is None or c.movement == movement)),
             key=lambda c: (self.display_name(c.id).casefold(), c.id),
         )
@@ -132,6 +132,62 @@ class CategoryService:
             children.sort(key=lambda c: (c.name.casefold(), c.id))
         return result
 
+    L1_ORDER = {"EXP.PERSONAL": 0, "EXP.WORK": 1, "EXP.INVEST": 2, SYSTEM_CODE: 3}
+    DIRECTION_ORDER = {Direction.IN: 0, Direction.OUT: 1, Direction.BOTH: 2}
+
+    def table(self, include_inactive: bool = False) -> list[tuple[Category, list[dict]]]:
+        """The categories page: each L1 with its rows in order. An L2 comes before its L3 detail.
+
+        Inside an L1, categories are soft-grouped by direction (+ income, − expense, ± both) and then
+        sorted by name, so income never mixes into a run of expenses. Each row: {"category", "level",
+        "has_children", "parent"}."""
+        items = [c for c in self.tree() if c.code.startswith("EXP.") and 1 <= c.depth <= MAX_DEPTH
+                 and not c.is_system and (include_inactive or c.active)]
+        kids: dict[int | None, list[Category]] = {}
+        for c in items:
+            kids.setdefault(c.parent_id, []).append(c)
+        key = lambda c: (self.DIRECTION_ORDER[c.direction], c.name.casefold(), c.id)
+        result = []
+        for l1 in sorted((c for c in items if c.depth == 1), key=lambda c: (self.L1_ORDER.get(c.code, 9), c.name.casefold())):
+            rows = []
+            for l2 in sorted(kids.get(l1.id, []), key=key):
+                children = sorted(kids.get(l2.id, []), key=key)
+                rows.append({"category": l2, "level": 2, "has_children": bool(children), "parent": l1})
+                rows += [{"category": l3, "level": 3, "has_children": False, "parent": l2} for l3 in children]
+            result.append((l1, rows))
+        return result
+
+    def archived(self) -> list[Category]:
+        """Archived L2 and L3 categories, for the page's Archived list."""
+        return sorted((c for c in self.tree() if c.code.startswith("EXP.") and c.depth >= 2 and not c.active
+                       and not c.is_system), key=lambda c: self.display_name(c.id).casefold())
+
+    def set_direction(self, category_id: int, direction: Direction | str) -> None:
+        """Choose + income, − expense or ± both. Income and expense also set how reports read it
+        (income kind, or personal / work spending); sub-categories without their own choice follow."""
+        direction = Direction(direction)
+        cat = self.get(category_id)
+        if cat.is_root or cat.depth < 2:
+            raise ValidationError("Choose + or − on a category, not on a top-level group.", "direction")
+        if cat.code == "EXP.SYSTEM.CUSTODY" and direction != Direction.IN:
+            raise ValidationError("Money held for others is always money in.", "direction")
+
+        def applied(c: Category) -> Category:
+            if direction == Direction.BOTH:
+                return replace(c, direction_set=Direction.BOTH)
+            if direction == Direction.IN:
+                income = IncomeClass.INVESTMENT if c.family == CategoryFamily.INVESTMENT else IncomeClass.HOUSEHOLD
+                return replace(c, direction_set=None, movement=Movement.INFLOW, income_class=c.income_class or income,
+                               scope=None)
+            scope = Scope.WORK if c.family == CategoryFamily.WORK else Scope.PERSONAL
+            return replace(c, direction_set=None, movement=Movement.OUTFLOW, income_class=None, scope=c.scope or scope)
+
+        with self.db.transaction():
+            self.repo.update(applied(cat))
+            for child in self.descendants(cat.id):
+                if child.direction_set is None or child.direction_set == cat.direction_set:
+                    self.repo.update(applied(child))
+
     def descendants(self, category_id: int) -> list[Category]:
         root = self.get(category_id)
         return [c for c in self.repo.list() if c.code.startswith(root.code + ".")]
@@ -161,9 +217,9 @@ class CategoryService:
             raise ValidationError("Enter a name.", "name")
         parent = self.get(parent_id)
         if not parent.code.startswith("EXP.") or parent.family is None:
-            raise ValidationError("Add categories inside Personal, Work, or Investment.", "parent")
-        if parent.depth >= 2:
-            raise ValidationError("Categories stop at L2: activity family, then broad category.", "parent")
+            raise ValidationError("Add categories inside Personal, Work, Investment or System.", "parent")
+        if parent.depth >= MAX_DEPTH:
+            raise ValidationError("Categories stop at L3: activity family, category, then detail.", "parent")
         code = self._child_code(parent, code or path_segment(name))
         if self.repo.code_exists(code):
             raise ConflictError(f"The code {code} is already used.", "code")
@@ -182,6 +238,7 @@ class CategoryService:
             is_system=False,
             active=True,
             sort_order=self.repo.next_sort_order(),
+            direction_set=parent.direction_set if parent.depth >= 2 else None,
         )
         with self.db.transaction():
             new_id = self.repo.insert(cat)
