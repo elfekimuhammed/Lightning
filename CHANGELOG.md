@@ -8,6 +8,11 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### Release-readiness and finance audit · 2026-10-01
+- Verified UI fixes: Budget overlap near 941px; Cash planning's tab strip and the shared period pill at 390px; Settings data-card overflow; account and all-transactions registers scrolling inside their cards.
+- Updated Project Overview for the live net-worth history and income audit: Bonus is excluded from the average by default; early January salary booked in December drives the step 17 inflation. Four finance xfails remain open, and no-pay-month averaging has no dedicated assertion. Investments' nine holdings columns versus the guide's five and the own-data dropdown mismatch await owner choices.
+- The profile selfcheck passed all six checks on synthetic data, and the full suite passed with four xfails and two skips. Ordinary Windows PC acceptance is still outstanding; no ZIP has been released. These results do not establish every finance case or an interactive click-through of every control.
+
 ### Shared Codex project context · 2026-10-01
 - Add a short root `AGENTS.md` that routes repository tasks to the current
   product, architecture, visual, glossary and changelog sources without

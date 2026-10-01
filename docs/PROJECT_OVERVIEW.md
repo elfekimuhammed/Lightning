@@ -85,7 +85,7 @@ Each tab answers one main question first, then its natural follow-ups. **Partial
 | What do I owe? | Overview › What you owe; Cash planning › Plan, Loans | Answered |
 | Did it grow this period? | Overview › Change in what you own | Answered |
 | *Why* did it change: saving, prices or new money? | No wealth bridge yet | Partial (M3.2) |
-| How has it moved over the year? | No net-worth history chart | Missing |
+| How has it moved over the year? | Overview › Net worth over time (last 12 month ends) | Answered; wealth-change bridge is still partial (M3.2) |
 
 **2. How much can I spend?**
 
@@ -156,8 +156,8 @@ Each tab answers one main question first, then its natural follow-ups. **Partial
 | Follow-up | Answered by | Status |
 |---|---|---|
 | Where did my bonus go? | Money in › Bonus; Expense analysis for the same period | Answered |
-| Does a bonus change my budget? | Average monthly income counts Bonus by default. On its own, one 90,000 bonus lifts the average from 45,000 to 75,000 for three months, and every `%` budget line, the emergency fund target and the estimated forecast move with it | Wrong (Omar step 17): until the default changes, untick Bonus under Settings › Budget › Income categories to include, or set the average by hand |
-| I changed jobs: what happens to my income figures? | Stop the old salary (its history stays) and add the new one | Bonus is irregular income, so neither the end of service nor the month with no pay lifts the average (Omar steps 26, 27) |
+| Does a bonus change my budget? | `BudgetService.income_average` excludes `EXP.WORK.BONUS` by default; a bonus does not lift Average monthly income | Answered; Omar step 17's average is instead affected by January salary booked in December (step 18) |
+| I changed jobs: what happens to my income figures? | Stop the old salary (its history stays) and add the new one | End-of-service pay is irregular and excluded by default; the no-pay-month average remains a known gap without a dedicated assertion (Omar step 27) |
 | Was I paid my raise? | The account register shows the new amount; Cash planning › Recurring keeps the scheduled payment Due until he links it by hand | Partial |
 
 Money held for others is left out of every owned, budget and performance view. Transfers are never income or spending. Refunds reduce spending in their original category.
@@ -193,7 +193,7 @@ Drive it in a browser through the screens only, and re-run it after any workflow
 | 14 | 18 Oct | Pays a 6,500 car repair from the emergency fund | The fund drops to 13,500; Free cash is unchanged; cash drops by 6,500 | Answered; nothing reminds him to refill the fund |
 | 15 | 20 Nov | Gets a 300 COMI dividend | Money in shows Dividends next to Salary; pay is unchanged | Answered |
 | 16 | 10–22 Dec | Pays a 1,200 work Uber; ACME pays it back | Work spending for December is 0; the refund is not income | Answered |
-| 17 | 20 Dec | ACME pays a 90,000 year-end bonus | Net worth +90,000; Average monthly income stays 45,000 | **Wrong:** 90,000 for January (with step 18) |
+| 17 | 20 Dec | ACME pays a 90,000 year-end bonus | Net worth +90,000; Average monthly income stays 45,000 | **Wrong:** the average is inflated by January's salary booked in December (step 18); Bonus itself is excluded by default |
 | 18 | 24 Dec | January's salary comes before the holidays | It settles January's payment; January's forecast expects no more pay | **Wrong:** January stays Due, the forecast adds 45,000 again, and the average for February reads 112,500 |
 | 19 | Jan–Apr | Plans 9,000 car insurance due 30 April, pays it from the goal | Saving for goals shows 2,250 a month | Answered; but no cash moves into the goal until he assigns it, and it cannot pay the bill until he does |
 | 20 | 1 Feb | Raise to 50,000 | February settles on its own; later payments are planned at 50,000; December stays paid at 45,000 | **Wrong:** 11% is over the 10% tolerance, so it stays Due until he links it; after that, the rest is right |
@@ -203,8 +203,8 @@ Drive it in a browser through the screens only, and re-run it after any workflow
 | 24 | 3 Jun | Rent rises 10% to 13,200 | June settles; July onwards is planned at 13,200 | **Wrong:** matched at 13,200, but July stays planned at 12,000, so the forecast is 1,200 a month short |
 | 25 | Jul–Aug | Sets aside 15,000 for a Sahel trip; spends 14,200 | 800 left in the goal | Answered |
 | 26 | 31 Aug | Leaves ACME with 30,000 end of service; adds Valeo at 55,000 from 1 October | The old salary stops with its history; Average monthly income stays 50,000 | Right since Categories marks Bonus irregular |
-| 27 | Sep | Between jobs, no pay | Next income is Valeo on 1 October; the average does not rise | **Wrong:** months with no income are skipped, so the average for October reads 65,000 |
-| 28 | 30 Sep | Reads the year | Money in 651,300 and Money out 295,186; Change in what you own 357,364; loans still to pay 34,500; Checks pass; nothing is due | Answered, except *why* net worth changed (M3.2) and a net-worth history (missing) |
+| 27 | Sep | Between jobs, no pay | Next income is Valeo on 1 October; the average does not rise | Known gap: no-pay months are skipped; no dedicated assertion currently covers this behavior |
+| 28 | 30 Sep | Reads the year | Money in 651,300 and Money out 295,186; Change in what you own 357,364; loans still to pay 34,500; Checks pass; nothing is due | Answered, except *why* net worth changed (M3.2) |
 
 **Not scripted, because Lightning cannot record them yet:**
 
@@ -240,23 +240,27 @@ The reference apps are YNAB, Monarch, Copilot, Simplifi, Rocket Money, Lunch Mon
 | 4 | One review inbox | Monarch, Copilot "to review" | Import review and Needs you are separate today |
 | 5 | Reminders | Monarch, Rocket Money, Simplifi | A user who doesn't open the app never sees a due bill |
 | 6 | Multi-currency | Lunch Money, YNAB | Many Egyptians keep USD savings or earn USD |
-| 7 | Net-worth and spending history | Monarch | Answers "am I improving?" |
+| 7 | Spending history | Monarch | Answers "am I improving?" |
 | 8 | Give every pound a job | YNAB "Ready to assign" | Closes question 4's last follow-up |
 | 9 | Watchlists | Simplifi | Track one habit without a full budget |
 | 10 | Shared household | Monarch partner access | Couples manage money together |
 | 11 | Guided first setup | Monarch, YNAB onboarding | Omar's first run needed six account forms before seeing anything |
 | 12 | Receipts and attachments | Monarch, Lunch Money | Warranty and gold purchase receipts |
 
-**Wrong today for a salaried user** (Omar steps 17, 18, 20, 24, 26 and 27), to fix before any new feature:
+**Known finance gaps** (strict expected failures are Omar steps 17, 18, 20 and 24; no-pay-month averaging in step 27 has no dedicated assertion):
 
-- **Average monthly income** counts early pay in the month it arrived; date pay to the scheduled payment it settles. (Bonus is now irregular income by default, so a bonus or end of service is no longer averaged as pay.)
-- **Salary matching** ignores a raise over 10% and pay more than 7 days early, and the forecast then counts the salary twice. Match income by counterparty and category over a wider window, whatever the amount.
+- **Average monthly income** counts early pay in the month it arrived; date pay to the scheduled payment it settles. Bonus and end-of-service categories are excluded by default, so they are not the cause of step 17's average inflation.
+- **Salary matching** ignores a raise over 10% and pay more than 7 days early, and the forecast then counts the salary twice. Identify plausible early or changed-amount matches; the owner still needs to decide when to require confirmation and when to automate matching.
 - **A payment matched at a new amount** leaves the plan at the old one. Offer the new amount for later payments.
 - **The emergency fund** should count months of spending, not of income.
 
 Bank sync and bill negotiation are not adopted. Any sync first needs a provider and regional coverage; local CSV stays the foundation. A "safe to spend" figure must always say which obligations and income it includes. Simplifi's projection, which leaves out planned spending, shows why.
 
 ## Roadmap
+
+### Pre-ZIP release readiness
+
+Verified UI fixes: Budget overlap at about 941px, the Cash planning tab strip and shared period pill at 390px, Settings data-card overflow, and account/all-transactions registers now scrolling inside their cards. Investments still shows nine holdings columns against the guide's five, and the own-data dropdown differs from the guide; both await owner choices. Four finance xfails remain open (Omar steps 17, 18, 20 and 24). The profile selfcheck passed all six checks on synthetic data; the full suite passed with four xfails and two skips, which does not establish that every finance case is correct. Acceptance on an ordinary Windows PC remains outstanding before the ZIP release. These checks do not cover an interactive click-through of every control.
 
 | Milestone | State | Next |
 |---|---|---|
@@ -265,7 +269,7 @@ Bank sync and bill negotiation are not adopted. Any sync first needs a provider 
 | M2 Reports and corrections | Partial | Balance adjustments, month close |
 | M3 Manual investments | Shipped | — |
 | M3.1 Instrument catalogue | Partial | Coverage and identifier quality |
-| M3.2 Wealth history | Partial | Wealth-change bridge; owned-only XIRR; net-worth trend |
+| M3.2 Wealth history | Partial | Wealth-change bridge; owned-only XIRR (net-worth trend is shipped) |
 | M4 Market data and FX | Planned | Wider prices, multi-currency accounts, FX revaluation |
 | M6 Deposits and gold details | Planned | CD lifecycle, local gold costs and buyback |
 | Physical gold items | In progress | Item purchase/sale and report integration |

@@ -220,7 +220,7 @@
     <span id="selection-count" class="muted small">0 selected</span>
     <button type="button" class="btn small danger" id="delete-selected">Delete selected</button>
   </div>
-  <table>
+  <div class="register-table-scroll"><table>
     <colgroup>
       <col style="width:42px"><col style="width:176px">{% if show_account %}<col style="width:10%">{% endif %}
       <col style="width:15%"><col style="width:13%">
@@ -270,7 +270,7 @@
       <tr><td colspan="{{ ncols }}" class="empty">{{ 'Nothing matches.' if q or month else 'No transactions yet — add the first one above.' }}</td></tr>
     {% endfor %}
     </tbody>
-  </table>
+  </table></div>
 </div>
 {% if total_pages > 1 %}<nav class="register-pagination" aria-label="Transaction pages"><span class="muted small">Showing {{ (page_number-1)*50+1 }}–{{ [page_number*50,total_rows]|min }} of {{ total_rows }}</span>{% if page_number > 1 %}<a class="btn small" href="{{ base_url }}?{{ page_base_qs ~ '&' if page_base_qs else '' }}page={{ page_number-1 }}">Previous</a>{% endif %}{% if page_number < total_pages %}<a class="btn small" href="{{ base_url }}?{{ page_base_qs ~ '&' if page_base_qs else '' }}page={{ page_number+1 }}">Next</a>{% endif %}</nav>{% endif %}
 
