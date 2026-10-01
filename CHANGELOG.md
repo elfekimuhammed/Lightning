@@ -8,6 +8,14 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### Expense analysis cards · 2026-10-01
+- Money out and the comparisons are one wider card: the amount and a six-month sparkline, then against the
+  period before and against your usual month underneath.
+- New card: Average payment, with how many payments and how many in the period before.
+- Largest payment says how many times the average it is. Stat cards get depth: a top light, a lift on hover.
+- Where did it go is half treemap, half ranked list of the big categories with each one's change against
+  its usual month.
+
 ### Our dropdowns, percent steppers and table rows · 2026-10-01
 - Every select box opens our own list: group headers, details indented, the current choice marked and a search
   on long lists (phones keep their native picker).

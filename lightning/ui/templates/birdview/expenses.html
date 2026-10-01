@@ -12,12 +12,18 @@
 <section class="card empty"><h2>No spending in this period</h2><p>Try a longer period, or review the transactions recorded for these dates.</p><a class="btn" href="/transactions?date_from={{ date_from }}&amp;date_to={{ date_to }}">View transactions</a></section>
 {% else %}
 <header class="overview-section-head inv-head"><h2>Where did it go?</h2><span>{{ date_from }} to {{ date_to }} · categories over 1% of money out</span></header>
-<section class="card wide-card" aria-label="Where it went">
+<section class="card wide-card" aria-label="Where it went"><div class="overview-split">
+  <section><div class="overview-block-head"><div><h3>By category</h3><p>Size is money out</p></div></div>
   <div class="treemap" role="img" aria-label="Money out by category: {% for t in a.tiles %}{{ t.label }} {{ t.value|money }}{{ ', ' if not loop.last }}{% endfor %}">
     {% for t in a.tiles %}{% set tag = 'a' if t.href else 'div' %}<{{ tag }} class="tm-tile step-{{ loop.index0 if loop.index0 < 5 else 5 }}{{ ' is-small' if t.small }}"{% if t.href %} href="{{ t.href }}"{% endif %} style="left:{{ '%.3f'|format(t.x) }}%;top:{{ '%.3f'|format(t.y) }}%;width:{{ '%.3f'|format(t.w) }}%;height:{{ '%.3f'|format(t.h) }}%" title="{{ t.label }} · {{ t.value|money }} · {{ '%.0f'|format(t.share) }}%"><b>{{ t.label }}</b><span>{{ t.value|money }} · {{ '%.0f'|format(t.share) }}%</span></{{ tag }}>{% endfor %}
   </div>
   <details class="chart-table"><summary>Show the numbers</summary><table><thead><tr><th>Category</th><th class="num">Money out</th><th class="num">Share</th></tr></thead><tbody>{% for r in a.rows %}<tr><td>{{ r.name }}</td><td class="num">{{ r.value|money }}</td><td class="num">{{ '%.1f'|format(r.share) }}%</td></tr>{% endfor %}{% if a.small %}<tr><td>Smaller categories</td><td class="num">{{ a.small|money }}</td><td class="num">{{ '%.1f'|format(a.small / a.total * 100) }}%</td></tr>{% endif %}</tbody></table></details>
-</section>
+  </section>
+  <section><div class="overview-block-head"><div><h3>The big categories</h3><p>Share of money out · against each one's usual month</p></div><a class="quiet-link" href="/transactions?date_from={{ date_from }}&amp;date_to={{ date_to }}">Transactions</a></div>
+    <div class="rank-list">{% for r in a.rows %}{% set d = (r.per_month - r.usual) if r.usual is not none else none %}<a class="rank-row" href="{{ r.href }}"><span class="rank-name"><b>{{ r.name }}</b><small>{{ '%.0f'|format(r.share) }}% of money out</small></span><b class="rank-value">{{ r.value|money }}</b><span class="rank-change {{ 'is-up' if d and d > 0 else ('is-down' if d and d < 0 else '') }}">{% if d is none %}—{% elif d == 0 %}as usual{% else %}{{ '+' if d > 0 else '−' }}{{ d|abs|money }}{% endif %}<small>{{ 'vs usual' if d is not none }}</small></span></a>{% endfor %}
+    {% if a.small %}<div class="rank-row is-small"><span class="rank-name"><b>Smaller categories</b><small>each under 1%</small></span><b class="rank-value">{{ a.small|money }}</b><span></span></div>{% endif %}</div>
+  </section>
+</div></section>
 
 <header class="overview-section-head inv-head"><h2 id="usual-heading">Is this period unusual?</h2><span>{{ 'This month' if a.months_in == 1 else 'A month in this period' }} against the {{ a.history_months }} month{{ 's' if a.history_months != 1 }} before it</span></header>
 {% if a.has_history %}

@@ -2392,3 +2392,38 @@ a.chart-sankey-label:hover b { color:var(--azure); }
 .main .cp-table .inline-save-status { font-size:var(--fs-meta); color:var(--muted); }
 /* Cards stacked on a page never touch: one block gap between them. */
 .main > :is(.card, section.card, details.card) + :is(.card, section.card, details.card) { margin-top:var(--gap-block)!important; }
+/* Stat cards with depth: a soft top light, a tinted edge, a lift on hover; and a compare block. */
+.main .stat-tile { box-shadow:0 1px 0 rgba(255,255,255,.9) inset, 0 16px 30px -22px rgba(10,36,66,.55), 0 2px 6px -4px rgba(10,36,66,.18);
+  transition:transform .15s ease, box-shadow .15s ease; }
+.main a.stat-tile:hover { transform:translateY(-2px); box-shadow:0 1px 0 rgba(255,255,255,.9) inset, 0 22px 36px -22px rgba(10,36,66,.6), 0 3px 8px -4px rgba(10,36,66,.2); }
+.main .stat-tile.surface-white { background:linear-gradient(180deg,#FFFFFF 0%,#F7FBF9 100%); }
+.main .stat-tile::after { content:""; position:absolute; left:0; right:0; top:0; height:3px; background:var(--tile-edge, transparent); }
+.main .stat-tile.surface-lead { --tile-edge:linear-gradient(90deg,var(--meadow-dark),#0A9E96); }
+.main .stat-tile.surface-mint { --tile-edge:#9FD8B8; }
+.main .stat-compare { position:relative; z-index:1; display:grid; gap:4px; margin-top:10px; padding-top:8px; border-top:1px solid rgba(10,36,66,.10); }
+.main .stat-compare > span { display:flex; justify-content:space-between; align-items:center; gap:10px; font-size:var(--fs-meta); }
+.main .stat-compare small { color:var(--ink-2); font-size:var(--fs-meta); }
+.main .stat-compare b { display:inline-flex; align-items:center; gap:3px; font:700 var(--fs-meta)/1 var(--body); font-variant-numeric:tabular-nums; white-space:nowrap; color:var(--ink-2); }
+.main .stat-compare b svg { width:11px; height:11px; fill:none; stroke:currentColor; stroke-width:2.6; stroke-linecap:round; stroke-linejoin:round; }
+.main .stat-compare .is-up b { color:var(--rose); } .main .stat-compare .is-down b { color:var(--positive); }
+/* The money-out card is wider: number and sparkline side by side, the two comparisons under them. */
+.main .stat-tiles:has(.stat-tile.has-compare) { grid-template-columns:minmax(0,1.5fr) repeat(3,minmax(0,1fr)); }
+.main .stat-tile.has-compare { display:grid; grid-template-columns:minmax(0,auto) minmax(80px,1fr); grid-template-areas:"head head" "value visual" "compare compare"; column-gap:14px; align-content:start; }
+.main .stat-tile.has-compare .stat-tile-head { grid-area:head; }
+.main .stat-tile.has-compare .stat-tile-value { grid-area:value; margin-top:0; padding-top:12px; align-self:end; }
+.main .stat-tile.has-compare .stat-tile-visual { grid-area:visual; position:relative; inset:auto; width:100%; height:40px; align-self:end; margin-bottom:4px; }
+.main .stat-tile.has-compare .stat-compare { grid-area:compare; }
+@media (max-width:1100px) { .main .stat-tiles:has(.stat-tile.has-compare) { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media (max-width:560px) { .main .stat-tiles:has(.stat-tile.has-compare) { grid-template-columns:1fr; } }
+/* Where did it go: the treemap in one half, the ranked big categories in the other. */
+.main .overview-split .treemap { height:300px; }
+.main .rank-list { display:grid; }
+.main .rank-row { display:grid; grid-template-columns:minmax(0,1fr) auto 110px; align-items:center; gap:12px; min-height:42px; padding:4px 6px; margin:0 -6px; border-radius:10px; border-bottom:1px solid var(--line); color:var(--ink); text-decoration:none; }
+.main a.rank-row:hover { background:var(--hover); }
+.main .rank-name { display:grid; min-width:0; } .main .rank-name b { font:600 var(--fs-2)/1.3 var(--body); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.main .rank-name small { color:var(--muted); font-size:var(--fs-meta); }
+.main .rank-value { font:700 var(--fs-2)/1 var(--body); font-variant-numeric:tabular-nums; }
+.main .rank-change { display:grid; text-align:right; font:700 var(--fs-meta)/1.3 var(--body); font-variant-numeric:tabular-nums; color:var(--ink-2); }
+.main .rank-change small { font-weight:500; color:var(--muted); }
+.main .rank-change.is-up { color:var(--rose); } .main .rank-change.is-down { color:var(--positive); }
+.main .rank-row.is-small { color:var(--muted); }
