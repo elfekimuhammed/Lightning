@@ -1363,3 +1363,28 @@ document.querySelectorAll("[data-month-picker]").forEach((picker) => {
   new MutationObserver((changes) => changes.forEach((change) => change.addedNodes.forEach((node) => node.nodeType === 1 && quiet(node))))
     .observe(document.body, { childList: true, subtree: true });
 })();
+// Explicit delegated replacements for inline event handlers; compatible with
+// script-src-attr 'none' and with controls inserted into finance popups.
+document.addEventListener("submit", (event) => {
+  const message = event.target.dataset.confirm;
+  if (message && !window.confirm(message)) {
+    event.preventDefault(); event.stopImmediatePropagation();
+  }
+}, true);
+document.addEventListener("input", (event) => {
+  if (event.target.matches("[data-filter-holdings]")) window.filterHoldings?.();
+});
+document.addEventListener("change", (event) => {
+  if (event.target.matches("[data-filter-holdings]")) window.filterHoldings?.();
+  if (event.target.matches("[data-submit-on-change]")) event.target.form.requestSubmit();
+});
+document.addEventListener("click", (event) => {
+  const remove = event.target.closest("[data-remove-row]");
+  if (remove) { event.preventDefault(); remove.closest("tr").remove(); }
+  const horizon = event.target.closest("[data-horizon-filter]");
+  if (horizon) {
+    document.getElementById("horizon-filter").value = horizon.dataset.horizonFilter;
+    window.filterHoldings?.();
+    document.getElementById("holdings-table").scrollIntoView({behavior: "smooth"});
+  }
+});

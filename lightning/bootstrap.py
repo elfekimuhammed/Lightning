@@ -18,9 +18,9 @@ from lightning.bank_imports import BankImportService
 from lightning.categories.service import CategoryService
 from lightning.counterparties import CounterpartyService
 from lightning.database.audit import AuditLog
-from lightning.database.backup import backup
+from lightning.database.backup import backup, list_backups
 from lightning.database.connection import Database
-from lightning.database.migrator import migrate
+from lightning.database.migrator import inspect_schema, migrate
 from lightning.database.seed import seed
 from lightning.database.settings import SettingsStore
 from lightning.investments.service import InvestmentService
@@ -64,24 +64,46 @@ class Container:
     planning: PlanningService
     forecaster: CashForecaster
     position: PositionService
+    backup_dir: Path | None = None
 
     @property
     def base_currency(self) -> str:
         return self.settings.base_currency
 
     def backup_now(self) -> Path | None:
-        return backup(self.db, self.data_dir / "backups")
+        return backup(self.db, self.backup_dir or self.data_dir / "backups")
+
+    def backup_files(self) -> list[Path]:
+        folder = self.backup_dir or self.data_dir / "backups"
+        current = [entry.path for entry in list_backups(folder, self.db.path)]
+        # Preserve visibility of old-format files; never automatically prune or
+        # restore legacy copies whose profile identity is not in their filename.
+        import re
+        legacy = [p for p in folder.iterdir() if p.is_file() and re.fullmatch(
+            r"lightning_\d{4}-\d{2}-\d{2}_\d{4}(?:_\d+)?\.db", p.name
+        )] if folder.is_dir() else []
+        return current + sorted(legacy, key=lambda p: p.name, reverse=True)
 
 
-def build(db_path: str | Path | None = None, backup_on_start: bool = False) -> Container:
+def build(db_path: str | Path | None = None, backup_on_start: bool = False, *,
+          key: bytes | None = None, backup_dir: Path | None = None) -> Container:
     db_path = Path(db_path) if db_path else DEFAULT_DATA_DIR / "lightning.db"
     data_dir = db_path.parent
-    db = Database(db_path)
-    if backup_on_start and db_path.exists():
-        backup(db, data_dir / "backups")
-    migrate(db)
-    seed(db)
-    migrate_legacy_ownership(db)
+    existed = db_path.is_file() and db_path.stat().st_size > 0
+    db = Database(db_path, key=key)
+    try:
+        inspection = inspect_schema(db)  # Refuse newer schemas before any write.
+        if existed and (inspection.needs_backup or backup_on_start):
+            saved = backup(db, backup_dir or data_dir / "backups",
+                           pre_upgrade=inspection.needs_backup)
+            if saved is None:
+                raise RuntimeError("A verified backup is required before upgrading")
+        migrate(db)
+        seed(db)
+        migrate_legacy_ownership(db)
+    except BaseException:
+        db.close()
+        raise
     settings = SettingsStore(db)
     base = settings.base_currency
     audit = AuditLog(db)
@@ -126,4 +148,5 @@ def build(db_path: str | Path | None = None, backup_on_start: bool = False) -> C
         planning=planning,
         forecaster=forecaster,
         position=position,
+        backup_dir=backup_dir,
     )

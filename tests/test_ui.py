@@ -174,9 +174,12 @@ def test_category_pages(client, c):
     assert "Category saved" in r.text and c.categories.get(pets.id).name == "Pets & Vet"
 
 
-def test_backup_button(client):
+def test_backup_button(client, c):
     r = client.post("/settings/backup")
-    assert "Backup saved as lightning_" in r.text
+    files = c.backup_files()
+    assert len(files) == 1
+    assert f"Backup saved as {files[0].name}" in r.text
+    assert re.fullmatch(r"test_backup_\d{4}-\d{2}-\d{2}_001_[0-9a-f]{8}\.db", files[0].name)
 
 
 def test_register_entry(client, c, setup):

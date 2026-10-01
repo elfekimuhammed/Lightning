@@ -11,7 +11,7 @@
       <td><input name="rp_{{ row.asset_id }}_{{ row.date }}" class="num" inputmode="decimal" placeholder="Price per unit" required></td></tr>{% endfor %}
   </table>
   <div class="actions" style="margin-top:12px"><button class="btn primary">Save missing prices</button></div>
-</form>
+<input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
 {% endif %}
 <form method="post" class="card" style="max-width:860px" autocomplete="off">
   <div class="field" style="max-width:220px">
@@ -34,5 +34,5 @@
   </table>
   <div class="actions" style="margin-top:14px"><button class="btn primary">Save prices</button><a class="btn" href="/investments">Cancel</a></div>
   <p class="muted small">A price you type wins over the last trade price for the same day. Automatic daily prices (EGX, gold) come in M4.</p>
-</form>
+<input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
 {% endblock %}

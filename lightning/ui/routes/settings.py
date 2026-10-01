@@ -19,8 +19,7 @@ router = APIRouter(prefix="/settings")
 @router.get("")
 async def settings_page(request: Request):
     c = container(request)
-    folder = c.data_dir / "backups"
-    backups = sorted(folder.glob("lightning_*.db"), key=lambda p: p.stat().st_mtime, reverse=True)[:10] if folder.exists() else []
+    backups = c.backup_files()[:10]
     try:
         return_to = request.query_params.get("return_to", "/")
         if not return_to.startswith("/") or return_to.startswith("//") or "\\" in return_to:

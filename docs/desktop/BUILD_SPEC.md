@@ -1,5 +1,7 @@
 # Lightning for Windows: architecture and build spec
 
+> Read [REVIEW_AND_BUILD_PLAN.md](REVIEW_AND_BUILD_PLAN.md) first. Its amendments supersede this draft: one-folder ZIP, password unlock on Windows and Linux, retained Linux browser mode, corrected data lifecycle, and a Windows feasibility gate before the full beta.
+
 **Status: DRAFT, not verified.** Written 2026-09-30 from two research runs (11 agents) over this repo and the upstream sources. The owner asked for the draft without a verification pass. Nothing here has run on Windows. Each claim has an evidence level (see [Evidence levels](#15-evidence-levels)). Treat every `[unverified]` item as a test you must pass before you rely on it.
 
 **Task:** Luna `LIGHTNING-2026-09-30-05`, plus the owner's two additions: *keep security in mind* and *nobody can take the database and open it*.

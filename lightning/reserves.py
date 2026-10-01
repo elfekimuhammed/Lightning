@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import sqlite3
 import calendar
 from datetime import date, timedelta
 from decimal import Decimal
@@ -137,7 +136,7 @@ class CashReserveService:
                  date.fromisoformat(day).day if day and recurrence != "NONE" else None, counterparty_id, category_id, account_id),
             )
             self._record_allocation(int(cur.lastrowid))
-        except sqlite3.IntegrityError:
+        except self.db.IntegrityError:
             if kind == "EMERGENCY" and self.db.scalar(
                 "SELECT 1 FROM cash_reserves WHERE kind='EMERGENCY' AND status='ACTIVE'"
             ):

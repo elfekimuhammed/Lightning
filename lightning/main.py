@@ -29,9 +29,19 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--db", default=str(DEFAULT_DATA_DIR / "lightning.db"), help="database file")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--no-browser", action="store_true")
+    parser.add_argument("--profiles", action="store_true", help="password-protected profiles in Documents/Lightning")
+    parser.add_argument("--profile-root", help="explicit alternate profile folder (with --profiles)")
     parser.add_argument("--demo", action="store_true",
                         help="open a sample household in a separate demo database (rebuilt on every start)")
     args = parser.parse_args(argv)
+    if args.profiles:
+        if args.demo or args.db != str(DEFAULT_DATA_DIR / "lightning.db") or args.port != 8765:
+            parser.error("--profiles uses its own chooser and a random local port; omit --demo, --db and --port")
+        from lightning.runtime.launcher import run_browser
+        run_browser(args.profile_root, open_browser=not args.no_browser)
+        return
+    if args.profile_root:
+        parser.error("--profile-root requires --profiles")
     if args.demo:
         # The demo file is deleted and rebuilt on every start, so it can never be pointed at real data.
         if args.db != str(DEFAULT_DATA_DIR / "lightning.db"):

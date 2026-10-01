@@ -1,0 +1,109 @@
+name: Windows desktop feasibility
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [codex/desktop-beta]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-probe-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux-regressions:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.13'
+      - name: Install locked Linux dependencies
+        run: |
+          python -m pip install --require-hashes --only-binary=:all: -r requirements/desktop-probe-linux.lock
+      - name: Full shared regression suite
+        run: python -m pytest -o addopts= -o faulthandler_timeout=60 -q
+      - name: Check import contracts
+        run: lint-imports
+  windows-probe:
+    runs-on: windows-2025
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.13'
+      - name: Install locked dependencies
+        run: |
+          python -m pip install --require-hashes --only-binary=:all: -r requirements/build-tools.lock
+          python -m pip install --require-hashes --only-binary=:all: --no-binary=proxy-tools --no-build-isolation -r requirements/desktop-probe-win.lock
+      - name: Test Windows profiles, encrypted storage, desktop and UI
+        timeout-minutes: 6
+        run: >-
+          python -m pytest -o addopts= -o faulthandler_timeout=60 -vv
+          tests/test_desktop_crypto.py tests/test_desktop_window.py
+          tests/test_desktop_server.py tests/test_desktop_packaging.py tests/test_profile_packaging.py
+          tests/test_profile_app.py tests/test_profile_session.py
+          tests/test_runtime_paths.py tests/test_runtime_instance.py
+          tests/test_encrypted_database.py tests/test_database_staging.py
+          tests/test_migration_safety.py tests/test_database.py
+          tests/test_figures.py tests/test_ui.py
+      - name: Check import contracts
+        run: lint-imports
+      - name: Build one-folder executable
+        run: |
+          pyinstaller --clean --noconfirm packaging/desktop-probe.spec
+          pyinstaller --clean --noconfirm packaging/desktop-app.spec
+      - name: Test frozen encryption and resources
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force reports | Out-Null
+          $taskProcess = Start-Process -FilePath dist/LightningProbe/LightningProbe.exe -ArgumentList '--self-check --report reports/frozen-check.json' -Wait -PassThru
+          Get-Content reports/frozen-check.json
+          if ($taskProcess.ExitCode -ne 0) { throw 'Frozen self-check failed' }
+      - name: Test real WebView2 window
+        shell: pwsh
+        run: |
+          $taskProcess = Start-Process -FilePath dist/LightningProbe/LightningProbe.exe -ArgumentList '--smoke --report reports/window-check.json' -PassThru
+          if (-not $taskProcess.WaitForExit(90000)) {
+            Stop-Process -Id $taskProcess.Id -Force
+            throw 'Window smoke timed out'
+          }
+          Get-Content reports/window-check.json
+          if ($taskProcess.ExitCode -ne 0) { throw 'Window smoke failed' }
+      - name: Test frozen finance app profile encryption
+        shell: pwsh
+        run: |
+          $taskProcess = Start-Process -FilePath dist/Lightning/Lightning.exe -ArgumentList '--self-check --report reports/app-self-check.json' -Wait -PassThru
+          Get-Content reports/app-self-check.json
+          if ($taskProcess.ExitCode -ne 0) { throw 'Frozen finance app self-check failed' }
+      - name: Test real profile chooser in WebView2
+        shell: pwsh
+        run: |
+          $taskProcess = Start-Process -FilePath dist/Lightning/Lightning.exe -ArgumentList '--smoke --report reports/profile-chooser-smoke.json' -PassThru
+          if (-not $taskProcess.WaitForExit(90000)) {
+            Stop-Process -Id $taskProcess.Id -Force
+            throw 'Profile chooser smoke timed out'
+          }
+          Get-Content reports/profile-chooser-smoke.json
+          if ($taskProcess.ExitCode -ne 0) { throw 'Profile chooser smoke failed' }
+      - name: Collect notices and package ZIP
+        shell: pwsh
+        run: |
+          python packaging/package_probe.py
+          python packaging/package_app.py
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: lightning-windows-builds-${{ github.sha }}
+          path: |
+            dist/LightningProbe-windows-x64.zip
+            dist/SHA256SUMS
+            dist/Lightning-windows-x64.zip
+            dist/APP_SHA256SUMS
+            reports/*.json
+          if-no-files-found: warn
+          retention-days: 7

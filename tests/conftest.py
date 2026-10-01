@@ -10,6 +10,15 @@ os.environ["LIGHTNING_TODAY"] = "2026-12-31"
 from lightning.bootstrap import Container, build
 
 
+@pytest.fixture(autouse=True)
+def fixed_audit_clock(monkeypatch):
+    # Historical fixtures also depend on record creation timestamps, not only
+    # LIGHTNING_TODAY. Keep them independent of the host clock and timezone.
+    from datetime import datetime, timezone
+    from lightning.core import dates
+    monkeypatch.setattr(dates, "_local_now", lambda: datetime(2026, 9, 30, 12, tzinfo=timezone.utc))
+
+
 @pytest.fixture
 def c(tmp_path) -> Container:
     container = build(tmp_path / "test.db")

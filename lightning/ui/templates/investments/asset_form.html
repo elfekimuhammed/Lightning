@@ -12,7 +12,7 @@
     <div id="instrument-results" class="instrument-results" role="listbox" hidden></div>
     <div id="instrument-selection" class="help" aria-live="polite">Search the local EGX and Thndr fund list, or enter details below.</div>
   </section>
-  <script id="instrument-catalogue" type="application/json">{{ catalogue | tojson }}</script>
+  <script nonce="{{ request.state.csp_nonce|default('') }}" id="instrument-catalogue" type="application/json">{{ catalogue | tojson }}</script>
   {% endif %}
   {{ field('name', 'Name', values, error_field, placeholder='e.g. Commercial International Bank', attrs='required') }}
   <div class="row">
@@ -44,5 +44,5 @@
     <a class="btn" href="/investments">Cancel</a>
   </div>
   {% if not asset %}<p class="muted small">Picking a result fills in its name, ticker, and type. You can still edit those details.</p>{% endif %}
-</form>
+<input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
 {% endblock %}

@@ -61,7 +61,7 @@ def test_money_is_stored_as_exact_integers(setup, c):
 def test_backup(tmp_path):
     c = build(tmp_path / "x.db")
     path = c.backup_now()
-    assert path and path.exists() and path.name.startswith("lightning_")
+    assert path and path.exists() and path.name.startswith("x_backup_")
     c.db.close()
 
 

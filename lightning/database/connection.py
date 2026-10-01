@@ -15,30 +15,81 @@ from pathlib import Path
 
 
 class Database:
-    def __init__(self, path: str | Path):
+    def __init__(self, path: str | Path, *, key: bytes | None = None,
+                 read_only: bool = False):
+        if key is not None and (not isinstance(key, bytes) or len(key) != 32):
+            raise ValueError("The database key must be exactly 32 bytes")
         self.path = str(path)
         self._local = threading.local()
-        if self.path != ":memory:":
-            Path(self.path).parent.mkdir(parents=True, exist_ok=True)
+        self.encrypted = key is not None
+        self.read_only = read_only
+        self._key = bytearray(key) if key is not None else None
+        self._owner = threading.current_thread() if self.encrypted else None
+        self._closed = False
+        self.driver = sqlite3
+        if self.encrypted:
+            # A missing cipher driver is an error, never a plaintext fallback.
+            from sqlcipher3 import dbapi2
+            self.driver = dbapi2
+        self.OperationalError = self.driver.OperationalError
+        self.IntegrityError = self.driver.IntegrityError
+
+    def _check_owner(self) -> None:
+        if self.encrypted:
+            if self._closed:
+                raise RuntimeError("Encrypted database has been closed")
+            if self._owner is not None and self._owner is not threading.current_thread():
+                raise RuntimeError("Encrypted database must stay on its owning thread")
 
     # -- connections -------------------------------------------------------
     @property
     def conn(self) -> sqlite3.Connection:
+        self._check_owner()
         conn = getattr(self._local, "conn", None)
         if conn is None:
-            conn = sqlite3.connect(self.path, isolation_level=None, check_same_thread=False)
-            conn.row_factory = sqlite3.Row
-            conn.execute("PRAGMA foreign_keys = ON")
-            conn.execute("PRAGMA busy_timeout = 5000")
+            if self.encrypted:
+                self._owner = threading.current_thread()
+            if self.read_only:
+                if self.path == ":memory:":
+                    raise ValueError("Read-only databases need a file")
+                target = Path(self.path).resolve().as_uri() + "?mode=ro"
+            else:
+                target = self.path
+                if self.path != ":memory:":
+                    Path(self.path).parent.mkdir(parents=True, exist_ok=True)
+            conn = self.driver.connect(target, uri=self.read_only, isolation_level=None)
+            try:
+                if self.encrypted:
+                    conn.execute("PRAGMA cipher_log_level = NONE")
+                    conn.execute(f'PRAGMA key = "x\'{self._key.hex()}\'"')
+                    if not conn.execute("PRAGMA cipher_version").fetchone():
+                        raise RuntimeError("SQLCipher is unavailable")
+                    conn.execute("PRAGMA cipher_memory_security = ON")
+                # Forces wrong-key/corrupt-file rejection before migrations/seed.
+                conn.execute("SELECT count(*) FROM sqlite_master").fetchone()
+                conn.row_factory = self.driver.Row
+                conn.execute("PRAGMA temp_store = MEMORY")
+                conn.execute("PRAGMA foreign_keys = ON")
+                conn.execute("PRAGMA busy_timeout = 5000")
+            except BaseException:
+                conn.close()
+                raise
             self._local.conn = conn
             self._local.depth = 0
         return conn
 
     def close(self) -> None:
+        if self.encrypted and self._closed:
+            return
+        self._check_owner()
         conn = getattr(self._local, "conn", None)
         if conn is not None:
             conn.close()
             self._local.conn = None
+        if self._key is not None:
+            # Best effort only: Python/SQLite may have made other memory copies.
+            self._key[:] = bytes(len(self._key))
+            self._closed = True
 
     # -- transactions ------------------------------------------------------
     @contextmanager
@@ -60,7 +111,16 @@ class Database:
             raise
         else:
             self._local.depth = depth
-            conn.execute("COMMIT" if depth == 0 else f"RELEASE {savepoint}")
+            try:
+                conn.execute("COMMIT" if depth == 0 else f"RELEASE {savepoint}")
+            except BaseException:
+                if conn.in_transaction:
+                    if depth == 0:
+                        conn.execute("ROLLBACK")
+                    else:
+                        conn.execute(f"ROLLBACK TO {savepoint}")
+                        conn.execute(f"RELEASE {savepoint}")
+                raise
 
     # -- helpers -----------------------------------------------------------
     def execute(self, sql: str, params: tuple | dict = ()) -> sqlite3.Cursor:
