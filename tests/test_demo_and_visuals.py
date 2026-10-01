@@ -298,13 +298,14 @@ def test_expense_analysis_compares_big_categories_with_their_usual_month(c, setu
     c.transactions.record_outflow("2026-12-07", cib, "20", fees)  # under 1%: folded away
     a = visuals.expense_analysis(c, date(2026, 12, 1), date(2026, 12, 31))
     names = [r["name"] for r in a["rows"]]
-    assert names == ["Housing & Rent", "Food & Groceries"] and a["small"] == D("20")
+    assert names == ["Housing & Rent", "Food & Groceries", "Others"] and a["small"] == D("20")  # under 1% folds into Others
     housing_row = a["rows"][0]
     assert housing_row["usual"] == D("31000") / 3 and housing_row["above"]  # 15,000 beats its 10–11k range
     assert (housing_row["low"], housing_row["high"]) == (D("10000"), D("11000"))
-    assert [t["label"] for t in a["tiles"]][-1] == "Smaller categories"
+    assert [t["label"] for t in a["tiles"]][-1] == "Others"
     assert len(a["heat"][0]["cells"]) == len(a["heat_keys"]) and a["heat"][0]["cells"][-1]["step"] == 3  # 1.3× its own average
     page = TestClient(create_app(c)).get("/birdview/expenses?period=month&month=2026-12").text
-    for question in ("Where did it go?", "Is this period unusual?", "How has each big category moved?", "Month by month"):
+    assert [r["name"] for r in a["flow_heat"]] == ["Money in", "Money out", "Net flow"]
+    for question in ("Where did it go?", "Is this period unusual?", "How each one moved", "Net cash flow"):
         assert question in page
     assert page.count('class="stat-tile surface-') == 4

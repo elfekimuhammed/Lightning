@@ -8,6 +8,12 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### Expense analysis: five then Others · 2026-10-01
+- Every item chart shows the five biggest categories, then everything else as one "Others".
+- Small multiples sit beside the treemap. Month by month is two heatmaps side by side: money out by category,
+  and net cash flow (money in, money out, what was left); the second needs no category filter.
+- Each visual keeps a "Show the numbers" table.
+
 ### Whole units on reporting pages · 2026-10-01
 - Overview, Budget, Expense analysis, Investments (with each holding and Target allocation), Cash planning's
   Plan and the Settings tables show money rounded to the nearest unit, key notes included. Values are still

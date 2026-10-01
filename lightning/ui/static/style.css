@@ -2441,3 +2441,16 @@ a.chart-sankey-label:hover b { color:var(--azure); }
 .main .cluster-col i { width:22px; flex:none; }
 .main .cluster-name { white-space:normal; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; line-height:1.25; min-height:2.5em; }
 .main .cluster .cluster-name { display:block; white-space:normal; overflow:visible; text-overflow:clip; line-height:1.25; min-height:2.5em; }
+.main .multiples.is-compact { grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+.main .multiples.is-compact .multiple svg { height:46px; }
+.main .heatmap.is-compact { border-spacing:2px; }
+.main .heatmap.is-compact td { min-width:0; height:30px; padding:0 2px; font-size:10.5px; }
+.main .heatmap.is-compact th { font-size:10.5px; padding:2px 4px; }
+.main .heatmap.is-flow .flow-in-0, .main .heatmap.is-flow .flow-out-0, .main .heatmap.is-flow .flow-zero-0 { background:#F4F7F6; color:var(--muted); }
+.main .heatmap .flow-in-1, .main .heat-key .flow-in-1 { background:#E3F4EA; } .main .heatmap .flow-in-2 { background:#C5E8D3; }
+.main .heatmap .flow-in-3, .main .heat-key .flow-in-3 { background:#8FD1AC; } .main .heatmap .flow-in-4 { background:#0B8A5F; color:#fff; }
+.main .heatmap .flow-out-1 { background:#FCEEF3; } .main .heatmap .flow-out-2 { background:#F6CFDB; }
+.main .heatmap .flow-out-3, .main .heat-key .flow-out-3 { background:#EDA3BB; } .main .heatmap .flow-out-4 { background:#D4567F; color:#fff; }
+.main .heatmap tr.is-net th { color:var(--ink); }
+.main .heatmap tr.is-net td { font-weight:700; }
+.main .heat-key [class^="flow-"] { display:inline-block; width:12px; height:12px; border-radius:3px; margin:0 4px 0 10px; vertical-align:middle; }

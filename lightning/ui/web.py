@@ -79,6 +79,26 @@ def _units(value) -> str:
 
 
 templates.env.filters["units"] = _units
+
+
+def _compact(value) -> str:
+    """A short whole number for tight cells: 950, 9.7k, 12k, 1.2M (signed values keep a −)."""
+    if value is None:
+        return "—"
+    v = Decimal(value)
+    sign, v = ("−" if v < 0 else ""), abs(v)
+    if v >= 1_000_000:
+        text = f"{v / 1_000_000:.1f}M"
+    elif v >= 10_000:
+        text = f"{v / 1000:.0f}k"
+    elif v >= 1000:
+        text = f"{v / 1000:.1f}k"
+    else:
+        text = f"{v:.0f}"
+    return sign + text.replace(".0k", "k").replace(".0M", "M")
+
+
+templates.env.filters["compact"] = _compact
 templates.env.globals["abs"] = abs
 
 

@@ -274,7 +274,8 @@ Fields never sit in read-only list rows. Arabic text gets `dir="auto"`. Group lo
 **How a page is built (2.7).**
 
 - **Questions first.** A page opens with small stat or KPI cards that give the gist of the period you chose. Then one section per main question, in a logical order, each a wide card with its answer. Pick the visual for the question, never the other way round, and stop when the main questions are answered.
-- **Big items only.** Analysis covers what matters. Anything under 1% of the whole folds into one grey "Smaller …" item.
+- **Five, then Others.** Any chart of items (treemap, heatmap, clustered or grouped bars, small multiples) shows the biggest four or five and folds everything else into one grey "Others", with its own history.
+- **Show the numbers.** Every visual can carry its numbers as text: a closed "Show the numbers" toggle under it opens a plain table with the same figures, right-aligned. It costs nothing on screen and answers "what exactly is that bar?".
 - **Same form, different goals.** A chart type may have more than one style when the styles answer different questions. Diverging bars are azure for money put in (a flow) and green for growth (a price move). A trend line has a dashed plan that turns over-plan dots rose, or a dashed average cost that never does.
 - **Period or fixed horizon.** Every section header says its time frame. Most visuals follow the period you chose. Some keep a fixed horizon on purpose:
   - sparklines: the last six months;
