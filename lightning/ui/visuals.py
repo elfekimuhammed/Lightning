@@ -297,3 +297,88 @@ def holding_journey(c, account_id: int, asset_id: int, end: date, months: int = 
         "up": sum(1 for m in moves if m > 0), "down": sum(1 for m in moves if m < 0),
         "spark": charts.sparkline(value[-6:]), "trades": list(reversed(journey)),
     }
+
+
+def expense_analysis(c, first: date, last: date, code_filter: str = "", history: int = 12,
+                     floor_share: Decimal = Decimal(1), top: int = 8) -> dict:
+    """Expense analysis in five questions, big items only.
+
+    Categories (L2) under ``floor_share`` % of money out, or past the ``top`` largest, fold into
+    "Smaller categories". History is the ``history`` whole months before the period; "now" is the
+    period's money out per month, so a year to date compares like with like."""
+    def by_cat(start, end):
+        rows = {}
+        for g in c.reporting.spending_by_category(start, end, depth=2):
+            if g.value > 0 and (not code_filter or g.code.startswith(code_filter)):
+                rows[g.code] = (g.label.split(" › ")[-1], g.value)
+        return rows
+
+    now = by_cat(first, last)
+    total = sum((v for _, v in now.values()), ZERO)
+    months_in = max(1, (last.year - first.year) * 12 + last.month - first.month + 1)
+    ranked = sorted(now.items(), key=lambda kv: -kv[1][1])
+    big = [(code, name, value) for code, (name, value) in ranked[:top]
+           if total and value / total * 100 >= floor_share]
+    small = total - sum((v for _, _, v in big), ZERO)
+    # Whole months before the period, oldest first, never before the first record.
+    keys = months_back(first.replace(day=1) - timedelta(days=1), history, c.reporting.first_activity_date())
+    hist = [by_cat(*parse_month(k)) for k in keys]
+    rows = []
+    for code, name, value in big:
+        past = [h.get(code, ("", ZERO))[1] for h in hist]
+        per_month = value / months_in
+        recent = past[-6:]
+        usual = sum(recent, ZERO) / len(recent) if recent else None
+        ordered = sorted(past)
+        median = (ordered[len(ordered) // 2] if len(ordered) % 2 else (ordered[len(ordered) // 2 - 1] + ordered[len(ordered) // 2]) / 2) if ordered else None
+        low, high = (min(past), max(past)) if past else (None, None)
+        scale = max([per_month] + past) or Decimal(1)
+        category = c.categories.get_by_code(code)
+        rows.append({"code": code, "name": name, "value": value, "per_month": per_month, "share": value / total * 100,
+                     "usual": usual, "past": past, "low": low, "high": high, "median": median,
+                     "above": high is not None and per_month > high, "below": low is not None and per_month < low,
+                     "range": None if low is None else {"low": float(low / scale * 100), "high": float(high / scale * 100),
+                                                        "median": float(median / scale * 100), "now": float(per_month / scale * 100)},
+                     "href": f"/transactions?category_id={category.id}&date_from={fmt_date(first)}&date_to={fmt_date(last)}"})
+    tiles = charts.treemap([{"label": r["name"], "value": r["value"], "share": r["share"], "href": r["href"]} for r in rows]
+                           + ([{"label": "Smaller categories", "value": small, "share": small / total * 100 if total else 0,
+                                "small": True}] if small > 0 else []))
+    # Clustered columns: usual month (neutral) beside now (its meaning colour), one scale, from zero.
+    col_max = max([r["per_month"] for r in rows] + [r["usual"] or ZERO for r in rows] + [ZERO]) or Decimal(1)
+    clusters = [{"name": r["name"], "now": r["per_month"], "usual": r["usual"],
+                 "over": bool(r["usual"]) and r["per_month"] > r["usual"] * Decimal("1.1"),
+                 "now_h": float(r["per_month"] / col_max * 100), "usual_h": float((r["usual"] or ZERO) / col_max * 100)}
+                for r in rows[:6]]
+    # Small multiples: the same twelve months plus now, one scale for every panel.
+    panels = rows[:6]
+    lines = charts.shared_lines([r["past"] + [r["per_month"]] for r in panels])
+    multiples = [{"name": r["name"], "now": r["per_month"], "line": line, "points": len(r["past"]) + 1}
+                 for r, line in zip(panels, lines)]
+    # Heatmap: category by month, each cell against that row's own average (four rose steps). The
+    # history months, then every month of the period itself (a period of three months shows three).
+    period_keys = months_back(last, months_in, fmt_date(first))
+    period_months = [by_cat(max(parse_month(k)[0], first), min(parse_month(k)[1], last)) for k in period_keys]
+    past_cols = keys[-max(1, 12 - len(period_keys)):] if keys else []
+    heat_keys = past_cols + period_keys
+    now_from = len(past_cols)
+    heat = []
+    for r in rows:
+        values = r["past"][-len(past_cols):] if past_cols else []
+        values = values + [m.get(r["code"], ("", ZERO))[1] for m in period_months]
+        known = [v for v in values if v > 0]
+        avg = sum(known, ZERO) / len(known) if known else ZERO
+        cells = []
+        for v in values:
+            ratio = v / avg if avg else ZERO
+            step = 0 if v <= 0 else 1 if ratio < Decimal("0.75") else 2 if ratio < Decimal("1.1") else 3 if ratio < Decimal("1.5") else 4
+            cells.append({"value": v, "step": step})
+        heat.append({"name": r["name"], "cells": cells})
+    heat_now = now_from
+    usual_total = sum((r["usual"] or ZERO for r in rows), ZERO)
+    recent_all = [sum((v for _, v in h.values()), ZERO) for h in hist[-6:]]
+    usual_out = sum(recent_all, ZERO) / len(recent_all) if recent_all else None
+    return {"rows": rows, "total": total, "small": small, "months_in": months_in, "tiles": tiles,
+            "clusters": clusters, "multiples": multiples, "heat": heat, "heat_keys": heat_keys, "heat_now": now_from,
+            "history_months": len(keys), "usual_total": usual_total, "usual_out": usual_out,
+            "per_month": total / months_in,
+            "has_history": len(keys) >= 1, "has_range": len(keys) >= 3}

@@ -2240,3 +2240,60 @@ a.chart-sankey-label:hover b { color:var(--azure); }
 /* Diverging, growth style: green when it grew, soft rose when it fell (the flow style keeps azure for
    money put in). Same form, different goal. */
 .tones-growth .div-bar.is-pos { background:var(--meadow-dark); }
+/* Expense analysis · 2.7: KPI cards, then five questions. Spending in soft rose; the darkest rose is the
+   largest tile, the strongest rose only for "above its range". */
+.main .treemap { position:relative; height:320px; border-radius:14px; overflow:hidden; }
+.main .tm-tile { position:absolute; box-sizing:border-box; padding:10px 12px; border:2px solid #fff; border-radius:10px; overflow:hidden;
+  display:flex; flex-direction:column; justify-content:flex-end; gap:2px; color:#3A1022; text-decoration:none; }
+.main .tm-tile b { font:700 var(--fs-2)/1.25 var(--body); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.main .tm-tile span { font:600 var(--fs-meta)/1.25 var(--body); font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.main .tm-tile.step-0 { background:#D4567F; color:#fff; } .main .tm-tile.step-1 { background:#E07A9A; color:#fff; }
+.main .tm-tile.step-2 { background:#E99BB3; } .main .tm-tile.step-3 { background:#F1B9CA; }
+.main .tm-tile.step-4 { background:#F6CFDB; } .main .tm-tile.step-5 { background:#FAE2EA; }
+.main .tm-tile.is-small { background:#EEF2F1; color:var(--ink-2); }
+.main a.tm-tile:hover { filter:brightness(1.05); outline:2px solid var(--ink); outline-offset:-2px; }
+.main i.k.usual { background:#C9D6D2; } .main i.k.now { background:var(--tone-spend); }
+.main .clusters { display:grid; grid-template-columns:repeat(auto-fit,minmax(80px,1fr)); gap:10px; align-items:end; }
+.main .cluster { display:grid; gap:2px; text-align:center; min-width:0; }
+.main .cluster-bars { display:flex; justify-content:center; align-items:flex-end; gap:4px; height:170px; border-bottom:1px solid var(--line-control); }
+.main .cluster-bars i { width:22px; border-radius:5px 5px 0 0; }
+.main .cluster-bars i.usual { background:#C9D6D2; } .main .cluster-bars i.now { background:var(--tone-spend); }
+.main .cluster-bars i.now.is-over { background:var(--rose); }
+.main .cluster b { margin-top:6px; font:700 var(--fs-2)/1.2 var(--body); font-variant-numeric:tabular-nums; }
+.main .cluster small { color:var(--muted); font-size:var(--fs-meta); }
+.main .cluster span { font:600 var(--fs-meta)/1.3 var(--body); color:var(--ink-2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.main .ranges { display:grid; gap:2px; }
+.main .range-row { display:grid; grid-template-columns:130px minmax(0,1fr) 150px; gap:12px; align-items:center; min-height:40px; padding:0 6px; margin:0 -6px; border-radius:10px; color:var(--ink); text-decoration:none; border-bottom:1px solid var(--line); }
+.main .range-row:hover { background:var(--hover); }
+.main .range-name { font:600 var(--fs-2)/1.3 var(--body); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.main .range-track { position:relative; height:16px; }
+.main .range-pill { position:absolute; top:3px; height:10px; border-radius:5px; background:#DCEBE5; }
+.main .range-mid { position:absolute; top:0; height:16px; width:2px; margin-left:-1px; background:var(--ink-2); }
+.main .range-now { position:absolute; top:1px; width:14px; height:14px; margin-left:-7px; border-radius:50%; background:var(--tone-spend); box-shadow:0 0 0 2px #fff; }
+.main .range-row.is-above .range-now { background:var(--rose); }
+.main .range-note { display:grid; text-align:right; }
+.main .range-note em { font:700 var(--fs-meta)/1.3 var(--body); font-style:normal; color:var(--ink-2); }
+.main .range-note em.over { color:var(--rose); } .main .range-note em.under { color:var(--positive); }
+.main .range-note small { color:var(--muted); font-size:var(--fs-meta); font-variant-numeric:tabular-nums; }
+.main .multiples { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px 22px; }
+.main .multiple { display:grid; gap:6px; padding:10px 12px; border:1px solid var(--line); border-radius:14px; background:rgba(255,255,255,.7); }
+.main .multiple-head { display:flex; justify-content:space-between; gap:8px; font-size:var(--fs-2); }
+.main .multiple-head span { font-variant-numeric:tabular-nums; font-weight:700; }
+.main .multiple svg { width:100%; height:64px; }
+.main .multiple polyline { fill:none; stroke:var(--tone-spend); stroke-width:2; stroke-linejoin:round; }
+.main .multiple-base { stroke:var(--line); }
+.main .heatmap { width:100%; border-collapse:separate; border-spacing:3px; font-size:var(--fs-meta); }
+.main .heatmap th { font:700 var(--fs-meta)/1.2 var(--body); color:var(--ink-2); text-align:left; white-space:nowrap; padding:4px 6px; }
+.main .heatmap thead th { text-align:center; color:var(--muted); }
+.main .heatmap td { height:32px; min-width:52px; text-align:center; border-radius:6px; font-variant-numeric:tabular-nums; color:#3A1022; }
+.main .heatmap .heat-0 { background:#F4F7F6; color:var(--muted); } .main .heatmap .heat-1 { background:#FCEEF3; }
+.main .heatmap .heat-2 { background:#F6CFDB; } .main .heatmap .heat-3 { background:#EDA3BB; }
+.main .heatmap .heat-4 { background:#D4567F; color:#fff; }
+.main .heatmap td.is-now { box-shadow:inset 0 0 0 2px var(--ink); font-weight:700; }
+.main .heat-key span { display:inline-block; width:12px; height:12px; border-radius:3px; margin:0 4px 0 10px; vertical-align:middle; }
+.main .heat-key .heat-1 { background:#FCEEF3; } .main .heat-key .heat-2 { background:#F6CFDB; } .main .heat-key .heat-3 { background:#EDA3BB; } .main .heat-key .heat-4 { background:#D4567F; }
+@media (max-width:900px) { .main .multiples { grid-template-columns:1fr 1fr; } .main .range-row { grid-template-columns:100px minmax(0,1fr) 110px; } }
+@media (max-width:560px) { .main .multiples { grid-template-columns:1fr; } .main .treemap { height:260px; } }
+.main .clusters { grid-template-columns:none; grid-auto-flow:column; grid-auto-columns:minmax(0,1fr); }
+.main .inv-after-sale { margin-top:14px; }
+.main .heatmap thead th.is-now { color:var(--ink); }

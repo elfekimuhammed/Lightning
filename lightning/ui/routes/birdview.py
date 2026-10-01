@@ -4,6 +4,7 @@ import calendar
 from datetime import date, timedelta
 from decimal import Decimal
 
+from lightning.core.figures import label
 from fastapi import APIRouter, Request, Response
 
 from lightning.core.dates import fmt_date, month_of, today
@@ -125,7 +126,10 @@ async def expense_analysis(request: Request):
     largest = c.reporting.largest_payments(first, last, 6)
     for row in largest:
         row["category"] = c.categories.get(row["category_id"]).name if row["category_id"] else ""
-    return render(request, "birdview/expenses.html", notes=notes, category_bars=category_bars, spend_trend=spend_trend,
+    analysis = visuals.expense_analysis(c, first, last, category_code)
+    stats = _expense_stats(analysis, spending_total, prior_spending, prior_label, largest, selected, first, last,
+                           category_filter, c)
+    return render(request, "birdview/expenses.html", notes=notes, analysis=analysis, stats=stats, category_bars=category_bars, spend_trend=spend_trend,
                   usual=visuals.usual_rows(usual), who_bars=visuals.counterparty_bars(c, first, last),
                   account_bars=visuals.account_bars(c, first, last), largest=largest,
                   period=selected.key, month=last.strftime("%Y-%m"),
@@ -156,3 +160,36 @@ async def save_legacy_settings(request: Request):
 @router.get("/settings")
 async def settings_legacy(request: Request):
     return redirect("/settings?section=assets-valuations&return_to=%2Fbirdview")
+
+
+def _expense_stats(a, total, prior, prior_label, largest, selected, first, last, category_filter, c) -> list[dict]:
+    """Four cards that give the gist of the period: money out, against the usual month, the biggest
+    category and the biggest single payment. Spending that rose reads rose; that fell reads green."""
+    chip = {"month": first.strftime("%Y-%m"), "ytd": "Year to date", "all": "All time"}.get(
+        selected.key, f"{fmt_date(first)} to {fmt_date(last)}")
+    query = (f"category_id={category_filter}&" if category_filter else "") + f"date_from={fmt_date(first)}&date_to={fmt_date(last)}"
+    change = (total - prior) / prior * 100 if prior else None
+    stats = [{"key": "out", "surface": "lead", "label": label("money_out"), "value": total, "kind": "money",
+              "badge": ({"tone": "down" if change > 0 else "up", "arrow": "up" if change > 0 else "down",
+                         "text": f"{abs(change):.0f}%"} if change is not None and change != 0 else {"tone": "flat", "text": chip}),
+              "sub": (f"Against {prior:,.2f} in {prior_label}" if prior else "No earlier spending to compare"),
+              "href": f"/transactions?{query}"}]
+    usual = a.get("usual_out")
+    diff = a["per_month"] - usual if usual is not None else None
+    stats.append({"key": "usual", "surface": "white", "label": "Against your usual month", "value": diff, "kind": "money",
+                  "empty": "Not enough history", "signed": True,
+                  "badge": {"tone": "down" if diff and diff > 0 else ("up" if diff and diff < 0 else "flat"),
+                            "arrow": "up" if diff and diff > 0 else ("down" if diff and diff < 0 else ""),
+                            "text": "a month" if a["months_in"] > 1 else "this month"},
+                  "sub": f"Usual {usual:,.2f} a month · last {min(6, a['history_months'])} month{'s' if min(6, a['history_months']) != 1 else ''}" if usual is not None else "Needs a month before this one",
+                  "href": "#usual-heading"})
+    top = a["rows"][0] if a["rows"] else None
+    stats.append({"key": "top", "surface": "mint", "label": f"Biggest · {top['name']}" if top else "Biggest category",
+                  "value": top["value"] if top else None, "kind": "money", "empty": "—",
+                  "sub": f"{top['share']:.0f}% of money out" if top else "No spending yet",
+                  "meter": {"width": float(top["share"]), "tone": "spend"} if top else None, "href": top["href"] if top else ""})
+    big = largest[0] if largest else None
+    stats.append({"key": "payment", "surface": "white", "label": "Largest payment", "value": big["value"] if big else None,
+                  "kind": "money", "empty": "—", "sub": f"{big['counterparty'] or big['category']} · {big['date']}" if big else "No payments yet",
+                  "href": f"/t/{big['ref']}" if big and big.get("ref") else ""})
+    return stats

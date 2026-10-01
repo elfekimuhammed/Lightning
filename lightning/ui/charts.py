@@ -284,6 +284,57 @@ def diverging(rows: list[dict]) -> dict:
     return {"rows": [{**r, "width": float(abs(r["value"]) / scale * 50)} for r in rows]}
 
 
+def treemap(items: list[dict], width: float = 100.0, height: float = 100.0) -> list[dict]:
+    """Squarified treemap: each item {"label", "value", ...} gets x, y, w, h in percent of the box,
+    largest first, rectangles kept as square as the values allow."""
+    items = sorted((i for i in items if i["value"] > 0), key=lambda i: -i["value"])
+    total = float(sum((i["value"] for i in items), ZERO))
+    if not total:
+        return []
+    area = width * height
+    sizes = [float(i["value"]) / total * area for i in items]
+    out, x, y, w, h, start = [], 0.0, 0.0, width, height, 0
+
+    def worst(row, side):
+        s = sum(row)
+        return max(max(side * side * r / (s * s), (s * s) / (side * side * r)) for r in row)
+
+    while start < len(sizes):
+        side = min(w, h)
+        row = [sizes[start]]
+        end = start + 1
+        while end < len(sizes) and worst(row + [sizes[end]], side) <= worst(row, side):
+            row.append(sizes[end]); end += 1
+        s = sum(row)
+        if w >= h:  # lay the row down the left edge
+            col_w = s / h
+            yy = y
+            for k, r in enumerate(row):
+                out.append({**items[start + k], "x": x, "y": yy, "w": col_w, "h": r / col_w})
+                yy += r / col_w
+            x += col_w; w -= col_w
+        else:  # along the top edge
+            row_h = s / w
+            xx = x
+            for k, r in enumerate(row):
+                out.append({**items[start + k], "x": xx, "y": y, "w": r / row_h, "h": row_h})
+                xx += r / row_h
+            y += row_h; h -= row_h
+        start = end
+    return out
+
+
+def shared_lines(series: list[list[Decimal | None]]) -> list[str]:
+    """Polylines for small multiples: every panel on the same scale (0 to the largest value)."""
+    top = max((v for vals in series for v in vals if v is not None), default=ZERO) or Decimal(1)
+    out = []
+    for vals in series:
+        n = len(vals)
+        pts = [(4 + 92 * i / (n - 1) if n > 1 else 50, 92 - float(v / top) * 84) for i, v in enumerate(vals) if v is not None]
+        out.append(" ".join(f"{px:.2f},{py:.2f}" for px, py in pts))
+    return out
+
+
 def donut(slices: list[dict], limit: int = 6) -> dict:
     """Parts of one whole: at most ``limit`` slices, the rest folded into "Other".
 

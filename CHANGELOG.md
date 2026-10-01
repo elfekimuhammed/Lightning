@@ -8,6 +8,28 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### Expense analysis · 2026-10-01
+- Four KPI cards give the gist of the period: money out against the period before, against your usual
+  month, the biggest category with its share, and the largest payment.
+- Then five questions, big categories only (anything under 1% of money out folds into "Smaller
+  categories"): a treemap of where it went; now against your usual month as clustered columns beside each
+  category's usual range; small multiples on one scale; and a category-by-month heatmap that ends with
+  every month of the period you chose.
+
+### Investments · 2026-10-01
+- The page opens with three tiles: a waffle of what you kept and invested in the period, the period's
+  Net gain or loss with Growth and XIRR, and Portfolio value with a sparkline that always covers the last
+  six months.
+- Allocation by class beside the biggest holdings; holdings grouped by class, both sorted by weight, with
+  Units, Average cost, Cost, Current price, Current value, Unrealized gain %, XIRR (after a full year) and
+  Horizon. An assigned horizon shows a letter badge (S, M, L); click it to change.
+- Year-to-date dividends per holding beside the period's money in and out and each class's change in value.
+  The horizon bar is always open, at the end.
+- Each holding opens a page that answers: is it making money (price against average cost, where the return
+  came from), how bumpy has it been (monthly moves, best and worst month, typical move, fall from its high)
+  and its journey (value against cost, every trade and payout).
+- New figures: Average cost and Growth.
+
 ### Category lists without breadcrumbs · 2026-10-01
 - Every category picker (counterparties, bills and loans, bank imports, reserves, splits, the transaction
   form and the register's type-to-pick list) groups categories under their L1 as a header, each by its

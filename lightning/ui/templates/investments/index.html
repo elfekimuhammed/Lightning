@@ -40,7 +40,8 @@
 <section class="card wide-card inv-alloc" aria-label="Allocation">
   <div class="overview-split">
     <section><div class="overview-block-head"><div><h3>Allocation</h3><p>{{ fig.holdings_value.label }} by asset class · {{ period.end_text }}</p></div></div>
-      {{ donut(investment_donut, fig.holdings_value.label, base, (fig.what_you_own.label, pos.what_you_own)) }}</section>
+      {{ donut(investment_donut, fig.holdings_value.label, base, (fig.what_you_own.label, pos.what_you_own)) }}
+      <div class="overview-inline-list inv-after-sale"><div class="overview-static-row"><span>{{ fig.brokerage_cash.label }}</span><b>{{ investment_report.investment_cash|money if investment_report.investment_cash is not none else 'Unavailable' }}</b></div><a class="overview-static-row" href="/settings?section=assets-valuations"><span>{{ fig.holdings_after_sale.label }}</span><b>{{ pos.holdings_after_sale|money if investment_report.value is not none else 'Unavailable' }}</b></a></div></section>
     <section><div class="overview-block-head"><div><h3>Biggest holdings</h3><p>Share of {{ fig.holdings_value.label|lower }} · {{ period.end_text }}</p></div></div>
       {{ bars(biggest, 'hold', 'No holdings to show.') }}</section>
   </div>

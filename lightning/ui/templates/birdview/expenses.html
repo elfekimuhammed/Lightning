@@ -3,49 +3,40 @@
 {% block top_actions %}{% from "partials/macros.html" import period_control %}{{ period_control("/birdview/expenses", period, month, this_month, date_from, date_to, category_filter) }}{% endblock %}
 {% block heading %}<div class="birdview-title"><div><h1>Expense analysis</h1><div class="muted small">{{ category_name if category_name else "Where your money went" }}</div></div></div>{% endblock %}
 {% block content %}
-{% from "partials/charts.html" import key_notes, key_note, bars, trend, sparkline %}
+{% from "partials/charts.html" import key_notes, key_note, bars, trend, sparkline, stat_tiles %}
 {% if error %}<div class="flash error">{{ error }}</div>{% endif %}
 {% if category_filter %}<p class="muted small"><a href="/birdview/expenses?period={{ period }}&amp;month={{ month }}&amp;date_from={{ custom_from }}&amp;date_to={{ custom_to }}">All spending</a> / {{ category_name }}</p>{% endif %}
-<section class="stat-row" aria-label="Spending summary">
-  <a class="stat-card lead-card" href="/transactions?{% if category_filter %}category_id={{ category_filter }}&amp;{% endif %}date_from={{ date_from }}&amp;date_to={{ date_to }}">
-    <span class="stat-label">{{ fig.money_out.label }}{{ ' · ' ~ category_name if category_name }}</span>
-    <b class="stat-value">{{ spending_total|money }} <small>{{ base }}</small></b>
-    <span class="kn-action">See transactions</span>
-  </a>
-  {% for n in notes[:2] %}{{ key_note(n, 'stat-card') }}{% endfor %}
-</section>
-{% if spending_total == 0 and not l1 and not l2 %}
+{{ stat_tiles(stats, base, 'Spending summary') }}
+{% set a = analysis %}
+{% if spending_total == 0 and not a.rows %}
 <section class="card empty"><h2>No spending in this period</h2><p>Try a longer period, or review the transactions recorded for these dates.</p><a class="btn" href="/transactions?date_from={{ date_from }}&amp;date_to={{ date_to }}">View transactions</a></section>
 {% else %}
-<div class="workspace-grid">
-  <section class="card data-panel"><div class="section-head"><div><h2>Where did it go?</h2><p class="muted small">{{ 'Inside ' ~ category_name if category_filter else 'By category' }}, largest first</p></div></div>
-    {{ bars(category_bars, 'spend', 'No spending in this period.') }}
-  </section>
-  <section class="card data-panel"><div class="section-head"><div><h2>When did it change?</h2><p class="muted small">Money out per month{{ ' against this month\'s plan' if not category_filter }}</p></div></div>
-    {{ trend(spend_trend, 'Money out per month', 'Plan') }}
-  </section>
-</div>
-{% if usual %}
-<section class="card wide-card usual-card" aria-labelledby="usual-heading">
-  <div class="section-head"><div><h2 id="usual-heading">Compared with your usual month</h2><p>This month against the average of the three months before it</p></div></div>
-  <div class="usual-table" role="table">
-    <div class="usual-row usual-head" role="row"><span role="columnheader">Category</span><span role="columnheader">Last {{ usual[0].history|length }} months</span><span class="num" role="columnheader">This month</span><span class="num" role="columnheader">Usual</span><span class="num" role="columnheader">Difference</span></div>
-    {% for r in usual %}<div class="usual-row" role="row"><span role="cell"><b>{{ r.label }}</b>{% if r.group != 'Personal' %}<small>{{ r.group }}</small>{% endif %}</span>
-      <span role="cell">{{ sparkline(r.spark, 'spend', r.label ~ ' over the last months') }}</span>
-      <span class="num" role="cell">{{ r.value|money }}</span>
-      <span class="num muted" role="cell">{{ r.usual|money if r.usual is not none else '—' }}</span>
-      <span class="num {{ 'neg' if r.change and r.change > 0 else ('pos' if r.change and r.change < 0 else '') }}" role="cell">{% if r.change is none %}—{% elif r.change > 0 %}{{ r.change|money }} more{% elif r.change < 0 %}{{ r.change|abs|money }} less{% else %}Same{% endif %}</span></div>{% endfor %}
+<header class="overview-section-head inv-head"><h2>Where did it go?</h2><span>{{ date_from }} to {{ date_to }} · categories over 1% of money out</span></header>
+<section class="card wide-card" aria-label="Where it went">
+  <div class="treemap" role="img" aria-label="Money out by category: {% for t in a.tiles %}{{ t.label }} {{ t.value|money }}{{ ', ' if not loop.last }}{% endfor %}">
+    {% for t in a.tiles %}{% set tag = 'a' if t.href else 'div' %}<{{ tag }} class="tm-tile step-{{ loop.index0 if loop.index0 < 5 else 5 }}{{ ' is-small' if t.small }}"{% if t.href %} href="{{ t.href }}"{% endif %} style="left:{{ '%.3f'|format(t.x) }}%;top:{{ '%.3f'|format(t.y) }}%;width:{{ '%.3f'|format(t.w) }}%;height:{{ '%.3f'|format(t.h) }}%" title="{{ t.label }} · {{ t.value|money }} · {{ '%.0f'|format(t.share) }}%"><b>{{ t.label }}</b><span>{{ t.value|money }} · {{ '%.0f'|format(t.share) }}%</span></{{ tag }}>{% endfor %}
   </div>
+  <details class="chart-table"><summary>Show the numbers</summary><table><thead><tr><th>Category</th><th class="num">Money out</th><th class="num">Share</th></tr></thead><tbody>{% for r in a.rows %}<tr><td>{{ r.name }}</td><td class="num">{{ r.value|money }}</td><td class="num">{{ '%.1f'|format(r.share) }}%</td></tr>{% endfor %}{% if a.small %}<tr><td>Smaller categories</td><td class="num">{{ a.small|money }}</td><td class="num">{{ '%.1f'|format(a.small / a.total * 100) }}%</td></tr>{% endif %}</tbody></table></details>
 </section>
-{% endif %}
-<div class="workspace-grid expense-more">
-  <section class="card data-panel"><div class="section-head"><div><h2>Who you paid</h2><p class="muted small">Largest first</p></div></div>
-    {{ bars(who_bars, 'spend', 'No spending in this period.') }}</section>
-  <section class="card data-panel"><div class="section-head"><div><h2>Paid from</h2><p class="muted small">The account each payment left</p></div></div>
-    {{ bars(account_bars, 'hold', 'No spending in this period.') }}
-    {% if largest %}<h3 class="expense-subhead">Largest payments</h3>
-    <div class="compact-list">{% for t in largest %}<a class="compact-row" href="/transactions/{{ t.id }}"><span>{{ t.counterparty or t.ref }}<small class="muted">{{ t.date }}{{ ' · ' ~ t.category if t.category }}</small></span><b>{{ t.value|money }}</b></a>{% endfor %}</div>{% endif %}
-  </section>
-</div>
+
+<header class="overview-section-head inv-head"><h2 id="usual-heading">Is this period unusual?</h2><span>{{ 'This month' if a.months_in == 1 else 'A month in this period' }} against the {{ a.history_months }} month{{ 's' if a.history_months != 1 }} before it</span></header>
+{% if a.has_history %}
+<section class="card wide-card"><div class="overview-split">
+  <section><div class="overview-block-head"><div><h3>Now against your usual month</h3><p>Usual: the average of the last 6 months · {{ 'now' if a.months_in == 1 else 'now is the period’s monthly average' }}</p></div><span class="bullet-key"><span><i class="k usual"></i>Usual</span><span><i class="k now"></i>Now</span></span></div>
+    <div class="clusters" role="img" aria-label="Each big category now against its usual month">{% for k in a.clusters %}<div class="cluster"><div class="cluster-bars"><i class="usual" style="height:{{ '%.1f'|format(k.usual_h) }}%" title="Usual {{ k.usual|money if k.usual is not none else '—' }}"></i><i class="now{{ ' is-over' if k.over }}" style="height:{{ '%.1f'|format(k.now_h) }}%" title="Now {{ k.now|money }}"></i></div><b>{{ k.now|money }}</b><small>usual {{ k.usual|money if k.usual is not none else '—' }}</small><span>{{ k.name }}</span></div>{% endfor %}</div></section>
+  <section><div class="overview-block-head"><div><h3>Inside its usual range?</h3><p>The pill is its lowest to highest month · the tick its middle month · the dot now</p></div></div>
+    {% if not a.has_range %}<p class="chart-empty">A usual range needs three months before this period.</p>{% endif %}
+    <div class="ranges">{% for r in a.rows if a.has_range %}{% if r.range %}<a class="range-row{{ ' is-above' if r.above }}" href="{{ r.href }}"><span class="range-name">{{ r.name }}</span><span class="range-track"><i class="range-pill" style="left:{{ '%.2f'|format(r.range.low) }}%;width:{{ '%.2f'|format([r.range.high - r.range.low, 0.8]|max) }}%"></i><i class="range-mid" style="left:{{ '%.2f'|format(r.range.median) }}%"></i><i class="range-now" style="left:{{ '%.2f'|format(r.range.now) }}%"></i></span><span class="range-note">{% if r.above %}<em class="over">Above its range</em>{% elif r.below %}<em class="under">Below its range</em>{% else %}<em>Within range</em>{% endif %}<small>{{ r.low|money }} – {{ r.high|money }}</small></span></a>{% endif %}{% endfor %}</div></section>
+</div></section>
+
+<header class="overview-section-head inv-head"><h2>How has each big category moved?</h2><span>The {{ a.history_months }} month{{ 's' if a.history_months != 1 }} before, then now · one scale for every panel</span></header>
+<section class="card wide-card"><div class="multiples">{% for m in a.multiples %}<div class="multiple"><span class="multiple-head"><b>{{ m.name }}</b><span>{{ m.now|money }}</span></span><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><line x1="0" x2="100" y1="92" y2="92" class="multiple-base" vector-effect="non-scaling-stroke"/><polyline points="{{ m.line }}" vector-effect="non-scaling-stroke"/></svg></div>{% endfor %}</div></section>
+
+{% else %}<section class="card"><p class="chart-empty">Comparisons start once there is a whole month before this period.</p></section>{% endif %}
+<header class="overview-section-head inv-head"><h2>Month by month</h2><span>Each cell against that category’s own average · darker is more</span></header>
+<section class="card wide-card"><div class="table-wrap"><table class="heatmap"><thead><tr><th>Category</th>{% for k in a.heat_keys %}<th class="num{{ ' is-now' if loop.index0 >= a.heat_now }}">{{ k[2:] if k|length == 7 else k }}</th>{% endfor %}</tr></thead><tbody>
+  {% for row in a.heat %}<tr><th>{{ row.name }}</th>{% for cell in row.cells %}<td class="heat-{{ cell.step }}{{ ' is-now' if loop.index0 >= a.heat_now }}" title="{{ a.heat_keys[loop.index0] }} · {{ cell.value|money }}">{{ '{:,.0f}'.format(cell.value) if cell.value else '·' }}</td>{% endfor %}</tr>{% endfor %}
+</tbody></table></div><p class="muted small heat-key"><span class="heat-1"></span>below usual <span class="heat-2"></span>usual <span class="heat-3"></span>above <span class="heat-4"></span>well above · outlined columns are the period you chose</p></section>
+
 {% endif %}
 {% endblock %}
