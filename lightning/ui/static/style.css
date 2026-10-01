@@ -2297,3 +2297,47 @@ a.chart-sankey-label:hover b { color:var(--azure); }
 .main .clusters { grid-template-columns:none; grid-auto-flow:column; grid-auto-columns:minmax(0,1fr); }
 .main .inv-after-sale { margin-top:14px; }
 .main .heatmap thead th.is-now { color:var(--ink); }
+/* Categories · 2.7: two categories side by side, each always in its edit look; toggles are pills. */
+.main .cat-group { padding:6px 0 10px; }
+.main .cat-l1 { display:flex; justify-content:space-between; align-items:center; gap:12px; margin:18px 0 8px; padding-bottom:8px; border-bottom:1px solid var(--line-control); }
+.main .cat-l1 h3 { margin:0; font:800 var(--fs-card)/1.2 var(--display)!important; color:var(--ink)!important; }
+.main .cat-l1 h3 small { margin-left:10px; font:500 var(--fs-meta)/1 var(--body); color:var(--muted); }
+.main .cat-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:4px 22px; align-items:start; }
+.main .cat-block { display:grid; gap:2px; min-width:0; }
+.main .cat-block.has-detail { grid-column:auto; padding:2px 0 6px; border-bottom:1px dashed var(--line); }
+.main .cat-item { display:flex; align-items:center; gap:6px; min-height:40px; margin:0; padding:2px 4px; border-bottom:1px solid var(--line); min-width:0; }
+.main .cat-item[hidden] { display:none; }
+.main .cat-item.is-new { margin-bottom:8px; padding:6px; border:1px dashed #BFE3CF; border-radius:12px; background:#F1FAF5; }
+.main .cat-item.level-3 { padding-left:26px; position:relative; }
+.main .cat-item.level-3::before { content:"↳"; position:absolute; left:10px; color:var(--muted); }
+.main .cat-item.is-filtered { display:none; }
+.main .cat-item .category-select { flex:none; accent-color:var(--meadow-dark); }
+.main .cat-spacer { width:13px; flex:none; }
+.main .cat-item :is(.cat-name-field,select):not(#_) { height:30px!important; min-height:30px!important; padding:0 10px!important; border-radius:8px!important;
+  border:1px solid transparent!important; background:#E2F1E9!important; font-size:var(--fs-2)!important; box-shadow:none!important; color:var(--ink); }
+.main .cat-item .cat-name-field { flex:1 1 auto; min-width:90px; font-weight:500!important; }
+.main .cat-item.is-head .cat-name-field { font-weight:700!important; }
+.main .cat-item select:not(#_) { flex:none; width:104px; padding-right:26px!important; background-position:right 8px center!important; font-weight:600; }
+.main .cat-item select.dir-in:not(#_) { color:var(--positive); } .main .cat-item select.dir-out:not(#_) { color:#A02E5A; } .main .cat-item select.dir-both:not(#_) { color:#0A5AB0; }
+.main .cat-item :is(.cat-name-field,select):not(#_):hover { border-color:#C9E6D5!important; }
+.main .cat-item :is(.cat-name-field,select):not(#_):focus { background:#fff!important; border-color:var(--meadow-dark)!important; box-shadow:0 0 0 3px rgba(11,138,95,.12)!important; outline:0; }
+.main .cat-pill { flex:none; height:26px; padding:0 10px; border:1px solid var(--line); border-radius:999px; background:var(--surface); color:var(--muted);
+  font:600 var(--fs-meta)/1 var(--body); cursor:pointer; white-space:nowrap; }
+.main .cat-pill[hidden] { display:none; }
+.main .cat-pill:hover { border-color:var(--line-control); color:var(--ink-2); }
+.main .cat-pill[aria-pressed="true"] { background:var(--tint-growth); border-color:#BFE3CF; color:var(--positive); }
+.main .cat-pill.is-oneoff[aria-pressed="true"] { background:#FFF3DC; border-color:#F0D9A8; color:#8A5A00; }
+.main .cat-legend .cat-pill { display:inline-flex; align-items:center; height:20px; padding:0 7px; cursor:default; }
+.main .cat-legend b { font-weight:800; }
+.main .cat-actions { display:inline-flex; align-items:center; gap:2px; margin-left:auto; flex:none; }
+.main .cat-icon { display:inline-grid; place-items:center; width:28px; height:28px; padding:0; border:0; border-radius:8px; background:transparent; color:var(--ink-2); cursor:pointer; }
+.main .cat-icon svg { width:15px; height:15px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+.main .cat-icon:hover { background:var(--hover); color:var(--ink); }
+.main .cat-icon.is-danger:hover { background:var(--rose-soft); color:var(--rose); }
+.main .cat-state { min-width:0; font:600 var(--fs-meta)/1 var(--body); color:var(--muted); white-space:nowrap; }
+.main .cat-state.is-ok { color:var(--positive); } .main .cat-state.is-bad { color:var(--rose); white-space:normal; }
+.main .cat-item.is-off { color:var(--muted); } .main .cat-off-name { flex:1; font-size:var(--fs-2); }
+@media (max-width:1100px) { .main .cat-grid { grid-template-columns:1fr; } }
+/* The "?" tip inside tables: anchored to the left of the "?" so it never runs off the card. */
+.main .targets .table-wrap { overflow:visible; }
+.main .targets-table .info-tip:hover::after, .main .targets-table .info-tip:focus::after { left:-8px; transform:none; z-index:40; }

@@ -4,103 +4,106 @@
 {% block content %}
 {% set settings_section = 'categories' %}{% include 'partials/settings_nav.html' %}
 {% set session = request.state.session_token|default('') %}
-{% macro sign(cat) %}<span class="cat-sign is-{{ cat.direction.value|lower }}" title="{{ {'IN': 'Income only', 'OUT': 'Expense only', 'BOTH': 'Income or expense'}[cat.direction.value] }}">{{ cat.sign }}</span>{% endmacro %}
-{% macro kinds(cat) %}{% if cat.income_class is not none and cat.direction.value != 'OUT' %}{% if cat.id in recurring %}<span class="cat-kind is-recurring">Recurring</span>{% else %}<span class="cat-kind">Irregular</span>{% endif %}{% endif %}{% if cat.direction.value != 'IN' and cat.id in one_offs %}<span class="cat-kind is-oneoff">One-off</span>{% endif %}{% endmacro %}
-{% macro edit_fields(cat, form_id) %}
-<span class="cat-edit-fields">
-  <input form="{{ form_id }}" name="name" value="{{ cat.name if cat else '' }}" placeholder="Category name" aria-label="Name" required>
-  <select form="{{ form_id }}" name="direction" aria-label="Income or expense" {{ 'disabled' if cat and cat.code == 'EXP.SYSTEM.CUSTODY' }}>
+{# One category: always in its edit look. Changes save in place; the buttons are always there. #}
+{% macro item(cat, level, has_children=False, add_parent=none) %}
+{% set fid = ('add-' ~ add_parent) if add_parent else ('row-' ~ cat.id) %}
+<form id="{{ fid }}" class="cat-item level-{{ level }}{{ ' is-head' if has_children }}{{ ' is-new' if add_parent }}" method="post"
+      action="{{ '/categories/add-row' if add_parent else '/categories/' ~ cat.id ~ '/row' }}" {% if not add_parent %}data-autosave data-category-name="{{ cat.name|lower }}"{% else %}hidden data-add-row="{{ add_parent }}"{% endif %}>
+  <input type="hidden" name="__session" value="{{ session }}">{% if add_parent %}<input type="hidden" name="parent_id" value="{{ add_parent }}">{% else %}<input type="hidden" name="action" value="save">{% endif %}
+  {% if not add_parent %}<input type="checkbox" class="category-select" name="category_ids" value="{{ cat.id }}" form="category-bulk-form" aria-label="Select {{ cat.name }}">{% else %}<span class="cat-spacer"></span>{% endif %}
+  <input class="cat-name-field" name="name" value="{{ cat.name if cat else '' }}" placeholder="{{ 'New detail' if level == 3 else 'New category' }}" aria-label="Name" required autocomplete="off">
+  <select name="direction" aria-label="Income or expense" {{ 'disabled' if cat and cat.code == 'EXP.SYSTEM.CUSTODY' }} class="dir-{{ (cat.direction.value if cat else 'OUT')|lower }}">
     {% for value, text in (('OUT', '− Expense'), ('IN', '+ Income'), ('BOTH', '± Both')) %}<option value="{{ value }}" {{ 'selected' if cat and cat.direction.value == value }}>{{ text }}</option>{% endfor %}
   </select>
-  <label class="cat-toggle" data-for="IN BOTH"><input form="{{ form_id }}" type="checkbox" name="recurring" value="1" {{ 'checked' if cat and cat.id in recurring }}> Recurring income</label>
-  <label class="cat-toggle" data-for="OUT BOTH"><input form="{{ form_id }}" type="checkbox" name="one_off" value="1" {{ 'checked' if cat and cat.id in one_offs }}> One-off</label>
-</span>
+  {% set rec = cat and cat.id in recurring %}{% set off = cat and cat.id in one_offs %}
+  <button type="button" class="cat-pill" data-toggle="recurring" data-for="{{ '' if cat and cat.code == 'EXP.SYSTEM.CUSTODY' else 'IN BOTH' }}" aria-pressed="{{ 'true' if rec else 'false' }}" title="Counted in the income average and the forecast">Recurring</button><input type="hidden" name="recurring" value="{{ '1' if rec }}">
+  <button type="button" class="cat-pill is-oneoff" data-toggle="one_off" data-for="OUT BOTH" aria-pressed="{{ 'true' if off else 'false' }}" title="In cash flow, left out of the budget">One-off</button><input type="hidden" name="one_off" value="{{ '1' if off }}">
+  <span class="cat-actions">
+    {% if add_parent %}<button class="btn small primary">Add</button><button type="button" class="btn small" data-cancel>Cancel</button>
+    {% else %}<small class="cat-state" role="status" aria-live="polite"></small>
+      {% if level == 2 %}<button type="button" class="cat-icon" data-add-under="{{ cat.id }}" title="Add detail under {{ cat.name }}" aria-label="Add detail under {{ cat.name }}"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>{% endif %}
+      <button class="cat-icon" name="action" value="archive" title="Archive" aria-label="Archive {{ cat.name }}"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8M10 12h4"/></svg></button>
+      <button class="cat-icon is-danger" name="action" value="delete" data-confirm-delete title="Delete" aria-label="Delete {{ cat.name }}"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></button>{% endif %}
+  </span>
+</form>
 {% endmacro %}
 
 <div class="cat-toolbar">
   <label class="cat-search"><input type="search" id="category-search" placeholder="Find a category" aria-label="Find a category"></label>
   <span id="category-result-count" class="muted small"></span>
-  <span class="cat-legend"><span class="cat-sign is-in">+</span> income <span class="cat-sign is-out">−</span> expense <span class="cat-sign is-both">±</span> both · <span class="cat-kind is-recurring">Recurring</span> counts toward the income average and forecast · <span class="cat-kind is-oneoff">One-off</span> stays in cash flow, out of the budget</span>
+  <span class="cat-legend"><b>−</b> expense · <b>+</b> income · <b>±</b> both · <span class="cat-pill" aria-pressed="true">Recurring</span> counts toward the income average and forecast · <span class="cat-pill is-oneoff" aria-pressed="true">One-off</span> stays in cash flow, out of the budget · changes save as you make them</span>
   {% if archived %}<a class="btn small" href="/categories{{ '' if show_archived else '?archived=1' }}">{{ 'Hide archived' if show_archived else 'Archived (' ~ archived|length ~ ')' }}</a>{% endif %}
 </div>
-
 <form id="category-bulk-form" method="post" action="/categories/bulk-action" data-category-bulk><input type="hidden" name="__session" value="{{ session }}"></form>
 <div class="card cat-card">
   <div class="cat-bulk"><label><input id="select-all-categories" type="checkbox"> Select all</label><span id="category-selection-count" class="muted small">0 selected</span>
     <button class="btn small" form="category-bulk-form" name="action" value="archive">Archive selected</button>
     <button class="btn small danger" form="category-bulk-form" name="action" value="delete">Delete selected</button></div>
-  <table class="cat-table">
-    <colgroup><col class="c-check"><col class="c-sign"><col><col class="c-kind"><col class="c-act"></colgroup>
-    {% for l1, rows in table %}
-    <tbody class="cat-group" data-group>
-      <tr class="cat-l1"><th colspan="4">{{ l1.name }}<small>{{ rows|selectattr('level', 'equalto', 2)|list|length }} categories</small></th>
-        <td class="cat-actions"><button type="button" class="btn small" data-add-under="{{ l1.id }}">Add category</button></td></tr>
-      <tr class="cat-add" data-add-row="{{ l1.id }}" hidden><td></td><td></td>
-        <td colspan="2"><form id="add-{{ l1.id }}" method="post" action="/categories/add-row"><input type="hidden" name="parent_id" value="{{ l1.id }}"><input type="hidden" name="__session" value="{{ session }}"></form>{{ edit_fields(none, 'add-' ~ l1.id) }}</td>
-        <td class="cat-actions"><button class="btn small primary" form="add-{{ l1.id }}">Add</button><button type="button" class="btn small" data-cancel>Cancel</button></td></tr>
-      {% for row in rows %}{% set cat = row.category %}{% set fid = 'row-' ~ cat.id %}
-      <tr class="cat-row level-{{ row.level }}{{ ' is-head' if row.has_children }}" data-category-name="{{ cat.name|lower }}" data-row tabindex="0" aria-label="Edit {{ cat.name }}">
-        <td><input type="checkbox" class="category-select" name="category_ids" value="{{ cat.id }}" form="category-bulk-form" aria-label="Select {{ cat.name }}"></td>
-        <td>{{ sign(cat) }}</td>
-        <td class="cat-name"><span class="cat-view">{{ cat.name }}</span>
-          <form id="{{ fid }}" method="post" action="/categories/{{ cat.id }}/row"><input type="hidden" name="__session" value="{{ session }}"></form>
-          <span class="cat-edit">{{ edit_fields(cat, fid) }}</span></td>
-        <td class="cat-kinds"><span class="cat-view">{{ kinds(cat) }}</span></td>
-        <td class="cat-actions"><span class="cat-edit">
-          <button class="btn small primary" form="{{ fid }}" name="action" value="save">Save</button>
-          {% if row.level == 2 %}<button type="button" class="btn small" data-add-under="{{ cat.id }}">Add detail</button>{% endif %}
-          <button class="btn small" form="{{ fid }}" name="action" value="archive">Archive</button>
-          <button class="btn small danger" form="{{ fid }}" name="action" value="delete" data-confirm-delete>Delete</button></span></td>
-      </tr>
-      {% if row.level == 2 %}<tr class="cat-add level-3" data-add-row="{{ cat.id }}" hidden><td></td><td></td>
-        <td colspan="2"><form id="add-{{ cat.id }}" method="post" action="/categories/add-row"><input type="hidden" name="parent_id" value="{{ cat.id }}"><input type="hidden" name="__session" value="{{ session }}"></form>{{ edit_fields(none, 'add-' ~ cat.id) }}</td>
-        <td class="cat-actions"><button class="btn small primary" form="add-{{ cat.id }}">Add</button><button type="button" class="btn small" data-cancel>Cancel</button></td></tr>{% endif %}
-      {% endfor %}
-    </tbody>
-    {% endfor %}
-    {% if show_archived and archived %}
-    <tbody class="cat-group is-archived">
-      <tr class="cat-l1"><th colspan="5">Archived<small>Not offered when you record a transaction</small></th></tr>
-      {% for cat in archived %}<tr class="cat-row level-2 is-off"><td><input type="checkbox" class="category-select" name="category_ids" value="{{ cat.id }}" form="category-bulk-form" aria-label="Select {{ cat.name }}"></td><td>{{ sign(cat) }}</td>
-        <td class="cat-name">{{ cat.name }}</td><td></td>
-        <td class="cat-actions"><form method="post" action="/categories/{{ cat.id }}/row"><input type="hidden" name="__session" value="{{ session }}"><button class="btn small" name="action" value="activate">Activate</button><button class="btn small danger" name="action" value="delete" data-confirm-delete>Delete</button></form></td></tr>{% endfor %}
-    </tbody>{% endif %}
-  </table>
+  {% for l1, rows in table %}
+  <section class="cat-group" data-group>
+    <header class="cat-l1"><h3>{{ l1.name }}<small>{{ rows|selectattr('level', 'equalto', 2)|list|length }} categories</small></h3><button type="button" class="btn small" data-add-under="{{ l1.id }}">Add category</button></header>
+    {{ item(none, 2, add_parent=l1.id) }}
+    <div class="cat-grid">
+      {% for row in rows if row.level == 2 %}{% set cat = row.category %}
+      <div class="cat-block{{ ' has-detail' if row.has_children }}">
+        {{ item(cat, 2, row.has_children) }}
+        {% for d in rows if d.level == 3 and d.parent.id == cat.id %}{{ item(d.category, 3) }}{% endfor %}
+        {{ item(none, 3, add_parent=cat.id) }}
+      </div>{% endfor %}
+    </div>
+  </section>
+  {% endfor %}
+  {% if show_archived and archived %}
+  <section class="cat-group is-archived"><header class="cat-l1"><h3>Archived<small>Not offered when you record a transaction</small></h3></header>
+    <div class="cat-grid">{% for cat in archived %}<form class="cat-item is-off" method="post" action="/categories/{{ cat.id }}/row"><input type="hidden" name="__session" value="{{ session }}"><input type="checkbox" class="category-select" name="category_ids" value="{{ cat.id }}" form="category-bulk-form" aria-label="Select {{ cat.name }}"><span class="cat-off-name">{{ cat.name }}</span><span class="cat-actions"><button class="btn small" name="action" value="activate">Activate</button><button class="cat-icon is-danger" name="action" value="delete" data-confirm-delete title="Delete" aria-label="Delete {{ cat.name }}"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></button></span></form>{% endfor %}</div>
+  </section>{% endif %}
 </div>
 <script nonce="{{ request.state.csp_nonce|default('') }}">
 (() => {
-  const table = document.querySelector('.cat-table');
-  const close = () => table.querySelectorAll('tr.editing').forEach((tr) => tr.classList.remove('editing'));
-  const syncToggles = (scope) => scope.querySelectorAll('.cat-edit-fields').forEach((box) => {
-    const dir = box.querySelector('select[name=direction]')?.value || 'OUT';
-    box.querySelectorAll('.cat-toggle').forEach((t) => { t.hidden = !t.dataset.for.split(' ').includes(dir); });
+  const card = document.querySelector('.cat-card');
+  const sync = (form) => {
+    const dir = form.querySelector('select[name=direction]').value;
+    form.querySelector('select[name=direction]').className = 'dir-' + dir.toLowerCase();
+    form.querySelectorAll('[data-toggle]').forEach((b) => { b.hidden = !b.dataset.for.split(' ').includes(dir); });
+  };
+  const save = async (form) => {
+    const state = form.querySelector('.cat-state');
+    if (!form.elements.name.value.trim()) return;
+    state.textContent = 'Saving…'; state.className = 'cat-state';
+    const r = await fetch(form.getAttribute('action'), { method: 'POST', body: new URLSearchParams(new FormData(form)), headers: { 'X-Requested-With': 'fetch' } });
+    if (r.ok) { state.textContent = 'Saved'; state.classList.add('is-ok'); setTimeout(() => { state.textContent = ''; }, 1600); }
+    else { state.textContent = await r.text(); state.classList.add('is-bad'); }
+  };
+  card.querySelectorAll('form.cat-item').forEach((form) => {
+    sync(form);
+    const autosave = form.hasAttribute('data-autosave');
+    let before = form.elements.name.value;
+    form.elements.name.addEventListener('keydown', (e) => { if (e.key === 'Enter' && autosave) { e.preventDefault(); e.target.blur(); } });
+    form.elements.name.addEventListener('blur', () => { if (autosave && form.elements.name.value !== before) { before = form.elements.name.value; save(form); } });
+    form.elements.direction.addEventListener('change', () => { sync(form); if (autosave) save(form); });
+    form.querySelectorAll('[data-toggle]').forEach((b) => b.addEventListener('click', () => {
+      const on = b.getAttribute('aria-pressed') !== 'true';
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      form.elements[b.dataset.toggle].value = on ? '1' : '';
+      if (autosave) save(form);
+    }));
   });
-  const open = (tr) => { if (tr.classList.contains('editing')) return; close(); tr.classList.add('editing'); syncToggles(tr); tr.querySelector('input[name=name]')?.focus(); };
-  table.addEventListener('click', (e) => {
+  card.addEventListener('click', (e) => {
     const add = e.target.closest('[data-add-under]');
-    if (add) { e.stopPropagation(); close(); table.querySelectorAll('tr.cat-add').forEach((r) => { r.hidden = true; });
-      const row = table.querySelector(`tr[data-add-row="${add.dataset.addUnder}"]`); row.hidden = false; syncToggles(row); row.querySelector('input[name=name]').focus(); return; }
-    if (e.target.closest('[data-cancel]')) { e.stopPropagation(); close(); e.target.closest('tr.cat-add')?.setAttribute('hidden', ''); return; }
-    const tr = e.target.closest('tr[data-row]');
-    if (tr && !e.target.closest('input[type=checkbox],button,select,a')) open(tr);
+    if (add) { card.querySelectorAll('[data-add-row]').forEach((r) => { r.hidden = true; });
+      const row = card.querySelector(`[data-add-row="${add.dataset.addUnder}"]`); row.hidden = false; row.elements.name.focus(); return; }
+    if (e.target.closest('[data-cancel]')) e.target.closest('form').hidden = true;
   });
-  document.addEventListener('click', (e) => { if (!e.target.closest('.cat-table')) close(); });
-  table.addEventListener('keydown', (e) => {
-    const tr = e.target.closest('tr[data-row]');
-    if (e.key === 'Enter' && e.target === tr) { e.preventDefault(); open(tr); }
-    if (e.key === 'Escape') close();
-  });
-  table.addEventListener('change', (e) => { if (e.target.name === 'direction') syncToggles(e.target.closest('tr')); });
-  document.querySelectorAll('[data-confirm-delete]').forEach((b) => b.addEventListener('click', (e) => {
+  card.querySelectorAll('[data-confirm-delete]').forEach((b) => b.addEventListener('click', (e) => {
     if (!window.confirm('Delete this category? If it has history or is in use, it will be archived instead.')) e.preventDefault();
   }));
   const checks = [...document.querySelectorAll('.category-select')];
   const all = document.getElementById('select-all-categories');
   const count = document.getElementById('category-selection-count');
-  const sync = () => { const n = checks.filter((b) => b.checked).length; count.textContent = `${n} selected`;
+  const syncSel = () => { const n = checks.filter((b) => b.checked).length; count.textContent = `${n} selected`;
     all.checked = checks.length > 0 && n === checks.length; all.indeterminate = n > 0 && n < checks.length; };
-  all?.addEventListener('change', () => { checks.forEach((b) => { b.checked = all.checked; }); sync(); });
-  checks.forEach((b) => b.addEventListener('change', sync));
+  all?.addEventListener('change', () => { checks.forEach((b) => { b.checked = all.checked; }); syncSel(); });
+  checks.forEach((b) => b.addEventListener('change', syncSel));
   document.querySelector('[data-category-bulk]')?.addEventListener('submit', (e) => {
     if (!checks.some((b) => b.checked)) { e.preventDefault(); window.alert('Select at least one category first.'); return; }
     if (e.submitter?.value === 'delete' && !window.confirm('Delete selected categories? Categories in use will be archived instead.')) e.preventDefault();
@@ -110,12 +113,16 @@
   const filter = () => {
     const q = search.value.trim().toLocaleLowerCase(); let visible = 0;
     document.querySelectorAll('[data-group]').forEach((g) => {
-      let n = 0; g.querySelectorAll('[data-category-name]').forEach((r) => { r.hidden = !r.dataset.categoryName.includes(q); if (!r.hidden) n++; });
+      let n = 0;
+      g.querySelectorAll('.cat-block').forEach((block) => {
+        let hit = 0; block.querySelectorAll('[data-category-name]').forEach((r) => { const ok = r.dataset.categoryName.includes(q); r.classList.toggle('is-filtered', !ok); if (ok) hit++; });
+        block.hidden = q && hit === 0; n += hit;
+      });
       g.hidden = q && n === 0; visible += n;
     });
     resultCount.textContent = q ? `${visible} matching` : `${visible} categories`;
   };
-  search.addEventListener('input', filter); sync(); filter();
+  search.addEventListener('input', filter); syncSel(); filter();
 })();
 </script>
 {% endblock %}

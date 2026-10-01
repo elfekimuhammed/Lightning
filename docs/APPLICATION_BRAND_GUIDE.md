@@ -215,7 +215,9 @@ There are three kinds. Choosing from your own data is always type-and-pick, neve
 
 **Select boxes** use the app's own style everywhere: 12px corners, the line-control border, the app's chevron, ink 600 text, the green focus ring. No browser chrome.
 
-**Category lists** never read as breadcrumbs ("Personal › Food"). The L1 is a header; an L2 with L3 detail is a sub-header; each row shows its own name. The Categories page is a table you edit in place: click a row and it becomes its edit form, with + / − / ± (income, expense, both), Recurring (income) and One-off (expense).
+**Category lists** never read as breadcrumbs ("Personal › Food"). The L1 is a header; an L2 with L3 detail is a sub-header; each row shows its own name. The Categories page lists two categories side by side, each always in its edit look: name and + / − / ± as inline row fields, Recurring (income) and One-off (expense) as on/off pills (pressed: a tint of their meaning), and its actions always visible as small icon buttons (add detail, archive, delete). Every change saves as you make it; an L2 with L3 detail keeps its details indented under it.
+
+**On/off choices** that belong to a row are pills, not checkboxes: outlined grey when off, the meaning tint when on (green for Recurring, amber for One-off). Checkboxes stay only for selecting rows.
 
 **Form fields (48px)** live on white: entry cards, the drawer and popups.
 

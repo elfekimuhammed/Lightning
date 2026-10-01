@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Response
 
 from lightning.core.errors import LightningError
 
@@ -43,7 +43,11 @@ async def save_category_row(request: Request, category_id: int):
         if cat.direction.value in ("OUT", "BOTH"):
             c.budgets.set_one_off(cat.id, form.get("one_off") == "1")
     except LightningError as exc:
+        if request.headers.get("X-Requested-With") == "fetch":
+            return Response(exc.message, status_code=400, media_type="text/plain")
         return redirect("/categories", exc.message)
+    if request.headers.get("X-Requested-With") == "fetch":  # the table saves rows in place
+        return Response(status_code=204)
     return redirect("/categories", f"Saved {c.categories.get(category_id).name}.")
 
 

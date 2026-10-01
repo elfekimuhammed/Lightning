@@ -154,7 +154,8 @@ class CategoryService:
                 children = sorted(kids.get(l2.id, []), key=key)
                 rows.append({"category": l2, "level": 2, "has_children": bool(children), "parent": l1})
                 rows += [{"category": l3, "level": 3, "has_children": False, "parent": l2} for l3 in children]
-            result.append((l1, rows))
+            if rows or l1.code in self.L1_ORDER:  # an empty group that is not one of the four is noise
+                result.append((l1, rows))
         return result
 
     def select_groups(self, categories=None) -> list[dict]:

@@ -8,6 +8,12 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### Categories, two by two · 2026-10-01
+- Two categories side by side, each always editable: name, + / − / ±, Recurring and One-off as on/off pills,
+  and add detail, archive and delete always visible. Changes save as you make them.
+- An empty top-level group other than Personal, Work, Investment and System no longer shows.
+- The "?" tips on Target allocation open to the right of the "?" and are no longer cut off.
+
 ### Expense analysis · 2026-10-01
 - Four KPI cards give the gist of the period: money out against the period before, against your usual
   month, the biggest category with its share, and the largest payment.

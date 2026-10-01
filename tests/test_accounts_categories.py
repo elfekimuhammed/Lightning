@@ -215,16 +215,20 @@ def test_categories_table_edits_in_place_and_keeps_flags_with_the_budget(c):
     from lightning.ui.web import create_app
     client = TestClient(create_app(c))
     page = client.get("/categories").text
-    assert "Personal" in page and "System" in page and 'class="cat-row level-2' in page
+    assert "Personal" in page and "System" in page and 'class="cat-item level-2' in page
     assert "Personal ›" not in page  # names, never a breadcrumb list
     food = c.categories.get_by_code("EXP.PERSONAL.FOOD")
     r = client.post("/categories/add-row", data={"parent_id": food.id, "name": "Groceries", "direction": "OUT"})
     assert r.status_code == 200 and "Added Groceries under Food &amp; Groceries" in r.text
     groceries = c.categories.get_by_code("EXP.PERSONAL.FOOD.GROCERIES")
-    assert 'class="cat-row level-3' in client.get("/categories").text
+    assert 'class="cat-item level-3' in client.get("/categories").text
     travel = c.categories.get_by_code("EXP.PERSONAL.TRAVEL")
     client.post(f"/categories/{travel.id}/row", data={"name": "Travel", "direction": "OUT", "one_off": "1"})
     assert travel.id in c.budgets.one_off_ids()
+    saved = client.post(f"/categories/{travel.id}/row", data={"name": "Travel", "direction": "OUT", "one_off": ""},
+                        headers={"X-Requested-With": "fetch"})
+    assert saved.status_code == 204 and travel.id not in c.budgets.one_off_ids()  # saved in place, toggled off
+    client.post(f"/categories/{travel.id}/row", data={"name": "Travel", "direction": "OUT", "one_off": "1"})
     bonus = c.categories.get_by_code("EXP.WORK.BONUS")
     salary = c.categories.get_by_code("EXP.WORK.SALARY")
     assert salary.id in c.budgets.recurring_income_ids() and bonus.id not in c.budgets.recurring_income_ids()
