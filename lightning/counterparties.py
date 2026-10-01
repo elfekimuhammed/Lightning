@@ -10,7 +10,7 @@ from lightning.core.dates import now_iso
 from lightning.core.errors import ConflictError, NotFoundError, ValidationError
 from lightning.database.connection import Database
 
-MAX_ALIASES_PER_COUNTERPARTY = 10
+MAX_ALIASES_PER_COUNTERPARTY = 20
 
 
 def normalize(value: str) -> str:

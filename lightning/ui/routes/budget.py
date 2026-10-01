@@ -203,7 +203,7 @@ def _page(request: Request, month: str, values: dict | None = None, error: str =
             tracking_suggestions.append({"id": category.id, "name": line.name, "share": share,
                                          "group_id": group_id, "spent": spent_six,
                                          "reason": (f"{share:.1f}% of average monthly income" if crossed_percent else
-                                                    f"Average {monthly_average:,.2f} EGP crossed fixed threshold")})
+                                                    f"Average {monthly_average:,.0f} EGP crossed fixed threshold")})
 
     # Background estimates are monthly expectations for untracked leaf
     # categories. Parent direct plans already cap these expenses, so children

@@ -9,10 +9,10 @@
   <div class="stat-tile surface-lead"><span class="stat-tile-head"><span class="stat-tile-label">Current value</span><span class="stat-chip">{{ j.months_held or 0 }} months held</span></span>
     {% if j.spark and j.spark.points %}<span class="stat-tile-visual" aria-hidden="true"><svg class="stat-tile-spark tone-hold" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="{{ j.spark.area }}"/><polyline points="{{ j.spark.points }}" vector-effect="non-scaling-stroke"/></svg><span class="stat-tile-dot tone-hold" style="left:{{ '%.2f'|format(j.spark.last[0]) }}%;top:{{ '%.2f'|format(j.spark.last[1]) }}%"></span></span>{% endif %}
     <span class="stat-tile-value">{{ h.value|money if h.value is not none else '—' }}<small>{{ base }}</small></span>
-    <span class="stat-tile-sub">Price {{ h.price|money(False,4 if h.price is not none and h.price < 10 else 2) if h.price is not none else '—' }} · {{ h.price_date or 'no price date' }}{% if h.price_source=='COST' %} · at cost{% endif %}</span></div>
+    <span class="stat-tile-sub">Price {{ h.price|money(False,2 if h.price is not none and h.price < 10 else 0) if h.price is not none else '—' }} · {{ h.price_date or 'no price date' }}{% if h.price_source=='COST' %} · at cost{% endif %}</span></div>
   <div class="stat-tile surface-white"><span class="stat-tile-head"><span class="stat-tile-label">{{ fig.unrealized_gain.label }}</span><span class="stat-chip is-{{ 'up' if (h.unrealized or 0) > 0 else ('down' if (h.unrealized or 0) < 0 else 'flat') }}">{% if gain_pct is not none %}{{ '%+.1f'|format(gain_pct)|replace('-', '−') }}%{% else %}—{% endif %}</span></span>
     <span class="stat-tile-value{{ ' is-negative' if h.unrealized is not none and h.unrealized < 0 }}">{{ h.unrealized|money(True) if h.unrealized is not none else '—' }}<small>{{ base }}</small></span>
-    <span class="stat-tile-sub">{{ fig.cost.label }} {{ h.cost_basis|money }} · {{ fig.average_cost.label }} {{ h.average_cost|money(False,4 if h.average_cost is not none and h.average_cost < 10 else 2) if h.average_cost is not none else '—' }}</span></div>
+    <span class="stat-tile-sub">{{ fig.cost.label }} {{ h.cost_basis|money }} · {{ fig.average_cost.label }} {{ h.average_cost|money(False,2 if h.average_cost is not none and h.average_cost < 10 else 0) if h.average_cost is not none else '—' }}</span></div>
   <div class="stat-tile surface-mint"><span class="stat-tile-head"><span class="stat-tile-label">Total return</span></span>
     <span class="stat-tile-value{{ ' is-negative' if total_return < 0 }}">{{ total_return|money(True) }}<small>{{ base }}</small></span>
     <span class="stat-tile-sub">Price change, sales and payouts since you bought it</span></div>
@@ -49,7 +49,7 @@
     {{ trend(j.value_cost, 'Value against cost', 'Plan', 210) if j.value_cost else '' }}</section>
   <section><div class="overview-block-head"><div><h3>Trades and payouts</h3><p>Newest first · units held after each</p></div></div>
     <table class="journey-table"><thead><tr><th>Date</th><th>What</th><th class="num">Units</th><th class="num">Price</th><th class="num">Amount</th><th class="num">Held</th></tr></thead><tbody>
-    {% for t in j.trades[:12] %}<tr><td class="code">{{ t.date }}</td><td>{{ t.kind }}</td><td class="num">{{ (('+' if t.units > 0 else '') ~ (t.units|units)) if t.units else '—' }}</td><td class="num">{{ t.price|money(False,4 if t.price < 10 else 2) if t.price is not none else '—' }}</td><td class="num">{{ t.amount|money }}</td><td class="num">{{ t.held|units }}</td></tr>{% else %}<tr><td colspan="6" class="empty">No trades yet.</td></tr>{% endfor %}
+    {% for t in j.trades[:12] %}<tr><td class="code">{{ t.date }}</td><td>{{ t.kind }}</td><td class="num">{{ (('+' if t.units > 0 else '') ~ (t.units|units)) if t.units else '—' }}</td><td class="num">{{ t.price|money(False,2 if t.price < 10 else 0) if t.price is not none else '—' }}</td><td class="num">{{ t.amount|money }}</td><td class="num">{{ t.held|units }}</td></tr>{% else %}<tr><td colspan="6" class="empty">No trades yet.</td></tr>{% endfor %}
     </tbody></table>{% if j.trades|length > 12 %}<p class="muted small">{{ j.trades|length - 12 }} earlier entries</p>{% endif %}</section>
 </div></section>
 

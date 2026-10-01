@@ -337,8 +337,9 @@ class BankImportService:
                 pass
         if counterparty and counterparty["default_category_id"]:
             return counterparty["default_category_id"]
-        recent = self.transactions.counterparty_suggestions()
-        return recent.get(parsed["Counterparty"])
+        usual = self.transactions.usual_categories()
+        name = counterparty["name"] if counterparty else parsed["Counterparty"]
+        return (usual.get(name) or {}).get("category_id")
 
     def _similarity_warning(self, account_id, parsed):
         if parsed["_errors"]:

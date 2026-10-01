@@ -228,6 +228,26 @@ class TransactionService:
         """Previously used counterparties and their most recent category."""
         return self.repo.counterparty_categories()
 
+    USUAL_WINDOW = 20
+
+    def usual_categories(self) -> dict[str, dict]:
+        """The category each counterparty is usually filed under: the one picked most often in its
+        last 20 transactions, the most recent one on a tie. {name: {category_id, count, total}}."""
+        tally: dict[str, dict[int, list]] = {}
+        totals: dict[str, set] = {}
+        for row in self.repo.recent_categories(self.USUAL_WINDOW):
+            name = row["counterparty"]
+            seen = tally.setdefault(name, {})
+            totals.setdefault(name, set()).add(row["id"])
+            entry = seen.setdefault(row["category_id"], [0, (row["date"], row["id"])])
+            entry[0] += 1
+            entry[1] = max(entry[1], (row["date"], row["id"]))
+        usual = {}
+        for name, seen in tally.items():
+            category_id, (count, _) = max(seen.items(), key=lambda kv: (kv[1][0], kv[1][1]))
+            usual[name] = {"category_id": category_id, "count": count, "total": len(totals[name])}
+        return usual
+
     def post(self, doc_type: DocType, date: str, lines: list[PostingLine], description: str = "",
              counterparty: str = "", notes: str = "", source: TxnSource = TxnSource.MANUAL) -> Transaction:
         """Record any document from lines built by another module (investments). Same rules as everything else:

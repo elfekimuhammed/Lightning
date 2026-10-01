@@ -16,6 +16,65 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - Rounding cents now go to the largest suggestion, so a split always adds up and never shows a negative amount.
 - One split function (`suggest_contributions`) serves the planner; the unused copy on the Investments page is gone.
 
+### Investments and report pages, lighter · 2026-10-01
+- Saved and invested is one light bar of money in: invested inside saved, then kept, then spent. Investing rate
+  now counts only what came out of this period's savings, so it is never more than the savings rate; money
+  moved in from earlier savings is noted.
+- Report tabs carry no add buttons: Add holding, Target allocation and More actions are gone from Investments
+  (holdings are recorded from their account; prices, the reevaluation ledger, new investments and targets are
+  linked from Settings › Valuations). The Investment planner stays, now in the Meadow green gradient.
+- Holdings open with an All holdings total row; class rows are soft bands and rows have no hairlines.
+- The Reconcile portfolio value card is gone from the middle of the page.
+- In the net cash flow heatmap only Net flow is coloured (green kept, rose short); money in and out are grey.
+- Unit prices round to the unit too, except prices under 10.
+
+### Expense analysis: five then Others · 2026-10-01
+- Every item chart shows the five biggest categories, then everything else as one "Others".
+- Small multiples sit beside the treemap. Month by month is two heatmaps side by side: money out by category,
+  and net cash flow (money in, money out, what was left); the second needs no category filter.
+- Each visual keeps a "Show the numbers" table.
+
+### Whole units on reporting pages · 2026-10-01
+- Overview, Budget, Expense analysis, Investments (with each holding and Target allocation), Cash planning's
+  Plan and the Settings tables show money rounded to the nearest unit, key notes included. Values are still
+  stored with their decimals, and registers, entry fields and their messages keep cents.
+- Clustered columns put each value on top of its bar, the name right under the bars and the change against
+  usual under the name.
+
+### Counterparties learn their category and their spellings · 2026-10-01
+- **Usual category:** each counterparty is filed under the category picked most often in its last 20 transactions, or the most recent one on a tie. Aliases count with their counterparty.
+  - It fills in as soon as you pick the counterparty in the register, and when you save with no category.
+  - It also applies in bank imports.
+  - A default set on the Counterparties page still wins. That page shows the learned one as "Learned: Groceries", with "7 of the last 9" under it.
+- **Learned aliases:**
+  - The register's counterparty list now also offers close spellings under "Did you mean".
+  - If you type "Talabaat", then press Enter or pick "Talabat", the typed spelling is saved as Talabat's alias, so it matches straight away next time.
+  - Only close spellings that match nothing yet are learned. Picking a different name ("Uber" → Careem) is not.
+  - A full alias list never stops the save.
+- A counterparty can now hold **20 aliases** (was 10).
+
+### Expense analysis cards · 2026-10-01
+- Money out and the comparisons are one wider card: the amount and a six-month sparkline, then against the
+  period before and against your usual month underneath.
+- New card: Average payment, with how many payments and how many in the period before.
+- Largest payment says how many times the average it is. Stat cards get depth: a top light, a lift on hover.
+- Where did it go is half treemap, half ranked list of the big categories with each one's change against
+  its usual month.
+
+### Our dropdowns, percent steppers and table rows · 2026-10-01
+- Every select box opens our own list: group headers, details indented, the current choice marked and a search
+  on long lists (phones keep their native picker).
+- Every % field has our own up and down chevrons, one whole percent a step; sale factors step by 1.
+- Sale factors drop the "a factor here applies…" line under each class.
+- Counterparties is a table of rows: inline row fields, the name takes the room, Delete is an icon.
+- Cards stacked on a page keep a 20px gap.
+- Target allocation can set a target on every class it lists, deposits included.
+
+### Target allocation adds up to 100% · 2026-10-01
+- A target that would take the total past 100% is refused, and the message says how much is left.
+- Value to adjust is how much to buy (or sell) of that one class to reach its share with every other class
+  left as it is: (target × total − value) ÷ (1 − target), because buying grows the total too.
+
 ### Categories, two by two · 2026-10-01
 - Two categories side by side, each always editable: name, + / − / ±, Recurring and One-off as on/off pills,
   and add detail, archive and delete always visible. Changes save as you make them.

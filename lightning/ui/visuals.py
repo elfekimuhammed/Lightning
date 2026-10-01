@@ -300,7 +300,7 @@ def holding_journey(c, account_id: int, asset_id: int, end: date, months: int = 
 
 
 def expense_analysis(c, first: date, last: date, code_filter: str = "", history: int = 12,
-                     floor_share: Decimal = Decimal(1), top: int = 8) -> dict:
+                     floor_share: Decimal = Decimal(1), top: int = 5) -> dict:
     """Expense analysis in five questions, big items only.
 
     Categories (L2) under ``floor_share`` % of money out, or past the ``top`` largest, fold into
@@ -340,13 +340,29 @@ def expense_analysis(c, first: date, last: date, code_filter: str = "", history:
                      "range": None if low is None else {"low": float(low / scale * 100), "high": float(high / scale * 100),
                                                         "median": float(median / scale * 100), "now": float(per_month / scale * 100)},
                      "href": f"/transactions?category_id={category.id}&date_from={fmt_date(first)}&date_to={fmt_date(last)}"})
-    tiles = charts.treemap([{"label": r["name"], "value": r["value"], "share": r["share"], "href": r["href"]} for r in rows]
-                           + ([{"label": "Smaller categories", "value": small, "share": small / total * 100 if total else 0,
-                                "small": True}] if small > 0 else []))
+    if small > 0:  # everything past the biggest five is one "Others" row, with its own history
+        big_codes = {code for code, _, _ in big}
+        past = [sum((v for code, (_, v) in h.items() if code not in big_codes), ZERO) for h in hist]
+        per_month = small / months_in
+        recent = past[-6:]
+        usual = sum(recent, ZERO) / len(recent) if recent else None
+        ordered = sorted(past)
+        median = (ordered[len(ordered) // 2] if len(ordered) % 2 else (ordered[len(ordered) // 2 - 1] + ordered[len(ordered) // 2]) / 2) if ordered else None
+        low, high = (min(past), max(past)) if past else (None, None)
+        scale = max([per_month] + past) or Decimal(1)
+        rows.append({"code": "", "name": "Others", "others": True, "value": small, "per_month": per_month,
+                     "share": small / total * 100, "usual": usual, "past": past, "low": low, "high": high, "median": median,
+                     "above": high is not None and per_month > high, "below": low is not None and per_month < low,
+                     "range": None if low is None else {"low": float(low / scale * 100), "high": float(high / scale * 100),
+                                                        "median": float(median / scale * 100), "now": float(per_month / scale * 100)},
+                     "href": f"/transactions?date_from={fmt_date(first)}&date_to={fmt_date(last)}"})
+    tiles = charts.treemap([{"label": r["name"], "value": r["value"], "share": r["share"], "href": r["href"],
+                             "small": r.get("others", False)} for r in rows])
     # Clustered columns: usual month (neutral) beside now (its meaning colour), one scale, from zero.
     col_max = max([r["per_month"] for r in rows] + [r["usual"] or ZERO for r in rows] + [ZERO]) or Decimal(1)
     clusters = [{"name": r["name"], "now": r["per_month"], "usual": r["usual"],
                  "over": bool(r["usual"]) and r["per_month"] > r["usual"] * Decimal("1.1"),
+                 "change": (r["per_month"] - r["usual"]) / r["usual"] * 100 if r["usual"] else None,
                  "now_h": float(r["per_month"] / col_max * 100), "usual_h": float((r["usual"] or ZERO) / col_max * 100)}
                 for r in rows[:6]]
     # Small multiples: the same twelve months plus now, one scale for every panel.
@@ -364,7 +380,11 @@ def expense_analysis(c, first: date, last: date, code_filter: str = "", history:
     heat = []
     for r in rows:
         values = r["past"][-len(past_cols):] if past_cols else []
-        values = values + [m.get(r["code"], ("", ZERO))[1] for m in period_months]
+        if r.get("others"):
+            big_codes = {row["code"] for row in rows if not row.get("others")}
+            values = values + [sum((v for code, (_, v) in m.items() if code not in big_codes), ZERO) for m in period_months]
+        else:
+            values = values + [m.get(r["code"], ("", ZERO))[1] for m in period_months]
         known = [v for v in values if v > 0]
         avg = sum(known, ZERO) / len(known) if known else ZERO
         cells = []
@@ -374,11 +394,36 @@ def expense_analysis(c, first: date, last: date, code_filter: str = "", history:
             cells.append({"value": v, "step": step})
         heat.append({"name": r["name"], "cells": cells})
     heat_now = now_from
+    # Net cash flow by month, the same months: money in, money out and what was left.
+    flow_rows = {"Money in": [], "Money out": [], "Net flow": []}
+    for k in heat_keys:
+        start, end = parse_month(k)
+        start, end = (max(start, first), min(end, last)) if k in period_keys else (start, end)
+        f = c.reporting.cash_flow(start, end)
+        flow_rows["Money in"].append(f.inflows); flow_rows["Money out"].append(f.outflows); flow_rows["Net flow"].append(f.net)
+
+    def steps(values, tone):
+        known = [v for v in values if v > 0]
+        avg = sum(known, ZERO) / len(known) if known else ZERO
+        out = []
+        for v in values:
+            ratio = v / avg if avg else ZERO
+            step = 0 if v <= 0 else 1 if ratio < Decimal("0.75") else 2 if ratio < Decimal("1.1") else 3 if ratio < Decimal("1.5") else 4
+            out.append({"value": v, "step": step, "tone": tone})
+        return out
+
+    top_net = max((abs(v) for v in flow_rows["Net flow"]), default=ZERO) or Decimal(1)
+    net_cells = [{"value": v, "tone": "in" if v > 0 else "out" if v < 0 else "zero",
+                  "step": 0 if not v else min(4, 1 + int(abs(v) / top_net * 4 - Decimal("0.0001")))} for v in flow_rows["Net flow"]]
+    flow_heat = [{"name": "Money in", "cells": steps(flow_rows["Money in"], "in")},
+                 {"name": "Money out", "cells": steps(flow_rows["Money out"], "out")},
+                 {"name": "Net flow", "cells": net_cells, "net": True}]
     usual_total = sum((r["usual"] or ZERO for r in rows), ZERO)
     recent_all = [sum((v for _, v in h.values()), ZERO) for h in hist[-6:]]
     usual_out = sum(recent_all, ZERO) / len(recent_all) if recent_all else None
     return {"rows": rows, "total": total, "small": small, "months_in": months_in, "tiles": tiles,
             "clusters": clusters, "multiples": multiples, "heat": heat, "heat_keys": heat_keys, "heat_now": now_from,
+            "flow_heat": flow_heat,
             "history_months": len(keys), "usual_total": usual_total, "usual_out": usual_out,
             "per_month": total / months_in,
             "has_history": len(keys) >= 1, "has_range": len(keys) >= 3}

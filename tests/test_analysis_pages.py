@@ -26,7 +26,7 @@ def test_expense_category_filter_applies_to_total_and_monthly_trend(c, setup):
         f"/birdview/expenses?period=custom&date_from=2026-10-01&date_to=2026-11-30&category_id={food.id}"
     )
     assert page.status_code == 200
-    assert "250.00" in page.text
+    assert "250" in page.text
     assert "2026-10" in page.text and "2026-11" in page.text
-    assert "150.00" in page.text and "100.00" in page.text
-    assert "650.00" not in page.text  # November's unfiltered total
+    assert "150" in page.text and "100" in page.text
+    assert "650" not in page.text  # November's unfiltered total

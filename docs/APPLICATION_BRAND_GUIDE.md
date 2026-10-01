@@ -129,6 +129,8 @@ There are no white or tinted panels inside a lead card.
 
 **Wide split cards (Overview, 2.5).** A wide card may hold one answer as two halves: the number and its toggle list on the left, the visual that explains it on the right, under a hairline divider. Net worth (list · trend over time), Free cash (list · waterfall), Net flow (list · column waterfall). No chart sits behind a toggle: if a chart is on the page, it is open.
 
+**A comparison card** is a stat card one and a half times as wide: the number with its sparkline beside it, and a small block underneath with "Against the period before" and "Against your usual month", each with an arrow and the signed difference and %. Spending that rose reads rose; spending that fell reads green. Stat cards have depth: a soft top light, a tinted top edge on lead and mint cards, and a small lift on hover.
+
 **Overview stat cards** are exactly four: Change in net worth (Change in what you own when nothing is owed), Savings rate, Investing rate and Left in plan for the period's month. Safe to spend stays the lead of Cash planning.
 
 **Inside a white card:** a list, bars, toggle groups, a breakdown with its result band, a chart, or "Needs you". A section with no single answer, such as every holding, is one wide card.
@@ -215,6 +217,16 @@ There are three kinds. Choosing from your own data is always type-and-pick, neve
 
 **Select boxes** use the app's own style everywhere: 12px corners, the line-control border, the app's chevron, ink 600 text, the green focus ring. No browser chrome.
 
+**Dropdown lists** are ours, not the browser's. Clicking a select box (or Space, Enter or Down on it) opens our panel: 14px corners, the float shadow, group headers in the display face, choices on a soft hover, the current one tinted green with a check, details indented with ↳, and a search field on lists longer than ten. Phones keep their own picker.
+
+**Percent fields** have our own up and down chevrons inside the field, left of the "%". Each click moves one whole percent, and a short pause saves like Enter.
+
+**Report pages carry no add buttons**: records are made from their account; the one call to action is the Investment planner, in the Meadow green gradient (#14A874 → #0B8A5F).
+
+**Numbers on reporting pages** are whole units (12,500, not 12,500.00); amounts are stored with their decimals, and registers, entry fields and the money you type keep cents.
+
+**Settings tables** are tables of rows: 40px rows on hairlines with a soft hover, no white boxes, and the name taking the room. Actions are small icon buttons. Cards stacked on a page always keep one block gap (20px) between them.
+
 **Category lists** never read as breadcrumbs ("Personal › Food"). The L1 is a header; an L2 with L3 detail is a sub-header; each row shows its own name. The Categories page lists two categories side by side, each always in its edit look: name and + / − / ± as inline row fields, Recurring (income) and One-off (expense) as on/off pills (pressed: a tint of their meaning), and its actions always visible as small icon buttons (add detail, archive, delete). Every change saves as you make it; an L2 with L3 detail keeps its details indented under it.
 
 **On/off choices** that belong to a row are pills, not checkboxes: outlined grey when off, the meaning tint when on (green for Recurring, amber for One-off). Checkboxes stay only for selecting rows.
@@ -230,7 +242,7 @@ There are three kinds. Choosing from your own data is always type-and-pick, neve
 
 **Pick field:**
 
-- Type, then pick from a menu grouped as your accounts (a transfer), used before, categories, and create.
+- Type, then pick from a menu grouped as your accounts (a transfer), used before, categories, and create. Counterparty menus add **Did you mean** with close spellings. Picking one saves what you typed as an alias. Picking a counterparty fills in its category: the one set on it, else the one it is usually filed under in its last 20 transactions.
 - It replaces every dropdown over five options and every "Search X" + "Choose X" pair.
 - The date field adds Today and Yesterday chips and a calendar button.
 
@@ -264,7 +276,8 @@ Fields never sit in read-only list rows. Arabic text gets `dir="auto"`. Group lo
 **How a page is built (2.7).**
 
 - **Questions first.** A page opens with small stat or KPI cards that give the gist of the period you chose. Then one section per main question, in a logical order, each a wide card with its answer. Pick the visual for the question, never the other way round, and stop when the main questions are answered.
-- **Big items only.** Analysis covers what matters. Anything under 1% of the whole folds into one grey "Smaller …" item.
+- **Five, then Others.** Any chart of items (treemap, heatmap, clustered or grouped bars, small multiples) shows the biggest four or five and folds everything else into one grey "Others", with its own history.
+- **Show the numbers.** Every visual can carry its numbers as text: a closed "Show the numbers" toggle under it opens a plain table with the same figures, right-aligned. It costs nothing on screen and answers "what exactly is that bar?".
 - **Same form, different goals.** A chart type may have more than one style when the styles answer different questions. Diverging bars are azure for money put in (a flow) and green for growth (a price move). A trend line has a dashed plan that turns over-plan dots rose, or a dashed average cost that never does.
 - **Period or fixed horizon.** Every section header says its time frame. Most visuals follow the period you chose. Some keep a fixed horizon on purpose:
   - sparklines: the last six months;

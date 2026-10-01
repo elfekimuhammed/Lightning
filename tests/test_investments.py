@@ -332,11 +332,11 @@ class TestInvestmentPages:
         r = client.post("/investments/new?kind=buy", data={"date": "2026-09-10", "account_id": thndr.id,
                         "asset_id": comi.id, "quantity": "100", "price": "95", "fees": "50"})
         assert "Saved BUY-2026-09-10-001" in r.text  # lands on the THNDR register
-        assert "Holdings" in r.text and "Commercial International Bank" in r.text and "\u22129,550.00" in r.text
+        assert "Holdings" in r.text and "Commercial International Bank" in r.text and "\u22129,550" in r.text
         r = client.post("/investments/prices", data={"date": "2026-09-30", f"p_{comi.id}": "100"})
         assert "Saved 1 price input; reevaluation catch-up completed." in r.text
         assert c.investments.portfolio("2026-09-30").unrealized == D("450")
-        assert "+450.00" in client.get("/investments?period=month&month=2026-09").text
+        assert "+450" in client.get("/investments?period=month&month=2026-09").text
         r = client.post("/investments/new?kind=sell", data={"date": "2026-09-30", "account_id": thndr.id,
                         "asset_id": comi.id, "quantity": "500", "price": "100"})
         assert r.status_code == 400 and "less than zero" in r.text

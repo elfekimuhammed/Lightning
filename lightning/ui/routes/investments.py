@@ -263,9 +263,17 @@ def _page_extras(c, period, p, prior, owned_rows, prior_custody, before_day, rep
     year-to-date dividends and the period's flows by class."""
     day = period.end_text
     flow = c.reporting.cash_flow(period.start, period.end)
-    saved, invested = flow.savings_rate, investing_rate(report["net_money"], flow.inflows)
-    saved_cells = int(max(min(saved or ZERO, Decimal(100)), ZERO).to_integral_value()) if saved is not None else 0
-    invest_cells = min(int(max(min(invested or ZERO, Decimal(100)), ZERO).to_integral_value()), saved_cells) if invested is not None else 0
+    saved, invested = flow.savings_rate, investing_rate(report["net_money"], flow.inflows, flow.net)
+    # One bar of money in: invested (inside saved), the rest of saved, then spent. They add up to money in.
+    inflow = flow.inflows
+    kept = max(flow.net, ZERO)
+    put_in = min(max(report["net_money"], ZERO), kept)
+    spent_share = float(min(flow.outflows, inflow) / inflow * 100) if inflow > 0 else 0.0
+    bar = {"invested": float(put_in / inflow * 100) if inflow > 0 else 0.0,
+           "saved": float((kept - put_in) / inflow * 100) if inflow > 0 else 0.0, "spent": spent_share,
+           "invested_amount": put_in, "kept": kept, "spent_amount": flow.outflows,
+           "earlier": max(report["net_money"] - kept, ZERO)}
+    saved_cells = invest_cells = 0
     opening = report.get("recon_opening")
     growth = period_growth(report["result"], opening, report["net_money"])
     spark = _portfolio_value_spark(c, today())
@@ -314,7 +322,7 @@ def _page_extras(c, period, p, prior, owned_rows, prior_custody, before_day, rep
     flow_rows = ([{"label": "Money in", "value": report["new_money"], "group": "money"},
                   {"label": "Money out", "value": -report["withdrawn"], "group": "money"}]
                  + [{"label": name, "value": change, "group": "class"} for name, change in class_changes if change])
-    return {"waffle": {"saved": saved, "invested": invested, "saved_cells": saved_cells, "invest_cells": invest_cells,
+    return {"waffle": {"saved": saved, "invested": invested, "saved_cells": saved_cells, "invest_cells": invest_cells, "bar": bar,
                        "money_in": flow.inflows, "net": flow.net, "money_added": report["net_money"]},
             "growth": growth, "value_spark": spark, "holding_groups": holding_groups, "biggest": biggest,
             "holdings_total": holdings_total, "ytd_dividends": dividends, "ytd_year": now.year,
@@ -429,12 +437,18 @@ async def targets_page(request: Request):
 async def save_target(request: Request):
     c=container(request); form=await request.form(); bucket=str(form.get("bucket","")).strip()
     try:
-        if bucket in _allocation_classes(c) and not str(form.get("target_weight", "")).strip():
+        allowed = set(_allocation_classes(c)) | {r["name"] for r in target_plan(c)["rows"]}  # every class in the table
+        if bucket in allowed and not str(form.get("target_weight", "")).strip():
             c.investments.clear_target_weight(bucket)  # an empty field clears the target
             return Response(status_code=204) if request.headers.get("X-Requested-With") == "fetch" else redirect("/investments/targets", "Target cleared.")
         value=to_decimal(str(form.get("target_weight","")),"target")
-        if bucket not in _allocation_classes(c) or value<ZERO or value>100: raise LightningError("Choose an available investment asset class and a target from 0 to 100.")
-        matches=[cls for cls in c.assets.investment_classes() if c.assets.display_name(cls.id).split(" › ")[-1] == bucket]
+        others=sum((w for b, w in c.investments.target_weights().items() if b != bucket), ZERO)
+        if others + value > 100:
+            room = max(ZERO, 100 - others)
+            raise LightningError(f"Targets can add up to 100% at most. The others take {others.normalize():f}%, so "
+                                 f"{bucket} can be up to {room.normalize():f}%.")
+        if bucket not in allowed or value<ZERO or value>100: raise LightningError("Choose an available asset class and a target from 0 to 100.")
+        matches=[cls for cls in c.assets.list_classes() if cls.active and c.assets.display_name(cls.id).split(" › ")[-1] == bucket]
         if len(matches)!=1: raise LightningError("This target label is ambiguous. Rename or resolve the asset classes first.")
         cls_id=matches[0].id
         c.investments.set_target_weight(bucket, value, cls_id)

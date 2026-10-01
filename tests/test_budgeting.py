@@ -183,4 +183,4 @@ def test_current_month_uses_full_month_limit_before_month_end(c, b, monkeypatch)
     c.budgets.set_budget(ids["EXP.PERSONAL"], "2026-09", "6000")
     page = TestClient(create_app(c)).get("/budget?period=month&month=2026-09")
     assert page.status_code == 200
-    assert page.text.count("6,000.00") >= 2  # headline and matching group limit
+    assert page.text.count("6,000") >= 2  # headline and matching group limit

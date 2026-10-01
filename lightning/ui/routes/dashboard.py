@@ -12,7 +12,12 @@ from lightning.accounts.domain import AccountType
 from lightning.core.dates import fmt_date, month_of, parse_date, parse_month, today
 from lightning.core.errors import LightningError, ValidationError
 from lightning.core.figures import FIGURES, label
-from lightning.core.money import ZERO, fmt, to_decimal
+from lightning.core.money import ZERO, fmt as _fmt, to_decimal
+
+
+def fmt(value, places: int = 0, signed: bool = False) -> str:
+    """Reporting text rounds to the nearest unit (stored values keep their decimals)."""
+    return _fmt(value, places, signed)
 from lightning.investments.report import investing_rate, investment_period, results_by_asset
 
 from ..web import container, render
@@ -300,7 +305,7 @@ def _period_stats(c, period, first, as_of, position, cash_flow, change, change_r
         "spark": visuals.savings_rate_spark(c, as_of), "spark_tone": "in",
         "href": f"/transactions?date_from={fmt_date(first)}&date_to={fmt_date(as_of)}",
     })
-    invest = investing_rate(money_added, cash_flow.inflows)
+    invest = investing_rate(money_added, cash_flow.inflows, cash_flow.net)
     stats.append({
         "key": "investing", "surface": "mint", "label": label("investing_rate"), "value": invest, "kind": "rate",
         "badge": {"tone": sign(money_added), "text": period_name},
@@ -368,7 +373,7 @@ async def explain_overview_figure(request: Request, kind: str):
         change_label = (f"{label('change_in_what_you_own')} since your first record" if period.key == "all"
                         else label("change_in_what_you_own"))
         foot = (f"Position as of {day}. {change_label}: "
-                + (fmt(change_value, 2, True) if change_value is not None else f"unavailable · {change_reason}")
+                + (fmt(change_value, 0, True) if change_value is not None else f"unavailable · {change_reason}")
                 + f". This is wealth movement, not investment return.{missing}")
         action = ("Open Birdview", destination)
     elif kind == "free-cash":

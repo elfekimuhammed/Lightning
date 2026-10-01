@@ -88,13 +88,13 @@ def test_a_donut_keeps_the_largest_parts_in_class_order():
 # ---------------------------------------------------------------- key notes
 
 def test_budget_notes_speak_plainly_about_the_days_left():
-    assert keynotes.per_day(D(300), 10) == "About 30.00 a day for 10 days"
+    assert keynotes.per_day(D(300), 10) == "About 30 a day for 10 days"
     assert keynotes.per_day(D(300), 1) == "Today is the last day of the month"
     assert keynotes.per_day(D(-5), 3) == "Spending passed the plan"
     assert keynotes.budget_left(D(300), 10, [], "#m") == []  # the Left in plan card already says it
     notes = keynotes.budget_left(D(-50), 0, ["Food", "Fuel", "Fees"], "#m")
     assert len(notes) == 1 and notes[0]["title"] == "Food, Fuel and 1 more over plan" and notes[0]["tone"] == "attention"
-    assert keynotes.budget_left(D(-50), 0, [], "#m")[0]["title"] == "50.00 over plan this month"
+    assert keynotes.budget_left(D(-50), 0, [], "#m")[0]["title"] == "50 over plan this month"
 
 
 def test_needs_you_leads_with_the_first_item_and_counts_the_rest():
@@ -103,12 +103,12 @@ def test_needs_you_leads_with_the_first_item_and_counts_the_rest():
     first = keynotes.needs_you(items, D(100), "2026-10-01")
     assert first["title"] == "Bill due: Rent and 1 more" and first["popup"] and first["tone"] == "attention"
     calm = keynotes.needs_you([], D(1500), "2026-10-01")
-    assert calm["title"] == "1,500.00 safe to spend until 2026-10-01" and calm["tone"] == "info"
+    assert calm["title"] == "1,500 safe to spend until 2026-10-01" and calm["tone"] == "info"
 
 
 def test_recurring_and_loan_notes_answer_share_and_end_date():
     heavy = keynotes.recurring_summary(D(12000), D(20000), D(0))
-    assert heavy["title"] == "Bills take 60% of your 20,000.00 income" and heavy["tone"] == "attention"
+    assert heavy["title"] == "Bills take 60% of your 20,000 income" and heavy["tone"] == "attention"
     assert keynotes.recurring_summary(D(500), D(0), D(0))["title"] == "Add your income to see its share"
 
     class Payment:
@@ -122,7 +122,7 @@ def test_recurring_and_loan_notes_answer_share_and_end_date():
 
 
 def test_comparing_spending_with_the_month_before():
-    assert keynotes.compared(D(900), D(1000), "2026-08")["title"] == "100.00 less than 2026-08"
+    assert keynotes.compared(D(900), D(1000), "2026-08")["title"] == "100 less than 2026-08"
     assert keynotes.compared(D(1100), D(1000), "2026-08")["tone"] == "attention"
     assert keynotes.compared(D(1100), None, "") is None
 
@@ -247,7 +247,8 @@ def test_target_allocation_says_how_much_to_invest(demo):
     from lightning.investments.report import allocation_plan
     plan = allocation_plan({"Gold": D(600), "Stocks": D(400)}, {"Gold": D(50), "Stocks": D(40)}, ["Gold", "Stocks", "Money Market Fund"])
     gold, stocks, money_market = plan["rows"]  # every class, heaviest first
-    assert gold["current"] == 60 and gold["difference"] == -10 and gold["adjust"] == -100  # take 100 out
+    # Sell 200 of gold alone: 400 of 800 left is 50%, with stocks untouched.
+    assert gold["current"] == 60 and gold["difference"] == -10 and gold["adjust"] == -200
     assert stocks["adjust"] == 0 and plan["required"] == 90 and not plan["complete"]
     assert money_market["name"] == "Money Market Fund" and money_market["target"] is None
     c, _ = demo
@@ -257,6 +258,8 @@ def test_target_allocation_says_how_much_to_invest(demo):
     fragment = client.get("/investments/targets?fragment=1").text
     assert "Value to adjust" in fragment and "<html" not in fragment
     assert "Add a class" not in fragment and "pts" not in fragment and 'class="info-tip"' in fragment
+    too_much = client.post("/investments/targets", data={"bucket": "Stocks", "target_weight": "70"}, headers={"X-Requested-With": "fetch"})
+    assert too_much.status_code == 400 and "up to 60%" in too_much.text  # Gold already takes 40%
     cleared = client.post("/investments/targets", data={"bucket": "Gold", "target_weight": ""}, headers={"X-Requested-With": "fetch"})
     assert cleared.status_code == 204 and "Gold" not in c.investments.target_weights()
     assert "Target allocation" in client.get("/settings?section=targets").text
@@ -311,13 +314,14 @@ def test_expense_analysis_compares_big_categories_with_their_usual_month(c, setu
     c.transactions.record_outflow("2026-12-07", cib, "20", fees)  # under 1%: folded away
     a = visuals.expense_analysis(c, date(2026, 12, 1), date(2026, 12, 31))
     names = [r["name"] for r in a["rows"]]
-    assert names == ["Housing & Rent", "Food & Groceries"] and a["small"] == D("20")
+    assert names == ["Housing & Rent", "Food & Groceries", "Others"] and a["small"] == D("20")  # under 1% folds into Others
     housing_row = a["rows"][0]
     assert housing_row["usual"] == D("31000") / 3 and housing_row["above"]  # 15,000 beats its 10–11k range
     assert (housing_row["low"], housing_row["high"]) == (D("10000"), D("11000"))
-    assert [t["label"] for t in a["tiles"]][-1] == "Smaller categories"
+    assert [t["label"] for t in a["tiles"]][-1] == "Others"
     assert len(a["heat"][0]["cells"]) == len(a["heat_keys"]) and a["heat"][0]["cells"][-1]["step"] == 3  # 1.3× its own average
     page = TestClient(create_app(c)).get("/birdview/expenses?period=month&month=2026-12").text
-    for question in ("Where did it go?", "Is this period unusual?", "How has each big category moved?", "Month by month"):
+    assert [r["name"] for r in a["flow_heat"]] == ["Money in", "Money out", "Net flow"]
+    for question in ("Where did it go?", "Is this period unusual?", "How each one moved", "Net cash flow"):
         assert question in page
     assert page.count('class="stat-tile surface-') == 4
