@@ -8,6 +8,10 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### The period you pick stays picked · 2026-10-01
+- The period chosen in a page header (All time, YTD, a month, or a custom range) now carries over to Overview, Budget, Expense analysis and Investments as you move between them.
+- It stays until you pick another. A pick that shows an error is not remembered.
+
 ### Cash planning, tab headers and the Ask dialog · 2026-10-01
 - Cash planning's Plan tab opens with four stat cards: Safe to spend (with about how much a day until your next
   income), Free cash, Due before your next income and Lowest point ahead. Then three questions: How is safe to
