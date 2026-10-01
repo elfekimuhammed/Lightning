@@ -8,6 +8,11 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### Shared Codex project context · 2026-10-01
+- Add a short root `AGENTS.md` that routes repository tasks to the current
+  product, architecture, visual, glossary and changelog sources without
+  copying full documents into every task.
+
 ### Investments: calmer holdings, the waffle back, fuller cards; the month stepper · 2026-10-01
 - Holdings: the total and class rows lose their bands; a thin hairline separates each class instead. Names are
   ink, only the gain percentage carries a colour, and the horizon is a quiet word (Short, Medium, Long, or Set)
