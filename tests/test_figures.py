@@ -111,3 +111,22 @@ def test_glossary_lists_every_figure_and_screens_use_no_retired_name():
     text = "\n".join(path.read_text(encoding="utf-8") for path in TEMPLATES.rglob("*.html"))
     for retired in RETIRED_NAMES:
         assert f">{retired}<" not in text, retired
+
+
+def test_a_class_sale_factor_applies_to_its_kinds_until_one_sets_its_own(c):
+    funds = c.assets.get_class_by_code("FUND") if hasattr(c.assets, "get_class_by_code") else next(
+        x for x in c.assets.list_classes() if x.code == "FUND")
+    equity = next(x for x in c.assets.list_classes() if x.code == "FUND.EQUITY")
+    gold_fund = next(x for x in c.assets.list_classes() if x.code == "FUND.GOLD")
+    for cls in (funds, equity, gold_fund):
+        c.investments.set_liquidation_factor(cls.id, "")
+    assert c.investments.liquidation_factors()[equity.id] == Decimal(95)  # nothing set: the default
+    c.investments.set_liquidation_factor(funds.id, "90")
+    factors = c.investments.liquidation_factors()
+    assert factors[equity.id] == factors[gold_fund.id] == Decimal(90)  # inherited from Funds
+    c.investments.set_liquidation_factor(gold_fund.id, "97")
+    factors = c.investments.liquidation_factors()
+    assert factors[gold_fund.id] == Decimal(97) and factors[equity.id] == Decimal(90)  # the child overrides
+    assert c.investments.sale_factor_sources()[equity.id] == (Decimal(90), funds.id)
+    c.investments.set_liquidation_factor(gold_fund.id, "")
+    assert c.investments.liquidation_factors()[gold_fund.id] == Decimal(90)

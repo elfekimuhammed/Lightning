@@ -239,7 +239,8 @@ def allocation_plan(values: dict[str, Decimal], targets: dict[str, Decimal], cla
     the value to adjust (how much to invest, or take out when negative, to reach the required share
     of today's total). ``values`` are owned holdings by allocation class."""
     total = sum(values.values(), ZERO)
-    names = [n for n in classes if values.get(n) or n in targets] + sorted(set(values) - set(classes))
+    # Every class is listed, so a target can be set on one you hold nothing in yet. Heaviest first.
+    names = list(classes) + sorted(set(values) - set(classes))
     rows = []
     for name in names:
         value = values.get(name, ZERO)
@@ -248,6 +249,7 @@ def allocation_plan(values: dict[str, Decimal], targets: dict[str, Decimal], cla
         rows.append({"name": name, "value": value, "current": current, "target": target,
                      "difference": None if target is None else target - current,
                      "adjust": None if target is None else total * target / 100 - value})
+    rows.sort(key=lambda r: (-r["value"], -(r["target"] or ZERO), r["name"].casefold()))
     required = sum(targets.values(), ZERO)
     return {"rows": rows, "total": total, "required": required, "complete": required == 100,
             "unset": [n for n in classes if n not in targets and not values.get(n)]}

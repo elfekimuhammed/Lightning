@@ -8,6 +8,16 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### Valuations and target allocation · 2026-10-01
+- Sale factors are grouped by asset class and compact. A factor on a class (Funds) applies to every
+  kind left empty (Equity Fund, Gold Fund…); a kind's own factor overrides it, and clearing it goes back
+  to the class's. Migration `0037_sale_factor_inheritance.sql` clears factors that only repeated their
+  parent's, so every estimate stays the same.
+- Target allocation lists every class, heaviest first; the Add a class chooser is gone. Difference reads
+  in %, not pts. Each class has a "?" with a one-line definition. An empty field clears the target.
+- Fields inside table rows use one inline style: a light green shade of the row, no border until you
+  are in it.
+
 ### Categories overhaul · 2026-10-01
 - Categories go one level deeper: an L2 can hold L3 detail (Food & Groceries › Groceries). L3 can be chosen
   on a transaction and rolls up into its L2 everywhere.

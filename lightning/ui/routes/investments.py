@@ -341,6 +341,9 @@ async def targets_page(request: Request):
 async def save_target(request: Request):
     c=container(request); form=await request.form(); bucket=str(form.get("bucket","")).strip()
     try:
+        if bucket in _allocation_classes(c) and not str(form.get("target_weight", "")).strip():
+            c.investments.clear_target_weight(bucket)  # an empty field clears the target
+            return Response(status_code=204) if request.headers.get("X-Requested-With") == "fetch" else redirect("/investments/targets", "Target cleared.")
         value=to_decimal(str(form.get("target_weight","")),"target")
         if bucket not in _allocation_classes(c) or value<ZERO or value>100: raise LightningError("Choose an available investment asset class and a target from 0 to 100.")
         matches=[cls for cls in c.assets.investment_classes() if c.assets.display_name(cls.id).split(" › ")[-1] == bucket]

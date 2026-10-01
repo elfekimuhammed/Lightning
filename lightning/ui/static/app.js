@@ -1356,7 +1356,7 @@ document.querySelectorAll("[data-month-picker]").forEach((picker) => {
       let before = input.value;
       const save = async () => {
         const value = input.value.trim().replace("%", "");
-        if (value === before.trim() || (form.elements.bucket.value || "") === "" || value === "") return;
+        if (value === before.trim().replace("%", "") || (form.elements.bucket.value || "") === "") return;  // empty clears the target
         const box = form.closest(".targets"), state = box?.querySelector(".save-state");
         const data = new URLSearchParams(new FormData(form)); data.set("target_weight", value);
         if (state) state.textContent = "Saving…";

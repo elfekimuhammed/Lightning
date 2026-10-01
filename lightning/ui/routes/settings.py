@@ -29,11 +29,26 @@ async def settings_page(request: Request):
     classes = [x for x in c.assets.list_classes() if x.active and x.root_code != "CASH" and x.code != "CUSTODY"]
     # The same class values and factors as Birdview's "If you sold today".
     values = {row.code: row.value for row in c.position.class_values(today())[0]}
-    factors = c.investments.liquidation_factors()
-    factor_rows = [{"id": cls.id, "code": cls.code, "name": cls.name, "value": values.get(cls.code, ZERO),
-                    "factor": factors.get(cls.id, DEFAULT_SALE_FACTOR),
-                    "estimate": values.get(cls.code, ZERO) * factors.get(cls.id, DEFAULT_SALE_FACTOR) / 100}
-                   for cls in classes]
+    sources = c.investments.sale_factor_sources()
+    own = c.investments.own_liquidation_factors()
+    names = {cls.id: cls.name for cls in c.assets.list_classes()}
+
+    def factor_row(cls):
+        factor, source = sources.get(cls.id, (DEFAULT_SALE_FACTOR, None))
+        value = values.get(cls.code, ZERO)
+        return {"id": cls.id, "code": cls.code, "name": cls.name, "depth": cls.depth, "value": value,
+                "own": own.get(cls.id), "factor": factor, "estimate": value * factor / 100,
+                "from": "the default" if source is None else names.get(source, "")}
+
+    # One group per top-level class: its own row (a factor here applies to every child left empty),
+    # then its children. A child's own factor overrides its parent's.
+    factor_rows, factor_groups = [], []
+    for root in (cls for cls in classes if cls.parent_id is None or cls.parent_id not in {x.id for x in classes}):
+        rows = [factor_row(root)] + [factor_row(cls) for cls in classes if cls.code.startswith(root.code + ".")]
+        factor_rows += rows
+        factor_groups.append({"root": rows[0], "children": rows[1:],
+                              "value": sum((r["value"] for r in rows), ZERO),
+                              "estimate": sum((r["estimate"] for r in rows), ZERO)})
     income_categories = [x for x in c.categories.tree(Movement.INFLOW) if not x.is_root and x.income_class is not None]
     expense_categories = [x for x in c.categories.tree(Movement.OUTFLOW) if not x.is_root]
     try:
@@ -47,7 +62,7 @@ async def settings_page(request: Request):
         from .investments import target_plan
         plan = target_plan(c)
     return render(request, "settings/index.html", db_path=c.db.path, backups=[b.name for b in backups], plan=plan,
-                  classes=c.assets.list_classes(), assets=c.assets.list_assets(), factor_rows=factor_rows,
+                  classes=c.assets.list_classes(), assets=c.assets.list_assets(), factor_rows=factor_rows, factor_groups=factor_groups,
                   section=request.query_params.get("section", "general"), return_to=return_to,
                   budget_return_to=f"/settings?section=budget&return_to={return_to}",
                   income_categories=income_categories, expense_categories=expense_categories,

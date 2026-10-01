@@ -24,7 +24,7 @@ from lightning.reporting.service import ReportingService
 from lightning.transactions.domain import Transaction
 from lightning.transactions.service import TransactionService
 
-from .domain import Portfolio, Position
+from .domain import DEFAULT_SALE_FACTOR, Portfolio, Position
 from .xirr import xirr
 
 DIVIDEND_CATEGORY = "EXP.INVEST.DIVIDEND"
@@ -52,10 +52,27 @@ class InvestmentService:
         self.reporting = reporting
         self.reevaluations = reevaluations
 
-    def liquidation_factors(self) -> dict[int, Decimal]:
-        """Configured liquidation factors, keyed by investment asset-class ID."""
+    def own_liquidation_factors(self) -> dict[int, Decimal]:
+        """Factors set on a class itself, keyed by asset-class ID. A class without one inherits."""
         return {int(row["asset_class_id"]): Decimal(str(row["factor"]))
                 for row in self.db.all("SELECT asset_class_id,factor FROM investment_liquidation_factors")}
+
+    def liquidation_factors(self) -> dict[int, Decimal]:
+        """The factor each class uses, keyed by asset-class ID: its own, else its nearest parent's,
+        else the 95% default. So a value on Funds applies to every fund left empty."""
+        return {class_id: factor for class_id, (factor, _) in self.sale_factor_sources().items()}
+
+    def sale_factor_sources(self) -> dict[int, tuple[Decimal, int | None]]:
+        """class ID -> (factor used, ID of the class it comes from; None for the default)."""
+        own = self.own_liquidation_factors()
+        classes = {cls.id: cls for cls in self.assets.list_classes()}
+        result = {}
+        for cls in classes.values():
+            current = cls
+            while current is not None and current.id not in own:
+                current = classes.get(current.parent_id) if current.parent_id else None
+            result[cls.id] = (own[current.id], current.id) if current is not None else (DEFAULT_SALE_FACTOR, None)
+        return result
 
     def class_targets(self) -> dict[int, Decimal]:
         """Planned investment weights, keyed by asset-class ID."""
@@ -78,6 +95,9 @@ class InvestmentService:
                    if item.active and item.root_code != "CASH" and item.code != "CUSTODY"}
         if cls.id not in allowed:
             raise ValidationError("Choose an investment asset class.")
+        if str(factor or "").strip() == "":  # empty: use the parent class's factor again
+            self.db.execute("DELETE FROM investment_liquidation_factors WHERE asset_class_id=?", (asset_class_id,))
+            return
         value = to_decimal(factor, "factor")
         if not ZERO <= value <= Decimal(100):
             raise ValidationError("Enter a liquidation factor from 0 to 100.")
@@ -98,6 +118,9 @@ class InvestmentService:
             "updated_at=excluded.updated_at,asset_class_id=excluded.asset_class_id",
             (bucket, float(weight), fmt_date(today()), class_id),
         )
+
+    def clear_target_weight(self, bucket: str) -> None:
+        self.db.execute("DELETE FROM investment_targets WHERE bucket=?", (bucket,))
 
     def report_transactions(self, kind: str, start: str, end: str):
         """Posted source transactions behind a portfolio report detail."""
