@@ -26,10 +26,11 @@ Every number comes from one of three layers, and each screen says which:
 - **Other people's money** (*Held for others*) stays in the account balance but belongs to its owner. It is left out of *What you own*. It is not income, spending or money owed to you.
 - **Certain obligations count; forecasts never do.** Bills due and loans still to pay make up *What you owe*. Bills due come off Free cash, and What you owe comes off Net worth. Loans are payment schedules, not debt accounts. A loan payment counts as spending when it is paid. Credit cards, interest and money owed to you are out of scope.
 - **Reserves are not budgets.** A reserve sets aside cash you already own and lowers Free cash. A budget limit changes only the spending plan. The two are never added together. The emergency fund is shown in months of *Average monthly income*, the same average the budget and the forecast use.
-- **Categories describe the activity, not the direction of money.** Level 1 is Personal / Work / Investment and level 2 is broad. Level 3 stays empty until a user wants detail. A category that has been used is archived, never deleted.
+- **Categories describe the activity, not the direction of money.** Level 1 is Personal / Work / Investment / System (money held for others and loan payments), level 2 is broad, and level 3 is optional detail under an L2. Each category is + income, − expense or ± both; income is recurring (counted in the average and the forecast) or irregular, and an expense can be one-off (in cash flow, out of the budget). A category that has been used is archived, never deleted.
 - **Names are canonical.** Similar spellings are suggestions the user must pick. Lightning never silently merges or creates a counterparty.
 - **Physical gold** is tracked piece by piece: net gold weight per piece, karat and cost. It is valued at a price per gram for the same karat, and purity is never applied twice.
 - **People see names, not codes.** Summaries round to whole pounds; inputs keep cents. Dates are ISO. Entry also accepts `31/1` and `31/1/2026`, and Arabic-Indic digits.
+- **Each visual says its time frame: the period you chose, or a fixed horizon.** Most charts and cards follow the period picker. Some keep a fixed horizon on purpose, because their question does not change with the period. Every section header names its frame. See *Period and fixed-horizon visuals* below.
 - **Local only.** Data lives in one SQLite file on the user's computer and is never committed to Git.
 
 ## What you can do today
@@ -43,6 +44,20 @@ Every number comes from one of three layers, and each screen says which:
 - **Held for others:** money and units you hold for someone else. Account headers show *In this account · What you own · Held for others*.
 - **Every page:** months are picked from a month picker, never typed. Up to three key notes under the title give the page's answer in one sentence, and one set of charts follows the brand guideline.
 - **Demo:** `python -m lightning --demo`, or "See Lightning with a sample household" on an empty welcome page, opens Omar's last three months in a separate database.
+
+## Period and fixed-horizon visuals
+
+The period picker (All time · YTD · Monthly · Custom) changes what most visuals show. A few keep a fixed horizon, because their question is about a set stretch of time, or about today. Each section header says which applies (for example "2026-09-01 to 2026-09-30", "Last 6 months", "Year to date" or "Today").
+
+| Follows the period you chose | Keeps a fixed horizon |
+|---|---|
+| **Overview:** the four stat cards; Cash flow (net flow, column waterfall, Sankey); the Investments section | **Overview:** Net worth over time (the last 12 month ends); the position cards (as of the period's last day) |
+| **Budget:** the savings waffle, the plan bar and Spent of plan | **Budget:** plans are monthly, so a longer period adds up its months |
+| **Investments:** the saved-and-invested waffle; Net gain or loss with Growth; the allocation donut and biggest holdings (as of the period's end); money and value by class | **Investments:** the Portfolio value sparkline (always the last six months); Dividends collected (year to date); XIRR (since the first investment, shown after a full year); the horizon bar (today) |
+| **Expense analysis:** the four KPI cards; the treemap; now against usual; the months of the period in the heatmap | **Expense analysis:** "usual" is the six whole months before the period; the usual range, small multiples and heatmap history use the 12 whole months before it |
+| — | **Holding page:** the holding's whole history, up to 24 month ends; sparklines for the last six |
+
+A sparkline never follows the period. It is a quick "where is this heading" beside a number, so it always covers the last six months. A comparison ("against your usual month", "usual range") always looks at whole months *before* the period, so the period never compares with itself.
 
 ## The questions Lightning answers
 

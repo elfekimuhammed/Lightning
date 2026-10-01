@@ -14,7 +14,7 @@ import math
 from pathlib import Path
 
 OUT = Path(__file__).with_name("APPLICATION_BRAND_GUIDE.html")
-VERSION = "2.6 · Fern"
+VERSION = "2.7 · Sorrel"
 UPDATED = "2026-10-01"
 
 # ---- tokens (same values as style.css) ---------------------------------------------------------
@@ -768,10 +768,10 @@ CHARTS = [
     ("Over time", [
         ("Trend line", "app", c_trend, "A value at comparable dates: money out, a category, a price.",
          "One series in azure, a plan as the dashed green line, a dot over plan turns strong rose. Label the last value only. Under two months it says “Not enough history yet”.",
-         "Expense analysis · When did it change; Budget"),
+         'Expense analysis; Budget; holding page · price against average cost (the dashed line is the average cost, never a plan, so no dot turns rose)'),
         ("Area trend", "app", c_area, "One total that builds up: net worth, what you own.",
          "One series, a 12% fill of its line colour down to zero, the end value on the line. Never stack two areas as if they were one total.",
-         "Overview · Net worth › Over time"),
+         'Overview · Net worth › Over time; holding page · value against cost'),
         ("Stacked area", "ready", c_stacked_area, "How a total is made of parts over time: what you own by class.",
          "Asset class colours in donut order, a 1.5px white seam between layers, four layers at most, a legend above. The top edge is the total.",
          "Investments · allocation history"),
@@ -787,9 +787,9 @@ CHARTS = [
         ("Columns: in and out", "ready", c_columns_in_out, "Money in above zero, money out below it, per month.",
          "Green up, soft rose down, from one zero line; net flow as a short Nile mark on the same axis. Never a second axis for net.",
          "Overview · Cash flow by month (stashed, see 16)"),
-        ("Drawdown", "ready", c_drawdown, "How far a portfolio fell from its high.",
-         "Area below zero in soft rose with a strong-rose edge; label the worst point. Needs month-end values for a year or more.",
-         "Investments · risk"),
+        ("Drawdown", "app", c_drawdown, "How far a portfolio fell from its high.",
+         'Percent below the highest month-end so far, as a soft-rose area down from zero; label the worst point in the subtitle. Same trend form as money over time, a different goal: how bumpy.',
+         'Holding page · Fall from its high'),
         ("Candlestick", "avoid", c_candles, "Open, high, low and close of a traded price.",
          "Reference only. Lightning keeps one price per month-end, so a candle would invent data. Use a trend line.",
          "Not used"),
@@ -797,28 +797,28 @@ CHARTS = [
          "One hue (rose) from light to dark, five steps, a Less → More key, the day number in each cell. Weeks start on Monday.",
          "Expense analysis · by day"),
         ("Small multiples", "app", c_small_multiples, "The same trend for several categories, side by side.",
-         "Same scale in every panel, no axes, the name and this month's value above each.",
-         "Expense analysis · usual month (sparklines per row)"),
+         'Up to six panels, every panel on one scale (so a big category looks big), no axes, the name and now above each; the last point is now.',
+         'Expense analysis · How has each big category moved?'),
         ("Sparkline", "app", c_sparkline, "A trend inside a card, next to its number.",
          "No axes or labels, 2px line, a dot on the last point, two points or more.",
-         "Overview · stat cards; Expense analysis rows"),
+         'Overview and Investments stat cards (Portfolio value: always the last six months); holding page value tile'),
     ]),
     ("Compare and rank", [
         ("Horizontal bars", "app", c_bars, "Ranking categories, payees or accounts.",
          "Largest first, from zero, value at the end, six bars then “N more” with its total. Soft rose for spending, green for money in, azure for money held. Each bar opens its transactions.",
-         "Expense analysis · Where did it go, Who you paid, Paid from"),
+         'Investments · Biggest holdings (azure, share as the note) and Dividends collected (green); Cash planning · Recurring'),
         ("Grouped bars (L1 · L2)", "app", c_grouped_bars, "Categories under their parent.",
          "The parent as a bold header row with its total, its children indented under it, one shared scale, groups largest first.",
          "Expense analysis · by category"),
-        ("Clustered columns", "ready", c_clustered, "Two values per category: this month against usual.",
-         "Two series at most, the reference in neutral grey-green, the current in its meaning colour, from zero.",
-         "Expense analysis · usual month"),
+        ("Clustered columns", "app", c_clustered, "Two values per category: this month against usual.",
+         'Usual month in neutral grey-green beside now in soft rose (strong rose when more than 10% over usual), one scale from zero, the value and usual under each pair, six pairs at most in one row.',
+         'Expense analysis · Now against your usual month'),
         ("Dumbbell", "ready", c_dumbbell, "Where you are against where you want to be: current % against required %.",
          "Filled azure dot for now, hollow Nile dot for the target, a grey line between them. Rows in a fixed class order.",
          "Investments · Target allocation"),
-        ("Diverging bars", "ready", c_diverging, "Differences both ways from zero: value to adjust per class.",
-         "Azure to the right (put in), soft rose to the left (take out), a centre line, the value at the end with its sign. Never green for “good” here: both directions are neutral.",
-         "Investments · Target allocation"),
+        ("Diverging bars", "app", c_diverging, "Differences both ways from zero: value to adjust per class.",
+         'Two styles, one form. Flow style: azure to the right for money put in or value gained, soft rose to the left for money taken out or value lost (Investments · money and value by class). Growth style: green up, soft rose down (holding page · monthly price change, in %). A centre line, the value at the end with its sign.',
+         'Investments · Money and value by class; holding page · Monthly price change'),
         ("Lollipop", "ready", c_lollipop, "A ranked list where the exact value matters more than the bar: largest payments.",
          "Thin 2px stem, 5px head, value to the right.",
          "Expense analysis · Largest payments (today a list)"),
@@ -842,9 +842,9 @@ CHARTS = [
         ("100% stacked columns", "ready", c_stack100, "Shares over time, when the total doesn't matter.",
          "Four parts at most, class colours, a 2px seam, 0% to 100% axis.",
          "Investments · allocation by month"),
-        ("Treemap", "ready", c_treemap, "Many parts of one whole at once: all categories, all holdings.",
-         "One hue from dark (largest) to light, the name and value in each tile big enough to hold them, a 2px gap.",
-         "Expense analysis · all categories"),
+        ("Treemap", "app", c_treemap, "Many parts of one whole at once: all categories, all holdings.",
+         "Big categories only (each over 1% of money out, eight at most), the rest one grey 'Smaller categories' tile. Squarified, largest top-left, six rose steps from dark (largest) to light, a 2px white gap, name and value with share in each tile; each tile opens its transactions.",
+         'Expense analysis · Where did it go?'),
         ("Waffle", "app", c_waffle, "A single share people should feel: savings rate.",
          "100 squares (13px, 3px gap) in Meadow dark for the share, track grey for the rest; the % beside it and “Of every 100.00 that came in, N stayed.” A negative rate fills none and says so.",
          "Budget · top"),
@@ -853,7 +853,7 @@ CHARTS = [
     ("How a number is built", [
         ("Waterfall", "app", c_waterfall, "From a start value to a result: cash you own to free cash.",
          "The start in azure, what comes off in soft rose, what adds in green, the result in Meadow dark and bold. Each step sits where the running total was. Zero is never “up”.",
-         "Overview · Free cash › How it is built"),
+         'Overview · Free cash › How it is built; holding page · Where the return came from'),
         ("Column waterfall", "app", c_colfall, "The same path when it reads left to right: money in, what each kind of spending took, net flow.",
          "Money in green from zero, each step soft rose floating where the running total was, net flow azure from zero (strong rose when short). A dashed link joins each column to the next; values sit on the columns; one zero line, no axis.",
          "Overview · Cash flow › From money in to net flow"),
@@ -877,15 +877,15 @@ CHARTS = [
         ("Histogram", "ready", c_histogram, "How your payments are spread by size.",
          "Touching columns (1.5px gap), bins that read as money ranges, one hue.",
          "Expense analysis · payment sizes"),
-        ("Usual range", "ready", c_range, "Is this month normal for each category?",
-         "The 12-month range as a pill, the middle month as a tick, this month as a dot (strong rose above the range).",
-         "Expense analysis · usual month"),
+        ("Usual range", "app", c_range, "Is this month normal for each category?",
+         "Each big category's lowest-to-highest month as a pill, its middle month as an ink tick, now as a dot (strong rose and 'Above its range' when over the pill, green 'Below its range' under it). Needs three months of history.",
+         'Expense analysis · Inside its usual range?'),
         ("Scatter", "ready", c_scatter, "Two measures per holding: return against how much it moves.",
          "Labelled dots in class colours, both axes from zero, no trend line unless it means something. Needs a year of month-end prices.",
          "Investments · risk and return"),
-        ("Heatmap table", "ready", c_heatmap, "Category by month, to spot the unusual months.",
-         "Cells shaded against each row's own average (four steps of rose), the value in every cell.",
-         "Expense analysis"),
+        ("Heatmap table", "app", c_heatmap, "Category by month, to spot the unusual months.",
+         "Category by month: the history months, then every month of the period you chose (outlined). Each cell against its row's own average in four rose steps, the value in every cell, big categories only. Always the last section of the page.",
+         'Expense analysis · Month by month'),
     ]),
     ("Loans and schedules", [
         ("Principal and interest", "ready", c_amortization, "What each year of a loan costs.",
@@ -1119,6 +1119,10 @@ def build() -> str:
     for group, items in CHARTS:
         chart_html += f'<h3>{esc(group)}</h3><div class="specs">' + "".join(chart_card(*it) for it in items) + "</div>"
     chart_html += '<h3>Never</h3><div class="avoid">' + "".join(f'<div><b>{esc(a)}</b><span>{esc(b)}</span></div>' for a, b in AVOID) + "</div>"
+    chart_html = ('<div class="chartrules"><div><h4>Questions first</h4><p>A page starts with small stat or KPI cards that give the gist of the period, then one section per question in a logical order, each a wide card with its answer. Pick the visual for the question, never the other way round, and stop when the main questions are answered.</p></div>'
+                  '<div><h4>Big items only</h4><p>Analysis covers what matters: anything under 1% of the whole folds into one grey “Smaller …” item.</p></div>'
+                  '<div><h4>Same form, different goals</h4><p>One chart type may have several styles when they answer different questions: a diverging bar in azure for money put in, in green for growth; a trend line with a plan, or with an average cost that never turns rose.</p></div>'
+                  '<div><h4>Period or fixed horizon</h4><p>Every section says its time frame in its header. Most visuals follow the period you chose; some keep a fixed horizon on purpose (sparklines: last six months; dividends: year to date; horizon bar and holdings: today; heatmap and usual range: the months before the period). See Project overview.</p></div></div>') + chart_html
     s.append(sec("charts", "09", "Charts", "Hand-drawn SVG and CSS, no chart library. Pick the form from the job the data does (over time, rank, parts, build-up, progress, spread); sometimes the answer is a stat card, not a chart.", chart_html))
     # 10 words
     s.append(sec("words", "10", "Words", "Clear, encouraging, concrete, honest and local. Speak to “you”. The Glossary holds every figure’s one name.", """
@@ -1165,12 +1169,13 @@ def build() -> str:
               ("Overview · Cash flow", "Column waterfall (From money in to net flow), beside its list", "column_waterfall"),
               ("Overview · Where money in went", "Sankey", "sankey"),
               ("Overview · Investments", "Donut (What you hold) · gain-or-loss bars by asset class · movers list", "donut"),
-              ("Expense analysis", "Stat card · trend line with plan · grouped bars · bars (Who you paid, Paid from) · sparkline rows", "trend, bars, sparkline"),
+              ("Expense analysis", "Four KPI cards · treemap · clustered columns · usual range · small multiples · heatmap", "stat_tiles, birdview/expenses.html"),
+              ("Investments", "Waffle (kept and invested) · result card · six-month sparkline · donut · biggest holdings bars · holdings by class · dividends bars · diverging flows · horizon bar", "investments/index.html"),
+              ("Holding page", "Four tiles · price trend with average cost · return waterfall · monthly moves (diverging, growth style) · fall from its high · value against cost · trades table", "investments/holding.html"),
               ("Budget · top", "Savings waffle · plan bar (spent azure, left green, over rose)", "budget.html"),
               ("Budget · Spent of plan", "Bullet per category", "bullet_row"),
               ("Cash planning · reserves", "Meter", "meter"),
               ("Cash planning · Plan", "Forecast trend", "trend"),
-              ("Investments", "Area trend (portfolio value) · donut", "trend, donut"),
               ("Cash planning · Recurring", "Bars", "bars")]
     stashed = [("Month by month (money in and money out per month)", "Two-line trend under a toggle on the Overview", "Removed in 2.5: no chart hides behind a toggle. visuals.flow_trend is kept; bring it back as a Columns: in and out chart, always open."),
                ("Where it went (grouped spending bars on the Overview)", "Grouped bars", "Replaced by the Sankey in 2.5. visuals.spending_bars is kept; Expense analysis still uses grouped bars."),
@@ -1180,6 +1185,8 @@ def build() -> str:
                ("Share bar", "charts.share / share_bar macro", "Built, used by no screen; the Budget's plan bar took its place in 2.6."),
                ("Budget meters", "Meter per category", "Replaced by bullets in 2.6; the meter stays for reserves."),
                ("Budget summary cards", "Three stat cards", "Replaced by the savings waffle and plan bar in 2.6."),
+               ("Expense analysis 2.6", "Grouped bars (Where did it go?), trend with plan (When did it change?), Who you paid and Paid from bars, the usual-month table", "Replaced in 2.7 by the treemap, clustered columns, usual range, small multiples and heatmap. visuals.spending_bars, counterparty_bars and account_bars are kept."),
+               ("Investments 2.6", "Result key card with toggle rows, portfolio trend, Analysis by asset class, result by class bars", "Replaced in 2.7 by the three tiles, allocation beside biggest holdings and the diverging flows."),
                ("Line chart (older helper)", "charts.line_chart", "Kept for the investments and Birdview helpers that still call it.")]
     s.append(sec("visuals", "16", "Visuals: active and stashed", "Every visual the app draws, and the ones it has built but set aside. Update this list in the same change that adds, moves or removes a chart.",
                  '<h3>Active: on a screen now</h3><table class="plain vis"><thead><tr><th>Where</th><th>Visual</th><th>Macro</th></tr></thead><tbody>' + vis_rows(active) + '</tbody></table>'
@@ -1187,6 +1194,7 @@ def build() -> str:
                  '<p class="note">Stashed code stays tested and keeps its spec in section 09, so it can come back without a redesign. Desktop (Windows) uses WebView2, the same Chromium engine as the browser, so every active visual renders the same there.</p>'))
     # 17 versions
     s.append(sec("versions", "17", "Versions", "", """<table class="plain"><thead><tr><th>Version</th><th>Date</th><th>What changed</th></tr></thead><tbody>
+<tr><td>2.7 · Sorrel</td><td>2026-10-01</td><td>Questions first: pages open with KPI cards, then one section per question. Big items only (under 1% folds away). The same chart type may have different styles for different goals. Each section states whether it follows the period or a fixed horizon. Investments and the holding page rebuilt; Expense analysis rebuilt with a treemap, clustered columns, usual range, small multiples and a heatmap; drawdown, diverging bars and the heatmap are now in the app</td></tr>
 <tr><td>2.6 · Fern</td><td>2026-10-01</td><td>Budget: a savings waffle and the plan bar replace the three cards; Spent of plan becomes bullets in a new style; investments are never budget spending. Inline row fields (a light green shade of the row, no border until focused) for every field inside a table; select boxes in the app's own style. Categories as a grouped table edited in place, with + / − / ± and L3. Pages use 90% of the space beside the sidebar</td></tr>
 <tr><td>2.5 · Willow</td><td>2026-10-01</td><td>Overview rebuilt as wide split cards: numbers and toggle lists on the left, the visual on the right (net worth trend, free cash waterfall, the new column waterfall for cash flow). The Sankey replaces Where it went. Investments gets its own section; no chart sits behind a toggle; Month by month is stashed. Stat cards redesigned: four in a row on alternating green and white surfaces, a period chip, one big figure and a quiet sparkline or meter. New figures Change in net worth and Investing rate. New section 16, Visuals: active and stashed</td></tr>
 <tr><td>2.4 · Meadowlark</td><td>2026-10-01</td><td>Key notes put the number first: label, one big figure in the tone colour, one line, one pill button</td></tr>

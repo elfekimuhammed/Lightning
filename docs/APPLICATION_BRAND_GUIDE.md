@@ -1,4 +1,4 @@
-# App guideline · 2.6 · Fern
+# App guideline · 2.7 · Sorrel
 
 **Last updated 2026-10-01.** This is the one guideline for how every screen looks, reads and adds up. It covers colour, type, cards, sections, controls, fields, lists, charts and words. It is built on the Meadow brand guidelines. The product story is in [Project Overview](PROJECT_OVERVIEW.md), code rules in [Architecture](ARCHITECTURE.md) and terms in the [Glossary](GLOSSARY.md).
 
@@ -259,6 +259,19 @@ Fields never sit in read-only list rows. Arabic text gets `dir="auto"`. Group lo
 
 ## 09 Charts
 
+**How a page is built (2.7).**
+
+- **Questions first.** A page opens with small stat or KPI cards that give the gist of the period you chose. Then one section per main question, in a logical order, each a wide card with its answer. Pick the visual for the question, never the other way round, and stop when the main questions are answered.
+- **Big items only.** Analysis covers what matters. Anything under 1% of the whole folds into one grey "Smaller …" item.
+- **Same form, different goals.** A chart type may have more than one style when the styles answer different questions. Diverging bars are azure for money put in (a flow) and green for growth (a price move). A trend line has a dashed plan that turns over-plan dots rose, or a dashed average cost that never does.
+- **Period or fixed horizon.** Every section header says its time frame. Most visuals follow the period you chose. Some keep a fixed horizon on purpose:
+  - sparklines: the last six months;
+  - dividends collected: year to date;
+  - the horizon bar and the holdings table: today;
+  - the usual month, usual range and heatmap: the months before the period.
+
+  The full list is in the [Project Overview](PROJECT_OVERVIEW.md).
+
 Charts are hand-drawn SVG and CSS with no chart library. In the app, `lightning/ui/charts.py` computes the geometry and `templates/partials/charts.html` renders it. Pick the form from the job the data does: over time, rank, parts of a whole, how a number is built, progress, or spread. Sometimes the answer is a stat card, not a chart.
 
 **Colour roles**
@@ -304,16 +317,16 @@ Charts are hand-drawn SVG and CSS with no chart library. In the app, `lightning/
 | | Forecast with range | Ready | Solid past, dashed forecast, light azure range band, a Today line, the lowest point marked | Cash planning · Plan |
 | | Pace (burn-up) | Ready | Spending so far against an even pace to plan | Budget · this month |
 | | Columns: in and out | Ready | In above zero, out below it, net as a Nile mark on the same axis | Overview · Cash flow by month (stashed, see 16) |
-| | Drawdown | Ready | Fall from the previous high; needs a year of month-ends | Investments · risk |
+| | Drawdown | In the app | Percent below the highest month-end so far, a soft-rose area from zero, the worst point in the subtitle | Holding page · Fall from its high |
 | | Candlestick | Avoid | Lightning keeps one price per month-end; use a trend line | — |
 | | Calendar heatmap | Ready | Spending by day, one rose ramp in five steps | Expense analysis · by day |
-| | Small multiples | In the app | The same trend per category, same scale, no axes | Expense analysis · usual month |
+| | Small multiples | In the app | Up to six panels on one scale, no axes, name and now above each, the last point is now | Expense analysis · How has each big category moved? |
 | | Sparkline | In the app | A trend inside a card; no axes, a dot on the last point | Expense analysis rows, white cards |
 | Compare and rank | Horizontal bars | In the app | Ranking; largest first, six then "N more", each opens its transactions | Expense analysis |
 | | Grouped bars (L1 · L2) | In the app | Categories under their parent: a bold header row with its total, the children indented | Expense analysis |
-| | Clustered columns | Ready | Two values per category (this month against usual) | Expense analysis |
+| | Clustered columns | In the app | Usual month in grey-green beside now in soft rose (strong rose when over usual by 10%), one scale from zero, six pairs in one row | Expense analysis · Now against your usual month |
 | | Dumbbell | Ready | Current % (azure dot) against required % (hollow Nile dot) | Target allocation |
-| | Diverging bars | Ready | Value to adjust: azure put in, soft rose take out, a centre line | Target allocation |
+| | Diverging bars | In the app | Two styles: flow (azure in or gained, soft rose out or lost) and growth (green up, soft rose down, in %); a centre line, signed values | Investments · Money and value by class; holding page · Monthly price change |
 | | Lollipop | Ready | Ranked values where the number matters (largest payments) | Expense analysis |
 | | Slope chart | Ready | Shares at two dates, labels at both ends | Investments · this year |
 | | Bullet | In the app | Each row on its own scale: the plan a soft green-grey band (14px) ending in a 2px ink tick, spent an 8px azure bar inside it, over plan in strong rose past the tick; name in a fixed 150px column; "left" in green or "over" in rose on the right | Budget · Spent of plan |
@@ -321,7 +334,7 @@ Charts are hand-drawn SVG and CSS with no chart library. In the app, `lightning/
 | | Share bar | Ready | Two to four parts in one line | — (stashed, see 16) |
 | | Plan bar | In the app | The whole plan in one 22px line: spent azure, left green; over plan runs past the plan in strong rose; Spent, Left in plan (or Over plan by) and Planned under it | Budget · top |
 | | 100% stacked columns | Ready | Shares over time when the total doesn't matter | Investments |
-| | Treemap | Ready | Many parts at once; one hue dark to light | Expense analysis · all categories |
+| | Treemap | In the app | Big categories only (over 1%, eight at most) plus a grey "Smaller categories" tile; squarified, six rose steps dark to light, name, value and share in each tile, each opens its transactions | Expense analysis · Where did it go? |
 | | Waffle | In the app | One share to feel (savings rate): 100 squares in Meadow dark on track grey, the % and "Of every 100.00 that came in, N stayed" beside it | Budget · top |
 | | Pie | Avoid | Use the donut | — |
 | How a number is built | Waterfall | In the app | Start in azure, takeaways soft rose, additions green, the result Meadow dark and bold | Overview · Free cash › How it is built |
@@ -332,9 +345,9 @@ Charts are hand-drawn SVG and CSS with no chart library. In the app, `lightning/
 | | Progress ring | Ready | One goal with its value in the middle | Cash planning · Emergency fund |
 | | Stat card | In the app | A number that needs no chart, with a sparkline or meter | Overview · four stat cards; Expense analysis |
 | Spread | Histogram | Ready | Payments by size, touching columns | Expense analysis |
-| | Usual range | Ready | 12-month range pill, middle-month tick, this month as a dot | Expense analysis |
+| | Usual range | In the app | Lowest-to-highest month as a pill, the middle month as a tick, now as a dot (strong rose above, green below); needs three months | Expense analysis · Inside its usual range? |
 | | Scatter | Ready | Return against how much it moves, labelled dots | Investments · risk and return |
-| | Heatmap table | Ready | Category × month, shaded against each row's average, values in cells | Expense analysis |
+| | Heatmap table | In the app | Category × month: history, then every month of the chosen period (outlined); four rose steps against each row's own average, values in cells; always last | Expense analysis · Month by month |
 | Loans and schedules | Principal and interest | Ready | Stacked columns per year: azure principal, light azure interest | Cash planning · Loans |
 | | Loan balance | Ready | Line down to zero with the payoff date | Cash planning · Loans |
 | | Timeline | Ready | Bills and income over the next 30 days, labels above and below | Cash planning · Next 30 days |
@@ -486,12 +499,13 @@ Every visual the app draws, and the ones built but set aside. Update this list i
 | Overview · Cash flow | Column waterfall (From money in to net flow) beside its list | `column_waterfall` |
 | Overview · Where money in went | Sankey | `sankey` |
 | Overview · Investments | Donut (What you hold) · gain-or-loss bars by asset class · movers list | `donut` |
-| Expense analysis | Stat card · trend with plan · grouped bars · bars (Who you paid, Paid from) · sparkline rows | `trend`, `bars`, `sparkline` |
+| Expense analysis | Four KPI cards · treemap · clustered columns · usual range · small multiples · heatmap | `stat_tiles`, `birdview/expenses.html` |
+| Investments | Waffle (kept and invested) · result card · six-month sparkline · donut · biggest holdings bars · holdings by class · dividends bars · diverging flows · horizon bar | `investments/index.html` |
+| Holding page | Four tiles · price trend with average cost · return waterfall · monthly moves (diverging, growth style) · fall from its high · value against cost · trades table | `investments/holding.html` |
 | Budget · top | Savings waffle · plan bar | `budget.html` |
 | Budget · Spent of plan | Bullet per category | `bullet_row` |
 | Cash planning · reserves | Meter | `meter` |
 | Cash planning · Plan | Forecast trend | `trend` |
-| Investments | Area trend (portfolio value) · donut | `trend`, `donut` |
 | Cash planning · Recurring | Bars | `bars` |
 
 **Stashed: built, not on any screen**
@@ -506,11 +520,14 @@ Every visual the app draws, and the ones built but set aside. Update this list i
 | Share bar | `charts.share` · `share_bar` | Built, used by no screen; the Budget's plan bar took its place in 2.6 |
 | Budget meters | Meter per category | Replaced by bullets in 2.6; the meter stays for reserves |
 | Budget summary cards | Three stat cards | Replaced by the savings waffle and plan bar in 2.6 |
+| Expense analysis 2.6 | Grouped bars, trend with plan, Who you paid and Paid from bars, the usual-month table | Replaced in 2.7 by the treemap, clustered columns, usual range, small multiples and heatmap; `visuals.spending_bars`, `counterparty_bars` and `account_bars` are kept |
+| Investments 2.6 | Result key card with toggle rows, portfolio trend, Analysis by asset class, result by class | Replaced in 2.7 by the three tiles, allocation beside biggest holdings and the diverging flows |
 
 ## 17 Versions
 
 | Version | Date | What changed |
 |---|---|---|
+| 2.7 · Sorrel | 2026-10-01 | Questions first: KPI cards, then one section per question; big items only (under 1% folds away); the same chart type may have styles for different goals; every section states its time frame (period or fixed horizon). Investments and the holding page rebuilt; Expense analysis rebuilt with a treemap, clustered columns, usual range, small multiples and a heatmap; drawdown, diverging bars and the heatmap now in the app |
 | 2.6 · Fern | 2026-10-01 | Budget: savings waffle and plan bar replace the three cards; Spent of plan as bullets in a new style; investments never budget spending. Inline row fields for every field inside a table; select boxes in the app's own style; category lists as L1/L2 headers, never breadcrumbs; Categories edited in place with + / − / ± and L3. Pages use 90% of the space beside the sidebar |
 | 2.5 · Willow | 2026-10-01 | Overview as wide split cards (numbers and toggle list left, visual right); the column waterfall for cash flow; the Sankey replaces Where it went; Investments gets its own section; no chart behind a toggle; Month by month stashed. Stat cards redesigned: four in a row on alternating green and white, a period chip, one big figure and a sparkline or meter. New figures Change in net worth and Investing rate. New section 16, Visuals: active and stashed |
 | 2.4 · Meadowlark | 2026-10-01 | Key notes put the number first: label, one big figure in the tone colour, one line, one pill button |
