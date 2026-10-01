@@ -3,7 +3,36 @@
 Personal finance in one place: accounts, money in and out, transfers, budgets,
 investments, cash reserves, and owned wealth. Historical wealth analysis and a dated cash outlook are planned.
 
-## Start it
+## Source code, desktop app and private data
+
+This GitHub repository contains the **source code** (`lightning/`), tests (`tests/`),
+desktop build instructions (`packaging/` and `.github/workflows/desktop-probe.yml`),
+and the [desktop build status](docs/desktop/BUILD_STATUS.md). It does not contain
+anyone's financial databases, passwords, recovery keys or installed app.
+
+The current **Windows desktop preview** is a separate `Lightning-windows-x64.zip`
+produced by the [Windows desktop feasibility workflow](https://github.com/elfekimuhammed/Lightning/actions/workflows/desktop-probe.yml).
+Download the ZIP from a successful workflow run's artifacts, extract the whole
+`Lightning` folder, and run `Lightning.exe` inside it. No Python installation is
+needed; Microsoft Edge WebView2 Runtime is required. Read the `README.txt` inside
+the ZIP before testing. The older `LightningProbe-windows-x64.zip` is an
+engineering check, not the finance app. This repository is private, so only
+people with repository access can download Actions artifacts. A website link for
+outside testers will need a separately published download.
+
+The desktop preview asks for a profile password and provides a recovery key.
+Its encrypted profile databases and backups live under the user's
+`Documents/Lightning`, outside the extracted app folder. Close the app before
+replacing that entire folder with a newer ZIP; replacing app files does not
+replace profile data. Use dummy data first: legacy database import and backup
+restore in the UI are not finished. Do not sync a live database between running
+computers.
+
+On Linux, run `python -m lightning --profiles` from a source checkout for the
+same password-protected finance UI in a browser. The original browser workflow
+is still available with `python -m lightning`.
+
+## Start the original browser version
 
 **Windows:** double-click `run.bat`. The first run sets everything up (needs Python 3.11+ from
 python.org, with "Add python.exe to PATH" ticked). Your browser opens at `http://127.0.0.1:8765`.
@@ -19,13 +48,13 @@ money in and out, investments, gold, a budget, bills, an emergency fund and a ca
 today) at `http://127.0.0.1:8766`. It lives in its own `data/demo.db`, rebuilt on every start, so
 your own database is never touched. An empty Lightning also offers it on the welcome page.
 
-## Run it on another computer (GitHub)
+## Run the original browser version on another computer (GitHub)
 
 The code lives on GitHub; **your data never does** (`data/` is excluded by `.gitignore`).
 
 ```powershell
 # on the new computer (needs Git and Python 3.11+)
-git clone https://github.com/<your-username>/lightning.git C:\Code\Lightning
+git clone https://github.com/elfekimuhammed/Lightning.git C:\Code\Lightning
 cd C:\Code\Lightning
 .\run.bat
 ```
@@ -33,11 +62,11 @@ cd C:\Code\Lightning
 Get the latest version later with `git pull`. After changing the code on one computer:
 `git add .` → `git commit -m "what changed"` → `git push`, then `git pull` on the other.
 
-Each computer keeps its own `data\lightning.db`. To use the same data on both, keep the file in a synced
-folder and start with `.\run.bat --db "C:\Users\<you>\OneDrive\Lightning\lightning.db"` — and only run
-the app on one computer at a time.
+Each computer keeps its own `data\lightning.db`. If you specify `--db` to use a
+different path, do not run the app on two computers against the same database
+or sync the live file while the app is running.
 
-## Your data
+## Data in the original browser version
 
 - Everything lives in one file: `data/lightning.db`. Copy it to back it up.
 - A backup is made automatically every time the app starts (`data/backups/`, newest 30 kept).
