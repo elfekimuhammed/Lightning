@@ -161,7 +161,7 @@ def test_overview_lists_due_bills_under_needs_you(c, setup, monkeypatch):
     page = TestClient(create_app(c), base_url="http://127.0.0.1").get("/").text
     start = page.index('<details class="card needs-you"')
     attention = page[start:page.index("</details>", start)]  # a closed list at the very top
-    assert page.index("needs-you") < page.index('aria-label="Key notes"')
+    assert page.index("needs-you") < page.index('class="stat-tiles"')
     assert "Bill due: Electricity" in attention and "Due 2026-09-25 · 480.00" in attention
     assert "Loan payment due: Car loan" in attention and "Mark paid" in attention
     assert "and 1 more" in attention  # the closed summary names the first item and counts the rest

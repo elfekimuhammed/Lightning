@@ -1894,3 +1894,90 @@ a.chart-meter:hover { background:var(--hover); }
 .main .stat-card.lead-card .stat-value { font-size:var(--num-card); }
 .main .stat-card.lead-card .kn-action { align-self:flex-start; }
 .main .stat-row .stat-card.key-note { min-height:118px; }
+/* ===================================================================================
+   Guideline 2.5 · Overview: split wide cards, stat cards with character, column waterfall, sankey
+   =================================================================================== */
+/* Wide split cards: numbers on the left, the visual on the right, on the wide gradient. */
+.main .overview-section > .wide-card + .wide-card { margin-top:16px; }
+.main .overview-section .overview-wealth-card, .main .overview-section .overview-flow-card,
+.main .overview-section .overview-cash-card { border:1px solid var(--edge); box-shadow:var(--shadow-card); }
+.main .overview-split > section { display:flex; flex-direction:column; }
+.main .overview-split > section > .chart { flex:1; }
+.main .overview-section .overview-flow-net.is-negative { color:var(--rose)!important; }
+.main .overview-cash-card .chart-waterfall { gap:12px; margin-top:12px; }
+.main .overview-cash-card .chart-fall-row { grid-template-columns:120px minmax(0,1fr) auto; }
+.main .overview-cash-card .chart-fall-track { height:14px; border-radius:7px; }
+
+/* Stat cards: label and period chip on top, one big number, one line, a quiet visual lower right.
+   Surfaces alternate so a row never reads as one block: lead green, white, mint, white. */
+.main .stat-tiles { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:16px; margin:0 0 var(--gap-block); }
+.main .stat-tile { position:relative; display:flex; flex-direction:column; min-height:164px; padding:18px 20px 16px; overflow:hidden;
+  border-radius:var(--r-card); border:1px solid var(--line); box-shadow:var(--shadow-card); color:var(--ink); text-decoration:none; isolation:isolate; }
+.main .stat-tile:hover { border-color:var(--line-control); }
+.main .stat-tile:focus-visible { outline:2px solid var(--meadow-dark); outline-offset:3px; }
+.main .stat-tile.surface-lead { background:linear-gradient(135deg,#D3F0DF 0%,#DCF1F0 55%,#E4F1FA 100%); border-color:#BFE3CF; }
+.main .stat-tile.surface-mint { background:linear-gradient(160deg,#EAF8F0 0%,#F6FCF8 100%); border-color:#CFEADB; }
+.main .stat-tile.surface-white { background:#FFFFFF; }
+.main .stat-tile-head { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; }
+.main .stat-tile-label { font:700 var(--fs-body)/1.35 var(--display); color:var(--ink); }
+.main .stat-chip { display:inline-flex; align-items:center; gap:4px; flex:none; max-width:55%; height:24px; padding:0 9px; border-radius:999px;
+  font:700 var(--fs-meta)/1 var(--body); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; background:rgba(10,36,66,.06); color:var(--ink-2); }
+.main .stat-chip svg { width:13px; height:13px; flex:none; fill:none; stroke:currentColor; stroke-width:2.6; stroke-linecap:round; stroke-linejoin:round; }
+.main .stat-chip.is-up { background:var(--tint-growth); color:var(--positive); }
+.main .surface-lead .stat-chip.is-up, .main .surface-mint .stat-chip.is-up { background:#FFFFFF; }
+.main .stat-chip.is-down { background:var(--rose-soft); color:var(--rose); }
+.main .stat-chip.is-over { background:var(--rose); color:#FFFFFF; }
+.main .stat-tile-value { margin-top:auto; padding-top:18px; font:800 var(--num-card)/1.1 var(--display); letter-spacing:-.025em;
+  font-variant-numeric:tabular-nums; white-space:nowrap; position:relative; z-index:1; }
+.main .stat-tile-value small { margin-left:5px; font:600 var(--fs-meta)/1 var(--body); letter-spacing:0; color:var(--muted); }
+.main .stat-tile-value.is-negative { color:var(--rose); }
+.main .stat-tile-sub { margin-top:4px; font:500 var(--fs-2)/1.4 var(--body); color:var(--ink-2); position:relative; z-index:1; }
+.main .stat-tile-sub b { font-weight:700; font-variant-numeric:tabular-nums; }
+.main .stat-tile-sub b.pos { color:var(--positive); } .main .stat-tile-sub b.neg { color:var(--rose); }
+.main .stat-tile-meter { display:block; height:8px; margin-top:12px; border-radius:4px; background:var(--track); overflow:hidden; }
+.main .surface-mint .stat-tile-meter { background:#FFFFFF; }
+.main .stat-tile-meter i { display:block; height:100%; border-radius:4px; background:var(--tone); }
+.main .stat-tile-visual { position:absolute; z-index:0; right:16px; top:52px; width:46%; height:40px; pointer-events:none; }
+.main .stat-tile-spark { position:absolute; inset:0; width:100%; height:100%; overflow:visible; }
+.main .stat-tile-spark path { fill:var(--tone); opacity:.1; }
+.main .stat-tile-spark polyline { fill:none; stroke:var(--tone); stroke-width:2; stroke-linejoin:round; stroke-linecap:round; opacity:.75; }
+.main .stat-tile-dot { position:absolute; width:8px; height:8px; margin:-4px 0 0 -4px; border-radius:50%; background:var(--tone); box-shadow:0 0 0 2px #FFFFFF; }
+@media (max-width:1100px) { .main .stat-tiles { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media (max-width:560px) { .main .stat-tiles { grid-template-columns:1fr; } .main .stat-tile { min-height:140px; } }
+
+/* Column waterfall: money in green, money out soft rose, net flow azure (strong rose when short). */
+.chart-cfall { margin:8px 0 0; }
+.chart-cfall-plot { position:relative; display:flex; gap:0; margin-top:28px; }
+.chart-cfall-zero { position:absolute; left:0; right:0; border-top:1px solid var(--line-control); z-index:1; }
+.chart-cfall-col { position:relative; flex:1; min-width:0; }
+.chart-cfall-col > i { position:absolute; left:20%; right:20%; border-radius:6px; background:var(--tone-hold); }
+.chart-cfall-col.is-total > i { background:var(--tone-in); }
+.chart-cfall-col.is-down > i { background:var(--tone-spend); }
+.chart-cfall-col.is-up > i { background:var(--tone-in); }
+.chart-cfall-col.is-short > i { background:var(--tone-over); }
+.chart-cfall-col > b { position:absolute; left:50%; transform:translateX(-50%); font:700 var(--fs-meta)/1 var(--body); color:var(--ink);
+  font-variant-numeric:tabular-nums; white-space:nowrap; }
+.chart-cfall-col > s { position:absolute; left:80%; width:40%; border-top:1px dashed var(--line-control); text-decoration:none; }
+.chart-cfall-labels { display:flex; margin-top:8px; border-top:0; }
+.chart-cfall-labels span { flex:1; min-width:0; text-align:center; font:500 var(--fs-meta)/1.3 var(--body); color:var(--ink-2); overflow-wrap:anywhere; padding:0 2px; }
+.chart-cfall-labels span:is(.is-total,.is-end,.is-short) { font-weight:700; color:var(--ink); }
+
+/* Sankey: sources in green into money in, out to spending in soft rose and what you kept in azure. */
+.chart-sankey { margin:4px 0 0; }
+.chart-sankey-plot { position:relative; }
+.chart-sankey-plot svg { position:absolute; inset:0; width:100%; height:100%; }
+.chart-sankey-link { fill:var(--tone); opacity:.22; transition:opacity .15s; }
+.chart-sankey-link:hover { opacity:.42; }
+.chart-sankey-node { fill:var(--tone); }
+.chart-sankey-label { position:absolute; display:grid; gap:1px; transform:translateY(-50%); font:500 var(--fs-meta)/1.25 var(--body); color:var(--ink-2); text-decoration:none; }
+.chart-sankey-label b { font:700 var(--fs-2)/1.25 var(--body); color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.chart-sankey-label small { font-variant-numeric:tabular-nums; white-space:nowrap; }
+.chart-sankey-label.is-source { right:79%; text-align:right; max-width:21%; }
+.chart-sankey-label.is-hub { left:51%; transform:translate(-50%,calc(-100% - 6px)); text-align:center; }
+.chart-sankey-label.is-target { left:79%; max-width:21%; grid-template-columns:auto minmax(0,1fr); column-gap:6px; }
+.chart-sankey-label.is-target .chart-key { grid-row:1 / span 2; align-self:center; width:10px; height:10px; border-radius:3px; }
+.chart-sankey-label.is-target small { grid-column:2; }
+a.chart-sankey-label:hover b { color:var(--azure); }
+@media (max-width:560px) { .chart-sankey-label b { font-size:var(--fs-meta); } }
+.main .chart-table { max-width:100%; overflow-x:auto; }
+.main .chart-sankey-plot { overflow:hidden; }

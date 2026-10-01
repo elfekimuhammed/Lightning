@@ -13,12 +13,12 @@ from lightning.core.dates import fmt_date, month_of, parse_date, parse_month, to
 from lightning.core.errors import LightningError, ValidationError
 from lightning.core.figures import FIGURES, label
 from lightning.core.money import ZERO, fmt, to_decimal
-from lightning.investments.report import investment_period, results_by_asset
+from lightning.investments.report import investing_rate, investment_period, results_by_asset
 
 from ..web import container, render
 from ..web import redirect
 from ..periods import Period, parse_period
-from .. import keynotes, visuals
+from .. import visuals
 
 router = APIRouter()
 
@@ -239,18 +239,20 @@ async def dashboard(request: Request):
     investment_share = (investment_flow / cash_flow.inflows * 100
                         if cash_flow.inflows > ZERO else None)
     savings_rate = cash_flow.savings_rate
-    # "Needs you" is its own list at the top, so the one note is what is safe to spend. The cards
-    # below already show the change in what you own and the savings rate.
-    key_notes = [keynotes.needs_you([], today_forecast.safe_to_spend, today_forecast.next_income_date)]
+    networth_trend = visuals.net_worth_trend(c, as_of)
+    stats = _period_stats(c, period, first, as_of, position, cash_flow, change, change_reason,
+                          closing_report["net_money"], networth_trend, urlencode(request.query_params))
     return render(
         request,
         "dashboard/index.html",
-        notes=key_notes,
-        where_it_went=visuals.spending_bars(c, first, as_of),
+        stats=stats,
+        flow_columns=visuals.cash_flow_columns(c, first, as_of, cash_flow),
+        money_in_rows=visuals.money_in_groups(c, first, as_of),
+        money_out_rows=visuals.money_out_groups(c, first, as_of),
+        money_sankey=visuals.money_sankey(c, first, as_of, cash_flow),
         investment_donut=visuals.holdings_donut(position),
         wealth_donut=visuals.holdings_donut(position, include_deposits=True, include_cash=True),
-        flow_trend=visuals.flow_trend(c, as_of),
-        networth_trend=visuals.net_worth_trend(c, as_of), free_cash_steps=visuals.free_cash_steps(position),
+        networth_trend=networth_trend, free_cash_steps=visuals.free_cash_steps(position),
         month=month, this_month=month_of(today()), period=period, period_error=period_error,
         date_from=fmt_date(first), date_to=fmt_date(as_of), as_of=fmt_date(as_of),
         range_label=(f"No recorded activity · Position as of {fmt_date(as_of)}"
@@ -267,6 +269,64 @@ async def dashboard(request: Request):
         cash_flow=cash_flow, investment_flow=investment_flow,
         investment_share=investment_share, savings_rate=savings_rate,
     )
+
+
+def _period_stats(c, period, first, as_of, position, cash_flow, change, change_reason, money_added,
+                  networth_trend, period_query) -> list[dict]:
+    """The Overview's four stat cards: change in net worth, savings rate, investing rate and left in plan.
+
+    Every number is a figure from lightning.core.figures; the cards only choose words and tones."""
+    sign = lambda v: "up" if v is not None and v > 0 else "down" if v is not None and v < 0 else "flat"
+    period_name = {"month": month_of(first), "ytd": "Year to date", "all": "All time"}.get(
+        period.key, f"{fmt_date(first)} to {fmt_date(as_of)}")
+    owes = position.what_you_owe > 0
+    if owes:
+        nw_change, nw_reason = c.position.change_in_net_worth(first, as_of, since_first_record=period.key == "all")
+    else:
+        nw_change, nw_reason = change, change_reason
+    lead = "net_worth" if owes else "what_you_own"
+    stats = [{
+        "key": "change", "surface": "lead", "label": label("change_in_net_worth" if owes else "change_in_what_you_own"),
+        "value": nw_change, "kind": "money", "badge": {"tone": sign(nw_change), "text": period_name},
+        "sub": nw_reason if nw_change is None else f"{label(lead)} {fmt(position.net_worth if owes else position.what_you_own)}",
+        "spark": visuals.trend_spark(networth_trend), "spark_tone": "hold", "href": "#owned-heading",
+    }]
+    rate = cash_flow.savings_rate
+    stats.append({
+        "key": "savings", "surface": "white", "label": label("savings_rate"), "value": rate, "kind": "rate",
+        "badge": {"tone": sign(cash_flow.net), "text": period_name},
+        "figure": cash_flow.net, "sub": (f"kept of {fmt(cash_flow.inflows)} {label('money_in').lower()}" if rate is not None
+                                         else "No money in this period"),
+        "spark": visuals.savings_rate_spark(c, as_of), "spark_tone": "in",
+        "href": f"/transactions?date_from={fmt_date(first)}&date_to={fmt_date(as_of)}",
+    })
+    invest = investing_rate(money_added, cash_flow.inflows)
+    stats.append({
+        "key": "investing", "surface": "mint", "label": label("investing_rate"), "value": invest, "kind": "rate",
+        "badge": {"tone": sign(money_added), "text": period_name},
+        "figure": money_added, "sub": label("new_money_in").lower() if invest is not None else "No money in this period",
+        "meter": {"width": float(max(min(invest, 100), 0)) if invest is not None else 0.0, "tone": "hold"},
+        "href": f"/investments?{period_query}",
+    })
+    month = month_of(as_of)
+    if c.budgets.has_plan(month):
+        view = c.budgets.month_view(month)
+        planned, left = view.available, view.remaining
+        used = planned - left
+        share = used / planned * 100 if planned > 0 else None
+        stats.append({
+            "key": "plan", "surface": "white", "label": f"{label('left_in_plan')} · {month}", "value": left, "kind": "money",
+            "badge": {"tone": "over" if left < 0 else "flat",
+                      "text": "Over plan" if left < 0 else (f"{share:.0f}% used" if share is not None else month)},
+            "sub": f"of {fmt(planned)} {label('planned').lower()}",
+            "meter": {"width": float(min(max(share or 0, 0), 100)), "tone": "over" if left < 0 else "in"},
+            "href": f"/budget?month={month}",
+        })
+    else:
+        stats.append({"key": "plan", "surface": "white", "label": f"{label('left_in_plan')} · {month}", "value": None,
+                      "kind": "money", "empty": "No plan yet", "sub": f"Set a plan for {month}",
+                      "href": f"/budget?month={month}"})
+    return stats
 
 
 @router.post("/demo")

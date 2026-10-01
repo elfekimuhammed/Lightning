@@ -145,6 +145,101 @@ def waterfall(start: tuple[str, Decimal], steps: list[tuple[str, Decimal]], end:
     return {"rows": rows}
 
 
+def column_waterfall(start: tuple[str, Decimal], steps: list[tuple[str, Decimal]],
+                     end: tuple[str, Decimal]) -> dict:
+    """The same path as ``waterfall`` drawn as columns: a start column from zero, each step floating
+    where the running total was, and the end column from zero. One zero line, values on the marks.
+
+    Positions are percentages of the plot height, measured from the bottom: ``base`` and ``height``
+    place a column, ``level`` is the running total after it (the thin link to the next column)."""
+    running, levels = start[1], [start[1]]
+    for _, value in steps:
+        running += value
+        levels.append(running)
+    top = max([*levels, end[1], ZERO])
+    bottom = min([*levels, end[1], ZERO])
+    span = (top - bottom) or Decimal(1)
+
+    def at(value: Decimal) -> float:
+        return float((value - bottom) / span * 100)
+
+    spans = [(start[0], start[1], "total", min(start[1], ZERO), max(start[1], ZERO))]
+    running = start[1]
+    for label, value in steps:
+        after = running + value
+        spans.append((label, value, "up" if value > 0 else "down", min(running, after), max(running, after)))
+        running = after
+    spans.append((end[0], end[1], "end" if end[1] >= 0 else "short", min(end[1], ZERO), max(end[1], ZERO)))
+    columns = []
+    for i, (label, value, kind, low, high) in enumerate(spans):
+        level = levels[i] if i < len(levels) else None
+        columns.append({"label": label, "value": value, "kind": kind, "base": at(low), "height": at(high) - at(low),
+                        "level": at(level) if level is not None else None})
+    return {"columns": columns, "zero": at(ZERO)}
+
+
+def sankey(sources: list[dict], targets: list[dict], hub_label: str, min_gap: float = 11.0) -> dict:
+    """Where money in went, in three columns: each source flows into one hub (money in), and the hub
+    flows out to each target. Nothing is attributed from a source to a target, because the ledger
+    does not say which income paid which bill.
+
+    sources / targets: [{"label", "value", "tone", "href"?}], positive values, both summing to the
+    same total. Positions are percentages of the plot box (y top→bottom). Label positions are
+    pushed apart by at least ``min_gap`` so small nodes stay readable."""
+    sources = [s for s in sources if s["value"] > 0]
+    targets = [t for t in targets if t["value"] > 0]
+    total = sum((s["value"] for s in sources), ZERO)
+    if not sources or not targets or total <= 0:
+        return {"nodes": [], "links": []}
+    gap, pad = 3.0, 4.0
+    most = max(len(sources), len(targets))
+    scale = (100 - 2 * pad - gap * (most - 1)) / float(total)
+
+    def column(items, x):
+        height = sum(float(i["value"]) * scale for i in items) + gap * (len(items) - 1)
+        y, out = pad + (100 - 2 * pad - height) / 2, []
+        for item in items:
+            h = float(item["value"]) * scale
+            out.append({**item, "x": x, "y": y, "h": h, "mid": y + h / 2})
+            y += h + gap
+        return out
+
+    def spread(nodes):  # keep labels at least min_gap apart, inside the box
+        mids = [n["mid"] for n in nodes]
+        for i in range(1, len(mids)):
+            mids[i] = max(mids[i], mids[i - 1] + min_gap)
+        overflow = mids[-1] - (100 - min_gap / 2) if mids else 0
+        if overflow > 0:
+            mids = [m - overflow for m in mids]
+            for i in range(len(mids) - 2, -1, -1):
+                mids[i] = min(mids[i], mids[i + 1] - min_gap)
+        for n, m in zip(nodes, mids):
+            n["label_y"] = max(m, min_gap / 2)
+
+    left, right = column(sources, 22.0), column(targets, 76.0)
+    hub_h = float(total) * scale
+    hub = {"label": hub_label, "value": total, "tone": "in", "x": 49.0, "y": (100 - hub_h) / 2, "h": hub_h}
+    spread(left)
+    spread(right)
+    width, links = 2.0, []
+
+    def ribbon(x1, y1, x2, y2, h):
+        mx = (x1 + x2) / 2
+        return (f"M{x1:.2f},{y1:.2f} C{mx:.2f},{y1:.2f} {mx:.2f},{y2:.2f} {x2:.2f},{y2:.2f} "
+                f"L{x2:.2f},{y2 + h:.2f} C{mx:.2f},{y2 + h:.2f} {mx:.2f},{y1 + h:.2f} {x1:.2f},{y1 + h:.2f} Z")
+
+    y_in = hub["y"]
+    for n in left:
+        links.append({"d": ribbon(n["x"] + width, n["y"], hub["x"], y_in, n["h"]), "tone": n["tone"], "label": n["label"]})
+        y_in += n["h"]
+    y_out = hub["y"]
+    for n in right:
+        links.append({"d": ribbon(hub["x"] + width, y_out, n["x"], n["y"], n["h"]), "tone": n["tone"], "label": n["label"]})
+        y_out += n["h"]
+    return {"sources": left, "targets": right, "hub": hub, "links": links, "total": total, "width": width,
+            "nodes": left + [hub] + right}
+
+
 def meter(used: Decimal, total: Decimal | None) -> dict:
     """Spent of plan (or saved of target). Over plan fills the track in strong rose."""
     if not total or total <= 0:
@@ -197,7 +292,8 @@ def sparkline(values: list[Decimal | None]) -> dict:
     span = (high - low) or Decimal(1)
     pts = [(4 + 92 * i / (len(values) - 1), 90 - float((v - low) / span) * 80)
            for i, v in enumerate(values) if v is not None]
-    return {"points": " ".join(f"{x:.2f},{y:.2f}" for x, y in pts), "last": pts[-1]}
+    return {"points": " ".join(f"{x:.2f},{y:.2f}" for x, y in pts), "last": pts[-1],
+            "area": f"M{pts[0][0]:.2f},100 " + " ".join(f"L{x:.2f},{y:.2f}" for x, y in pts) + f" L{pts[-1][0]:.2f},100 Z"}
 
 
 def line_chart(values: list[Decimal | None]) -> dict[str, list]:

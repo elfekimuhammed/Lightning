@@ -30,10 +30,13 @@ def test_overview_cash_reserves_spending_and_investments_reconcile(c, setup, mon
     assert pos.brokerage_cash == Decimal("1000")
     assert pos.reserves == sum((row["effective_allocated"] for row in pos.reserve_rows), Decimal(0))
     assert pos.free_cash == pos.cash_you_own - Decimal("500")
-    where = captured["where_it_went"]["rows"]  # the "Where it went" bars: L1 header, then its L2 bars
-    assert where[0]["header"] and where[0]["label"] == "Personal" and where[0]["value"] == Decimal("100")
-    assert where[1]["value"] == Decimal("100") and where[1]["width"] == 100
-    assert "Food" in where[1]["label"] and "category_id=" in where[1]["href"]
+    flow = captured["money_sankey"]  # "Where money in went": sources into money in, out to categories
+    assert "Food" in flow["targets"][0]["label"] and len(flow["targets"]) == 1 and flow["targets"][0]["value"] == Decimal("100")
+    assert "category_id=" in flow["targets"][0]["href"]
+    assert [s["label"] for s in flow["sources"]] == ["From what you had"] and flow["total"] == Decimal("100")
+    columns = captured["flow_columns"]["columns"]  # money in, less money out by kind, ends at net flow
+    assert [(col["label"], col["value"]) for col in columns] == [
+        ("Money in", Decimal("0")), ("Personal", Decimal("-100")), ("Net flow", Decimal("-100"))]
     assert captured["investment_report"]["brokerage_cash"] == Decimal("1000")
     assert captured["investment_report"]["new_money"] == Decimal("1000")
     assert captured["investment_report"]["period_result"] == Decimal("0")

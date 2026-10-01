@@ -1,4 +1,4 @@
-{# Charts and key notes · App guideline 2.2 · 09 Charts. Geometry comes from lightning/ui/charts.py. #}
+{# Charts and key notes · App guideline 2.5 · 09 Charts. Geometry comes from lightning/ui/charts.py. #}
 
 {% macro money_tip(label, value) %}{{ label }} · {{ value|money }}{% endmacro %}
 
@@ -106,4 +106,61 @@
 {% if w %}<div class="chart chart-waterfall" role="img" aria-label="{% for r in w.rows %}{{ r.label }} {{ r.value|money }}{{ ', ' if not loop.last }}{% endfor %}">
   {% for r in w.rows %}<div class="chart-fall-row is-{{ r.kind }}"><span class="chart-fall-label">{{ r.label }}</span><span class="chart-fall-track"><i style="margin-left:{{ '%.2f'|format(r.left) }}%;width:{{ '%.2f'|format([r.width, 0.6]|max) }}%"></i></span>{% if values %}<b class="chart-fall-value">{{ r.value|money(r.kind in ('down','up')) }}</b>{% endif %}</div>{% endfor %}
 </div>{% endif %}
+{% endmacro %}
+
+{# Column waterfall: money in as a column from zero, each category floating where the running total was,
+   net flow from zero. Values sit on the columns; a thin link joins each column to the next. #}
+{% macro column_waterfall(w, caption, height=230) %}
+{% if w and w.columns %}<figure class="chart chart-cfall" role="img" aria-label="{{ caption }}: {% for col in w.columns %}{{ col.label }} {{ col.value|money(col.kind in ('down','up')) }}{{ ', ' if not loop.last }}{% endfor %}">
+  <div class="chart-cfall-plot" style="height:{{ height }}px">
+    <div class="chart-cfall-zero" style="bottom:{{ '%.2f'|format(w.zero) }}%"></div>
+    {% for col in w.columns %}<div class="chart-cfall-col is-{{ col.kind }}">
+      <i style="bottom:{{ '%.2f'|format(col.base) }}%;height:{{ '%.2f'|format([col.height, 0.8]|max) }}%" data-tip="{{ col.label }} · {{ col.value|money(col.kind in ('down','up')) }}"></i>
+      <b style="bottom:calc({{ '%.2f'|format(col.base + col.height) }}% + 6px)">{{ col.value|money(col.kind in ('down','up')) }}</b>
+      {% if col.level is not none and not loop.last %}<s style="bottom:{{ '%.2f'|format(col.level) }}%"></s>{% endif %}
+    </div>{% endfor %}
+  </div>
+  <div class="chart-cfall-labels">{% for col in w.columns %}<span class="is-{{ col.kind }}">{{ col.label }}</span>{% endfor %}</div>
+  <figcaption class="sr-only">{{ caption }}</figcaption>
+</figure>{% endif %}
+{% endmacro %}
+
+{# Sankey: sources flow into one hub (money in), the hub flows out to where it went. #}
+{% macro sankey(s, caption, base, empty='No money moved in this period.', height=340) %}
+<figure class="chart chart-sankey" aria-label="{{ caption }}">
+  {% if s.nodes %}
+  <div class="chart-sankey-plot" style="height:{{ height }}px">
+    <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+      {% for l in s.links %}<path class="chart-sankey-link tone-{{ l.tone }}" d="{{ l.d }}"><title>{{ l.label }}</title></path>{% endfor %}
+      {% for n in s.nodes %}<rect class="chart-sankey-node tone-{{ n.tone }}" x="{{ '%.2f'|format(n.x) }}" y="{{ '%.2f'|format(n.y) }}" width="{{ s.width }}" height="{{ '%.2f'|format([n.h, 0.4]|max) }}"/>{% endfor %}
+    </svg>
+    {% for n in s.sources %}<span class="chart-sankey-label is-source" style="top:{{ '%.2f'|format(n.label_y) }}%"><b>{{ n.label }}</b><small>{{ n.value|money }}</small></span>{% endfor %}
+    <span class="chart-sankey-label is-hub" style="top:{{ '%.2f'|format(s.hub.y) }}%"><b>{{ s.hub.label }}</b><small>{{ s.hub.value|money }}</small></span>
+    {% for n in s.targets %}{% set tag = 'a' if n.href else 'span' %}<{{ tag }} class="chart-sankey-label is-target tone-{{ n.tone }}" style="top:{{ '%.2f'|format(n.label_y) }}%"{% if n.href %} href="{{ n.href }}"{% endif %}><i class="chart-key"></i><b>{{ n.label }}</b><small>{{ n.value|money }} · {{ '%.0f'|format(n.value / s.total * 100) }}%</small></{{ tag }}>{% endfor %}
+  </div>
+  <details class="chart-table"><summary>Show the numbers</summary><table><thead><tr><th>Came in from</th><th class="num">Amount</th><th>Went to</th><th class="num">Amount</th></tr></thead><tbody>
+    {% for i in range([s.sources|length, s.targets|length]|max) %}{% set a = s.sources[i] if i < s.sources|length else none %}{% set b = s.targets[i] if i < s.targets|length else none %}<tr><td>{{ a.label if a else '' }}</td><td class="num">{{ a.value|money if a else '' }}</td><td>{{ b.label if b else '' }}</td><td class="num">{{ b.value|money if b else '' }}</td></tr>{% endfor %}
+    <tr><th>Total</th><th class="num">{{ s.total|money }}</th><th>Total</th><th class="num">{{ s.total|money }}</th></tr></tbody></table></details>
+  {% else %}<p class="chart-empty">{{ empty }}</p>{% endif %}
+  <figcaption class="sr-only">{{ caption }}</figcaption>
+</figure>
+{% endmacro %}
+
+{# Stat card · guideline 2.5: label and period chip on top, one big number, one line under it, and a quiet
+   visual (a sparkline or a meter) in the card's lower right. surface: lead | white | mint. #}
+{% macro stat_tile(s, base) %}
+{% set tag = 'a' if s.href else 'div' %}
+<{{ tag }} class="stat-tile surface-{{ s.surface }}"{% if s.href %} href="{{ s.href }}"{% endif %} aria-label="{{ s.label }}">
+  <span class="stat-tile-head"><span class="stat-tile-label">{{ s.label }}</span>
+    {% if s.badge %}<span class="stat-chip is-{{ s.badge.tone }}">{% if s.badge.tone in ('up','down') %}<svg viewBox="0 0 24 24" aria-hidden="true">{% if s.badge.tone == 'up' %}<path d="M12 19V5M5 12l7-7 7 7"/>{% else %}<path d="M12 5v14M5 12l7 7 7-7"/>{% endif %}</svg>{% endif %}{{ s.badge.text }}</span>{% endif %}</span>
+  <span class="stat-tile-value{{ ' is-negative' if s.value is not none and s.value < 0 }}">{% if s.value is none %}{{ s.empty or '—' }}{% elif s.kind == 'rate' %}{{ '%.1f'|format(s.value) }}<small>%</small>{% else %}{{ s.value|money(s.key == 'change') }}<small>{{ base }}</small>{% endif %}</span>
+  <span class="stat-tile-sub">{% if s.figure is defined and s.figure is not none and s.value is not none %}<b class="{{ s.figure|tone }}">{{ s.figure|money(True) }}</b> {% endif %}{{ s.sub }}</span>
+  {% if s.meter %}<span class="stat-tile-meter tone-{{ s.meter.tone }}"><i style="width:{{ '%.1f'|format(s.meter.width) }}%"></i></span>{% endif %}
+  {% if s.spark and s.spark.points %}<span class="stat-tile-visual" aria-hidden="true"><svg class="stat-tile-spark tone-{{ s.spark_tone }}" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path d="{{ s.spark.area }}"/><polyline points="{{ s.spark.points }}" vector-effect="non-scaling-stroke"/></svg>
+    <span class="stat-tile-dot tone-{{ s.spark_tone }}" style="left:{{ '%.2f'|format(s.spark.last[0]) }}%;top:{{ '%.2f'|format(s.spark.last[1]) }}%"></span></span>{% endif %}
+</{{ tag }}>
+{% endmacro %}
+
+{% macro stat_tiles(stats, base, label='This period') %}
+<section class="stat-tiles" aria-label="{{ label }}">{% for s in stats %}{{ stat_tile(s, base) }}{% endfor %}</section>
 {% endmacro %}

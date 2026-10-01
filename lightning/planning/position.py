@@ -231,6 +231,24 @@ class PositionService:
                           else "The position immediately before this period is missing a required valuation.")
         return closing.total - opening.total, ""
 
+    def change_in_net_worth(self, start: date | str, end: date | str,
+                            since_first_record: bool = False) -> tuple[Decimal | None, str]:
+        """Change in net worth = Net worth at the end − Net worth the day before the start.
+
+        Returns (change, reason) like change_in_what_you_own: None, with the reason, when a
+        valuation is missing at either end."""
+        start_day, end_day = parse_date(start), parse_date(end)
+        closing = self.at(end_day)
+        if closing.unvalued:
+            return None, "A required valuation is missing from the ending position."
+        if since_first_record and not self.reporting.first_activity_date():
+            return None, "No recorded position is available for comparison."
+        opening = self.at(start_day - timedelta(days=1))
+        if opening.unvalued:
+            return None, ("The first recorded position is missing a required valuation." if since_first_record
+                          else "The position immediately before this period is missing a required valuation.")
+        return closing.net_worth - opening.net_worth, ""
+
     def at(self, as_of: date | str | None = None) -> Position:
         day = parse_date(as_of) if as_of is not None else today()
         text = fmt_date(day)

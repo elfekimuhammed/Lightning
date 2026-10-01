@@ -24,6 +24,11 @@ def investment_period(db, accounts, assets, reporting, start: str, end: str):
     return closing
 
 
+def investing_rate(money_added: Decimal, money_in: Decimal) -> Decimal | None:
+    """Investing rate = Money added ÷ Money in, as a percentage; None without money in."""
+    return money_added / money_in * 100 if money_in > ZERO else None
+
+
 def build_investment_report(db, accounts, assets, reporting, start: str, end: str):
     """Return period flows and end positions for the user's own investment portfolio."""
     investment_account_ids = {a.id for a in accounts.list(active_only=False)

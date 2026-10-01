@@ -14,7 +14,7 @@ import math
 from pathlib import Path
 
 OUT = Path(__file__).with_name("APPLICATION_BRAND_GUIDE.html")
-VERSION = "2.4 · Meadowlark"
+VERSION = "2.5 · Willow"
 UPDATED = "2026-10-01"
 
 # ---- tokens (same values as style.css) ---------------------------------------------------------
@@ -549,38 +549,25 @@ def c_breakdown():
 
 
 def c_sankey():
-    left = [("Salary", 42000, IN), ("Side work", 6000, "#3EB072")]
-    right = [("Home", 7360, SPEND), ("Personal", 11270, SPEND), ("Bills", 9800, SPEND), ("Loans", 11870, SPEND), ("Saved", 7700, HOLD)]
-    tot = sum(v for _, v, _ in left)
-    hgt, gap = 170, 6
+    left = [("Salary", 42000, IN), ("Side work", 6000, IN)]
+    right = [("Home", 7360, SPEND), ("Personal", 11270, SPEND), ("Bills", 9800, SPEND), ("Loans", 11870, SPEND), ("Kept", 7700, HOLD)]
+    tot, hgt, gap, top = 48000, 150, 6, 22
     sc = (hgt - gap * (len(right) - 1)) / tot
-    body = ""
-    # left nodes
-    yl, lnodes = 10, []
-    for n, v, c in left:
-        h = v * sc
-        lnodes.append([yl, h])
-        body += f'<rect x="70" y="{yl:.1f}" width="10" height="{h:.1f}" rx="2" fill="{c}"/>' + text(64, yl + h / 2 + 4, n, "l", "end")
-        yl += h + gap * 2
-    yr, rnodes = 10, []
-    for n, v, c in right:
-        h = v * sc
-        rnodes.append([yr, h])
-        body += f'<rect x="214" y="{yr:.1f}" width="10" height="{h:.1f}" rx="2" fill="{c}"/>' + text(230, yr + h / 2 + 4, f"{n} {short(v)}", "l")
-        yr += h + gap
-    # flows split proportionally
-    lo = [n[0] for n in lnodes]
-    ro = [n[0] for n in rnodes]
-    for li, (ln, lv, lc) in enumerate(left):
-        for ri, (rn, rv, rc) in enumerate(right):
-            fv = rv * lv / tot
-            h = fv * sc
-            y1, y2 = lo[li], ro[ri]
-            d = (f"M80,{y1:.1f} C147,{y1:.1f} 147,{y2:.1f} 214,{y2:.1f} L214,{y2 + h:.1f} "
-                 f"C147,{y2 + h:.1f} 147,{y1 + h:.1f} 80,{y1 + h:.1f} Z")
-            body += f'<path d="{d}" fill="{rc}" opacity=".28"/>'
-            lo[li] += h
-            ro[ri] += h
+    body, hub_y = "", top + (hgt - tot * sc) / 2
+    body += f'<rect x="166" y="{hub_y:.1f}" width="10" height="{tot * sc:.1f}" rx="2" fill="{IN}"/>' + text(171, hub_y - 6, "Money in 48.0k", "l", "middle")
+    for side, items, x in (("l", left, 70), ("r", right, 262)):
+        colh = sum(v * sc for _, v, _ in items) + gap * (len(items) - 1)
+        y, hy = top + (hgt - colh) / 2, hub_y
+        for n, v, c in items:
+            h = v * sc
+            body += f'<rect x="{x}" y="{y:.1f}" width="10" height="{h:.1f}" rx="2" fill="{c}"/>'
+            body += text(x - 6, y + h / 2 + 4, n, "l", "end") if side == "l" else text(x + 16, y + h / 2 + 4, f"{n} {short(v)}", "l")
+            x1, y1, x2, y2 = (x + 10, y, 166, hy) if side == "l" else (176, hy, x, y)
+            mx = (x1 + x2) / 2
+            body += (f'<path d="M{x1},{y1:.1f} C{mx},{y1:.1f} {mx},{y2:.1f} {x2},{y2:.1f} L{x2},{y2 + h:.1f} C{mx},{y2 + h:.1f} {mx},{y1 + h:.1f} {x1},{y1 + h:.1f} Z" '
+                     f'fill="{c}" opacity=".24"/>')
+            y += h + gap
+            hy += h
     return svg(body, "Where money in went this month", w=W, h=190)
 
 
@@ -599,9 +586,56 @@ def c_ring():
             f'<div><b>Emergency fund</b><small>25,200.00 to go · at 3,000.00 a month, 2027-05</small></div></div>')
 
 
+def spark_svg(values, color):
+    lo, hi = min(values), max(values)
+    pts = [(4 + 92 * i / (len(values) - 1), 90 - (v - lo) / ((hi - lo) or 1) * 80) for i, v in enumerate(values)]
+    line = " ".join(f"{x:.1f},{y:.1f}" for x, y in pts)
+    area = f"M{pts[0][0]:.1f},100 " + " ".join(f"L{x:.1f},{y:.1f}" for x, y in pts) + f" L{pts[-1][0]:.1f},100 Z"
+    return (f'<span class="tvis"><svg viewBox="0 0 100 100" preserveAspectRatio="none"><path d="{area}" fill="{color}" opacity=".1"/>'
+            f'<polyline points="{line}" fill="none" stroke="{color}" stroke-width="2" vector-effect="non-scaling-stroke" opacity=".75"/></svg>'
+            f'<i style="left:{pts[-1][0]:.1f}%;top:{pts[-1][1]:.1f}%;background:{color}"></i></span>')
+
+
+def tile(surface, label, chip, chip_tone, value, unit, sub, figure="", spark=None, meter=None):
+    arrow = {"up": "↑ ", "down": "↓ "}.get(chip_tone, "")
+    vis = spark_svg(*spark) if spark else ""
+    bar = f'<span class="tmeter"><i style="width:{meter[0]}%;background:{meter[1]}"></i></span>' if meter else ""
+    fig = f'<b class="{"pos" if figure.startswith("+") else "neg"}">{esc(figure)}</b> ' if figure else ""
+    return (f'<a class="tile {surface}"><span class="thead"><span>{esc(label)}</span><em class="tchip {chip_tone}">{arrow}{esc(chip)}</em></span>{vis}'
+            f'<b class="tval">{esc(value)}<small>{esc(unit)}</small></b><span class="tsub">{fig}{esc(sub)}</span>{bar}</a>')
+
+
+def tiles_row():
+    return ('<div class="tiles">'
+            + tile("lead", "Change in net worth", "2026-09", "up", "+24,669.53", "EGP", "Net worth 166,059.11",
+                   spark=([118000, 126500, 131200, 141390, 166059], HOLD))
+            + tile("white", "Savings rate", "2026-09", "up", "47.1", "%", "kept of 46,833.33 money in", "+22,079.53",
+                   spark=([18, 31, 26, 40, 47.1], IN))
+            + tile("mint", "Investing rate", "2026-09", "up", "18.4", "%", "money added", "+8,600.00", meter=(18.4, HOLD))
+            + tile("white", "Left in plan · 2026-09", "62% used", "flat", "9,120.00", "EGP", "of 24,000.00 planned", meter=(62, IN))
+            + "</div>")
+
+
 def c_stat():
-    return ('<div class="statrow one"><a class="stat lead"><span>Money out</span><b>40,300.00 <small>EGP</small></b><em>See transactions</em></a></div>'
-            '<p class="note">A stat card is the chart-less form: one number, its name, one link. See Cards.</p>')
+    return tiles_row().replace('<div class="tiles">', '<div class="tiles two">', 1).split('<a class="tile mint">')[0] + "</div>"
+
+
+def c_colfall():
+    cols = [("Money in", 48000, "total"), ("Personal", -30100, "down"), ("Work", -10200, "down"), ("Net flow", 7700, "end")]
+    top, run, out = 48000, 0, '<div class="cfall">'
+    for name, v, kind in cols:
+        if kind == "total":
+            base, h, run = 0, v / top * 100, v
+        elif kind == "end":
+            base, h = 0, v / top * 100
+        else:
+            after = run + v
+            base, h, run = after / top * 100, -v / top * 100, after
+        col = {"total": IN, "down": SPEND, "end": HOLD}[kind]
+        sign = "−" if v < 0 else ""
+        out += (f'<div class="ccol"><i style="bottom:{base:.1f}%;height:{h:.1f}%;background:{col}"></i>'
+                f'<b style="bottom:calc({base + h:.1f}% + 4px)">{sign}{money(abs(v))}</b><span>{esc(name)}</span></div>')
+    return out + "</div>"
 
 
 def c_histogram():
@@ -729,7 +763,7 @@ CHARTS = [
          "Expense analysis · When did it change; Budget"),
         ("Area trend", "app", c_area, "One total that builds up: net worth, what you own.",
          "One series, a 12% fill of its line colour down to zero, the end value on the line. Never stack two areas as if they were one total.",
-         "Overview · Net worth trend"),
+         "Overview · Net worth › Over time"),
         ("Stacked area", "ready", c_stacked_area, "How a total is made of parts over time: what you own by class.",
          "Asset class colours in donut order, a 1.5px white seam between layers, four layers at most, a legend above. The top edge is the total.",
          "Investments · allocation history"),
@@ -744,7 +778,7 @@ CHARTS = [
          "Budget · this month"),
         ("Columns: in and out", "ready", c_columns_in_out, "Money in above zero, money out below it, per month.",
          "Green up, soft rose down, from one zero line; net flow as a short Nile mark on the same axis. Never a second axis for net.",
-         "Overview · Cash flow by month"),
+         "Overview · Cash flow by month (stashed, see 16)"),
         ("Drawdown", "ready", c_drawdown, "How far a portfolio fell from its high.",
          "Area below zero in soft rose with a strong-rose edge; label the worst point. Needs month-end values for a year or more.",
          "Investments · risk"),
@@ -759,7 +793,7 @@ CHARTS = [
          "Expense analysis · usual month (sparklines per row)"),
         ("Sparkline", "app", c_sparkline, "A trend inside a card, next to its number.",
          "No axes or labels, 2px line, a dot on the last point, two points or more.",
-         "Expense analysis rows; support cards"),
+         "Overview · stat cards; Expense analysis rows"),
     ]),
     ("Compare and rank", [
         ("Horizontal bars", "app", c_bars, "Ranking categories, payees or accounts.",
@@ -808,22 +842,25 @@ CHARTS = [
     ("How a number is built", [
         ("Waterfall", "app", c_waterfall, "From a start value to a result: cash you own to free cash.",
          "The start in azure, what comes off in soft rose, what adds in green, the result in Meadow dark and bold. Each step sits where the running total was. Zero is never “up”.",
-         "Overview · Free cash"),
+         "Overview · Free cash › How it is built"),
+        ("Column waterfall", "app", c_colfall, "The same path when it reads left to right: money in, what each kind of spending took, net flow.",
+         "Money in green from zero, each step soft rose floating where the running total was, net flow azure from zero (strong rose when short). A dashed link joins each column to the next; values sit on the columns; one zero line, no axis.",
+         "Overview · Cash flow › From money in to net flow"),
         ("Breakdown list", "app", c_breakdown, "The waterfall as rows, when the labels are long.",
          "Each result on a soft band, signs on every step, no bars.",
          "Overview · Cash flow; Investments"),
-        ("Sankey", "ready", c_sankey, "Where money in went: income to spending groups and savings.",
-         "Sources on the left, uses on the right, flows at 28% of the destination colour, labels with values. Six destinations at most.",
-         "Overview · this month"),
+        ("Sankey", "app", c_sankey, "Where money in went: income by category, through money in, out to spending categories and what you kept.",
+         "Three columns: sources in green, one Money in hub, uses in soft rose and Kept in azure; “From what you had” in strong rose when money out is larger. Flows at 22% of their colour, never from a source straight to a use (the ledger does not say which income paid which bill). Three sources and five uses at most, the rest folded into Other; labels pushed apart so none overlap; a table under it.",
+         "Overview · Cash flow › Where money in went"),
     ]),
     ("Progress and single values", [
         ("Meter", "app", c_meter, "Spent of plan, saved of a target.",
          "“925.00 over” badge or “380.00 left” on the right, the track under it, “used of plan” under that. Green within plan, strong rose over. Over first.",
-         "Budget; Cash planning · reserves"),
+         "Budget; Cash planning · reserves; Overview · stat cards"),
         ("Progress ring", "ready", c_ring, "One goal's progress with its number in the middle.",
          "One ring per card, green on track grey, the value and unit in the middle, what's left and when beside it.",
          "Cash planning · Emergency fund"),
-        ("Stat card", "app", c_stat, "A number that needs no chart.", "See Cards › Stat cards.", "Expense analysis · summary"),
+        ("Stat card", "app", c_stat, "A number that needs no chart, with a quiet sparkline or meter.", "See Cards › Stat cards.", "Overview · four stat cards; Expense analysis · summary"),
     ]),
     ("Spread and relationships", [
         ("Histogram", "ready", c_histogram, "How your payments are spread by size.",
@@ -979,13 +1016,12 @@ def build() -> str:
   <div class="card white"><h4>Needs you</h4><div class="alert rose"><b>Personal over plan</b><span>925.00 over · 2,300.00 of 1,375.00</span></div><div class="alert held"><b>2 prices are older than a month</b><span>Update them before you read the result.</span></div>
     <div class="spec-cap">Alerts live inside the card they concern; never page-wide banners</div></div>
 </div>
-<h3>Stat cards: one number, three in a row</h3>
-<div class="statrow">
-  <a class="stat lead"><span>Money out</span><b>40,300.00 <small>EGP</small></b><em class="pill nile">See transactions</em></a>
-  {note("attention", "Eating out · above usual", "+31%", "3,940.00 against 3,010.00 usually.", "See Eating out", "up")}
-  {note("good", "Saved this month", "32.4%", "13,600.00 of 42,000.00 that came in.", "Invest", "up")}
-</div>
-<p class="note">The first stat card carries the page’s number on the lead gradient; the other two are key notes at the same height (118px). On phones they stack.</p>
+<h3>Stat cards: one number, up to four in a row</h3>
+{tiles_row()}
+<ul class="bul"><li><b>Order:</b> label (15px Bricolage, ink) top left; a period chip top right (24px pill, an arrow when the number went up or down: green tint up, rose tint down, strong rose filled for <i>Over plan</i>, quiet grey otherwise); <b>one big figure</b> (30px, ink; strong rose when it is a shortfall) at the bottom; one 13px line under it with its supporting figure in green or rose.</li>
+<li><b>One quiet visual</b> in the band between the label and the figure, right side: a sparkline (2px line at 75%, a 10% fill, a dot on the last point) for a figure with history, or an 8px meter for a share of a whole. Never both, never axes.</li>
+<li><b>Surfaces alternate</b> so a row never reads as one block: lead green (the period’s headline), white, mint, white. Every card has a 1px line in its own shade and the card shadow; the whole card is the link.</li>
+<li>164px tall; four in a row on wide screens, two from 1,100px, one on phones. The Overview uses exactly these four: Change in net worth (or Change in what you own when you owe nothing), Savings rate, Investing rate and Left in plan for the period’s month.</li></ul>
 <h3>Key notes: the number first</h3>
 <div class="notes">{note("info", "Safe to spend until 2026-10-27", "12,400.00", "Free cash less what is due before your next income.", "See the plan", "wallet")}{note("info", "Home · share of money out", "38%", "15,300.00 of 40,300.00.", "See Home", "pie")}{note("attention", "Categories over plan", "2", "Personal and Eating out.", "See categories", "alert")}</div>
 <p class="note">The number is the highlight. Up to three under the page title, each in this order: a small tone icon with a short label (15px, ink 2), <b>one big figure</b> (30px Bricolage; green for good, strong rose for needs you, ink for info), one 13px line of context, and at most one 32px pill button in the tone colour. The card is a full tint of its tone with a 1px tone border. A note with no figure (\u201cNothing needs you today\u201d) shows its sentence as the label.</p>
@@ -1108,8 +1144,35 @@ def build() -> str:
     # 15 classes
     cls_rows = "".join(f'<div class="sw"><span class="chip" style="background:{c}"></span><div><b>{esc(n)}</b><code>{c}</code></div></div>' for n, c in CLASS)
     s.append(sec("classes", "15", "Asset class colours", "One hue family per kind of asset, a lighter shade for the fund version (<code>--class-*</code> in style.css). The order is the donut order and passes the palette validator for neighbouring slices. Some shades are under 3:1 on white, so charts always keep visible labels.", f'<div class="sws">{cls_rows}</div>'))
-    # 16 versions
-    s.append(sec("versions", "16", "Versions", "", """<table class="plain"><thead><tr><th>Version</th><th>Date</th><th>What changed</th></tr></thead><tbody>
+    # 16 visuals in use
+    def vis_rows(rows):
+        return "".join(f"<tr><td>{esc(a)}</td><td>{esc(b)}</td><td>{esc(c)}</td></tr>" for a, b, c in rows)
+    active = [("Overview · stat cards", "Sparkline (Change in net worth, Savings rate) · Meter (Investing rate, Left in plan)", "stat_tiles"),
+              ("Overview · Net worth", "Area trend, beside its breakdown list", "trend"),
+              ("Overview · Free cash", "Waterfall (How it is built), beside its list", "waterfall"),
+              ("Overview · What it is made of", "Donut", "donut"),
+              ("Overview · Cash flow", "Column waterfall (From money in to net flow), beside its list", "column_waterfall"),
+              ("Overview · Where money in went", "Sankey", "sankey"),
+              ("Overview · Investments", "Donut (What you hold) · gain-or-loss bars by asset class · movers list", "donut"),
+              ("Expense analysis", "Stat card · trend line with plan · grouped bars · bars (Who you paid, Paid from) · sparkline rows", "trend, bars, sparkline"),
+              ("Budget; Cash planning · reserves", "Meter", "meter"),
+              ("Cash planning · Plan", "Forecast trend", "trend"),
+              ("Investments", "Area trend (portfolio value) · donut", "trend, donut"),
+              ("Cash planning · Recurring", "Bars", "bars")]
+    stashed = [("Month by month (money in and money out per month)", "Two-line trend under a toggle on the Overview", "Removed in 2.5: no chart hides behind a toggle. visuals.flow_trend is kept; bring it back as a Columns: in and out chart, always open."),
+               ("Where it went (grouped spending bars on the Overview)", "Grouped bars", "Replaced by the Sankey in 2.5. visuals.spending_bars is kept; Expense analysis still uses grouped bars."),
+               ("Money in and money out comparison bars", "Two meters", "Replaced by the Cash flow list and column waterfall in 2.5."),
+               ("Savings ring", "Progress ring on the Cash flow card", "Replaced by the Savings rate stat card in 2.5."),
+               ("Safe to spend key note on the Overview", "Key note", "Moved off the Overview in 2.5; Safe to spend stays the lead of Cash planning."),
+               ("Share bar", "charts.share / share_bar macro", "Built, used by no screen."),
+               ("Line chart (older helper)", "charts.line_chart", "Kept for the investments and Birdview helpers that still call it.")]
+    s.append(sec("visuals", "16", "Visuals: active and stashed", "Every visual the app draws, and the ones it has built but set aside. Update this list in the same change that adds, moves or removes a chart.",
+                 '<h3>Active: on a screen now</h3><table class="plain vis"><thead><tr><th>Where</th><th>Visual</th><th>Macro</th></tr></thead><tbody>' + vis_rows(active) + '</tbody></table>'
+                 '<h3>Stashed: built, not on any screen</h3><table class="plain vis stashed"><thead><tr><th>Visual</th><th>Form</th><th>Why, and how to bring it back</th></tr></thead><tbody>' + vis_rows(stashed) + '</tbody></table>'
+                 '<p class="note">Stashed code stays tested and keeps its spec in section 09, so it can come back without a redesign. Desktop (Windows) uses WebView2, the same Chromium engine as the browser, so every active visual renders the same there.</p>'))
+    # 17 versions
+    s.append(sec("versions", "17", "Versions", "", """<table class="plain"><thead><tr><th>Version</th><th>Date</th><th>What changed</th></tr></thead><tbody>
+<tr><td>2.5 · Willow</td><td>2026-10-01</td><td>Overview rebuilt as wide split cards: numbers and toggle lists on the left, the visual on the right (net worth trend, free cash waterfall, the new column waterfall for cash flow). The Sankey replaces Where it went. Investments gets its own section; no chart sits behind a toggle; Month by month is stashed. Stat cards redesigned: four in a row on alternating green and white surfaces, a period chip, one big figure and a quiet sparkline or meter. New figures Change in net worth and Investing rate. New section 16, Visuals: active and stashed</td></tr>
 <tr><td>2.4 · Meadowlark</td><td>2026-10-01</td><td>Key notes put the number first: label, one big figure in the tone colour, one line, one pill button</td></tr>
 <tr><td>2.3 · Glade</td><td>2026-10-01</td><td>Key notes stand out: a full tone tint, a tone border and a solid icon tile with an icon chosen by meaning. Register fields are soft shades of their row, never white, with a green edge on the field you are in. Row actions move to the right-click menu</td></tr>
 <tr><td>2.2 · Grove</td><td>2026-09-30</td><td>One unified guideline with a visual page. Soft register fields and the 30px row height; stat cards; key notes with tone tints and an edge; the wide gradient card; the 20px card radius; the waterfall in azure, soft rose and green; a full chart catalogue (In the app, Ready to use, Avoid)</td></tr>
@@ -1119,7 +1182,7 @@ def build() -> str:
 <tr><td>1.0</td><td>2026-09-29</td><td>First app guideline</td></tr></tbody></table>"""))
     nav = "".join(f'<a href="#{i}">{n} {t}</a>' for i, n, t in [("rules", "01", "Rules"), ("colour", "02", "Colour"), ("type", "03", "Type"), ("cards", "04", "Cards"), ("sections", "05", "Sections"),
                                                               ("controls", "06", "Controls"), ("fields", "07", "Fields"), ("lists", "08", "Lists"), ("charts", "09", "Charts"), ("words", "10", "Words"),
-                                                              ("space", "11", "Spacing"), ("access", "12", "Accessibility"), ("icons", "13", "Icons"), ("check", "14", "Checklist"), ("classes", "15", "Asset classes"), ("versions", "16", "Versions")])
+                                                              ("space", "11", "Spacing"), ("access", "12", "Accessibility"), ("icons", "13", "Icons"), ("check", "14", "Checklist"), ("classes", "15", "Asset classes"), ("visuals", "16", "Visuals"), ("versions", "17", "Versions")])
     return PAGE.replace("{{VERSION}}", VERSION).replace("{{UPDATED}}", UPDATED).replace("{{NAV}}", nav).replace("{{BODY}}", "".join(s))
 
 
@@ -1207,6 +1270,19 @@ table.plain tr:last-child td{border-bottom:0}
 .badge-over{font-size:12px;font-weight:700;background:var(--rs);border-radius:999px;padding:2px 10px;white-space:nowrap}.badge-grow{font-size:12px;font-weight:700;background:var(--tg);color:var(--pos);border-radius:999px;padding:2px 10px}
 .empty{display:grid;gap:4px;justify-items:start;padding:16px;border-radius:14px;background:rgba(255,255,255,.6)}.empty span{color:var(--ink2);font-size:13px}
 .alert{display:grid;padding:10px 14px;border-radius:12px;margin:8px 0}.alert span{font-size:13px;color:var(--ink2)}.alert.rose{background:var(--rs)}.alert.held{background:var(--th)}
+.tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin:6px 0 14px}.tiles.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+.tile{position:relative;display:flex;flex-direction:column;min-height:164px;padding:18px 20px 16px;border-radius:20px;border:1px solid var(--line);box-shadow:var(--shadow);color:var(--ink);text-decoration:none;overflow:hidden}
+.tile.lead{background:linear-gradient(135deg,#D3F0DF 0%,#DCF1F0 55%,#E4F1FA 100%);border-color:#BFE3CF}.tile.mint{background:linear-gradient(160deg,#EAF8F0,#F6FCF8);border-color:#CFEADB}.tile.white{background:#fff}
+.thead{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}.thead>span{font:700 14px/1.35 var(--display)}
+.tchip{flex:none;height:24px;display:inline-flex;align-items:center;padding:0 9px;border-radius:999px;font:700 12px/1 var(--body);font-style:normal;background:rgba(10,36,66,.06);color:var(--ink2)}
+.tchip.up{background:var(--tg);color:var(--pos)}.lead .tchip.up,.mint .tchip.up{background:#fff}.tchip.down{background:var(--rs);color:#C93D72}.tchip.over{background:#C93D72;color:#fff}
+.tvis{position:absolute;right:16px;top:52px;width:46%;height:40px}.tvis svg{width:100%;height:100%;overflow:visible}.tvis i{position:absolute;width:8px;height:8px;margin:-4px 0 0 -4px;border-radius:50%;box-shadow:0 0 0 2px #fff}
+.tval{margin-top:auto;padding-top:18px;font:800 30px/1.1 var(--display);letter-spacing:-.025em;font-variant-numeric:tabular-nums}.tval small{margin-left:5px;font:600 12px/1 var(--body);color:var(--muted);letter-spacing:0}
+.tsub{margin-top:4px;font:500 13px/1.4 var(--body);color:var(--ink2)}.tsub b.pos{color:var(--pos)}.tsub b.neg{color:#C93D72}
+.tmeter{display:block;height:8px;margin-top:12px;border-radius:4px;background:var(--track);overflow:hidden}.mint .tmeter{background:#fff}.tmeter i{display:block;height:100%;border-radius:4px}
+.cfall{position:relative;display:flex;height:170px;margin:26px 0 22px;border-bottom:1px solid var(--lc)}.ccol{position:relative;flex:1}.ccol i{position:absolute;left:20%;right:20%;border-radius:6px}
+.ccol b{position:absolute;left:50%;transform:translateX(-50%);font:700 11px/1 var(--body);white-space:nowrap;font-variant-numeric:tabular-nums}.ccol span{position:absolute;top:calc(100% + 6px);left:0;right:0;text-align:center;font:500 11px/1.2 var(--body);color:var(--ink2)}
+table.vis td:first-child{font-weight:700;white-space:nowrap}table.vis.stashed td{color:var(--ink2)}table.vis.stashed td:first-child{color:var(--muted)}
 .statrow{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.statrow.one{grid-template-columns:minmax(0,320px)}
 .stat{display:flex;flex-direction:column;justify-content:space-between;gap:4px;min-height:118px;padding:16px 18px;border-radius:20px;box-shadow:var(--shadow);text-decoration:none;color:var(--ink)}
 .stat.lead{background:var(--lead)}.stat span{font:500 15px/1.35 var(--body);color:var(--ink2)}.stat b{font:800 24px/1.15 var(--display);font-variant-numeric:tabular-nums}.stat em{font:650 13px var(--body);color:var(--azure);font-style:normal}
@@ -1261,7 +1337,7 @@ table.plain tr:last-child td{border-bottom:0}
 .radii{display:flex;gap:12px;flex-wrap:wrap;margin:18px 0}.radii div{width:110px;height:76px;background:#fff;box-shadow:var(--shadow);display:grid;place-content:center;text-align:center;border:1px solid var(--line)}.radii small{color:var(--muted);font-size:11px}
 .icons .bolt{display:inline-flex;gap:8px;align-items:center;font:800 22px var(--display);background:#fff;border-radius:16px;padding:12px 18px;box-shadow:var(--shadow)}
 @media (max-width:980px){.wrap{grid-template-columns:1fr}nav.side{position:static;height:auto;display:flex;flex-wrap:wrap;gap:4px;padding:16px}nav.side .brand,nav.side small{width:100%}
-main{padding:20px 16px 60px}.cardgrid,.fgrid,.dos,.split,.statrow,.notes,.chartrules{grid-template-columns:1fr}.split section{padding:0!important;border:0!important}.split section+section{border-top:1px solid var(--line)!important;margin-top:14px;padding-top:14px!important}
+main{padding:20px 16px 60px}.tiles,.tiles.two,.cardgrid,.fgrid,.dos,.split,.statrow,.notes,.chartrules{grid-template-columns:1fr}.split section{padding:0!important;border:0!important}.split section+section{border-top:1px solid var(--line)!important;margin-top:14px;padding-top:14px!important}
 .specs{grid-template-columns:1fr}table.plain{display:block;overflow-x:auto}.ty-num-lead{font-size:32px}.donut{grid-template-columns:1fr;justify-items:center}}
 </style></head><body><div class="wrap">
 <nav class="side" aria-label="Guideline sections"><div class="brand"><svg width="22" height="22" viewBox="0 0 32 32"><defs><linearGradient id="nb" x1="0" y1="0" x2=".35" y2="1"><stop offset="0" stop-color="#45A9E8"/><stop offset=".55" stop-color="#1FB5A8"/><stop offset="1" stop-color="#34BF8C"/></linearGradient></defs><path d="M18.2 3.5 7.6 17.4c-.6.8 0 1.9 1 1.9h5.9l-1.6 8.3c-.2 1.1 1.2 1.7 1.9.8l10.6-13.9c.6-.8 0-1.9-1-1.9h-5.9l1.6-8.3c.2-1.1-1.2-1.7-1.9-.8Z" fill="url(#nb)"/></svg>Lightning</div><small>App guideline {{VERSION}}</small>{{NAV}}</nav>
