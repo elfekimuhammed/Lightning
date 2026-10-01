@@ -1400,7 +1400,7 @@ document.querySelectorAll("[data-month-picker]").forEach((picker) => {
     pop.setAttribute("aria-label", "Choose a month");
     const render = () => {
       const maxYear = max ? Number(max.slice(0, 4)) : 9999;
-      pop.innerHTML = `<div class="month-popup-year"><button type="button" data-year="-1" aria-label="Previous year">‹</button><b>${year}</b><button type="button" data-year="1" aria-label="Next year" ${year >= maxYear ? "disabled" : ""}>›</button></div>`
+      pop.innerHTML = `<div class="month-popup-year"><button type="button" data-year="-1" aria-label="Previous year"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button><b>${year}</b><button type="button" data-year="1" aria-label="Next year" ${year >= maxYear ? "disabled" : ""}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button></div>`
         + `<div class="month-popup-grid">${MONTHS.map((name, i) => {
           const value = `${year}-${String(i + 1).padStart(2, "0")}`;
           const disabled = max && value > max;

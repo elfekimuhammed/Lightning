@@ -15,7 +15,7 @@ from pathlib import Path
 
 OUT = Path(__file__).with_name("APPLICATION_BRAND_GUIDE.html")
 DOCS_OUT = Path(__file__).resolve().parents[2] / "docs" / "APPLICATION_BRAND_GUIDE.html"  # the copy linked from the docs
-VERSION = "2.8 · Clover"
+VERSION = "2.9 · Yarrow"
 UPDATED = "2026-10-01"
 
 # ---- tokens (same values as style.css) ---------------------------------------------------------
@@ -533,6 +533,15 @@ def c_waffle():
             f'<div><b class="big">23%</b><small>Savings rate · 2026-09</small><p>Of every 100.00 that came in, 23.00 stayed.</p></div></div>')
 
 
+def c_split_waffle():
+    parts = [(47, HOLD), (0, IN), (53, "#F2C3D3")]  # invested, kept, spent (the light rose of the app)
+    kinds = [col for n, col in parts for _ in range(n)]
+    cells = "".join(f'<rect x="{(i % 10) * 15}" y="{(i // 10) * 15}" width="12" height="12" rx="3" fill="{kinds[i] if i < len(kinds) else T["track"]}"/>' for i in range(100))
+    return (f'<div class="waffle"><svg class="spec-svg" viewBox="0 0 147 147" role="img" aria-label="Of money in: 47 invested, 0 kept, 53 spent">{cells}</svg>'
+            f'<div><b class="big" style="color:{IN}">47%</b><small>Savings rate</small><b class="big" style="color:{HOLD}">47%</b><small>Investing rate · part of it</small>'
+            f'<p>Invested 22,080 · Kept 0 · Spent 24,754. One square is 1%.</p></div></div>')
+
+
 def c_waterfall():
     rows = [("Cash you own", 70200, "total"), ("Reserves", -30000, "down"), ("Bills due", -6400, "down"), ("Free cash", 33800, "end")]
     mx = 70200
@@ -883,6 +892,9 @@ CHARTS = [
         ("Waffle", "app", c_waffle, "A single share people should feel: savings rate.",
          "100 squares (13px, 3px gap) in Meadow dark for the share, track grey for the rest; the % beside it and “Of every 100.00 that came in, N stayed.” A negative rate fills none and says so.",
          "Budget · top"),
+        ("Split waffle", "app", c_split_waffle, "One period's money in, split three ways: invested, kept, spent.",
+         "100 squares read row by row: invested in azure, then kept in Meadow dark, then spent in light rose, the rest track grey. The savings rate and the investing rate (part of it) beside it in their colours, the key with amounts under them, “one square is 1%” in the note. Investing never exceeds saving.",
+         "Investments · Saved and invested"),
         ("Pie", "avoid", c_pie_avoid, "—", "Use the donut.", "Not used"),
     ]),
     ("How a number is built", [
@@ -1100,14 +1112,14 @@ def build() -> str:
 <div class="ctl"><span class="btn primary">Add transaction</span><span class="btn">Review</span><span class="btn quiet">See all</span><span class="btn danger">Deactivate</span></div>
 <div class="ctl"><span class="btn small primary">Save</span><span class="btn small">Today</span><span class="chipx on">Personal</span><span class="chipx">Home</span><span class="chipx">+ Add</span></div>
 <div class="ctl"><div class="seg"><span class="on">Buy</span><span>Sell</span><span>Dividend</span><span>Already own</span></div></div>
-<div class="ctl"><div class="seg"><span>All time</span><span>YTD</span><span class="on">Monthly</span><span>Custom</span></div><span class="btn small">‹</span><span class="f month">2026-09</span><span class="btn small">›</span></div>
-<div class="monthpop"><div class="yr"><span>‹</span><b>2026</b><span>›</span></div><div class="mgrid">""" + "".join(
+<div class="ctl"><div class="seg"><span>All time</span><span>YTD</span><span class="on">Monthly</span><span>Custom</span></div><div class="mstep"><i><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></i><b>2026-09</b><i class="off"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></i></div></div>
+<div class="monthpop"><div class="yr"><span class="chev"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></span><b>2026</b><span class="chev"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></span></div><div class="mgrid">""" + "".join(
         f'<span class="{"on" if m == "Sep" else "off" if m in ("Oct", "Nov", "Dec") else ""}">{m}</span>' for m in ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]) + """</div></div>
 <div class="toggle"><div class="thead"><span>Personal</span><b>11,270.00</b><i>›</i></div><div class="titem"><span>Groceries</span><b>5,210.00</b></div><div class="titem"><span>Eating out</span><b>3,940.00</b></div><div class="titem"><span>2 more</span><b>2,120.00</b></div></div>
 <ul class="bul"><li><b>Primary</b> (Nile) once per page; <b>Secondary</b> for the second action and every “Review”; <b>Quiet</b> for card-header actions and “Show more”; <b>Danger</b> only for deleting or deactivating.</li>
 <li>Labels start with a verb, one to three words, no arrows. A page header holds Primary + Secondary + ⋯ at most.</li>
 <li><b>Chips</b> (36px) filter or fill in values; they are not actions. <b>Segments</b> offer two to four choices of one thing.</li>
-<li>The <b>period control</b> is one component (All time · YTD · Monthly · Custom). Every month box opens the <b>month picker</b>: a year row, twelve months, future months disabled.</li>
+<li>The <b>period control</b> is one component (All time · YTD · Monthly · Custom). The <b>month stepper</b> beside it is the same track pill: round drawn chevrons on the track, the month as a white pill; no bordered circles. Every month box opens the <b>month picker</b>: a year row, twelve months, future months disabled.</li>
 <li><b>Toggle rows</b> are 48px, name and total left, chevron right; items indented and adding up to the row. They start closed, except the first group on the page that owns the number.</li></ul>
 <h3>Ask dialog</h3>
 <div class="asks">
@@ -1153,7 +1165,17 @@ def build() -> str:
 <div class="empty"><b>No transactions in this period</b><span>Try a longer period, or add one.</span><span class="btn small">Add transaction</span></div></div>
 <ul class="bul"><li>Who or what on the left with details under it; the amount and one figure under it on the right. Registers group rows under day headers.</li>
 <li>Money in is green with +; money out is ink with −; transfers carry no sign. Clicking a row edits it in place or opens the drawer.</li>
-<li>Status is a word with a dot, or one sentence in an alert. No empty tables with headers; an empty state offers the next useful action.</li></ul>"""))
+<li>Status is a word with a dot, or one sentence in an alert. No empty tables with headers; an empty state offers the next useful action.</li></ul>
+<h3>Grouped table (Holdings)</h3>
+<div class="card white"><table class="gtable"><thead><tr><th>Investment</th><th class="num">Units</th><th class="num">Cost</th><th class="num">Current value</th><th class="num">Unrealized gain</th><th>Horizon</th></tr></thead>
+<tbody><tr class="tot"><th>All holdings<small>5 holdings · 100%</small></th><td></td><td class="num">96,000</td><td class="num">86,900</td><td class="num"><b class="neg">−9.5%</b><small>−9,100</small></td><td></td></tr></tbody>
+<tbody><tr class="cls"><th>Gold Fund<small>43.2%</small></th><td></td><td class="num">30,000</td><td class="num">37,500</td><td class="num"><small>+7,500</small></td><td></td></tr>
+<tr><td><b>AZ Gold Fund</b><small>THNDR · 43.2% · price 2026-09-30</small></td><td class="num">15,000<span>unit</span></td><td class="num">30,000</td><td class="num"><b>37,500</b></td><td class="num"><b class="pos">+25.0%</b><small>+7,500</small></td><td>Short</td></tr></tbody>
+<tbody><tr class="cls"><th>Stocks<small>16.6%</small></th><td></td><td class="num">36,000</td><td class="num">14,400</td><td class="num"><small>−21,600</small></td><td></td></tr>
+<tr><td><b>Commercial International Bank</b><small>THNDR · 12.1% · price 2026-09-30</small></td><td class="num">100<span>share</span></td><td class="num">6,000</td><td class="num"><b>10,500</b></td><td class="num"><b class="pos">+75.0%</b><small>+4,500</small></td><td class="unset">Set</td></tr>
+<tr><td><b>Oriental Weavers</b><small>THNDR · 4.5% · price 2026-09-30</small></td><td class="num">150<span>share</span></td><td class="num">30,000</td><td class="num"><b>3,900</b></td><td class="num"><b class="neg">−87.0%</b><small>−26,100</small></td><td>Short</td></tr></tbody></table></div>
+<ul class="bul"><li>Total first, then one group per class. Headers are never highlighted: no band or tint, only weight. A line-control hairline under the total, a thin hairline between class groups, none between rows.</li>
+<li>One accent: names in ink, only the gain % in its sign colour, amounts under it muted. Row choices (Horizon) are quiet words that open the select; units on one line with the unit muted.</li></ul>"""))
     # 9 charts
     chart_html = ('<div class="chartrules"><div><h4>Colour roles</h4>' + key([("Money in", IN), ("Money out", SPEND), ("Over plan", OVER), ("Money you hold", HOLD), ("--Plan", PLAN), ("Reference", "#C9D6D2")]) +
                   '<p>Asset classes use their own colours (section 15). Sequential data uses one hue light to dark; diverging data two hues with a neutral centre.</p></div>'
@@ -1221,7 +1243,7 @@ def build() -> str:
               ("Overview · Where money in went", "Sankey", "sankey"),
               ("Overview · Investments", "Donut (What you hold) · gain-or-loss bars by asset class · movers list", "donut"),
               ("Expense analysis", "Four KPI cards · treemap · clustered columns · usual range · small multiples · heatmap", "stat_tiles, birdview/expenses.html"),
-              ("Investments", "Waffle (kept and invested) · result card · six-month sparkline · donut · biggest holdings bars · holdings by class · dividends bars · diverging flows · horizon bar", "investments/index.html"),
+              ("Investments", "Split waffle (invested, kept, spent) · result card · six-month sparkline · donut · biggest holdings bars · holdings by class · dividends bars · diverging flows · horizon bar", "investments/index.html"),
               ("Holding page", "Four tiles · price trend with average cost · return waterfall · monthly moves (diverging, growth style) · fall from its high · value against cost · trades table", "investments/holding.html"),
               ("Budget · top", "Savings waffle · plan bar (spent azure, left green, over rose)", "budget.html"),
               ("Budget · Spent of plan", "Bullet per category", "bullet_row"),
@@ -1239,6 +1261,8 @@ def build() -> str:
                ("Budget summary cards", "Three stat cards", "Replaced by the savings waffle and plan bar in 2.6."),
                ("Expense analysis 2.6", "Grouped bars (Where did it go?), trend with plan (When did it change?), Who you paid and Paid from bars, the usual-month table", "Replaced in 2.7 by the treemap, clustered columns, usual range, small multiples and heatmap. visuals.spending_bars, counterparty_bars and account_bars are kept."),
                ("Cash planning 2.7", "Key notes, Add bill and Add loan in the page header, the forecast as a table only", "Replaced in 2.8 by four stat cards and three questions; adding stays on the Recurring and Loans tabs; the table lives under Show the numbers."),
+               ("Saved and invested bar (Investments)", "One bar: invested, kept, spent", "Replaced by the split waffle in 2.9 at the owner's request; the .saved-bar styles are kept."),
+               ("Horizon badges (Holdings)", "S, M, L letters in blue, green and amber", "Replaced by quiet words in 2.9: one accent per table."),
                ("Investments 2.6", "Result key card with toggle rows, portfolio trend, Analysis by asset class, result by class bars", "Replaced in 2.7 by the three tiles, allocation beside biggest holdings and the diverging flows."),
                ("Line chart (older helper)", "charts.line_chart", "Kept for the investments and Birdview helpers that still call it.")]
     s.append(sec("visuals", "16", "Visuals: active and stashed", "Every visual the app draws, and the ones it has built but set aside. Update this list in the same change that adds, moves or removes a chart.",
@@ -1247,6 +1271,7 @@ def build() -> str:
                  '<p class="note">Stashed code stays tested and keeps its spec in section 09, so it can come back without a redesign. Desktop (Windows) uses WebView2, the same Chromium engine as the browser, so every active visual renders the same there.</p>'))
     # 17 versions
     s.append(sec("versions", "17", "Versions", "", """<table class="plain"><thead><tr><th>Version</th><th>Date</th><th>What changed</th></tr></thead><tbody>
+<tr><td>2.9 · Yarrow</td><td>2026-10-01</td><td>Grouped tables without highlighted headers: hairlines between groups, one accent colour, quiet horizon words, room for units. The split waffle returns to Saved and invested. Stat card numbers scale with the card, the sparkline in the flow. The month stepper becomes one track pill with drawn chevrons and a white month pill</td></tr>
 <tr><td>2.8 · Clover</td><td>2026-10-01</td><td>Cash planning rebuilt questions first: four stat cards, then How is safe to spend worked out? (waterfall and the 30-day timeline), Where is my cash heading? (forecast trend, flow columns) and What is promised? Timeline, forecast trend and flow columns now in the app. Sub-tabs get a pill bar and a header per tab in its own accent. The Ask dialog replaces the browser's confirm and alert boxes. The visual page also lives in docs/</td></tr>
 <tr><td>2.7 · Sorrel</td><td>2026-10-01</td><td>Questions first: pages open with KPI cards, then one section per question. Big items only (under 1% folds away). The same chart type may have different styles for different goals. Each section states whether it follows the period or a fixed horizon. Investments and the holding page rebuilt; Expense analysis rebuilt with a treemap, clustered columns, usual range, small multiples and a heatmap; drawdown, diverging bars and the heatmap are now in the app</td></tr>
 <tr><td>2.6 · Fern</td><td>2026-10-01</td><td>Budget: a savings waffle and the plan bar replace the three cards; Spent of plan becomes bullets in a new style; investments are never budget spending. Inline row fields (a light green shade of the row, no border until focused) for every field inside a table; select boxes in the app's own style. Categories as a grouped table edited in place, with + / − / ± and L3. Pages use 90% of the space beside the sidebar</td></tr>
@@ -1330,6 +1355,13 @@ table.plain tr:last-child td{border-bottom:0}
 .ask{--ai:#0B5C95;--at:#E1EEFB;display:grid;grid-template-columns:44px 1fr;gap:12px 14px;padding:20px;border-radius:20px;background:linear-gradient(180deg,var(--at),#fff 80px);border-top:4px solid var(--ai);box-shadow:0 24px 48px -16px rgba(10,36,66,.35)}
 .ask.warn{--ai:#8A5A00;--at:#FFF6E0}.ask.danger{--ai:var(--rose);--at:#FCEEF3}.ask i{display:grid;place-items:center;width:44px;height:44px;border-radius:14px;background:var(--ai);color:#fff;font:800 18px/1 var(--body);font-style:normal}
 .ask b{display:block;font-size:16px}.ask small{color:var(--muted)}.ask p{grid-column:1/-1;display:flex;justify-content:flex-end;gap:8px;margin:4px 0 0}.btn.dangerfill{background:var(--rose);border-color:var(--rose);color:#fff}
+.mstep{display:inline-flex;align-items:center;gap:2px;height:48px;padding:4px;border-radius:999px;background:var(--track)}.mstep i{display:grid;place-items:center;width:40px;height:40px;border-radius:999px;color:var(--ink2)}.mstep i.off{opacity:.35}
+.mstep svg,.monthpop .chev svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}.monthpop .chev{display:grid;place-items:center}
+.mstep b{display:grid;place-items:center;width:104px;height:40px;border-radius:999px;background:#fff;font:700 14px/1 var(--body);box-shadow:0 2px 6px -3px rgba(10,36,66,.35)}
+.gtable{width:100%;border-collapse:collapse;font-size:13px}.gtable th,.gtable td{padding:9px 8px;text-align:left;vertical-align:middle}.gtable thead th{font-weight:600;color:var(--muted);border-bottom:1px solid var(--line)}
+.gtable .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}.gtable small{display:block;color:var(--muted);font-size:11.5px;font-weight:600}.gtable th small{display:inline;margin-left:8px}
+.gtable .tot :is(th,td){padding:14px 8px;border-bottom:1px solid var(--lc);font-weight:800}.gtable .cls :is(th,td){padding-top:18px;font-weight:700}.gtable tbody+tbody+tbody .cls :is(th,td){border-top:1px solid var(--line)}
+.gtable td span{margin-left:5px;color:var(--muted);font-size:11.5px}.gtable b.pos{color:var(--pos)}.gtable b.neg{color:var(--rose)}.gtable td.unset{color:var(--muted)}.gtable td:last-child{font-weight:600}
 .btnrow,.ctl{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:10px 0}
 .info-tip{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;border:1px solid var(--lc);background:#fff;color:var(--ink2);font:700 12px/1 var(--body)}
 .page-back{display:inline-flex;align-items:center;height:36px;padding:0 14px 0 10px;border-radius:999px;border:1px solid var(--lc);background:#fff;font-weight:700;font-size:13px}

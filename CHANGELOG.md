@@ -8,6 +8,18 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### Investments: calmer holdings, the waffle back, fuller cards; the month stepper · 2026-10-01
+- Holdings: the total and class rows lose their bands; a thin hairline separates each class instead. Names are
+  ink, only the gain percentage carries a colour, and the horizon is a quiet word (Short, Medium, Long, or Set)
+  that opens its choice when clicked, in place of the coloured letters. Units read on one line with more room.
+- Saved and invested is a waffle again: 100 squares of this period's money in, invested first, then kept, then
+  spent, with the savings and investing rates beside it.
+- The top cards' numbers grow with the card, so no card looks empty; the six-month line sits above the value,
+  and Net gain or loss shows Growth and XIRR as two small figures at the bottom.
+- The month stepper is one pill like the period buttons beside it: round chevrons and the month in a white
+  pill. The month picker's year arrows match.
+- App guideline 2.9 · Yarrow: grouped tables, the split waffle, numbers that fill their card, the month stepper.
+
 ### Cash planning, tab headers and the Ask dialog · 2026-10-01
 - Cash planning's Plan tab opens with four stat cards: Safe to spend (with about how much a day until your next
   income), Free cash, Due before your next income and Lowest point ahead. Then three questions: How is safe to

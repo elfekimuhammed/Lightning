@@ -1,4 +1,4 @@
-# App guideline · 2.8 · Clover
+# App guideline · 2.9 · Yarrow
 
 **Last updated 2026-10-01.** This is the one guideline for how every screen looks, reads and adds up. It covers colour, type, cards, sections, controls, fields, lists, charts and words. It is built on the Meadow brand guidelines. The product story is in [Project Overview](PROJECT_OVERVIEW.md), code rules in [Architecture](ARCHITECTURE.md) and terms in the [Glossary](GLOSSARY.md).
 
@@ -131,6 +131,8 @@ There are no white or tinted panels inside a lead card.
 
 **A comparison card** is a stat card one and a half times as wide: the number with its sparkline beside it, and a small block underneath with "Against the period before" and "Against your usual month", each with an arrow and the signed difference and %. Spending that rose reads rose; spending that fell reads green. Stat cards have depth: a soft top light, a tinted top edge on lead and mint cards, and a small lift on hover.
 
+**The number fills the card.** A stat card's figure scales with the card (40–54px on Investments, sized by a container query), so a card is never mostly empty space. A sparkline sits in the flow above the number, never behind it. When a card's height comes from a taller neighbour, the number goes right under the title and the supporting figures sit at the bottom as a pair of small figures (22px) under a hairline: Net gain or loss shows Growth and XIRR this way.
+
 **Overview stat cards** are exactly four: Change in net worth (Change in what you own when nothing is owed), Savings rate, Investing rate and Left in plan for the period's month. Safe to spend stays the lead of Cash planning.
 
 **Inside a white card:** a list, bars, toggle groups, a breakdown with its result band, a chart, or "Needs you". A section with no single answer, such as every holding, is one wide card.
@@ -205,8 +207,9 @@ A section groups the cards that share one date. It is a line on the canvas with 
 - A page header holds at most Primary + Secondary + ⋯. Labels start with a verb, run one to three words and carry no arrows.
 - **Chips** (36px) filter or fill in values. They are not actions.
 - **Segments** offer two to four choices of one thing (Buy · Sell · Dividend · Already own).
-- **Period control:** one component (All time · YTD · Monthly · Custom) with ‹ month › beside it. It replaces month and year dropdowns.
-- **Month picker:** every month box opens it. It has a year row with ‹ ›, then twelve months, with future months disabled. Changing the year keeps it open. Months are never typed.
+- **Period control:** one component (All time · YTD · Monthly · Custom) with the month stepper beside it. It replaces month and year dropdowns.
+- **Month stepper:** the same 48px track pill as the period buttons. Inside it, two 40px round chevron buttons (drawn chevrons, never the ‹ › characters) on the track, and the month as a 104px white pill with a small shadow. A chevron hovers to a light white circle; one that can't go further fades. There are no bordered circles or boxes.
+- **Month picker:** every month box opens it. It has a year row with round chevron buttons, then twelve months, with future months disabled. Changing the year keeps it open. Months are never typed.
 - **Toggle rows** are 48px buttons: name and total on the left, chevron on the right. Their items are indented, quieter, and add up to the row's total; a takeaway shows − (Reserves −5,000.00). They start closed, except the first group on the page that owns the number. Leave out items at 0.00, and show six at most, then "N more". Enter or Space toggles a row, and it reports open or closed to screen readers.
 - **There are no explanation toggles.** A figure's name explains itself.
 - **Ask dialog, never the browser's box.** Every "Are you sure?" and every notice uses the app's own dialog (`window.ask`), never `confirm()` or `alert()`, which look foreign and say "OK". It is a 440px white card with the 20px radius and the float shadow over a blurred backdrop. It has a 4px top edge and a soft tint in its tone, a 44px icon tile, a question as the title ("Discard your changes?"), one line on what happens, and pill buttons on the right:
@@ -273,6 +276,8 @@ Fields never sit in read-only list rows. Arabic text gets `dir="auto"`. Group lo
 - Money in is green with +; money out is ink with −; transfers carry no sign.
 - Avatars are 36px with a 12px radius: rose soft for out, tint growth for in, tint held for transfer.
 - Status is a word with a dot (green, gold, strong rose), or one sentence in an alert.
+- **Grouped tables (Holdings).** A total row first, then one group per class. Headers are never highlighted: the total and class rows carry no band or tint, only weight. The total has a line-control hairline under it, and a thin hairline separates each class group from the one before. There are no lines between rows inside a group.
+- **One accent per table.** Names are ink links (azure only on hover). Only a gain percentage carries a sign colour; amounts under it are muted. Choices inside a row (Horizon) are a quiet word (Short, Medium, Long, or "Set" in muted) that opens the select when clicked, never coloured badges. Units read as one line with room to breathe: "15,000 unit", the unit in muted meta type.
 - Badges are pills: "925.00 over" on rose soft, "+4.2%" on tint growth.
 - There are no empty tables with headers. An empty state says what's missing and offers the next useful action.
 - Missing valuations, import errors and required decisions stay visible. Details reduce clutter without hiding problems.
@@ -359,6 +364,7 @@ Charts are hand-drawn SVG and CSS with no chart library. In the app, `lightning/
 | | 100% stacked columns | Ready | Shares over time when the total doesn't matter | Investments |
 | | Treemap | In the app | Big categories only (over 1%, eight at most) plus a grey "Smaller categories" tile; squarified, six rose steps dark to light, name, value and share in each tile, each opens its transactions | Expense analysis · Where did it go? |
 | | Waffle | In the app | One share to feel (savings rate): 100 squares in Meadow dark on track grey, the % and "Of every 100.00 that came in, N stayed" beside it | Budget · top |
+| | Split waffle | In the app | One period's money in as 100 squares read row by row: invested (azure), then kept (Meadow dark), then spent (light rose); the two rates and the key beside it; "one square is 1%" in the note | Investments · Saved and invested |
 | | Pie | Avoid | Use the donut | — |
 | How a number is built | Waterfall | In the app | Start in azure, takeaways soft rose, additions green, the result Meadow dark and bold | Overview · Free cash › How it is built; Cash planning · From free cash to safe to spend |
 | | Column waterfall | In the app | Money in green from zero, each kind of money out soft rose floating at the running total, net flow azure from zero (strong rose when short); dashed links, values on the columns, one zero line | Overview · Cash flow › From money in to net flow |
@@ -522,7 +528,7 @@ Every visual the app draws, and the ones built but set aside. Update this list i
 | Overview · Where money in went | Sankey | `sankey` |
 | Overview · Investments | Donut (What you hold) · gain-or-loss bars by asset class · movers list | `donut` |
 | Expense analysis | Four KPI cards · treemap · clustered columns · usual range · small multiples · heatmap | `stat_tiles`, `birdview/expenses.html` |
-| Investments | Waffle (kept and invested) · result card · six-month sparkline · donut · biggest holdings bars · holdings by class · dividends bars · diverging flows · horizon bar | `investments/index.html` |
+| Investments | Split waffle (invested, kept, spent) · result card · six-month sparkline · donut · biggest holdings bars · holdings by class · dividends bars · diverging flows · horizon bar | `investments/index.html` |
 | Holding page | Four tiles · price trend with average cost · return waterfall · monthly moves (diverging, growth style) · fall from its high · value against cost · trades table | `investments/holding.html` |
 | Budget · top | Savings waffle · plan bar | `budget.html` |
 | Budget · Spent of plan | Bullet per category | `bullet_row` |
@@ -545,12 +551,15 @@ Every visual the app draws, and the ones built but set aside. Update this list i
 | Budget summary cards | Three stat cards | Replaced by the savings waffle and plan bar in 2.6 |
 | Expense analysis 2.6 | Grouped bars, trend with plan, Who you paid and Paid from bars, the usual-month table | Replaced in 2.7 by the treemap, clustered columns, usual range, small multiples and heatmap; `visuals.spending_bars`, `counterparty_bars` and `account_bars` are kept |
 | Cash planning 2.7 | Key notes, Add bill and Add loan in the page header, the forecast as a table only | Replaced in 2.8 by the four stat cards and the three questions; adding stays on the Recurring and Loans tabs; the table lives under Show the numbers |
+| Saved and invested bar (Investments) | One bar: invested, kept, spent | Replaced by the split waffle in 2.9 at the owner's request; the `.saved-bar` styles are kept |
+| Horizon badges (Holdings) | S, M, L letters in blue, green and amber | Replaced by quiet words in 2.9: one accent per table |
 | Investments 2.6 | Result key card with toggle rows, portfolio trend, Analysis by asset class, result by class | Replaced in 2.7 by the three tiles, allocation beside biggest holdings and the diverging flows |
 
 ## 17 Versions
 
 | Version | Date | What changed |
 |---|---|---|
+| 2.9 · Yarrow | 2026-10-01 | Grouped tables without highlighted headers: hairlines between groups, one accent colour, quiet horizon words, room for units. The split waffle returns to Saved and invested. Stat card numbers scale with the card (container queries), with the sparkline in the flow. The month stepper becomes one track pill with drawn chevrons and a white month pill |
 | 2.8 · Clover | 2026-10-01 | Cash planning rebuilt questions first: four stat cards, then How is safe to spend worked out? (waterfall and the 30-day timeline), Where is my cash heading? (forecast trend with a dashed forecast, flow columns) and What is promised? Timeline, forecast trend and flow columns now in the app. Sub-tabs get a pill bar and a header per tab in its own accent. The Ask dialog replaces the browser's confirm and alert boxes. The visual page also lives in `docs/` |
 | 2.7 · Sorrel | 2026-10-01 | Questions first: KPI cards, then one section per question; big items only (under 1% folds away); the same chart type may have styles for different goals; every section states its time frame (period or fixed horizon). Investments and the holding page rebuilt; Expense analysis rebuilt with a treemap, clustered columns, usual range, small multiples and a heatmap; drawdown, diverging bars and the heatmap now in the app |
 | 2.6 · Fern | 2026-10-01 | Budget: savings waffle and plan bar replace the three cards; Spent of plan as bullets in a new style; investments never budget spending. Inline row fields for every field inside a table; select boxes in the app's own style; category lists as L1/L2 headers, never breadcrumbs; Categories edited in place with + / − / ± and L3. Pages use 90% of the space beside the sidebar |

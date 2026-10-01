@@ -273,7 +273,12 @@ def _page_extras(c, period, p, prior, owned_rows, prior_custody, before_day, rep
            "saved": float((kept - put_in) / inflow * 100) if inflow > 0 else 0.0, "spent": spent_share,
            "invested_amount": put_in, "kept": kept, "spent_amount": flow.outflows,
            "earlier": max(report["net_money"] - kept, ZERO)}
-    saved_cells = invest_cells = 0
+    # The same split as 100 squares, read row by row: invested, then kept, then spent.
+    invest_cells = round(bar["invested"]) if inflow > 0 else 0
+    saved_cells = min(round(bar["invested"] + bar["saved"]), 100) if inflow > 0 else 0
+    spent_cells = min(saved_cells + round(bar["spent"]), 100)
+    bar["cells"] = (["invested"] * invest_cells + ["kept"] * (saved_cells - invest_cells)
+                    + ["spent"] * (spent_cells - saved_cells) + [""] * (100 - spent_cells))
     opening = report.get("recon_opening")
     growth = period_growth(report["result"], opening, report["net_money"])
     spark = _portfolio_value_spark(c, today())

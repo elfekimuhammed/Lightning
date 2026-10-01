@@ -2574,3 +2574,67 @@ a.chart-sankey-label:hover b { color:var(--azure); }
   .ask-actions .btn { flex:1; }
 }
 @media (prefers-reduced-motion: reduce) { .ask-dialog[open] { animation:none; } }
+/* Holdings, simpler: no bands on the total or class rows, a hairline between classes, one accent colour. */
+.main .holdings-grouped { border-collapse:collapse!important; border-spacing:0!important; }
+.main .holding-total :is(th,td), .main .holding-class :is(th,td) { background:transparent!important; border-radius:0!important; }
+.main .holding-total :is(th,td) { padding-top:14px!important; padding-bottom:14px!important; border-bottom:1px solid var(--line-control)!important; }
+.main .holding-class :is(th,td) { padding-top:18px!important; padding-bottom:6px!important; font-weight:700; color:var(--ink); }
+.main .holding-group + .holding-group .holding-class :is(th,td) { border-top:1px solid var(--line)!important; }
+.main .holding-group tr[data-search] td { padding-top:9px; padding-bottom:9px; }
+.main .holding-group tr:last-child td { padding-bottom:14px; }
+.main .holdings-grouped .holding-link { color:var(--ink); font-weight:650; }
+.main .holdings-grouped .holding-link:hover { color:var(--azure); text-decoration:underline; }
+.main .holdings-grouped td.gain b { display:block; font-weight:700; }
+.main .holdings-grouped td.gain small, .main .holding-class td.gain { color:var(--muted)!important; font-weight:600; }
+.main .holdings-grouped .col-units { min-width:130px; white-space:nowrap; }
+.main .holdings-grouped td.col-units .unit { margin-left:5px; color:var(--muted); font-size:var(--fs-meta); }
+.main .horizon-word { border:0; background:none; padding:4px 0; font:600 var(--fs-2)/1 var(--body); color:var(--ink-2); cursor:pointer; }
+.main .horizon-word:hover { color:var(--azure); text-decoration:underline; }
+.main .horizon-word.is-unset { color:var(--muted); font-weight:500; }
+.main .horizon-word[hidden] { display:none; }
+.main .holdings-foot { margin:12px 0 0; }
+/* Investments · top: the saved-and-invested waffle (one square is 1% of money in), and bigger numbers so no tile looks empty. */
+.main .inv-saved-body { display:flex; align-items:center; gap:22px; margin-top:14px; }
+.main .inv-waffle { grid-template-columns:repeat(10,11px)!important; grid-auto-rows:11px!important; gap:3px!important; }
+.main .inv-waffle i { border-radius:3px; background:var(--track); }
+.main .inv-waffle i.invested { background:var(--azure); }
+.main .inv-waffle i.kept { background:var(--meadow-dark); }
+.main .inv-waffle i.spent { background:#F2C3D3; }
+.main .inv-saved-side { display:grid; gap:12px; min-width:0; }
+.main .inv-saved-side .inv-saved-figures { margin:0; gap:26px; }
+.main .inv-saved-side .saved-key { flex-direction:column; gap:5px; }
+.main .inv-top .inv-saved-figures b { font-size:clamp(34px, 3vw, 44px); letter-spacing:-.02em; }
+.main .inv-top .inv-saved-figures b small { font-size:var(--fs-body); }
+.main .inv-top .stat-tile-value { font-size:clamp(40px, 3.6vw, 54px)!important; letter-spacing:-.03em; line-height:1!important; margin-top:auto; }
+.main .inv-top .stat-tile-value small { font-size:var(--fs-body)!important; letter-spacing:0; }
+.main .inv-top .stat-tile-sub { font-size:var(--fs-2); margin-top:10px; }
+.main .inv-top .stat-tile .stat-tile-visual { height:56px; }
+@media (max-width:560px) { .main .inv-saved-body { flex-direction:column; align-items:flex-start; } }
+.main .holdings-grouped tr[data-search] td:first-child { min-width:250px; }
+.main .holdings-grouped tr[data-search] td:first-child .small { white-space:nowrap; }
+.main .inv-top > .stat-tile { container-type:inline-size; }
+.main .inv-top .inv-saved-figures { flex-wrap:wrap; row-gap:8px; }
+.main .inv-top .inv-saved-figures b { font-size:clamp(28px, 9cqi, 44px); }
+.main .inv-top .stat-tile-value { font-size:clamp(30px, 15cqi, 54px)!important; }
+@container (max-width: 400px) { .main .inv-saved-body { gap:14px; } .main .inv-waffle { grid-template-columns:repeat(10,9px)!important; grid-auto-rows:9px!important; gap:2px!important; } }
+@media (max-width:1180px) { .main .inv-top { grid-template-columns:1fr 1fr!important; } .main .inv-top .inv-saved-tile { grid-column:1 / -1; } }
+@media (max-width:560px) { .main .inv-top { grid-template-columns:1fr!important; } }
+.main .inv-top .inv-saved-figures { display:grid!important; grid-template-columns:repeat(2, minmax(0, max-content)); column-gap:22px; }
+.main .inv-top .inv-saved-figures b { font-size:clamp(28px, 8cqi, 42px); }
+.main .inv-top .inv-saved-figures em { max-width:16ch; }
+.main .inv-top .stat-tile .stat-tile-visual { position:relative!important; inset:auto!important; width:100%!important; height:52px!important; margin:14px 0 2px; }
+.main .inv-top .inv-result-tile .stat-tile-value { margin-top:18px!important; }
+.main .inv-top .inv-result-tile .inv-notes { display:grid!important; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px; margin-top:auto; padding-top:14px; border-top:1px solid var(--line); }
+.main .inv-top .inv-result-tile .inv-notes > span { display:grid; gap:2px; font:600 var(--fs-meta)/1.3 var(--body); color:var(--ink-2); }
+.main .inv-top .inv-result-tile .inv-notes b { font:800 22px/1.1 var(--display); }
+.main .inv-top .inv-result-tile .inv-notes .info-tip { justify-self:start; }
+.main .inv-top .inv-result-tile .inv-notes em { font-style:normal; white-space:nowrap; display:inline-flex; align-items:center; gap:4px; }
+/* Month stepper: one track pill like the period buttons; round chevrons inside, the month as a white pill. */
+.site-period-control .month-stepper:not(#_) { display:inline-flex; align-items:center; gap:2px; height:48px; padding:4px; border-radius:999px; background:var(--track); }
+.site-period-control .month-stepper > .period-step:not(#_):not(.x_) { display:grid; place-items:center; width:40px; height:40px; min-height:40px; padding:0; border:0; border-radius:999px; background:transparent; color:var(--ink-2); box-shadow:none; cursor:pointer; }
+.site-period-control .month-stepper > .period-step:hover:not(:disabled):not(#_):not(.x_) { background:rgba(255,255,255,.75); color:var(--ink); }
+.site-period-control .month-stepper > .period-step:disabled:not(#_):not(.x_) { opacity:.35; cursor:not-allowed; }
+.month-stepper svg, .month-popup-year svg { width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round; }
+.site-period-control .month-stepper > .period-month-value:not(#_):not(.x_) { width:104px; height:40px; min-height:40px; padding:0 12px; border:0; border-radius:999px; background:var(--surface); color:var(--ink); font:700 14px/40px var(--body); text-align:center; box-shadow:0 2px 6px -3px rgba(10,36,66,.35); cursor:pointer; }
+.site-period-control .month-stepper > .period-month-value:focus-visible:not(#_):not(.x_) { outline:2px solid var(--focus, var(--meadow)); outline-offset:1px; }
+.month-popup-year button { display:grid; place-items:center; border-radius:999px!important; }
