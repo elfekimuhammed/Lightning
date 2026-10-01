@@ -14,6 +14,12 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - An empty top-level group other than Personal, Work, Investment and System no longer shows.
 - The "?" tips on Target allocation open to the right of the "?" and are no longer cut off.
 
+### Docs: back to four files · 2026-10-01
+- `docs/` holds only Project Overview (the story), Architecture (the technical side), the App brand guideline (the visual side) and the Glossary.
+- The desktop build spec, review and plan, build status, work log and profile preview are folded into Architecture › Desktop app and encrypted profiles, describing what is built today. The milestone is now on the Overview roadmap.
+- The research prototypes in `docs/desktop/reference/` (`encryption_prototype.patch`, `keyvault_sketch.py`) are removed: `lightning/security` and `lightning/database` now implement them. They remain in Git history.
+- The brand guide's visual page and its generator moved to `tools/brand_guide/` (`python tools/brand_guide/build.py`).
+
 ### Expense analysis · 2026-10-01
 - Four KPI cards give the gist of the period: money out against the period before, against your usual
   month, the biggest category with its share, and the largest payment.

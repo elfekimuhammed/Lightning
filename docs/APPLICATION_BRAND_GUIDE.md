@@ -5,9 +5,9 @@
 **The guideline has two halves with the same sections and numbering:**
 
 - this file, which holds the written rules;
-- [`APPLICATION_BRAND_GUIDE.html`](APPLICATION_BRAND_GUIDE.html), which shows each rule as a live sample and draws every chart type. Open it in a browser.
+- [`tools/brand_guide/APPLICATION_BRAND_GUIDE.html`](../tools/brand_guide/APPLICATION_BRAND_GUIDE.html), which shows each rule as a live sample and draws every chart type. Open it in a browser.
 
-Rebuild the page with `python docs/build_brand_guide.py` after changing either half. Its values mirror `lightning/ui/static/style.css`, and the app is the reference where the two differ. The sample figures are illustrative and don't change product requirements. The owner prefers a quiet, number-led look, and that preference outranks the brand's vivid gradients.
+Rebuild the page with `python tools/brand_guide/build.py` after changing either half. Its values mirror `lightning/ui/static/style.css`, and the app is the reference where the two differ. The sample figures are illustrative and don't change product requirements. The owner prefers a quiet, number-led look, and that preference outranks the brand's vivid gradients.
 
 ## 01 Seven rules behind every screen
 
@@ -91,7 +91,7 @@ The app uses two fonts. **Bricolage Grotesque** carries numbers and titles. **Ma
 | Label | Manrope 700 · 13 | `--fs-2` | Field labels, day headers, chips |
 | Meta | Manrope 600 · 12 | `--fs-meta` | Codes, price dates, column headers, axis labels |
 
-The fonts load from Google Fonts until they are bundled (see [Desktop build spec](desktop/BUILD_SPEC.md) §9.1). Offline, the app falls back to Plus Jakarta Sans, Inter and IBM Plex Sans Arabic.
+The legacy browser mode loads the fonts from Google Fonts. Profile mode makes no outside requests (see Architecture › Desktop app). Without the brand fonts, the app falls back to Plus Jakarta Sans, Inter and IBM Plex Sans Arabic.
 
 **Numbers**
 

@@ -1,6 +1,6 @@
 # Architecture
 
-**Last updated 2026-09-30 · app 0.3.0** (`lightning/__init__.py`; `pyproject.toml` still says 0.1.0).
+**Last updated 2026-10-01 · app 0.4.0b1** (`lightning/__init__.py`, matched by `pyproject.toml`).
 
 This file holds the technical side: stack, module boundaries, data model and every calculation contract. The product story is in [Project Overview](PROJECT_OVERVIEW.md), the visual system in the [App brand guideline](APPLICATION_BRAND_GUIDE.md), and term definitions in the [Glossary](GLOSSARY.md).
 
@@ -223,17 +223,81 @@ Start with bounded local candidate lists and a small result limit. If size or me
 5. Let transaction history find rows through matched alias, account and category IDs, keeping exact date, amount and ref filters.
 6. Verify zero results, near ties, one- and two-character queries, Arabic text, large histories, archived records and transfer safety, and measure latency. RapidFuzz has a native component, so Windows installation is a release check.
 
-## Windows portability
+## Desktop app and encrypted profiles
 
-`run.bat` creates a virtual environment and starts the same `python -m lightning` entry point; it opens the default browser unless `--no-browser` is given. The core uses `pathlib`, `sqlite3`, FastAPI and bundled templates and static files, so no Linux-only API is involved. Windows stays **provisional** until a native pass succeeds:
+**State: v0.4.0b1 development preview.** It is connected end to end and passes Windows CI, but it is not yet a distributable financial beta. Use dummy data until ordinary-PC acceptance passes.
 
-1. **Launcher:** pick Python 3.11+ deliberately, stop with a useful message when environment creation or pip fails, reinstall only when requirements change, and keep the error visible.
-2. **Time zones:** declare `tzdata` so `ZoneInfo("Africa/Cairo")` works (see Python's [zoneinfo data sources](https://docs.python.org/3/library/zoneinfo.html#data-sources)), then verify quote and month-end dates.
-3. **Paths and data:** test a writable folder, spaces and UTF-8 in paths, a custom `--db`, migrations, backups, CSV, fonts and the catalogue. The default database is `PROJECT_ROOT/data/lightning.db`, which won't suit an installer in a protected folder. Define a per-user data location first, and never move an existing database silently.
-4. **Smoke test on clean Windows 10/11:** double-click launch, create accounts, post, edit and restore, import a CSV, create a budget and reserve, record an investment, restart, restore a backup, and launch a second time with the port already in use.
-5. **Distribution:** only after that, publish a setup guide and choose between a source checkout with launcher and a packaged installer.
+**Shape.** FastAPI, Jinja and every financial service stay as they are. There is no frontend rewrite and no second financial implementation.
 
-The planned desktop app (one `Lightning.exe` window through pywebview and WebView2, an encrypted database, a protected local server) is specified in [Desktop build spec](desktop/BUILD_SPEC.md). It is a draft and has not been verified on Windows.
+- **Windows:** `Lightning.exe` is a thin pywebview 6.2.1 + WebView2 shell (`lightning/desktop/`), shipped as a PyInstaller **one-folder ZIP**. It needs no Python, but it needs the WebView2 Runtime.
+- **Linux:** `python -m lightning --profiles` runs the same runtime in a browser.
+- **Legacy:** plain `python -m lightning` (`run.sh`, `run.bat`) is unchanged. It is plaintext and uses `data/lightning.db`.
+- **Layers:** `lightning.runtime` (paths, instance lock, session, HTTP guards, launcher) sits between `lightning.desktop | lightning.main` and `lightning.ui`. `lightning.security` sits beside `lightning.database`. Browser mode never imports pywebview, pythonnet, WinForms or winreg. Windows-only dependencies are in their own lock files under `requirements/`.
+
+**Profiles and data.** The default container is the real Documents folder, `Documents/Lightning/`: on Windows through the known-folder API, including redirection; on Linux through `XDG_DOCUMENTS_DIR`, falling back to `~/Documents`.
+
+- **Layout:** each named profile has its own folder, `Name_YYYY-MM-DD_NNN_<id>/`, holding `<same>.db`, `keys.json`, `instance.lock` and `backups/`. An explicitly chosen database keeps its companions in `.<name>.db.lightning/` beside it.
+- **Names:** the creation identity is stable across saves and releases. Backups append `_backup_<date>_<seq>_<id>`, and pre-upgrade copies use `_upgrade_`.
+- **Discovery** scans only that container or a chosen folder, never all of Documents. It lists profiles and backups separately and never opens the newest-looking file on its own. Alternate locations are typed paths for now; there is no native file picker yet.
+- **Rejected:** a plaintext legacy database or a backup selected as a live profile is refused with an explanation. So are hardlinked database paths.
+- **Sync:** Documents may sync through OneDrive, but a local lock can't coordinate two PCs. Never open a live database on two computers; move completed encrypted backups instead.
+
+**Encryption.**
+
+- **Engine:** SQLCipher through `sqlcipher3` 0.6.2 (SQLCipher 4 format), keyed with a raw 32-byte data key. It is never keyed from a passphrase string, and an empty key is never passed.
+- **Recovery key:** 128 random bits, shown once as 28 Crockford Base32 characters with a 12-bit check (`O→0`, `I/L→1`), and never stored. HKDF-SHA256 derives the data key from it. `key_id` is an HMAC of the data key: it identifies the key but is not secret.
+- **Password slot:** `keys.json` holds the data key wrapped by AES-256-GCM. The wrapping key comes from Argon2id at 64 MiB, 3 iterations and 4 lanes. The metadata is authenticated as associated data, and its bounds are checked before any derivation.
+- **Password changes** rewrap the same data key, so nothing is re-encrypted. A reset with the recovery key checks it against the database read-only, then atomically replaces the slot.
+- **The same scheme on Windows and Linux** (owner decision). DPAPI and automatic unlock are deferred.
+- **Threat model:** a copied database or backup without its key material is a 128-bit problem. Someone with both the database and `keys.json` can try passwords offline, which Argon2 slows but can't stop, so a passphrase must be at least 12 characters. Nothing protects an unlocked PC from malware.
+- **Not in v1:** recovery-key rotation and rewriting existing backups. A safe version needs a recoverable multi-file commit protocol. Old backups keep their old `key_id`.
+
+**Lifecycle and the database thread.**
+
+- **One thread:** database connections are opened, migrated and closed only on the ASGI runtime's owning thread. The GUI sends commands, and network or crypto workers only return data.
+- **Before any database work,** the app binds the socket and takes the instance lock.
+- **Lock, switch and shutdown** stop new database operations and invalidate the session generation. They then drain active requests, close connections and wipe keys, and release the lock last.
+- **Generation tokens:** finance writes carry the profile's generation token, so a stale tab cannot save into another profile.
+- **Idle lock** after 15 minutes of foreground activity; background polling never extends it. Other tabs clear on a lock broadcast or at their next 15-second health check.
+- **Migrations** commit each script and its version row together. A missing migration resource, or a database from a newer schema, stops the app before any write.
+- **Before a pending migration,** the app writes a protected pre-upgrade encrypted backup, verifies it and keeps it outside pruning. If that backup fails, the migration is aborted.
+- **Backups** are encrypted snapshots, reopened to check integrity, foreign keys, schema, row contents and sequences.
+- **Not yet in the preview:** legacy import and backup restore. `database/staging.py` already builds verified candidate copies (including committed WAL data, and leaving the source untouched). Promoting one must wait for session quiescing and user confirmation, and must never copy bytes over a live file. The preview also doesn't fetch market prices or run reevaluation catch-up at startup.
+
+**Local server security** (`lightning/runtime/http.py`).
+
+- **Binding:** loopback only, on a random port.
+- **Exact checks:** the Host and Origin must match exactly. A single-use launch code (30 seconds) is exchanged for a per-instance HttpOnly, SameSite cookie, which is required on every request.
+- **Cookie names** differ per instance, so demo and real instances don't overwrite each other.
+- **Headers:** `no-store` responses and a nonce-based script CSP. There are no inline event attributes.
+- **Referrers:** `Referrer-Policy` is same-origin. `no-referrer` would turn same-origin POSTs into `Origin: null`; only the launch exchange uses no-referrer.
+- **Uploads:** a streamed cap of 512 KiB per request, below the multipart spool threshold, so no plaintext temp file is ever written.
+- **No outside requests:** fonts are local in profile mode and HTTP access logs are off. Logs never hold query strings, form values, amounts, names, tokens or key material.
+
+**Window** (`lightning/desktop/window.py`).
+
+- **Engine:** `edgechromium` is required and the IE fallback is rejected. A native navigation guard is attached before any page loads, and if it can't be installed, startup fails visibly.
+- **Blocked:** foreign origins, unexpected schemes, new windows and file drops.
+- **Never in the window:** no `js_api` and no remote debugging port. pywebview's `storage_path` is never pointed at user data, because pywebview 6.2.1 deletes that folder on exit in private mode.
+- **Repeat launches** focus the locked profile's owning window.
+
+**Build and release.**
+
+- **CI:** `.github/workflows/desktop-probe.yml` installs hash-locked dependencies. It runs the full suite on Linux and the focused desktop, profile, database and UI tests on Windows.
+- **Packaging:** `packaging/package_app.py` freezes the one-folder app, runs `--self-check` (synthetic profile create, finance routes, backup, reopen, recovery) and a real WebView2 smoke on a disposable root. Only after those pass does it zip the build with `SHA256SUMS`.
+- **Probe:** `LightningProbe` is the older engineering check and is built separately.
+- **Distribution:** the build is unsigned. Downloads are Actions artifacts of a private repository; there is no release page or public download yet. Never make disabling Windows protections part of installation. Signing becomes necessary if recipients' PCs refuse the build.
+- **Updating:** close the app, extract the new ZIP into a fresh folder and launch it. User data stays in Documents. An old build refuses a newer schema, and rolling back needs the matching pre-upgrade backup.
+- **Release ZIPs** never contain databases, backups, keys, logs or a `.venv`.
+- **Developer checks:** `python desktop_app.py --self-check --report result.json` uses disposable data. On Windows, `--smoke` checks the real chooser and the blocked external navigation. `packaging/check_profile_browser.cjs` drives Chromium and Firefox through setup, saves, cross-tab lock, reopen, mobile layout and CSP.
+
+**Open before a beta.**
+
+- **Import and restore:** legacy import, and safe promotion of a backup restore.
+- **Native file pickers.**
+- **Ordinary PCs:** a clean-machine pass, including the second PC that failed at window startup.
+- **Updates:** ZIP update acceptance from version N to N+1.
+- **Final checks:** Windows and Linux acceptance runs.
 
 ## Working rules
 
@@ -245,4 +309,4 @@ The planned desktop app (one `Lightning.exe` window through pywebview and WebVie
 6. Keep the UI thin (see UI contract).
 7. Test the changed workflow and its invariants: date and money edge cases, ownership and net-worth effects, posting, archive and void. Run the full pytest suite, the import-boundary checks and `git diff --check`. Keep meaningful business assertions when updating old tests.
 8. For UI changes, check populated and empty data and a 390px viewport in a browser, and re-run the Omar walkthrough when a workflow changes (steps 11–28 run in `tests/test_omar_year.py`).
-9. Log changes under `Unreleased` in `CHANGELOG.md`, and change version headings only when releasing. Keep the four docs consistent.
+9. Log changes under `Unreleased` in `CHANGELOG.md`, and change version headings only when releasing. Keep the four docs consistent: everything goes in Project Overview, Architecture, the App brand guideline or the Glossary, not in new files under `docs/`.

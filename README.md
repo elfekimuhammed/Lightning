@@ -7,7 +7,7 @@ investments, cash reserves, and owned wealth. Historical wealth analysis and a d
 
 This GitHub repository contains the **source code** (`lightning/`), tests (`tests/`),
 desktop build instructions (`packaging/` and `.github/workflows/desktop-probe.yml`),
-and the [desktop build status](docs/desktop/BUILD_STATUS.md). It does not contain
+and the desktop design and status in [Architecture](docs/ARCHITECTURE.md#desktop-app-and-encrypted-profiles). It does not contain
 anyone's financial databases, passwords, recovery keys or installed app.
 
 The current **Windows desktop preview** is v0.4.0-beta.1. A separate, versioned
@@ -96,5 +96,5 @@ lint-imports              # architecture contracts
 - [docs/PROJECT_OVERVIEW.md](docs/PROJECT_OVERVIEW.md) — start here: what Lightning is, what it answers, the roadmap
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — structure, rules, data model
 - [docs/GLOSSARY.md](docs/GLOSSARY.md) — what every term and code means
-- [docs/APPLICATION_BRAND_GUIDE.md](docs/APPLICATION_BRAND_GUIDE.md) — the app guideline: colour, type, cards, fields, charts and words; open [the visual page](docs/APPLICATION_BRAND_GUIDE.html) to see every sample and chart type
+- [docs/APPLICATION_BRAND_GUIDE.md](docs/APPLICATION_BRAND_GUIDE.md) — the app guideline: colour, type, cards, fields, charts and words; open [the visual page](tools/brand_guide/APPLICATION_BRAND_GUIDE.html) to see every sample and chart type
 - [CHANGELOG.md](CHANGELOG.md) — every change, every time

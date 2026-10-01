@@ -1,8 +1,8 @@
-"""Build docs/APPLICATION_BRAND_GUIDE.html: the visual half of the App guideline.
+"""Build tools/brand_guide/APPLICATION_BRAND_GUIDE.html: the visual half of the App guideline.
 
-    python docs/build_brand_guide.py
+    python tools/brand_guide/build.py
 
-The written rules live in APPLICATION_BRAND_GUIDE.md; this page shows each of them as a live
+The written rules live in docs/APPLICATION_BRAND_GUIDE.md; this page shows each of them as a live
 specimen (colour, type, cards, controls, fields, lists) and draws every chart type a finance app
 may need, marked In the app · Ready to use · Avoid. Values mirror lightning/ui/static/style.css.
 Sample figures are illustrative. Pure standard library, no chart library, like the app.
@@ -1369,7 +1369,7 @@ main{padding:20px 16px 60px}.tiles,.tiles.two,.cardgrid,.fgrid,.dos,.split,.stat
 .specs{grid-template-columns:1fr}table.plain{display:block;overflow-x:auto}.ty-num-lead{font-size:32px}.donut{grid-template-columns:1fr;justify-items:center}}
 </style></head><body><div class="wrap">
 <nav class="side" aria-label="Guideline sections"><div class="brand"><svg width="22" height="22" viewBox="0 0 32 32"><defs><linearGradient id="nb" x1="0" y1="0" x2=".35" y2="1"><stop offset="0" stop-color="#45A9E8"/><stop offset=".55" stop-color="#1FB5A8"/><stop offset="1" stop-color="#34BF8C"/></linearGradient></defs><path d="M18.2 3.5 7.6 17.4c-.6.8 0 1.9 1 1.9h5.9l-1.6 8.3c-.2 1.1 1.2 1.7 1.9.8l10.6-13.9c.6-.8 0-1.9-1-1.9h-5.9l1.6-8.3c.2-1.1-1.2-1.7-1.9-.8Z" fill="url(#nb)"/></svg>Lightning</div><small>App guideline {{VERSION}}</small>{{NAV}}</nav>
-<main><header class="hero"><h1>App guideline</h1><p><b>{{VERSION}}</b> · updated {{UPDATED}}. How every screen looks, reads and adds up. The written rules are in <code>APPLICATION_BRAND_GUIDE.md</code>; this page shows each one. Built by <code>docs/build_brand_guide.py</code> from the same values as <code>style.css</code>. Sample figures are illustrative. Light theme only; dark is not wired in yet.</p></header>
+<main><header class="hero"><h1>App guideline</h1><p><b>{{VERSION}}</b> · updated {{UPDATED}}. How every screen looks, reads and adds up. The written rules are in <code>docs/APPLICATION_BRAND_GUIDE.md</code>; this page shows each one. Built by <code>tools/brand_guide/build.py</code> from the same values as <code>style.css</code>. Sample figures are illustrative. Light theme only; dark is not wired in yet.</p></header>
 {{BODY}}</main></div></body></html>
 """
 
