@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import importlib.util
+import subprocess
+import sys
 import tomllib
 from pathlib import Path
 
@@ -18,6 +20,15 @@ def test_desktop_version_and_one_extract_artifact_agree():
     assert "name: ${{ env.LIGHTNING_ARTIFACT_NAME }}" in workflow
     assert "dist/Lightning-windows-x64.zip" not in workflow
     assert "dist/LightningProbe-windows-x64.zip" not in workflow
+
+
+def test_packaging_script_imports_outside_source_directory(tmp_path):
+    script = ROOT / "packaging" / "package_app.py"
+    result = subprocess.run(
+        [sys.executable, "-I", "-c", f"import runpy; runpy.run_path({str(script)!r}, run_name='packaging_probe')"],
+        cwd=tmp_path, capture_output=True, text=True, check=False,
+    )
+    assert result.returncode == 0, result.stderr
 
 
 def test_profile_acceptance_checks_only_use_temporary_data():

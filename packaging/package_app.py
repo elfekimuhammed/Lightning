@@ -4,11 +4,13 @@ from __future__ import annotations
 import hashlib
 import importlib.metadata
 import shutil
+import sys
 from pathlib import Path
 
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))  # Script execution on Windows starts with packaging/ on sys.path.
 from lightning import DISPLAY_VERSION
 
-ROOT = Path(__file__).resolve().parent.parent
 FORBIDDEN_DIRS = {"data", "profiles", "backups", "logs", ".venv", ".git"}
 DATABASE_SUFFIXES = {
     ".db", ".sqlite", ".sqlite3", ".db-wal", ".db-shm",
