@@ -14,7 +14,7 @@ import math
 from pathlib import Path
 
 OUT = Path(__file__).with_name("APPLICATION_BRAND_GUIDE.html")
-VERSION = "2.5 · Willow"
+VERSION = "2.6 · Fern"
 UPDATED = "2026-10-01"
 
 # ---- tokens (same values as style.css) ---------------------------------------------------------
@@ -415,17 +415,25 @@ def c_slope():
 
 
 def c_bullet():
-    rows = [("Groceries", 5210, 5000), ("Eating out", 3940, 3000), ("Transport", 1120, 1500)]
-    out = '<div class="bullets">'
+    rows = [("Eating out", 3940, 3000), ("Groceries", 4762, 4568), ("Transport", 1120, 1500), ("Housing", 12000, 12000)]
+    out = '<div class="bul2">'
     for name, used, plan in rows:
-        mx = max(used, plan) * 1.15
+        mx = max(used, plan)
         over = used > plan
-        out += (f'<div class="bullet"><div class="head"><b>{esc(name)}</b>'
-                + (f'<span class="badge-over">{money(used - plan)} over</span>' if over else f'<small>{money(plan - used)} left</small>')
-                + f'</div><div class="btrack"><span class="band" style="width:{plan / mx * 100:.1f}%"></span>'
-                f'<i style="width:{used / mx * 100:.1f}%;background:{OVER if over else IN}"></i>'
-                f'<em style="left:{plan / mx * 100:.1f}%"></em></div><small>{money(used)} of {money(plan)}</small></div>')
+        spent = min(used, plan) / plan * 100
+        status = (f'<em class="o">{money(used - plan)} over</em>' if over else
+                  ('<em>On plan</em>' if used == plan else f'<em class="l">{money(plan - used)} left</em>'))
+        out += (f'<div class="b2"><b>{esc(name)}</b><span class="b2t"><span class="b2p" style="width:{plan / mx * 100:.1f}%">'
+                f'<i style="width:{spent:.1f}%"></i></span>'
+                + (f'<i class="b2o" style="left:{plan / mx * 100:.1f}%;width:{(used - plan) / mx * 100:.1f}%"></i>' if over else "")
+                + f'</span><span class="b2v"><b>{money(used)}</b> <small>of {money(plan)}</small>{status}</span></div>')
     return out + "</div>"
+
+
+def c_planbar():
+    return ('<div class="pbar"><i style="width:62%;background:#0B6DD6"></i><i style="width:38%;background:#0B8A5F;opacity:.85"></i></div>'
+            '<div class="pfig"><div><span>■ Spent</span><b>24,753.80</b></div><div><span style="color:#0B8A5F">■ Left in plan</span><b class="pos">15,246.20</b></div><div><span>Planned</span><b>40,000.00</b></div></div>'
+            '<div class="pbar"><i style="width:94%;background:#0B6DD6"></i><i style="width:6%;background:#C93D72"></i></div><p class="note">Over plan: the bar runs to what was spent; the part past the plan is strong rose.</p>')
 
 
 def donut_svg(parts, center_value, center_label, size=168):
@@ -817,26 +825,29 @@ CHARTS = [
         ("Slope chart", "ready", c_slope, "How shares moved between two dates.",
          "Two columns only, labels at both ends, class colours.",
          "Investments · this year"),
-        ("Bullet (actual against plan)", "ready", c_bullet, "Spent against a plan with the plan marked.",
-         "A light band up to the plan, the actual bar in green (strong rose when over), a Nile tick at the plan. Over first in the list.",
-         "Budget · categories"),
+        ("Bullet (actual against plan)", "app", c_bullet, "Spent against a plan with the plan marked.",
+         "Each row on its own scale (the larger of plan and spent). The plan is a soft green-grey band (14px, rounded on the left) ending in a 2px ink tick; spent is an 8px azure bar inside it; anything over runs past the tick in strong rose. Name in a fixed 150px column so tracks line up; spent and “of plan” on the right with “left” in green or “over” in rose. Over first.",
+         "Budget · Spent of plan"),
     ]),
     ("Parts of a whole", [
         ("Donut", "app", c_donut, "Allocation: what you own by class.",
          "Six slices at most (the rest folds into Other), class colours in family order, a 0.6 gap between slices, the total in the middle, a legend with % and value and a Total row.",
          "Overview · What it is made of; Investments"),
-        ("Share bar", "app", c_share, "Two to four parts of one whole in one line.",
+        ("Share bar", "ready", c_share, "Two to four parts of one whole in one line.",
          "A 2px surface gap between parts, labels under it with value and %. More than four parts is a bar chart.",
-         "Budget · plan used; Overview"),
+         "Any two-to-four-part whole"),
+        ("Plan bar", "app", c_planbar, "The month's whole plan in one line: spent, left, or over.",
+         "22px rounded bar. Spent in azure, what is left in green; when over, the bar runs to what was spent and the part past the plan is strong rose. Spent, Left in plan (or Over plan by) and Planned as three figures under it.",
+         "Budget · top, beside the savings waffle"),
         ("100% stacked columns", "ready", c_stack100, "Shares over time, when the total doesn't matter.",
          "Four parts at most, class colours, a 2px seam, 0% to 100% axis.",
          "Investments · allocation by month"),
         ("Treemap", "ready", c_treemap, "Many parts of one whole at once: all categories, all holdings.",
          "One hue from dark (largest) to light, the name and value in each tile big enough to hold them, a 2px gap.",
          "Expense analysis · all categories"),
-        ("Waffle", "ready", c_waffle, "A single share people should feel: savings rate.",
-         "100 squares, the share in its meaning colour, the rest in track grey, the % beside it.",
-         "Overview · Savings rate"),
+        ("Waffle", "app", c_waffle, "A single share people should feel: savings rate.",
+         "100 squares (13px, 3px gap) in Meadow dark for the share, track grey for the rest; the % beside it and “Of every 100.00 that came in, N stayed.” A negative rate fills none and says so.",
+         "Budget · top"),
         ("Pie", "avoid", c_pie_avoid, "—", "Use the donut.", "Not used"),
     ]),
     ("How a number is built", [
@@ -856,7 +867,7 @@ CHARTS = [
     ("Progress and single values", [
         ("Meter", "app", c_meter, "Spent of plan, saved of a target.",
          "“925.00 over” badge or “380.00 left” on the right, the track under it, “used of plan” under that. Green within plan, strong rose over. Over first.",
-         "Budget; Cash planning · reserves; Overview · stat cards"),
+         "Cash planning · reserves; Overview · stat cards"),
         ("Progress ring", "ready", c_ring, "One goal's progress with its number in the middle.",
          "One ring per card, green on track grey, the value and unit in the middle, what's left and when beside it.",
          "Cash planning · Emergency fund"),
@@ -1155,7 +1166,9 @@ def build() -> str:
               ("Overview · Where money in went", "Sankey", "sankey"),
               ("Overview · Investments", "Donut (What you hold) · gain-or-loss bars by asset class · movers list", "donut"),
               ("Expense analysis", "Stat card · trend line with plan · grouped bars · bars (Who you paid, Paid from) · sparkline rows", "trend, bars, sparkline"),
-              ("Budget; Cash planning · reserves", "Meter", "meter"),
+              ("Budget · top", "Savings waffle · plan bar (spent azure, left green, over rose)", "budget.html"),
+              ("Budget · Spent of plan", "Bullet per category", "bullet_row"),
+              ("Cash planning · reserves", "Meter", "meter"),
               ("Cash planning · Plan", "Forecast trend", "trend"),
               ("Investments", "Area trend (portfolio value) · donut", "trend, donut"),
               ("Cash planning · Recurring", "Bars", "bars")]
@@ -1164,7 +1177,9 @@ def build() -> str:
                ("Money in and money out comparison bars", "Two meters", "Replaced by the Cash flow list and column waterfall in 2.5."),
                ("Savings ring", "Progress ring on the Cash flow card", "Replaced by the Savings rate stat card in 2.5."),
                ("Safe to spend key note on the Overview", "Key note", "Moved off the Overview in 2.5; Safe to spend stays the lead of Cash planning."),
-               ("Share bar", "charts.share / share_bar macro", "Built, used by no screen."),
+               ("Share bar", "charts.share / share_bar macro", "Built, used by no screen; the Budget's plan bar took its place in 2.6."),
+               ("Budget meters", "Meter per category", "Replaced by bullets in 2.6; the meter stays for reserves."),
+               ("Budget summary cards", "Three stat cards", "Replaced by the savings waffle and plan bar in 2.6."),
                ("Line chart (older helper)", "charts.line_chart", "Kept for the investments and Birdview helpers that still call it.")]
     s.append(sec("visuals", "16", "Visuals: active and stashed", "Every visual the app draws, and the ones it has built but set aside. Update this list in the same change that adds, moves or removes a chart.",
                  '<h3>Active: on a screen now</h3><table class="plain vis"><thead><tr><th>Where</th><th>Visual</th><th>Macro</th></tr></thead><tbody>' + vis_rows(active) + '</tbody></table>'
@@ -1172,6 +1187,7 @@ def build() -> str:
                  '<p class="note">Stashed code stays tested and keeps its spec in section 09, so it can come back without a redesign. Desktop (Windows) uses WebView2, the same Chromium engine as the browser, so every active visual renders the same there.</p>'))
     # 17 versions
     s.append(sec("versions", "17", "Versions", "", """<table class="plain"><thead><tr><th>Version</th><th>Date</th><th>What changed</th></tr></thead><tbody>
+<tr><td>2.6 · Fern</td><td>2026-10-01</td><td>Budget: a savings waffle and the plan bar replace the three cards; Spent of plan becomes bullets in a new style; investments are never budget spending. Inline row fields (a light green shade of the row, no border until focused) for every field inside a table; select boxes in the app's own style. Categories as a grouped table edited in place, with + / − / ± and L3. Pages use 90% of the space beside the sidebar</td></tr>
 <tr><td>2.5 · Willow</td><td>2026-10-01</td><td>Overview rebuilt as wide split cards: numbers and toggle lists on the left, the visual on the right (net worth trend, free cash waterfall, the new column waterfall for cash flow). The Sankey replaces Where it went. Investments gets its own section; no chart sits behind a toggle; Month by month is stashed. Stat cards redesigned: four in a row on alternating green and white surfaces, a period chip, one big figure and a quiet sparkline or meter. New figures Change in net worth and Investing rate. New section 16, Visuals: active and stashed</td></tr>
 <tr><td>2.4 · Meadowlark</td><td>2026-10-01</td><td>Key notes put the number first: label, one big figure in the tone colour, one line, one pill button</td></tr>
 <tr><td>2.3 · Glade</td><td>2026-10-01</td><td>Key notes stand out: a full tone tint, a tone border and a solid icon tile with an icon chosen by meaning. Register fields are soft shades of their row, never white, with a green edge on the field you are in. Row actions move to the right-click menu</td></tr>
@@ -1270,6 +1286,10 @@ table.plain tr:last-child td{border-bottom:0}
 .badge-over{font-size:12px;font-weight:700;background:var(--rs);border-radius:999px;padding:2px 10px;white-space:nowrap}.badge-grow{font-size:12px;font-weight:700;background:var(--tg);color:var(--pos);border-radius:999px;padding:2px 10px}
 .empty{display:grid;gap:4px;justify-items:start;padding:16px;border-radius:14px;background:rgba(255,255,255,.6)}.empty span{color:var(--ink2);font-size:13px}
 .alert{display:grid;padding:10px 14px;border-radius:12px;margin:8px 0}.alert span{font-size:13px;color:var(--ink2)}.alert.rose{background:var(--rs)}.alert.held{background:var(--th)}
+.bul2{display:grid;gap:4px}.b2{display:grid;grid-template-columns:110px minmax(0,1fr) 170px;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px}
+.b2t{position:relative;height:14px}.b2p{position:absolute;left:0;top:0;bottom:0;border-radius:7px 3px 3px 7px;background:#DCEBE5;box-shadow:inset -2px 0 0 var(--ink);overflow:hidden}.b2p i{position:absolute;left:0;top:3px;bottom:3px;border-radius:4px;background:#0B6DD6}
+.b2o{position:absolute;top:3px;bottom:3px;margin-left:2px;border-radius:0 4px 4px 0;background:#C93D72}.b2v{text-align:right;font-variant-numeric:tabular-nums}.b2v small{color:var(--muted)}.b2v em{display:block;font:700 11px/1.4 var(--body);font-style:normal;color:var(--ink2)}.b2v em.o{color:#C93D72}.b2v em.l{color:var(--pos)}
+.pbar{display:flex;height:22px;border-radius:11px;overflow:hidden;background:var(--track);margin:6px 0 10px}.pbar i+i{box-shadow:inset 2px 0 0 #fff}.pfig{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}.pfig span{display:block;font:600 12px var(--body);color:var(--ink2)}.pfig b{font:800 18px var(--display)}.pfig b.pos{color:var(--pos)}
 .tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin:6px 0 14px}.tiles.two{grid-template-columns:repeat(2,minmax(0,1fr))}
 .tile{position:relative;display:flex;flex-direction:column;min-height:164px;padding:18px 20px 16px;border-radius:20px;border:1px solid var(--line);box-shadow:var(--shadow);color:var(--ink);text-decoration:none;overflow:hidden}
 .tile.lead{background:linear-gradient(135deg,#D3F0DF 0%,#DCF1F0 55%,#E4F1FA 100%);border-color:#BFE3CF}.tile.mint{background:linear-gradient(160deg,#EAF8F0,#F6FCF8);border-color:#CFEADB}.tile.white{background:#fff}

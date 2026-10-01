@@ -8,8 +8,18 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### Budget · 2026-10-01
+- The top is a savings-rate waffle beside one plan bar: spent in azure, what is left in green, over plan in
+  strong rose past the plan. The three cards are gone; their figures sit under the bar.
+- Spent of plan is a bullet per category: the plan as a soft band ending in a tick, spent inside it,
+  anything over carried past the tick in rose, with what is left or over on the right.
+- Investment categories are never budget spending (fees and moves into investments stay in cash flow).
+  One-off categories are left out of the budget's totals.
+- The first-plan form groups categories under their L1 with compact row fields; the bulk-rules toolbar and
+  rule fields match the row style; select boxes use the app's own style everywhere.
+
 ### Page width · 2026-10-01
-- Every screen uses 80% of the space beside the sidebar, centred, and never less than the 1,120px content
+- Every screen uses 90% of the space beside the sidebar, centred, and never less than the 1,120px content
   width (or the whole space on smaller screens).
 
 ### Valuations and target allocation · 2026-10-01

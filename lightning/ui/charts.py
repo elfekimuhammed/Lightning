@@ -248,6 +248,35 @@ def meter(used: Decimal, total: Decimal | None) -> dict:
             "left": total - used, "share": float(used / total * 100)}
 
 
+def bullet(used: Decimal, plan: Decimal | None) -> dict:
+    """Actual against plan on one scale: the plan as a soft band ending in a tick, what was spent
+    inside it, and anything over the plan carried past the tick in strong rose.
+
+    Widths are percentages of the row's scale (the larger of plan and spent)."""
+    plan = plan or ZERO
+    used = max(used, ZERO)
+    scale = max(plan, used) or Decimal(1)
+    return {"plan": float(plan / scale * 100), "spent": float(min(used, plan) / scale * 100),
+            "over": float((used - plan) / scale * 100) if used > plan else 0.0,
+            "is_over": used > plan, "left": plan - used,
+            "share": float(used / plan * 100) if plan else None}
+
+
+def plan_bar(planned: Decimal, spent: Decimal) -> dict:
+    """One line for the whole plan: spent in azure, what is left in green, or over plan in rose
+    past the planned length. Percentages of the larger of planned and spent."""
+    b = bullet(spent, planned)
+    return {"spent": b["spent"], "left": max(b["plan"] - b["spent"], 0.0), "over": b["over"],
+            "is_over": b["is_over"], "share": b["share"]}
+
+
+def waffle(rate: Decimal | None) -> dict:
+    """100 squares; the share in its meaning colour. A negative rate fills none and says so."""
+    if rate is None:
+        return {"filled": 0, "cells": 100, "rate": None}
+    return {"filled": int(max(min(rate, Decimal(100)), ZERO).to_integral_value()), "cells": 100, "rate": rate}
+
+
 def donut(slices: list[dict], limit: int = 6) -> dict:
     """Parts of one whole: at most ``limit`` slices, the rest folded into "Other".
 

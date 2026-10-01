@@ -1,4 +1,4 @@
-# App guideline · 2.5 · Willow
+# App guideline · 2.6 · Fern
 
 **Last updated 2026-10-01.** This is the one guideline for how every screen looks, reads and adds up. It covers colour, type, cards, sections, controls, fields, lists, charts and words. It is built on the Meadow brand guidelines. The product story is in [Project Overview](PROJECT_OVERVIEW.md), code rules in [Architecture](ARCHITECTURE.md) and terms in the [Glossary](GLOSSARY.md).
 
@@ -211,6 +211,12 @@ A section groups the cards that share one date. It is a line on the canvas with 
 
 There are three kinds. Choosing from your own data is always type-and-pick, never a dropdown. Browser history suggestions (`autocomplete`) are off on every field; the only suggestions are the app's own.
 
+**Inline row fields (30px)** are every field inside a row-by-row table: Target allocation, Sale factors, budget rules, the first-plan form and the Categories edit row. They blend into the row: a light green shade of it (`#EAF6EF`, `#E0F1E7` on row hover), no border until hover (`#C9E6D5`), white with the green focus ring when you are in it, numbers right-aligned with the unit (`%`, `EGP`) inside the field. Shares read in `%`, never "pts".
+
+**Select boxes** use the app's own style everywhere: 12px corners, the line-control border, the app's chevron, ink 600 text, the green focus ring. No browser chrome.
+
+**Category lists** never read as breadcrumbs ("Personal › Food"). The L1 is a header; an L2 with L3 detail is a sub-header; each row shows its own name. The Categories page is a table you edit in place: click a row and it becomes its edit form, with + / − / ± (income, expense, both), Recurring (income) and One-off (expense).
+
 **Form fields (48px)** live on white: entry cards, the drawer and popups.
 
 - The label (13/700) goes above the field, and help or an error goes under it.
@@ -310,12 +316,13 @@ Charts are hand-drawn SVG and CSS with no chart library. In the app, `lightning/
 | | Diverging bars | Ready | Value to adjust: azure put in, soft rose take out, a centre line | Target allocation |
 | | Lollipop | Ready | Ranked values where the number matters (largest payments) | Expense analysis |
 | | Slope chart | Ready | Shares at two dates, labels at both ends | Investments · this year |
-| | Bullet | Ready | Actual against plan, with a light band to the plan and a Nile tick | Budget · categories |
+| | Bullet | In the app | Each row on its own scale: the plan a soft green-grey band (14px) ending in a 2px ink tick, spent an 8px azure bar inside it, over plan in strong rose past the tick; name in a fixed 150px column; "left" in green or "over" in rose on the right | Budget · Spent of plan |
 | Parts of a whole | Donut | In the app | Allocation; six slices, total in the middle, legend with % and value and a Total row | Overview, Investments |
-| | Share bar | In the app | Two to four parts in one line | Budget, Overview |
+| | Share bar | Ready | Two to four parts in one line | — (stashed, see 16) |
+| | Plan bar | In the app | The whole plan in one 22px line: spent azure, left green; over plan runs past the plan in strong rose; Spent, Left in plan (or Over plan by) and Planned under it | Budget · top |
 | | 100% stacked columns | Ready | Shares over time when the total doesn't matter | Investments |
 | | Treemap | Ready | Many parts at once; one hue dark to light | Expense analysis · all categories |
-| | Waffle | Ready | One share to feel (savings rate), 100 squares | Overview · Savings rate |
+| | Waffle | In the app | One share to feel (savings rate): 100 squares in Meadow dark on track grey, the % and "Of every 100.00 that came in, N stayed" beside it | Budget · top |
 | | Pie | Avoid | Use the donut | — |
 | How a number is built | Waterfall | In the app | Start in azure, takeaways soft rose, additions green, the result Meadow dark and bold | Overview · Free cash › How it is built |
 | | Column waterfall | In the app | Money in green from zero, each kind of money out soft rose floating at the running total, net flow azure from zero (strong rose when short); dashed links, values on the columns, one zero line | Overview · Cash flow › From money in to net flow |
@@ -480,7 +487,9 @@ Every visual the app draws, and the ones built but set aside. Update this list i
 | Overview · Where money in went | Sankey | `sankey` |
 | Overview · Investments | Donut (What you hold) · gain-or-loss bars by asset class · movers list | `donut` |
 | Expense analysis | Stat card · trend with plan · grouped bars · bars (Who you paid, Paid from) · sparkline rows | `trend`, `bars`, `sparkline` |
-| Budget; Cash planning · reserves | Meter | `meter` |
+| Budget · top | Savings waffle · plan bar | `budget.html` |
+| Budget · Spent of plan | Bullet per category | `bullet_row` |
+| Cash planning · reserves | Meter | `meter` |
 | Cash planning · Plan | Forecast trend | `trend` |
 | Investments | Area trend (portfolio value) · donut | `trend`, `donut` |
 | Cash planning · Recurring | Bars | `bars` |
@@ -494,12 +503,15 @@ Every visual the app draws, and the ones built but set aside. Update this list i
 | Money in and money out comparison | Two meters | Replaced by the Cash flow list and column waterfall in 2.5 |
 | Savings ring | Progress ring | Replaced by the Savings rate stat card in 2.5 |
 | Safe to spend key note (Overview) | Key note | Moved off the Overview in 2.5; it stays the lead of Cash planning |
-| Share bar | `charts.share` · `share_bar` | Built, used by no screen |
+| Share bar | `charts.share` · `share_bar` | Built, used by no screen; the Budget's plan bar took its place in 2.6 |
+| Budget meters | Meter per category | Replaced by bullets in 2.6; the meter stays for reserves |
+| Budget summary cards | Three stat cards | Replaced by the savings waffle and plan bar in 2.6 |
 
 ## 17 Versions
 
 | Version | Date | What changed |
 |---|---|---|
+| 2.6 · Fern | 2026-10-01 | Budget: savings waffle and plan bar replace the three cards; Spent of plan as bullets in a new style; investments never budget spending. Inline row fields for every field inside a table; select boxes in the app's own style; category lists as L1/L2 headers, never breadcrumbs; Categories edited in place with + / − / ± and L3. Pages use 90% of the space beside the sidebar |
 | 2.5 · Willow | 2026-10-01 | Overview as wide split cards (numbers and toggle list left, visual right); the column waterfall for cash flow; the Sankey replaces Where it went; Investments gets its own section; no chart behind a toggle; Month by month stashed. Stat cards redesigned: four in a row on alternating green and white, a period chip, one big figure and a sparkline or meter. New figures Change in net worth and Investing rate. New section 16, Visuals: active and stashed |
 | 2.4 · Meadowlark | 2026-10-01 | Key notes put the number first: label, one big figure in the tone colour, one line, one pill button |
 | 2.3 · Glade | 2026-10-01 | Key notes stand out: a full tone tint, a tone border, a solid icon tile, and icons chosen by meaning. Register fields are soft shades of their row, never white, with the green focus edge everywhere. Row actions move to the right-click menu |

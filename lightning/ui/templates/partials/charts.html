@@ -164,3 +164,15 @@
 {% macro stat_tiles(stats, base, label='This period') %}
 <section class="stat-tiles" aria-label="{{ label }}">{% for s in stats %}{{ stat_tile(s, base) }}{% endfor %}</section>
 {% endmacro %}
+
+{# Bullet · actual against plan: a soft plan band ending in a tick, spent in azure inside it, anything
+   over the plan in strong rose past the tick. The value and what is left or over sit on the right. #}
+{% macro bullet_row(label, used, plan, b, href='') %}
+{% set tag = 'a' if href else 'div' %}
+<{{ tag }} class="bullet-row{{ ' is-over' if b.is_over }}"{% if href %} href="{{ href }}"{% endif %}>
+  <span class="bullet-name">{{ label }}</span>
+  <span class="bullet-track" role="img" aria-label="{{ label }}: {{ used|money }} of {{ plan|money }}"><span class="bullet-plan" style="width:{{ '%.2f'|format(b.plan) }}%"><i class="bullet-spent" style="width:{{ '%.2f'|format(b.spent / b.plan * 100 if b.plan else 0) }}%"></i></span>{% if b.over %}<i class="bullet-over" style="left:{{ '%.2f'|format(b.plan) }}%;width:{{ '%.2f'|format(b.over) }}%"></i>{% endif %}</span>
+  <span class="bullet-values"><b>{{ used|money }}</b> <small>of {{ plan|money }}</small></span>
+  <span class="bullet-status">{% if b.is_over %}<em class="over">{{ (used - plan)|money }} over</em>{% elif b.left == 0 %}<em>On plan</em>{% else %}<em class="left">{{ b.left|money }} left</em>{% endif %}</span>
+</{{ tag }}>
+{% endmacro %}

@@ -187,7 +187,8 @@ class BudgetService:
         direct = self.amounts_for(month)
         from_loans = self.loan_lines(month)
         spent = self._owned_spending(first, last)
-        cats = [c for c in self.categories.tree(Movement.OUTFLOW) if not c.is_root]
+        cats = [c for c in self.categories.tree(Movement.OUTFLOW) if not c.is_root
+                and c.family != CategoryFamily.INVESTMENT]  # investments are never budget spending
         by_id = {c.id: c for c in cats}
         children: dict[int, list[int]] = {}
         for c in cats:
@@ -289,7 +290,13 @@ class BudgetService:
         # Report queries already filter to posted, user-owned categorized ledger
         # effects; investment buys, transfers, and revaluations have no outflow
         # expense effect and therefore do not appear as spending here.
-        return self.reporting.money_out_by_category(start, end)
+        # Investment fees and moves into investments are not household spending, so the budget never
+        # counts them (cash flow and the Overview still do).
+        investment = self._investment_ids()
+        return {cid: v for cid, v in self.reporting.money_out_by_category(start, end).items() if cid not in investment}
+
+    def _investment_ids(self) -> set[int]:
+        return {c.id for c in self.categories.tree() if c.family == CategoryFamily.INVESTMENT}
 
     def set_carryover(self, month: str, settings: dict[int, bool]) -> int:
         parse_month(month)

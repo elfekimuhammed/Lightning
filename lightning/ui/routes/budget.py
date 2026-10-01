@@ -98,6 +98,10 @@ def _page(request: Request, month: str, values: dict | None = None, error: str =
     suggestions = c.budgets.suggested_plan(month) if not has_plan else {}
     suggestions_view = {category_id: (c.categories.display_name(category_id), amount)
                         for category_id, amount in suggestions.items()}
+    suggestion_groups: dict[str, list] = {}  # L1 as a header, each category under it by its own name
+    for category_id, (name, amount) in suggestions_view.items():
+        parts = name.split(" › ")
+        suggestion_groups.setdefault(parts[0], []).append((category_id, " › ".join(parts[1:]) or parts[0], amount))
     tracked = {line.category_id for section in view.sections for line in section.lines
                if line.direct is not None or line.average_months or line.income_percent is not None}
     try:
@@ -227,7 +231,9 @@ def _page(request: Request, month: str, values: dict | None = None, error: str =
                     group_totals[group_id]["budgeted"] += estimate * factor
                     period_base += estimate * factor
     period_budgeted = period_base + period_opening
-    period_spending = c.budgets._owned_spending(period.start, period.end)
+    one_offs = c.budgets.one_off_ids()
+    period_spending = {cid: v for cid, v in c.budgets._owned_spending(period.start, period.end).items()
+                       if cid not in one_offs}  # one-off spending stays in cash flow, out of the budget
     period_actual = sum(period_spending.values(), ZERO)
     category_periods = {}
     for _, month_view in month_views:
@@ -300,6 +306,7 @@ def _page(request: Request, month: str, values: dict | None = None, error: str =
             if line.depth > 1 and line.available is not None and (line.available or line.planned_actual):
                 meter_lines.append({"label": line.name, "used": line.planned_actual, "total": line.available,
                                     "m": charts.meter(line.planned_actual, line.available),
+                                    "b": charts.bullet(line.planned_actual, line.available),
                                     "href": f"/transactions?category_id={line.category_id}&date_from={month}-01"})
     meter_lines.sort(key=lambda r: (not r["m"]["over"], -(r["m"].get("share") or 0)))
     month_first, month_last = parse_month(month)
@@ -307,10 +314,13 @@ def _page(request: Request, month: str, values: dict | None = None, error: str =
     notes = keynotes.budget_left(view.available - view.actual, days_left,
                                  [r["label"] for r in meter_lines if r["m"]["over"]], "#budget-meters") if c.budgets.has_plan(month) else []
     left_note = keynotes.per_day(view.available - view.actual, days_left) if c.budgets.has_plan(month) else ""
+    flow = c.reporting.cash_flow(period.start, period.end)
     return render(request, "budget.html", notes=notes, meter_lines=meter_lines, left_note=left_note,
+                  savings=flow, savings_waffle=charts.waffle(flow.savings_rate),
+                  plan_bar=charts.plan_bar(period_budgeted, period_actual),
                   loan_planned=sum(c.budgets.loan_lines(month).values(), ZERO), status_code=status_code, view=view, month=month,
                   prev_month=prev_month, next_month=next_month, values=values or {}, error=error,
-                  has_plan=has_plan, suggestions=suggestions_view,
+                  has_plan=has_plan, suggestions=suggestions_view, suggestion_groups=suggestion_groups,
                   tracked=tracked, averages=averages,
                   averages6=averages6, average_observations=average_observations,
                   average_observations6=average_observations6,
