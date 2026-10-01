@@ -243,10 +243,21 @@ def results_by_asset(investments, money_from_others, reporting, opening_day: str
     return class_results, asset_results
 
 
+def _adjust_alone(value: Decimal, total: Decimal, target: Decimal | None) -> Decimal | None:
+    """Buy (+) or sell (−) of one class alone so it becomes ``target`` % of the new total."""
+    if target is None:
+        return None
+    share = target / 100
+    if share >= 1:  # 100%: only possible by selling everything else, which this class cannot do alone
+        return None if total - value else ZERO
+    return ((share * total - value) / (1 - share)).quantize(Decimal("0.01"))
+
+
 def allocation_plan(values: dict[str, Decimal], targets: dict[str, Decimal], classes: list[str]) -> dict:
     """Target allocation: for each class its current share, the required share, the difference, and
-    the value to adjust (how much to invest, or take out when negative, to reach the required share
-    of today's total). ``values`` are owned holdings by allocation class."""
+    the value to adjust: how much to buy (or sell, when negative) of that one class alone to reach its
+    required share, with every other class left as it is. Buying grows the total too, so for a value v,
+    total T and target t the amount is (t × T − v) ÷ (1 − t). ``values`` are owned holdings by class."""
     total = sum(values.values(), ZERO)
     # Every class is listed, so a target can be set on one you hold nothing in yet. Heaviest first.
     names = list(classes) + sorted(set(values) - set(classes))
@@ -257,7 +268,7 @@ def allocation_plan(values: dict[str, Decimal], targets: dict[str, Decimal], cla
         target = targets.get(name)
         rows.append({"name": name, "value": value, "current": current, "target": target,
                      "difference": None if target is None else target - current,
-                     "adjust": None if target is None else total * target / 100 - value})
+                     "adjust": _adjust_alone(value, total, target)})
     rows.sort(key=lambda r: (-r["value"], -(r["target"] or ZERO), r["name"].casefold()))
     required = sum(targets.values(), ZERO)
     return {"rows": rows, "total": total, "required": required, "complete": required == 100,

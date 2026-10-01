@@ -451,6 +451,11 @@ async def save_target(request: Request):
             c.investments.clear_target_weight(bucket)  # an empty field clears the target
             return Response(status_code=204) if request.headers.get("X-Requested-With") == "fetch" else redirect("/investments/targets", "Target cleared.")
         value=to_decimal(str(form.get("target_weight","")),"target")
+        others=sum((w for b, w in c.investments.target_weights().items() if b != bucket), ZERO)
+        if others + value > 100:
+            room = max(ZERO, 100 - others)
+            raise LightningError(f"Targets can add up to 100% at most. The others take {others.normalize():f}%, so "
+                                 f"{bucket} can be up to {room.normalize():f}%.")
         if bucket not in _allocation_classes(c) or value<ZERO or value>100: raise LightningError("Choose an available investment asset class and a target from 0 to 100.")
         matches=[cls for cls in c.assets.investment_classes() if c.assets.display_name(cls.id).split(" › ")[-1] == bucket]
         if len(matches)!=1: raise LightningError("This target label is ambiguous. Rename or resolve the asset classes first.")

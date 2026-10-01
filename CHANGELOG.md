@@ -8,6 +8,11 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### Target allocation adds up to 100% · 2026-10-01
+- A target that would take the total past 100% is refused, and the message says how much is left.
+- Value to adjust is how much to buy (or sell) of that one class to reach its share with every other class
+  left as it is: (target × total − value) ÷ (1 − target), because buying grows the total too.
+
 ### Categories, two by two · 2026-10-01
 - Two categories side by side, each always editable: name, + / − / ±, Recurring and One-off as on/off pills,
   and add detail, archive and delete always visible. Changes save as you make them.
