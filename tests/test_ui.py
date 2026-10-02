@@ -366,7 +366,8 @@ def test_start_fresh_sets_the_database_aside_and_opens_an_empty_one(client, c, s
     # per request, whose thread-local SQLite handle cannot be closed by this test.
     c.db.close()
     response = client.post("/settings/fresh", follow_redirects=False)
-    assert response.status_code == 303 and "Started a fresh database" in response.headers["location"]
+    from urllib.parse import unquote
+    assert response.status_code == 303 and "Started a fresh database" in unquote(response.headers["location"])
     fresh = client.app.state.container
     assert Path(fresh.db.path) == old_path and fresh.accounts.list() == []
     kept = [p for p in old_path.parent.iterdir() if "_before-fresh_" in p.name]
