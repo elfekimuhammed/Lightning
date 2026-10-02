@@ -348,7 +348,7 @@ class TestInvestmentPages:
         assert "No holdings yet" in client.get("/investments").text
         r = client.post("/investments/assets/new?then=buy", data={"name": "Commercial International Bank",
                         "class_code": "STOCK", "symbol": "COMI"})
-        assert "Added STK:COMI" in r.text and "Buy" in r.text
+        assert "Added Commercial International Bank." in r.text and "STK:COMI" not in r.text.split("Added")[1][:60] and "Buy" in r.text
         comi = c.assets.get_asset_by_code("STK:COMI")
         r = client.post("/investments/new?kind=buy", data={"date": "2026-09-10", "account_id": thndr.id,
                         "asset_id": comi.id, "quantity": "100", "price": "95", "fees": "50"})

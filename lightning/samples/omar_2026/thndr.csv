@@ -1,0 +1,9 @@
+Date,Action,Investment,Ticker,Class,Units,Total,Fees,Notes
+2026-02-11,Buy,Commercial International Bank (COMI),COMI,STOCK,120,9840.00,30.00,
+2026-02-11,Buy,Fawry for Banking Technology,FWRY,STOCK,600,5100.00,20.00,
+2026-02-12,Buy,Azimut money market fund,AZMM,FUND.MONEY_MARKET,40,4800.00,0.00,
+2026-05-13,Buy,Talaat Moustafa Group,TMGH,STOCK,150,9300.00,28.00,
+2026-05-13,Buy,Azimut money market fund,AZMM,FUND.MONEY_MARKET,40,5000.00,0.00,
+2026-06-20,Dividend,Commercial International Bank (COMI),COMI,STOCK,,360.00,,Cash dividend
+2026-08-06,Buy,Commercial International Bank (COMI),COMI,STOCK,60,5280.00,18.00,
+2026-09-14,Sell,Fawry for Banking Technology,FWRY,STOCK,300,2850.00,12.00,Took some profit

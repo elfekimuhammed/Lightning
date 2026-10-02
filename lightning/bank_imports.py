@@ -29,6 +29,14 @@ class _ImportReviewRequired(Exception):
         self.errors = errors
 
 
+INTERNAL_WORDS = {"internal", "internal transfer", "transfer", "transfers", "own account"}
+
+
+def is_internal(category: str) -> bool:
+    """The Category column says the row moved money between your own accounts."""
+    return " ".join((category or "").split()).casefold() in INTERNAL_WORDS
+
+
 def _date(value: str) -> str:
     try:
         return parse_date(value).isoformat()
@@ -261,21 +269,43 @@ class BankImportService:
             parsed["_reference_duplicate"] = ref_duplicate
             parsed["_similarity_warning"] = (self._similarity_warning(batch["account_id"], parsed)
                 or amount_dates.get((parsed["Date"], parsed["Amount"]), 0) > 1)
-            parsed["_category_id"] = self._category_for(parsed, cp)
-            parsed["_transfer_target_suggestion"] = (self._transfer_target_suggestion(
-                batch["account_id"], parsed["Notes"])
+            parsed["_internal"] = is_internal(parsed["Category"])
+            parsed["_category_id"] = None if parsed["_internal"] else self._category_for(parsed, cp)
+            parsed["_transfer_target_suggestion"] = (self._own_account(batch["account_id"], parsed["Counterparty"])
+                or self._transfer_target_suggestion(batch["account_id"], parsed["Notes"])
                 or self._transfer_target_suggestion(batch["account_id"], parsed["Counterparty"])
                 or self._matching_bank_transfer(batch["account_id"], parsed))
+            # One of your accounts as the counterparty, or "Internal" in the category, is a transfer.
+            # A transfer whose account is known needs no category; one marked internal whose account
+            # cannot be matched waits for the user to pick it.
+            target = next((a for a in self.accounts.list(active_only=True)
+                           if a.name == parsed["_transfer_target_suggestion"]), None)
+            is_transfer = parsed["_internal"] or self._own_account(batch["account_id"], parsed["Counterparty"])
+            parsed["_transfer_target"] = target.name if target and is_transfer else None
+            parsed["_transfer_account_id"] = str(target.id) if target and is_transfer else ""
+            parsed["_needs_account"] = parsed["_internal"] and not parsed["_transfer_target"]
+            if parsed["_transfer_target"]:
+                parsed["_suggestions"] = []
             category = self.categories.get(parsed["_category_id"]) if parsed["_category_id"] else None
             parsed["_is_custody"] = bool(category and category.code == "EXP.SYSTEM.CUSTODY")
             # Keep the canonical owner ready in the form: the user may choose
             # the custody category during review rather than in the CSV.
             parsed["_whom"] = cp["name"] if cp and cp["active"] else ""
+            parsed["_ready"] = bool(not parsed.get("_errors") and not ref_duplicate and not parsed["_similarity_warning"]
+                                    and not parsed["_suggestions"] and not parsed["_needs_account"]
+                                    and (parsed["_category_id"] or parsed["_transfer_target"]))
             parsed["_import_row_id"] = row["id"]
             parsed["_status"] = row["status"]
             parsed["_transaction_id"] = row["transaction_id"]
             result.append(parsed)
         return batch, result
+
+    def _own_account(self, source_account_id: int, name: str):
+        """The name of another of your accounts typed as the counterparty, if it is one."""
+        wanted = " ".join((name or "").split()).casefold()
+        matches = [a.name for a in self.accounts.list(active_only=True)
+                   if a.id != source_account_id and a.name.casefold() == wanted]
+        return matches[0] if len(matches) == 1 else None
 
     def _transfer_target_suggestion(self, source_account_id: int, notes: str):
         """Suggest an internal destination from an account name or transfer wording."""
@@ -440,7 +470,12 @@ class BankImportService:
             raise ValidationError(f"CSV row {row['_line']}: account name is ambiguous; use a unique name.",
                                   "counterparty")
         target = account_matches[0] if account_matches else None
+        if "transfer_account_id" not in decision and row.get("_transfer_account_id"):
+            decision = decision | {"transfer_account_id": row["_transfer_account_id"]}
         selected_target = str(decision.get("transfer_account_id", "")).strip()
+        if row.get("_internal") and not target and not selected_target:
+            raise ValidationError(f"CSV row {row['_line']}: this is an internal transfer. Pick the account the money "
+                                  "moved to or from.", "transfer_account_id")
         if selected_target:
             source_currency = self.accounts.get(batch["account_id"]).currency
             target = next((a for a in accounts if str(a.id) == selected_target and a.id != batch["account_id"]
@@ -529,6 +564,13 @@ class BankImportService:
                     whom = str(decision.get("whom", "")).strip()
                 elif canonical and canonical["active"]:
                     whom = canonical["name"]
+                elif cp_text and not similar:
+                    # The person named on the row owns it; a name that is new and like no other is saved.
+                    created = getattr(self, "_created_in_batch", {})
+                    owner_id = created.get(cp_text.casefold()) or self.counterparties.create(cp_text)
+                    self._pending_created = (cp_text.casefold(), owner_id)
+                    counterparty_id = counterparty_id or owner_id
+                    whom = cp_text
                 else:
                     raise ValidationError(f"CSV row {row['_line']}: choose who owns this money.", "whom")
                 if whom.casefold() in {"self", "me", "my money", "my own money"}:

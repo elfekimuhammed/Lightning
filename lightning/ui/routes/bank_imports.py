@@ -111,6 +111,11 @@ async def ai_template(request: Request, account_id: int):
                              headers={"Content-Disposition": 'attachment; filename="lightning-import-template.csv"'})
 
 
+def _lightning_columns(headers: list[str]) -> bool:
+    """The file uses Lightning's own column names, so its columns need no matching."""
+    return "Date" in headers and "Amount" in headers and set(headers) <= {*REQUIRED, *OPTIONAL}
+
+
 @router.post("/{account_id:int}/import")
 async def upload(request: Request, account_id: int):
     c = container(request)
@@ -123,6 +128,9 @@ async def upload(request: Request, account_id: int):
         headers, _ = decode_csv(data)
         mapping = c.bank_imports.suggested_mapping(account_id, headers)
         saved_mapping = c.bank_imports.saved_mapping(account_id, headers)
+        if not saved_mapping and _lightning_columns(headers):
+            # Lightning's own columns (the template and the sample files): nothing to match.
+            saved_mapping = {"amount_model": "SINGLE"} | {key: key for key in headers}
         if saved_mapping:
             batch_id, repeated = c.bank_imports.stage(
                 account_id, upload_file.filename, data, saved_mapping,

@@ -1,0 +1,7 @@
+Name,Type,Institution,Opening balance,Opening date,File
+CIB Payroll,BANK,CIB,152000.00,2026-01-01,cib-payroll.csv
+Cash wallet,CASH,,1500.00,2026-01-01,cash-wallet.csv
+Vodafone Cash,CASH,,400.00,2026-01-01,vodafone-cash.csv
+THNDR,BROKERAGE,THNDR,0.00,2026-01-01,thndr.csv
+NBE 3-year certificate,DEPOSIT,NBE,0.00,2026-01-01,nbe-3-year-certificate.csv
+Gold at home,PHYSICAL_ASSET,,0.00,2026-01-01,gold-at-home.csv

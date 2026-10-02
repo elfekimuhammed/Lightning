@@ -1,0 +1,110 @@
+"""Omar's 2026 sample: every bank CSV imports through Import CSV with nothing to review, and the
+whole sample loads, reconciles and opens on every tab."""
+from __future__ import annotations
+
+import csv
+from datetime import date
+from decimal import Decimal
+
+import pytest
+
+from lightning.samples import BANK_FILES, OMAR_2026, load_omar_2026, rows
+from lightning.ui.web import create_app
+from screens import Browser, Choose
+
+D = Decimal
+
+
+@pytest.fixture
+def on_2_october(monkeypatch):
+    monkeypatch.setenv("LIGHTNING_TODAY", "2026-10-02")
+
+
+def _lines(name: str) -> int:
+    with open(OMAR_2026 / name, newline="", encoding="utf-8") as f:
+        return sum(1 for _ in csv.DictReader(f))
+
+
+def _open_accounts(b: Browser) -> None:
+    """The six accounts from accounts.csv, through the Add account form."""
+    labels = {"BANK": "Bank", "CASH": "Cash wallet", "BROKERAGE": "Brokerage", "DEPOSIT": "Certificate",
+              "PHYSICAL_ASSET": "Physical asset"}
+    for row in rows("accounts.csv"):
+        b.open("/accounts/new")
+        b.submit({"name": row["Name"], "account_type": Choose(labels[row["Type"]]),
+                  "opening_balance": row["Opening balance"], "opening_balance_date": row["Opening date"]},
+                 button="Add account")
+
+
+def test_every_bank_csv_imports_every_row_with_nothing_to_review(c, on_2_october):
+    b = Browser(create_app(c))
+    _open_accounts(b)
+    for name in BANK_FILES:   # CIB Payroll first: its transfers fill the others
+        account = next(r["Name"] for r in rows("accounts.csv") if r["File"] == name)
+        b.go(account, "Import CSV")
+        page = b.submit({}, button="Review statement",
+                        files={"file": (name, (OMAR_2026 / name).read_bytes(), "text/csv")})
+        if page.shows("Match your columns"):   # the headers are Lightning's own, so this should not happen
+            pytest.fail(f"{name} asked for its columns to be matched")
+        assert page.shows("Needs a decision None."), f"{name}: {page.text[:600]}"
+        assert page.shows("Possible duplicates None."), name
+        done = b.submit({}, button="Post ready rows")
+        assert done.shows(f"{_lines(name)} posted · 0 skipped · 0 duplicates"), f"{name}: {done.text[:400]}"
+    cib = next(a for a in c.accounts.list() if a.name == "CIB Payroll")
+    transfers = c.db.scalar("SELECT COUNT(*) FROM transactions WHERE type='TRF' AND status='POSTED'")
+    assert transfers == 21   # 9 ATM withdrawals, 9 Vodafone Cash top-ups, 3 moves to THNDR
+    assert c.position.at(date(2026, 10, 2)).held_for_others == D("6000")   # Mom's 10,000 less the 4,000 back
+    assert c.reporting.account_balance(cib.id) > 0
+
+
+def test_an_internal_row_whose_account_is_unknown_asks_which_account(c, on_2_october):
+    flows = c.account_flows
+    cib = flows.open_account("CIB Current", "BANK", "2026-09-01", "50,000", institution="CIB")
+    flows.open_account("Wallet", "CASH", "2026-09-01", "1,200")
+    savings = flows.open_account("Savings", "BANK", "2026-09-01", "0", institution="NBE")
+    b = Browser(create_app(c))
+    data = ("Date,Amount,Counterparty,Category,Notes\n"
+            "2026-09-10,-500.00,Savings pot,Internal transfer,Moved to savings\n"
+            "2026-09-11,-300.00,Wallet,Internal transfer,ATM\n").encode()
+    b.go("CIB Current", "Import CSV")
+    page = b.submit({}, button="Review statement", files={"file": ("moves.csv", data, "text/csv")})
+    assert page.shows("Internal transfer · pick the account it moved to or from")
+    assert page.shows("Ready · transfer to Wallet")
+    unknown = next(int(k.rsplit("_", 1)[1]) for k, v in page.form("Post ready rows").fields.items()
+                   if k.startswith("counterparty_") and v == "Savings pot")
+    page = b.submit({f"transfer_account_id_{unknown}": Choose("Savings")}, button="Post ready rows")
+    assert page.shows("2 posted · 0 skipped · 0 duplicates")
+    assert c.reporting.account_balance(savings.id) == D("500")
+    assert c.reporting.account_balance(cib.id) == D("49200")
+
+
+def test_the_whole_sample_loads_and_adds_up(c, on_2_october):
+    summary = load_omar_2026(c)
+    assert summary == {"accounts": 6, "rows": sum(_lines(n) for n in BANK_FILES), "from": "2026-01-01",
+                       "to": "2026-10-02"}
+    day = date(2026, 10, 2)
+    position = c.position.at(day)
+    assert position.held_for_others == D("6000")          # Mom's 10,000, less the 4,000 she took back
+    assert position.loans_still_to_pay == D("37500")      # 15 car-loan payments left
+    assert position.net_worth == position.what_you_own - position.what_you_owe
+    assert {check.status for check in c.integrity.checks(day)} == {"PASS"}
+    assert not [p for p in c.planning.all_payments(day, day) if p.status.name == "DUE"]
+    held = {c.assets.get_asset(p.asset_id).name for p in c.investments.portfolio(day).open}
+    assert {"Commercial International Bank (COMI)", "Fawry for Banking Technology", "Talaat Moustafa Group",
+            "Azimut money market fund", "L'Azurde ring", "Gold pound (from grandma)", "BTC 10 g bar"} <= held
+    b = Browser(create_app(c))
+    for page in ("/", "/budget", "/investments", "/birdview/expenses", "/plan", "/plan/recurring", "/plan/loans",
+                 "/plan/reserves", "/money-from-others", "/transactions", "/checks"):
+        b.open(page)
+    assert b.open("/checks").shows("Needs attention 0")
+
+
+def test_the_welcome_page_loads_the_sample_and_offers_the_files(c, on_2_october):
+    b = Browser(create_app(c))
+    welcome = b.open("/")
+    assert welcome.shows("Omar's 2026")
+    for name in ("accounts.csv", *BANK_FILES, "thndr.csv", "gold-at-home.csv", "prices.csv"):
+        assert b.client.get(f"/samples/omar-2026/{name}").status_code == 200
+    done = b.submit({}, button="Load Omar's 2026")
+    assert done.shows("Omar's 2026 added")
+    assert len(c.accounts.list()) == 6

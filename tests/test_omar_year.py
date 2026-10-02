@@ -1,20 +1,29 @@
-"""Omar's year: steps 11-28 of the reference workflow in docs/PROJECT_OVERVIEW.md.
+"""Omar's year, through the screens only: the reference workflow in docs/PROJECT_OVERVIEW.md.
 
-The demo household (July-September 2026) is carried through October 2026 - September 2027, one
-month at a time, with the events a salaried year brings. Each test checks one step. A step that is
-wrong today is marked xfail(strict=True): when the gap is fixed the test passes, fails as
-"XPASS", and the marker and the Overview's "Today" column must be updated together.
+Omar is 31, salaried, in Cairo. He starts with an empty Lightning on 30 September 2026, sets up the
+last three months, and then lives a year in it: October 2026 to September 2027. He only does what a
+person can do in the app: open pages, follow links, fill in the forms on the page and press their
+buttons (tests/screens.py). Along the way he asks the questions a salaried person asks. Each one is
+answered by starting at the Overview and clicking through to the page that answers it, and the test
+for that question checks both the route he took and what the page told him.
+
+A question the app answers wrongly today is a strict expected failure. When the fix lands it fails
+as an unexpected pass, and the marker and the Overview's "Today" column must change together.
 """
 from __future__ import annotations
 
 import os
-from datetime import date
+import re
+from dataclasses import dataclass
+from datetime import datetime, time, timezone
 from decimal import Decimal
 
 import pytest
 
 from lightning.bootstrap import build
-from lightning.demo import build_demo
+from lightning.core import dates
+from lightning.ui.web import create_app
+from screens import TICK, Browser, Choose, Screen
 
 D = Decimal
 
@@ -23,307 +32,722 @@ def known_gap(reason: str):
     return pytest.mark.xfail(strict=True, reason=reason)
 
 
-@pytest.fixture(scope="module")
-def year(tmp_path_factory):
-    pinned = os.environ.get("LIGHTNING_TODAY")
-    os.environ["LIGHTNING_TODAY"] = "2026-09-30"
-    c = build(tmp_path_factory.mktemp("omar") / "omar.db")
-    try:
-        yield _live_the_year(c)
-    finally:
-        c.db.close()
-        os.environ["LIGHTNING_TODAY"] = pinned or ""
+def money(text: str) -> Decimal:
+    """The first amount in a piece of page text: '−1,299.00 EGP' -> Decimal('-1299.00')."""
+    found = re.search(r"([+−-]?)\s?(\d[\d,]*(?:\.\d+)?)", text)
+    assert found, f"No amount in {text!r}"
+    sign = -1 if found.group(1) in ("−", "-") else 1
+    return sign * D(found.group(2).replace(",", ""))
 
 
-def _live_the_year(c) -> dict:
-    """Run the year through the same services the screens use; return what each step needs."""
-    build_demo(c)
-    seen: dict = {}
-    accounts = {a.name: a.id for a in c.accounts.list()}
-    cib, wallet, vodafone, thndr = (accounts[name] for name in ("CIB Payroll", "Cash wallet", "Vodafone Cash", "THNDR"))
-    tx = c.transactions
+@dataclass
+class Answer:
+    question: str
+    trail: list[str]          # the pages he went through, starting at the Overview
+    screen: Screen            # where he found the answer
 
-    def cat(code):
-        return c.categories.get_by_code(code).id
+    def shows(self, *texts) -> bool:
+        return self.screen.shows(*texts)
 
-    def item(name):
-        return next(i for i in c.planning.items() if i.name == name)
+    def figure(self, label: str) -> Decimal:
+        return money(self.screen.after(label))
 
-    def payment(name, due):
-        return next(p for p in c.planning.payments(item(name), due) if p.due_date == due)
 
-    def on(day: str) -> date:
+class Omar:
+    """One user and his browser tab."""
+
+    def __init__(self, c):
+        self.c = c
+        self.b = Browser(create_app(c))
+        self.answers: dict[str, Answer] = {}
+        self.notes: dict[str, object] = {}
+
+    # -------------------------------------------------------------- time and questions
+    def on(self, day: str) -> None:
+        """A new day: he opens Lightning again, so the period he last picked is forgotten."""
         os.environ["LIGHTNING_TODAY"] = day
-        return date.fromisoformat(day)
+        self.b.client.cookies.clear()
 
-    def month(m, salary="45,000", rent="12,000", employer="ACME Egypt"):
-        """An ordinary month: pay in, rent, the car loan, groceries, phone, internet, electricity."""
-        salary_txn = None
-        if salary:
-            salary_txn = tx.record_inflow(f"{m}-01", cib, salary, cat("EXP.WORK.SALARY"), counterparty=employer)
-        tx.record_outflow(f"{m}-03", cib, rent, cat("EXP.PERSONAL.HOUSING"), counterparty="Landlord")
-        tx.record_outflow(f"{m}-05", cib, "2,500", cat("EXP.SYSTEM.LOANS"), counterparty="Toyota Finance")
-        tx.record_transfer(f"{m}-07", cib, vodafone, "1,000")
-        tx.record_outflow(f"{m}-08", cib, "4,600", cat("EXP.PERSONAL.FOOD"), counterparty="Carrefour")
-        tx.record_outflow(f"{m}-09", vodafone, "350", cat("EXP.PERSONAL.UTILITIES"), counterparty="Vodafone")
+    def ask(self, key: str, question: str, *clicks: str, start: str = "/") -> Screen:
+        """Start at the Overview (or ``start``) and click through to the answer."""
+        screen = self.b.go(*clicks, start=start)
+        self.answers[key] = Answer(question, list(self.b.trail), screen)
+        return screen
+
+    # -------------------------------------------------------------- things he does
+    def account(self, name: str, kind: str, balance: str, when: str = "1/7", bank: str = "") -> Screen:
+        self.b.go("+ Add account")
+        return self.b.submit({"name": name, "account_type": Choose(kind), "institution": bank,
+                              "opening_balance": balance, "opening_balance_date": when}, button="Add account")
+
+    def enter(self, account: str, when: str, party: str, category: str, amount: str, **more) -> Screen:
+        """Type one row into an account's register and press Add."""
+        self.b.go(account)
+        return self.b.submit({"date": when, "counterparty": party, "category": category, "amount": amount} | more,
+                             button="Add")
+
+    def trade(self, action: str, when: str, find: str, **values) -> Screen:
+        """Buy, sell or record a dividend in THNDR, picking the investment from the search results."""
+        screen = self.b.go("THNDR")
+        picked = next(x for x in screen.catalogue("trade-instrument-catalogue")
+                      if find.casefold() in f"{x.get('ticker', '')} {x.get('name', '')}".casefold())
+        return self.b.submit({"instrument_key": picked["key"], "trade_action": action, "date": when} | values,
+                             action="investment-entry")
+
+    def gold_piece(self, name: str, kind: str, grams: str) -> Screen:
+        self.b.go("Gold at home", "Add item")
+        return self.b.submit({"name": name, "kind": kind, "weight": grams, "karat": Choose("21K"),
+                              "reference_asset_id": Choose("21K")}, button="Create item")
+
+    def prices(self, when: str, typed: dict[str, str]) -> Screen:
+        screen = self.b.go("Settings", "Valuations", "Update prices")
+        return self.b.submit({"date": when} | {screen.field_in_row(name): price for name, price in typed.items()},
+                             button="Save prices")
+
+    def track(self, name: str) -> Screen:
+        """Cash planning › Recurring › 'Looks recurring' › Track, then Add on the filled-in form."""
+        screen = self.b.go("Cash planning", "Recurring")
+        link = next(l for l in screen.links if l.text == "Track" and f"name={name.replace(' ', '%20')}&" in l.href)
+        self.b.open(link.href)
+        return self.b.submit({}, button="Add")
+
+    def add_loan(self, name: str, party: str, amount: str, first: str, payments: str, principal: str) -> Screen:
+        self.b.go("Cash planning", "Loans", "Add loan")
+        return self.b.submit({"name": name, "counterparty": party, "amount": amount, "start_date": first,
+                              "payment_count": payments, "principal": principal,
+                              "account_id": Choose("CIB Payroll")}, button="Add")
+
+    def _pay_link(self, screen: Screen, name: str) -> str:
+        at = screen.html.find(name)
+        assert at >= 0, f"{name} is not on {screen.path}"
+        found = re.search(r'href="(/plan/items/\d+/pay\?[^"]+)"', screen.html[at:])
+        assert found, f"No Mark paid for {name} on {screen.path}"
+        return found.group(1).replace("&amp;", "&")
+
+    def pay_from_overview(self, item: str) -> Screen:
+        """Overview › Needs you › Mark paid › Record and mark paid."""
+        self.b.open(self._pay_link(self.b.go(), item))
+        return self.b.submit({}, button="Record and mark")
+
+    def receive_salary(self, employer: str) -> Screen:
+        """Cash planning › Mark received › Record and mark received."""
+        self.b.open(self._pay_link(self.b.go("Cash planning"), employer))
+        return self.b.submit({}, button="Record and mark received")
+
+    def transaction_id(self, account: str, party: str) -> str:
+        """The newest register row for ``party`` in ``account``."""
+        screen = self.b.go(account)
+        for block in re.findall(r"(?s)<tr\b.*?</tr>", screen.html):
+            if party in block:
+                found = re.search(r"/transactions/(\d+)", block) or re.search(r"edit=(\d+)", block)
+                if found:
+                    return found.group(1)
+        raise AssertionError(f"No row for {party} in {account}")
+
+    def to_reserve(self, account: str, party: str, reserve: str) -> Screen:
+        """Open the payment's details and apply it to the reserve it was for."""
+        self.b.open(f"/transactions/{self.transaction_id(account, party)}")
+        return self.b.submit({"reserve_id": Choose(reserve)}, button="Apply payment")
+
+    def settle_due_income(self, name: str) -> Screen:
+        """Cash planning › Recurring › the income's "N due" › confirm the payment it suggests, until none is due."""
+        for _ in range(12):
+            screen = self.b.go("Cash planning", "Recurring")
+            at = screen.html.find(f">{name}<")
+            due = re.search(r'href="(/plan/items/\d+/pay\?due=[^"]+)"[^>]*>\d+ due<', screen.html[at:]) if at >= 0 else None
+            if not due:
+                return screen
+            popup = self.b.open(due.group(1).replace("&amp;", "&"))
+            button = next((text for text in ("Use this", "Link this payment") if popup.shows(text)), None)
+            assert button, f"Nothing is suggested for {name}'s payment: {popup.text[:300]}"
+            self.b.submit({}, button=button)
+        raise AssertionError(f"{name} kept showing payments due")
+
+    def period(self, page: str, date_from: str, date_to: str) -> Screen:
+        """Press Custom on a report and type the dates."""
+        self.b.go(page) if page else self.b.go()
+        return self.b.submit({"date_from": date_from, "date_to": date_to}, button="Custom")
+
+    def delete_newest(self, account: str, party: str) -> Screen:
+        self.b.open(f"/transactions/{self.transaction_id(account, party)}")
+        return self.b.submit({}, button="Delete")
+
+    def fix_amount(self, account: str, party: str, amount: str) -> Screen:
+        """Edit the row in place: the register turns it into a form; change the amount and save."""
+        txn = self.transaction_id(account, party)
+        screen = self.b.go(account)
+        self.b.open(next(l.href for l in screen.links if f"edit={txn}" in l.href))
+        return self.b.submit({"amount": amount}, action=f"/register/{txn}")
+
+    def month(self, m: str, salary: str | None = "45,000", rent: str = "12,000", employer: str = "ACME Egypt",
+              skip: tuple[str, ...] = ()) -> None:
+        """An ordinary month, typed into the registers: pay, rent, the car loan, food, phone, internet,
+        electricity, the monthly gift to Mom and the bank fee."""
+        rows = [(1, "CIB Payroll", employer, "Salary", salary),
+                (2, "CIB Payroll", "Carrefour", "Food & Groceries", "-3,250"),
+                (3, "CIB Payroll", "Landlord", "Housing & Rent", f"-{rent}"),
+                (5, "CIB Payroll", "Cash wallet", "", "-3,000"),
+                (5, "CIB Payroll", "Toyota Finance", "Loan payments", "-2,500"),
+                (7, "CIB Payroll", "Vodafone Cash", "", "-1,000"),
+                (9, "Vodafone Cash", "Vodafone", "Utilities & Bills", "-350"),
+                (10, "CIB Payroll", "Talabat", "Eating Out", "-480"),
+                (12, "Cash wallet", "Microbus", "Personal › Transportation", "-80"),
+                (15, "CIB Payroll", "NBE", "Interest", "1,833.33"),
+                (16, "Cash wallet", "Koshary El Tahrir", "Eating Out", "-190"),
+                (20, "CIB Payroll", "WE Internet", "Utilities & Bills", "-650"),
+                (22, "CIB Payroll", "Seoudi", "Food & Groceries", "-1,420"),
+                (24, "CIB Payroll", "North Cairo Electricity", "Utilities & Bills", "-480"),
+                (25, "CIB Payroll", "Mom", "Gifts & Donations", "-2,000"),
+                (28, "CIB Payroll", "CIB", "Fees & Charges", "-15")]
         if m >= "2027-04":
-            tx.record_outflow(f"{m}-15", cib, "2,000", cat("EXP.SYSTEM.LOANS"), counterparty="valU")
-        tx.record_outflow(f"{m}-20", cib, "650", cat("EXP.PERSONAL.UTILITIES"), counterparty="WE Internet")
-        tx.record_outflow(f"{m}-24", cib, "480", cat("EXP.PERSONAL.UTILITIES"), counterparty="North Cairo Electricity")
-        return salary_txn
-
-    # 11 · October: an ordinary month settles itself.
-    day = on("2026-10-31")
-    month("2026-10")
-    c.planning.match_payments(day)
-    seen["october_due"] = [p for p in c.planning.all_payments(day, day) if p.status.name == "DUE"]
-
-    # 12 · An ATM withdrawal with a fee.
-    before = c.position.at(day).net_worth
-    tx.record_transfer("2026-10-10", cib, wallet, "2,000")
-    tx.record_outflow("2026-10-10", cib, "25", cat("EXP.PERSONAL.FEES"), counterparty="CIB")
-    seen["atm_net_worth_change"] = c.position.at(day).net_worth - before
-
-    # 13 · August's Amazon purchase is returned in October.
-    tx.record_refund("2026-10-15", cib, "1,299", cat("EXP.PERSONAL.SHOPPING"), counterparty="Amazon")
-    shopping = cat("EXP.PERSONAL.SHOPPING")
-    seen["shopping_august"] = c.reporting.money_out_by_category("2026-08-01", "2026-08-31").get(shopping, D(0))
-    seen["shopping_october"] = c.reporting.money_out_by_category("2026-10-01", "2026-10-31").get(shopping, D(0))
-
-    # 14 · A car repair paid from the emergency fund.
-    before = c.position.at(day)
-    repair = tx.record_outflow("2026-10-18", cib, "6,500", cat("EXP.PERSONAL.TRANSPORT"), counterparty="Al Mansour Service")
-    emergency = next(r for r in c.reserves.list_active() if r["kind"] == "EMERGENCY")
-    c.reserves.set_expense_link(emergency["id"], repair.id, "6,500")
-    after = c.position.at(day)
-    seen["repair"] = (after.reserves, after.free_cash - before.free_cash, after.cash_you_own - before.cash_you_own)
-
-    # 15 · November: a COMI dividend.
-    day = on("2026-11-30")
-    month("2026-11")
-    comi = c.assets.get_asset_by_code("STK:COMI")
-    c.investments.dividend("2026-11-20", thndr, comi.id, "300")
-    c.planning.match_payments(day)
-    seen["november_money_in"] = {r.code: r.value for r in c.reporting.money_in_by_category("2026-11-01", "2026-11-30")}
-
-    # 16-18 · December: a reimbursed work expense, a 90,000 bonus, January's pay on the 24th.
-    day = on("2026-12-31")
-    month("2026-12")
-    tx.record_outflow("2026-12-10", cib, "1,200", cat("EXP.WORK.TRANSPORT"), counterparty="Uber")
-    tx.record_refund("2026-12-22", cib, "1,200", cat("EXP.WORK.TRANSPORT"), counterparty="ACME Egypt")
-    tx.record_inflow("2026-12-20", cib, "90,000", cat("EXP.WORK.BONUS"), counterparty="ACME Egypt")
-    early_salary = tx.record_inflow("2026-12-24", cib, "45,000", cat("EXP.WORK.SALARY"), counterparty="ACME Egypt")
-    c.planning.match_payments(day)
-    seen["december_work_spending"] = c.reporting.cash_flow("2026-12-01", "2026-12-31").work_outflows
-    january_salary = payment("ACME Egypt", "2027-01-01")
-    seen["january_salary_candidates"] = [row["id"] for row in c.planning.plausible_candidates(january_salary, day)]
-    seen["january_salary_transaction"] = early_salary.id
-    c.planning.mark_paid(january_salary.item.id, "2027-01-01", early_salary.id)
-    seen["average_for_january"] = c.budgets.income_average("2027-01").amount
-
-    # January: no salary arrives (it came early); he plans the car insurance.
-    day = on("2027-01-31")
-    month("2027-01", salary=None)
-    c.planning.match_payments(day)
-    seen["january_salary"] = payment("ACME Egypt", "2027-01-01").status.name
-    seen["january_forecast_income"] = c.forecaster.forecast(day).months[0].income
-    seen["average_for_february"] = c.budgets.income_average("2027-02").amount
-    insurance = c.reserves.create("Car insurance", "9,000", due_date="2027-04-30")
-    seen["insurance_saving"] = c.forecaster.forecast(day).months[0].goal_saving
-
-    # 20 · February: the raise.
-    day = on("2027-02-28")
-    february_txn = month("2027-02", salary="50,000")
-    february_salary = payment("ACME Egypt", "2027-02-01")
-    seen["raise_candidates_before_confirmation"] = [
-        row["id"] for row in c.planning.plausible_candidates(february_salary, day)
-    ]
-    seen["raise_transaction"] = february_txn.id
-    seen["raise_status_before_confirmation"] = february_salary.status.name
-    c.planning.mark_paid(february_salary.item.id, "2027-02-01", february_txn.id)
-    c.planning.set_amount(item("ACME Egypt").id, "50,000")  # the popup's "plan later payments at this amount"
-    c.planning.match_payments(day)
-    seen["raise"] = (payment("ACME Egypt", "2027-02-01").status.name, payment("ACME Egypt", "2027-03-01").amount,
-                     payment("ACME Egypt", "2026-12-01").paid_amount)
-
-    # 21-22 · March: Eid gifts; a phone on 12 installments from 15 April.
-    day = on("2027-03-31")
-    month("2027-03", salary="50,000")
-    c.planning.match_payments(day)
-    tx.record_outflow("2027-03-09", wallet, "3,000", cat("EXP.PERSONAL.GIFTS"), counterparty="Eidiya")
-    tx.record_inflow("2027-03-10", wallet, "1,000", cat("EXP.PERSONAL.GIFTS_RECEIVED"), counterparty="Uncle Hassan")
-    owed = c.position.at(day).what_you_owe
-    c.planning.create(kind="LOAN", name="Phone installments", amount="2,000", frequency="MONTHLY", interval_count="1",
-                      start_date="2027-04-15", payment_count="12", principal="24,000", account_id=str(cib),
-                      category_id=str(cat("EXP.SYSTEM.LOANS")), counterparty_id="")
-    seen["phone_owed"] = c.position.at(day).what_you_owe - owed
-    seen["average_for_april"] = c.budgets.income_average("2027-04").amount
-
-    # 19, 23 · April: the insurance is paid from its goal; half the COMI shares are sold.
-    day = on("2027-04-30")
-    month("2027-04", salary="50,000")
-    seen["insurance_assigned_before_paying"] = next(
-        r for r in c.reserves.list_active() if r["id"] == insurance["id"])["effective_allocated"]
-    c.reserves.allocate(insurance["id"], "9,000")
-    paid = tx.record_outflow("2027-04-25", cib, "9,000", cat("EXP.PERSONAL.TRANSPORT"), counterparty="Misr Insurance")
-    c.reserves.set_expense_link(insurance["id"], paid.id, "9,000")
-    c.assets.set_price(comi.id, "2027-04-20", "95")
-    c.investments.sell_total("2027-04-20", thndr, comi.id, "75", "7,100", fees="25")
-    tx.record_transfer("2027-04-21", thndr, cib, "7,100")
-    c.planning.match_payments(day)
-    seen["comi_left"] = c.investments.holding(thndr, comi.id, "2027-04-30")
-    seen["april_money_in"] = {r.code: r.value for r in c.reporting.money_in_by_category("2027-04-01", "2027-04-30")}
-    seen["april_phone"] = payment("Phone installments", "2027-04-15").status.name
-
-    # 24 · May as usual; the rent goes up 10% in June.
-    day = on("2027-05-31")
-    month("2027-05", salary="50,000")
-    c.planning.match_payments(day)
-    day = on("2027-06-30")
-    month("2027-06", salary="50,000", rent="13,200")
-    c.planning.match_payments(day)
-    seen["june_rent"] = payment("Landlord", "2027-06-03").status.name
-    c.planning.set_amount(item("Landlord").id, "13,200")
-    seen["july_rent_planned"] = payment("Landlord", "2027-07-03").amount
-
-    # 25 · July: the Sahel trip is set aside, and spent in August.
-    day = on("2027-07-31")
-    month("2027-07", salary="50,000", rent="13,200")
-    c.planning.match_payments(day)
-    trip = c.reserves.create("Sahel trip", "15,000", due_date="2027-08-15")
-    c.reserves.allocate(trip["id"], "15,000")
-
-    # 26 · August: the trip, then Omar leaves ACME with a 30,000 end-of-service payment.
-    day = on("2027-08-31")
-    month("2027-08", salary="50,000", rent="13,200")
-    c.planning.match_payments(day)
-    spent = tx.record_outflow("2027-08-12", cib, "14,200", cat("EXP.PERSONAL.TRAVEL"), counterparty="Hacienda Bay")
-    c.reserves.set_expense_link(trip["id"], spent.id, "14,200")
-    seen["trip_left"] = next(r for r in c.reserves.list_active() if r["id"] == trip["id"])["effective_allocated"]
-    tx.record_inflow("2027-08-31", cib, "30,000", cat("EXP.WORK.BONUS"), counterparty="ACME Egypt", notes="End of service")
-    seen["average_for_september"] = c.budgets.income_average("2027-09").amount
-    c.planning.remove(item("ACME Egypt").id)
-    c.planning.create(kind="INCOME", name="Valeo", amount="55,000", frequency="MONTHLY", interval_count="1",
-                      start_date="2027-10-01", account_id=str(cib), category_id=str(cat("EXP.WORK.SALARY")),
-                      counterparty_id="")
-
-    # 27 · September: between jobs.
-    day = on("2027-09-30")
-    month("2027-09", salary=None, rent="13,200")
-    c.planning.match_payments(day)
-    forecast = c.forecaster.forecast(day)
-    seen["gap"] = (forecast.next_income_date, forecast.months[1].income)
-    seen["average_for_october"] = c.budgets.income_average("2027-10").amount
-
-    # 28 · The year.
-    seen["year_cash_flow"] = c.reporting.cash_flow("2026-10-01", "2027-09-30")
-    seen["year_change_in_what_you_own"] = c.position.change_in_what_you_own("2026-10-01", "2027-09-30")[0]
-    seen["year_position"] = c.position.at(day)
-    seen["year_checks"] = {check.status for check in c.integrity.checks("2027-09-30")}
-    seen["still_due"] = [p for p in c.planning.all_payments(day, day) if p.status.name == "DUE"]
-    return seen
+            rows.append((15, "CIB Payroll", "valU", "Loan payments", "-2,000"))
+        for day, account, party, category, amount in rows:
+            if amount and party not in skip:
+                self.enter(account, f"{m}-{day:02d}", party, category, amount)
 
 
-def test_11_an_ordinary_month_settles_itself(year):
-    assert year["october_due"] == []
+# ------------------------------------------------------------------ the year
+
+def _statement() -> bytes:
+    """Three months of CIB, as the bank exports it: one signed amount column."""
+    rows = []
+    for m, groceries, seoudi, talabat in (("07", "3,180.40", "1,388.10", "540.25"), ("08", "3,310.20", "1,452.60", "412.00"),
+                                         ("09", "3,250.75", "1,420.40", "468.50")):
+        rows += [(f"01/{m}/2026", "ACME EGYPT PAYROLL", "45,000.00"), (f"02/{m}/2026", "CARREFOUR MAADI", f"-{groceries}"),
+                 (f"03/{m}/2026", "TRANSFER TO LANDLORD", "-12,000.00"), (f"05/{m}/2026", "ATM WITHDRAWAL", "-3,000.00"),
+                 (f"05/{m}/2026", "TOYOTA FINANCE", "-2,500.00"), (f"07/{m}/2026", "VODAFONE CASH TOPUP", "-1,000.00"),
+                 (f"10/{m}/2026", "TALABAT", f"-{talabat}"), (f"15/{m}/2026", "NBE CD INTEREST", "1,833.33"),
+                 (f"20/{m}/2026", "WE INTERNET", "-650.00"), (f"22/{m}/2026", "SEOUDI MARKET", f"-{seoudi}"),
+                 (f"24/{m}/2026", "NORTH CAIRO ELECTRICITY", "-480.00"), (f"25/{m}/2026", "INSTAPAY MOM", "-2,000.00"),
+                 (f"28/{m}/2026", "CIB MONTHLY FEE", "-15.00")]
+    rows += [("10/08/2026", "INSTAPAY FROM MOM", "10,000.00"), ("11/08/2026", "TRANSFER TO THNDR", "-20,000.00"),
+             ("18/08/2026", "AMAZON.EG", "-1,299.00"), ("14/09/2026", "L AZURDE", "-18,450.00")]
+    return ("Date,Description,Amount\n" + "\n".join(f'{d},{t},"{a}"' for d, t, a in rows) + "\n").encode()
 
 
-def test_12_an_atm_withdrawal_costs_only_its_fee(year):
-    assert year["atm_net_worth_change"] == D("-25")
+# What Omar answers for each imported name: (counterparty, category, transfer to, held for). None = skip.
+IMPORT_DECISIONS = {
+    "ACME EGYPT PAYROLL": ("ACME Egypt", "Salary", None, None),
+    "CARREFOUR MAADI": ("Carrefour", "Food & Groceries", None, None),
+    "TRANSFER TO LANDLORD": ("Landlord", "Housing & Rent", None, None),
+    "ATM WITHDRAWAL": ("", None, "Cash wallet", None),
+    "TOYOTA FINANCE": ("Toyota Finance", "Loan payments", None, None),
+    "VODAFONE CASH TOPUP": ("", None, "Vodafone Cash", None),
+    "TALABAT": ("Talabat", "Eating Out", None, None),
+    "NBE CD INTEREST": ("NBE", "Interest", None, None),
+    "WE INTERNET": ("WE Internet", "Utilities & Bills", None, None),
+    "SEOUDI MARKET": ("Seoudi", "Food & Groceries", None, None),
+    "NORTH CAIRO ELECTRICITY": ("North Cairo Electricity", "Utilities & Bills", None, None),
+    "INSTAPAY MOM": ("Mom", "Gifts & Donations", None, None),
+    "CIB MONTHLY FEE": ("CIB", "Fees & Charges", None, None),
+    "INSTAPAY FROM MOM": ("Mom", "Money Held for Others", None, "Mom"),
+    "TRANSFER TO THNDR": ("", None, "THNDR", None),
+    "AMAZON.EG": ("Amazon", "Shopping", None, None),
+    "L AZURDE": None,  # the ring: he records it from Gold at home instead, so it is not counted twice
+}
 
 
-def test_13_a_refund_reduces_shopping_in_the_month_it_arrives(year):
-    assert year["shopping_august"] == D("1299")
-    assert year["shopping_october"] == D("-1299")  # the refund's own month, not August's
+def _first_evening(o: Omar) -> None:
+    """30 September 2026: an empty Lightning, the last three months set up."""
+    b = o.b
+    o.on("2026-09-30")
+    o.ask("start", "I have nothing in here yet. Where do I start?")
+
+    b.go("Bank")
+    # CIB holds the 100,000 he puts into the NBE certificate on 1 July (a CD portfolio holds no cash).
+    b.submit({"name": "CIB Payroll", "opening_balance": "138,500", "opening_balance_date": "1/7"}, button="Add account")
+    for name, kind, balance, *bank in (("Cash wallet", "Cash wallet", "2,000"), ("Vodafone Cash", "Cash wallet", "1,200"),
+                                ("THNDR", "Brokerage", "0"), ("NBE 3-year certificate", "Certificates of deposit", "0", "NBE"),
+                                ("Gold at home", "Physical asset", "0")):
+        o.account(name, kind, balance, bank=bank[0] if bank else "")
+    b.go("NBE 3-year certificate", "View CDs")
+    o.notes["cd_purchase"] = b.submit({
+        "name": "NBE 3-year certificate · 22%", "start_date": "1/7", "principal": "100,000",
+        "funding_account_id": Choose("CIB Payroll"), "annual_rate": "22", "interest_method": Choose("Simple"),
+        "lockup_end_date": "2027-07-01", "maturity_date": "2029-07-01", "payout_frequency": Choose("Monthly"),
+        "destination_account_id": Choose("CIB Payroll")}, button="Record CD purchase")
+    o.ask("accounts", "Are all six accounts in, with the right balances?", "Manage accounts")
+    o.ask("opening", "I typed 1/7. Did the starting balances go in on 1 July?", "Vodafone Cash")
+
+    # Three months of CIB from the bank's CSV.
+    b.go("CIB Payroll", "Import CSV")
+    b.submit({}, button="Review statement", files={"file": ("cib-jul-sep.csv", _statement(), "text/csv")})
+    b.submit({"map_Date": Choose("Date"), "map_Amount": Choose("Amount"), "map_Counterparty": Choose("Description")},
+             button="Preview rows")
+    review = b.page.form("Post ready rows")
+    answers, named = {}, set()
+    for row in sorted({int(k.rsplit("_", 1)[1]) for k in review.fields if k.startswith("notes_")}):
+        decision = IMPORT_DECISIONS[review.fields[f"notes_{row}"]]
+        if decision is None:
+            answers[f"skip_{row}"] = TICK
+            continue
+        party, category, transfer_to, held_for = decision
+        answers[f"counterparty_{row}"] = party
+        if party and party not in named:
+            answers[f"counterparty_choice_{row}"] = "new"
+            named.add(party)
+        if transfer_to:
+            answers[f"transfer_account_id_{row}"] = Choose(transfer_to)
+        if category:
+            answers[f"category_{row}"] = Choose(category)
+        if held_for:
+            answers[f"whom_{row}"] = held_for
+    o.notes["import"] = b.submit(answers, button="Post ready rows")
+
+    # THNDR: two shares with their fees, then a money market fund he adds himself.
+    o.trade("buy", "11/8", "COMI", units="150", total="12,150", fees="35")
+    o.trade("buy", "11/8", "FWRY", units="500", total="4,450", fees="18")
+    b.go("Settings", "Valuations", "Add an investment to the catalogue")  # funds outside the catalogue
+    o.notes["new_fund"] = b.submit({"name": "Azimut money market fund", "class_code": Choose("Money Market"),
+                                   "symbol": "AZMM"}, button="Save")
+    o.trade("buy", "1/9", "Azimut", total="3,000", unit_price="120")
+
+    # Gold: the ring he paid for by card, and his grandmother's gold pound.
+    screen = o.gold_piece("L'Azurde ring", "Ring", "4.3")
+    b.submit({"action": Choose("Record purchase"), "date": "14/9", "total": "18,450", "workmanship": "1,950",
+              "cash_account_id": Choose("CIB Payroll"), "notes": "Birthday ring"},
+             action=screen.action_after("L'Azurde ring", "/trade"))
+    screen = o.gold_piece("Gold pound (from grandma)", "Coin", "8")
+    b.submit({"action": Choose("Add existing holding"), "date": "1/7", "total": "29,000", "notes": "Inherited"},
+             action=screen.action_after("Gold pound (from grandma)", "/trade"))
+
+    # Cash and Vodafone Cash never reach a statement: he types them in.
+    for month, koshary, microbus in (("7", "180", "60"), ("8", "210", "75"), ("9", "165", "90")):
+        o.enter("Cash wallet", f"16/{month}", "Koshary El Tahrir", "Eating Out", f"-{koshary}")
+        o.enter("Cash wallet", f"12/{month}", "Microbus", "Personal › Transportation", f"-{microbus}")
+        o.enter("Vodafone Cash", f"9/{month}", "Vodafone", "Utilities & Bills", "-350")
+
+    for when, typed in (("31/7", {"21K gold": "3,900"}),
+                        ("31/8", {"Commercial International": "84.20", "Fawry": "9.10", "21K gold": "4,200"}),
+                        ("30/9", {"Commercial International": "86.50", "Fawry": "9.40", "Azimut": "121.30",
+                                  "21K gold": "4,650"})):
+        o.prices(when, typed)
+
+    o.ask("position", "How much do I have, and how much of it is really mine?")
+    o.ask("moms_money", "How much of Mom's money am I holding?", "Held for others")
+
+    # The plan: a budget from his own spending, an emergency fund, his bills and the car loan.
+    b.go("Set a plan for 2026-09")
+    b.submit({}, button="Create plan")
+    b.go("Cash planning", "Reserves")
+    b.submit({"allocated": "20,000"}, action="/reserves/emergency")
+    for name in ("ACME Egypt", "Landlord", "WE Internet", "North Cairo Electricity"):
+        o.track(name)
+    o.add_loan("Car loan", "Toyota Finance", "2,500", "2026-07-05", "24", "60,000")
+
+    o.ask("owe", "What do I owe, and when is the car paid off?", "Loans still to pay")
+    o.ask("safe", "How much can I spend before payday?", "Cash planning")
+    o.ask("free_cash", "Why is my free cash lower than what I have?")
+    o.ask("where", "Where did my money go in September?", "Expense analysis")
+    o.ask("plan", "Am I sticking to my plan?", "Budget")
+    o.ask("investing", "How are my investments doing?", "Investments")
+    o.ask("checks", "Is my data right?", "Settings", "Data checks")
 
 
-def test_14_a_repair_from_the_emergency_fund_leaves_free_cash_alone(year):
-    reserves, free_cash_change, cash_change = year["repair"]
-    assert reserves == D("13500")
-    assert free_cash_change == 0
-    assert cash_change == D("-6500")
+def _live_the_year(o: Omar) -> None:
+    b = o.b
+    _first_evening(o)
+
+    # ============================================================== October: the first live month
+    o.on("2026-10-06")
+    o.ask("needs_you", "It's the 6th. What needs me today?")
+    before = o.answers["needs_you"].figure("What you own")
+    o.receive_salary("ACME Egypt")
+    o.pay_from_overview("Landlord")
+    o.pay_from_overview("Car loan")
+    o.ask("paid_from_overview", "Did paying from the Overview move my money?")
+    o.notes["what_you_own_before_paying"] = before
+
+    o.on("2026-10-31")
+    o.month("2026-10", skip=("ACME Egypt", "Landlord", "Toyota Finance"))   # those three went in from the popups
+    o.enter("CIB Payroll", "2026-10-10", "Talabat", "Eating Out", "-480")      # the same order typed twice
+    o.delete_newest("CIB Payroll", "Talabat")
+    o.enter("CIB Payroll", "2026-10-26", "Carrefour", "Food & Groceries", "-4,600")  # meant 4,060
+    o.fix_amount("CIB Payroll", "Carrefour", "-4,060")
+    o.enter("CIB Payroll", "2026-10-10", "Cash wallet", "", "-2,000")          # ATM
+    o.enter("CIB Payroll", "2026-10-10", "CIB", "Fees & Charges", "-25")      # and its fee
+    o.enter("CIB Payroll", "2026-10-15", "Amazon", "Shopping", "1,299")        # August's purchase returned
+    o.enter("CIB Payroll", "2026-10-18", "Al Mansour Service", "Personal › Transportation", "-6,500")
+    o.to_reserve("CIB Payroll", "Al Mansour Service", "Emergency Fund")                         # paid from the emergency fund
+
+    o.ask("atm", "What did the ATM withdrawal cost me in October?", "Expense analysis")
+    o.ask("refund", "Amazon refunded me. Did my spending go down?", "Expense analysis")
+    o.ask("emergency", "After the repair, how much is left in my emergency fund?", "Cash planning", "Reserves")
+    o.ask("fixed", "Is the Carrefour mistake fixed, and the double Talabat gone?", "CIB Payroll")
+    statement_balance = o.answers["fixed"].figure("In this account")
+    o.ask("reconcile", "Does Lightning match my bank statement?", "CIB Payroll", "Reconcile")
+    screen = b.submit({"balance": str(statement_balance)}, button="Compare")
+    o.notes["reconcile_lines"] = 0
+    while any(button[0] == "Clear" for form in screen.forms for button in form.buttons):  # one line at a time
+        assert o.notes["reconcile_lines"] < 200, "Clearing lines does not end"
+        screen = b.submit({"balance": str(statement_balance)}, button="Clear", page=screen)
+        o.notes["reconcile_lines"] += 1
+    o.answers["reconcile"].screen = screen
+
+    # ============================================================== November: a dividend
+    o.on("2026-11-30")
+    o.month("2026-11")
+    o.trade("dividend", "2026-11-20", "COMI", total="300")
+    o.ask("dividend", "Did my shares pay me anything this month?", "Investments", "See them")
+
+    # ============================================================== December: bonus, reimbursement, early pay
+    o.on("2026-12-31")
+    o.month("2026-12")
+    o.enter("CIB Payroll", "2026-12-10", "Uber", "Work › Transportation", "-1,200")
+    o.enter("CIB Payroll", "2026-12-22", "ACME Egypt", "Work › Transportation", "1,200")
+    o.enter("CIB Payroll", "2026-12-20", "ACME Egypt", "Bonus", "90,000")
+    o.enter("CIB Payroll", "2026-12-24", "ACME Egypt", "Salary", "45,000", notes="January salary, paid early")
+    o.ask("work", "Did ACME pay back my work Uber?", "Expense analysis")
+    o.ask("bonus", "Where did my bonus go?")
+
+    # ============================================================== January: no pay arrives; a yearly bill
+    o.on("2027-01-31")
+    o.month("2027-01", salary=None)
+    o.ask("january_pay", "January's salary came early. Does Lightning know?", "Cash planning", "Recurring")
+    o.settle_due_income("ACME Egypt")   # he confirms the 24 December payment it suggests
+    o.ask("january_pay_after", "And after I confirm it?", "Cash planning", "Recurring")
+    o.ask("bonus_budget", "Does the bonus change what I can budget?", "Cash planning", "Reserves")
+    b.go("Cash planning", "Reserves")
+    b.submit({"name": "Car insurance", "target": "9,000", "due_date": "2027-04-30"}, button="Add reserve")
+    o.ask("set_aside", "How much should I put aside each month for the insurance?", "Cash planning")
+
+    # ============================================================== February: the raise
+    o.on("2027-02-28")
+    o.month("2027-02", salary="50,000")
+    o.ask("raise", "Was my raise received, and does the plan know?", "Cash planning", "Recurring")
+    o.settle_due_income("ACME Egypt")   # he confirms the 50,000 it suggests
+    o.notes["raise_offered"] = b.go("Cash planning", "Recurring").shows("Use 50,000.00 from now on")
+    b.submit({}, button="Use 50,000.00 from now on")
+    o.ask("raise_after", "Is the plan at 50,000 now?", "Cash planning", "Recurring")
+
+    # ============================================================== March: Eid, and a phone on installments
+    o.on("2027-03-31")
+    o.month("2027-03", salary="50,000")
+    o.enter("Cash wallet", "2027-03-09", "Eidiya", "Gifts & Donations", "-3,000")
+    o.enter("Cash wallet", "2027-03-10", "Uncle Hassan", "Gifts Received", "1,000")
+    o.add_loan("Phone installments", "valU", "2,000", "2027-04-15", "12", "24,000")
+    o.ask("owe_more", "With the phone, what do I owe now?", "Loans still to pay")
+    o.ask("eid", "What did Eid cost me?", "Expense analysis")
+
+    # ============================================================== April: the insurance, and selling COMI
+    o.on("2027-04-30")
+    o.month("2027-04", salary="50,000")
+    screen = b.go("Cash planning", "Reserves")
+    b.submit({"allocated": "9,000"}, action=screen.action_after("Car insurance", "/allocate"))
+    o.enter("CIB Payroll", "2027-04-25", "Misr Insurance", "Personal › Transportation", "-9,000")
+    o.to_reserve("CIB Payroll", "Misr Insurance", "Car insurance")
+    o.prices("2027-04-20", {"Commercial International": "95"})
+    o.trade("sell", "2027-04-20", "COMI", units="75", total="7,100", fees="25")
+    o.enter("THNDR", "2027-04-21", "CIB Payroll", "", "-7,100")
+    o.ask("sale", "What did I make on the COMI I sold?", "Investments", "Commercial International Bank")
+    o.ask("insurance", "Is the insurance paid from its goal?", "Cash planning", "Reserves")
+
+    # ============================================================== May and June: the rent goes up
+    o.on("2027-05-31")
+    o.month("2027-05", salary="50,000")
+    o.on("2027-06-30")
+    o.month("2027-06", salary="50,000", rent="13,200")
+    o.ask("rent", "My rent went up to 13,200. Does the plan know?", "Cash planning", "Recurring")
+    if b.page.shows("Use 13,200.00 from now on"):
+        b.submit({}, button="Use 13,200.00 from now on")
+    o.ask("rent_after", "And now?", "Cash planning", "Recurring")
+
+    # ============================================================== July and August: Sahel, and a new job
+    o.on("2027-07-31")
+    o.month("2027-07", salary="50,000", rent="13,200")
+    b.go("Cash planning", "Reserves")
+    b.submit({"name": "Sahel trip", "target": "15,000", "due_date": "2027-08-15", "allocated": "15,000"},
+             button="Add reserve")
+    o.on("2027-08-31")
+    o.month("2027-08", salary="50,000", rent="13,200")
+    o.enter("CIB Payroll", "2027-08-12", "Hacienda Bay", "Personal › Travel", "-14,200")
+    o.to_reserve("CIB Payroll", "Hacienda Bay", "Sahel trip")
+    o.ask("trip", "How much is left from the Sahel money?", "Cash planning", "Reserves")
+    o.enter("CIB Payroll", "2027-08-31", "ACME Egypt", "Bonus", "30,000", notes="End of service")
+    o.ask("end_of_service", "Does my end-of-service money change what I can budget?", "Cash planning", "Reserves")
+    b.go("Cash planning", "Recurring", "ACME Egypt")
+    b.submit({}, button="Stop")
+    b.go("Cash planning", "Recurring", "Add recurring item")
+    b.open(b.page.path.replace("kind=BILL", "kind=INCOME"))  # choosing Income reloads the form with income categories
+    b.submit({"name": "Valeo", "amount": "55,000", "start_date": "2027-10-01",
+              "account_id": Choose("CIB Payroll"), "category_id": Choose("Salary"), "counterparty": "Valeo"},
+             button="Add")
+
+    # ============================================================== September: between jobs
+    o.on("2027-09-30")
+    o.month("2027-09", salary=None, rent="13,200")
+    o.ask("next_pay", "I'm between jobs. When is my next pay?", "Cash planning")
+    o.ask("last", "How long could my emergency fund carry me?", "Cash planning", "Reserves")
+
+    # ============================================================== the year
+    for key, question, page in (("year", "How did my year go?", ""),
+                                ("year_spending", "Where did the year's money go?", "Expense analysis"),
+                                ("year_investing", "How did my investments do this year?", "Investments")):
+        screen = o.period(page, "2026-10-01", "2027-09-30")
+        o.answers[key] = Answer(question, list(b.trail) + ["Custom 2026-10-01 to 2027-09-30"], screen)
+    o.ask("year_checks", "Is everything still right after a year?", "Settings", "Data checks")
 
 
-def test_15_a_dividend_is_investment_income_not_pay(year):
-    assert year["november_money_in"] == {"EXP.WORK.SALARY": D("45000"), "EXP.INVEST.DIVIDEND": D("300")}
+@pytest.fixture(scope="module")
+def omar(tmp_path_factory):
+    pinned = os.environ.get("LIGHTNING_TODAY")
+    with pytest.MonkeyPatch.context() as patch:
+        # Records are stamped with the day Omar made them, not the day the test runs.
+        patch.setattr(dates, "_local_now", lambda: datetime.combine(dates.today(), time(12), timezone.utc))
+        c = build(tmp_path_factory.mktemp("omar") / "omar.db")
+        try:
+            person = Omar(c)
+            _live_the_year(person)
+            yield person
+        finally:
+            c.db.close()
+            os.environ["LIGHTNING_TODAY"] = pinned or ""
 
 
-def test_16_a_reimbursed_work_expense_nets_to_zero(year):
-    assert year["december_work_spending"] == 0
+# ------------------------------------------------------------------ what Omar found, question by question
+# Each test: the route from the Overview, then what the page told him.
+
+def route(omar, key):
+    """The pages he went through, without the period each one remembered in its address."""
+    return [step.split("?")[0] for step in omar.answers[key].trail]
 
 
-def test_17_a_bonus_does_not_change_average_monthly_income(year):
-    assert year["average_for_january"] == D("45000")  # today 90,000
+def test_an_empty_lightning_says_where_to_start(omar):
+    answer = omar.answers["start"]
+    assert route(omar, "start") == ["/"]
+    assert answer.shows("Where do you keep your money?", "Bank", "Brokerage", "Physical asset")
 
 
-def test_18_an_early_payday_settles_next_months_salary(year):
-    assert year["january_salary_transaction"] in year["january_salary_candidates"]
-    assert year["january_salary"] == "PAID"
-    assert year["january_forecast_income"] == 0  # today the forecast expects 45,000 again
-    assert year["average_for_february"] == D("45000")  # today 112,500
+def test_six_accounts_with_their_balances(omar):
+    answer = omar.answers["accounts"]
+    assert route(omar, "accounts") == ["/", "/accounts"]
+    assert answer.figure("Total balance") == D("141700")
+    for name in ("CIB Payroll", "Cash wallet", "Vodafone Cash", "THNDR", "NBE 3-year certificate", "Gold at home"):
+        assert answer.shows(name)
 
 
-def test_19_a_yearly_bill_is_spread_over_the_months_left(year):
-    assert year["insurance_saving"] == D("2250")
+def test_dates_typed_as_day_and_month_become_full_dates(omar):
+    assert omar.answers["opening"].shows("2026-07-01")
 
 
-def test_19_saving_for_a_goal_assigns_no_cash_until_he_does(year):
-    assert year["insurance_assigned_before_paying"] == 0
+def test_the_import_posts_what_he_decided_and_skips_the_card_payment(omar):
+    assert omar.notes["import"].shows("42 posted · 1 skipped · 0 duplicates")
 
 
-def test_20_a_raise_requires_confirmation_and_only_changes_later_plan_on_choice(year):
-    assert year["raise_transaction"] in year["raise_candidates_before_confirmation"]
-    assert year["raise_status_before_confirmation"] == "DUE"
+def test_what_he_owns_leaves_out_moms_money(omar):
+    position = omar.answers["position"]
+    assert route(omar, "position") == ["/"]
+    assert position.shows("Excludes money held for others")
+    assert position.figure("What you own Excludes money held for others") == D("250565")  # reports show whole pounds
+    assert position.figure("Gold") == D("57195")  # 8 g + 4.3 g of 21K at 4,650
+    moms = omar.answers["moms_money"]
+    assert route(omar, "moms_money") == ["/", "/money-from-others"]
+    assert moms.shows("Mom CIB Payroll 10,000.00")
 
 
-def test_20_after_linking_the_raise_later_payments_follow_and_history_stays(year):
-    assert year["raise"] == ("PAID", D("50000"), D("45000"))
+def test_what_he_owes_and_when_the_car_is_paid_off(omar):
+    answer = omar.answers["owe"]
+    assert route(omar, "owe") == ["/", "/plan/loans"]
+    assert answer.figure("Loans still to pay") == D("52500")
+    assert answer.shows("Paid off on 2028-06-05", "3 of 24 payments made")
 
 
-def test_21_eid_gifts_do_not_change_pay(year):
-    assert year["average_for_april"] == D("48333.33")
+def test_safe_to_spend_until_payday(omar):
+    answer = omar.answers["safe"]
+    assert route(omar, "safe") == ["/", "/plan"]
+    assert answer.figure("Safe to spend until 2026-10-01") == D("51354")
 
 
-def test_22_installments_are_owed_and_settle_monthly(year):
-    assert year["phone_owed"] == D("24000")
-    assert year["april_phone"] == "PAID"
+def test_free_cash_shows_what_was_taken_off(omar):
+    answer = omar.answers["free_cash"]
+    assert answer.shows("Cash you own 72,663 Reserves −20,000 Emergency fund 20,000")
+    assert answer.figure("Free cash After reserves and bills due Cash planning") == D("52663")
 
 
-def test_23_a_sale_and_moving_the_cash_home_are_not_income(year):
-    assert year["comi_left"] == D("75")
-    assert year["april_money_in"] == {"EXP.WORK.SALARY": D("50000")}
+def test_september_spending_by_category(omar):
+    answer = omar.answers["where"]
+    assert route(omar, "where") == ["/", "/birdview/expenses"]
+    assert answer.shows("Money out 23,390 EGP Against 2026-08 −1,364", "Housing & Rent 12,000 · 51%")
 
 
-def test_24_a_rent_rise_inside_the_tolerance_is_strictly_matched(year):
-    assert year["june_rent"] == "PAID"
+def test_the_budget_says_what_is_over(omar):
+    answer = omar.answers["plan"]
+    assert route(omar, "plan") == ["/", "/budget"]
+    assert answer.shows("Categories over plan 2 Transportation, Food & Groceries")
 
 
-def test_24_the_plan_follows_the_new_rent_only_after_omar_chooses_it(year):
-    assert year["july_rent_planned"] == D("13200")
+def test_investments_lead_with_the_periods_result(omar):
+    answer = omar.answers["investing"]
+    assert route(omar, "investing") == ["/", "/investments"]
+    assert answer.shows("Net gain or loss 2026-09 +5,673")
 
 
-def test_25_a_trip_paid_from_its_goal_leaves_the_rest(year):
-    assert year["trip_left"] == D("800")
+def test_data_checks_pass_after_setup(omar):
+    assert route(omar, "checks") == ["/", "/settings", "/checks"]
+    assert omar.answers["checks"].shows("Passed 8 Needs attention 0")
 
 
-def test_26_end_of_service_does_not_change_average_monthly_income(year):
-    assert year["average_for_september"] == D("50000")  # Bonus is irregular income, so it is not averaged
+def test_adding_an_investment_confirms_it_by_name(omar):
+    message = omar.notes["new_fund"].text
+    assert "Azimut money market fund" in message and "FND:AZMM" not in message
 
 
-def test_27_between_jobs_the_next_income_is_the_new_employer(year):
-    assert year["gap"] == ("2027-10-01", D("55000"))
+def test_needs_you_lists_the_bills_that_are_due(omar):
+    answer = omar.answers["needs_you"]
+    assert answer.shows("Bill due: Landlord", "Loan payment due: Car loan")
 
 
-def test_27_a_month_without_pay_does_not_raise_average_monthly_income(year):
-    assert year["average_for_october"] <= D("50000")
+def test_paying_from_the_overview_moves_net_worth_only_by_the_salary(omar):
+    before = omar.answers["needs_you"].figure("Net worth Excludes money held for others")
+    after = omar.answers["paid_from_overview"].figure("Net worth Excludes money held for others")
+    assert after - before == D("45000")  # rent and the loan were already owed
+    assert omar.answers["paid_from_overview"].shows("Nothing needs you today")
 
 
-def test_28_the_year_adds_up(year):
-    flow = year["year_cash_flow"]
-    assert (flow.inflows, flow.outflows) == (D("651300"), D("295186"))
-    assert year["year_change_in_what_you_own"] == D("357364")
-    position = year["year_position"]
-    assert position.net_worth == position.what_you_own - position.what_you_owe
-    assert position.loans_still_to_pay == D("34500")  # 9 car-loan and 6 phone payments left
-    assert year["year_checks"] == {"PASS"}
-    assert year["still_due"] == []
+def test_a_mistake_is_fixed_in_place_and_a_double_entry_deleted(omar):
+    register = omar.answers["fixed"]
+    assert register.shows("2026-10-26 Carrefour Food & Groceries −4,060.00")
+    assert "−4,600.00" not in register.screen.text
+    assert register.screen.text.count("2026-10-10 Talabat") == 1
+
+
+def test_the_atm_fee_is_only_inside_others(omar):
+    # Only the five biggest categories are named; the fees (the monthly 15 and the ATM's 25) are in Others.
+    assert omar.answers["atm"].shows("Others 2,190")
+
+
+def test_a_refund_lowers_money_out(omar):
+    assert omar.answers["refund"].shows("Money out 32,701 EGP Against 2026-09 +9,311")
+
+
+@known_gap("Where did it go? leaves out a category whose only activity is a refund: 34,000 against Money out 32,701")
+def test_where_it_went_adds_up_to_money_out(omar):
+    text = omar.answers["refund"].screen.text
+    table = text[text.find("Show the numbers Category Money out Share"):text.find("Is this period unusual?")]
+    assert sum(money(m) for m in re.findall(r"([\d,]+(?:\.\d\d)?) [\d.]+%", table)) == D("32701")
+
+
+def test_a_repair_paid_from_the_emergency_fund(omar):
+    answer = omar.answers["emergency"]
+    assert route(omar, "emergency") == ["/", "/plan", "/plan/reserves"]
+    assert answer.shows("13,500.00 of 270,000.00")
+
+
+def test_reconciling_october_against_the_statement(omar):
+    answer = omar.answers["reconcile"]
+    assert route(omar, "reconcile") == ["/", "/accounts/1", "/accounts/1/reconcile"]
+    assert answer.figure("Difference") == 0
+    assert omar.notes["reconcile_lines"] == 62  # one Clear per line, the CD purchase among them: there is no "clear all up to this date"
+
+
+def test_a_dividend_is_listed_under_dividends_collected(omar):
+    assert route(omar, "dividend")[:2] == ["/", "/investments"]
+    assert omar.answers["dividend"].shows("2026-11-20", "Commercial International Bank")
+
+
+@known_gap("The dividends list shows the date and the share but not how much was paid")
+def test_the_dividends_list_says_how_much(omar):
+    assert omar.answers["dividend"].shows("300.00")
+
+
+def test_a_reimbursed_work_expense_leaves_no_spending(omar):
+    text = omar.answers["work"].screen.text
+    assert omar.answers["work"].shows("Money out 23,415 EGP Against 2026-11 0 · 0%")  # the same as November
+    assert "Work" not in text[text.find("Where did it go?"):text.find("Is this period unusual?")]
+
+
+def test_the_bonus_shows_in_money_in(omar):
+    answer = omar.answers["bonus"]
+    assert answer.shows("Bonus 90,000")
+
+
+def test_average_monthly_income_ignores_the_bonus_and_counts_early_pay_when_due(omar):
+    assert omar.answers["bonus_budget"].figure("Average monthly income") == D("45000")
+
+
+def test_an_early_payday_is_suggested_and_settles_once_confirmed(omar):
+    assert re.search(r"ACME Egypt Income [^+]* 1 due", omar.answers["january_pay"].screen.text)
+    assert not re.search(r"ACME Egypt Income [^+]* \d+ due", omar.answers["january_pay_after"].screen.text)
+
+
+def test_a_yearly_bill_is_spread_over_the_months_left(omar):
+    answer = omar.answers["set_aside"]
+    assert route(omar, "set_aside") == ["/", "/plan"]
+    assert answer.shows("Saving for goals −2,250")
+
+
+def test_a_raise_waits_for_omar_to_confirm_it(omar):
+    # A different amount is suggested, never matched on its own: he chooses it.
+    assert re.search(r"ACME Egypt Income [^+]* 1 due", omar.answers["raise"].screen.text)
+
+
+def test_recurring_offers_the_raise_for_later_months(omar):
+    assert omar.notes["raise_offered"]
+
+
+def test_after_the_raise_the_plan_is_at_50000(omar):
+    assert re.search(r"ACME Egypt Income [^+]*\+50,000\.00", omar.answers["raise_after"].screen.text)
+
+
+def test_installments_are_owed_like_a_loan(omar):
+    answer = omar.answers["owe_more"]
+    assert answer.figure("Loans still to pay") == D("61500")
+    assert answer.shows("Phone installments", "Last payment 2028-03-15")
+
+
+def test_eid_gifts_given_are_spending_and_gifts_received_are_not(omar):
+    assert omar.answers["eid"].shows("Money out 26,415 EGP", "Gifts & Donations 5,000 · 19%")
+
+
+def test_a_sale_shows_its_gain_after_fees(omar):
+    answer = omar.answers["sale"]
+    assert route(omar, "sale")[:2] == ["/", "/investments"]   # then the holding itself
+    assert answer.shows("Gain from sales +1,025", "Total return +2,375")  # 7,100 − 75/150 of 12,150
+
+
+def test_the_insurance_is_paid_from_its_goal(omar):
+    assert omar.answers["insurance"].shows("Car insurance", "9,000.00 paid · 0.00 unpaid remainder")
+
+
+def test_the_rent_rise_is_offered_and_taken(omar):
+    assert omar.answers["rent"].shows("Last paid 13,200.00 Use 13,200.00 from now on")
+    assert omar.answers["rent_after"].shows("Landlord Bill · Housing & Rent 13,200.00")
+
+
+def test_the_trip_goal_keeps_what_was_not_spent(omar):
+    text = omar.answers["trip"].screen.text
+    assert re.search(r"Sahel trip .*?800\.00", text)
+
+
+def test_end_of_service_is_not_monthly_pay(omar):
+    assert omar.answers["end_of_service"].figure("Average monthly income") == D("50000")
+
+
+def test_between_jobs_the_next_pay_is_the_new_employer(omar):
+    answer = omar.answers["next_pay"]
+    assert answer.shows("Safe to spend until 2027-10-01", "Valeo 2027-10-01 · Income +55,000")
+
+
+def test_the_emergency_fund_in_months(omar):
+    answer = omar.answers["last"]
+    assert answer.shows("Emergency fund covers 0.3 months")
+
+
+def test_the_year_on_the_overview(omar):
+    answer = omar.answers["year"]
+    assert answer.figure("Savings rate 2026-10-01 to 2027-09-30") == D("50.5")
+    assert answer.figure("Change in net worth 2026-10-01 to 2027-09-30") == D("341284")
+    assert answer.figure("Loans still to pay") == D("34500")
+
+
+def test_the_years_spending(omar):
+    assert omar.answers["year_spending"].shows("Money out 333,266 EGP", "Housing & Rent 148,800 · 44%")
+
+
+def test_the_years_investments(omar):
+    # 1,025 from the sale + 225 price change + 300 dividends
+    assert omar.answers["year_investing"].shows("Net gain or loss 2026-10-01 to 2027-09-30 +1,550")
+
+
+def test_data_checks_pass_after_a_year(omar):
+    assert omar.answers["year_checks"].shows("Passed 8 Needs attention 0")

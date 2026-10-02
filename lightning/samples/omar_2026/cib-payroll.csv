@@ -1,0 +1,175 @@
+Date,Amount,Counterparty,Category,Notes
+2026-01-01,45000.00,ACME Egypt,Work › Salary,Salary
+2026-01-02,-3021.50,Carrefour,Personal › Food & Groceries,
+2026-01-03,-12000.00,Landlord,Personal › Housing & Rent,Rent
+2026-01-05,-2500.00,Toyota Finance,System › Loan payments,Car loan · payment 1 of 24
+2026-01-05,-3000.00,Cash wallet,Internal transfer,ATM withdrawal
+2026-01-06,-1000.00,Vodafone Cash,Internal transfer,Top-up
+2026-01-08,-900.00,Gold's Gym,Personal › Health,Membership
+2026-01-10,-607.00,Talabat,Personal › Eating Out,
+2026-01-12,-240.00,Netflix,Personal › Entertainment,
+2026-01-14,-2450.00,Noon,Personal › Shopping,Winter jacket
+2026-01-15,1833.33,NBE,Investment › Interest,Certificate interest
+2026-01-18,-493.00,Talabat,Personal › Eating Out,
+2026-01-20,-650.00,WE Internet,Personal › Utilities & Bills,
+2026-01-22,-1462.00,Seoudi,Personal › Food & Groceries,
+2026-01-24,-420.00,North Cairo Electricity,Personal › Utilities & Bills,
+2026-01-25,-2000.00,Mom,Personal › Gifts & Donations,Monthly help
+2026-01-27,-631.00,Uber,Personal › Transportation,
+2026-01-28,-15.00,CIB,Personal › Fees & Charges,Monthly account fee
+2026-02-01,45000.00,ACME Egypt,Work › Salary,Salary
+2026-02-02,-3500.75,Carrefour,Personal › Food & Groceries,
+2026-02-03,-12000.00,Landlord,Personal › Housing & Rent,Rent
+2026-02-05,-2500.00,Toyota Finance,System › Loan payments,Car loan · payment 2 of 24
+2026-02-05,-3000.00,Cash wallet,Internal transfer,ATM withdrawal
+2026-02-06,-1000.00,Vodafone Cash,Internal transfer,Top-up
+2026-02-08,-900.00,Gold's Gym,Personal › Health,Membership
+2026-02-10,-20000.00,THNDR,Internal transfer,Transfer to THNDR
+2026-02-10,-472.00,Talabat,Personal › Eating Out,
+2026-02-12,-240.00,Netflix,Personal › Entertainment,
+2026-02-15,1833.33,NBE,Investment › Interest,Certificate interest
+2026-02-18,-250.00,Talabat,Personal › Eating Out,
+2026-02-19,-780.00,Abou El Sid,Personal › Eating Out,Iftar
+2026-02-20,-650.00,WE Internet,Personal › Utilities & Bills,
+2026-02-22,-1514.00,Seoudi,Personal › Food & Groceries,
+2026-02-24,-1150.00,Abou El Sid,Personal › Eating Out,Iftar
+2026-02-24,-410.00,North Cairo Electricity,Personal › Utilities & Bills,
+2026-02-25,-2000.00,Mom,Personal › Gifts & Donations,Monthly help
+2026-02-27,-341.00,Uber,Personal › Transportation,
+2026-02-28,-15.00,CIB,Personal › Fees & Charges,Monthly account fee
+2026-03-01,45000.00,ACME Egypt,Work › Salary,Salary
+2026-03-02,-3306.50,Carrefour,Personal › Food & Groceries,
+2026-03-03,-12000.00,Landlord,Personal › Housing & Rent,Rent
+2026-03-03,-960.00,Abou El Sid,Personal › Eating Out,Iftar
+2026-03-05,-2500.00,Toyota Finance,System › Loan payments,Car loan · payment 3 of 24
+2026-03-05,-3000.00,Cash wallet,Internal transfer,ATM withdrawal
+2026-03-06,-1000.00,Vodafone Cash,Internal transfer,Top-up
+2026-03-08,-900.00,Gold's Gym,Personal › Health,Membership
+2026-03-10,-528.00,Talabat,Personal › Eating Out,
+2026-03-12,-240.00,Netflix,Personal › Entertainment,
+2026-03-15,1833.33,NBE,Investment › Interest,Certificate interest
+2026-03-17,-3200.00,Zara,Personal › Shopping,Eid clothes
+2026-03-18,-500.00,Talabat,Personal › Eating Out,
+2026-03-20,-650.00,WE Internet,Personal › Utilities & Bills,
+2026-03-22,-1382.00,Seoudi,Personal › Food & Groceries,
+2026-03-24,-440.00,North Cairo Electricity,Personal › Utilities & Bills,
+2026-03-25,-2000.00,Mom,Personal › Gifts & Donations,Monthly help
+2026-03-26,90000.00,ACME Egypt,Work › Bonus,Annual bonus
+2026-03-27,-492.00,Uber,Personal › Transportation,
+2026-03-28,-15.00,CIB,Personal › Fees & Charges,Monthly account fee
+2026-04-01,45000.00,ACME Egypt,Work › Salary,Salary
+2026-04-02,-3560.50,Carrefour,Personal › Food & Groceries,
+2026-04-03,-12000.00,Landlord,Personal › Housing & Rent,Rent
+2026-04-05,-2500.00,Toyota Finance,System › Loan payments,Car loan · payment 4 of 24
+2026-04-05,-3000.00,Cash wallet,Internal transfer,ATM withdrawal
+2026-04-06,-1000.00,Vodafone Cash,Internal transfer,Top-up
+2026-04-08,-900.00,Gold's Gym,Personal › Health,Membership
+2026-04-09,10000.00,Mom,System › Money Held for Others,"Mom's savings, kept for her"
+2026-04-10,-362.00,Talabat,Personal › Eating Out,
+2026-04-12,-240.00,Netflix,Personal › Entertainment,
+2026-04-15,-1299.00,Amazon,Personal › Shopping,Headphones
+2026-04-15,1833.33,NBE,Investment › Interest,Certificate interest
+2026-04-18,-467.00,Talabat,Personal › Eating Out,
+2026-04-20,-650.00,WE Internet,Personal › Utilities & Bills,
+2026-04-22,-1563.00,Seoudi,Personal › Food & Groceries,
+2026-04-24,-520.00,North Cairo Electricity,Personal › Utilities & Bills,
+2026-04-25,-2000.00,Mom,Personal › Gifts & Donations,Monthly help
+2026-04-27,-488.00,Uber,Personal › Transportation,
+2026-04-28,-15.00,CIB,Personal › Fees & Charges,Monthly account fee
+2026-05-01,45000.00,ACME Egypt,Work › Salary,Salary
+2026-05-02,-3418.75,Carrefour,Personal › Food & Groceries,
+2026-05-03,-12000.00,Landlord,Personal › Housing & Rent,Rent
+2026-05-03,1299.00,Amazon,Personal › Shopping,Headphones returned
+2026-05-05,-2500.00,Toyota Finance,System › Loan payments,Car loan · payment 5 of 24
+2026-05-05,-3000.00,Cash wallet,Internal transfer,ATM withdrawal
+2026-05-06,-1000.00,Vodafone Cash,Internal transfer,Top-up
+2026-05-08,-900.00,Gold's Gym,Personal › Health,Membership
+2026-05-10,-553.00,Talabat,Personal › Eating Out,
+2026-05-12,-15000.00,THNDR,Internal transfer,Transfer to THNDR
+2026-05-12,-240.00,Netflix,Personal › Entertainment,
+2026-05-15,1833.33,NBE,Investment › Interest,Certificate interest
+2026-05-18,-484.00,Talabat,Personal › Eating Out,
+2026-05-20,-650.00,WE Internet,Personal › Utilities & Bills,
+2026-05-22,-1468.00,Seoudi,Personal › Food & Groceries,
+2026-05-24,-640.00,North Cairo Electricity,Personal › Utilities & Bills,
+2026-05-25,-2000.00,Mom,Personal › Gifts & Donations,Monthly help
+2026-05-26,-6500.00,Al Orman,Personal › Gifts & Donations,Eid al-Adha udhiya share
+2026-05-27,-432.00,Uber,Personal › Transportation,
+2026-05-28,-15.00,CIB,Personal › Fees & Charges,Monthly account fee
+2026-06-01,45000.00,ACME Egypt,Work › Salary,Salary
+2026-06-02,-2950.00,Carrefour,Personal › Food & Groceries,
+2026-06-03,-12000.00,Landlord,Personal › Housing & Rent,Rent
+2026-06-05,-2500.00,Toyota Finance,System › Loan payments,Car loan · payment 6 of 24
+2026-06-05,-3000.00,Cash wallet,Internal transfer,ATM withdrawal
+2026-06-06,-1000.00,Vodafone Cash,Internal transfer,Top-up
+2026-06-08,-1200.00,Uber,Work › Transportation,Client visit
+2026-06-08,-900.00,Gold's Gym,Personal › Health,Membership
+2026-06-10,-569.00,Talabat,Personal › Eating Out,
+2026-06-12,-240.00,Netflix,Personal › Entertainment,
+2026-06-15,1833.33,NBE,Investment › Interest,Certificate interest
+2026-06-18,-370.00,Talabat,Personal › Eating Out,
+2026-06-20,-650.00,WE Internet,Personal › Utilities & Bills,
+2026-06-21,1200.00,ACME Egypt,Work › Transportation,Client visit reimbursed
+2026-06-22,-1272.00,Seoudi,Personal › Food & Groceries,
+2026-06-24,-780.00,North Cairo Electricity,Personal › Utilities & Bills,
+2026-06-25,-2000.00,Mom,Personal › Gifts & Donations,Monthly help
+2026-06-27,-546.00,Uber,Personal › Transportation,
+2026-06-28,-15.00,CIB,Personal › Fees & Charges,Monthly account fee
+2026-07-01,50000.00,ACME Egypt,Work › Salary,Salary · new amount after the raise
+2026-07-02,-3585.50,Carrefour,Personal › Food & Groceries,
+2026-07-03,-12000.00,Landlord,Personal › Housing & Rent,Rent
+2026-07-05,-2500.00,Toyota Finance,System › Loan payments,Car loan · payment 7 of 24
+2026-07-05,-3000.00,Cash wallet,Internal transfer,ATM withdrawal
+2026-07-06,-1000.00,Vodafone Cash,Internal transfer,Top-up
+2026-07-08,-900.00,Gold's Gym,Personal › Health,Membership
+2026-07-10,-630.00,Talabat,Personal › Eating Out,
+2026-07-12,-240.00,Netflix,Personal › Entertainment,
+2026-07-15,1833.33,NBE,Investment › Interest,Certificate interest
+2026-07-18,-454.00,Talabat,Personal › Eating Out,
+2026-07-20,-650.00,WE Internet,Personal › Utilities & Bills,
+2026-07-20,-6500.00,Al Mansour Service,Personal › Transportation,Car service
+2026-07-22,-1531.00,Seoudi,Personal › Food & Groceries,
+2026-07-24,-910.00,North Cairo Electricity,Personal › Utilities & Bills,
+2026-07-25,-2000.00,Mom,Personal › Gifts & Donations,Monthly help
+2026-07-27,-556.00,Uber,Personal › Transportation,
+2026-07-28,-15.00,CIB,Personal › Fees & Charges,Monthly account fee
+2026-08-01,50000.00,ACME Egypt,Work › Salary,Salary
+2026-08-02,-3511.75,Carrefour,Personal › Food & Groceries,
+2026-08-03,-12000.00,Landlord,Personal › Housing & Rent,Rent
+2026-08-05,-10000.00,THNDR,Internal transfer,Transfer to THNDR
+2026-08-05,-2500.00,Toyota Finance,System › Loan payments,Car loan · payment 8 of 24
+2026-08-05,-3000.00,Cash wallet,Internal transfer,ATM withdrawal
+2026-08-06,-1000.00,Vodafone Cash,Internal transfer,Top-up
+2026-08-08,-900.00,Gold's Gym,Personal › Health,Membership
+2026-08-10,-617.00,Talabat,Personal › Eating Out,
+2026-08-12,-14200.00,Hacienda Bay,Personal › Travel,Sahel weekend
+2026-08-12,-240.00,Netflix,Personal › Entertainment,
+2026-08-15,1833.33,NBE,Investment › Interest,Certificate interest
+2026-08-18,-487.00,Talabat,Personal › Eating Out,
+2026-08-20,-4000.00,Mom,System › Money Held for Others,Mom took back part of her savings
+2026-08-20,-650.00,WE Internet,Personal › Utilities & Bills,
+2026-08-22,-1450.00,Seoudi,Personal › Food & Groceries,
+2026-08-24,-960.00,North Cairo Electricity,Personal › Utilities & Bills,
+2026-08-25,-2000.00,Mom,Personal › Gifts & Donations,Monthly help
+2026-08-27,-484.00,Uber,Personal › Transportation,
+2026-08-28,-15.00,CIB,Personal › Fees & Charges,Monthly account fee
+2026-09-01,50000.00,ACME Egypt,Work › Salary,Salary
+2026-09-02,-2934.50,Carrefour,Personal › Food & Groceries,
+2026-09-03,-12000.00,Landlord,Personal › Housing & Rent,Rent
+2026-09-05,-2500.00,Toyota Finance,System › Loan payments,Car loan · payment 9 of 24
+2026-09-05,-3000.00,Cash wallet,Internal transfer,ATM withdrawal
+2026-09-06,-1000.00,Vodafone Cash,Internal transfer,Top-up
+2026-09-08,-900.00,Gold's Gym,Personal › Health,Membership
+2026-09-10,-1800.00,Smile Dental,Personal › Health,Dentist
+2026-09-10,-512.00,Talabat,Personal › Eating Out,
+2026-09-12,-240.00,Netflix,Personal › Entertainment,
+2026-09-15,1833.33,NBE,Investment › Interest,Certificate interest
+2026-09-18,-367.00,Talabat,Personal › Eating Out,
+2026-09-20,-650.00,WE Internet,Personal › Utilities & Bills,
+2026-09-22,-1250.00,Seoudi,Personal › Food & Groceries,
+2026-09-24,-720.00,North Cairo Electricity,Personal › Utilities & Bills,
+2026-09-25,-2000.00,Mom,Personal › Gifts & Donations,Monthly help
+2026-09-27,-524.00,Uber,Personal › Transportation,
+2026-09-28,-15.00,CIB,Personal › Fees & Charges,Monthly account fee
+2026-10-01,50000.00,ACME Egypt,Work › Salary,Salary
+2026-10-02,-3410.00,Carrefour,Personal › Food & Groceries,

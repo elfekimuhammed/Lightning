@@ -37,13 +37,13 @@ def _context(request: Request, error: str = ""):
     emergency_months = (emergency["effective_allocated"] / income.amount) if emergency and income.amount else None
     listed = [item for item in reserves if item["kind"] != "EMERGENCY"]
     for item in listed:
-        item["payments"] = [row | {"amount": from_e6(row["amount_e6"])}
+        item["payments"] = [dict(row) | {"amount": from_e6(row["amount_e6"])}
                             for row in c.reserves.links_for_reserve(item["id"])]
     # Completed dated rows are payment occurrences; undated project goals remain
     # a separate savings-goal workflow.
     completed = [item for item in c.reserves.list_completed() if item.get("due_date")]
     for item in completed:
-        item["payments"] = [row | {"amount": from_e6(row["amount_e6"])}
+        item["payments"] = [dict(row) | {"amount": from_e6(row["amount_e6"])}
                             for row in c.reserves.links_for_reserve(item["id"])]
     set_aside = emergency["effective_allocated"] if emergency else ZERO
     emergency_meter = charts.meter(set_aside, income.six_months) if income.six_months else None

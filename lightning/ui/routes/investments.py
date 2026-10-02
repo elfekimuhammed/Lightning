@@ -604,7 +604,7 @@ async def create_asset(request: Request):
         return _asset_form(request, values, error=exc, status=400)
     back = request.query_params.get("then", "")
     target = f"/investments/new?kind={back}&asset={asset.id}" if back in KINDS else "/investments"
-    return redirect(target, f"Added {asset.label}.")
+    return redirect(target, f"Added {asset.name}.")
 
 
 @router.get("/assets/{asset_id:int}/edit")
@@ -629,7 +629,7 @@ async def update_asset(request: Request, asset_id: int):
                                            values["notes"], active=bool(values["active"]))
     except LightningError as exc:
         return _asset_form(request, values, asset=asset, error=exc, status=400)
-    return redirect("/investments", f"Saved {asset.label}.")
+    return redirect("/investments", f"Saved {asset.name}.")
 
 
 # -- prices ---------------------------------------------------------------------

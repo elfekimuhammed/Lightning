@@ -8,6 +8,10 @@ def _upload_and_map(client, account_id, filename, data, mapping, amount_model="S
     import re
     response = client.post(f"/accounts/{account_id}/import",
                            files={"file": (filename, data, "text/csv")}, follow_redirects=False)
+    if response.status_code == 303:  # Lightning's own column names: nothing to match, straight to review
+        assert set(data.decode().splitlines()[0].split(",")) <= {"Date", "Amount", "Counterparty", "Category",
+                                                                    "Notes", "Reference"}
+        return response
     assert response.status_code == 200 and "Match your columns" in response.text
     payload = re.search(r'name="payload" value="([^"]+)"', response.text).group(1)
     values = {"payload": payload, "filename": filename, "amount_model": amount_model}

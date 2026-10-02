@@ -3,6 +3,7 @@
     python -m lightning                 # opens http://127.0.0.1:8765 in your browser
     python -m lightning --db my.db --port 9000 --no-browser
     python -m lightning --demo          # a sample household in its own database, on port 8766
+    python -m lightning --sample        # Omar's 2026 from the sample CSVs, in its own database, on port 8767
 """
 
 from __future__ import annotations
@@ -33,7 +34,13 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--profile-root", help="explicit alternate profile folder (with --profiles)")
     parser.add_argument("--demo", action="store_true",
                         help="open a sample household in a separate demo database (rebuilt on every start)")
+    parser.add_argument("--sample", action="store_true",
+                        help="open Omar's 2026 (loaded from the sample CSVs) in a separate database (rebuilt on every start)")
     args = parser.parse_args(argv)
+    if args.demo and args.sample:
+        parser.error("choose --demo or --sample, not both")
+    sample = "sample" if args.sample else "demo" if args.demo else None
+    args.demo = bool(sample)
     if args.profiles:
         if args.demo or args.db != str(DEFAULT_DATA_DIR / "lightning.db") or args.port != 8765:
             parser.error("--profiles uses its own chooser and a random local port; omit --demo, --db and --port")
@@ -45,10 +52,10 @@ def main(argv: list[str] | None = None) -> None:
     if args.demo:
         # The demo file is deleted and rebuilt on every start, so it can never be pointed at real data.
         if args.db != str(DEFAULT_DATA_DIR / "lightning.db"):
-            parser.error("--demo always uses its own database (data/demo.db); leave out --db")
-        args.db = str(DEFAULT_DATA_DIR / "demo.db")
+            parser.error(f"--{sample} always uses its own database (data/{sample}.db); leave out --db")
+        args.db = str(DEFAULT_DATA_DIR / f"{sample}.db")
         if args.port == 8765:
-            args.port = 8766  # never collide with (or reuse) your real Lightning
+            args.port = 8766 if sample == "demo" else 8767  # never collide with (or reuse) your real Lightning
 
     url = f"http://127.0.0.1:{args.port}"
     # Reuse the server on repeated desktop launches before backing up or refreshing prices.
@@ -70,10 +77,14 @@ def main(argv: list[str] | None = None) -> None:
         for suffix in ("", "-wal", "-shm"):
             Path(args.db + suffix).unlink(missing_ok=True)
     container = build(args.db, backup_on_start=not args.demo)
-    if args.demo:
+    if sample == "demo":
         from lightning.demo import build_demo
         summary = build_demo(container)
         print(f"Demo household ready: {summary['accounts']} accounts, {summary['from']} to {summary['to']}.")
+    elif sample == "sample":
+        from lightning.samples import load_omar_2026
+        summary = load_omar_2026(container)
+        print(f"Omar's 2026 ready: {summary['rows']} imported rows, {summary['from']} to {summary['to']}.")
     from lightning.assets.market_data import refresh_market_prices, refresh_reevaluation_prices
 
     try:
