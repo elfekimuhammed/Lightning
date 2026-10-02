@@ -8,6 +8,11 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### CD purchase, maturity term and account navigation · 2026-10-02
+- CD purchases now validate available user-owned cash in the selected bank/cash account on the recorded purchase date. The brokerage-only historical cash invariant no longer rejects a bank-funded CD purchase because of unrelated dated bank activity; genuine shortages show the available and required amounts.
+- Maturity can be entered as a date or as a term in years (three-month increments). The two fields stay in sync, and a term calculates a calendar maturity date from the purchase date.
+- **View CDs** sits in the account page's right-side actions, alongside other account actions.
+
 ### Settings: start fresh · 2026-10-02
 - Settings › Your data has a **Start fresh** card.
 - **Desktop app:** **Start a new profile** locks the current profile and opens the new-profile setup, with its own password and recovery key. The old profile stays exactly as it is and can be opened again from Profiles.

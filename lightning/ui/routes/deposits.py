@@ -29,6 +29,7 @@ def _account(c, account_id: int):
 
 def _values():
     return {"name": "", "start_date": fmt_date(today()), "lockup_end_date": "", "maturity_date": "",
+            "term_years": "",
             "principal": "", "annual_rate": "", "interest_method": "SIMPLE",
             "compounding_frequency": "MONTHLY", "payout_frequency": "AT_MATURITY",
             "destination_account_id": "", "funding_account_id": ""}
@@ -71,6 +72,7 @@ async def purchase(request: Request, account_id: int):
             values["maturity_date"], values["principal"], values["annual_rate"],
             values["interest_method"], values["payout_frequency"], values["compounding_frequency"],
             _int(values["destination_account_id"]), _int(values["funding_account_id"]),
+            term_years=values["term_years"],
         )
     except (LightningError, ValueError) as exc:
         message = exc.message if isinstance(exc, LightningError) else "Choose the funding and payout accounts."
@@ -95,6 +97,7 @@ async def update_terms(request: Request, account_id: int, certificate_id: int):
             payout_frequency=str(form.get("payout_frequency", "")),
             compounding_frequency=str(form.get("compounding_frequency", "")),
             destination_account_id=_int(str(form.get("destination_account_id", ""))),
+            term_years=str(form.get("term_years", "")),
         )
     except (LightningError, ValueError) as exc:
         message = exc.message if isinstance(exc, LightningError) else "Choose a valid payout account."

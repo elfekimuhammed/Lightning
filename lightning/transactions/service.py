@@ -298,7 +298,8 @@ class TransactionService:
                 if not owner:
                     raise ValidationError("Choose an active saved owner.", "owner_id")
             if ((line.owner_id is not None and line.quantity != ZERO) or not asset.is_cash or
-                    (force_brokerage_cash and line.effect == Effect.INTERNAL and asset.is_cash)):
+                    (force_brokerage_cash and line.effect == Effect.INTERNAL and
+                     account.account_type == AccountType.BROKERAGE)):
                 keys.add((line.account_id, line.asset_id, line.owner_id))
         for account_id, asset_id, owner_id in keys:
             params = [account_id, asset_id, owner_id]
@@ -317,6 +318,7 @@ class TransactionService:
             by_day[str(day)] = by_day.get(str(day), 0) + proposed
             running = 0
             for on, quantity in sorted(by_day.items()):
+                before_day = running
                 running += quantity
                 if running < 0:
                     asset = self.assets.get_asset(asset_id)
@@ -325,8 +327,16 @@ class TransactionService:
                             f"{self.accounts.get(account_id).label} would hold less than zero {asset.name} on {on}.",
                             "quantity")
                     owner_label = "the user's" if owner_id is None else "the selected owner's"
+                    after = Decimal(running).scaleb(-6)
+                    before = Decimal(before_day).scaleb(-6)
+                    account = self.accounts.get(account_id)
+                    context = (f"This purchase is dated {day}; check whether later payments still fit."
+                               if on > str(day) else
+                               "Only cash available on the purchase date can fund it.")
                     raise ValidationError(
-                        f"This would leave {owner_label} balance negative in {self.accounts.get(account_id).label}.",
+                        f"This would leave {owner_label} balance at {fmt(after, 2, True)} {account.currency} "
+                        f"in {account.label} on {on}; the balance before that date's transactions was "
+                        f"{fmt(before, 2)} {account.currency}. {context}",
                         "owner")
 
     def _validate_deposit_lines(self, lines, doc_type: DocType) -> None:

@@ -25,7 +25,8 @@
         <td><details><summary>Actions</summary>
           <form method="post" action="/deposits/{{ account.id }}/certificates/{{ t.id if t.id else cert.id }}/terms" class="stack">
             <label>Name<input name="name" value="{{ t.name }}" required></label>
-            <div class="row"><label>Earliest withdrawal<input name="lockup_end_date" type="text" value="{{ t.lockup_end_date }}" placeholder="yyyy-mm-dd" data-smart-date required></label><label>Maturity<input name="maturity_date" type="text" value="{{ t.maturity_date }}" placeholder="yyyy-mm-dd" data-smart-date required></label></div>
+            <label>Earliest withdrawal<input name="lockup_end_date" type="text" value="{{ t.lockup_end_date }}" placeholder="yyyy-mm-dd" data-smart-date required></label>
+            <div class="row" data-cd-maturity data-start-date="{{ t.start_date }}"><label>Maturity date<input name="maturity_date" type="text" value="{{ t.maturity_date }}" placeholder="yyyy-mm-dd" data-cd-maturity-date data-smart-date></label><label>Term (years)<input name="term_years" type="number" min="0.01" max="100" step="any" placeholder="e.g. 3" data-cd-term><small class="muted">Enter a term in 3-month increments, or choose a date.</small></label></div>
             <label>Annual rate (%)<input name="annual_rate" type="number" min="0" max="100" step="0.01" value="{{ t.annual_rate }}" required></label>
             <div class="row"><label>Interest method<select name="interest_method">{% for key,label in [('SIMPLE','Simple'),('COMPOUND','Compound')] %}<option value="{{ key }}" {{ 'selected' if t.interest_method.value == key }}>{{ label }}</option>{% endfor %}</select></label><label>Payout schedule<select name="payout_frequency">{% for key,label in [('MONTHLY','Monthly'),('QUARTERLY','Quarterly'),('YEARLY','Yearly'),('AT_MATURITY','At maturity')] %}<option value="{{ key }}" {{ 'selected' if t.payout_frequency.value == key }}>{{ label }}</option>{% endfor %}</select></label></div>
             <label>Compounding frequency<select name="compounding_frequency">{% for key,label in [('MONTHLY','Monthly'),('QUARTERLY','Quarterly'),('YEARLY','Yearly')] %}<option value="{{ key }}" {{ 'selected' if t.compounding_frequency.value == key }}>{{ label }}</option>{% endfor %}</select></label>
@@ -67,10 +68,8 @@
       <label>Annual interest rate (%)<input name="annual_rate" type="number" min="0" max="100" step="0.01" value="{{ values.annual_rate }}" required></label>
       <label>Interest method<select name="interest_method">{% for key,label in [('SIMPLE','Simple'),('COMPOUND','Compound')] %}<option value="{{ key }}" {{ 'selected' if values.interest_method == key }}>{{ label }}</option>{% endfor %}</select></label>
     </div>
-    <div class="row">
-      <label>Earliest withdrawal date<input name="lockup_end_date" type="text" value="{{ values.lockup_end_date }}" placeholder="yyyy-mm-dd" data-smart-date></label>
-      <label>Maturity date<input name="maturity_date" type="text" value="{{ values.maturity_date }}" placeholder="yyyy-mm-dd" data-smart-date required></label>
-    </div>
+    <label>Earliest withdrawal date<input name="lockup_end_date" type="text" value="{{ values.lockup_end_date }}" placeholder="yyyy-mm-dd" data-smart-date></label>
+    <div class="row" data-cd-maturity data-start-field="start_date"><label>Maturity date<input name="maturity_date" type="text" value="{{ values.maturity_date }}" placeholder="yyyy-mm-dd" data-cd-maturity-date data-smart-date></label><label>Term (years)<input name="term_years" type="number" min="0.01" max="100" step="any" value="{{ values.term_years }}" placeholder="e.g. 3" data-cd-term><small class="muted">Enter a term in 3-month increments, or choose a date.</small></label></div>
     <div class="row">
       <label>Simple interest payout schedule<select name="payout_frequency">{% for key,label in [('MONTHLY','Monthly'),('QUARTERLY','Quarterly'),('YEARLY','Yearly'),('AT_MATURITY','At maturity')] %}<option value="{{ key }}" {{ 'selected' if values.payout_frequency == key }}>{{ label }}</option>{% endfor %}</select></label>
       <label>Compounding frequency<select name="compounding_frequency">{% for key,label in [('MONTHLY','Monthly'),('QUARTERLY','Quarterly'),('YEARLY','Yearly')] %}<option value="{{ key }}" {{ 'selected' if values.compounding_frequency == key }}>{{ label }}</option>{% endfor %}</select></label>
@@ -85,4 +84,54 @@
 {% if legacy_cash > 0 %}<section class="card" style="margin-top:16px"><h2>Move old cash out of this account</h2><p class="muted">This balance is from the previous CD account model. New CD portfolios hold certificates only. Move the old balance to a bank or cash account to use this portfolio cleanly.</p><form method="post" action="/deposits/{{ account.id }}/legacy-cash" class="row"><label>Amount to move ({{ account.currency }})<input name="amount" inputmode="decimal" value="{{ legacy_cash }}" required></label><label>Move into<select name="destination_account_id" required>{% for a in liquid_accounts %}<option value="{{ a.id }}">{{ a.institution or a.name }} · {{ a.name }}</option>{% endfor %}</select></label><input type="hidden" name="date" value="{{ today_iso }}"><button class="btn">Move legacy cash</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form></section>{% endif %}
 
 {% if legacy %}<section class="card" style="margin-top:16px"><h2>Previous account-level CD terms</h2><p class="muted">These terms were saved before the portfolio model. They remain available for forecasting while you create new certificates individually.</p><dl class="definition-list"><dt>Principal</dt><dd>{{ legacy.principal|money }} {{ account.currency }}</dd><dt>Annual rate</dt><dd>{{ legacy.annual_rate }}%</dd><dt>Start</dt><dd>{{ legacy.start_date }}</dd><dt>Maturity</dt><dd>{{ legacy.maturity_date }}</dd></dl></section>{% endif %}
+<script nonce="{{ request.state.csp_nonce|default('') }}">
+(() => {
+  const dateParts = (value) => {
+    const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    return match ? match.slice(1).map(Number) : null;
+  };
+  const addMonths = (value, months) => {
+    const parts = dateParts(value);
+    if (!parts) return "";
+    const [year, month, day] = parts;
+    const target = new Date(Date.UTC(year, month - 1 + months, 1));
+    const lastDay = new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0)).getUTCDate();
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${target.getUTCFullYear()}-${pad(target.getUTCMonth() + 1)}-${pad(Math.min(day, lastDay))}`;
+  };
+  document.querySelectorAll("[data-cd-maturity]").forEach((group) => {
+    const form = group.closest("form");
+    const start = group.dataset.startField ? form.elements[group.dataset.startField] : null;
+    const baseDate = () => start?.value || group.dataset.startDate || "";
+    const maturity = group.querySelector("[data-cd-maturity-date]");
+    const term = group.querySelector("[data-cd-term]");
+    let changedBy = maturity.value ? "date" : (term.value ? "term" : "");
+    const dateToTerm = () => {
+      const a = dateParts(baseDate()), b = dateParts(maturity.value);
+      if (!a || !b) return;
+      const days = (Date.UTC(b[0], b[1] - 1, b[2]) - Date.UTC(a[0], a[1] - 1, a[2])) / 86400000;
+      term.setCustomValidity("");
+      term.value = days > 0 ? String(Number((days / 365.2425).toFixed(2))) : "";
+    };
+    const termToDate = () => {
+      const years = Number(term.value);
+      if (!term.value) { term.setCustomValidity(""); return; }
+      if (!Number.isFinite(years) || years <= 0) return;
+      const months = Math.round(years * 12);
+      if (Math.abs(years * 12 - months) > 0.000001) {
+        term.setCustomValidity("Use three-month increments, such as 3, 3.25 or 3.5 years.");
+        return;
+      }
+      term.setCustomValidity("");
+      maturity.value = addMonths(baseDate(), months);
+      maturity.setCustomValidity("");
+    };
+    maturity.addEventListener("input", () => { changedBy = "date"; dateToTerm(); });
+    maturity.addEventListener("change", () => { changedBy = "date"; dateToTerm(); });
+    term.addEventListener("input", () => { changedBy = "term"; termToDate(); });
+    start?.addEventListener("input", () => changedBy === "term" ? termToDate() : dateToTerm());
+    if (maturity.value) dateToTerm(); else termToDate();
+  });
+})();
+</script>
 {% endblock %}

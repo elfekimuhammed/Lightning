@@ -34,7 +34,6 @@
 
 {% block heading %}
 {% if account %}
-{% if account.account_type.value == 'DEPOSIT' %}<a class="btn primary" href="/deposits/{{ account.id }}">View CDs</a>{% endif %}
 <div class="acct-title"><h1>{{ account.name }}</h1></div>
 <div class="acct-figures">
   {% if account_held_value %}<div><span class="muted small">In this account</span><b>{{ account_value|money }}</b></div><div><span class="muted small">{{ fig.what_you_own.label }}</span><b>{{ account_owned_value|money }}</b></div><div><span class="muted small">{{ fig.held_for_others.label }}</span><b>{{ account_held_value|money }}</b></div>{% else %}<div><span class="muted small">Balance</span><b>{{ account_value|money }}</b></div>{% endif %}
@@ -49,6 +48,7 @@
 {% endblock %}
 
 {% block top_actions %}
+{% if account and account.account_type.value == 'DEPOSIT' %}<a class="btn primary" href="/deposits/{{ account.id }}">View CDs</a>{% endif %}
 {% if account %}
 {% else %}<a class="btn primary" href="/accounts">Choose an account</a>
 {% endif %}

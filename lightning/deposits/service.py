@@ -8,7 +8,7 @@ from lightning.accounts.domain import AccountType
 from lightning.core.dates import fmt_date, parse_date, today
 from lightning.core.errors import NotFoundError, ValidationError
 from lightning.core.ledger import Effect, PostingLine
-from lightning.core.money import ZERO, check_places, to_decimal, to_e6
+from lightning.core.money import ZERO, check_places, fmt, to_decimal, to_e6
 from lightning.core.refs import DocType
 from lightning.database.connection import Database
 from lightning.transactions.service import TransactionService
@@ -72,7 +72,8 @@ class DepositService:
 
     def purchase(self, account_id: int, name: str, start_date, lockup_end_date, maturity_date,
                  principal, annual_rate, interest_method, payout_frequency,
-                 compounding_frequency, destination_account_id: int, funding_account_id: int):
+                 compounding_frequency, destination_account_id: int, funding_account_id: int,
+                 term_years=""):
         """Buy one named certificate into a bank's deposit portfolio from chosen liquid cash."""
         if self.assets is None or self.transactions is None:
             raise RuntimeError("Certificate purchase dependencies are not configured.")
@@ -84,8 +85,8 @@ class DepositService:
         if not name:
             raise ValidationError("Enter a name for this certificate.", "name")
         start = parse_date(start_date, "start_date")
-        lockup = parse_date(lockup_end_date or maturity_date, "lockup_end_date")
-        maturity = parse_date(maturity_date, "maturity_date")
+        maturity = _maturity_date(start, maturity_date, term_years)
+        lockup = parse_date(lockup_end_date or maturity, "lockup_end_date")
         if start > today():
             raise ValidationError("A certificate purchase cannot be in the future.", "start_date")
         if start >= maturity:
@@ -111,9 +112,11 @@ class DepositService:
         if funding.currency != portfolio.currency or destination.currency != portfolio.currency:
             raise ValidationError("The portfolio, funding account and payout account must use the same currency.",
                                   "funding_account_id")
-        if self.repo.owned_balance_e6(funding.id, fmt_date(start)) < to_e6(amount):
-            raise ValidationError("The selected account does not have enough owned cash for this purchase.",
-                                  "principal")
+        available = Decimal(self.repo.owned_balance_e6(funding.id, fmt_date(start))).scaleb(-6)
+        if available < amount:
+            raise ValidationError(
+                f"{funding.name} had {fmt(available, 2)} {funding.currency} of your cash on "
+                f"{fmt_date(start)}; this purchase needs {fmt(amount, 2)} {funding.currency}.", "principal")
         with self.db.transaction():
             asset = self.assets.create_certificate_asset(name)
             cash_asset = self.assets.cash_asset(funding.currency)
@@ -137,15 +140,15 @@ class DepositService:
 
     def update_certificate(self, certificate_id: int, *, name: str, lockup_end_date, maturity_date,
                            annual_rate, interest_method, payout_frequency, compounding_frequency,
-                           destination_account_id: int):
+                           destination_account_id: int, term_years=""):
         certificate = self.certificate(certificate_id)
         terms = certificate.terms
         name = (name or "").strip()
         if not name:
             raise ValidationError("Enter a name for this certificate.", "name")
         lockup = parse_date(lockup_end_date, "lockup_end_date")
-        maturity = parse_date(maturity_date, "maturity_date")
         start = parse_date(terms.start_date)
+        maturity = _maturity_date(start, maturity_date, term_years)
         if not start <= lockup <= maturity:
             raise ValidationError("Earliest withdrawal must be between purchase and maturity.",
                                   "lockup_end_date")
@@ -440,3 +443,20 @@ def _add_months(start: date, months: int) -> date:
     year, zero_month = divmod(month_index, 12)
     month = zero_month + 1
     return date(year, month, min(start.day, calendar.monthrange(year, month)[1]))
+
+
+def _maturity_date(start: date, maturity_date, term_years) -> date:
+    """Use an explicitly selected date, or calculate one from a term in quarter-years."""
+    if str(maturity_date or "").strip():
+        return parse_date(maturity_date, "maturity_date")
+    if not str(term_years or "").strip():
+        raise ValidationError("Choose a maturity date or enter a term in years.", "maturity_date")
+    years = to_decimal(term_years, "term_years")
+    months = years * 12
+    if years < Decimal("0.25") or years > Decimal("100") or months != months.to_integral_value():
+        raise ValidationError("Enter a term from 0.25 to 100 years in three-month increments.",
+                              "term_years")
+    try:
+        return _add_months(start, int(months))
+    except ValueError:
+        raise ValidationError("That term is outside the supported date range.", "term_years") from None
