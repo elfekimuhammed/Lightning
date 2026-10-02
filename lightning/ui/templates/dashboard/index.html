@@ -3,7 +3,7 @@
 {% block heading %}<div><h1>Overview</h1><p class="muted small page-subtitle">Your position and what changed</p></div>{% endblock %}
 {% block top_actions %}{% from "partials/macros.html" import period_control %}{{ period_control("/", period.key, month, this_month, request.query_params.get("date_from", "") if period_error and period.key == "custom" else period.start_text, request.query_params.get("date_to", "") if period_error and period.key == "custom" else period.end_text) }}{% endblock %}
 {% block content %}
-{% from "partials/charts.html" import stat_tiles, donut, trend, waterfall, column_waterfall, sankey %}
+{% from "partials/charts.html" import stat_tiles, donut, trend, waterfall, column_waterfall, sankey, month_calendar as month_cal %}
 {% if period_error %}<p class="flash error">{{ period_error }}</p>{% endif %}
 {% if attention %}
 <details class="card needs-you" aria-labelledby="needs-heading">
@@ -129,5 +129,17 @@
     </div>
     </article>
   </section>
+
+  {% if month_calendar.years %}{% set mc = month_calendar %}<section class="overview-section" aria-labelledby="months-heading">
+    <header class="overview-section-head"><h2 id="months-heading">Month by month</h2><span>Every month from {{ mc.from }} to today · darker is more · click a month to open it</span></header>
+    <article class="overview-block wide-card"><div class="overview-split">
+      <section><div class="overview-block-head"><div><h3>Total expenses</h3><p>{% if mc.biggest and mc.biggest.spend %}Most in {{ mc.biggest.key }} · {{ mc.biggest.spend|money }}{% else %}No spending yet{% endif %}</p></div></div>
+        {{ month_cal(mc, 'spend') }}
+        <p class="muted small heat-key"><span class="heat-1"></span><span class="heat-2"></span><span class="heat-3"></span><span class="heat-4"></span> less to more spent · the biggest month darkest</p></section>
+      <section><div class="overview-block-head"><div><h3>Net cash flow</h3><p>{{ mc.kept }} of {{ mc.count }} months kept money{% if mc.best and mc.best.net > 0 %} · best {{ mc.best.key }} · {{ mc.best.net|money(True) }}{% endif %}</p></div></div>
+        {{ month_cal(mc, 'net') }}
+        <p class="muted small heat-key"><span class="flow-in-2"></span><span class="flow-in-4"></span> kept <span class="flow-out-2"></span><span class="flow-out-4"></span> short · darker is more</p></section>
+    </div></article>
+  </section>{% endif %}
 </div>
 {% endblock %}

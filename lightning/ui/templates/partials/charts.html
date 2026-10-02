@@ -153,7 +153,8 @@
 <{{ tag }} class="stat-tile surface-{{ s.surface }}{{ ' has-compare' if s.compare }}"{% if s.href %} href="{{ s.href }}"{% endif %} aria-label="{{ s.label }}">
   <span class="stat-tile-head"><span class="stat-tile-label">{{ s.label }}</span>
     {% if s.badge %}<span class="stat-chip is-{{ s.badge.tone }}">{% set arrow = s.badge.arrow if s.badge.arrow is defined else s.badge.tone %}{% if arrow in ('up','down') %}<svg viewBox="0 0 24 24" aria-hidden="true">{% if arrow == 'up' %}<path d="M12 19V5M5 12l7-7 7 7"/>{% else %}<path d="M12 5v14M5 12l7 7 7-7"/>{% endif %}</svg>{% endif %}{{ s.badge.text }}</span>{% endif %}</span>
-  <span class="stat-tile-value{{ ' is-negative' if s.value is not none and s.value < 0 }}">{% if s.value is none %}{{ s.empty or '—' }}{% elif s.kind == 'rate' %}{{ '%.1f'|format(s.value) }}<small>%</small>{% else %}{{ s.value|money(s.key == 'change' or s.signed is defined and s.signed) }}<small>{{ base }}</small>{% endif %}</span>
+  {% set shown = (s.value|money(s.key == 'change' or s.signed is defined and s.signed)) if s.value is not none and s.kind != 'rate' else '' %}
+  <span class="stat-tile-value{{ ' is-negative' if s.value is not none and s.value < 0 }}{{ ' is-long' if shown|length > 7 }}">{% if s.value is none %}{{ s.empty or '—' }}{% elif s.kind == 'rate' %}{{ '%.1f'|format(s.value) }}<small>%</small>{% else %}{{ s.value|money(s.key == 'change' or s.signed is defined and s.signed) }}<small>{{ base }}</small>{% endif %}</span>
   {% if s.sub is defined and s.sub %}<span class="stat-tile-sub">{% if s.figure is defined and s.figure is not none and s.value is not none %}<b class="{{ s.figure|tone }}">{{ s.figure|money(True) }}</b> {% endif %}{{ s.sub }}</span>{% endif %}
   {% if s.compare %}<span class="stat-compare">{% for k in s.compare %}<span class="is-{{ k.tone }}"><small>{{ k.label }}</small><b>{% if k.tone in ('up','down') %}<svg viewBox="0 0 24 24" aria-hidden="true">{% if k.tone == 'up' %}<path d="M12 19V5M5 12l7-7 7 7"/>{% else %}<path d="M12 5v14M5 12l7 7 7-7"/>{% endif %}</svg>{% endif %}{{ k.text }}</b></span>{% endfor %}</span>{% endif %}
   {% if s.meter %}<span class="stat-tile-meter tone-{{ s.meter.tone }}"><i style="width:{{ '%.1f'|format(s.meter.width) }}%"></i></span>{% endif %}
@@ -187,4 +188,23 @@
   {% else %}<p class="chart-empty">Nothing moved in this period.</p>{% endfor %}
   <figcaption class="sr-only">{{ caption }}</figcaption>
 </figure>
+{% endmacro %}
+
+
+{# Calendar heatmap by day: one small month per calendar month, weeks as rows. kind "spend" colours
+   money out in four rose steps; "net" colours net cash flow green (kept) or rose (short). Days outside
+   the period stay blank; every day links to its transactions. #}
+{% macro day_calendar(cal, kind) %}
+<div class="cal-months{{ ' is-single' if cal.single }}">{% for m in cal.months %}
+  <figure class="cal-month" aria-label="{{ m.name }}">{% if not cal.single %}<figcaption>{{ m.name }}</figcaption>{% endif %}
+    <div class="cal-grid">{% for w in cal.weekdays %}<span class="cal-wd">{{ w if cal.single else w[0] }}</span>{% endfor %}
+    {% for week in m.weeks %}{% for d in week %}{% if d is none %}<span class="cal-day is-pad"></span>{% elif not d.inside %}<span class="cal-day is-out"><i>{{ d.day }}</i></span>{% else %}{% set v = d.spend if kind == 'spend' else d.net %}<a class="cal-day {{ ('heat-' ~ d.spend_step) if kind == 'spend' else ('flow-' ~ d.net_tone ~ '-' ~ d.net_step) }}" href="/transactions?date_from={{ d.date }}&date_to={{ d.date }}" title="{{ d.date }} · {{ (v|money(kind == 'net')) if v else 'nothing' }}"><i>{{ d.day }}</i>{% if cal.single and v %}<b>{{ (v|compact) if kind == 'spend' else (('+' if v > 0 else '−') ~ (v|abs|compact)) }}</b>{% endif %}</a>{% endif %}{% endfor %}{% endfor %}</div>
+  </figure>{% endfor %}</div>
+{% endmacro %}
+
+{# Calendar heatmap by month: a row per year, twelve months across. #}
+{% macro month_calendar(cal, kind) %}
+<div class="table-wrap mcal-wrap"><table class="mcal" aria-label="{{ 'Money out' if kind == 'spend' else 'Net cash flow' }} by month"><thead><tr><th></th>{% for m in cal.months %}<th><span class="m-long">{{ m }}</span><span class="m-short">{{ m[0] }}</span></th>{% endfor %}</tr></thead><tbody>
+{% for r in cal.years %}<tr><th>{{ r.year }}</th>{% for x in r.cells %}{% if not x.known %}<td class="is-out"></td>{% else %}{% set v = x.spend if kind == 'spend' else x.net %}<td class="{{ ('heat-' ~ x.spend_step) if kind == 'spend' else ('flow-' ~ x.net_tone ~ '-' ~ x.net_step) }}" title="{{ x.key }} · {{ v|money(kind == 'net') }}"><a href="/birdview/expenses?period=month&month={{ x.key }}">{{ ((v|compact) if kind == 'spend' else (('+' if v > 0 else ('−' if v < 0 else '')) ~ (v|abs|compact))) if v else '·' }}</a></td>{% endif %}{% endfor %}</tr>{% endfor %}
+</tbody></table></div>
 {% endmacro %}

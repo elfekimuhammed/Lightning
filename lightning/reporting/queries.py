@@ -58,6 +58,20 @@ class ReportQueries:
         )
         return [dict(r) for r in rows]
 
+    def category_totals_by_date(self, date_from: str, date_to: str, key_length: int = 10) -> list[dict]:
+        """The same totals as category_totals, split by day (key_length 10, yyyy-mm-dd) or month (7)."""
+        rows = self.db.all(
+            f"SELECT substr(le.date, 1, ?) AS key, le.category_id, le.effect, SUM(le.amount_base_e6) AS total"
+            f" FROM ledger_entries le {POSTED}"
+            f" WHERE le.date BETWEEN ? AND ? AND le.category_id IS NOT NULL"
+            f" AND le.effect IN ('INFLOW','OUTFLOW')"
+            " AND COALESCE(le.category_id,0) NOT IN (SELECT id FROM categories WHERE code='EXP.SYSTEM.CUSTODY')"
+            " AND le.owner_id IS NULL"
+            " GROUP BY key, le.category_id, le.effect",
+            (key_length, date_from, date_to),
+        )
+        return [dict(r) for r in rows]
+
     def spending_lines(self, date_from: str, date_to: str) -> list[dict]:
         """Categorised money in and out lines with their transaction, account and counterparty: the
         same lines as category_totals, one row per line."""

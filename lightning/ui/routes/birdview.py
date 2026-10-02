@@ -129,7 +129,8 @@ async def expense_analysis(request: Request):
     analysis = visuals.expense_analysis(c, first, last, category_code)
     stats = _expense_stats(analysis, spending_total, prior_spending, prior_label, largest, selected, first, last,
                            category_filter, c, prior_from if prior else None, prior_to if prior else None, category_code)
-    return render(request, "birdview/expenses.html", notes=notes, analysis=analysis, stats=stats, category_bars=category_bars, spend_trend=spend_trend,
+    days = visuals.day_calendars(c, first, last, category_code)
+    return render(request, "birdview/expenses.html", notes=notes, analysis=analysis, calendar=days, stats=stats, category_bars=category_bars, spend_trend=spend_trend,
                   usual=visuals.usual_rows(usual), who_bars=visuals.counterparty_bars(c, first, last),
                   account_bars=visuals.account_bars(c, first, last), largest=largest,
                   period=selected.key, month=last.strftime("%Y-%m"),

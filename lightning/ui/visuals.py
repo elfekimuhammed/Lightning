@@ -4,6 +4,7 @@ No financial calculation happens here: every value is a figure a service compute
 """
 from __future__ import annotations
 
+from bisect import bisect_right
 from datetime import date, timedelta
 from decimal import Decimal
 from urllib.parse import urlencode
@@ -301,6 +302,122 @@ def holding_journey(c, account_id: int, asset_id: int, end: date, months: int = 
     }
 
 
+WEEK_STARTS_ON = 5  # Saturday (Python weekday), as calendars in Egypt run; Monday would be 0
+WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+
+def _ranked(values: list[Decimal]) -> list[Decimal]:
+    """The sizes to rank against: every non-zero size, smallest first."""
+    return sorted(abs(v) for v in values if v)
+
+
+def _step(value: Decimal, ranked: list[Decimal]) -> int:
+    """1–4 by rank among ``ranked``, in four equal groups; the largest is always 4 (darker is more)."""
+    if not value or not ranked:
+        return 0
+    if len(ranked) == 1:
+        return 4
+    rank = bisect_right(ranked, abs(value)) - 1
+    return min(4, 1 + rank * 4 // (len(ranked) - 1))
+
+
+def day_calendars(c, first: date, last: date, code_filter: str = "", months: int = 12) -> dict:
+    """Calendar heatmaps for the period, one small month per calendar month (the last ``months`` of a
+    longer period): money out per day in rose steps, and net cash flow per day, green kept and rose
+    short. Steps are by rank among the period's own days, so a rent day doesn't wash out the rest."""
+    first_record = c.reporting.first_activity_date()
+    first = max(first, parse_date(first_record)) if first_record else first  # nothing to show before it
+    flows = c.reporting.flows_by_date(first, last, "day", code_filter)
+    month_starts = []
+    cursor = last.replace(day=1)
+    while cursor >= first.replace(day=1) and len(month_starts) < months:
+        month_starts.append(cursor)
+        cursor = (cursor - timedelta(days=1)).replace(day=1)
+    month_starts.reverse()
+    shown_from = max(first, month_starts[0]) if month_starts else first
+    spend = {k: v["spending"] for k, v in flows.items() if k >= fmt_date(shown_from)}
+    net = {k: v["net"] for k, v in flows.items() if k >= fmt_date(shown_from)}
+    spend_rank, net_rank = _ranked(list(spend.values())), _ranked(list(net.values()))
+    order = [(WEEK_STARTS_ON + i) % 7 for i in range(7)]
+
+    def grid(start: date) -> list[list[dict | None]]:
+        end = (start.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
+        weeks, week = [], [None] * order.index(start.weekday())
+        day = start
+        while day <= end:
+            key = fmt_date(day)
+            inside = first <= day <= last
+            s, n = spend.get(key, ZERO), net.get(key, ZERO)
+            week.append({"day": day.day, "date": key, "inside": inside, "spend": s, "net": n,
+                         "spend_step": _step(s, spend_rank) if s > 0 else 0,
+                         "net_step": _step(n, net_rank), "net_tone": "in" if n > 0 else "out" if n < 0 else "zero"})
+            if len(week) == 7:
+                weeks.append(week); week = []
+            day += timedelta(days=1)
+        if week:
+            weeks.append(week + [None] * (7 - len(week)))
+        return weeks
+
+    cal = [{"key": m.strftime("%Y-%m"), "name": f"{MONTH_NAMES[m.month - 1]} {m.year}", "weeks": grid(m)}
+           for m in month_starts]
+    spend_days = [(k, v) for k, v in spend.items() if v > 0]
+    busiest = max(spend_days, key=lambda kv: kv[1]) if spend_days else None
+    days_in = (last - shown_from).days + 1
+    return {"months": cal, "weekdays": [WEEKDAYS[i] for i in order], "single": len(cal) == 1,
+            "busiest": busiest, "spend_days": len(spend_days), "days": days_in,
+            "quiet_days": days_in - len(spend_days),
+            "kept_days": sum(1 for v in net.values() if v > 0), "short_days": sum(1 for v in net.values() if v < 0),
+            "cut_note": len(month_starts) == months and first.replace(day=1) < month_starts[0]}
+
+
+def month_calendar(c, last: date, years: int = 5) -> dict:
+    """Calendar heatmap by month for the Overview: one row per year (the last ``years``), twelve
+    months across; money out in rose steps and net cash flow in green and rose, four steps over all the
+    months shown, by rank. A fixed horizon: every month since the first record, up to the month of ``last``."""
+    first_record = c.reporting.first_activity_date()
+    if not first_record:
+        return {"years": []}
+    start = max(parse_date(first_record).replace(day=1), date(last.year - years + 1, 1, 1))
+    flows = c.reporting.flows_by_date(start, last, "month")
+    spend_rank = _ranked([v["outflows"] for v in flows.values() if v["outflows"] > 0])
+    net_rank = _ranked([v["net"] for v in flows.values()])
+    rows = []
+    for year in range(start.year, last.year + 1):
+        cells = []
+        for m in range(1, 13):
+            key = f"{year}-{m:02d}"
+            known = start.strftime("%Y-%m") <= key <= last.strftime("%Y-%m")
+            f = flows.get(key, {"outflows": ZERO, "net": ZERO, "inflows": ZERO})
+            cells.append({"key": key, "month": MONTH_NAMES[m - 1], "known": known, "spend": f["outflows"],
+                          "net": f["net"], "inflows": f["inflows"],
+                          "spend_step": _step(f["outflows"], spend_rank) if known and f["outflows"] > 0 else 0,
+                          "net_step": _step(f["net"], net_rank) if known else 0,
+                          "net_tone": "in" if f["net"] > 0 else "out" if f["net"] < 0 else "zero"})
+        rows.append({"year": year, "cells": cells})
+    known = [cell for r in rows for cell in r["cells"] if cell["known"]]
+    best = max(known, key=lambda x: x["net"]) if known else None
+    biggest = max(known, key=lambda x: x["spend"]) if known else None
+    return {"years": rows, "months": MONTH_NAMES, "best": best, "biggest": biggest,
+            "kept": sum(1 for x in known if x["net"] > 0), "short": sum(1 for x in known if x["net"] < 0),
+            "count": len(known), "from": start.strftime("%Y-%m")}
+
+
+def _range_marks(low, high, median, now) -> dict | None:
+    """Positions on a usual-range bar that is the same size on every row: the pill runs from the
+    lowest month (8%) to the highest (92%); the middle month and now sit where they fall, and a month
+    outside the range sits in the margin at that end."""
+    if low is None:
+        return None
+    span = high - low
+
+    def at(v):
+        if not span:
+            return 50.0
+        return float(max(Decimal(2), min(Decimal(98), 8 + (v - low) / span * 84)))
+    return {"low": 8.0 if span else 50.0, "high": 92.0 if span else 50.0, "median": at(median), "now": at(now)}
+
+
 def expense_analysis(c, first: date, last: date, code_filter: str = "", history: int = 12,
                      floor_share: Decimal = Decimal(1), top: int = 5) -> dict:
     """Expense analysis in five questions, big items only.
@@ -339,8 +456,7 @@ def expense_analysis(c, first: date, last: date, code_filter: str = "", history:
         rows.append({"code": code, "name": name, "value": value, "per_month": per_month, "share": value / total * 100,
                      "usual": usual, "past": past, "low": low, "high": high, "median": median,
                      "above": high is not None and per_month > high, "below": low is not None and per_month < low,
-                     "range": None if low is None else {"low": float(low / scale * 100), "high": float(high / scale * 100),
-                                                        "median": float(median / scale * 100), "now": float(per_month / scale * 100)},
+                     "range": _range_marks(low, high, median, per_month),
                      "href": f"/transactions?category_id={category.id}&date_from={fmt_date(first)}&date_to={fmt_date(last)}"})
     if small > 0:  # everything past the biggest five is one "Others" row, with its own history
         big_codes = {code for code, _, _ in big}
@@ -355,8 +471,7 @@ def expense_analysis(c, first: date, last: date, code_filter: str = "", history:
         rows.append({"code": "", "name": "Others", "others": True, "value": small, "per_month": per_month,
                      "share": small / total * 100, "usual": usual, "past": past, "low": low, "high": high, "median": median,
                      "above": high is not None and per_month > high, "below": low is not None and per_month < low,
-                     "range": None if low is None else {"low": float(low / scale * 100), "high": float(high / scale * 100),
-                                                        "median": float(median / scale * 100), "now": float(per_month / scale * 100)},
+                     "range": _range_marks(low, high, median, per_month),
                      "href": f"/transactions?date_from={fmt_date(first)}&date_to={fmt_date(last)}"})
     tiles = charts.treemap([{"label": r["name"], "value": r["value"], "share": r["share"], "href": r["href"],
                              "small": r.get("others", False)} for r in rows])

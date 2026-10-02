@@ -8,6 +8,25 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### Calendar heatmaps, even range bars, every stat card fuller, the planner restyled · 2026-10-02
+- Expense analysis ends with **Day by day**: the period as a calendar, total expenses on the left and net
+  cash flow on the right (green kept, rose short). One month shows each day's date and amount; a longer
+  period shows a small month per month, the last twelve at most. Weeks start on Saturday, the biggest day is
+  darkest, and every day opens its transactions. It replaces the category-by-month table and the money in /
+  money out / net table, and the outlined month is gone.
+- The Overview ends with **Month by month**: the same calendar by month, a row per year since the first
+  record, total expenses beside net cash flow; each month opens Expense analysis for that month.
+- Inside its usual range?: every bar is now the same size. The pill runs from the lowest month (its value on
+  the left) to the highest (on the right), and the status and now sit on the right.
+- New `flows_by_date` in reporting: money in, money out and net per day or month, counted exactly like
+  `cash_flow`, from one grouped query.
+- Every stat card's number now grows with its card (smaller past seven characters), the sparkline sits
+  above the number instead of behind it, and chips such as "until 2026-11-01" no longer clip.
+- Investment planner: "How to split it" is the app's pill segment, the suggested split uses asset class
+  colours instead of a rotating palette, and the labels match the guideline.
+- Cash planning's tab bar scrolls on one line on phones instead of widening the page.
+- App guideline 2.10 · Juniper.
+
 ### Investments: calmer holdings, the waffle back, fuller cards; the month stepper · 2026-10-01
 - Holdings: the total and class rows lose their bands; a thin hairline separates each class instead. Names are
   ink, only the gain percentage carries a colour, and the horizon is a quiet word (Short, Medium, Long, or Set)

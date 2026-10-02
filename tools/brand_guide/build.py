@@ -15,8 +15,8 @@ from pathlib import Path
 
 OUT = Path(__file__).with_name("APPLICATION_BRAND_GUIDE.html")
 DOCS_OUT = Path(__file__).resolve().parents[2] / "docs" / "APPLICATION_BRAND_GUIDE.html"  # the copy linked from the docs
-VERSION = "2.9 · Yarrow"
-UPDATED = "2026-10-01"
+VERSION = "2.10 · Juniper"
+UPDATED = "2026-10-02"
 
 # ---- tokens (same values as style.css) ---------------------------------------------------------
 T = dict(
@@ -275,26 +275,48 @@ def c_candles():
 
 
 def c_calendar():
-    import random
-    rnd = random.Random(7)
-    body = ""
-    cell, gap, x0, y0 = 38, 4, 44, 26
-    for j, d in enumerate(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]):
-        body += text(x0 + j * (cell + gap) + cell / 2, 16, d, "t", "middle")
-    shades = ["#F7FAF9", "#FBE6EE", "#F4C3D3", "#EC9DB7", "#D9678D"]
-    day = 1
-    for w in range(5):
-        for j in range(7):
-            idx = w * 7 + j - 1  # 2026-09-01 is a Tuesday
-            if idx < 0 or day > 30:
+    """One month by day: Saturday first, four rose steps by rank, the date and amount in each day."""
+    spend = {2: 3300, 3: 12000, 5: 2500, 9: 350, 10: 412, 12: 75, 16: 210, 18: 1300, 20: 650, 22: 1500, 24: 480, 25: 2000, 28: 15}
+    ranked = sorted(spend.values())
+    shades = ["#F1F5F4", "#FCEEF3", "#F6CFDB", "#EDA3BB", "#D4567F"]
+    cell, gap, x0, y0 = 44, 4, 4, 22
+    body = "".join(text(x0 + j * (cell + gap) + cell / 2, 12, d, "t", "middle") for j, d in enumerate(["Sat", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri"]))
+    for day in range(1, 31):
+        idx = day + 2  # 2026-09-01 is a Tuesday: the fourth column when the week starts on Saturday
+        w, j = divmod(idx, 7)
+        v = spend.get(day, 0)
+        lvl = 0 if not v else min(4, 1 + ranked.index(v) * 4 // (len(ranked) - 1))
+        x, y = x0 + j * (cell + gap), y0 + w * (34 + gap)
+        ink = "#fff" if lvl == 4 else T["ink"]
+        body += f'<rect x="{x}" y="{y}" width="{cell}" height="34" rx="7" fill="{shades[lvl]}"><title>2026-09-{day:02d}</title></rect>'
+        body += text(x + 5, y + 11, str(day), "t", fill=ink, size=8.5)
+        if v:
+            body += text(x + cell - 4, y + 29, f"{v / 1000:.1f}k".replace(".0k", "k") if v >= 1000 else str(v), "v", "end", fill=ink, size=9.5)
+    scale = "".join(f'<i style="background:{c}"></i>' for c in shades[1:])
+    return svg(body, "Money out by day in 2026-09", w=W, h=y0 + 5 * 38 + 2) + f'<div class="legend ramp"><span>Less</span>{scale}<span>More</span></div>'
+
+
+def c_calendar_months():
+    """Months by year: net cash flow, green kept and rose short, four steps each by rank."""
+    nets = {(2025, 9): -23, (2025, 10): -21, (2025, 11): 18, (2025, 12): -22, (2026, 1): 12, (2026, 2): -25, (2026, 3): 9,
+            (2026, 4): -6, (2026, 5): 15, (2026, 6): -26, (2026, 7): 4, (2026, 8): 22, (2026, 9): -27, (2026, 10): 45}
+    ranked = sorted(abs(v) for v in nets.values())
+    green, rose = ["#E3F4EA", "#C5E8D3", "#8FD1AC", "#0B8A5F"], ["#FCEEF3", "#F6CFDB", "#EDA3BB", "#D4567F"]
+    cw, ch, x0 = 25, 26, 38
+    body = "".join(text(x0 + j * cw + cw / 2, 12, m, "t", "middle") for j, m in enumerate("JFMAMJJASOND"))
+    for i, year in enumerate((2025, 2026)):
+        body += text(x0 - 6, 22 + i * (ch + 3) + 17, str(year), "l", "end")
+        for j in range(12):
+            x, y = x0 + j * cw + 1, 22 + i * (ch + 3)
+            v = nets.get((year, j + 1))
+            if v is None:
+                body += f'<rect x="{x}" y="{y}" width="{cw - 3}" height="{ch}" rx="5" fill="none" stroke="{T["line"]}"/>'
                 continue
-            level = rnd.choice([0, 0, 1, 1, 2, 2, 3, 4]) if day != 25 else 4
-            x, y = x0 + j * (cell + gap), y0 + w * (26 + gap)
-            body += f'<rect x="{x}" y="{y}" width="{cell}" height="26" rx="6" fill="{shades[level]}"><title>2026-09-{day:02d}</title></rect>'
-            body += text(x + 5, y + 11, str(day), "t", fill=T["ink"] if level < 4 else "#fff", size=9)
-            day += 1
-    scale = "".join(f'<i style="background:{c}"></i>' for c in shades)
-    return svg(body, "Spending by day in 2026-09", w=W, h=184) + f'<div class="legend ramp"><span>Less</span>{scale}<span>More</span></div>'
+            lvl = min(3, ranked.index(abs(v)) * 4 // (len(ranked) - 1))
+            col = (green if v > 0 else rose)[lvl]
+            body += f'<rect x="{x}" y="{y}" width="{cw - 3}" height="{ch}" rx="5" fill="{col}"><title>{year}-{j + 1:02d} · {v:+}k</title></rect>'
+    scale = "".join(f'<i style="background:{c}"></i>' for c in rose[::-1] + green)
+    return svg(body, "Net cash flow by month", w=W, h=22 + 2 * (ch + 3) + 4) + f'<div class="legend ramp"><span>Short</span>{scale}<span>Kept</span></div>'
 
 
 def c_small_multiples():
@@ -667,20 +689,22 @@ def c_histogram():
 
 
 def c_range():
-    rows = [("Groceries", 3900, 5200, 4550, 5210), ("Eating out", 2100, 3400, 2780, 3940), ("Transport", 1000, 1300, 1180, 1120), ("Home", 6000, 6500, 6300, 6500)]
-    x0, x1, mx = 96, 330, 7000
+    """Every bar the same size: the pill runs from the lowest month to the highest, the two values
+    beside it; the middle month a tick, now a dot (past the pill when outside the range)."""
+    rows = [("Groceries", 3900, 5200, 4550, 5210), ("Eating out", 2100, 3400, 2780, 2900), ("Transport", 1000, 1300, 1180, 1120), ("Home", 6000, 6500, 6300, 6500)]
+    x0, x1 = 150, 300  # the track; 8% to 92% of it is the pill
     body, y = "", 18
-    for v in (0, 3500, 7000):
-        xx = x0 + v / mx * (x1 - x0)
-        body += f'<line class="g" x1="{xx:.1f}" x2="{xx:.1f}" y1="4" y2="{len(rows) * 34 + 2}"/>' + text(xx, len(rows) * 34 + 16, short(v), "t", "middle")
     for name, lo, hi, med, now in rows:
-        xa, xb, xm, xn = (x0 + v / mx * (x1 - x0) for v in (lo, hi, med, now))
-        body += text(x0 - 10, y + 4, name, "l", "end")
-        body += f'<rect x="{xa:.1f}" y="{y - 6}" width="{xb - xa:.1f}" height="12" rx="6" fill="{T["track"]}"/>'
-        body += f'<line x1="{xm:.1f}" x2="{xm:.1f}" y1="{y - 7}" y2="{y + 7}" stroke="{T["ink2"]}" stroke-width="2"/>'
-        body += dot(xn, y, OVER if now > hi else SPEND)
+        def at(v):
+            pct = max(2, min(98, 8 + (v - lo) / (hi - lo) * 84))
+            return x0 + pct / 100 * (x1 - x0)
+        body += text(4, y + 4, name, "l")
+        body += text(x0 - 8, y + 4, short(lo), "t", "end") + text(x1 + 8, y + 4, short(hi), "t")
+        body += f'<rect x="{at(lo):.1f}" y="{y - 5}" width="{at(hi) - at(lo):.1f}" height="10" rx="5" fill="#DCEBE5"/>'
+        body += f'<line x1="{at(med):.1f}" x2="{at(med):.1f}" y1="{y - 8}" y2="{y + 8}" stroke="{T["ink2"]}" stroke-width="2"/>'
+        body += dot(at(now) if now <= hi else x1 - 0.02 * (x1 - x0), y, OVER if now > hi else SPEND)
         y += 34
-    return key([("Usual range (12 months)", T["track"]), ("Middle month", T["ink2"]), ("This month", SPEND)]) + svg(body, "This month against the usual range", h=len(rows) * 34 + 24)
+    return key([("Usual range (12 months)", "#DCEBE5"), ("Middle month", T["ink2"]), ("Now", SPEND)]) + svg(body, "Now against each category's usual range", h=len(rows) * 34 + 4)
 
 
 def c_scatter():
@@ -837,9 +861,12 @@ CHARTS = [
         ("Candlestick", "avoid", c_candles, "Open, high, low and close of a traded price.",
          "Reference only. Lightning keeps one price per month-end, so a candle would invent data. Use a trend line.",
          "Not used"),
-        ("Calendar heatmap", "ready", c_calendar, "Which days the money went out.",
-         "One hue (rose) from light to dark, five steps, a Less → More key, the day number in each cell. Weeks start on Monday.",
-         "Expense analysis · by day"),
+        ("Calendar heatmap · days", "app", c_calendar, "Which days the money went out, and which days kept or lost money.",
+         "A month as a calendar, weeks starting on Saturday. Money out in four rose steps; net cash flow in green (kept) and rose (short), four steps each. Steps go by rank among the period's own days, so the biggest day is darkest and one rent day doesn't wash out the rest. One month shows the date and amount in each day; a longer period shows one small month per month (twelve at most), colour only. Empty days on the track, days outside the period as a faint dot, no outlines. Every day opens its transactions. Two halves side by side: total expenses, then net cash flow.",
+         "Expense analysis · Day by day"),
+        ("Calendar heatmap · months", "app", c_calendar_months, "How each month went, every month since the first record.",
+         "A row per year, twelve months across (single letters when narrow). The same steps as the day calendar, by rank over all the months shown, the compact value in each cell. Months before the first record or after today are outlined and empty. A fixed horizon, the last section of the Overview; each month opens Expense analysis for that month.",
+         "Overview · Month by month"),
         ("Small multiples", "app", c_small_multiples, "The same trend for several categories, side by side.",
          'Up to six panels, every panel on one scale (so a big category looks big), no axes, the name and now above each; the last point is now.',
          'Expense analysis · How has each big category moved?'),
@@ -925,14 +952,14 @@ CHARTS = [
          "Touching columns (1.5px gap), bins that read as money ranges, one hue.",
          "Expense analysis · payment sizes"),
         ("Usual range", "app", c_range, "Is this month normal for each category?",
-         "Each big category's lowest-to-highest month as a pill, its middle month as an ink tick, now as a dot (strong rose and 'Above its range' when over the pill, green 'Below its range' under it). Needs three months of history.",
+         "Every bar the same size: the pill runs from the lowest month (left value) to the highest (right value), the middle month an ink tick, now a dot; past the pill at that end when outside it (strong rose and 'Above its range', green 'Below its range'). The status and now sit on the right. Needs three months of history.",
          'Expense analysis · Inside its usual range?'),
         ("Scatter", "ready", c_scatter, "Two measures per holding: return against how much it moves.",
          "Labelled dots in class colours, both axes from zero, no trend line unless it means something. Needs a year of month-end prices.",
          "Investments · risk and return"),
-        ("Heatmap table", "app", c_heatmap, "Category by month, to spot the unusual months.",
+        ("Heatmap table", "ready", c_heatmap, "Category by month, to spot the unusual months.",
          "Category by month: the history months, then every month of the period you chose (outlined). Each cell against its row's own average in four rose steps, the value in every cell, big categories only. Always the last section of the page.",
-         'Expense analysis · Month by month'),
+         'Stashed in 2.10 (see 16): the calendars replaced it'),
     ]),
     ("Loans and schedules", [
         ("Principal and interest", "ready", c_amortization, "What each year of a loan costs.",
@@ -1076,10 +1103,10 @@ def build() -> str:
 </div>
 <h3>Stat cards: one number, up to four in a row</h3>
 {tiles_row()}
-<ul class="bul"><li><b>Order:</b> label (15px Bricolage, ink) top left; a period chip top right (24px pill, an arrow when the number went up or down: green tint up, rose tint down, strong rose filled for <i>Over plan</i>, quiet grey otherwise); <b>one big figure</b> (30px, ink; strong rose when it is a shortfall) at the bottom; one 13px line under it with its supporting figure in green or rose.</li>
-<li><b>One quiet visual</b> in the band between the label and the figure, right side: a sparkline (2px line at 75%, a 10% fill, a dot on the last point) for a figure with history, or an 8px meter for a share of a whole. Never both, never axes.</li>
+<ul class="bul"><li><b>Order:</b> label (15px Bricolage, ink) top left; a period chip top right (24px pill, an arrow when the number went up or down: green tint up, rose tint down, strong rose filled for <i>Over plan</i>, quiet grey otherwise); <b>one big figure</b> (sized by the card: 19% of its width, 30–54px, one step smaller past seven characters; ink, strong rose when it is a shortfall) at the bottom; one 13px line under it with its supporting figure in green or rose.</li>
+<li><b>One quiet visual</b>, in the flow between the label and the figure, never behind the figure: a full-width sparkline (2px line at 75%, a 10% fill, a dot on the last point) for a figure with history, or an 8px meter for a share of a whole. Never both, never axes.</li>
 <li><b>Surfaces alternate</b> so a row never reads as one block: lead green (the period’s headline), white, mint, white. Every card has a 1px line in its own shade and the card shadow; the whole card is the link.</li>
-<li>164px tall; four in a row on wide screens, two from 1,100px, one on phones. The Overview uses exactly these four: Change in net worth (or Change in what you own when you owe nothing), Savings rate, Investing rate and Left in plan for the period’s month.</li></ul>
+<li>At least 164px tall; the chip never clips. Four in a row on wide screens, two from 1,100px, one on phones. The Overview uses exactly these four: Change in net worth (or Change in what you own when you owe nothing), Savings rate, Investing rate and Left in plan for the period’s month.</li></ul>
 <h3>Key notes: the number first</h3>
 <div class="notes">{note("info", "Safe to spend until 2026-10-27", "12,400.00", "Free cash less what is due before your next income.", "See the plan", "wallet")}{note("info", "Home · share of money out", "38%", "15,300.00 of 40,300.00.", "See Home", "pie")}{note("attention", "Categories over plan", "2", "Personal and Eating out.", "See categories", "alert")}</div>
 <p class="note">The number is the highlight. Up to three under the page title, each in this order: a small tone icon with a short label (15px, ink 2), <b>one big figure</b> (30px Bricolage; green for good, strong rose for needs you, ink for info), one 13px line of context, and at most one 32px pill button in the tone colour. The card is a full tint of its tone with a 1px tone border. A note with no figure (\u201cNothing needs you today\u201d) shows its sentence as the label.</p>
@@ -1118,7 +1145,7 @@ def build() -> str:
 <div class="toggle"><div class="thead"><span>Personal</span><b>11,270.00</b><i>›</i></div><div class="titem"><span>Groceries</span><b>5,210.00</b></div><div class="titem"><span>Eating out</span><b>3,940.00</b></div><div class="titem"><span>2 more</span><b>2,120.00</b></div></div>
 <ul class="bul"><li><b>Primary</b> (Nile) once per page; <b>Secondary</b> for the second action and every “Review”; <b>Quiet</b> for card-header actions and “Show more”; <b>Danger</b> only for deleting or deactivating.</li>
 <li>Labels start with a verb, one to three words, no arrows. A page header holds Primary + Secondary + ⋯ at most.</li>
-<li><b>Chips</b> (36px) filter or fill in values; they are not actions. <b>Segments</b> offer two to four choices of one thing.</li>
+<li><b>Chips</b> (36px) filter or fill in values; they are not actions. <b>Segments</b> offer two to four choices of one thing: the 48px track pill, the chosen option in Nile (the Investment planner's Spread across gaps · Biggest gaps first too), never a bordered box.</li>
 <li>The <b>period control</b> is one component (All time · YTD · Monthly · Custom). The <b>month stepper</b> beside it is the same track pill: round drawn chevrons on the track, the month as a white pill; no bordered circles. Every month box opens the <b>month picker</b>: a year row, twelve months, future months disabled.</li>
 <li><b>Toggle rows</b> are 48px, name and total left, chevron right; items indented and adding up to the row. They start closed, except the first group on the page that owns the number.</li></ul>
 <h3>Ask dialog</h3>
@@ -1242,7 +1269,9 @@ def build() -> str:
               ("Overview · Cash flow", "Column waterfall (From money in to net flow), beside its list", "column_waterfall"),
               ("Overview · Where money in went", "Sankey", "sankey"),
               ("Overview · Investments", "Donut (What you hold) · gain-or-loss bars by asset class · movers list", "donut"),
-              ("Expense analysis", "Four KPI cards · treemap · clustered columns · usual range · small multiples · heatmap", "stat_tiles, birdview/expenses.html"),
+              ("Expense analysis", "Four KPI cards · treemap · clustered columns · usual range (equal bars) · small multiples · day calendars (total expenses beside net cash flow)", "stat_tiles, day_calendar, birdview/expenses.html"),
+              ("Overview · Month by month", "Calendar heatmaps by month: total expenses beside net cash flow", "month_calendar"),
+              ("Investment planner", "Segment · suggested split in asset class colours", "investments/planner.html"),
               ("Investments", "Split waffle (invested, kept, spent) · result card · six-month sparkline · donut · biggest holdings bars · holdings by class · dividends bars · diverging flows · horizon bar", "investments/index.html"),
               ("Holding page", "Four tiles · price trend with average cost · return waterfall · monthly moves (diverging, growth style) · fall from its high · value against cost · trades table", "investments/holding.html"),
               ("Budget · top", "Savings waffle · plan bar (spent azure, left green, over rose)", "budget.html"),
@@ -1261,6 +1290,8 @@ def build() -> str:
                ("Budget summary cards", "Three stat cards", "Replaced by the savings waffle and plan bar in 2.6."),
                ("Expense analysis 2.6", "Grouped bars (Where did it go?), trend with plan (When did it change?), Who you paid and Paid from bars, the usual-month table", "Replaced in 2.7 by the treemap, clustered columns, usual range, small multiples and heatmap. visuals.spending_bars, counterparty_bars and account_bars are kept."),
                ("Cash planning 2.7", "Key notes, Add bill and Add loan in the page header, the forecast as a table only", "Replaced in 2.8 by four stat cards and three questions; adding stays on the Recurring and Loans tabs; the table lives under Show the numbers."),
+               ("Heatmap tables (Expense analysis)", "Category × month and the money in / money out / net table, the period outlined", "Replaced in 2.10 by the day calendars at the owner's request. expense_analysis still returns heat and flow_heat."),
+               ("Planner split colours", "A rotating five-colour palette", "Replaced in 2.10 by asset class colours: colour follows the class."),
                ("Saved and invested bar (Investments)", "One bar: invested, kept, spent", "Replaced by the split waffle in 2.9 at the owner's request; the .saved-bar styles are kept."),
                ("Horizon badges (Holdings)", "S, M, L letters in blue, green and amber", "Replaced by quiet words in 2.9: one accent per table."),
                ("Investments 2.6", "Result key card with toggle rows, portfolio trend, Analysis by asset class, result by class bars", "Replaced in 2.7 by the three tiles, allocation beside biggest holdings and the diverging flows."),
@@ -1271,6 +1302,7 @@ def build() -> str:
                  '<p class="note">Stashed code stays tested and keeps its spec in section 09, so it can come back without a redesign. Desktop (Windows) uses WebView2, the same Chromium engine as the browser, so every active visual renders the same there.</p>'))
     # 17 versions
     s.append(sec("versions", "17", "Versions", "", """<table class="plain"><thead><tr><th>Version</th><th>Date</th><th>What changed</th></tr></thead><tbody>
+<tr><td>2.10 · Juniper</td><td>2026-10-02</td><td>Calendar heatmaps: Expense analysis day by day (total expenses beside net cash flow, Saturday first, steps by rank, no outlines) in place of the two heatmap tables; the Overview ends with the same calendar by month. Usual range bars all the same size with the lowest and highest months beside them. Every stat card's number scales with its card, the sparkline in the flow. The Investment planner gets the pill segment and asset class colours</td></tr>
 <tr><td>2.9 · Yarrow</td><td>2026-10-01</td><td>Grouped tables without highlighted headers: hairlines between groups, one accent colour, quiet horizon words, room for units. The split waffle returns to Saved and invested. Stat card numbers scale with the card, the sparkline in the flow. The month stepper becomes one track pill with drawn chevrons and a white month pill</td></tr>
 <tr><td>2.8 · Clover</td><td>2026-10-01</td><td>Cash planning rebuilt questions first: four stat cards, then How is safe to spend worked out? (waterfall and the 30-day timeline), Where is my cash heading? (forecast trend, flow columns) and What is promised? Timeline, forecast trend and flow columns now in the app. Sub-tabs get a pill bar and a header per tab in its own accent. The Ask dialog replaces the browser's confirm and alert boxes. The visual page also lives in docs/</td></tr>
 <tr><td>2.7 · Sorrel</td><td>2026-10-01</td><td>Questions first: pages open with KPI cards, then one section per question. Big items only (under 1% folds away). The same chart type may have different styles for different goals. Each section states whether it follows the period or a fixed horizon. Investments and the holding page rebuilt; Expense analysis rebuilt with a treemap, clustered columns, usual range, small multiples and a heatmap; drawdown, diverging bars and the heatmap are now in the app</td></tr>
