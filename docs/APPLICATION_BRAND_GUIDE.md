@@ -1,4 +1,4 @@
-# App guideline · 2.9 · Yarrow
+# App guideline · 2.10 · Juniper
 
 **Last updated 2026-10-01.** This is the one guideline for how every screen looks, reads and adds up. It covers colour, type, cards, sections, controls, fields, lists, charts and words. It is built on the Meadow brand guidelines. The product story is in [Project Overview](PROJECT_OVERVIEW.md), code rules in [Architecture](ARCHITECTURE.md) and terms in the [Glossary](GLOSSARY.md).
 
@@ -114,7 +114,7 @@ Every card has a **20px radius** and **24px padding**; stat cards use 16/18. A c
 | **White** (support) card | Right of the lead, or full width alone | Paper wash, white 1px edge, card shadow | Explains or extends the lead. Six rows at most, then "N more" |
 | **Wide** card | Full width | Wide gradient, green left fading to white by 72% | A page-wide card. It may split in two with a hairline divider (What it is made of · Investments if sold). Holdings, budget meters, reserves, analysis cards |
 | **Entry** card | The drawer, popups and forms | White with a 1px line border, no shadow | Where you type. The only bordered card. One primary button |
-| **Stat** card | A row of up to four under the page title | Alternating surfaces: lead green, white, mint (`#EAF8F0 → #F6FCF8`), white; 1px line in its own shade, card shadow | 164px tall. Label (15 Bricolage, ink) top left; a period chip top right (24px pill: green tint with ↑ when up, rose tint with ↓ when down, strong rose filled for "Over plan", grey otherwise); one big figure (30 Bricolage, ink; strong rose for a shortfall) at the bottom with its unit; one 13px line under it with its supporting figure in green or rose. One quiet visual in the band between label and figure, right side: a sparkline (2px at 75%, 10% fill, dot on the last point) for a figure with history, or an 8px meter for a share. The whole card is the link. Four in a row, two from 1,100px, one on phones |
+| **Stat** card | A row of up to four under the page title | Alternating surfaces: lead green, white, mint (`#EAF8F0 → #F6FCF8`), white; 1px line in its own shade, card shadow | At least 164px tall. Label (15 Bricolage, ink) top left; a period chip top right (24px pill: green tint with ↑ when up, rose tint with ↓ when down, strong rose filled for "Over plan", grey otherwise); one big figure (sized by the card, see below; ink, strong rose for a shortfall) at the bottom with its unit; one 13px line under it with its supporting figure in green or rose. One quiet visual: a full-width sparkline (2px at 75%, 10% fill, dot on the last point) in the flow between label and figure for a figure with history, or an 8px meter under the figure for a share. The whole card is the link. Four in a row, two from 1,100px, one on phones |
 | **Key note** | Up to three under the page title | A full tint of its tone, 135°, with a 1px tone border | See below |
 
 **Inside a lead card, always in this order:**
@@ -131,7 +131,7 @@ There are no white or tinted panels inside a lead card.
 
 **A comparison card** is a stat card one and a half times as wide: the number with its sparkline beside it, and a small block underneath with "Against the period before" and "Against your usual month", each with an arrow and the signed difference and %. Spending that rose reads rose; spending that fell reads green. Stat cards have depth: a soft top light, a tinted top edge on lead and mint cards, and a small lift on hover.
 
-**The number fills the card.** A stat card's figure scales with the card (40–54px on Investments, sized by a container query), so a card is never mostly empty space. A sparkline sits in the flow above the number, never behind it. When a card's height comes from a taller neighbour, the number goes right under the title and the supporting figures sit at the bottom as a pair of small figures (22px) under a hairline: Net gain or loss shows Growth and XIRR this way.
+**The number fills the card, on every page.** A stat card's figure scales with the card through a container query (19% of the card's width, 30–54px; a figure over seven characters one step smaller, 15%, 26–46px), so a card is never mostly empty space and millions never overflow. The chip never clips; the label wraps instead. A sparkline sits in the flow above the number, never behind it. When a card's height comes from a taller neighbour, the number goes right under the title and the supporting figures sit at the bottom as a pair of small figures (22px) under a hairline: Net gain or loss shows Growth and XIRR this way.
 
 **Overview stat cards** are exactly four: Change in net worth (Change in what you own when nothing is owed), Savings rate, Investing rate and Left in plan for the period's month. Safe to spend stays the lead of Cash planning.
 
@@ -206,7 +206,7 @@ A section groups the cards that share one date. It is a line on the canvas with 
   - *Danger* (strong rose text) only for deleting or deactivating.
 - A page header holds at most Primary + Secondary + ⋯. Labels start with a verb, run one to three words and carry no arrows.
 - **Chips** (36px) filter or fill in values. They are not actions.
-- **Segments** offer two to four choices of one thing (Buy · Sell · Dividend · Already own).
+- **Segments** offer two to four choices of one thing (Buy · Sell · Dividend · Already own; Spread across gaps · Biggest gaps first in the Investment planner). They are the 48px track pill with 40px pill options, the chosen one in Nile, never a bordered box with a grey selection. A segment inside a form gets the same 13/700 label as the fields beside it.
 - **Period control:** one component (All time · YTD · Monthly · Custom) with the month stepper beside it. It replaces month and year dropdowns.
 - **Month stepper:** the same 48px track pill as the period buttons. Inside it, two 40px round chevron buttons (drawn chevrons, never the ‹ › characters) on the track, and the month as a 104px white pill with a small shadow. A chevron hovers to a light white circle; one that can't go further fades. There are no bordered circles or boxes.
 - **Month picker:** every month box opens it. It has a year row with round chevron buttons, then twelve months, with future months disabled. Changing the year keeps it open. Months are never typed.
@@ -354,7 +354,8 @@ Charts are hand-drawn SVG and CSS with no chart library. In the app, `lightning/
 | | Columns: in and out | Ready | In above zero, out below it, net as a Nile mark on the same axis | Overview · Cash flow by month (stashed, see 16) |
 | | Drawdown | In the app | Percent below the highest month-end so far, a soft-rose area from zero, the worst point in the subtitle | Holding page · Fall from its high |
 | | Candlestick | Avoid | Lightning keeps one price per month-end; use a trend line | — |
-| | Calendar heatmap | Ready | Spending by day, one rose ramp in five steps | Expense analysis · by day |
+| | Calendar heatmap · days | In the app | A month as a calendar, Saturday first: money out in four rose steps, net cash flow in green and rose; steps by rank among the period's days (the biggest day darkest); one month shows the date and amount, a longer period one small month per month; no outlines; each day opens its transactions | Expense analysis · Day by day |
+| | Calendar heatmap · months | In the app | A row per year, twelve months across, the same steps by rank over all the months, the value in each cell; a fixed horizon from the first record to today | Overview · Month by month |
 | | Small multiples | In the app | Up to six panels on one scale, no axes, name and now above each, the last point is now | Expense analysis · How has each big category moved? |
 | | Sparkline | In the app | A trend inside a card; no axes, a dot on the last point | Expense analysis rows, white cards |
 | Compare and rank | Horizontal bars | In the app | Ranking; largest first, six then "N more", each opens its transactions | Expense analysis |
@@ -381,9 +382,9 @@ Charts are hand-drawn SVG and CSS with no chart library. In the app, `lightning/
 | | Progress ring | Ready | One goal with its value in the middle | Cash planning · Emergency fund |
 | | Stat card | In the app | A number that needs no chart, with a sparkline or meter | Overview · four stat cards; Expense analysis |
 | Spread | Histogram | Ready | Payments by size, touching columns | Expense analysis |
-| | Usual range | In the app | Lowest-to-highest month as a pill, the middle month as a tick, now as a dot (strong rose above, green below); needs three months | Expense analysis · Inside its usual range? |
+| | Usual range | In the app | Every bar the same size: the pill runs from the lowest month (its value on the left) to the highest (on the right), the middle month a tick, now a dot, past the pill at that end when outside (strong rose above, green below); needs three months | Expense analysis · Inside its usual range? |
 | | Scatter | Ready | Return against how much it moves, labelled dots | Investments · risk and return |
-| | Heatmap table | In the app | Category × month: history, then every month of the chosen period (outlined); four rose steps against each row's own average, values in cells; always last | Expense analysis · Month by month |
+| | Heatmap table | Ready | Category × month: history, then every month of the chosen period (outlined); four rose steps against each row's own average, values in cells; always last | Stashed in 2.10 (see 16) |
 | Loans and schedules | Principal and interest | Ready | Stacked columns per year: azure principal, light azure interest | Cash planning · Loans |
 | | Loan balance | Ready | Line down to zero with the payoff date | Cash planning · Loans |
 | | Timeline | In the app | Bills and income over the next 30 days on one line from Today; dots in soft rose (green for income), name and amount under the dot in up to three rows so labels never touch | Cash planning · The next 30 days |
@@ -534,7 +535,8 @@ Every visual the app draws, and the ones built but set aside. Update this list i
 | Overview · Cash flow | Column waterfall (From money in to net flow) beside its list | `column_waterfall` |
 | Overview · Where money in went | Sankey | `sankey` |
 | Overview · Investments | Donut (What you hold) · gain-or-loss bars by asset class · movers list | `donut` |
-| Expense analysis | Four KPI cards · treemap · clustered columns · usual range · small multiples · heatmap | `stat_tiles`, `birdview/expenses.html` |
+| Overview · Month by month | Calendar heatmaps by month: total expenses beside net cash flow | `month_calendar` |
+| Expense analysis | Four KPI cards · treemap · clustered columns · usual range (equal bars) · small multiples · day calendars (total expenses beside net cash flow) | `stat_tiles`, `birdview/expenses.html` |
 | Investments | Split waffle (invested, kept, spent) · result card · six-month sparkline · donut · biggest holdings bars · holdings by class · dividends bars · diverging flows · horizon bar | `investments/index.html` |
 | Holding page | Four tiles · price trend with average cost · return waterfall · monthly moves (diverging, growth style) · fall from its high · value against cost · trades table | `investments/holding.html` |
 | Budget · top | Savings waffle · plan bar | `budget.html` |
@@ -543,6 +545,7 @@ Every visual the app draws, and the ones built but set aside. Update this list i
 | Cash planning · Plan | Four stat cards (Safe to spend, Free cash, Due before your next income, Lowest point ahead with sparkline) · waterfall from free cash to safe to spend · 30-day timeline with its payment list · forecast trend (solid past, dashed ahead) · flow columns per month · What you owe list · Loans still to pay bars (five, then Others) | `stat_tiles`, `waterfall`, `trend`, `planning/plan.html` |
 | Cash planning · every tab | Tab header (icon tile, title, one line) in the tab's accent | `plan_tabs` |
 | Cash planning · Recurring | Bars | `bars` |
+| Investment planner | Segment (how to split it) · suggested split as one bar in asset class colours, a class-colour key on each row | `investments/planner.html` |
 
 **Stashed: built, not on any screen**
 
@@ -558,6 +561,8 @@ Every visual the app draws, and the ones built but set aside. Update this list i
 | Budget summary cards | Three stat cards | Replaced by the savings waffle and plan bar in 2.6 |
 | Expense analysis 2.6 | Grouped bars, trend with plan, Who you paid and Paid from bars, the usual-month table | Replaced in 2.7 by the treemap, clustered columns, usual range, small multiples and heatmap; `visuals.spending_bars`, `counterparty_bars` and `account_bars` are kept |
 | Cash planning 2.7 | Key notes, Add bill and Add loan in the page header, the forecast as a table only | Replaced in 2.8 by the four stat cards and the three questions; adding stays on the Recurring and Loans tabs; the table lives under Show the numbers |
+| Heatmap table (Expense analysis) | Category × month, history then the period outlined; and the Net cash flow table (money in, money out, net) | Replaced in 2.10 by the day calendars at the owner's request: no categories, no money in and out rows, no outlined month. `expense_analysis` still returns `heat` and `flow_heat` |
+| Planner split colours | A rotating five-colour palette | Replaced in 2.10 by asset class colours (section 15): colour follows the class |
 | Saved and invested bar (Investments) | One bar: invested, kept, spent | Replaced by the split waffle in 2.9 at the owner's request; the `.saved-bar` styles are kept |
 | Horizon badges (Holdings) | S, M, L letters in blue, green and amber | Replaced by quiet words in 2.9: one accent per table |
 | Investments 2.6 | Result key card with toggle rows, portfolio trend, Analysis by asset class, result by class | Replaced in 2.7 by the three tiles, allocation beside biggest holdings and the diverging flows |
@@ -566,6 +571,7 @@ Every visual the app draws, and the ones built but set aside. Update this list i
 
 | Version | Date | What changed |
 |---|---|---|
+| 2.10 · Juniper | 2026-10-02 | Calendar heatmaps: Expense analysis shows its period day by day (total expenses beside net cash flow, Saturday first, steps by rank, no outlines) in place of the two heatmap tables; the Overview ends with the same calendar by month. Usual range bars are all the same size with the lowest and highest months beside them. Every stat card's number scales with its card, the sparkline in the flow. The Investment planner gets the pill segment and asset class colours |
 | 2.9 · Yarrow | 2026-10-01 | Grouped tables without highlighted headers: hairlines between groups, one accent colour, quiet horizon words, room for units. The split waffle returns to Saved and invested. Stat card numbers scale with the card (container queries), with the sparkline in the flow. The month stepper becomes one track pill with drawn chevrons and a white month pill |
 | 2.8 · Clover | 2026-10-01 | Cash planning rebuilt questions first: four stat cards, then How is safe to spend worked out? (waterfall and the 30-day timeline), Where is my cash heading? (forecast trend with a dashed forecast, flow columns) and What is promised? Timeline, forecast trend and flow columns now in the app. Sub-tabs get a pill bar and a header per tab in its own accent. The Ask dialog replaces the browser's confirm and alert boxes. The visual page also lives in `docs/` |
 | 2.7 · Sorrel | 2026-10-01 | Questions first: KPI cards, then one section per question; big items only (under 1% folds away); the same chart type may have styles for different goals; every section states its time frame (period or fixed horizon). Investments and the holding page rebuilt; Expense analysis rebuilt with a treemap, clustered columns, usual range, small multiples and a heatmap; drawdown, diverging bars and the heatmap now in the app |

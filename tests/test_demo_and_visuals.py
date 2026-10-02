@@ -325,6 +325,39 @@ def test_expense_analysis_compares_big_categories_with_their_usual_month(c, setu
     assert len(a["heat"][0]["cells"]) == len(a["heat_keys"]) and a["heat"][0]["cells"][-1]["step"] == 3  # 1.3× its own average
     page = TestClient(create_app(c)).get("/birdview/expenses?period=month&month=2026-12").text
     assert [r["name"] for r in a["flow_heat"]] == ["Money in", "Money out", "Net flow"]
-    for question in ("Where did it go?", "Is this period unusual?", "How each one moved", "Net cash flow"):
+    for question in ("Where did it go?", "Is this period unusual?", "How each one moved", "Net cash flow", "Day by day"):
         assert question in page
     assert page.count('class="stat-tile surface-') == 4
+    # Every usual-range bar is the same size: the pill runs 8% to 92%, and above its range sits past it.
+    assert (housing_row["range"]["low"], housing_row["range"]["high"]) == (8.0, 92.0) and housing_row["range"]["now"] > 92
+    # The day calendar: one month, the rent day darkest, no category rows and no outlined month.
+    days = visuals.day_calendars(c, date(2026, 12, 1), date(2026, 12, 31))
+    cells = {d["date"]: d for w in days["months"][0]["weeks"] for d in w if d}
+    assert days["single"] and len(cells) == 31 and days["busiest"] == ("2026-12-05", D(15000))
+    assert cells["2026-12-05"]["spend_step"] == 4 and cells["2026-12-05"]["net_tone"] == "out" and cells["2026-12-01"]["spend_step"] == 0
+    assert days["weekdays"][0] == "Sat" and "is-now" not in page and "cal-day heat-4" in page
+
+
+def test_flows_by_date_add_up_to_the_period_cash_flow(demo):
+    c, _ = demo
+    by_day = c.reporting.flows_by_date("2026-07-01", "2026-09-30")
+    by_month = c.reporting.flows_by_date("2026-07-01", "2026-09-30", "month")
+    flow = c.reporting.cash_flow("2026-07-01", "2026-09-30")
+    for rows in (by_day, by_month):
+        assert sum(r["inflows"] for r in rows.values()) == flow.inflows
+        assert sum(r["outflows"] for r in rows.values()) == flow.outflows
+        assert sum(r["net"] for r in rows.values()) == flow.net
+    assert set(by_month) == {"2026-07", "2026-08", "2026-09"}
+
+
+def test_the_overview_ends_with_a_calendar_of_months(demo, monkeypatch):
+    from lightning.ui import visuals
+    monkeypatch.setenv("LIGHTNING_TODAY", "2026-10-02")
+    c, _ = demo
+    cal = visuals.month_calendar(c, date(2026, 10, 2))
+    year = cal["years"][0]
+    assert [r["year"] for r in cal["years"]] == [2026] and len(year["cells"]) == 12
+    assert [x["known"] for x in year["cells"]] == [False] * 6 + [True] * 4 + [False] * 2  # July to today
+    assert cal["count"] == 4 and sum(x["net"] for x in year["cells"][6:9]) == c.reporting.cash_flow("2026-07-01", "2026-09-30").net
+    page = TestClient(create_app(c), base_url="http://127.0.0.1").get("/").text
+    assert "Month by month" in page and page.index("Month by month") > page.index("investments-heading")

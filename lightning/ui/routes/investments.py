@@ -367,11 +367,12 @@ async def _render_planner(request: Request, raw_amount: str="10000"):
     targets = c.investments.target_weights()
     target_total=sum(targets.values(),ZERO)
     suggestions=suggest_contributions(dict(values),targets,amount,mode)
+    tones={cls.name:charts.class_tone(cls.code) for cls in c.assets.list_classes()}  # each class in its own colour
     rows=[]
     for bucket in sorted(set(values)|set(targets),key=lambda b:(-values.get(b,ZERO),b.casefold())):
         value=values.get(bucket,ZERO); suggested=suggestions.get(bucket,ZERO)
         rows.append({"bucket":bucket,"value":value,"weight":value/total*100 if total else ZERO,
-                     "target":targets.get(bucket),"suggested":suggested,
+                     "target":targets.get(bucket),"suggested":suggested,"tone":tones.get(bucket,"other"),
                      "after":(value+suggested)/(total+amount)*100 if total+amount else ZERO})
     return render(request,"investments/planner.html",amount=amount,mode=mode,rows=rows,target_total=target_total,
                   planner_ready=target_total==100,allocation_sum=sum((r["suggested"] for r in rows),ZERO))

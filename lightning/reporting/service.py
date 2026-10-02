@@ -379,6 +379,28 @@ class ReportingService:
                     personal += signed_outflow
         return CashFlow(start, end, inflow, household, investment, outflow, personal, work, investment_out)
 
+    def flows_by_date(self, date_from: date | str, date_to: date | str, by: str = "day",
+                      code_prefix: str = "") -> dict[str, dict]:
+        """Money in, money out and net flow per day (``by="day"``) or month (``"month"``), counted the
+        way cash_flow counts them; days with nothing are left out. ``spending`` is money out limited to
+        categories under ``code_prefix`` (all of it when empty)."""
+        start, end = self._day(date_from), self._day(date_to)
+        out: dict[str, dict] = {}
+        for row in self.q.category_totals_by_date(start, end, 10 if by == "day" else 7):
+            amount = from_e6(row["total"])
+            cat = self.categories.get(row["category_id"])
+            item = out.setdefault(row["key"], {"inflows": ZERO, "outflows": ZERO, "spending": ZERO})
+            if row["effect"] == "INFLOW" and cat.income_class is not None:
+                item["inflows"] += amount
+                continue
+            signed_outflow = -amount if row["effect"] == "OUTFLOW" else amount  # a refund reduces it
+            item["outflows"] += signed_outflow
+            if not code_prefix or cat.code.startswith(code_prefix):
+                item["spending"] += signed_outflow
+        for item in out.values():
+            item["net"] = item["inflows"] - item["outflows"]
+        return out
+
     def money_out_by_category(self, date_from: date | str, date_to: date | str) -> dict[int, Decimal]:
         """Money out per category (positive; refunds reduce it), for the category itself only."""
         start, end = self._day(date_from), self._day(date_to)

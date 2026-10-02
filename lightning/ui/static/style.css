@@ -2678,3 +2678,109 @@ a.chart-sankey-label:hover b { color:var(--azure); }
 .date-popup .date-popup-day:not(#_) { height:36px!important; min-height:36px!important; width:auto!important; padding:0!important; font:600 var(--fs-2)/1 var(--body)!important; }
 .date-popup .date-popup-head button:not(#_) { width:36px!important; height:36px!important; min-height:36px!important; padding:0!important; }
 .date-popup .date-popup-foot button:not(#_) { height:32px!important; min-height:32px!important; padding:0 14px!important; }
+
+/* Investment planner: the amount, a pill segment for how to split it, then the split in class colours. */
+.planner-popup-form:not(#_) { display:grid; grid-template-columns:minmax(180px, 1fr) auto; gap:14px 16px; align-items:end; padding:20px 22px; }
+.planner-popup-form > label:not(#_) { min-width:0; }
+.planner-popup-form > .btn.primary:not(#_) { grid-column:1 / -1; justify-self:start; }
+.planner-mode:not(#_) { display:grid; gap:6px; border:0; padding:0; margin:0; }
+.planner-mode-label:not(#_) { color:var(--ink-2); font:700 13px/18px var(--body); }
+.planner-mode-seg:not(#_) { display:inline-flex; align-items:center; gap:4px; height:48px; padding:4px; border-radius:999px; background:var(--track); }
+.planner-mode-seg label:not(#_) { flex:none; min-width:0; margin:0; cursor:pointer; }
+.planner-mode-seg span:not(#_) { display:grid; place-items:center; height:40px; padding:0 16px; border-radius:999px; font:700 var(--fs-2)/1 var(--body); color:var(--ink-2); background:transparent; }
+.planner-mode-seg label:hover span:not(#_) { background:rgba(255,255,255,.7); color:var(--ink); }
+.planner-mode-seg input:checked + span:not(#_) { background:var(--action); color:var(--on-action); font-weight:700; }
+.planner-mode-seg input:focus-visible + span:not(#_) { outline:2px solid var(--focus, var(--meadow)); outline-offset:2px; }
+.new-money-stack:not(#_) { height:16px; gap:2px; background:var(--track); border-radius:8px; }
+.new-money-stack span:not(#_) { border:0!important; background:var(--tone); }
+.new-money-stack span:first-child { border-radius:8px 0 0 8px; } .new-money-stack span:last-child { border-radius:0 8px 8px 0; }
+.planner-popup-row b:not(#_) { display:inline-flex; align-items:center; gap:8px; }
+.planner-popup-row i.k:not(#_) { width:10px; height:10px; border-radius:3px; background:var(--tone); flex:none; }
+.planner-popup-row:not(#_) { border-bottom-color:var(--line)!important; }
+.planner-popup-row.is-zero strong:not(#_) { color:var(--muted); font-weight:600; }
+@media (max-width:560px) { .planner-popup-form:not(#_) { grid-template-columns:1fr; } .planner-mode-seg:not(#_) { width:100%; } .planner-mode-seg label { flex:1!important; } }
+.planner-popup-form > label:not(#_) { display:grid; gap:6px; color:var(--ink-2); font:700 13px/18px var(--body); }
+/* Stat cards, every page (2.9): the number is sized by the card (container query) and takes the space;
+   a sparkline sits in the flow between the title and the number, never behind it; chips never clip. */
+.main .stat-tiles > .stat-tile { container-type:inline-size; }
+.main .stat-tile .stat-tile-value:not(#_) { font-size:clamp(30px, 15cqi, 52px); line-height:1; letter-spacing:-.03em; }
+.main .stat-tile .stat-tile-value small:not(#_) { font-size:var(--fs-body); letter-spacing:0; }
+.main .stat-tile-head .stat-tile-label { min-width:0; }
+.main .stat-tile-head .stat-chip { flex:none; max-width:none; overflow:visible; text-overflow:clip; white-space:nowrap; }
+.main .stat-tile:not(.has-compare) .stat-tile-visual:not(#_) { order:1; position:relative; inset:auto; width:100%; height:48px; margin:12px 0 0; }
+.main .stat-tile:not(.has-compare) .stat-tile-value { order:2; }
+.main .stat-tile:not(.has-compare) .stat-tile-sub { order:3; margin-top:8px; }
+.main .stat-tile:not(.has-compare) .stat-tile-meter { order:4; }
+.main .stat-tile:not(.has-compare):has(.stat-tile-visual) .stat-tile-value { padding-top:10px; }
+.main .stat-tile .stat-tile-value:not(#_):not(.x_) { font-size:clamp(30px, 19cqi, 54px)!important; }
+.main .stat-tile .stat-tile-value.is-long:not(#_):not(.x_) { font-size:clamp(26px, 15cqi, 46px)!important; }
+@media (max-width:700px) { .main .plan-tabs-bar { display:flex; max-width:100%; overflow-x:auto; scrollbar-width:none; } .main .plan-tabs-bar::-webkit-scrollbar { display:none; } .main .plan-tab { flex:none; } }
+/* Calendar heatmaps (2.10): days on Expense analysis, months on the Overview. Four rose steps for money
+   out; green (kept) and rose (short) steps for net cash flow; empty days on the track; no outlines. */
+.main :is(.cal-day, .mcal td, .heat-key span) { --c0:#F1F5F4; }
+.main :is(.cal-day, .mcal td).heat-0, .main :is(.cal-day, .mcal td)[class*="-0"] { background:var(--c0); color:var(--muted); }
+.main :is(.cal-day, .mcal td, .heat-key span).heat-1, .main :is(.cal-day, .mcal td, .heat-key span).flow-out-1 { background:#FCEEF3; }
+.main :is(.cal-day, .mcal td, .heat-key span).heat-2, .main :is(.cal-day, .mcal td, .heat-key span).flow-out-2 { background:#F6CFDB; }
+.main :is(.cal-day, .mcal td, .heat-key span).heat-3, .main :is(.cal-day, .mcal td, .heat-key span).flow-out-3 { background:#EDA3BB; }
+.main :is(.cal-day, .mcal td, .heat-key span).heat-4, .main :is(.cal-day, .mcal td, .heat-key span).flow-out-4 { background:#D4567F; color:#fff; }
+.main :is(.cal-day, .mcal td, .heat-key span).flow-in-1 { background:#E3F4EA; }
+.main :is(.cal-day, .mcal td, .heat-key span).flow-in-2 { background:#C5E8D3; }
+.main :is(.cal-day, .mcal td, .heat-key span).flow-in-3 { background:#8FD1AC; }
+.main :is(.cal-day, .mcal td, .heat-key span).flow-in-4 { background:#0B8A5F; color:#fff; }
+.main .heat-key span + span { margin-left:2px; }
+.main .cal-months { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:16px 14px; margin-top:4px; }
+.main .cal-months.is-single { grid-template-columns:1fr; }
+.main .cal-month { margin:0; }
+.main .cal-month figcaption { margin:0 0 6px; font:700 var(--fs-meta)/1.2 var(--body); color:var(--ink-2); }
+.main .cal-grid { display:grid; grid-template-columns:repeat(7, minmax(0, 1fr)); gap:3px; }
+.main .cal-wd { font:600 10.5px/1 var(--body); color:var(--muted); text-align:center; padding-bottom:3px; }
+.main .cal-day { position:relative; display:block; aspect-ratio:1; border-radius:5px; background:var(--c0); color:var(--ink); text-decoration:none; }
+.main .cal-day i { display:none; }
+.main a.cal-day:hover { box-shadow:0 0 0 2px var(--surface), 0 0 0 3.5px var(--ink-2); z-index:1; }
+.main .cal-day.is-pad { background:transparent; }
+.main .cal-day.is-out { background:transparent; box-shadow:inset 0 0 0 1px var(--line); }
+/* One month: big days with their date and amount. */
+.main .is-single .cal-grid { gap:5px; }
+.main .is-single .cal-wd { font-size:var(--fs-meta); padding-bottom:4px; }
+.main .is-single .cal-day { aspect-ratio:auto; min-height:52px; border-radius:9px; padding:5px 6px; }
+.main .is-single .cal-day i { display:block; font:600 11px/1 var(--body); font-style:normal; opacity:.7; }
+.main .is-single .cal-day b { position:absolute; right:6px; bottom:6px; left:6px; text-align:right; font:700 12px/1 var(--body); font-variant-numeric:tabular-nums; }
+@media (max-width:560px) { .main .is-single .cal-day { min-height:40px; padding:3px 4px; } .main .is-single .cal-day b { font-size:10px; right:3px; left:3px; bottom:4px; } }
+/* Months: a row per year. */
+.main .mcal { width:100%; border-collapse:separate; border-spacing:3px; table-layout:fixed; }
+.main .mcal th { font:700 var(--fs-meta)/1.2 var(--body); color:var(--muted); text-align:center; padding:2px; }
+.main .mcal tbody th { text-align:left; color:var(--ink-2); width:44px; }
+.main .mcal td { height:36px; border-radius:7px; text-align:center; font:700 11.5px/1 var(--body); font-variant-numeric:tabular-nums; color:#3A1022; }
+.main .mcal td.flow-in-1, .main .mcal td.flow-in-2, .main .mcal td.flow-in-3 { color:#073D2A; }
+.main .mcal td a { display:grid; place-items:center; height:100%; color:inherit; text-decoration:none; }
+.main .mcal td:hover { box-shadow:0 0 0 2px var(--surface), 0 0 0 3.5px var(--ink-2); }
+.main .mcal td.is-out { background:transparent; box-shadow:inset 0 0 0 1px var(--line); }
+.main .mcal td.is-out:hover { box-shadow:inset 0 0 0 1px var(--line); }
+/* Usual range: every bar the same size; the lowest month left of it, the highest right of it. */
+.main .range-row:not(#_) { grid-template-columns:130px 52px minmax(80px,1fr) 52px 112px; gap:10px; }
+.main .range-low, .main .range-high { font:600 var(--fs-meta)/1 var(--body); color:var(--ink-2); font-variant-numeric:tabular-nums; white-space:nowrap; }
+.main .range-low { text-align:right; } .main .range-high { text-align:left; }
+.main .range-track { height:16px; }
+.main .range-pill { background:#DCEBE5; }
+.main .range-row.is-below .range-now { background:var(--positive); }
+@media (max-width:900px) { .main .range-row:not(#_) { grid-template-columns:96px 44px minmax(60px,1fr) 44px 92px; gap:8px; } }
+
+.main .mcal td { font-size:10.5px; letter-spacing:-.01em; }
+.main .cal-day.is-out { box-shadow:none; background:transparent; }
+.main .cal-day.is-out::after { content:""; position:absolute; inset:40%; border-radius:50%; background:var(--line); }
+.main .mcal-wrap { container-type:inline-size; }
+.main .mcal td { padding:0; overflow:hidden; }
+.main .mcal td a { font-size:clamp(8px, 1.9cqi, 11.5px); white-space:nowrap; }
+@container (max-width: 380px) { .main .mcal td a { font-size:0; } .main .mcal td { height:26px; } }
+.main .ranges { container-type:inline-size; }
+@container (max-width: 470px) {
+  .main .range-row:not(#_) { grid-template-columns:44px minmax(0,1fr) 44px; grid-template-areas:"name name note" "low track high"; row-gap:4px; padding-top:8px; padding-bottom:8px; }
+  .main .range-name { grid-area:name; } .main .range-low { grid-area:low; } .main .range-track { grid-area:track; } .main .range-high { grid-area:high; }
+  .main .range-note:not(#_) { grid-area:note; display:flex!important; gap:8px; align-items:baseline; justify-content:flex-end; }
+}
+.main .mcal .m-short { display:none; }
+@container (max-width: 520px) { .main .mcal .m-long { display:none; } .main .mcal .m-short { display:inline; } }
+@container (max-width: 470px) {
+  .main .range-row:not(#_) { grid-template-columns:44px minmax(0,1fr) auto 44px; grid-template-areas:"name name note note" "low track track high"; }
+  .main .range-note em, .main .range-note small { white-space:nowrap; }
+}
