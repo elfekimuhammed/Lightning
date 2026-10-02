@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=Manrope:wght@400..800&display=swap">
   {% endif %}
-  <link rel="stylesheet" href="/static/style.css?v=67">
+  <link rel="stylesheet" href="/static/style.css?v=68">
 </head>
 <body>
 <div class="shell">
@@ -70,7 +70,7 @@
     <div id="app-popup-content"></div>
   </div>
 </dialog>
-<script nonce="{{ request.state.csp_nonce|default('') }}" src="/static/app.js?v=30"></script>
+<script nonce="{{ request.state.csp_nonce|default('') }}" src="/static/app.js?v=31"></script>
 <script nonce="{{ request.state.csp_nonce|default('') }}" src="/static/ai-handoff.js?v=1" defer></script>
 <script nonce="{{ request.state.csp_nonce|default('') }}">(()=>{const section=document.getElementById('sidebar-accounts'),mobile=window.matchMedia('(max-width: 900px)');if(!section)return;const sync=()=>{section.open=!mobile.matches};sync();mobile.addEventListener('change',sync)})();</script>
 {% if request.state.secure_profiles|default(false) %}<script nonce="{{ request.state.csp_nonce|default('') }}" src="/static/session.js?v=1"></script>{% endif %}

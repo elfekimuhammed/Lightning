@@ -2655,3 +2655,26 @@ a.chart-sankey-label:hover b { color:var(--azure); }
 .site-period-control .month-stepper > .period-month-value:not(#_):not(.x_) { width:104px; height:40px; min-height:40px; padding:0 12px; border:0; border-radius:999px; background:var(--surface); color:var(--ink); font:700 14px/40px var(--body); text-align:center; box-shadow:0 2px 6px -3px rgba(10,36,66,.35); cursor:pointer; }
 .site-period-control .month-stepper > .period-month-value:focus-visible:not(#_):not(.x_) { outline:2px solid var(--focus, var(--meadow)); outline-offset:1px; }
 .month-popup-year button { display:grid; place-items:center; border-radius:999px!important; }
+/* Our calendar (App guideline · Fields · Date fields): same look as the month picker. */
+.date-popup { position:fixed; z-index:210; width:296px; padding:12px; border-radius:16px; background:var(--surface); border:1px solid var(--line); box-shadow:var(--shadow-float); font-family:var(--body); color:var(--ink); }
+.date-popup button { border:0; background:transparent; color:inherit; font:600 var(--fs-2)/1 var(--body); border-radius:10px; cursor:pointer; padding:0; min-height:0; height:auto; }
+.date-popup-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+.date-popup-head b { font:700 var(--fs-card)/1 var(--display); }
+.date-popup-head button { width:36px; height:36px; font-size:18px; color:var(--ink-2); }
+.date-popup-head button:hover { background:var(--hover); color:var(--ink); }
+.date-popup-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; }
+.date-popup-dow { text-align:center; font:700 var(--fs-meta)/1 var(--body); color:var(--muted); padding:6px 0; }
+.date-popup-day { height:36px; font-variant-numeric:tabular-nums; }
+.date-popup-day:hover { background:var(--hover); }
+.date-popup-day.is-other { color:#A9B9BF; }
+.date-popup-day.is-today { box-shadow:inset 0 0 0 1.5px var(--meadow-dark); }
+.date-popup-day.is-picked { background:var(--action)!important; color:#fff!important; box-shadow:none; }
+.date-popup-day:focus-visible { outline:2px solid var(--focus); outline-offset:1px; }
+.date-popup-foot { display:flex; justify-content:space-between; gap:8px; margin-top:8px; padding-top:8px; border-top:1px solid var(--line); }
+.date-popup-foot button { height:32px; padding:0 14px; border-radius:999px; border:1px solid var(--line-control); background:var(--surface); font-weight:700; }
+.date-popup-foot button:hover { background:var(--hover); }
+.date-picker-button svg { width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:1.75; stroke-linecap:round; stroke-linejoin:round; display:block; margin:auto; }
+.date-picker-native { display:none!important; }
+.date-popup .date-popup-day:not(#_) { height:36px!important; min-height:36px!important; width:auto!important; padding:0!important; font:600 var(--fs-2)/1 var(--body)!important; }
+.date-popup .date-popup-head button:not(#_) { width:36px!important; height:36px!important; min-height:36px!important; padding:0!important; }
+.date-popup .date-popup-foot button:not(#_) { height:32px!important; min-height:32px!important; padding:0 14px!important; }

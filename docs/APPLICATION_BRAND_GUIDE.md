@@ -253,7 +253,14 @@ There are three kinds. Choosing from your own data is always type-and-pick, neve
 
 - Type, then pick from a menu grouped as your accounts (a transfer), used before, categories, and create. Counterparty menus add **Did you mean** with close spellings. Picking one saves what you typed as an alias. Picking a counterparty fills in its category: the one set on it, else the one it is usually filed under in its last 20 transactions.
 - It replaces every dropdown over five options and every "Search X" + "Choose X" pair.
-- The date field adds Today and Yesterday chips and a calendar button.
+- The date field adds Today and Yesterday chips and a calendar button. The calendar button opens **our calendar**, never the browser's:
+  - it looks like the month picker: a white panel with a 16px radius and a ‹ Month YYYY › header;
+  - weeks run Monday to Sunday;
+  - today has a green ring, and the chosen day is filled Nile;
+  - other months' days are muted;
+  - Today and Clear pills sit at the bottom.
+
+  Arrow keys move by day and Page Up/Down by month; Enter picks, Esc closes, and Alt+Down opens it from the field. The field stays typeable.
 
 **Soft fields in a register row.** The register is edited in place, so its fields must not jump or shout.
 

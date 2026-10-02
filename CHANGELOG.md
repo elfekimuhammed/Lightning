@@ -8,6 +8,15 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### Our own calendar on every date field · 2026-10-02
+- The calendar button on every date field (register rows, forms, popups) now opens Lightning's calendar instead of the browser's:
+  - weeks run Monday to Sunday;
+  - today is ringed and the chosen day filled;
+  - Today and Clear sit at the bottom.
+
+  It works from the keyboard and opens inside popups.
+- The button shows a calendar icon instead of ▦.
+
 ### Dropdowns open inside popups again · 2026-10-02
 - Select boxes in a popup, such as Account type when adding an account, opened their list behind the popup, where it couldn't be seen or clicked. The list now opens inside the popup.
 

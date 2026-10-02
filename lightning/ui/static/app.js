@@ -262,6 +262,95 @@ const isoDate = (value) => {
 // calendar button. Plain [data-smart-date] boxes and leftover native date
 // inputs are upgraded here, so templates only need a text input.
 const DATE_ERROR = "Use yyyy-mm-dd, like 2026-01-31.";
+// Our calendar for every date field (App guideline · Fields): a month at a time, weeks from Monday,
+// today ringed, the chosen day in Nile. It writes yyyy-mm-dd into the text field, which stays typeable.
+const CALENDAR_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>';
+const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const isoOf = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+let openCal = null;
+const closeCalendar = () => { if (!openCal) return; openCal.panel.remove(); openCal.button?.setAttribute("aria-expanded", "false"); openCal = null; };
+const openCalendar = (text, button) => {
+  if (openCal && openCal.text === text) { closeCalendar(); return; }
+  closeCalendar();
+  const picked = isoDate(text.value) || "";
+  const today = isoOf(new Date());
+  const start = picked || today;
+  let view = new Date(Number(start.slice(0, 4)), Number(start.slice(5, 7)) - 1, 1);
+  let focus = start;
+  const panel = document.createElement("div");
+  panel.className = "date-popup"; panel.setAttribute("role", "dialog"); panel.setAttribute("aria-label", "Choose a date");
+  const set = (value) => {
+    text.value = value; text.setCustomValidity("");
+    text.dispatchEvent(new Event("input", { bubbles: true }));
+    text.dispatchEvent(new Event("change", { bubbles: true }));
+    closeCalendar(); text.focus();
+  };
+  const draw = () => {
+    const year = view.getFullYear(), month = view.getMonth();
+    const first = new Date(year, month, 1);
+    const lead = (first.getDay() + 6) % 7;  // Monday first
+    const cells = [];
+    for (let i = 0; i < 42; i += 1) cells.push(new Date(year, month, 1 - lead + i));
+    const rows = cells[35].getMonth() !== month ? 5 : 6;
+    panel.innerHTML = `<div class="date-popup-head"><button type="button" data-step="-1" aria-label="Previous month">‹</button>
+      <b>${MONTH_NAMES[month]} ${year}</b><button type="button" data-step="1" aria-label="Next month">›</button></div>
+      <div class="date-popup-grid" role="grid">${["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => `<span class="date-popup-dow">${d}</span>`).join("")}
+      ${cells.slice(0, rows * 7).map((d) => {
+        const iso = isoOf(d);
+        const cls = ["date-popup-day", d.getMonth() !== month ? "is-other" : "", iso === today ? "is-today" : "", iso === picked ? "is-picked" : ""].join(" ");
+        return `<button type="button" class="${cls}" data-day="${iso}" tabindex="${iso === focus ? 0 : -1}" aria-label="${iso}"${iso === picked ? ' aria-pressed="true"' : ""}>${d.getDate()}</button>`;
+      }).join("")}</div>
+      <div class="date-popup-foot"><button type="button" data-today>Today</button>${picked ? '<button type="button" data-clear>Clear</button>' : ""}</div>`;
+  };
+  const move = (days) => {
+    const d = new Date(Number(focus.slice(0, 4)), Number(focus.slice(5, 7)) - 1, Number(focus.slice(8, 10)) + days);
+    focus = isoOf(d);
+    if (d.getMonth() !== view.getMonth() || d.getFullYear() !== view.getFullYear()) view = new Date(d.getFullYear(), d.getMonth(), 1);
+    draw(); panel.querySelector(`[data-day="${focus}"]`)?.focus();
+  };
+  panel.addEventListener("mousedown", (e) => e.preventDefault());
+  panel.addEventListener("click", (e) => {
+    const b = e.target.closest("button");
+    if (!b) return;
+    e.stopPropagation();
+    if (b.dataset.step) { view = new Date(view.getFullYear(), view.getMonth() + Number(b.dataset.step), 1); focus = isoOf(view); draw(); }
+    else if (b.dataset.day) set(b.dataset.day);
+    else if ("today" in b.dataset) set(today);
+    else if ("clear" in b.dataset) set("");
+  });
+  panel.addEventListener("keydown", (e) => {
+    const keys = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 };
+    if (keys[e.key]) { e.preventDefault(); move(keys[e.key]); }
+    else if (e.key === "PageUp" || e.key === "PageDown") {
+      e.preventDefault();
+      const d = new Date(Number(focus.slice(0, 4)), Number(focus.slice(5, 7)) - 1 + (e.key === "PageUp" ? -1 : 1), 1);
+      view = d; focus = isoOf(d); draw(); panel.querySelector(`[data-day="${focus}"]`)?.focus();
+    } else if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); closeCalendar(); text.focus(); }
+  });
+  draw();
+  (text.closest("dialog[open]") || document.body).append(panel);
+  const rect = (text.closest(".iso-date-control") || text).getBoundingClientRect();
+  const room = window.innerHeight - rect.bottom;
+  panel.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - panel.offsetWidth - 8))}px`;
+  if (room < panel.offsetHeight + 12 && rect.top > room) panel.style.top = `${Math.max(8, rect.top - panel.offsetHeight - 6)}px`;
+  else panel.style.top = `${rect.bottom + 6}px`;
+  openCal = { panel, text, button };
+  button?.setAttribute("aria-expanded", "true");
+  panel.querySelector(`[data-day="${focus}"]`)?.focus();
+};
+document.addEventListener("mousedown", (e) => {
+  if (openCal && !openCal.panel.contains(e.target) && !e.target.closest("[data-open-date-picker]")) closeCalendar();
+});
+document.addEventListener("scroll", (e) => { if (openCal && !openCal.panel.contains(e.target)) closeCalendar(); }, true);
+window.addEventListener("resize", closeCalendar);
+// Alt+Down in a date field opens the calendar, as in the browser's own.
+document.addEventListener("keydown", (e) => {
+  if (e.altKey && e.key === "ArrowDown" && e.target.matches?.("[data-smart-date]")) {
+    e.preventDefault();
+    openCalendar(e.target, e.target.closest(".iso-date-control")?.querySelector("[data-open-date-picker]"));
+  }
+});
+
 let dateFieldCount = 0;
 const normalizeDateField = (input) => {
   if (!input.value.trim()) { input.setCustomValidity(""); return true; }
@@ -315,21 +404,12 @@ const initDateFields = (root = document) => {
   });
   root.querySelectorAll("[data-open-date-picker]:not([data-picker-ready])").forEach((button) => {
     button.dataset.pickerReady = "1";
-    button.addEventListener("click", () => {
+    button.innerHTML = CALENDAR_ICON;
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
       const control = button.closest(".iso-date-control") || root;
-      const field = control.querySelector(`[data-date-picker-for="${CSS.escape(button.dataset.openDatePicker)}"]`);
       const text = control.querySelector(`#${CSS.escape(button.dataset.openDatePicker)}`);
-      if (!field || !text) return;
-      field.value = isoDate(text.value) || "";
-      field.addEventListener("change", () => {
-        if (field.value) {
-          text.value = field.value;
-          text.setCustomValidity("");
-          text.dispatchEvent(new Event("input", { bubbles: true }));
-          text.dispatchEvent(new Event("change", { bubbles: true }));
-        }
-      }, { once: true });
-      try { field.showPicker(); } catch { field.focus(); field.click(); }
+      if (text) openCalendar(text, button);
     });
   });
 };
