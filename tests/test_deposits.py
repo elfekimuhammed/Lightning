@@ -84,8 +84,7 @@ def test_projection_suppressed_when_not_owned_and_save_requires_funding(deposits
     with pytest.raises(ValidationError, match="owned ledger balance"):
         _save(service, accounts, principal="5000.000001")
     _save(service, accounts, principal="4000")
-    c.transactions.record_outflow("2026-09-25", accounts["cd"].id, "1500",
-                                  c.categories.get_by_code("EXP.PERSONAL.FOOD").id)
+    c.deposits.move_legacy_cash(accounts["cd"].id, "2026-09-25", "1500", accounts["cib"].id)
     assert service.future_events("2026-09-26", "2028-05-31") == []
 
 

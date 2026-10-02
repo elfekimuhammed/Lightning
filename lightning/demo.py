@@ -56,12 +56,19 @@ def build_demo(c, as_of: date | None = None) -> dict:
 
     with c.db.transaction():
         # ------------------------------------------------------------ ledger: accounts
-        cib = flows.open_account("CIB Payroll", "BANK", opened, "38,500", institution="CIB")
+        cib = flows.open_account("CIB Payroll", "BANK", opened, "138,500", institution="CIB")
         wallet = flows.open_account("Cash wallet", "CASH", opened, "2,000")
         vodafone = flows.open_account("Vodafone Cash", "CASH", opened, "1,200")
         thndr = flows.open_account("THNDR", "BROKERAGE", opened, "0", institution="THNDR")
-        cd = flows.open_account("NBE 3-year certificate", "DEPOSIT", opened, "100,000", institution="NBE")
+        cd = flows.open_account("NBE CDs", "DEPOSIT", opened, "0", institution="NBE")
         gold_home = flows.open_account("Gold at home", "PHYSICAL_ASSET", opened, "0")
+        purchase_date = months[0]
+        c.deposits.purchase(
+            cd.id, "NBE 3-year certificate", opened,
+            date(purchase_date.year + 1, purchase_date.month, purchase_date.day),
+            date(purchase_date.year + 3, purchase_date.month, purchase_date.day),
+            "100,000", "18", "SIMPLE", "MONTHLY", "MONTHLY", cib.id, cib.id, term_years="3",
+        )
 
         # ------------------------------------------------------------ ledger: three months of activity
         groceries = [("Carrefour", 2, ["3,180.40", "3,310.20", "3,250.75"]), ("Seoudi", 22, ["1,388.10", "1,452.60", "1,420.40"])]

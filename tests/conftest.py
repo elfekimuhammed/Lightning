@@ -33,9 +33,16 @@ def setup(c):
     accounts = {
         "cib": f.open_account("CIB Current", "BANK", "2026-09-01", "50,000", institution="CIB"),
         "wallet": f.open_account("Wallet", "CASH", "2026-09-01", "1200"),
-        "cd": f.open_account("CIB CD", "DEPOSIT", "2026-09-01", "5000", institution="CIB"),
+        # Emulate a pre-portfolio database: these historical accounts had liquid
+        # cash in DEPOSIT. Current CD portfolios are created with zero cash and
+        # certificates are entered through DepositService.purchase().
+        "cd": f.open_account("CIB CD", "BANK", "2026-09-01", "5000", institution="CIB"),
         "thndr": f.open_account("THNDR", "BROKERAGE", "2026-09-01", "0", institution="THNDR"),
     }
+    legacy_class = c.assets.get_class_by_code("DEPOSIT.CD")
+    c.db.execute("UPDATE accounts SET code=?,account_type='DEPOSIT',cash_class_id=? WHERE id=?",
+                 ("CIB-CD-EGP", legacy_class.id, accounts["cd"].id))
+    accounts["cd"] = c.accounts.get(accounts["cd"].id)
     cats = {code: c.categories.get_by_code(code) for code in (
         "EXP.PERSONAL.FOOD", "EXP.WORK.SOFTWARE", "EXP.WORK.SALARY", "EXP.INVEST.INTEREST")}
     return accounts, cats

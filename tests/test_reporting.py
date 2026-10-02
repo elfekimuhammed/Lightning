@@ -27,7 +27,7 @@ def test_transfers_do_not_change_net_worth_or_cash_flow(setup, c):
     accounts, _ = setup
     before = c.reporting.net_worth("2026-09-30").total
     c.transactions.record_transfer("2026-09-05", accounts["cib"].id, accounts["wallet"].id, "2000")
-    c.transactions.record_transfer("2026-09-06", accounts["cib"].id, accounts["cd"].id, "1000")
+    c.transactions.record_transfer("2026-09-06", accounts["cib"].id, accounts["wallet"].id, "1000")
     assert c.reporting.net_worth("2026-09-30").total == before
     flow = c.reporting.cash_flow("2026-09-01", "2026-09-30")
     assert flow.inflows == ZERO and flow.outflows == ZERO

@@ -37,14 +37,16 @@ class TestAccounts:
     def test_cash_class_follows_where_cash_sits(self, c):
         wallet = c.account_flows.open_account("Wallet", "CASH", "2026-09-01", "100")
         bank = c.account_flows.open_account("Bank", "BANK", "2026-09-01", "200")
-        cd = c.account_flows.open_account("CIB CD", "DEPOSIT", "2026-09-01", "300")
+        cd = c.account_flows.open_account("CIB CD", "DEPOSIT", "2026-09-01")
+        with pytest.raises(ValidationError, match="cannot hold cash"):
+            c.account_flows.open_account("NBE CD", "DEPOSIT", "2026-09-01", "300")
         classes = {c.assets.get_class(a.cash_class_id).code for a in (wallet, bank, cd)}
         assert classes == {"CASH.PHYSICAL", "CASH.BANK", "DEPOSIT.CD"}
         assert c.accounts.reporting_group(bank) == "Liquid Cash › Bank Balance"
         assert c.accounts.reporting_group(cd) == "Deposits › CDs / Time Deposits"
 
     def test_group_follows_type_on_edit(self, c):
-        a = c.account_flows.open_account("QNB", "DEPOSIT", "2026-09-01", "100")
+        a = c.account_flows.open_account("QNB", "DEPOSIT", "2026-09-01")
         a = c.account_flows.update_account(a.id, "QNB Savings", "BANK", "2026-09-01", "100")
         assert c.assets.get_class(a.cash_class_id).code == "CASH.BANK"
 

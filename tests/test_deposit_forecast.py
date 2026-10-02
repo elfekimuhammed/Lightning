@@ -64,7 +64,7 @@ def test_recorded_future_maturity_transfer_replaces_projection(c, setup):
     free_cash_before = c.position.at(as_of).free_cash
     _save(c, accounts, start_date="2026-09-01", maturity_date="2026-11-01", annual_rate="0",
           payout_frequency="AT_MATURITY")
-    c.transactions.record_transfer("2026-11-01", accounts["cd"].id, accounts["cib"].id, "5000")
+    c.deposits.move_legacy_cash(accounts["cd"].id, "2026-11-01", "5000", accounts["cib"].id)
 
     forecast = c.forecaster.forecast(as_of)
     assert forecast.months[1].deposit_cash == Decimal("5000")
@@ -73,9 +73,9 @@ def test_recorded_future_maturity_transfer_replaces_projection(c, setup):
 
 
 def test_cd_withdrawn_before_as_of_has_no_projected_cash(c, setup):
-    accounts, cats = setup
+    accounts, _ = setup
     _save(c, accounts)
-    c.transactions.record_outflow("2026-10-01", accounts["cd"].id, "5000", cats["EXP.PERSONAL.FOOD"].id)
+    c.deposits.move_legacy_cash(accounts["cd"].id, "2026-10-01", "5000", accounts["cib"].id)
 
     forecast = c.forecaster.forecast(date(2026, 10, 2))
     assert all(month.deposit_cash == 0 for month in forecast.months)

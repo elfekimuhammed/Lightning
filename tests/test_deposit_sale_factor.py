@@ -86,8 +86,11 @@ def test_legacy_cd_without_terms_keeps_class_factor(c, setup):
 
 def test_multiple_cds_apply_their_own_lockup_and_maturity(c, setup):
     accounts, _ = setup
-    second = c.account_flows.open_account("Second CD", "DEPOSIT", "2026-09-01", "2000")
     cd_class = c.assets.get_class_by_code("DEPOSIT.CD")
+    second = c.account_flows.open_account("Second CD", "BANK", "2026-09-01", "2000")
+    c.db.execute("UPDATE accounts SET code=?,account_type='DEPOSIT',cash_class_id=? WHERE id=?",
+                 ("SECOND-CD-EGP", cd_class.id, second.id))
+    second = c.accounts.get(second.id)
     c.investments.set_liquidation_factor(cd_class.id, "65")
     _terms(c, accounts["cd"].id, accounts["cib"].id,
            lockup_end="2027-03-01", maturity="2027-04-01")
