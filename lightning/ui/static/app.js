@@ -1780,7 +1780,9 @@ document.addEventListener("click", (event) => {
     if (select.disabled) return;
     close();
     const { panel, search, mark } = build(select);
-    document.body.append(panel);
+    // Inside a popup the panel must live in the dialog: a modal dialog sits above everything else on
+    // the page, so a panel on the body would open behind it, out of reach.
+    (select.closest("dialog[open]") || document.body).append(panel);
     const rect = select.getBoundingClientRect();
     const width = Math.max(rect.width, 220);
     panel.style.minWidth = `${width}px`;

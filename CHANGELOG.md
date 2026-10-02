@@ -8,6 +8,9 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### Dropdowns open inside popups again · 2026-10-02
+- Select boxes in a popup, such as Account type when adding an account, opened their list behind the popup, where it couldn't be seen or clicked. The list now opens inside the popup.
+
 ### CD terms, interest projections and Omar workflow fixes · 2026-10-02
 - `0038_cd_terms.sql` — store certificate terms separately from ledger balances and preserve the estimated schedule across restarts.
 - Add terms for each funded certificate account: principal, start, separate earliest-withdrawal and maturity dates, annual percentage rate, simple or compound interest, simple payout and compound capitalization frequency, and a bank/cash destination. Terms never create ledger entries; actual interest and principal transfers are recorded separately.
