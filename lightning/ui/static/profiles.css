@@ -34,7 +34,8 @@ button, a, input { -webkit-tap-highlight-color: transparent; }
 .masthead { min-height: 82px; display: flex; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 1px solid rgba(48,74,92,.12); }
 .brand { display: inline-flex; align-items: center; gap: 9px; color: var(--ink); font: 700 20px/1 "Bricolage Grotesque", "Plus Jakarta Sans", sans-serif; letter-spacing: -.025em; }
 .brand:hover { text-decoration: none; }
-.brand svg { width: 25px; height: 25px; flex: none; }
+.brand svg { display: none; }
+.brand img { width: 25px; height: 25px; flex: none; object-fit: contain; }
 .masthead-label { color: var(--ink-2); font-size: 12px; font-weight: 700; }
 .content-wrap { width: min(100%, 620px); margin: 0 auto; padding: 48px 0 36px; flex: 1; }
 .intro { margin-bottom: 24px; }

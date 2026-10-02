@@ -41,6 +41,7 @@ exe = EXE(
     [],
     exclude_binaries=True,
     name="Lightning",
+    icon=str(root / "lightning" / "ui" / "static" / "lightning.ico"),
     console=False,
     upx=False,
     disable_windowed_traceback=True,

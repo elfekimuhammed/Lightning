@@ -16,9 +16,9 @@ def test_desktop_version_and_one_extract_artifact_agree():
     assert metadata["project"]["version"] == __version__
     assert DISPLAY_VERSION == __version__.replace("b", "-beta.")
     workflow = (ROOT / ".github" / "workflows" / "desktop-probe.yml").read_text(encoding="utf-8")
-    assert "path: dist/Lightning/" in workflow
+    assert "dist/Lightning-windows-x64.zip" in workflow
+    assert "dist/APP_SHA256SUMS" in workflow
     assert "name: ${{ env.LIGHTNING_ARTIFACT_NAME }}" in workflow
-    assert "dist/Lightning-windows-x64.zip" not in workflow
     assert "dist/LightningProbe-windows-x64.zip" not in workflow
 
 
@@ -58,6 +58,8 @@ def test_app_spec_bundles_application_resources_and_desktop_entry():
     ):
         assert (ROOT / resource).is_file(), resource
     assert 'name="Lightning"' in spec
+    assert 'lightning" / "ui" / "static" / "lightning.ico' in spec
+    assert (ROOT / "lightning/ui/static/lightning.ico").is_file()
 
 
 def test_package_guard_rejects_profile_data_and_secrets():

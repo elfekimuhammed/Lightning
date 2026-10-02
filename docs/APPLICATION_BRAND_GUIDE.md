@@ -476,7 +476,7 @@ Red means a shortfall or overspend, not simply a negative number.
 - Pages use house, pie chart, chart line, wallet and settings.
 - Rows use arrows for out, in and transfer, a gem for gold and a user for held for others.
 - Key notes use check (good), bulb (info) and alert circle (needs you).
-- The bolt (`#45A9E8 → #1FB5A8 → #34BF8C`) sits beside the wordmark and is never recoloured by hand.
+- The supplied glossy blue-and-teal ribbon mark sits beside the Lightning wordmark. Use the same transparent PNG in the app header, profile screens and favicon; use its ICO conversion for the Windows executable. Do not redraw, recolour or stretch it.
 
 ## 14 Before a screen ships, it has none of these
 
