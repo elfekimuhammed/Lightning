@@ -54,7 +54,7 @@ def test_cd_portfolio_shows_certificates_and_records_purchase(c, setup):
     assert "CIB 1-year certificate" in page.text
     assert "12.5% · Simple" in page.text
     assert "Earliest withdrawal" in page.text and "Maturity" in page.text
-    assert "interest is estimated for cash forecasting only and is never posted automatically" in page.text
+    assert "Interest is estimated for cash forecasting only and is never posted automatically" in page.text
 
     before = c.transactions.count_for_account(cd.id)
     response = client.post(f"/deposits/{cd.id}/purchase", data=_form(accounts))

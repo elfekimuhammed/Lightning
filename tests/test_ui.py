@@ -359,14 +359,14 @@ def test_start_fresh_sets_the_database_aside_and_opens_an_empty_one(client, c, s
     accounts, cats = setup
     c.transactions.record_outflow("2026-09-10", accounts["cib"].id, "25", cats["EXP.PERSONAL.FOOD"].id)
     old_path = Path(c.db.path)
-    page = client.get("/settings")
-    assert "Start a fresh database" in page.text and "Start a new profile" not in page.text
     # The UI's async test client uses a portal thread, while this fixture seeded
     # its database on the test thread. Release that thread-local SQLite handle as
     # well; Windows does not allow renaming a database while any thread holds it.
+    # Avoid a separate GET first: TestClient may use a short-lived portal thread
+    # per request, whose thread-local SQLite handle cannot be closed by this test.
     c.db.close()
     response = client.post("/settings/fresh", follow_redirects=False)
-    assert response.status_code == 303 and response.headers["location"].startswith("/")
+    assert response.status_code == 303 and "Started a fresh database" in response.headers["location"]
     fresh = client.app.state.container
     assert Path(fresh.db.path) == old_path and fresh.accounts.list() == []
     kept = [p for p in old_path.parent.iterdir() if "_before-fresh_" in p.name]
