@@ -271,16 +271,20 @@ class ReevaluationService:
             "JOIN financial_assets a ON a.id=e.asset_id WHERE e.needs_price=1 AND p.status='PENDING' "
             "ORDER BY p.date,a.name")]
 
-    def history(self, limit: int = 300) -> list[dict]:
+    def history(self, limit: int = 300, entry_ids: set[int] | None = None) -> list[dict]:
+        """Visible checkpoints, or an exact selection of checkpoint entry IDs."""
+        if entry_ids is not None and not entry_ids:
+            return []
+        selection = ("WHERE e.id IN (" + ",".join("?" for _ in entry_ids) + ") ") if entry_ids is not None else ""
         rows = self.db.all(
-            "SELECT p.date,p.reason,p.status,e.account_id,a.name AS account_name,e.asset_id,f.name AS asset_name,"
+            "SELECT e.id,p.date,p.reason,p.status,e.account_id,a.name AS account_name,e.asset_id,f.name AS asset_name,"
             "e.owner_id,c.name AS owner_name,"
             "e.units_e6,e.price_e6,e.currency,e.value_base_e6,e.return_base_e6,e.price_source,e.needs_price,"
             "e.journal_transaction_id,t.ref FROM reevaluation_entries e "
             "JOIN reevaluation_periods p ON p.id=e.period_id JOIN accounts a ON a.id=e.account_id "
             "JOIN financial_assets f ON f.id=e.asset_id LEFT JOIN counterparties c ON c.id=e.owner_id "
-            "LEFT JOIN transactions t ON t.id=e.journal_transaction_id "
-            "ORDER BY p.date DESC,a.name,f.name LIMIT ?", (limit,))
+            "LEFT JOIN transactions t ON t.id=e.journal_transaction_id " + selection +
+            "ORDER BY p.date DESC,a.name,f.name,e.id LIMIT ?", (*sorted(entry_ids), limit) if entry_ids is not None else (limit,))
         return [dict(row) | {key: (from_e6(row[key]) if row[key] is not None else None)
                              for key in ("units_e6", "price_e6", "value_base_e6", "return_base_e6")}
                 for row in rows]

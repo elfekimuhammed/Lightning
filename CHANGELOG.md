@@ -8,6 +8,11 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### Export selected records · 2026-10-02
+- Transaction registers, Categories, and the reevaluation ledger now offer **Export selected** after checking rows.
+- Downloads are CSV files containing only the chosen records. Transactions include their ledger lines; categories include hierarchy and flags; reevaluations include checkpoint detail and the main-journal link.
+- CSV text is protected from spreadsheet formulas, amounts keep their stored precision, and exports are capped at 1,000 selected records.
+
 ### CD purchase, maturity term and account navigation · 2026-10-02
 - CD purchases now validate available user-owned cash in the selected bank/cash account on the recorded purchase date, then replay later posted cash movements so the CD cannot make a later balance negative. Unrelated negative history before the purchase date no longer blocks the purchase; a real shortage reports its date and amount.
 - Maturity can be entered as a date or as a term in years (three-month increments). The two fields stay in sync, and a term calculates a calendar maturity date from the purchase date.

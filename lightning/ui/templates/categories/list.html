@@ -38,6 +38,7 @@
 <div class="card cat-card">
   <div class="cat-bulk"><label><input id="select-all-categories" type="checkbox"> Select all</label><span id="category-selection-count" class="muted small">0 selected</span>
     <button class="btn small" form="category-bulk-form" name="action" value="archive">Archive selected</button>
+    <button class="btn small" form="category-bulk-form" formaction="/exports/categories" formnovalidate>Export selected</button>
     <button class="btn small danger" form="category-bulk-form" name="action" value="delete">Delete selected</button></div>
   {% for l1, rows in table %}
   <section class="cat-group" data-group>

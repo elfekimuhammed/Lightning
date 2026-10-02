@@ -5,16 +5,18 @@
 {% block content %}
 {% if pending %}<div class="card" style="margin-bottom:14px"><b>{{ pending|length }} price input(s) needed.</b> <a href="/investments/prices">Review missing prices</a></div>{% endif %}
 <div class="card wide">
-  <table><thead><tr><th>Date</th><th>Type</th><th>Investment</th><th>Account</th><th>Held for</th><th class="num">Units</th><th class="num">Price</th><th>Source</th><th class="num">Return</th><th>Main journal</th></tr></thead>
+  <form id="reevaluation-export" method="post" action="/exports/reevaluations"><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"><button class="btn small">Export selected</button></form>
+  <table><thead><tr><th><input type="checkbox" id="reevaluation-select-all" aria-label="Select all visible reevaluations"></th><th>Date</th><th>Type</th><th>Investment</th><th>Account</th><th>Held for</th><th class="num">Units</th><th class="num">Price</th><th>Source</th><th class="num">Return</th><th>Main journal</th></tr></thead>
   {% for row in rows %}<tr>
-    <td>{{ row.date }}</td><td>{{ 'Sale-day' if row.reason == 'SALE' else 'Month-end' }}</td>
+    <td><input type="checkbox" class="reevaluation-select" name="entry_ids" value="{{ row.id }}" form="reevaluation-export" aria-label="Select {{ row.asset_name }} on {{ row.date }}"></td><td>{{ row.date }}</td><td>{{ 'Sale-day' if row.reason == 'SALE' else 'Month-end' }}</td>
     <td>{{ row.asset_name }}</td><td>{{ row.account_name }}</td><td>{{ row.owner_name or 'You' }}</td>
     <td class="num">{{ row.units_e6|money(False, 4) }}</td>
     <td class="num">{{ row.price_e6|money(False, 4) if row.price_e6 is not none else 'Needed' }}</td>
     <td>{{ row.price_source or '—' }}</td>
     <td class="num {{ row.return_base_e6|tone if row.return_base_e6 is not none else '' }}">{{ row.return_base_e6|money(True) if row.return_base_e6 is not none else '—' }}</td>
     <td>{% if row.ref %}<a href="/transactions/{{ row.journal_transaction_id }}">{{ row.ref }}</a>{% elif row.needs_price %}<span class="muted">Waiting for price</span>{% else %}<span class="muted">No change</span>{% endif %}</td>
-  </tr>{% else %}<tr><td colspan="10" class="empty">No reevaluations yet. The first monthly checkpoint is created on app start after prices are available.</td></tr>{% endfor %}
+  </tr>{% else %}<tr><td colspan="11" class="empty">No reevaluations yet. The first monthly checkpoint is created on app start after prices are available.</td></tr>{% endfor %}
   </table>
 </div>
+<script nonce="{{ request.state.csp_nonce|default('') }}">(() => { const all = document.getElementById('reevaluation-select-all'); const checks = [...document.querySelectorAll('.reevaluation-select')]; all?.addEventListener('change', () => checks.forEach((box) => { box.checked = all.checked; })); document.getElementById('reevaluation-export')?.addEventListener('submit', (event) => { if (checks.some((box) => box.checked)) return; event.preventDefault(); window.ask({ title: 'Select reevaluations first', message: 'Tick the rows to export, then try again.', ok: 'Got it', cancel: false }); }); })();</script>
 {% endblock %}

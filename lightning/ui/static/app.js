@@ -482,6 +482,15 @@ if (ledger) {
     syncSelection();
   });
   document.getElementById("delete-selected")?.addEventListener("click", () => deleteTransactions(selectedIds()));
+  document.getElementById("export-selected")?.addEventListener("click", () => {
+    const ids = selectedIds();
+    if (!ids.length) return;
+    const form = document.createElement("form"); form.method = "post"; form.action = "/exports/transactions";
+    const token = document.querySelector('meta[name="lightning-session"]')?.content;
+    if (token) { const input = document.createElement("input"); input.type = "hidden"; input.name = "__session"; input.value = token; form.append(input); }
+    ids.forEach((id) => { const input = document.createElement("input"); input.type = "hidden"; input.name = "txn_ids"; input.value = id; form.append(input); });
+    document.body.append(form); form.submit(); setTimeout(() => form.remove(), 1000);
+  });
   // One menu for every row action: the row being edited shows Save, Details, Cancel and Delete.
   const showItems = (editing) => {
     menu.querySelector("[data-context-save]").hidden = !editing;
