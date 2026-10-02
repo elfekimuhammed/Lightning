@@ -17,8 +17,10 @@ from .schedule import payment_dates
 # A posted transaction settles a scheduled payment when it lands within this many days of the
 # due date and its amount is within the tolerance (loans are fixed instalments).
 MATCH_WINDOW_DAYS = 7
+SUGGESTION_WINDOW_DAYS = 45
 MATCH_TOLERANCE = {PlanKind.LOAN: Decimal("0.01")}
 DEFAULT_TOLERANCE = Decimal("0.10")
+SUGGESTION_TOLERANCE = Decimal("0.50")
 SUGGESTION_MINIMUM = Decimal("50")  # recurring amounts below this are not suggested
 LOAN_CATEGORY = "EXP.SYSTEM.LOANS"
 
@@ -162,18 +164,43 @@ class PlanningService:
         tolerance = MATCH_TOLERANCE.get(item.kind, DEFAULT_TOLERANCE)
         return [r for r in rows if abs(r["amount"] - item.amount) <= item.amount * tolerance]
 
+    def plausible_candidates(self, payment: Payment, as_of: date | None = None) -> list[dict]:
+        """Read-only wider suggestions; a user must explicitly choose one to link it."""
+        item, day = payment.item, as_of or today()
+        if not (item.counterparty_id or item.category_id):
+            return []
+        due = date.fromisoformat(payment.due_date)
+        rows = self.repo.candidates(
+            item.is_income, item.account_id, item.category_id, item.counterparty_id,
+            fmt_date(due - timedelta(days=SUGGESTION_WINDOW_DAYS)),
+            fmt_date(min(due + timedelta(days=SUGGESTION_WINDOW_DAYS), day)))
+        strict = {row["id"] for row in self.candidates(payment, day)}
+        return [row for row in rows if row["id"] not in strict
+                and abs(row["amount"] - item.amount) <= item.amount * SUGGESTION_TOLERANCE]
+
     def linked_transaction_ids(self) -> set[int]:
         return self.repo.linked_transaction_ids()
 
     def mark_paid(self, item_id: int, due_date: str, transaction_id: int) -> None:
         item = self.get(item_id)
-        txn = self.transactions.get(transaction_id)
-        if txn.is_void:
-            raise ValidationError("Choose a posted transaction.")
+        try:
+            due = date.fromisoformat(due_date)
+        except (TypeError, ValueError):
+            raise ValidationError("Choose a scheduled payment date.") from None
+        if not any(payment.due_date == due_date for payment in self.payments(item, due)):
+            raise ValidationError("That date is not on this payment schedule.")
         if transaction_id in self.repo.linked_transaction_ids():
             raise ValidationError("That transaction already settles another payment.")
+        txn = self.repo.payment_transaction(transaction_id, item.is_income, item.account_id,
+                                           item.category_id, item.counterparty_id)
+        if not txn:
+            raise ValidationError("Choose a posted, owned transaction for this account and payment.")
+        if abs((date.fromisoformat(txn["date"]) - due).days) > SUGGESTION_WINDOW_DAYS:
+            raise ValidationError("That transaction is too far from the scheduled payment date.")
+        if abs(txn["amount"] - item.amount) > item.amount * SUGGESTION_TOLERANCE:
+            raise ValidationError("That transaction amount is too far from the planned payment.")
         with self.db.transaction():
-            self.repo.settle(item.id, due_date, "PAID", transaction_id, item.amount)
+            self.repo.settle(item.id, due_date, "PAID", transaction_id, txn["amount"])
 
     def record_payment(self, item_id: int, due_date: str, date_paid: str, amount, account_id: int | None) -> int:
         """Post the payment as a normal transaction and link it."""

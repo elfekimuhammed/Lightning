@@ -10,7 +10,7 @@ from lightning.categories.domain import Category, CategoryFamily, Movement, Scop
 from lightning.categories.service import CategoryService
 from lightning.core.dates import month_of, parse_month
 from lightning.core.errors import ValidationError
-from lightning.core.money import ZERO, check_places, fmt, to_decimal
+from lightning.core.money import ZERO, check_places, fmt, from_e6, to_decimal
 from lightning.database.connection import Database
 from lightning.reporting.service import ReportingService
 
@@ -158,7 +158,7 @@ class BudgetService:
         Settings replaces the average. The budget, reserves and the cash forecast all use this."""
         chosen = self.recurring_income_ids()
         categories = self.categories.tree()
-        by_code = {category.code: category for category in categories}
+        by_id = {category.id: category for category in categories}
         raw_months = self.db.scalar("SELECT value FROM settings WHERE key='budget_income_months'") or "3"
         lookback = 6 if str(raw_months) == "6" else 3
         manual = self.db.scalar("SELECT value FROM settings WHERE key='budget_manual_monthly_income'")
@@ -168,13 +168,30 @@ class BudgetService:
         last_month = month_of(end)
         observed = []
         for _ in range(lookback):
-            start, last = parse_month(month_of(end))
-            income = self.reporting.money_in_by_category(start, last)
-            rows = [row for row in income if by_code.get(row.code) and by_code[row.code].id in chosen and
-                    by_code[row.code].income_class is not None and row.code != "EXP.INVEST" and
-                    not any(word in row.code.casefold() for word in ("sale", "opening", "valuation"))]
-            if rows:
-                observed.append(sum((row.value for row in rows), ZERO))
+            start, _ = parse_month(month_of(end))
+            if chosen:
+                marks = ",".join("?" for _ in chosen)
+                rows = self.db.all(
+                    "SELECT le.category_id,SUM(le.amount_base_e6) AS total_e6 "
+                    "FROM ledger_entries le JOIN transactions t ON t.id=le.transaction_id "
+                    "LEFT JOIN planned_payments pp ON pp.transaction_id=t.id AND pp.status='PAID' "
+                    "LEFT JOIN planned_items pi ON pi.id=pp.planned_item_id AND pi.kind='INCOME' "
+                    "WHERE t.status='POSTED' AND le.effect='INFLOW' AND le.owner_id IS NULL "
+                    "AND le.category_id NOT IN (SELECT id FROM categories WHERE code='EXP.SYSTEM.CUSTODY') "
+                    f"AND le.category_id IN ({marks}) "
+                    "AND CASE WHEN pi.id IS NOT NULL THEN substr(pp.due_date,1,7) "
+                    "ELSE substr(le.date,1,7) END=? GROUP BY le.category_id",
+                    (*chosen, month_of(end)),
+                )
+            else:
+                rows = []
+            included = [row for row in rows if by_id.get(row["category_id"]) and
+                        by_id[row["category_id"]].income_class is not None and
+                        by_id[row["category_id"]].code != "EXP.INVEST" and
+                        not any(word in by_id[row["category_id"]].code.casefold()
+                                for word in ("sale", "opening", "valuation"))]
+            if included:
+                observed.append(sum((from_e6(row["total_e6"]) for row in included), ZERO))
             end = start - timedelta(days=1)
         amount = (sum(observed, ZERO) / len(observed)).quantize(Decimal("0.01")) if observed else None
         return IncomeAverage(amount, len(observed), lookback, month_of(end + timedelta(days=1)), last_month, False)

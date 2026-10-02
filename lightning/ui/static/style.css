@@ -713,6 +713,8 @@ body { background: var(--surface-2); }
 .birdview-related { margin-top: 14px; }
 .ledger { padding: 0; overflow-x: auto; }
 .ledger table { margin: 0; }
+.main .register-table-scroll { max-width:100%; overflow-x:auto; }
+.main .register-table-scroll > table { min-width:1120px; }
 .ledger td, .ledger th { padding: 8px 10px; }
 .ledger tr.clickable:hover td { background: var(--surface-2); }
 .register-intro { margin: 0 0 14px; }
@@ -1304,7 +1306,9 @@ body:has(.overview-stack) .overview-stack { overflow:visible; }
 .site-period-control .period-date-range .btn:not(#_) { height:48px; min-height:48px; border-radius:16px; }
 @media(max-width:760px) {
   .site-period-control { justify-content:flex-start; }
-  .site-period-control .period-buttons { max-width:100%; overflow-x:auto; }
+  .site-period-control .period-buttons { flex-wrap:nowrap; min-width:0; max-width:100%; overflow-x:auto; overflow-y:hidden; scrollbar-width:none; }
+  .site-period-control .period-buttons::-webkit-scrollbar { display:none; }
+  .site-period-control .period-button { flex:0 0 auto; white-space:nowrap; }
 }
 
 /* ── Guideline 2.1 · control shape, dates and fit ──────────────────────────
@@ -2098,7 +2102,7 @@ a.chart-sankey-label:hover b { color:var(--azure); }
 .shell > .main, body .main, body:has(.overview-stack) .main { width:100%; max-width:max(90%, min(100%, 1120px))!important; margin-inline:auto; min-width:0; box-sizing:border-box; }
 /* Budget · top: savings waffle beside the plan bar. Azure for spent, green for what is left, strong rose
    past the plan. Then bullets: each category against its plan. */
-.main .budget-top { margin-bottom:var(--gap-block); }
+.main .budget-top { margin-bottom:var(--gap-block); container:budget-summary / inline-size; }
 .main .budget-top-grid { display:grid; grid-template-columns:minmax(0,.9fr) minmax(0,1.4fr); gap:0; }
 .main .budget-top-grid > div { min-width:0; }
 .main .budget-plan { padding-left:28px; border-left:1px solid var(--line); }
@@ -2145,6 +2149,19 @@ a.chart-sankey-label:hover b { color:var(--azure); }
 .main .bullet-status { grid-area:status; text-align:right; }
 .main .bullet-status em { font:700 var(--fs-meta)/1 var(--body); font-style:normal; color:var(--ink-2); }
 .main .bullet-status em.left { color:var(--positive); } .main .bullet-status em.over { color:var(--rose); }
+#budget-meters { container:budget-meters / inline-size; }
+@container budget-summary (max-width:700px) {
+  .main .budget-top-grid { grid-template-columns:1fr; }
+  .main .budget-plan { padding:18px 0 0; border-left:0; border-top:1px solid var(--line); margin-top:18px; }
+  .main .budget-savings { padding:0; }
+}
+@container budget-meters (max-width:700px) {
+  .main .bullets { grid-template-columns:1fr; }
+}
+@container budget-meters (max-width:440px) {
+  .main .bullet-row { grid-template-columns:minmax(0,1fr) auto; grid-template-areas:"name values" "track track" "status status"; row-gap:5px; }
+  .main .bullet-status { text-align:left; }
+}
 @media (max-width:900px) { .main .budget-top-grid { grid-template-columns:1fr; } .main .budget-plan { padding:18px 0 0; border-left:0; border-top:1px solid var(--line); margin-top:18px; }
   .main .budget-savings { padding:0; } .main .bullets { grid-template-columns:1fr; } .main .plan-figures { grid-template-columns:1fr 1fr; } }
 /* Bulk rules toolbar: a quiet row on the card, not a blue panel. */
@@ -2493,8 +2510,8 @@ a.chart-sankey-label:hover b { color:var(--azure); }
 .main .holdings-grouped { border-collapse:separate; border-spacing:0 2px; }
 .main .holding-group tr[data-search]:hover td { background:var(--hover); }
 /* Cash planning tabs: a pill bar, then a header for the tab you are on, each with its own accent. */
-.main .plan-tabs-bar { display:inline-flex; gap:4px; padding:4px; margin:0 0 14px; border-radius:999px; background:rgba(10,36,66,.05); }
-.main .plan-tab { display:inline-flex; align-items:center; gap:7px; height:36px; padding:0 16px; border-radius:999px; color:var(--ink-2); font:700 var(--fs-2)/1 var(--body); text-decoration:none; }
+.main .plan-tabs-bar { display:inline-flex; max-width:100%; box-sizing:border-box; gap:4px; padding:4px; margin:0 0 14px; border-radius:999px; background:rgba(10,36,66,.05); overflow-x:auto; white-space:nowrap; }
+.main .plan-tab { display:inline-flex; flex:0 0 auto; align-items:center; gap:7px; height:36px; padding:0 16px; border-radius:999px; color:var(--ink-2); font:700 var(--fs-2)/1 var(--body); text-decoration:none; }
 .main .plan-tab svg { width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
 .main .plan-tab:hover { background:rgba(255,255,255,.7); color:var(--ink); }
 .main .plan-tab[aria-current="page"] { background:var(--surface); color:var(--tab-ink); box-shadow:0 4px 12px -8px rgba(10,36,66,.5); }

@@ -111,6 +111,7 @@ class ForecastMonth:
     budget_spending: Decimal        # remaining budget plan not already covered by scheduled bills
     goal_saving: Decimal            # what reserves with due dates still need this month
     closing: Decimal
+    deposit_cash: Decimal = ZERO
 
 
 @dataclass(frozen=True)

@@ -12,12 +12,15 @@
 {% else %}
 <section class="card stack">
   <h2>Already in your transactions?</h2>
-  {% set rows = exact + others %}
-  {% if rows %}<div class="compact-list">{% for r in rows %}
+  {% if exact %}<h3>Close matches</h3><div class="compact-list">{% for r in exact %}
     <form method="post" action="/plan/items/{{ item.id }}/pay" class="compact-row"><input type="hidden" name="due" value="{{ payment.due_date }}"><input type="hidden" name="back" value="{{ back }}"><input type="hidden" name="transaction_id" value="{{ r.id }}"><input type="hidden" name="outcome" value="link">
-      <span><b>{{ r.counterparty or r.ref }}</b><small class="muted">{{ r.date }} · {{ r.ref }}{% if r in exact %} · close match{% endif %}</small></span>
-      <span class="plan-payment-side"><b>{{ r.amount|money }}</b><button class="btn small">Use this</button></span><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>{% endfor %}</div>
-  {% else %}<p class="muted">No posted transaction near {{ payment.due_date }} looks like this payment.</p>{% endif %}
+      <span><b>{{ r.counterparty or r.ref }}</b><small class="muted">{{ r.date }} · {{ r.ref }}</small></span>
+      <span class="plan-payment-side"><b>{{ r.amount|money }}</b><button class="btn small">Use this</button></span><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>{% endfor %}</div>{% endif %}
+  {% if others %}<h3>Possible matches · review before linking</h3><p class="muted small">These are farther from the date or amount than a close match. Nothing is linked unless you choose it.</p><div class="compact-list">{% for r in others %}
+    <form method="post" action="/plan/items/{{ item.id }}/pay" class="compact-row"><input type="hidden" name="due" value="{{ payment.due_date }}"><input type="hidden" name="back" value="{{ back }}"><input type="hidden" name="transaction_id" value="{{ r.id }}"><input type="hidden" name="outcome" value="link">
+      <span><b>{{ r.counterparty or r.ref }}</b><small class="muted">{{ r.date }} · {{ r.ref }}</small></span>
+      <span class="plan-payment-side"><b>{{ r.amount|money }}</b><button class="btn small">Link this payment</button></span><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>{% endfor %}</div>{% endif %}
+  {% if not exact and not others %}<p class="muted">No posted transaction near {{ payment.due_date }} looks like this payment.</p>{% endif %}
 </section>
 <form method="post" action="/plan/items/{{ item.id }}/pay" class="card stack">
   <h2>Record it now</h2>
@@ -26,7 +29,7 @@
     <div class="field"><label for="date_paid">Date <span class="muted small">yyyy-mm-dd</span></label><input id="date_paid" name="date_paid" value="{{ [payment.due_date, today]|min }}" data-smart-date inputmode="numeric"></div>
     <div class="field"><label for="pay-amount">Amount ({{ base }})</label><input id="pay-amount" name="amount" value="{{ '%.2f'|format(payment.amount) }}" inputmode="decimal" class="money-input"></div>
   </div>
-  <div class="field"><label for="pay-account">Account</label><select id="pay-account" name="account_id">{% for a in accounts %}<option value="{{ a.id }}" {{ 'selected' if a.id == item.account_id }}>{{ a.name }}</option>{% endfor %}</select></div>
+  <div class="field"><label for="pay-account">Account</label><select id="pay-account" name="account_id" data-own-picker>{% for a in accounts %}<option value="{{ a.id }}" {{ 'selected' if a.id == item.account_id }}>{{ a.name }}</option>{% endfor %}</select></div>
   <input type="hidden" name="outcome" value="record">
   <div class="actions"><button class="btn primary">Record and mark {{ 'received' if item.is_income else 'paid' }}</button></div>
 <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>

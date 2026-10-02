@@ -20,6 +20,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 from lightning.core.dates import fmt_date, parse_date, today
+from lightning.core.errors import NotFoundError
 from lightning.core.money import ZERO
 
 from lightning.investments.domain import DEFAULT_SALE_FACTOR
@@ -58,6 +59,10 @@ class ClassValue:
 
     @property
     def after_sale(self) -> Decimal:
+        if self.items and any(hasattr(item, "_realization_factor") for item in self.items):
+            return sum(((item.value or ZERO)
+                        * getattr(item, "_realization_factor", self.factor) / 100
+                        for item in self.items), ZERO)
         return self.value * self.factor / 100
 
     def __getitem__(self, key):
@@ -151,13 +156,14 @@ class Position:
 
 
 class PositionService:
-    def __init__(self, reporting, assets, investments, money_from_others, reserves, planning):
+    def __init__(self, reporting, assets, investments, money_from_others, reserves, planning, deposits=None):
         self.reporting = reporting
         self.assets = assets
         self.investments = investments
         self.money_from_others = money_from_others
         self.reserves = reserves
         self.planning = planning
+        self.deposits = deposits
 
     def owned_holdings(self, as_of: date | str) -> tuple[list[OwnedHolding], list[str]]:
         """Owned units and value per holding (not cash), after money held for others."""
@@ -190,6 +196,19 @@ class PositionService:
     def class_values(self, as_of: date | str) -> tuple[list[ClassValue], list[str]]:
         holdings, unvalued = self.owned_holdings(as_of)
         factors = self.investments.liquidation_factors()
+        if self.deposits is not None:
+            day = parse_date(as_of)
+            for item in holdings:
+                if item.class_code != "DEPOSIT.CD":
+                    continue
+                try:
+                    terms = self.deposits.get(item.account_id)
+                except NotFoundError:
+                    continue  # Legacy deposit account: retain its class factor.
+                if day < parse_date(terms.lockup_end_date):
+                    item._realization_factor = ZERO
+                elif day >= parse_date(terms.maturity_date):
+                    item._realization_factor = Decimal(100)
         by_code = {cls.code: cls for cls in self.assets.list_classes()}
         rows: dict[int, ClassValue] = {}
         for item in holdings:

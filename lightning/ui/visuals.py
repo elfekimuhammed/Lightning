@@ -585,8 +585,12 @@ def cash_plan(c, forecast, day: date) -> dict:
     series.append({"name": "Forecast", "tone": "hold", "values": ahead, "dashed": True, "over": over})
     heading = charts.trend(labels, series)
     # In and out for each month ahead: money in up, what goes out down, one scale.
-    rows = [{"month": m.month, "in": m.income, "out": m.commitments + m.budget_spending + m.goal_saving,
-             "net": m.income - (m.commitments + m.budget_spending + m.goal_saving), "estimated": m.income_estimated}
+    rows = [{"month": m.month, "income": m.income, "deposit_cash": m.deposit_cash,
+             "in": m.income + m.deposit_cash,
+             "commitments": m.commitments, "budget_spending": m.budget_spending, "goal_saving": m.goal_saving,
+             "out": m.commitments + m.budget_spending + m.goal_saving,
+             "net": m.income + m.deposit_cash - (m.commitments + m.budget_spending + m.goal_saving),
+             "estimated": m.income_estimated}
             for m in f.months]
     top = max([r["in"] for r in rows] + [r["out"] for r in rows] + [ZERO]) or Decimal(1)
     for r in rows:

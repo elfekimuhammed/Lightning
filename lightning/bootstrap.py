@@ -23,6 +23,7 @@ from lightning.database.connection import Database
 from lightning.database.migrator import inspect_schema, migrate
 from lightning.database.seed import seed
 from lightning.database.settings import SettingsStore
+from lightning.deposits import DepositService
 from lightning.investments.service import InvestmentService
 from lightning.integrity import IntegrityService
 from lightning.money_from_others import MoneyFromOthersService
@@ -59,6 +60,7 @@ class Container:
     physical_items: PhysicalItemService
     budgets: BudgetService
     investments: InvestmentService
+    deposits: DepositService
     account_flows: AccountWorkflows
     integrity: IntegrityService
     planning: PlanningService
@@ -122,8 +124,9 @@ def build(db_path: str | Path | None = None, backup_on_start: bool = False, *,
     planning = PlanningService(db, accounts, categories, counterparties, transactions)
     budgets.scheduled_loans = planning.loan_payments_by_category
     investments = InvestmentService(db, accounts, assets, categories, transactions, reporting, reevaluations)
-    position = PositionService(reporting, assets, investments, money_from_others, reserves, planning)
-    forecaster = CashForecaster(planning, reporting, reserves, budgets, categories, position)
+    deposits = DepositService(db, accounts)
+    position = PositionService(reporting, assets, investments, money_from_others, reserves, planning, deposits)
+    forecaster = CashForecaster(planning, reporting, reserves, budgets, categories, position, deposits)
     return Container(
         db=db,
         data_dir=data_dir,
@@ -143,6 +146,7 @@ def build(db_path: str | Path | None = None, backup_on_start: bool = False, *,
         physical_items=physical_items,
         budgets=budgets,
         investments=investments,
+        deposits=deposits,
         account_flows=AccountWorkflows(db, accounts, transactions, reporting),
         integrity=IntegrityService(reporting, reserves, budgets, planning),
         planning=planning,

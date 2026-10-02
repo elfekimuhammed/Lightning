@@ -5,7 +5,7 @@
   <td><input id="{{ form_id }}-date" form="{{ form_id }}" type="text" name="date" value="{{ v.get('date', '') }}" placeholder="yyyy-mm-dd"
              inputmode="numeric" autocomplete="off" data-smart-date title="yyyy-mm-dd, like 2026-01-31" required class="{{ 'bad' if error_field == 'date' }}"></td>
   {% if show_account %}
-  <td><select form="{{ form_id }}" name="account_id" required class="{{ 'bad' if error_field == 'account' }}">
+  <td><select form="{{ form_id }}" name="account_id" required class="{{ 'bad' if error_field == 'account' }}" data-own-picker>
         <option value="">Account…</option>
         {% for a in accounts %}<option value="{{ a.id }}" {{ 'selected' if v.get('account_id') == a.id|string }}>{{ a.label }}</option>{% endfor %}
       </select></td>
@@ -26,7 +26,7 @@
     <div id="{{ form_id }}-category-results" class="category-results" role="listbox" hidden></div>
   </div></td>
   <td class="whom-cell is-hidden"><input form="{{ form_id }}" type="text" name="whom" value="{{ v.get('whom', '') }}"
-             placeholder="Held for (if not you)" list="counterparty-options" class="{{ 'bad' if error_field == 'whom' }}"></td>
+             placeholder="Held for (if not you)" list="counterparty-options" data-own-suggestions class="{{ 'bad' if error_field == 'whom' }}"></td>
   <td><input form="{{ form_id }}" type="text" name="notes" value="{{ v.get('notes', '') }}" placeholder="Notes"></td>
   <td><input form="{{ form_id }}" type="text" name="amount" value="{{ v.get('amount', '') }}" placeholder="-450 or 1,200"
              inputmode="decimal" required class="num money-input {{ 'bad' if error_field == 'amount' }}"></td>
@@ -220,7 +220,7 @@
     <span id="selection-count" class="muted small">0 selected</span>
     <button type="button" class="btn small danger" id="delete-selected">Delete selected</button>
   </div>
-  <table>
+  <div class="register-table-scroll"><table>
     <colgroup>
       <col style="width:42px"><col style="width:176px">{% if show_account %}<col style="width:10%">{% endif %}
       <col style="width:15%"><col style="width:13%">
@@ -270,7 +270,7 @@
       <tr><td colspan="{{ ncols }}" class="empty">{{ 'Nothing matches.' if q or month else 'No transactions yet — add the first one above.' }}</td></tr>
     {% endfor %}
     </tbody>
-  </table>
+  </table></div>
 </div>
 {% if total_pages > 1 %}<nav class="register-pagination" aria-label="Transaction pages"><span class="muted small">Showing {{ (page_number-1)*50+1 }}–{{ [page_number*50,total_rows]|min }} of {{ total_rows }}</span>{% if page_number > 1 %}<a class="btn small" href="{{ base_url }}?{{ page_base_qs ~ '&' if page_base_qs else '' }}page={{ page_number-1 }}">Previous</a>{% endif %}{% if page_number < total_pages %}<a class="btn small" href="{{ base_url }}?{{ page_base_qs ~ '&' if page_base_qs else '' }}page={{ page_number+1 }}">Next</a>{% endif %}</nav>{% endif %}
 

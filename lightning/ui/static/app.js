@@ -1,5 +1,159 @@
 // Small helpers only — no financial logic lives in the browser.
 
+// Own-data fields keep their native submitted value and gain an accessible
+// type-and-pick surface. Popup markup is inserted after startup, so this must
+// be safe to call repeatedly on any subtree.
+let ownPickerId = 0;
+const initOwnDataPickers = (root = document) => {
+  const find = (selector) => [
+    ...(root.matches?.(selector) ? [root] : []),
+    ...root.querySelectorAll(selector),
+  ];
+  find("select[data-own-picker]").forEach((select) => {
+  if (select.dataset.ownPickerReady) return;
+  select.dataset.ownPickerReady = "1";
+  const index = ownPickerId++;
+  const originalParent = select.parentElement;
+  const wasRequired = select.required;
+  const wrapper = document.createElement("div");
+  wrapper.className = "counterparty-picker";
+  select.before(wrapper);
+  wrapper.append(select);
+  select.hidden = true;
+  const input = document.createElement("input");
+  input.type = "text";
+  if (select.hasAttribute("form")) input.setAttribute("form", select.getAttribute("form"));
+  input.autocomplete = "off";
+  input.className = select.className;
+  input.placeholder = select.selectedOptions[0]?.textContent.trim() || select.options[0]?.textContent.trim() || "Type to find";
+  input.setAttribute("role", "combobox");
+  input.setAttribute("aria-autocomplete", "list");
+  input.setAttribute("aria-expanded", "false");
+  input.setAttribute("aria-haspopup", "listbox");
+  const label = originalParent.querySelector(`label[for="${CSS.escape(select.id)}"]`);
+  if (label) input.setAttribute("aria-labelledby", label.id || (label.id = `own-picker-label-${index}`));
+  else if (select.getAttribute("aria-label")) input.setAttribute("aria-label", select.getAttribute("aria-label"));
+  else input.setAttribute("aria-label", select.name.replace(/[_-]+/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()));
+  const list = document.createElement("div");
+  list.className = "counterparty-results";
+  list.id = `${select.id || `own-picker-${index}`}-options`;
+  while (document.getElementById(list.id)) list.id = `own-picker-${ownPickerId++}-options`;
+  list.setAttribute("role", "listbox");
+  list.hidden = true;
+  input.setAttribute("aria-controls", list.id);
+  wrapper.insertBefore(input, select);
+  wrapper.append(list);
+  let active = -1;
+  const entries = () => Array.from(select.options).filter((option) => !option.disabled && option.value !== "");
+  const close = () => { list.hidden = true; input.setAttribute("aria-expanded", "false"); input.removeAttribute("aria-activedescendant"); active = -1; };
+  const choose = (option) => {
+    if (!option) return;
+    select.value = option.value;
+    input.value = option.textContent.trim();
+    input.setCustomValidity("");
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    close();
+  };
+  const render = () => {
+    const query = input.value.trim().toLocaleLowerCase();
+    const matches = entries().filter((option) => !query || option.textContent.toLocaleLowerCase().includes(query)).slice(0, 50);
+    list.replaceChildren();
+    matches.forEach((option, i) => {
+      const button = document.createElement("button");
+      button.type = "button"; button.className = "counterparty-option"; button.setAttribute("role", "option");
+      button.id = `${list.id}-${i}`; button.dataset.value = option.value; button.textContent = option.textContent.trim();
+      button.setAttribute("aria-selected", String(option.value === select.value));
+      button.addEventListener("mousedown", (event) => event.preventDefault());
+      button.addEventListener("click", () => choose(option));
+      list.append(button);
+    });
+    if (!matches.length) { close(); return; }
+    const rect = input.getBoundingClientRect();
+    list.style.left = `${Math.max(8, rect.left)}px`; list.style.top = `${rect.bottom + 4}px`; list.style.width = `${Math.max(230, rect.width)}px`;
+    list.hidden = false; input.setAttribute("aria-expanded", "true"); active = -1;
+  };
+  input.value = select.selectedOptions[0]?.textContent.trim() || "";
+  input.addEventListener("input", () => { select.value = ""; input.setCustomValidity(wasRequired ? "Choose an option from the list." : ""); render(); });
+  input.addEventListener("focus", render);
+  input.addEventListener("keydown", (event) => {
+    const options = list.querySelectorAll('[role="option"]');
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      if (list.hidden) render();
+      const current = list.querySelectorAll('[role="option"]');
+      if (!current.length) return;
+      event.preventDefault();
+      active = active < 0 ? (event.key === "ArrowDown" ? 0 : current.length - 1) : (active + (event.key === "ArrowDown" ? 1 : -1) + current.length) % current.length;
+      current.forEach((item, i) => item.setAttribute("aria-selected", String(i === active)));
+      input.setAttribute("aria-activedescendant", current[active].id); current[active].scrollIntoView({ block: "nearest" });
+    } else if (event.key === "Enter" && !list.hidden) {
+      const target = active >= 0 ? options[active] : options[0];
+      if (target) { event.preventDefault(); choose(Array.from(select.options).find((option) => option.value === target.dataset.value)); }
+    } else if (event.key === "Escape") close();
+  });
+  select.addEventListener("change", () => { input.value = select.selectedOptions[0]?.textContent.trim() || ""; });
+  const disabledObserver = new MutationObserver(() => { input.disabled = select.disabled; });
+  disabledObserver.observe(select, { attributes: true, attributeFilter: ["disabled"] });
+  if (wasRequired) { input.setCustomValidity(select.value ? "" : "Choose an option from the list."); select.required = false; }
+  select.form?.addEventListener("reset", () => requestAnimationFrame(() => { input.value = select.selectedOptions[0]?.textContent.trim() || ""; close(); }));
+  document.addEventListener("click", (event) => { if (!wrapper.contains(event.target)) close(); });
+  });
+
+// Free-text fields backed by app-owned datalists use the same menu behavior;
+// the named input remains the submitted value and the datalist remains fallback.
+find("input[data-own-suggestions][list]").forEach((input) => {
+  if (input.dataset.ownSuggestionsReady) return;
+  const source = document.getElementById(input.getAttribute("list"));
+  if (!source) return;
+  input.dataset.ownSuggestionsReady = "1";
+  const wrapper = document.createElement("div");
+  wrapper.className = "counterparty-picker";
+  input.before(wrapper); wrapper.append(input);
+  const list = document.createElement("div");
+  list.className = "counterparty-results";
+  list.id = `${input.id || `own-suggestions-${ownPickerId++}`}-options`;
+  while (document.getElementById(list.id)) list.id = `own-suggestions-${ownPickerId++}-options`;
+  list.setAttribute("role", "listbox"); list.hidden = true; wrapper.append(list);
+  input.removeAttribute("list"); input.autocomplete = "off";
+  input.setAttribute("role", "combobox"); input.setAttribute("aria-autocomplete", "list");
+  input.setAttribute("aria-haspopup", "listbox"); input.setAttribute("aria-controls", list.id); input.setAttribute("aria-expanded", "false");
+  let active = -1;
+  const close = () => { list.hidden = true; input.setAttribute("aria-expanded", "false"); input.removeAttribute("aria-activedescendant"); active = -1; };
+  const render = () => {
+    const query = input.value.trim().toLocaleLowerCase();
+    const matches = Array.from(source.querySelectorAll("option")).map((option) => option.value).filter((value) => value && (!query || value.toLocaleLowerCase().includes(query))).slice(0, 50);
+    list.replaceChildren();
+    matches.forEach((value, i) => {
+      const option = document.createElement("button"); option.type = "button"; option.className = "counterparty-option";
+      option.setAttribute("role", "option"); option.id = `${list.id}-${i}`; option.textContent = value;
+      option.addEventListener("mousedown", (event) => event.preventDefault());
+      option.addEventListener("click", () => { input.value = value; input.dispatchEvent(new Event("change", { bubbles: true })); close(); });
+      list.append(option);
+    });
+    if (!matches.length) { close(); return; }
+    const rect = input.getBoundingClientRect();
+    list.style.left = `${Math.max(8, rect.left)}px`; list.style.top = `${rect.bottom + 4}px`; list.style.width = `${Math.max(230, rect.width)}px`;
+    list.hidden = false; input.setAttribute("aria-expanded", "true"); active = -1;
+  };
+  input.addEventListener("input", render); input.addEventListener("focus", render);
+  input.addEventListener("keydown", (event) => {
+    const options = list.querySelectorAll('[role="option"]');
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      if (list.hidden) render();
+      const current = list.querySelectorAll('[role="option"]');
+      if (!current.length) return;
+      event.preventDefault(); active = active < 0 ? (event.key === "ArrowDown" ? 0 : current.length - 1) : (active + (event.key === "ArrowDown" ? 1 : -1) + current.length) % current.length;
+      current.forEach((option, i) => option.setAttribute("aria-selected", String(i === active)));
+      input.setAttribute("aria-activedescendant", current[active].id);
+    } else if (event.key === "Enter" && !list.hidden) {
+      const current = list.querySelectorAll('[role="option"]');
+      if (current.length) { event.preventDefault(); current[active >= 0 ? active : 0].click(); }
+    } else if (event.key === "Escape") close();
+  });
+  document.addEventListener("click", (event) => { if (!wrapper.contains(event.target)) close(); });
+  });
+};
+initOwnDataPickers();
+
 // The app's own question dialog, in place of the browser's confirm and alert boxes.
 // ask({title, message, ok, cancel, tone}) resolves true for the action, false for Cancel or Escape.
 // cancel: false leaves one button (a notice). tone: "danger" (a red action), "warn" or "info".
@@ -1063,6 +1217,7 @@ document.querySelectorAll("[data-counterparty-filter]").forEach((search) => {
   };
   const show = (html, title = "Dialog") => {
     content.innerHTML = html;
+    initOwnDataPickers(content);
     const h = content.querySelector("h1, h2, [data-popup-title]");
     if (h) { h.id = "app-popup-title"; dialog.setAttribute("aria-labelledby", h.id); }
     else { dialog.removeAttribute("aria-labelledby"); dialog.setAttribute("aria-label", title); }
@@ -1625,7 +1780,9 @@ document.addEventListener("click", (event) => {
     if (select.disabled) return;
     close();
     const { panel, search, mark } = build(select);
-    document.body.append(panel);
+    // Inside a popup the panel must live in the dialog: a modal dialog sits above everything else on
+    // the page, so a panel on the body would open behind it, out of reach.
+    (select.closest("dialog[open]") || document.body).append(panel);
     const rect = select.getBoundingClientRect();
     const width = Math.max(rect.width, 220);
     panel.style.minWidth = `${width}px`;
@@ -1638,7 +1795,7 @@ document.addEventListener("click", (event) => {
     mark();
     (search || panel).focus();
   };
-  const eligible = (el) => el instanceof HTMLSelectElement && !el.multiple && el.size <= 1 && !el.hasAttribute("data-native") && el.closest(".main, .popup-sheet, dialog");
+  const eligible = (el) => el instanceof HTMLSelectElement && !el.hidden && !el.matches("[data-own-picker]") && !el.multiple && el.size <= 1 && !el.hasAttribute("data-native") && el.closest(".main, .popup-sheet, dialog");
   document.addEventListener("mousedown", (e) => {
     const select = e.target.closest("select");
     if (select && eligible(select)) { e.preventDefault(); select.focus(); open && open.select === select ? close() : show(select); return; }

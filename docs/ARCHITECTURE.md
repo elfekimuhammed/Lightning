@@ -1,6 +1,6 @@
 # Architecture
 
-**Last updated 2026-10-01 · app 0.4.0b1** (`lightning/__init__.py`, matched by `pyproject.toml`).
+**Last updated 2026-10-02 · app 0.4.0b1** (`lightning/__init__.py`, matched by `pyproject.toml`).
 
 This file holds the technical side: stack, module boundaries, data model and every calculation contract. The product story is in [Project Overview](PROJECT_OVERVIEW.md), the visual system in the [App brand guideline](APPLICATION_BRAND_GUIDE.md), and term definitions in the [Glossary](GLOSSARY.md).
 
@@ -43,7 +43,7 @@ ui/                   FastAPI routes, Jinja templates, small vanilla JS/CSS
   ↓                   calls application services; no SQL or financial calculations
 workflows/            transactional use-cases spanning modules
 planning/             cash planning: recurring items, loans, what you owe, cash forecast (read-only)
-domain services/      accounts, assets, categories, transactions, investments, budgeting
+domain services/      accounts, assets, categories, transactions, investments, deposits, budgeting
 reporting/            read-only queries and derived views (net worth, budgets, the Overview)
 database/             SQLite, migrations, seed data, backup, settings, audit
 core/                 dates, money, identifiers, posting rules; no app dependencies
@@ -63,6 +63,7 @@ core/                 dates, money, identifiers, posting rules; no app dependenc
 | `lightning/counterparties.py` | Canonical names, aliases, match suggestions and defaults |
 | `lightning/transactions` | Main-ledger posting, editing, voiding, search; the only writer of postings |
 | `lightning/investments` + `reevaluations.py` | Trades, positions, investment calculations and valuation checkpoints |
+| `lightning/deposits` | Certificate terms and read-only interest/payout projections; principal and actual payments remain in the ledger |
 | `lightning/money_from_others.py` | Custody attribution for money and units held for others |
 | `lightning/bank_imports.py` + `reconciliation.py` | Staged CSV review and posting; statement reconciliation |
 | `lightning/budgeting` + `reserves.py` | Spending plans and cash reserves (separate concepts) |
@@ -132,7 +133,7 @@ At the as-of date, cost of holdings still owned is remaining basis; holdings val
 
 - **Position figures** (What you own, Cash you own, Deposits, Holdings value, Reserves, Bills due, What you owe, Net worth, Free cash, Portfolio value, Holdings after sale, If you sold today) are computed once by `PositionService.at(date)` in `lightning/planning/position.py`. Base values are read from reporting, reserves and planning; every other figure is a property that composes them (for example `free_cash = cash_you_own − reserves − bills_due`). Routes and templates read the `Position`; they never re-add balances. Names, meanings and formulas come from `lightning/core/figures.py` and match the Glossary.
 - **Sale factors:** each asset class's 0–100% factor (95% when unset, `investments.domain.DEFAULT_SALE_FACTOR`). Holdings after sale = Σ holdings value × factor; Investments if sold (estimate) adds deposits × factor; If you sold today = Free cash + that. This is a scenario using current settings, not a sale quote or a booked loss.
-- **Average monthly income:** `BudgetService.income_average(month)` is the only income average. It covers the chosen income categories over the last 3 or 6 completed months that had income, or a manual amount. Budget percentages, emergency-fund coverage and the cash forecast all read it.
+- **Average monthly income:** `BudgetService.income_average(month)` is the only income average. It covers the chosen income categories over the last 3 or 6 completed months that had income, or a manual amount. A posted recurring-income transaction explicitly linked to a scheduled payment is attributed to that payment's due month for this average, while cash-flow reports retain the bank-posting date; unlinked income stays in its bank month. Budget percentages, emergency-fund coverage and the cash forecast all read it.
 - **Period income/spending:** posted external activity in the selected date range. Internal transfers and investment purchases are not income or expense; refunds reduce their original expense category. Custody activity is excluded from owned analysis.
 - **Investment return:** remaining holdings' market value less remaining cost, plus gains from sales and dividends. The current portfolio and management XIRR must not be assumed owned-only until historical custody cash flows are verified.
 
@@ -152,9 +153,15 @@ Loan budget lines are derived, not stored: `BudgetService.amounts_for` asks `Pla
 
 - **Items.** A planned item is a bill, subscription, income or loan with an amount per payment and a schedule: frequency (once, weekly, monthly, every 3 months, yearly) every N periods from a first date, optionally ending at a last date or after a number of payments. Monthly-type dates keep the first date's day, clamped to the month's last day. Loans must have a number of payments or a last date.
 - **Payment status.** Each scheduled date is Paid (linked to a posted transaction), Skipped, Due (on or before today, not settled) or Upcoming. A voided linked transaction makes the payment Due again. A transaction settles at most one payment.
-- **Matching.** A posted, owned money-out (money-in for income) transaction settles a payment automatically when it is the only candidate within 7 days of the date, on the item's account if set, matching its counterparty or category, within 10% of the amount (1% for loans). Anything ambiguous is left for the user; recurring-payment suggestions never create items.
+- **Matching.** A posted, owned money-out (money-in for income) transaction settles a payment automatically when it is the only candidate within 7 days of the date, on the item's account if set, matching its counterparty or category, within 10% of the amount (1% for loans). A plausible but non-strict match (up to 45 days and 50% amount difference) is shown for explicit confirmation, including before the due date; it never settles itself. A confirmed link stores the transaction's actual amount, not the old planned amount. Ambiguous candidates stay separate choices. A changed amount prompts, but never automatically updates, later payments and a related reserve target.
 - **What you owe** = bills due + loans still to pay, each payment once. **Bills due** are Due bills, subscriptions and loan payments; **loans still to pay** are every unpaid loan payment. **Net worth** = what you own − what you owe. **Free cash** = owned liquid cash − effective reserves − bills due. The Integrity check verifies free cash + reserves + bills due = owned liquid cash.
-- **Cash forecast** (an estimate; changes nothing): starts from free cash today and, per month, adds scheduled income (or the three-completed-month income average when no income is scheduled, labelled), subtracts upcoming bill and loan payments, the budget still planned (current month: plan less spending so far) with bills in budget-covered categories counted inside that budget rather than on top, and what dated reserve goals still need ((target − assigned) ÷ months left). Safe to spend = free cash − payments before the next income − budget still planned this month − goal saving, shown with its parts.
+- **Cash forecast** (an estimate; changes nothing): starts from free cash today and, per month, adds scheduled income (or the three-completed-month income average when no income is scheduled, labelled) and separately labelled projected CD proceeds, subtracts upcoming bill and loan payments, the budget still planned (current month: plan less spending so far) with bills in budget-covered categories counted inside that budget rather than on top, and what dated reserve goals still need ((target − assigned) ÷ months left). CD principal returning at maturity is a projected transfer into liquid cash, never income. Safe to spend = free cash − payments before the next income − budget still planned this month − goal saving, shown with its parts; it does not spend projected CD cash before receipt.
+
+### Certificates and time deposits
+
+`lightning/deposits/` stores one set of terms per `DEPOSIT` account. The ledger alone holds its principal; saving terms creates no funding transaction, interest posting, or redemption. Terms include principal, annual percentage rate, start date, earliest withdrawal date, maturity date, simple/compound method, payout destination, simple-interest payout frequency, and a separate capitalization frequency for compound interest. Compound interest remains locked and is projected to pay at maturity. The user records actual interest as money in and principal return as a transfer from the CD to a bank/cash account.
+
+Projected interest uses actual elapsed days divided by 365, with `Decimal` throughout, so it is an estimate rather than a bank quote. Future events are produced only for a funded CD, after the forecast's as-of date, and within its horizon. The earliest withdrawal date is eligibility, not an automatic cash event. Before that date a CD is not immediately redeemable; from that date until maturity its *if sold today* estimate uses the inherited `DEPOSIT.CD` sale factor as an early-redemption haircut; at maturity the remaining ledger principal is redeemable at full value. This never changes net worth or free cash. A future recorded maturity transfer replaces the maturity projection, avoiding a second projected principal receipt. Prior simple-interest payouts are not reconciled against bank postings; the schedule assumes the remaining contractual payouts unless terms or transactions are corrected.
 - **Loan payments are spending.** Recording or matching a loan payment is an ordinary money-out transaction in its category (default `EXP.SYSTEM.LOANS`, System › Loan payments, from migration 0035), so it counts in budget actuals and cash flow. The same payment leaves loans still to pay, so net worth is unchanged by paying it. The loan itself is never a ledger account.
 - Historical dates use today's payment status; schedules are not versioned.
 

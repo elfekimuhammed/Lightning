@@ -1,6 +1,7 @@
 """Investments: buy, sell, dividends, holdings, prices, and the net-worth equation with revaluation."""
 
 import random
+import re
 from decimal import Decimal
 
 import pytest
@@ -317,6 +318,26 @@ class TestNetWorth:
 
 
 class TestInvestmentPages:
+    def test_holdings_table_limits_columns_and_discloses_secondary_data(self, c, setup):
+        from fastapi.testclient import TestClient
+        from lightning.ui.web import create_app
+
+        accounts, _ = setup
+        asset = c.assets.create_investment("Commercial International Bank", "STOCK", "COMI")
+        c.investments.add_holding(accounts["thndr"].id, asset.id, "10", "950", "2025-09-10")
+        c.assets.set_price(asset.id, "2026-09-30", "100")
+
+        page = TestClient(create_app(c)).get("/investments?period=month&month=2026-09").text
+        table = page.split('id="holdings-table"', 1)[1].split("</table>", 1)[0]
+        headers = re.findall(r"<th\b", table.split("<thead>", 1)[1].split("</thead>", 1)[0])
+        rows = re.findall(r"<tr\b[^>]*>.*?</tr>", table, re.S)
+
+        assert len(headers) == 5
+        assert rows
+        assert all(len(re.findall(r"<(?:th|td)\b", row)) == 5 for row in rows)
+        assert "<summary>Holding details</summary>" in table
+        assert "Average cost" in table and "Current price" in table and "XIRR" in table
+
     def test_full_investing_flow(self, c, setup):
         from fastapi.testclient import TestClient
         from lightning.ui.web import create_app
