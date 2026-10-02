@@ -361,6 +361,10 @@ def test_start_fresh_sets_the_database_aside_and_opens_an_empty_one(client, c, s
     old_path = Path(c.db.path)
     page = client.get("/settings")
     assert "Start a fresh database" in page.text and "Start a new profile" not in page.text
+    # The UI's async test client uses a portal thread, while this fixture seeded
+    # its database on the test thread. Release that thread-local SQLite handle as
+    # well; Windows does not allow renaming a database while any thread holds it.
+    c.db.close()
     response = client.post("/settings/fresh", follow_redirects=False)
     assert response.status_code == 303 and response.headers["location"].startswith("/")
     fresh = client.app.state.container

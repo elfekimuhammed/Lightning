@@ -2,105 +2,101 @@ from datetime import date
 
 from fastapi.testclient import TestClient
 
-from lightning.core.errors import NotFoundError
 from lightning.ui.web import create_app
 
 
-class DepositStub:
-    def __init__(self):
-        self.terms = {}
-        self.saved = None
-
-    def get(self, account_id):
-        if account_id not in self.terms:
-            raise NotFoundError("Deposit terms not found.")
-        return self.terms[account_id]
-
-    def save(self, *args, **kwargs):
-        self.saved = (args, kwargs)
-        account_id = args[0]
-        self.terms[account_id] = {
-            "start_date": args[1], "maturity_date": args[2], "principal": args[3],
-            "annual_rate": args[4], "interest_method": args[5], "payout_frequency": args[6],
-            "destination_account_id": args[7], **kwargs,
-        }
-
-    def delete(self, account_id):
-        self.terms.pop(account_id, None)
-
-
-def _terms(cd, destination, **overrides):
+def _purchase(c, accounts, **overrides):
     values = {
-        "start_date": "2026-09-01", "maturity_date": "2027-09-01", "lockup_end_date": "2027-03-01",
-        "principal": "5000", "annual_rate": "12.5", "interest_method": "SIMPLE",
-        "compounding_frequency": "MONTHLY", "payout_frequency": "MONTHLY",
-        "destination_account_id": str(destination.id),
+        "name": "CIB 1-year certificate",
+        "start_date": "2026-09-01",
+        "lockup_end_date": "2027-03-01",
+        "maturity_date": "2027-09-01",
+        "principal": "5000",
+        "annual_rate": "12.5",
+        "interest_method": "SIMPLE",
+        "payout_frequency": "MONTHLY",
+        "compounding_frequency": "MONTHLY",
+        "destination_account_id": accounts["cib"].id,
+        "funding_account_id": accounts["cib"].id,
+    }
+    values.update(overrides)
+    return c.deposits.purchase(accounts["cd"].id, **values)
+
+
+def _form(accounts, **overrides):
+    values = {
+        "name": "CIB new certificate",
+        "start_date": "2026-09-20",
+        "lockup_end_date": "2027-03-20",
+        "maturity_date": "2027-09-20",
+        "term_years": "",
+        "principal": "1000",
+        "annual_rate": "12.5",
+        "interest_method": "SIMPLE",
+        "payout_frequency": "MONTHLY",
+        "compounding_frequency": "MONTHLY",
+        "destination_account_id": str(accounts["cib"].id),
+        "funding_account_id": str(accounts["cib"].id),
     }
     return values | overrides
 
 
-def test_cd_terms_link_and_form_save_separate_compounding_frequency(c, setup):
+def test_cd_portfolio_shows_certificates_and_records_purchase(c, setup):
     accounts, _ = setup
-    cd, bank = accounts["cd"], accounts["cib"]
-    c.deposits = DepositStub()
+    cd = accounts["cd"]
+    _purchase(c, accounts)
     client = TestClient(create_app(c), follow_redirects=False)
 
     listing = client.get("/accounts")
     assert f'href="/deposits/{cd.id}"' in listing.text
     page = client.get(f"/deposits/{cd.id}")
     assert page.status_code == 200
-    assert "Earliest withdrawal date" in page.text
-    assert "Compounding frequency" in page.text and "Payout schedule" in page.text
-    assert 'name="destination_account_id" data-own-picker' in page.text
-    before_transactions = c.transactions.count_for_account(cd.id)
-    assert "not create cash in the forecast" in page.text
+    assert "CIB 1-year certificate" in page.text
+    assert "12.5% · Simple" in page.text
+    assert "Earliest withdrawal" in page.text and "Maturity" in page.text
+    assert "interest is estimated for cash forecasting only and is never posted automatically" in page.text
 
-    response = client.post(f"/deposits/{cd.id}", data=_terms(cd, bank, interest_method="COMPOUND",
-                            compounding_frequency="QUARTERLY", payout_frequency="AT_MATURITY",
-                            lockup_end_date=""))
+    before = c.transactions.count_for_account(cd.id)
+    response = client.post(f"/deposits/{cd.id}/purchase", data=_form(accounts))
     assert response.status_code == 303
-    args, kwargs = c.deposits.saved
-    assert args[5:8] == ("COMPOUND", "AT_MATURITY", bank.id)
-    assert kwargs == {"lockup_end_date": "2027-09-01", "compounding_frequency": "QUARTERLY"}
-    assert c.transactions.count_for_account(cd.id) == before_transactions
+    assert c.transactions.count_for_account(cd.id) == before + 1
+    assert len(c.deposits.list_certificates(cd.id)) == 2
 
 
-def test_compound_payout_and_dates_are_validated_server_side(c, setup):
+def test_cd_purchase_validates_compound_schedule_and_dates(c, setup):
     accounts, _ = setup
-    cd, bank = accounts["cd"], accounts["cib"]
-    c.deposits = DepositStub()
     client = TestClient(create_app(c), follow_redirects=False)
 
-    response = client.post(f"/deposits/{cd.id}", data=_terms(cd, bank, interest_method="COMPOUND",
-                            payout_frequency="MONTHLY"))
-    assert response.status_code == 400 and "Compound interest is paid at maturity only." in response.text
-    assert c.deposits.saved is None
+    response = client.post(f"/deposits/{accounts['cd'].id}/purchase",
+                           data=_form(accounts, interest_method="COMPOUND", payout_frequency="MONTHLY"))
+    assert response.status_code == 400
+    assert "Compound interest is paid at maturity only." in response.text
+    assert c.deposits.list_certificates(accounts["cd"].id) == []
 
-    response = client.post(f"/deposits/{cd.id}", data=_terms(cd, bank, lockup_end_date="2027-10-01"))
-    assert response.status_code == 400 and "between the start and maturity dates" in response.text
+    response = client.post(f"/deposits/{accounts['cd'].id}/purchase",
+                           data=_form(accounts, lockup_end_date="2027-10-01"))
+    assert response.status_code == 400
+    assert "between the purchase and maturity dates" in response.text
 
 
-def test_lockup_status_estimate_and_maturity_use_cd_sale_factor(c, setup, monkeypatch):
+def test_certificate_status_and_early_redemption_form_follow_dates_and_sale_factor(c, setup, monkeypatch):
     accounts, _ = setup
-    cd = accounts["cd"]
-    c.deposits = DepositStub()
-    c.deposits.terms[cd.id] = {
-        "start_date": "2026-09-01", "maturity_date": "2027-09-01", "lockup_end_date": "2027-03-01",
-        "principal": "5000", "annual_rate": "12", "interest_method": "SIMPLE",
-        "compounding_frequency": "MONTHLY", "payout_frequency": "MONTHLY",
-        "destination_account_id": str(accounts["cib"].id),
-    }
+    cd_class = c.assets.get_class_by_code("DEPOSIT.CD")
+    c.investments.set_liquidation_factor(cd_class.id, "65")
+    certificate, _ = _purchase(c, accounts)
     client = TestClient(create_app(c), follow_redirects=False)
-    page = client.get(f"/deposits/{cd.id}")
-    assert "Not withdrawable yet." in page.text
+
+    page = client.get(f"/deposits/{accounts['cd'].id}")
+    assert "Locked" in page.text
+    assert "currently 65%" in page.text
+    assert "/certificates/" in page.text
 
     from lightning.ui.routes import deposits
     monkeypatch.setattr(deposits, "today", lambda: date(2027, 4, 1))
-    page = client.get(f"/deposits/{cd.id}")
-    assert "Early proceeds estimate" in page.text
-    assert "95% class-wide CD sale factor" in page.text
-    assert "not a guaranteed bank quote" in page.text
+    page = client.get(f"/deposits/{accounts['cd'].id}")
+    assert "Can redeem" in page.text
+    assert "Record actual redemption" in page.text
 
     monkeypatch.setattr(deposits, "today", lambda: date(2027, 9, 1))
-    page = client.get(f"/deposits/{cd.id}")
-    assert "At maturity:" in page.text and "5,000.00 EGP" in page.text
+    page = client.get(f"/deposits/{accounts['cd'].id}")
+    assert "Matured · awaiting redemption" in page.text

@@ -153,7 +153,8 @@ def test_randomized_ledger_always_reconciles(c):
     """
     rng = random.Random(20260925)
     flows = c.account_flows
-    accs = [flows.open_account(f"Acc {i}", t, "2026-01-01", str(rng.randint(0, 50000)))
+    accs = [flows.open_account(f"Acc {i}", t, "2026-01-01",
+                               "0" if t == "DEPOSIT" else str(rng.randint(0, 50000)))
             for i, t in enumerate(["BANK", "CASH", "DEPOSIT", "BROKERAGE", "OTHER_ASSET"])]
     from lightning.categories.domain import Movement
     ins = c.categories.pickable(Movement.INFLOW)
