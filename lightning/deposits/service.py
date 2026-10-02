@@ -112,12 +112,24 @@ class DepositService:
         if funding.currency != portfolio.currency or destination.currency != portfolio.currency:
             raise ValidationError("The portfolio, funding account and payout account must use the same currency.",
                                   "funding_account_id")
-        available = Decimal(self.repo.owned_balance_e6(funding.id, fmt_date(start))).scaleb(-6)
-        if available < amount:
-            raise ValidationError(
-                f"{funding.name} had {fmt(available, 2)} {funding.currency} of your cash on "
-                f"{fmt_date(start)}; this purchase needs {fmt(amount, 2)} {funding.currency}.", "principal")
         with self.db.transaction():
+            available_e6 = self.repo.owned_balance_e6(funding.id, fmt_date(start))
+            amount_e6 = to_e6(amount)
+            if available_e6 < amount_e6:
+                available = Decimal(available_e6).scaleb(-6)
+                raise ValidationError(
+                    f"{funding.name} had {fmt(available, 2)} {funding.currency} of your cash on "
+                    f"{fmt_date(start)}; this purchase needs {fmt(amount, 2)} {funding.currency}.", "principal")
+            remaining_e6 = available_e6 - amount_e6
+            for movement in self.repo.owned_cash_deltas_after(funding.id, fmt_date(start)):
+                remaining_e6 += int(movement["delta_e6"] or 0)
+                if remaining_e6 < 0:
+                    remaining = Decimal(remaining_e6).scaleb(-6)
+                    raise ValidationError(
+                        f"After activity dated {movement['date']}, {funding.name} would have "
+                        f"{fmt(remaining, 2, True)} {funding.currency}. This CD purchase is dated "
+                        f"{fmt_date(start)}; check the already-recorded activity on or after that date.",
+                        "principal")
             asset = self.assets.create_certificate_asset(name)
             cash_asset = self.assets.cash_asset(funding.currency)
             lines = [

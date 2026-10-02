@@ -58,6 +58,17 @@ class DepositRepository:
         )
         return int(value or 0)
 
+    def owned_cash_deltas_after(self, account_id: int, after: str):
+        """Posted, user-owned cash movements after a proposed CD purchase date."""
+        return self.db.all(
+            "SELECT le.date,SUM(le.quantity_e6) AS delta_e6 FROM ledger_entries le "
+            "JOIN transactions t ON t.id=le.transaction_id AND t.status='POSTED' "
+            "JOIN financial_assets fa ON fa.id=le.asset_id AND fa.is_cash=1 "
+            "WHERE le.account_id=? AND le.owner_id IS NULL AND le.date>? "
+            "GROUP BY le.date ORDER BY le.date",
+            (account_id, after),
+        )
+
     def save_certificate(self, terms: CertificateTerms) -> int:
         cursor = self.db.execute(
             "INSERT INTO cd_certificates(account_id,asset_id,name,start_date,lockup_end_date,maturity_date,"

@@ -9,7 +9,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 ## [Unreleased]
 
 ### CD purchase, maturity term and account navigation · 2026-10-02
-- CD purchases now validate available user-owned cash in the selected bank/cash account on the recorded purchase date. The brokerage-only historical cash invariant no longer rejects a bank-funded CD purchase because of unrelated dated bank activity; genuine shortages show the available and required amounts.
+- CD purchases now validate available user-owned cash in the selected bank/cash account on the recorded purchase date, then replay later posted cash movements so the CD cannot make a later balance negative. Unrelated negative history before the purchase date no longer blocks the purchase; a real shortage reports its date and amount.
 - Maturity can be entered as a date or as a term in years (three-month increments). The two fields stay in sync, and a term calculates a calendar maturity date from the purchase date.
 - **View CDs** sits in the account page's right-side actions, alongside other account actions.
 
