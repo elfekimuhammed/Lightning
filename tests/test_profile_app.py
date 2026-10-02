@@ -193,3 +193,16 @@ def test_lock_drains_request_and_rejects_queued_old_generation(tmp_path):
             assert session.container is None
         session.close()
     asyncio.run(scenario())
+
+
+def test_settings_start_fresh_locks_this_profile_and_opens_new_profile_setup(tmp_path):
+    browser, app, cfg = start(tmp_path)
+    with browser:
+        browser.get("/__launch", params={"code": cfg.launch_code})
+        create(browser, "Home")
+        page = browser.get("/settings")
+        assert "Start a new profile" in page.text and "Start a fresh database" not in page.text
+        response = browser.post("/settings/fresh", data={"__session": token(page.text, "__session")}, follow_redirects=False)
+        assert response.status_code == 303 and response.headers["location"].startswith("/profiles/new")
+        assert app.session.container is None  # the old profile is locked, untouched
+        assert "Home" in browser.get("/profiles").text

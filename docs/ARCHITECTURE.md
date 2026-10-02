@@ -186,6 +186,11 @@ Budget's ordinary view is a compact plan summary and Personal/Work/Investment ro
 
 ## Persistence, precision, and indexing
 
+**Start fresh** (Settings › Your data, `POST /settings/fresh`) never deletes data:
+
+- In profile mode it locks the open profile and sends you to new-profile setup.
+- In browser mode it takes a backup, renames the database (and any journal) to `<name>_before-fresh_<timestamp>.db` beside it, then builds an empty database at the same path and swaps the running container. If the rename fails, the original file is reopened and nothing changes.
+
 - SQLite with ordered, append-only migrations; never edit a migration already applied.
 - Dates are stored as ISO `yyyy-mm-dd`. User entry accepts ISO, `dd/mm/yyyy`, and `dd/m` (current year); UI normalizes accepted input to ISO. CSV dates use the same parser.
 - An account's legacy opening/tracking date is not a transaction-date boundary. Historical activity may predate the account metadata or opening-balance entry; balances remain chronological sums of their dated ledger lines.

@@ -91,3 +91,39 @@ async def save_liquidation_factor(request: Request, asset_class_id: int):
 async def backup_now(request: Request):
     path = container(request).backup_now()
     return redirect("/settings", f"Backup saved as {path.name}." if path else "Nothing to back up yet.")
+
+
+@router.post("/fresh")
+async def start_fresh(request: Request):
+    """Browser mode: set the current database aside (after a backup) and open an empty one in its
+    place. Nothing is deleted. The desktop app uses a new profile instead (Settings links there)."""
+    import os
+    from datetime import datetime
+    from pathlib import Path
+    from lightning.bootstrap import build
+
+    profiles = getattr(request.app.state, "profile_session", None)
+    if getattr(request.state, "secure_profiles", False) and profiles is not None:
+        # Desktop: this profile stays as it is; lock it and set up a new, empty one.
+        profiles.close()
+        request.app.state.container = None
+        return redirect("/profiles/new")
+    c = container(request)
+    current = Path(c.db.path)
+    if str(current) == ":memory:":
+        return redirect("/settings", "This database is not a file, so there is nothing to set aside.")
+    saved = c.backup_now()
+    aside = current.with_name(f"{current.stem}_before-fresh_{datetime.now():%Y-%m-%d_%H%M%S}{current.suffix}")
+    c.db.close()
+    try:
+        os.replace(current, aside)
+        for suffix in ("-journal", "-wal", "-shm"):
+            side = Path(f"{current}{suffix}")
+            if side.exists():
+                os.replace(side, Path(f"{aside}{suffix}"))
+    except OSError:
+        request.app.state.container = build(current, backup_dir=c.backup_dir)  # reopen the untouched file
+        return redirect("/settings", "Couldn't set the current database aside, so nothing changed. Close other programs using it and try again.")
+    request.app.state.container = build(current, backup_dir=c.backup_dir)
+    note = f" A backup is in {saved.name}." if saved else ""
+    return redirect("/", f"Started a fresh database. Your old one is kept as {aside.name}.{note}")

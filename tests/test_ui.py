@@ -352,3 +352,22 @@ def test_the_period_picked_in_a_header_carries_over_between_pages(client, c, set
     assert "period=ytd" in client.get("/budget", follow_redirects=False).headers["location"]
     client.get("/budget?period=month&month=2999-01")  # a pick that fails is not remembered
     assert "period=ytd" in client.get("/budget", follow_redirects=False).headers["location"]
+
+
+def test_start_fresh_sets_the_database_aside_and_opens_an_empty_one(client, c, setup):
+    from pathlib import Path
+    accounts, cats = setup
+    c.transactions.record_outflow("2026-09-10", accounts["cib"].id, "25", cats["EXP.PERSONAL.FOOD"].id)
+    old_path = Path(c.db.path)
+    page = client.get("/settings")
+    assert "Start a fresh database" in page.text and "Start a new profile" not in page.text
+    response = client.post("/settings/fresh", follow_redirects=False)
+    assert response.status_code == 303 and response.headers["location"].startswith("/")
+    fresh = client.app.state.container
+    assert Path(fresh.db.path) == old_path and fresh.accounts.list() == []
+    kept = [p for p in old_path.parent.iterdir() if "_before-fresh_" in p.name]
+    assert len(kept) == 1  # nothing deleted: the old data sits beside the new file
+    import sqlite3
+    assert sqlite3.connect(kept[0]).execute("SELECT COUNT(*) FROM transactions").fetchone()[0] >= 1
+    assert c.backup_files()  # and a backup was taken first
+    fresh.db.close()

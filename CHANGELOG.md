@@ -8,6 +8,16 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### Settings: start fresh · 2026-10-02
+- Settings › Your data has a **Start fresh** card.
+- **Desktop app:** **Start a new profile** locks the current profile and opens the new-profile setup, with its own password and recovery key. The old profile stays exactly as it is and can be opened again from Profiles.
+- **Browser mode:** **Start a fresh database** asks first, then:
+  - backs up the current database;
+  - sets it aside next to itself as `<name>_before-fresh_<date-time>.db`;
+  - opens an empty database at the usual path.
+
+  Nothing is deleted. If the file can't be moved (another program has it open), nothing changes.
+
 ### Budget: saved and invested, for the period · 2026-10-02
 - The Budget's Savings rate card becomes **Saved and invested**, the same card as on Investments:
   - money in as 100 squares: invested in blue, kept in green, spent in rose;
