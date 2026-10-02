@@ -7,6 +7,7 @@
 <form method="post" class="card" style="max-width:760px" data-popup-return="response">
   <div class="row">
     {{ field('name', 'Name', values, error_field, placeholder='e.g. CIB Current', attrs='required autofocus') }}
+    {{ field('institution', 'Institution', values, error_field, placeholder='e.g. CIB') }}
   </div>
   <div class="row">
     <div class="field {{ 'has-error' if error_field == 'account_type' }}">
@@ -22,7 +23,7 @@
       <div class="help">Accounts are kept in your base currency for now.</div>
     </div>
   </div>
-  <section class="card" style="background:var(--surface-2);box-shadow:none;margin:14px 0">
+  <section class="card" id="opening-balance-section" {% if values.account_type == 'DEPOSIT' %}hidden style="display:none;background:var(--surface-2);box-shadow:none;margin:14px 0"{% else %}style="background:var(--surface-2);box-shadow:none;margin:14px 0"{% endif %}>
     <h2>Starting balance</h2>
     <p class="muted small">Enter what this account held when you started tracking it. This sets the opening balance; it is not counted as income. Leave it blank if you’ll import or enter the opening activity separately.</p>
     <div class="row">
@@ -71,12 +72,29 @@
   const help = document.getElementById('account-type-help');
   if (!type || !help) return;
   const update = () => {
-    if (type.value === 'DEPOSIT') help.textContent = 'Certificate / time deposit: include the term, annual return, and maturity date in Notes.';
+    if (type.value === 'DEPOSIT') help.textContent = 'A bank-specific CD portfolio holds certificates, not cash. Enter the bank under Institution, then record each CD purchase from a bank or cash account.';
     else if (type.value === 'PHYSICAL_ASSET') help.textContent = 'Gold purity belongs to the gold holding itself, so choose its karat when you add the gold investment. This account can hold physical assets.';
     else help.textContent = '';
   };
   type.addEventListener('change', update);
   update();
+  const opening = document.getElementById('opening-balance-section');
+  const openingAmount = document.getElementById('opening_balance');
+  const syncBalance = () => {
+    if (!opening) return;
+    const isPortfolio = type.value === 'DEPOSIT';
+    if (isPortfolio && !opening.hidden && openingAmount && openingAmount.value !== '0') {
+      opening.dataset.previousValue = openingAmount.value;
+      openingAmount.value = '0';
+    } else if (!isPortfolio && opening.hidden && openingAmount && opening.dataset.previousValue) {
+      openingAmount.value = opening.dataset.previousValue;
+      delete opening.dataset.previousValue;
+    }
+    opening.hidden = isPortfolio;
+    opening.style.display = isPortfolio ? 'none' : '';
+  };
+  type.addEventListener('change', syncBalance);
+  syncBalance();
 })();
 </script>
 {% endblock %}

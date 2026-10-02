@@ -12,7 +12,7 @@ from ..web import container, redirect, render
 
 router = APIRouter(prefix="/accounts")
 
-FIELDS = ("name", "account_type", "last4", "notes", "opening_balance", "opening_balance_date", "owner_id")
+FIELDS = ("name", "account_type", "institution", "last4", "notes", "opening_balance", "opening_balance_date", "owner_id")
 
 
 def _form_context(request: Request, values: dict, account=None, error: LightningError | None = None):
@@ -46,7 +46,7 @@ async def list_accounts(request: Request):
 @router.get("/new")
 async def new_account(request: Request):
     values = {"account_type": request.query_params.get("type", "BANK"), "opening_balance": "",
-              "opening_balance_date": today().isoformat(), "owner_id": ""}
+              "opening_balance_date": today().isoformat(), "institution": "", "owner_id": ""}
     return render(request, "accounts/form.html", **_form_context(request, values))
 
 
@@ -62,7 +62,7 @@ async def create_account(request: Request):
             name=values["name"], account_type=values["account_type"],
             opening_date="1900-01-01", opening_balance=values["opening_balance"],
             opening_balance_date=values["opening_balance_date"],
-            last4=values["last4"], notes=values["notes"],
+            institution=values["institution"], last4=values["last4"], notes=values["notes"],
             owner_id=int(values["owner_id"]) if values["owner_id"].isdigit() else None,
         )
     except LightningError as exc:
@@ -72,7 +72,8 @@ async def create_account(request: Request):
 
 @router.get("/{account_id:int}")
 async def account_register(request: Request, account_id: int):
-    if container(request).accounts.get(account_id).account_type.value == "PHYSICAL_ASSET":
+    account_type = container(request).accounts.get(account_id).account_type.value
+    if account_type == "PHYSICAL_ASSET":
         from . import physical_items
         return physical_items.account_page(request, account_id)
     return register.page(request, account_id)
@@ -265,6 +266,7 @@ async def edit_account(request: Request, account_id: int):
         "name": a.name, "account_type": a.account_type.value,
         "opening_date": a.opening_date, "opening_balance": str(c.account_flows.opening_of(a)),
         "opening_balance_date": opening_txn.date if opening_txn else (first_activity or today().isoformat()),
+        "institution": a.institution or "",
         "last4": a.last4 or "",
         "notes": a.notes,
         "owner_id": str(next((line.owner_id for line in opening_txn.lines if line.owner_id is not None), ""))
@@ -283,7 +285,7 @@ async def update_account(request: Request, account_id: int):
         account = c.account_flows.update_account(
             account_id, name=values["name"], account_type=values["account_type"],
             opening_date=account.opening_date, opening_balance=str(c.account_flows.opening_of(account)),
-            institution=account.institution, last4=values["last4"], notes=values["notes"],
+            institution=values["institution"], last4=values["last4"], notes=values["notes"],
             opening_balance_date=values["opening_balance_date"],
             owner_id=int(values["owner_id"]) if values["owner_id"].isdigit() else None,
         )

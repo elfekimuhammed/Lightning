@@ -88,9 +88,18 @@ class TransactionService:
 
     def record_transfer(self, date: str, from_account_id: int, to_account_id: int, amount,
                         description: str = "", notes: str = "",
-                        source: TxnSource = TxnSource.MANUAL, owner_id: int | None = None) -> Transaction:
+                        source: TxnSource = TxnSource.MANUAL, owner_id: int | None = None,
+                        allow_legacy_deposit_cash: bool = False) -> Transaction:
         """Money moving between your own accounts. Never income, expense or revaluation."""
-        day, lines = self._transfer_lines(date, from_account_id, to_account_id, amount)
+        source_account = self.accounts.get(from_account_id)
+        destination_account = self.accounts.get(to_account_id)
+        if (destination_account.account_type == AccountType.DEPOSIT or
+                (source_account.account_type == AccountType.DEPOSIT and not allow_legacy_deposit_cash)):
+            raise ValidationError("CD portfolios cannot receive cash. Use the CD purchase action.")
+        if allow_legacy_deposit_cash and source_account.account_type != AccountType.DEPOSIT:
+            raise ValidationError("Legacy cash can only be moved out of a previous deposit account.")
+        day, lines = self._transfer_lines(date, from_account_id, to_account_id, amount,
+                                          allow_legacy_deposit_cash)
         lines = [replace(line, owner_id=owner_id) for line in lines]
         return self._create(DocType.TRF, day, lines, description, "", notes, source)
 
@@ -103,6 +112,8 @@ class TransactionService:
         Give a category (money in / money out) — or another of your accounts, which makes it a transfer.
         Counterparty is the person or business; choosing an owned account makes a transfer.
         """
+        if self.accounts.get(account_id).account_type.value == "DEPOSIT":
+            raise ValidationError("CD portfolios cannot hold cash. Use the CD purchase or redemption action.")
         kind, value, category_id = self._register_kind(amount, category_id, other_account_id)
         if kind == DocType.TRF:
             src, dst = (account_id, other_account_id) if value < 0 else (other_account_id, account_id)
@@ -255,6 +266,7 @@ class TransactionService:
         """
         for account_id in {ln.account_id for ln in lines}:
             self.accounts.require_usable(account_id)
+        self._validate_deposit_lines(lines, doc_type)
         day = self._check_date(date)
         validate_posting(lines)
         self._validate_owner_balances(lines, day, force_brokerage_cash=doc_type == DocType.BUY)
@@ -268,6 +280,7 @@ class TransactionService:
             raise ValidationError("Restore this transaction before editing it.")
         for account_id in {ln.account_id for ln in lines}:
             self.accounts.require_usable(account_id)
+        self._validate_deposit_lines(lines, current.type)
         day = self._check_date(date)
         validate_posting(lines)
         self._validate_owner_balances(lines, day, exclude_txn_id=txn_id,
@@ -285,8 +298,7 @@ class TransactionService:
                 if not owner:
                     raise ValidationError("Choose an active saved owner.", "owner_id")
             if ((line.owner_id is not None and line.quantity != ZERO) or not asset.is_cash or
-                    (force_brokerage_cash and line.effect == Effect.INTERNAL and
-                     account.account_type.value == "BROKERAGE")):
+                    (force_brokerage_cash and line.effect == Effect.INTERNAL and asset.is_cash)):
                 keys.add((line.account_id, line.asset_id, line.owner_id))
         for account_id, asset_id, owner_id in keys:
             params = [account_id, asset_id, owner_id]
@@ -316,6 +328,20 @@ class TransactionService:
                     raise ValidationError(
                         f"This would leave {owner_label} balance negative in {self.accounts.get(account_id).label}.",
                         "owner")
+
+    def _validate_deposit_lines(self, lines, doc_type: DocType) -> None:
+        """CD portfolios hold certificate assets only; cash stays in bank and wallet accounts."""
+        for line in lines:
+            account = self.accounts.get(line.account_id)
+            asset = self.assets.get_asset(line.asset_id)
+            is_certificate = self.assets.get_class(asset.asset_class_id).code == "DEPOSIT.CD"
+            if account.account_type == AccountType.DEPOSIT:
+                if asset.is_cash:
+                    raise ValidationError("A CD portfolio cannot hold cash. Use the CD purchase or redemption action.")
+                if not is_certificate or doc_type not in {DocType.BUY, DocType.SEL}:
+                    raise ValidationError("Only CD certificates can be traded in a CD portfolio.", "asset")
+            elif is_certificate:
+                raise ValidationError("Certificates must be held in a bank-specific CD portfolio.", "account")
 
     def set_opening_balance(self, account_id: int, amount: Decimal, date: str,
                             owner_id: int | None = None) -> Transaction | None:
@@ -570,6 +596,8 @@ class TransactionService:
     def _money_lines(self, movement: Movement, date: str, account_id: int, amount, category_id: int,
                      allow_system_category: bool = False, allow_inactive_category: bool = False):
         account = self.accounts.require_usable(account_id)
+        if account.account_type == AccountType.DEPOSIT:
+            raise ValidationError("A CD portfolio cannot hold cash.")
         day = self._check_date(date)
         asset = self.assets.cash_asset(account.currency)
         value = self._positive_amount(amount, asset.quantity_decimals)
@@ -581,14 +609,18 @@ class TransactionService:
         validate_posting(lines)
         return day, lines
 
-    def _transfer_lines(self, date: str, from_id: int, to_id: int, amount):
+    def _transfer_lines(self, date: str, from_id: int, to_id: int, amount,
+                        allow_legacy_deposit_cash: bool = False):
         src = self.accounts.require_usable(from_id, "from_account")
         dst = self.accounts.require_usable(to_id, "to_account")
         if src.id == dst.id:
             raise ValidationError("Choose two different accounts.", "to_account")
-        cash_accounts = {AccountType.CASH, AccountType.BANK, AccountType.DEPOSIT, AccountType.BROKERAGE}
-        if src.account_type not in cash_accounts or dst.account_type not in cash_accounts:
-            raise ValidationError("Transfers can only move cash between wallets, banks, deposits, and brokerage accounts.", "to_account")
+        source_accounts = {AccountType.CASH, AccountType.BANK, AccountType.BROKERAGE}
+        if allow_legacy_deposit_cash:
+            source_accounts.add(AccountType.DEPOSIT)
+        destination_accounts = {AccountType.CASH, AccountType.BANK, AccountType.BROKERAGE}
+        if src.account_type not in source_accounts or dst.account_type not in destination_accounts:
+            raise ValidationError("Transfers can move cash from wallets, banks, or legacy deposit balances into liquid accounts.", "to_account")
         if src.currency != dst.currency:
             raise ValidationError("Both accounts must use the same currency (exchanges arrive in M4).", "to_account")
         day = self._check_date(date)

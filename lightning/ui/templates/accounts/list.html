@@ -12,7 +12,7 @@
     {% for acc, balance, owned, count in rows %}
       <tr class="{{ 'void' if not acc.active }}">
         <td><a href="/accounts/{{ acc.id }}">{{ acc.name }}</a>{% if not acc.active %} <span class="pill">inactive</span>{% endif %}</td>
-        <td class="small">{{ acc.type_label }}{% if acc.account_type.value == 'DEPOSIT' %}<br><a href="/deposits/{{ acc.id }}">Terms</a>{% endif %}</td>
+        <td class="small">{{ acc.type_label }}{% if acc.account_type.value == 'DEPOSIT' %}<br><a href="/deposits/{{ acc.id }}">View CDs</a>{% endif %}</td>
         <td class="num small">{{ count }}</td>
         <td class="num">{{ amount(balance, base) }}</td>
         <td class="num">{{ amount(owned, base) }}</td>

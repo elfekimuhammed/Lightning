@@ -43,6 +43,9 @@ class AccountWorkflows:
                      opening_balance_date: str | None = None, owner_id: int | None = None) -> Account:
         with self.db.transaction():
             amount = self.parse_opening(opening_balance)
+            if account_type == "DEPOSIT" and amount != ZERO:
+                raise ValidationError("A CD portfolio cannot hold cash. Buy CDs from a bank or cash account.",
+                                      "opening_balance")
             balance_day = parse_date(opening_balance_date or opening_date, "opening_balance_date")
             if balance_day > today():
                 raise ValidationError("The starting balance date cannot be in the future.", "opening_balance_date")
@@ -60,6 +63,22 @@ class AccountWorkflows:
         if parse_date(balance_day) > today():
             raise ValidationError("The starting balance date cannot be in the future.", "opening_balance_date")
         current = self.accounts.get(account_id)
+        if account_type == "DEPOSIT" and current.account_type.value != "DEPOSIT":
+            if self.reporting.account_value(account_id, "9999-12-31") != ZERO:
+                raise ConflictError("Move this account's cash out before turning it into a CD portfolio.",
+                                    "account_type")
+            if [h for h in self.reporting.holdings("9999-12-31")[0] if h.account.id == account_id]:
+                raise ConflictError("Move this account's holdings before turning it into a CD portfolio.",
+                                    "account_type")
+        if (current.account_type.value == "DEPOSIT" and account_type == "DEPOSIT"
+                and self.parse_opening(opening_balance) != self.opening_of(current)):
+            raise ValidationError("A CD portfolio cannot have a cash opening balance.", "opening_balance")
+        if current.account_type.value == "DEPOSIT" and account_type != "DEPOSIT":
+            if self.reporting.account_value(account_id, "9999-12-31") != ZERO:
+                raise ConflictError("Move its legacy cash and redeem its CDs before changing this portfolio's type.",
+                                    "account_type")
+            if [h for h in self.reporting.holdings("9999-12-31")[0] if h.account.id == account_id]:
+                raise ConflictError("Redeem the CDs before changing this portfolio's type.", "account_type")
         if current.account_type in INVESTMENT_ACCOUNT_TYPES and account_type not in {t.value for t in INVESTMENT_ACCOUNT_TYPES}:
             holdings = [h for h in self.reporting.holdings("9999-12-31")[0] if h.account.id == account_id]
             if holdings:

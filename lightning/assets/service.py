@@ -180,6 +180,30 @@ class AssetService:
             new_id = self.repo.insert_asset(asset)
         return self.get_asset(new_id)
 
+    def create_certificate_asset(self, name: str) -> FinancialAsset:
+        """Create a separate non-cash ledger asset for one bank certificate."""
+        from lightning.assets.domain import Exposure, Liquidity, PriceSource
+
+        name = (name or "").strip()
+        if not name:
+            raise ValidationError("Enter a certificate name.", "name")
+        base = slug(name, 22) or "CERTIFICATE"
+        serial = 1
+        code = f"CD:{base}-{serial}"
+        while self.repo.get_asset_by_code(code):
+            serial += 1
+            code = f"CD:{base}-{serial}"
+        asset = FinancialAsset(
+            id=0, code=code, name=name, asset_class_id=self.get_class_by_code("DEPOSIT.CD").id,
+            currency=self.base_currency, unit="certificate", quantity_decimals=0, is_cash=False,
+            exposure=Exposure.FIXED_INCOME, liquidity=Liquidity.LOCKED, purity=None, isin=None,
+            price_source=PriceSource.NONE, external_symbol=None, active=True,
+            notes="Certificate of deposit; interest is forecast only.",
+        )
+        with self.db.transaction():
+            new_id = self.repo.insert_asset(asset)
+        return self.get_asset(new_id)
+
     def update_investment(self, asset_id: int, name: str, class_code: str | None = None, isin: str = "",
                           notes: str = "", active: bool = True) -> FinancialAsset:
         asset = self.get_asset(asset_id)

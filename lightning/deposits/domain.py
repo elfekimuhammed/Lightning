@@ -38,9 +38,35 @@ class DepositTerms:
 
 
 @dataclass(frozen=True)
+class CertificateTerms:
+    id: int
+    account_id: int
+    asset_id: int
+    name: str
+    start_date: str
+    lockup_end_date: str
+    maturity_date: str
+    principal: Decimal
+    annual_rate: Decimal
+    interest_method: InterestMethod
+    payout_frequency: PayoutFrequency
+    compounding_frequency: CompoundingFrequency
+    destination_account_id: int
+    purchase_transaction_id: int
+
+
+@dataclass(frozen=True)
+class Certificate:
+    terms: CertificateTerms
+    units: Decimal
+    redeemed: bool
+
+
+@dataclass(frozen=True)
 class DepositEvent:
     date: str
     account_id: int
     amount: Decimal
     kind: str
     deposit_account_id: int
+    certificate_id: int | None = None

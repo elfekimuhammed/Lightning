@@ -202,9 +202,16 @@ class PositionService:
                 if item.class_code != "DEPOSIT.CD":
                     continue
                 try:
-                    terms = self.deposits.get(item.account_id)
+                    certificate = self.deposits.certificate_for_asset(item.asset_id)
                 except NotFoundError:
-                    continue  # Legacy deposit account: retain its class factor.
+                    continue
+                if certificate is None:
+                    try:
+                        terms = self.deposits.get(item.account_id)
+                    except NotFoundError:
+                        continue  # Legacy deposit account: retain its class factor.
+                else:
+                    terms = certificate.terms
                 if day < parse_date(terms.lockup_end_date):
                     item._realization_factor = ZERO
                 elif day >= parse_date(terms.maturity_date):

@@ -26,6 +26,12 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
   It always covers the period chosen in the header.
 - The split is worked out once in `investments.report.saved_and_invested()`, so Budget and Investments always agree. Before, it was calculated in the Investments page code.
 
+### CD portfolios grouped by bank · 2026-10-02
+- A `DEPOSIT` account is a bank-specific CD portfolio identified by its Institution field; it cannot hold cash.
+- Each certificate is a separate non-cash `DEPOSIT.CD` asset with its own name and terms. Buying it creates a `BUY` ledger transaction funded from a bank/cash account the user selects.
+- Interest and maturity proceeds remain forecast estimates. Interest is never posted automatically; users record it manually from bank statements. Actual redemption records the principal proceeds entered by the user.
+- Migration `0039_cd_portfolios.sql` preserves old account-level `cd_terms` as legacy without destroying or automatically converting them. Cash left in old `DEPOSIT` accounts must be moved out; legacy terms remain until a history-safe conversion workflow exists.
+
 ### Our own calendar on every date field · 2026-10-02
 - The calendar button on every date field (register rows, forms, popups) now opens Lightning's calendar instead of the browser's:
   - weeks run Monday to Sunday;

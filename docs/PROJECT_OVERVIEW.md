@@ -39,7 +39,7 @@ Every number comes from one of three layers, and each screen says which:
 - **CSV import:** stage a bank CSV with one signed column or separate in/out columns. Only rows that need a decision need attention; a new name typed on several rows is created once; duplicates are flagged.
 - **Budget:** Planned, Spent, then Left in plan. Each category takes one *Amount or %* field (`1,500`, or `12%` of average monthly income), or the average of recent months, with optional carryover. Views cover All time, YTD, Monthly and Custom. A loan's scheduled payments are planned automatically until you set your own amount.
 - **Cash planning (Plan · Recurring · Loans · Reserves):** *Safe to spend* until the next income, What you owe, the next 30 days and a three-month forecast. It also holds recurring bills, subscriptions and income (suggested from history, never created on their own), loans with progress and payoff date, and reserves with the emergency fund. A strict unique payment match settles automatically; an early or changed-amount payment is suggested for confirmation. The forecast separately shows estimated CD interest and maturity cash without calling returned principal income.
-- **Certificates and time deposits:** enter a CD's funded principal and terms on its deposit account: rate, simple versus compounding, payout or capitalization frequency, earliest withdrawal and maturity. Simple interest can pay monthly, quarterly, yearly or at maturity; compounded interest is paid at maturity. Terms never post money. Actual interest is recorded as income and returned principal as a transfer. The CD is outside Free cash while held.
+- **Certificates and time deposits:** a bank's `DEPOSIT` account is its CD portfolio; its Institution field identifies the bank and the portfolio cannot hold cash. Each CD is a separate non-cash `DEPOSIT.CD` asset with its own name, principal, rate, simple/compound method, payout/capitalization frequency, earliest withdrawal date, and maturity date. Buying it creates a `BUY` transaction funded from a bank/cash account the user chooses. Interest and maturity proceeds are forecast estimates only: Lightning never posts interest automatically. Record actual interest manually from the bank statement; enter actual principal proceeds when redeeming. Old account-level CD terms are preserved and shown as legacy, not automatically converted, and cash in old `DEPOSIT` accounts must be moved out.
 - **Investments:** buy, sell and dividends inside the brokerage account; prices typed in or fetched; the period's *Net gain or loss* (Gain from sales + Price change on what you hold + Dividends and interest) alongside current holdings and *Holdings after sale (estimate)*.
 - **Overview:** Needs you at the top (a closed row that opens into the list), then your position: Net worth, Free cash, *What it is made of* and *If you sold today (estimate)* with a sale factor per class. Below that come Cash flow with the savings rate, Where it went, Investments at a glance, and Month by month as a closed row. Birdview was folded in on 2026-09-30, and `/birdview` redirects here.
 - **Held for others:** money and units you hold for someone else. Account headers show *In this account · What you own · Held for others*.
@@ -137,7 +137,7 @@ Each tab answers one main question first, then its natural follow-ups. **Partial
 | Am I on my target mix? | Investments › Set target allocation | Answered |
 | Why does a holding show no gain? | No price yet: valued at cost and flagged | Answered |
 | What did I make when I sold? | Gain from sales, after fees | Answered |
-| When does my certificate mature, and what then? | Its terms page shows lock-up, maturity and estimated payouts; Cash planning projects spendable proceeds, while the real transfer remains a ledger action | Partial: no automated bank reconciliation or early-redemption transaction flow |
+| When does my certificate mature, and what then? | The bank's CD portfolio lists each certificate's terms and maturity; Cash planning shows estimated interest and principal proceeds. The user records statement interest and actual redemption proceeds | Partial: legacy account-level terms are not converted, and no automated bank reconciliation |
 | How are my dollar savings doing? | — | Missing (M4, multi-currency) |
 
 **6. Am I safe if something goes wrong?** The emergency fund shows months covered. Saving for goals shows what to set aside each month. Loans show payments made, what is left and the last payment; a skipped payment moves to the end of the loan.
@@ -210,7 +210,7 @@ Drive it in a browser through the screens only, and re-run it after any workflow
 **Not scripted, because Lightning cannot record them yet:**
 
 - **A gam'eya.** Example: 10 months of 5,000, with the 50,000 pot in month 4. The payments are commitments, and the pot is his own money back, not income. Lightning has no gam'eya type, and an inflow needs an income category.
-- **The NBE certificate maturing.** Terms and a projected maturity receipt now exist; Omar still needs to record the actual principal transfer from NBE to CIB and any interest credit. Automatic bank reconciliation is not built.
+- **The NBE certificate maturing.** Its portfolio forecasts interest and maturity proceeds; Omar enters the actual principal redemption and statement interest manually. Forecasts never post ledger activity automatically.
 - **Dollar savings.** This waits for M4.
 - **Paying the car loan off early.** There is no lump-sum payment.
 - **A payslip's deductions** (income tax, social insurance). These are left out: record net pay.
@@ -252,7 +252,7 @@ The reference apps are YNAB, Monarch, Copilot, Simplifi, Rocket Money, Lunch Mon
 
 - **Unconfirmed early salary** remains in the bank-posting month of the income average and may leave a future salary payment due. The Recurring tab suggests the plausible match; Omar must confirm the specific transaction before the scheduled-month average and forecast adjust.
 - **A changed recurring amount** prompts a future-plan update and a reserve review, but the user must choose them. A reserve is named only when the payment is explicitly linked to it; a name or category match does not silently change cash assignments.
-- **CD projections** use an actual/365 day-count estimate, not a bank guarantee. Missing or partial funding suppresses the projection, and earlier simple-interest payouts are not reconciled against bank statements automatically.
+- **CD projections** use an actual/365 day-count estimate, not a bank guarantee. Interest is never posted automatically. Existing account-level `cd_terms` stay visible as legacy and are not automatically converted. Cash in old `DEPOSIT` accounts must be moved out; these legacy terms remain pending a safe conversion workflow. Actual bank interest entries are not yet linked to certificates to reconcile projections.
 - **The emergency fund** should count months of spending, not of income.
 
 Bank sync and bill negotiation are not adopted. Any sync first needs a provider and regional coverage; local CSV stays the foundation. A "safe to spend" figure must always say which obligations and income it includes. Simplifi's projection, which leaves out planned spending, shows why.
@@ -272,7 +272,7 @@ Verified UI fixes: Budget overlap at about 941px, the Cash planning tab strip an
 | M3.1 Instrument catalogue | Partial | Coverage and identifier quality |
 | M3.2 Wealth history | Partial | Wealth-change bridge; owned-only XIRR (net-worth trend is shipped) |
 | M4 Market data and FX | Planned | Wider prices, multi-currency accounts, FX revaluation |
-| M6 Deposits and gold details | Partial | CD terms, interest projections and maturity forecast built; next: bank reconciliation, early redemption posting, local gold costs and buyback |
+| M6 Deposits and gold details | Partial | Bank-specific CD portfolios, per-certificate purchase/redemption ledger activity and forecast-only interest are built; next: ordinary-PC acceptance, legacy conversion, statement reconciliation, local gold costs and buyback |
 | Physical gold items | In progress | Item purchase/sale and report integration |
 | M7 Planning and imports | Partial | Shipped: CSV import and Cash planning. Next: review inbox, matching manual entries with imports, reminders |
 | Search | Planned | One typo-tolerant search across pages and records (contract in Architecture) |

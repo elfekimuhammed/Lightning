@@ -7,147 +7,154 @@ from fastapi import APIRouter, Request
 from lightning.accounts.domain import AccountType
 from lightning.core.dates import fmt_date, parse_date, today
 from lightning.core.errors import LightningError, NotFoundError, ValidationError
-from lightning.core.money import to_decimal
+from lightning.core.money import ZERO, to_decimal
 
 from ..web import container, redirect, render
 
 router = APIRouter(prefix="/deposits")
-
-FIELDS = ("start_date", "maturity_date", "lockup_end_date", "principal", "annual_rate",
-          "interest_method", "compounding_frequency", "payout_frequency", "destination_account_id")
 METHODS = {"SIMPLE": "Simple", "COMPOUND": "Compound"}
 COMPOUNDING_FREQUENCIES = {"MONTHLY": "Monthly", "QUARTERLY": "Quarterly", "YEARLY": "Yearly"}
 FREQUENCIES = {"MONTHLY": "Monthly", "QUARTERLY": "Quarterly", "YEARLY": "Yearly",
                "AT_MATURITY": "At maturity"}
-
-
-def _field(term, name, default=""):
-    if isinstance(term, dict):
-        value = term.get(name, default)
-    else:
-        value = getattr(term, name, default)
-    return default if value is None else value
-
-
-def _text_date(value):
-    if isinstance(value, date):
-        return fmt_date(value)
-    return str(value or "")
+TERM_FIELDS = ("name", "lockup_end_date", "maturity_date", "annual_rate", "interest_method",
+               "compounding_frequency", "payout_frequency", "destination_account_id")
 
 
 def _account(c, account_id: int):
     account = c.accounts.get(account_id)
     if account.account_type != AccountType.DEPOSIT:
-        raise NotFoundError("Deposit account not found.")
+        raise NotFoundError("CD portfolio not found.")
     return account
 
 
-def _values(term=None):
-    values = {"start_date": "", "maturity_date": "", "lockup_end_date": "", "principal": "",
-              "annual_rate": "", "interest_method": "SIMPLE", "compounding_frequency": "MONTHLY",
-              "payout_frequency": "AT_MATURITY",
-              "destination_account_id": ""}
-    if term is not None:
-        for key in FIELDS:
-            value = _field(term, key)
-            if key in {"start_date", "maturity_date", "lockup_end_date"}:
-                value = _text_date(value)
-            elif key == "destination_account_id" and value != "":
-                value = str(value)
-            values[key] = str(value)
-    return values
+def _values():
+    return {"name": "", "start_date": fmt_date(today()), "lockup_end_date": "", "maturity_date": "",
+            "principal": "", "annual_rate": "", "interest_method": "SIMPLE",
+            "compounding_frequency": "MONTHLY", "payout_frequency": "AT_MATURITY",
+            "destination_account_id": "", "funding_account_id": ""}
 
 
-def _page(request: Request, account_id: int, values, error="", status_code=200):
+def _page(request: Request, account_id: int, values=None, error="", status_code=200):
     c = container(request)
     account = _account(c, account_id)
-    withdrawal = None
+    certificates = c.deposits.list_certificates(account_id)
+    liquid = [a for a in c.accounts.list(active_only=True)
+              if a.id != account_id and a.account_type in {AccountType.CASH, AccountType.BANK}
+              and a.currency == account.currency]
+    liquid.sort(key=lambda a: (a.institution.casefold() != account.institution.casefold(),
+                               a.institution.casefold(), a.name.casefold()))
+    liquid_by_id = {a.id: a for a in liquid}
+    factor = c.investments.liquidation_factors()[c.assets.get_class_by_code("DEPOSIT.CD").id]
     try:
-        maturity = parse_date(values["maturity_date"], "maturity_date")
-        lockup = parse_date(values["lockup_end_date"], "lockup_end_date") if values["lockup_end_date"] else maturity
-        principal = to_decimal(values["principal"], "principal")
-        cd_class = c.assets.get_class_by_code("DEPOSIT.CD")
-        factor = c.investments.liquidation_factors()[cd_class.id]
-        if today() < lockup:
-            withdrawal = {"state": "locked", "date": fmt_date(lockup)}
-        elif today() >= maturity:
-            withdrawal = {"state": "matured", "amount": principal}
-        else:
-            withdrawal = {"state": "estimate", "amount": principal * factor / 100, "factor": factor}
-    except (LightningError, KeyError, ValueError):
-        pass
+        legacy = c.deposits.get(account_id)
+    except NotFoundError:
+        legacy = None
     return render(request, "deposits/detail.html", status_code=status_code, account=account,
-                  values=values, error=error,
-                  withdrawal=withdrawal,
-                  destinations=[a for a in c.accounts.list(active_only=True)
-                                if a.id != account_id and a.account_type in {AccountType.CASH, AccountType.BANK}
-                                and a.currency == account.currency])
+                  certificates=certificates, values=values or _values(), error=error,
+                  liquid_accounts=liquid, liquid_by_id=liquid_by_id, sale_factor=factor, legacy=legacy,
+                  legacy_cash=c.deposits.legacy_cash_balance(account_id), today_iso=fmt_date(today()))
 
 
 @router.get("/{account_id:int}")
 async def detail(request: Request, account_id: int):
-    c = container(request)
-    _account(c, account_id)
-    try:
-        term = c.deposits.get(account_id)
-    except NotFoundError:
-        term = None
-    return _page(request, account_id, _values(term))
+    return _page(request, account_id)
 
 
-@router.post("/{account_id:int}")
-async def save(request: Request, account_id: int):
-    c = container(request)
-    account = _account(c, account_id)
+@router.post("/{account_id:int}/purchase")
+async def purchase(request: Request, account_id: int):
     form = await request.form()
-    values = {key: str(form.get(key, "")).strip() for key in FIELDS}
+    values = _values() | {key: str(form.get(key, "")).strip() for key in _values()}
+    c = container(request)
     try:
-        start = parse_date(values["start_date"], "start_date")
-        maturity = parse_date(values["maturity_date"], "maturity_date")
-        if maturity <= start:
-            raise ValidationError("Maturity must be after the start date.", "maturity_date")
-        lockup = parse_date(values["lockup_end_date"], "lockup_end_date") if values["lockup_end_date"] else maturity
-        if lockup < start or lockup > maturity:
-            raise ValidationError("Earliest withdrawal must be between the start and maturity dates.",
-                                  "lockup_end_date")
-        principal = to_decimal(values["principal"], "principal")
-        if principal <= 0:
-            raise ValidationError("Principal must be greater than zero.", "principal")
-        annual_rate = to_decimal(values["annual_rate"], "annual_rate")
-        if annual_rate < 0 or annual_rate > 100:
-            raise ValidationError("Enter an annual rate from 0 to 100 percent.", "annual_rate")
-        method = values["interest_method"]
-        compounding_frequency = values["compounding_frequency"]
-        frequency = values["payout_frequency"]
-        if method not in METHODS:
-            raise ValidationError("Choose simple or compound interest.", "interest_method")
-        if compounding_frequency not in COMPOUNDING_FREQUENCIES:
-            raise ValidationError("Choose monthly, quarterly, or yearly compounding.", "compounding_frequency")
-        if frequency not in FREQUENCIES:
-            raise ValidationError("Choose a payout schedule.", "payout_frequency")
-        if method == "COMPOUND" and frequency != "AT_MATURITY":
-            raise ValidationError("Compound interest is paid at maturity only.", "payout_frequency")
-        destination_id = int(values["destination_account_id"]) if values["destination_account_id"].isdigit() else None
-        if destination_id is None:
-            raise ValidationError("Choose a destination bank or cash account.", "destination_account_id")
-        destination = c.accounts.require_usable(destination_id, "destination_account_id")
-        if (destination.id == account.id or destination.account_type not in {AccountType.CASH, AccountType.BANK}
-                or destination.currency != account.currency):
-            raise ValidationError("Choose an active bank or cash account in the same currency.",
-                                  "destination_account_id")
-        c.deposits.save(account_id, fmt_date(start), fmt_date(maturity), principal, annual_rate, method,
-                        frequency, destination_id, lockup_end_date=fmt_date(lockup),
-                        compounding_frequency=compounding_frequency)
+        certificate, txn = c.deposits.purchase(
+            account_id, values["name"], values["start_date"], values["lockup_end_date"],
+            values["maturity_date"], values["principal"], values["annual_rate"],
+            values["interest_method"], values["payout_frequency"], values["compounding_frequency"],
+            _int(values["destination_account_id"]), _int(values["funding_account_id"]),
+        )
+    except (LightningError, ValueError) as exc:
+        message = exc.message if isinstance(exc, LightningError) else "Choose the funding and payout accounts."
+        return _page(request, account_id, values, message, 400)
+    return redirect(f"/deposits/{account_id}", f"Bought {certificate.terms.name} · {txn.ref}.")
+
+
+@router.post("/{account_id:int}/certificates/{certificate_id:int}/terms")
+async def update_terms(request: Request, account_id: int, certificate_id: int):
+    form = await request.form()
+    c = container(request)
+    try:
+        cert = c.deposits.certificate(certificate_id)
+        if cert.terms.account_id != account_id:
+            raise NotFoundError("Certificate not found in this portfolio.")
+        c.deposits.update_certificate(
+            certificate_id, name=str(form.get("name", "")).strip(),
+            lockup_end_date=str(form.get("lockup_end_date", "")),
+            maturity_date=str(form.get("maturity_date", "")),
+            annual_rate=str(form.get("annual_rate", "")),
+            interest_method=str(form.get("interest_method", "")),
+            payout_frequency=str(form.get("payout_frequency", "")),
+            compounding_frequency=str(form.get("compounding_frequency", "")),
+            destination_account_id=_int(str(form.get("destination_account_id", ""))),
+        )
+    except (LightningError, ValueError) as exc:
+        message = exc.message if isinstance(exc, LightningError) else "Choose a valid payout account."
+        return _page(request, account_id, error=message, status_code=400)
+    return redirect(f"/deposits/{account_id}", "Certificate terms saved. Interest remains forecast only.")
+
+
+@router.post("/{account_id:int}/certificates/{certificate_id:int}/redeem")
+async def redeem(request: Request, account_id: int, certificate_id: int):
+    form = await request.form()
+    c = container(request)
+    try:
+        cert = c.deposits.certificate(certificate_id)
+        if cert.terms.account_id != account_id:
+            raise NotFoundError("Certificate not found in this portfolio.")
+        txn = c.deposits.redeem(certificate_id, str(form.get("date", "")),
+                                str(form.get("proceeds", "")),
+                                _int(str(form.get("destination_account_id", ""))))
     except (LightningError, ValueError) as exc:
         message = exc.message if isinstance(exc, LightningError) else "Choose a valid destination account."
-        return _page(request, account_id, values, message, 400)
-    return redirect(f"/deposits/{account_id}", "CD terms saved. No ledger transaction was created.")
+        return _page(request, account_id, error=message, status_code=400)
+    return redirect(f"/deposits/{account_id}", f"Recorded actual CD redemption · {txn.ref}.")
 
 
-@router.post("/{account_id:int}/delete")
-async def delete(request: Request, account_id: int):
+@router.post("/{account_id:int}/legacy-cash")
+async def move_legacy_cash(request: Request, account_id: int):
+    form = await request.form()
     c = container(request)
-    _account(c, account_id)
-    await request.form()  # consume the protected form body before the service call
-    c.deposits.delete(account_id)
-    return redirect(f"/deposits/{account_id}", "CD terms removed.")
+    try:
+        txn = c.deposits.move_legacy_cash(
+            account_id, str(form.get("date", "")), str(form.get("amount", "")),
+            _int(str(form.get("destination_account_id", ""))),
+        )
+    except (LightningError, ValueError) as exc:
+        message = exc.message if isinstance(exc, LightningError) else "Choose a valid destination account."
+        return _page(request, account_id, error=message, status_code=400)
+    return redirect(f"/deposits/{account_id}", f"Moved legacy cash to a liquid account · {txn.ref}.")
+
+
+@router.post("/{account_id:int}/legacy")
+async def save_legacy(request: Request, account_id: int):
+    """Retain an edit path for account-level CD terms created before certificate portfolios."""
+    form = await request.form()
+    try:
+        c = container(request)
+        c.deposits.save(
+            account_id, str(form.get("start_date", "")), str(form.get("maturity_date", "")),
+            str(form.get("principal", "")), str(form.get("annual_rate", "")),
+            str(form.get("interest_method", "SIMPLE")), str(form.get("payout_frequency", "AT_MATURITY")),
+            _int(str(form.get("destination_account_id", ""))),
+            lockup_end_date=str(form.get("lockup_end_date", "")),
+            compounding_frequency=str(form.get("compounding_frequency", "MONTHLY")),
+        )
+    except (LightningError, ValueError) as exc:
+        message = exc.message if isinstance(exc, LightningError) else "Choose a valid payout account."
+        return _page(request, account_id, error=message, status_code=400)
+    return redirect(f"/deposits/{account_id}", "Legacy CD terms saved.")
+
+
+def _int(value: str) -> int:
+    if not value.isdigit():
+        raise ValidationError("Choose an account.", "destination_account_id")
+    return int(value)

@@ -7,10 +7,13 @@ from decimal import Decimal, ROUND_HALF_UP
 from lightning.accounts.domain import AccountType
 from lightning.core.dates import fmt_date, parse_date, today
 from lightning.core.errors import NotFoundError, ValidationError
-from lightning.core.money import ZERO, to_decimal, to_e6
+from lightning.core.ledger import Effect, PostingLine
+from lightning.core.money import ZERO, check_places, to_decimal, to_e6
+from lightning.core.refs import DocType
 from lightning.database.connection import Database
+from lightning.transactions.service import TransactionService
 
-from .domain import (CompoundingFrequency, DepositEvent, DepositTerms, InterestMethod,
+from .domain import (CertificateTerms, CompoundingFrequency, DepositEvent, DepositTerms, InterestMethod,
                      PayoutFrequency)
 from .repository import DepositRepository
 
@@ -24,10 +27,181 @@ _COMPOUND_MONTHS = {CompoundingFrequency.MONTHLY: 1, CompoundingFrequency.QUARTE
 class DepositService:
     """Store CD terms and produce future cash events without posting ledger entries."""
 
-    def __init__(self, db: Database, accounts):
+    def __init__(self, db: Database, accounts, assets=None, transactions: TransactionService | None = None):
         self.db = db
         self.accounts = accounts
+        self.assets = assets
+        self.transactions = transactions
         self.repo = DepositRepository(db)
+
+    def list_certificates(self, account_id: int):
+        self._portfolio(account_id)
+        return self.repo.list_certificates(account_id)
+
+    def certificate(self, certificate_id: int):
+        certificate = self.repo.get_certificate(certificate_id)
+        if certificate is None:
+            raise NotFoundError("Certificate was not found.")
+        return certificate
+
+    def certificate_for_asset(self, asset_id: int):
+        return self.repo.get_certificate_by_asset(asset_id)
+
+    def legacy_cash_balance(self, account_id: int, as_of=None) -> Decimal:
+        self._portfolio(account_id)
+        return Decimal(self.repo.owned_balance_e6(account_id, fmt_date(as_of or today()))).scaleb(-6)
+
+    def move_legacy_cash(self, account_id: int, date_value, amount, destination_account_id: int):
+        """Move pre-portfolio cash out of a legacy DEPOSIT account into a liquid account."""
+        if self.transactions is None:
+            raise RuntimeError("Certificate transaction dependencies are not configured.")
+        portfolio = self._portfolio(account_id)
+        destination = self._typed_account(destination_account_id, {AccountType.BANK, AccountType.CASH},
+                                          "destination_account_id")
+        if destination.currency != portfolio.currency:
+            raise ValidationError("Choose a destination in the CD portfolio's currency.", "destination_account_id")
+        day = parse_date(date_value, "date")
+        value = check_places(to_decimal(amount, "amount"), 2, "amount")
+        if value <= ZERO:
+            raise ValidationError("Enter an amount above zero.", "amount")
+        if value > self.legacy_cash_balance(account_id, day):
+            raise ValidationError("The old deposit account does not have that much cash to move.", "amount")
+        return self.transactions.record_transfer(fmt_date(day), account_id, destination.id, value,
+                                                 description="Move legacy CD cash to liquid account",
+                                                 allow_legacy_deposit_cash=True)
+
+    def purchase(self, account_id: int, name: str, start_date, lockup_end_date, maturity_date,
+                 principal, annual_rate, interest_method, payout_frequency,
+                 compounding_frequency, destination_account_id: int, funding_account_id: int):
+        """Buy one named certificate into a bank's deposit portfolio from chosen liquid cash."""
+        if self.assets is None or self.transactions is None:
+            raise RuntimeError("Certificate purchase dependencies are not configured.")
+        portfolio = self._portfolio(account_id)
+        if not portfolio.institution.strip():
+            raise ValidationError("Set the bank under Institution on this account before adding its CDs.",
+                                  "institution")
+        name = (name or "").strip()
+        if not name:
+            raise ValidationError("Enter a name for this certificate.", "name")
+        start = parse_date(start_date, "start_date")
+        lockup = parse_date(lockup_end_date or maturity_date, "lockup_end_date")
+        maturity = parse_date(maturity_date, "maturity_date")
+        if start > today():
+            raise ValidationError("A certificate purchase cannot be in the future.", "start_date")
+        if start >= maturity:
+            raise ValidationError("Maturity must be after the purchase date.", "maturity_date")
+        if not start <= lockup <= maturity:
+            raise ValidationError("Earliest withdrawal must be between the purchase and maturity dates.",
+                                  "lockup_end_date")
+        amount = check_places(to_decimal(principal, "principal"), 2, "principal")
+        if amount <= ZERO:
+            raise ValidationError("Enter a principal above zero.", "principal")
+        to_e6(amount)
+        rate = to_decimal(annual_rate, "annual_rate")
+        if not ZERO <= rate <= Decimal("100"):
+            raise ValidationError("Annual rate must be between 0 and 100 percent.", "annual_rate")
+        method = self._method(interest_method)
+        payout = self._payout_frequency(payout_frequency)
+        compounding = self._compounding_frequency(compounding_frequency)
+        if method == InterestMethod.COMPOUND and payout != PayoutFrequency.AT_MATURITY:
+            raise ValidationError("Compound interest is paid at maturity only.", "payout_frequency")
+        funding = self._typed_account(funding_account_id, {AccountType.BANK, AccountType.CASH}, "funding_account_id")
+        destination = self._typed_account(destination_account_id, {AccountType.BANK, AccountType.CASH},
+                                    "destination_account_id")
+        if funding.currency != portfolio.currency or destination.currency != portfolio.currency:
+            raise ValidationError("The portfolio, funding account and payout account must use the same currency.",
+                                  "funding_account_id")
+        if self.repo.owned_balance_e6(funding.id, fmt_date(start)) < to_e6(amount):
+            raise ValidationError("The selected account does not have enough owned cash for this purchase.",
+                                  "principal")
+        with self.db.transaction():
+            asset = self.assets.create_certificate_asset(name)
+            cash_asset = self.assets.cash_asset(funding.currency)
+            lines = [
+                PostingLine.cash(funding.id, cash_asset.id, -amount, Effect.INTERNAL,
+                                 memo=f"Buy certificate · {name}"),
+                PostingLine.units(portfolio.id, asset.id, Decimal(1), amount, Effect.INTERNAL, amount,
+                                  memo=f"Certificate purchase · {name}"),
+            ]
+            txn = self.transactions.post(DocType.BUY, fmt_date(start), lines,
+                                         f"Buy CD · {name}", portfolio.institution)
+            terms = CertificateTerms(
+                id=0, account_id=portfolio.id, asset_id=asset.id, name=name,
+                start_date=fmt_date(start), lockup_end_date=fmt_date(lockup), maturity_date=fmt_date(maturity),
+                principal=amount, annual_rate=rate, interest_method=method, payout_frequency=payout,
+                compounding_frequency=compounding, destination_account_id=destination.id,
+                purchase_transaction_id=txn.id,
+            )
+            certificate_id = self.repo.save_certificate(terms)
+        return self.certificate(certificate_id), txn
+
+    def update_certificate(self, certificate_id: int, *, name: str, lockup_end_date, maturity_date,
+                           annual_rate, interest_method, payout_frequency, compounding_frequency,
+                           destination_account_id: int):
+        certificate = self.certificate(certificate_id)
+        terms = certificate.terms
+        name = (name or "").strip()
+        if not name:
+            raise ValidationError("Enter a name for this certificate.", "name")
+        lockup = parse_date(lockup_end_date, "lockup_end_date")
+        maturity = parse_date(maturity_date, "maturity_date")
+        start = parse_date(terms.start_date)
+        if not start <= lockup <= maturity:
+            raise ValidationError("Earliest withdrawal must be between purchase and maturity.",
+                                  "lockup_end_date")
+        rate = to_decimal(annual_rate, "annual_rate")
+        if not ZERO <= rate <= Decimal("100"):
+            raise ValidationError("Annual rate must be between 0 and 100 percent.", "annual_rate")
+        method = self._method(interest_method)
+        payout = self._payout_frequency(payout_frequency)
+        compounding = self._compounding_frequency(compounding_frequency)
+        if method == InterestMethod.COMPOUND and payout != PayoutFrequency.AT_MATURITY:
+            raise ValidationError("Compound interest is paid at maturity only.", "payout_frequency")
+        destination = self._typed_account(destination_account_id, {AccountType.BANK, AccountType.CASH},
+                                    "destination_account_id")
+        portfolio = self._portfolio(terms.account_id)
+        if destination.currency != portfolio.currency:
+            raise ValidationError("The payout account must use the CD's currency.", "destination_account_id")
+        with self.db.transaction():
+            self.repo.set_certificate_terms(
+                certificate_id, name=name, lockup_end_date=fmt_date(lockup), maturity_date=fmt_date(maturity),
+                annual_rate=rate, interest_method=method, payout_frequency=payout,
+                compounding_frequency=compounding, destination_account_id=destination.id,
+            )
+            self.assets.update_investment(terms.asset_id, name, notes="Certificate of deposit; interest is forecast only.")
+        return self.certificate(certificate_id)
+
+    def redeem(self, certificate_id: int, date_value, proceeds, destination_account_id: int):
+        """Record the actual whole-CD redemption amount supplied from the bank statement."""
+        if self.transactions is None:
+            raise RuntimeError("Certificate redemption dependencies are not configured.")
+        certificate = self.certificate(certificate_id)
+        terms = certificate.terms
+        if certificate.redeemed or certificate.units != Decimal(1):
+            raise ValidationError("This certificate is no longer available to redeem.")
+        day = parse_date(date_value, "date")
+        if day < parse_date(terms.lockup_end_date):
+            raise ValidationError("The bank's earliest withdrawal date has not arrived.", "date")
+        amount = check_places(to_decimal(proceeds, "proceeds"), 2, "proceeds")
+        if amount <= ZERO:
+            raise ValidationError("Enter the actual amount received from the bank.", "proceeds")
+        portfolio = self._portfolio(terms.account_id)
+        destination = self._typed_account(destination_account_id, {AccountType.BANK, AccountType.CASH},
+                                    "destination_account_id")
+        if destination.currency != portfolio.currency:
+            raise ValidationError("Choose a destination in the CD's currency.", "destination_account_id")
+        cash_asset = self.assets.cash_asset(destination.currency)
+        lines = [
+            PostingLine.units(portfolio.id, terms.asset_id, Decimal(-1), -amount, Effect.INTERNAL, amount,
+                              memo=f"Redeem certificate · {terms.name}"),
+            PostingLine.cash(destination.id, cash_asset.id, amount, Effect.INTERNAL,
+                             memo=f"Certificate redemption · {terms.name}"),
+        ]
+        with self.db.transaction():
+            txn = self.transactions.post(DocType.SEL, fmt_date(day), lines,
+                                         f"Redeem CD · {terms.name}", portfolio.institution)
+            self.repo.record_redemption(txn.id, certificate_id, destination.id)
+        return txn
 
     def get(self, account_id: int) -> DepositTerms:
         terms = self.repo.get(account_id)
@@ -110,7 +284,93 @@ class DepositService:
             if funded_e6 < to_e6(terms.principal):
                 continue
             events.extend(self._events(terms, day, horizon))
+        for certificate in self.db.all(
+            "SELECT id,account_id,asset_id,name,start_date,lockup_end_date,maturity_date,principal_e6,annual_rate,"
+            "interest_method,payout_frequency,compounding_frequency,destination_account_id,"
+            "purchase_transaction_id FROM cd_certificates ORDER BY maturity_date,id"
+        ):
+            item = self.repo.get_certificate(int(certificate["id"]))
+            if item is None or item.redeemed or item.units != Decimal(1):
+                continue
+            events.extend(self._certificate_events(item.terms, day, horizon))
         return sorted(events, key=lambda event: (event.date, event.deposit_account_id, event.kind))
+
+    def _certificate_events(self, terms: CertificateTerms, day: date, horizon: date) -> list[DepositEvent]:
+        start, maturity = date.fromisoformat(terms.start_date), date.fromisoformat(terms.maturity_date)
+        end = min(maturity, horizon)
+        if end <= day:
+            return []
+        principal = terms.principal
+        rate = terms.annual_rate / Decimal("100")
+        events = []
+
+        def emit(when: date, amount: Decimal, kind: str):
+            if day < when <= horizon and amount > ZERO:
+                events.append(DepositEvent(fmt_date(when), terms.destination_account_id,
+                                           amount.quantize(_MICRO, rounding=ROUND_HALF_UP), kind,
+                                           terms.account_id, terms.id))
+
+        if terms.interest_method == InterestMethod.COMPOUND:
+            accrued, previous, index = ZERO, start, 1
+            step = _COMPOUND_MONTHS[terms.compounding_frequency]
+            while True:
+                period_end = min(_add_months(start, index * step), maturity)
+                accrued += (principal + accrued) * rate * Decimal((period_end - previous).days) / Decimal(365)
+                previous = period_end
+                if period_end == maturity:
+                    break
+                index += 1
+            emit(maturity, principal + accrued, "MATURITY")
+            return events
+        previous, index = start, 1
+        if terms.payout_frequency == PayoutFrequency.AT_MATURITY:
+            emit(maturity, principal * rate * Decimal((maturity - start).days) / Decimal(365), "INTEREST")
+        else:
+            step = _MONTHS[terms.payout_frequency]
+            while True:
+                period_end = min(_add_months(start, index * step), maturity)
+                emit(period_end, principal * rate * Decimal((period_end - previous).days) / Decimal(365),
+                     "INTEREST")
+                previous = period_end
+                if period_end == maturity:
+                    break
+                index += 1
+        emit(maturity, principal, "PRINCIPAL")
+        return events
+
+    def _portfolio(self, account_id: int):
+        return self._typed_account(account_id, {AccountType.DEPOSIT}, "account_id")
+
+    def _typed_account(self, account_id: int, allowed: set[AccountType], field: str):
+        try:
+            account = self.accounts.require_usable(int(account_id), field)
+        except (NotFoundError, ValueError, TypeError):
+            raise ValidationError("Choose an active account.", field) from None
+        if account.account_type not in allowed:
+            raise ValidationError("Choose an account of the required type.", field)
+        return account
+
+    @staticmethod
+    def _method(value) -> InterestMethod:
+        try:
+            return InterestMethod(value)
+        except (ValueError, TypeError):
+            raise ValidationError("Choose simple or compound interest.", "interest_method") from None
+
+    @staticmethod
+    def _payout_frequency(value) -> PayoutFrequency:
+        try:
+            return PayoutFrequency(value)
+        except (ValueError, TypeError):
+            raise ValidationError("Choose a supported payout frequency.", "payout_frequency") from None
+
+    @staticmethod
+    def _compounding_frequency(value) -> CompoundingFrequency:
+        try:
+            return CompoundingFrequency(value or "MONTHLY")
+        except (ValueError, TypeError):
+            raise ValidationError("Choose monthly, quarterly or yearly compounding.",
+                                  "compounding_frequency") from None
 
     def _events(self, terms: DepositTerms, day: date, horizon: date) -> list[DepositEvent]:
         start = date.fromisoformat(terms.start_date)

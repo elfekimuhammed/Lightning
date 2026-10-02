@@ -34,10 +34,11 @@
 
 {% block heading %}
 {% if account %}
+{% if account.account_type.value == 'DEPOSIT' %}<a class="btn primary" href="/deposits/{{ account.id }}">View CDs</a>{% endif %}
 <div class="acct-title"><h1>{{ account.name }}</h1></div>
 <div class="acct-figures">
   {% if account_held_value %}<div><span class="muted small">In this account</span><b>{{ account_value|money }}</b></div><div><span class="muted small">{{ fig.what_you_own.label }}</span><b>{{ account_owned_value|money }}</b></div><div><span class="muted small">{{ fig.held_for_others.label }}</span><b>{{ account_held_value|money }}</b></div>{% else %}<div><span class="muted small">Balance</span><b>{{ account_value|money }}</b></div>{% endif %}
-  <span class="muted small">{{ account.currency }} · {{ account.type_label }}</span>
+  <span class="muted small">{{ account.currency }} · {{ account.type_label }}{% if account.institution %} · {{ account.institution }}{% endif %}</span>
 </div>
 {% else %}
 <div class="acct-title"><h1>Transactions</h1><p class="muted small">Every account · {{ base }}</p></div>
@@ -59,8 +60,8 @@
 {% set ncols = 8 + (1 if show_account else 0) + (1 if with_balance else 0) %}
 
 {% if account and request.query_params.get('welcome') %}
-<section class="card account-next-step"><b>Next step</b><p class="muted">{% if account.account_type.value == 'BROKERAGE' %}Add cash to this brokerage account before recording a buy.{% elif account.account_type.value == 'PHYSICAL_ASSET' %}Add a named item such as a gold ring.{% else %}Record your first Money out, Money in, or Transfer activity.{% endif %}</p>
-{% if account.account_type.value == 'PHYSICAL_ASSET' %}<a class="btn primary" data-popup-open href="/accounts/{{ account.id }}/items/new">Add physical item</a>{% else %}<a class="btn primary" href="#quick-add">{% if account.account_type.value == 'BROKERAGE' %}Fund brokerage cash{% else %}Add transaction{% endif %}</a>{% endif %}
+<section class="card account-next-step"><b>Next step</b><p class="muted">{% if account.account_type.value == 'DEPOSIT' %}Manage certificates in this bank's CD portfolio.{% elif account.account_type.value == 'BROKERAGE' %}Add cash to this brokerage account before recording a buy.{% elif account.account_type.value == 'PHYSICAL_ASSET' %}Add a named item such as a gold ring.{% else %}Record your first Money out, Money in, or Transfer activity.{% endif %}</p>
+{% if account.account_type.value == 'DEPOSIT' %}<a class="btn primary" href="/deposits/{{ account.id }}">View CDs</a>{% elif account.account_type.value == 'PHYSICAL_ASSET' %}<a class="btn primary" data-popup-open href="/accounts/{{ account.id }}/items/new">Add physical item</a>{% else %}<a class="btn primary" href="#quick-add">{% if account.account_type.value == 'BROKERAGE' %}Fund brokerage cash{% else %}Add transaction{% endif %}</a>{% endif %}
 </section>
 {% endif %}
 
@@ -232,7 +233,7 @@
       <th class="num">Amount</th>{% if with_balance %}<th class="num">Balance</th>{% endif %}<th class="action-heading">Action</th>
     </tr></thead>
     <tbody>
-    {% if not account or account.active %}<tr class="add-row quick-add-row" id="quick-add">
+    {% if (not account or account.active) and (not account or account.account_type.value != 'DEPOSIT') %}<tr class="add-row quick-add-row" id="quick-add">
       <td><span class="muted small">New</span></td>
       {{ inputs('f-new', entry, False) }}
       {% if with_balance %}<td class="num muted">—</td>{% endif %}

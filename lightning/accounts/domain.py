@@ -14,7 +14,7 @@ from lightning.core.codes import slug
 class AccountType(StrEnum):
     CASH = "CASH"
     BANK = "BANK"  # current or savings — the same thing here
-    DEPOSIT = "DEPOSIT"  # certificate / time deposit (CD)
+    DEPOSIT = "DEPOSIT"  # bank-specific portfolio of non-cash certificates
     BROKERAGE = "BROKERAGE"
     PHYSICAL_ASSET = "PHYSICAL_ASSET"  # offered from M3 (holdings of gold etc.)
     OTHER_ASSET = "OTHER_ASSET"
@@ -23,7 +23,7 @@ class AccountType(StrEnum):
 TYPE_LABELS: dict[AccountType, str] = {
     AccountType.CASH: "Cash wallet",
     AccountType.BANK: "Bank account (current or savings)",
-    AccountType.DEPOSIT: "Certificate / time deposit (CD)",
+    AccountType.DEPOSIT: "Certificates of deposit (CD portfolio)",
     AccountType.BROKERAGE: "Brokerage / investment (e.g. THNDR)",
     AccountType.PHYSICAL_ASSET: "Physical asset (e.g. gold at home)",
     AccountType.OTHER_ASSET: "Other",
