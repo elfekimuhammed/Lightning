@@ -3,7 +3,7 @@
 {% block top_actions %}{% from "partials/macros.html" import period_control %}{{ period_control("/budget", period.key, month, this_month, period.start_text, period.end_text) }}{% endblock %}
 {% block heading %}<div class="budget-heading"><div><h1>Budget</h1><div class="muted">Your spending plan</div></div><a id="budget-settings-link" class="btn small icon-btn" aria-label="Budget settings" title="Budget settings" href="/settings?section=budget&amp;return_to={{ request.url.path|urlencode }}%3F{{ request.url.query|urlencode }}"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7h-9M14 17H4M4 7h3M20 17h-2"/><circle cx="9" cy="7" r="2.5"/><circle cx="16" cy="17" r="2.5"/></svg></a></div>{% endblock %}
 {% block content %}
-{% from "partials/charts.html" import key_notes, meter, bullet_row %}
+{% from "partials/charts.html" import key_notes, meter, bullet_row, saved_split %}
 {{ key_notes(notes) }}
 
 {% if error %}<p class="notice error" role="alert">{{ error }}</p>{% endif %}
@@ -19,14 +19,8 @@
 <section class="card wide-card budget-top" aria-label="Budget summary">
   <div class="budget-top-grid">
     <div class="budget-savings">
-      <div class="budget-top-head"><h2>{{ fig.savings_rate.label }}</h2><span>{{ period.start_text }} to {{ period.end_text }}</span></div>
-      <div class="budget-waffle-wrap">
-        <div class="waffle" role="img" aria-label="{{ fig.savings_rate.label }}: {{ '%.1f'|format(savings.savings_rate) ~ '%' if savings.savings_rate is not none else 'no money in yet' }}">{% for i in range(100) %}<i class="{{ 'on' if i < savings_waffle.filled }}"></i>{% endfor %}</div>
-        <div class="budget-waffle-text">{% if savings.savings_rate is not none %}<b class="{{ 'neg' if savings.savings_rate < 0 }}">{{ '%.1f'|format(savings.savings_rate) }}<small>%</small></b>
-          <p>Of every 100.00 that came in, {{ (savings.savings_rate if savings.savings_rate > 0 else 0)|money }} stayed.</p>
-          <p class="muted small">{{ savings.net|money(True) }} kept of {{ savings.inflows|money }} {{ fig.money_in.label|lower }}</p>
-          {% else %}<b>—</b><p>No money in yet in this period.</p>{% endif %}</div>
-      </div>
+      <div class="budget-top-head"><h2>Saved and invested</h2><span>{{ period.start_text }} to {{ period.end_text }}</span></div>
+      {{ saved_split(saved_split_data) }}
     </div>
     <div class="budget-plan">
       <div class="budget-top-head"><h2>{{ fig.planned.label }}</h2><span>{{ period_budgeted|money }} {{ base }}</span></div>

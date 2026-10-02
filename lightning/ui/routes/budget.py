@@ -13,6 +13,8 @@ from lightning.core.errors import LightningError, ValidationError
 from lightning.categories.domain import CategoryFamily, Movement, Scope
 from lightning.core.money import ZERO, to_decimal
 
+from lightning.investments.report import build_investment_report, saved_and_invested
+
 from .. import charts, keynotes
 from ..web import container, redirect, render
 from ..periods import parse_period
@@ -316,7 +318,8 @@ def _page(request: Request, month: str, values: dict | None = None, error: str =
     left_note = keynotes.per_day(view.available - view.actual, days_left) if c.budgets.has_plan(month) else ""
     flow = c.reporting.cash_flow(period.start, period.end)
     return render(request, "budget.html", notes=notes, meter_lines=meter_lines, left_note=left_note,
-                  savings=flow, savings_waffle=charts.waffle(flow.savings_rate),
+                  savings=flow, saved_split_data=saved_and_invested(flow, build_investment_report(
+                      c.db, c.accounts, c.assets, c.reporting, period.start_text, period.end_text)["net_money"]),
                   plan_bar=charts.plan_bar(period_budgeted, period_actual),
                   loan_planned=sum(c.budgets.loan_lines(month).values(), ZERO), status_code=status_code, view=view, month=month,
                   prev_month=prev_month, next_month=next_month, values=values or {}, error=error,

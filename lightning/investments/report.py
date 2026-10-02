@@ -45,6 +45,28 @@ def investing_rate(money_added: Decimal, money_in: Decimal, net_flow: Decimal | 
     return max(invested, ZERO) / money_in * 100
 
 
+def saved_and_invested(flow, money_added: Decimal) -> dict:
+    """Money in split three ways for one period: invested (inside saved), the rest of saved, spent.
+
+    Savings rate = Net flow ÷ Money in; Investing rate = Money added ÷ Money in, at most the saved part.
+    Returns the rates, the amounts, and 100 squares read row by row (invested, kept, spent)."""
+    inflow = flow.inflows
+    kept = max(flow.net, ZERO)
+    put_in = min(max(money_added, ZERO), kept)
+    share = (lambda v: float(v / inflow * 100)) if inflow > 0 else (lambda v: 0.0)
+    bar = {"invested": share(put_in), "saved": share(kept - put_in), "spent": share(min(flow.outflows, inflow)),
+           "invested_amount": put_in, "kept": kept, "spent_amount": flow.outflows,
+           "earlier": max(money_added - kept, ZERO)}
+    invest_cells = round(bar["invested"]) if inflow > 0 else 0
+    saved_cells = min(round(bar["invested"] + bar["saved"]), 100) if inflow > 0 else 0
+    spent_cells = min(saved_cells + round(bar["spent"]), 100)
+    bar["cells"] = (["invested"] * invest_cells + ["kept"] * (saved_cells - invest_cells)
+                    + ["spent"] * (spent_cells - saved_cells) + [""] * (100 - spent_cells))
+    return {"saved": flow.savings_rate, "invested": investing_rate(money_added, inflow, flow.net),
+            "saved_cells": saved_cells, "invest_cells": invest_cells, "bar": bar,
+            "money_in": inflow, "net": flow.net, "money_added": money_added}
+
+
 def build_investment_report(db, accounts, assets, reporting, start: str, end: str):
     """Return period flows and end positions for the user's own investment portfolio."""
     investment_account_ids = {a.id for a in accounts.list(active_only=False)

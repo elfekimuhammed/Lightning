@@ -3,7 +3,7 @@
 {% block heading %}<div class="birdview-title"><div><h1>Investments</h1><div class="muted">Valued as of {{ period.end_display }}</div></div><a class="btn btn-planner" data-popup-open href="/investments/planner"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 20h18M6 16l4-5 4 3 6-8"/><path d="M16 6h4v4"/></svg>Investment planner</a><a class="btn small icon-btn" aria-label="Investment settings" title="Investment settings" href="/settings?section=investments&amp;return_to={{ request.url.path|urlencode }}{% if request.url.query %}%3F{{ request.url.query|urlencode }}{% endif %}"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7h-9M14 17H4M4 7h3M20 17h-2"/><circle cx="9" cy="7" r="2.5"/><circle cx="16" cy="17" r="2.5"/></svg></a></div>{% endblock %}
 {% block top_actions %}{% from "partials/macros.html" import period_control %}{{ period_control("/investments", period.key, period.start_text[:7], this_month, period.start_text, period.end_text) }}{% endblock %}
 {% block content %}
-{% from "partials/charts.html" import key_notes, trend, donut, bars, diverging %}
+{% from "partials/charts.html" import key_notes, trend, donut, bars, diverging, saved_split %}
 {% set chip = {"month": period.start_text[:7], "ytd": "Year to date", "all": "All time"}.get(period.key, period.start_text ~ " to " ~ period.end_text) %}
 
 {% if not accounts %}<div class="card empty">Investments live in a brokerage account or a physical asset account. <a href="/accounts/new?type=BROKERAGE">Add a brokerage account</a></div>
@@ -14,16 +14,7 @@
 <section class="stat-tiles inv-top" aria-label="This period">
   <div class="stat-tile surface-white inv-saved-tile">{% set w = waffle %}{% set bar = w.bar %}
     <span class="stat-tile-head"><span class="stat-tile-label">Saved and invested</span><span class="stat-chip">{{ chip }}</span></span>
-    {% if w.saved is not none %}
-    <span class="inv-saved-body">
-      <span class="waffle inv-waffle" role="img" aria-label="Of {{ w.money_in|money }} money in: {{ bar.invested_amount|money }} invested, {{ (bar.kept - bar.invested_amount)|money }} kept, {{ bar.spent_amount|money }} spent; each square is 1%">{% for cell in bar.cells %}<i class="{{ cell }}"></i>{% endfor %}</span>
-      <span class="inv-saved-side">
-        <span class="inv-saved-figures"><span><b>{{ '%.0f'|format(w.saved if w.saved > 0 else 0) }}<small>%</small></b><em>{{ fig.savings_rate.label }}</em></span><span class="is-invest"><b>{{ '%.0f'|format(w.invested or 0) }}<small>%</small></b><em>{{ fig.investing_rate.label }} · part of it</em></span></span>
-        <span class="saved-key"><span><i class="k invested"></i>Invested {{ bar.invested_amount|money }}</span><span><i class="k kept"></i>Kept {{ (bar.kept - bar.invested_amount)|money }}</span><span><i class="k spent"></i>Spent {{ bar.spent_amount|money }}</span></span>
-      </span>
-    </span>
-    <small class="muted inv-saved-note">Of {{ w.money_in|money }} {{ fig.money_in.label|lower }} · one square is 1%{% if bar.earlier > 0 %} · {{ bar.earlier|money }} more went in from earlier savings{% endif %}</small>
-    {% else %}<span class="stat-tile-value">—</span><span class="stat-tile-sub">No money in this period</span>{% endif %}
+    {{ saved_split(w) }}
   </div>
   <div class="stat-tile surface-white inv-result-tile">
     <span class="stat-tile-head"><span class="stat-tile-label">{{ fig.result.label }}</span><span class="stat-chip is-{{ 'up' if result and result > 0 else ('down' if result and result < 0 else 'flat') }}">{{ chip }}</span></span>

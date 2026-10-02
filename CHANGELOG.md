@@ -8,6 +8,14 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+### Budget: saved and invested, for the period · 2026-10-02
+- The Budget's Savings rate card becomes **Saved and invested**, the same card as on Investments:
+  - money in as 100 squares: invested in blue, kept in green, spent in rose;
+  - the savings rate and the investing rate, which is part of it.
+
+  It always covers the period chosen in the header.
+- The split is worked out once in `investments.report.saved_and_invested()`, so Budget and Investments always agree. Before, it was calculated in the Investments page code.
+
 ### Our own calendar on every date field · 2026-10-02
 - The calendar button on every date field (register rows, forms, popups) now opens Lightning's calendar instead of the browser's:
   - weeks run Monday to Sunday;

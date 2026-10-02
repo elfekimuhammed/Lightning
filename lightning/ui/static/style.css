@@ -2784,3 +2784,5 @@ a.chart-sankey-label:hover b { color:var(--azure); }
   .main .range-row:not(#_) { grid-template-columns:44px minmax(0,1fr) auto 44px; grid-template-areas:"name name note note" "low track track high"; }
   .main .range-note em, .main .range-note small { white-space:nowrap; }
 }
+.main .budget-savings .budget-top-head span { white-space:nowrap; }
+.main .budget-savings .inv-saved-body { margin-top:10px; }

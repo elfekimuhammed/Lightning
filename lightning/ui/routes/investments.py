@@ -16,7 +16,7 @@ from ..web import container, redirect, render
 from ..charts import line_chart
 from ...assets.catalog import instruments
 from ..periods import parse_period
-from ...investments.report import (PLANNER_MODES, build_investment_report, investing_rate, investment_period,
+from ...investments.report import (PLANNER_MODES, build_investment_report, investing_rate, investment_period, saved_and_invested,
                                     period_growth, results_by_asset, suggest_contributions)
 from .. import charts
 from lightning.core.figures import label
@@ -263,22 +263,7 @@ def _page_extras(c, period, p, prior, owned_rows, prior_custody, before_day, rep
     year-to-date dividends and the period's flows by class."""
     day = period.end_text
     flow = c.reporting.cash_flow(period.start, period.end)
-    saved, invested = flow.savings_rate, investing_rate(report["net_money"], flow.inflows, flow.net)
-    # One bar of money in: invested (inside saved), the rest of saved, then spent. They add up to money in.
-    inflow = flow.inflows
-    kept = max(flow.net, ZERO)
-    put_in = min(max(report["net_money"], ZERO), kept)
-    spent_share = float(min(flow.outflows, inflow) / inflow * 100) if inflow > 0 else 0.0
-    bar = {"invested": float(put_in / inflow * 100) if inflow > 0 else 0.0,
-           "saved": float((kept - put_in) / inflow * 100) if inflow > 0 else 0.0, "spent": spent_share,
-           "invested_amount": put_in, "kept": kept, "spent_amount": flow.outflows,
-           "earlier": max(report["net_money"] - kept, ZERO)}
-    # The same split as 100 squares, read row by row: invested, then kept, then spent.
-    invest_cells = round(bar["invested"]) if inflow > 0 else 0
-    saved_cells = min(round(bar["invested"] + bar["saved"]), 100) if inflow > 0 else 0
-    spent_cells = min(saved_cells + round(bar["spent"]), 100)
-    bar["cells"] = (["invested"] * invest_cells + ["kept"] * (saved_cells - invest_cells)
-                    + ["spent"] * (spent_cells - saved_cells) + [""] * (100 - spent_cells))
+    waffle = saved_and_invested(flow, report["net_money"])
     opening = report.get("recon_opening")
     growth = period_growth(report["result"], opening, report["net_money"])
     spark = _portfolio_value_spark(c, today())
@@ -327,8 +312,7 @@ def _page_extras(c, period, p, prior, owned_rows, prior_custody, before_day, rep
     flow_rows = ([{"label": "Money in", "value": report["new_money"], "group": "money"},
                   {"label": "Money out", "value": -report["withdrawn"], "group": "money"}]
                  + [{"label": name, "value": change, "group": "class"} for name, change in class_changes if change])
-    return {"waffle": {"saved": saved, "invested": invested, "saved_cells": saved_cells, "invest_cells": invest_cells, "bar": bar,
-                       "money_in": flow.inflows, "net": flow.net, "money_added": report["net_money"]},
+    return {"waffle": waffle,
             "growth": growth, "value_spark": spark, "holding_groups": holding_groups, "biggest": biggest,
             "holdings_total": holdings_total, "ytd_dividends": dividends, "ytd_year": now.year,
             "flows": charts.diverging(flow_rows)}

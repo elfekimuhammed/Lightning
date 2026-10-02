@@ -208,3 +208,17 @@
 {% for r in cal.years %}<tr><th>{{ r.year }}</th>{% for x in r.cells %}{% if not x.known %}<td class="is-out"></td>{% else %}{% set v = x.spend if kind == 'spend' else x.net %}<td class="{{ ('heat-' ~ x.spend_step) if kind == 'spend' else ('flow-' ~ x.net_tone ~ '-' ~ x.net_step) }}" title="{{ x.key }} · {{ v|money(kind == 'net') }}"><a href="/birdview/expenses?period=month&month={{ x.key }}">{{ ((v|compact) if kind == 'spend' else (('+' if v > 0 else ('−' if v < 0 else '')) ~ (v|abs|compact))) if v else '·' }}</a></td>{% endif %}{% endfor %}</tr>{% endfor %}
 </tbody></table></div>
 {% endmacro %}
+
+{# Saved and invested: money in as 100 squares (invested, kept, spent) with the two rates. w = saved_and_invested(). #}
+{% macro saved_split(w) %}{% set bar = w.bar %}
+{% if w.saved is not none %}
+<span class="inv-saved-body">
+  <span class="waffle inv-waffle" role="img" aria-label="Of {{ w.money_in|money }} money in: {{ bar.invested_amount|money }} invested, {{ (bar.kept - bar.invested_amount)|money }} kept, {{ bar.spent_amount|money }} spent; each square is 1%">{% for cell in bar.cells %}<i class="{{ cell }}"></i>{% endfor %}</span>
+  <span class="inv-saved-side">
+    <span class="inv-saved-figures"><span><b>{{ '%.0f'|format(w.saved if w.saved > 0 else 0) }}<small>%</small></b><em>{{ fig.savings_rate.label }}</em></span><span class="is-invest"><b>{{ '%.0f'|format(w.invested or 0) }}<small>%</small></b><em>{{ fig.investing_rate.label }} · part of it</em></span></span>
+    <span class="saved-key"><span><i class="k invested"></i>Invested {{ bar.invested_amount|money }}</span><span><i class="k kept"></i>Kept {{ (bar.kept - bar.invested_amount)|money }}</span><span><i class="k spent"></i>Spent {{ bar.spent_amount|money }}</span></span>
+  </span>
+</span>
+<small class="muted inv-saved-note">Of {{ w.money_in|money }} {{ fig.money_in.label|lower }} · one square is 1%{% if bar.earlier > 0 %} · {{ bar.earlier|money }} more went in from earlier savings{% endif %}</small>
+{% else %}<span class="stat-tile-value">—</span><span class="stat-tile-sub">No money in this period</span>{% endif %}
+{% endmacro %}
