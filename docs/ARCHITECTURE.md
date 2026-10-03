@@ -147,7 +147,26 @@ The four horizons apply consistently to flow, expense, and position views; the p
 
 XIRR is an annualized money-weighted rate using dated investment cash flows and an ending value. Since-inception XIRR is a separate measure from the selected period's currency return. A period-specific XIRR needs an opening valuation as an initial cash flow. If dates, flows, or ending value are inadequate, show an unavailable reason rather than 0%. Build owned-only cash flows before showing XIRR on the Overview; missing prices must not become invented historical quotes.
 
-**Reporting read performance.** `ReportingService.holdings()` batches account, asset and asset-class metadata once per invocation; `build_investment_report()` likewise loads account and asset metadata once per report call. These maps are request-local, not shared across requests, so there is no stale-data invalidation path after a ledger edit or profile switch. The 319-transfer synthetic report uses six SQL reads, compared with 641 asset point-lookups in the former per-ledger-row pattern. This reduces row-proportional query work but does not meet the end-to-end 500 ms tab target by itself; page-level repeated position/history calculations remain a follow-up. The 2026-10-03 [Speed audit](SPEED_AUDIT.md) measures them per page and sets out the plan: a request-scoped cache first, then a cache between clicks cleared on every write.
+**Reporting read performance.** `ReportingService.holdings()` batches account, asset and asset-class metadata once per invocation; `build_investment_report()` likewise loads account and asset metadata once per report call. These maps are request-local, not shared across requests, so there is no stale-data invalidation path after a ledger edit or profile switch. The 319-transfer synthetic report uses six SQL reads, compared with 641 asset point-lookups in the former per-ledger-row pattern. This reduces row-proportional query work but does not meet the end-to-end 500 ms tab target by itself; page-level repeated position/history calculations remain a follow-up.
+
+**Page speed (measured 2026-10-03 from source, not a packaged build).** Server time per tab, median of three, on a 4-vCPU 2.1 GHz container; the WebView2/Chromium window adds about 250–400 ms per page at 4× CPU throttle. "Enc." is SQLCipher keyed as `Database.conn` keys it.
+
+| Tab | 319 txns | 2,239 txns | 2,239 txns, enc. |
+|---|---:|---:|---:|
+| Overview | 204 ms | 571 ms | 913 ms |
+| Budget, All time (the period is remembered) | 446 ms | 4,488 ms | 6,337 ms |
+| Account register | 62 ms | 170 ms | 476 ms |
+| All transactions | 58 ms | 304 ms | 700 ms |
+| Expense analysis, All time | 107 ms | 539 ms | 942 ms |
+
+Every tab grows with the ledger. The causes, biggest first:
+
+- **The same figures are recomputed within one request.** The Overview calls `PositionService.at()` 14 times and `ReportingService.holdings()` (a full ledger scan) 94 times, because `owned_liquid_cash` → `owned_account_value` → `account_value` and `custody_value_by_account` re-scan the ledger once per account. Budget › All time calls `_rolling_average` about 630 times, each with a fresh `{}` cache; each re-runs `_owned_spending` six times and rebuilds the category tree (`_investment_ids`), about 9,950 SQL statements per page. Investments runs `build_investment_report` 14 times (mostly the six-month sparkline); Expense analysis makes about 14,000 `CategoryService.get` point reads. A prototype per-request memo of these pure reads, cleared at the start of each request, produced byte-identical HTML with the Overview 2.7× and Budget › All time 17× faster (4.5 s → 0.26 s).
+- **`PRAGMA cipher_memory_security = ON`** makes ledger scans 3.2× slower (555 µs vs 173 µs for a full `GROUP BY`) and stays on for the process. Keying and decryption alone cost almost nothing. Turning it off is an owner decision.
+- **Registers summarise every row to show 50.** The account register and All transactions load the whole matching history (1,501 rows for one account) and look up account, category and asset per row in `TransactionService.summarize` (about 6,800 SQL statements). A save is one commit and 15 ms; the reload after it is the slow part.
+- **Smaller:** the profile `Guard` sends `Cache-Control: no-store` for `/static/` too, so each click re-fetches about 0.9 MB (including a 513 KB logo shown at 22 px), which costs only 20–40 ms; legacy browser mode's Google Fonts stylesheet blocks rendering (about 240 ms online, longer offline); routes are `async def` with synchronous database work, so one slow page blocks other requests; the live database uses the rollback journal (`DELETE`, synchronous `FULL`).
+
+**Plan.** (1) A request-scoped memo for pure read functions, bypassed inside `db.transaction()`, so no figure can be stale. (2) Fix the two worst loops: one month-spending map and one category tree per Budget page; holdings computed once and grouped by account. (3) Owner decision on `cipher_memory_security`. (4) Registers: batch lookups and summarise only the rows shown, with the running balance from SQL. (5) Only if still needed: a cache that lasts between clicks, keyed by a database-wide write counter bumped on every `COMMIT` and by `today()`. (6) Long-lived caching for versioned `/static/` files, a small logo, no render-blocking font link. (7) A speed test on the 2,239-transaction ledger against the 500 ms tab target.
 
 ## Cash planning contract
 
