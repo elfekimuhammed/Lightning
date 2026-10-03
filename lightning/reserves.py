@@ -202,15 +202,20 @@ class CashReserveService:
         value = to_decimal(amount, "amount")
         if value <= ZERO:
             raise ValidationError("Enter an amount greater than zero.", "amount")
-        txn = self.db.one("SELECT id,status,type FROM transactions WHERE id=?", (transaction_id,))
-        if not txn or txn["status"] != "POSTED" or txn["type"] != "OUT":
+        txn = self.db.one("SELECT id,status,type,description FROM transactions WHERE id=?", (transaction_id,))
+        external_expense = bool(txn and txn["type"] == "ADJ" and
+                                (txn["description"] or "").startswith("Ownership: expense paid by "))
+        if not txn or txn["status"] != "POSTED" or (txn["type"] != "OUT" and not external_expense):
             raise ValidationError("Choose a posted expense transaction.")
-        if self.db.scalar("SELECT 1 FROM money_from_others WHERE transaction_id=?", (transaction_id,)) or self.db.scalar(
-                "SELECT 1 FROM ledger_entries WHERE transaction_id=? AND owner_id IS NOT NULL", (transaction_id,)):
+        has_non_user_lines = self.db.scalar(
+            "SELECT 1 FROM ledger_entries WHERE transaction_id=? AND owner_id IS NOT NULL", (transaction_id,))
+        if (self.db.scalar("SELECT 1 FROM money_from_others WHERE transaction_id=?", (transaction_id,)) or
+                (has_non_user_lines and not external_expense)):
             raise ValidationError("Money held for others cannot be assigned to your reserve.")
         total_e6 = int(self.db.scalar(
-            "SELECT COALESCE(-SUM(le.quantity_e6),0) FROM ledger_entries le "
-            "JOIN financial_assets a ON a.id=le.asset_id WHERE le.transaction_id=? AND a.is_cash=1",
+            "SELECT COALESCE(SUM(ABS(le.amount_base_e6)),0) FROM ledger_entries le "
+            "JOIN financial_assets a ON a.id=le.asset_id WHERE le.transaction_id=? AND a.is_cash=1 "
+            "AND le.effect='OUTFLOW' AND le.owner_id IS NULL",
             (transaction_id,),
         ) or 0)
         if total_e6 <= 0:
@@ -262,18 +267,24 @@ class CashReserveService:
 
     def suggested_reserves(self, transaction_id: int) -> list[dict]:
         transaction = self.db.one(
-            "SELECT id,counterparty_id,type,status FROM transactions WHERE id=?", (transaction_id,)
+            "SELECT id,counterparty_id,type,status,description FROM transactions WHERE id=?", (transaction_id,)
         )
-        if not transaction or transaction["type"] != "OUT" or transaction["status"] != "POSTED":
+        external_expense = bool(transaction and transaction["type"] == "ADJ" and
+                                (transaction["description"] or "").startswith("Ownership: expense paid by "))
+        if (not transaction or (transaction["type"] != "OUT" and not external_expense) or
+                transaction["status"] != "POSTED"):
             return []
-        if self.db.scalar("SELECT 1 FROM money_from_others WHERE transaction_id=?", (transaction_id,)) or self.db.scalar(
-                "SELECT 1 FROM ledger_entries WHERE transaction_id=? AND owner_id IS NOT NULL", (transaction_id,)):
+        has_non_user_lines = self.db.scalar(
+            "SELECT 1 FROM ledger_entries WHERE transaction_id=? AND owner_id IS NOT NULL", (transaction_id,))
+        if (self.db.scalar("SELECT 1 FROM money_from_others WHERE transaction_id=?", (transaction_id,)) or
+                (has_non_user_lines and not external_expense)):
             return []
         if self.db.scalar("SELECT 1 FROM reserve_transaction_links WHERE transaction_id=?", (transaction_id,)):
             return []
         remaining = int(self.db.scalar(
-            "SELECT COALESCE(-SUM(le.quantity_e6),0) FROM ledger_entries le "
-            "JOIN financial_assets a ON a.id=le.asset_id WHERE le.transaction_id=? AND a.is_cash=1",
+            "SELECT COALESCE(SUM(ABS(le.amount_base_e6)),0) FROM ledger_entries le "
+            "JOIN financial_assets a ON a.id=le.asset_id WHERE le.transaction_id=? AND a.is_cash=1 "
+            "AND le.effect='OUTFLOW' AND le.owner_id IS NULL",
             (transaction_id,),
         ) or 0)
         if remaining <= 0:

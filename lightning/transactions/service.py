@@ -103,6 +103,84 @@ class TransactionService:
         lines = [replace(line, owner_id=owner_id) for line in lines]
         return self._create(DocType.TRF, day, lines, description, "", notes, source)
 
+    def change_cash_ownership(self, date: str, account_id: int, amount, from_owner_id: int | None,
+                              to_owner_id: int | None, notes: str = "", txn_id: int | None = None) -> Transaction:
+        """Reassign cash ownership inside one account without changing its gross balance."""
+        return self._ownership_posting(date, account_id, amount, from_owner_id, to_owner_id,
+                                       notes=notes, txn_id=txn_id)
+
+    def record_expense_paid_by_person(self, date: str, account_id: int, amount, owner_id: int,
+                                      category_id: int, notes: str = "",
+                                      txn_id: int | None = None) -> Transaction:
+        """Record an expense paid externally and credit the same value to that person's custody."""
+        person = self._active_owner(owner_id)
+        account = self.accounts.require_usable(account_id)
+        if account.account_type not in {AccountType.CASH, AccountType.BANK, AccountType.BROKERAGE}:
+            raise ValidationError("Choose a cash, bank, or brokerage account.", "account_id")
+        day = self._check_date(date)
+        cash = self.assets.cash_asset(account.currency)
+        value = self._positive_amount(amount, cash.quantity_decimals)
+        category = self.categories.require(category_id, Movement.OUTFLOW)
+        if category.code == "EXP.SYSTEM.CUSTODY":
+            raise ValidationError("Choose the expense category Dad paid for.", "category")
+        custody = self.categories.get_by_code("EXP.SYSTEM.CUSTODY")
+        lines = [
+            PostingLine.cash(account.id, cash.id, -value, Effect.OUTFLOW, category.id,
+                             memo="Paid externally", fx_rate=self._fx(account)),
+            PostingLine.cash(account.id, cash.id, value, Effect.INFLOW, custody.id,
+                             memo=f"Held for {person['name']}", fx_rate=self._fx(account), owner_id=person["id"]),
+        ]
+        return self._save_ownership_document(day, account, lines, value,
+                                             f"Ownership: expense paid by {person['name']}",
+                                             person["name"], notes, txn_id)
+
+    def _ownership_posting(self, date, account_id, amount, from_owner_id, to_owner_id,
+                           notes="", txn_id=None):
+        if from_owner_id == to_owner_id:
+            raise ValidationError("Choose two different owners.", "to_owner_id")
+        if from_owner_id is not None and to_owner_id is not None:
+            raise ValidationError("A change must move between your money and one other person.", "to_owner_id")
+        from_owner = self._active_owner(from_owner_id) if from_owner_id is not None else None
+        to_owner = self._active_owner(to_owner_id) if to_owner_id is not None else None
+        account = self.accounts.require_usable(account_id)
+        if account.account_type not in {AccountType.CASH, AccountType.BANK, AccountType.BROKERAGE}:
+            raise ValidationError("Choose a cash, bank, or brokerage account.", "account_id")
+        day = self._check_date(date)
+        cash = self.assets.cash_asset(account.currency)
+        value = self._positive_amount(amount, cash.quantity_decimals)
+        lines = [
+            PostingLine.cash(account.id, cash.id, -value, Effect.INTERNAL, fx_rate=self._fx(account),
+                             memo=f"Ownership from {from_owner['name'] if from_owner else 'you'}",
+                             owner_id=from_owner["id"] if from_owner else None),
+            PostingLine.cash(account.id, cash.id, value, Effect.INTERNAL, fx_rate=self._fx(account),
+                             memo=f"Ownership to {to_owner['name'] if to_owner else 'you'}",
+                             owner_id=to_owner["id"] if to_owner else None),
+        ]
+        description = (f"Ownership: {from_owner['name'] if from_owner else 'You'} → "
+                       f"{to_owner['name'] if to_owner else 'You'}")
+        return self._save_ownership_document(day, account, lines, value, description, "", notes, txn_id)
+
+    def _save_ownership_document(self, day, account, lines, amount, description, counterparty,
+                                 notes, txn_id=None):
+        validate_posting(lines)
+        for line in lines:
+            self.accounts.require_usable(line.account_id)
+        if txn_id is None:
+            return self._create(DocType.ADJ, day, lines, description, counterparty, notes,
+                                TxnSource.MANUAL, validate_all_cash=True)
+        current = self.get(txn_id)
+        if current.type != DocType.ADJ or not current.description.startswith("Ownership:") or current.is_void:
+            raise ValidationError("This is not an active ownership entry.")
+        return self._update(current, day, lines, description, counterparty, notes, validate_all_cash=True)
+
+    def _active_owner(self, owner_id):
+        if owner_id is None:
+            return None
+        person = self.db.one("SELECT id,name,active FROM counterparties WHERE id=?", (owner_id,))
+        if not person or not person["active"]:
+            raise ValidationError("Choose an active saved person.", "owner_id")
+        return dict(person)
+
     def record_in_account(self, account_id: int, date: str, amount: object, category_id: int | None = None,
                           other_account_id: int | None = None, counterparty: str = "", notes: str = "",
                           description: str = "", owner_id: int | None = None) -> Transaction:
@@ -287,9 +365,10 @@ class TransactionService:
                                      force_brokerage_cash=current.type == DocType.BUY)
         return self._update(current, day, lines, description, counterparty, notes)
 
-    def _validate_owner_balances(self, lines, day, exclude_txn_id=None, force_brokerage_cash=False):
+    def _validate_owner_balances(self, lines, day, exclude_txn_id=None, force_brokerage_cash=False,
+                                 validate_all_cash=False, extra_keys=(), ignore_before_day=False):
         """An owner's dated account/asset position may never become negative."""
-        keys = set()
+        keys = set(extra_keys)
         for line in lines:
             asset = self.assets.get_asset(line.asset_id)
             account = self.accounts.get(line.account_id)
@@ -298,6 +377,7 @@ class TransactionService:
                 if not owner:
                     raise ValidationError("Choose an active saved owner.", "owner_id")
             if ((line.owner_id is not None and line.quantity != ZERO) or not asset.is_cash or
+                    (validate_all_cash and asset.is_cash and line.quantity != ZERO) or
                     (force_brokerage_cash and line.effect == Effect.INTERNAL and
                      account.account_type == AccountType.BROKERAGE)):
                 keys.add((line.account_id, line.asset_id, line.owner_id))
@@ -320,7 +400,7 @@ class TransactionService:
             for on, quantity in sorted(by_day.items()):
                 before_day = running
                 running += quantity
-                if running < 0:
+                if running < 0 and (not ignore_before_day or on >= str(day)):
                     asset = self.assets.get_asset(asset_id)
                     if not asset.is_cash:
                         raise ValidationError(
@@ -466,6 +546,11 @@ class TransactionService:
             return t
         with self.db.transaction():
             self.repo.set_status(t.id, TxnStatus.VOID)
+            custody_keys = (self._ownership_cash_keys(t.lines) if self._is_ownership_transaction(t)
+                            else self._tagged_cash_keys(t.lines))
+            if custody_keys:
+                self._validate_owner_balances([], t.date, validate_all_cash=True, extra_keys=custody_keys,
+                                              ignore_before_day=True)
             self._check_holdings(t.lines)
             self.audit.record("transaction", t.id, "void", reason or f"Voided {t.ref}")
         return self.get(txn_id)
@@ -492,6 +577,13 @@ class TransactionService:
                                         "(SELECT date FROM reevaluation_periods WHERE id=?)", (post["period_id"],))
                 self.repo.set_status(txn.id, TxnStatus.VOID)
                 self.audit.record("transaction", txn.id, "void", f"Deleted by user: {txn.ref}")
+            custody_keys = {key for txn in pending
+                            for key in (self._ownership_cash_keys(txn.lines) if self._is_ownership_transaction(txn)
+                                        else self._tagged_cash_keys(txn.lines))}
+            if custody_keys:
+                self._validate_owner_balances([], min(txn.date for txn in pending),
+                                              validate_all_cash=True, extra_keys=custody_keys,
+                                              ignore_before_day=True)
             self._check_holdings(lines)
         return len(pending)
 
@@ -521,6 +613,11 @@ class TransactionService:
             for line in t.lines:
                 self.accounts.require_usable(line.account_id)
             self._check_date(t.date)
+            if self._is_ownership_transaction(t):
+                self._validate_owner_balances(t.lines, t.date, exclude_txn_id=t.id, validate_all_cash=True,
+                                              ignore_before_day=True)
+            elif any(line.owner_id is not None for line in t.lines):
+                self._validate_owner_balances(t.lines, t.date, exclude_txn_id=t.id, ignore_before_day=True)
             self.repo.set_status(t.id, TxnStatus.POSTED)
             self._check_holdings(t.lines)
             self.audit.record("transaction", t.id, "restore", f"Restored {t.ref}")
@@ -570,6 +667,22 @@ class TransactionService:
             account_id = out_line.account_id if out_line else None
             to_account_id = in_line.account_id if in_line else None
             amount = in_line.quantity if in_line else ZERO
+        type_label = t.type_label
+        if t.type == DocType.ADJ and self._is_ownership_transaction(t):
+            cash = [ln for ln in t.lines if self.assets.get_asset(ln.asset_id).is_cash]
+            outflow = next((ln for ln in cash if ln.effect == Effect.OUTFLOW), None)
+            if outflow:
+                type_label = "Expense paid for you"
+                first = outflow
+                account_id, category_id = first.account_id, first.category_id
+                amount = outflow.quantity
+            else:
+                type_label = "Ownership change"
+                first = cash[0] if cash else (t.lines[0] if t.lines else None)
+                if first:
+                    account_id, category_id = first.account_id, first.category_id
+                    own_line = next((line for line in cash if line.owner_id is None), None)
+                    amount = own_line.quantity if own_line else max((abs(line.quantity) for line in cash), default=ZERO)
         elif t.lines:
             cash = [ln for ln in t.lines if self.assets.get_asset(ln.asset_id).is_cash]
             first = (cash or t.lines)[0]
@@ -584,7 +697,7 @@ class TransactionService:
             ref=t.ref,
             date=t.date,
             type=t.type,
-            type_label=DOC_LABELS[t.type],
+            type_label=type_label,
             status=t.status,
             description=t.description,
             counterparty=t.counterparty,
@@ -599,6 +712,22 @@ class TransactionService:
             to_account_id=to_account_id,
             category_id=category_id,
         )
+
+    @staticmethod
+    def _is_ownership_transaction(txn: Transaction) -> bool:
+        return txn.type == DocType.ADJ and txn.description.startswith("Ownership:")
+
+    def _ownership_cash_keys(self, lines):
+        keys = set()
+        for line in lines:
+            asset = self.assets.get_asset(line.asset_id)
+            if asset.is_cash:
+                keys.add((line.account_id, line.asset_id, line.owner_id))
+        return keys
+
+    def _tagged_cash_keys(self, lines):
+        return {(line.account_id, line.asset_id, line.owner_id) for line in lines
+                if line.owner_id is not None and self.assets.get_asset(line.asset_id).is_cash}
 
     # ======================================================================
     # Internals
@@ -644,9 +773,11 @@ class TransactionService:
         return day, lines
 
     def _create(self, doc_type: DocType, day, lines: list[PostingLine], description: str, counterparty: str,
-                notes: str, source: TxnSource) -> Transaction:
+                notes: str, source: TxnSource, validate_all_cash: bool = False) -> Transaction:
         with self.db.transaction():
-            self._validate_owner_balances(lines, day, force_brokerage_cash=doc_type == DocType.BUY)
+            self._validate_owner_balances(lines, day, force_brokerage_cash=doc_type == DocType.BUY,
+                                          validate_all_cash=validate_all_cash,
+                                          ignore_before_day=validate_all_cash)
             ref = format_ref(doc_type, day, self.repo.next_seq(ref_prefix(doc_type, day)))
             header = Transaction(
                 id=0, ref=ref, type=doc_type, date=fmt_date(day),
@@ -668,10 +799,12 @@ class TransactionService:
         return self.get(txn_id)
 
     def _update(self, current: Transaction, day, lines: list[PostingLine], description: str, counterparty: str,
-                notes: str) -> Transaction:
+                notes: str, validate_all_cash: bool = False) -> Transaction:
         with self.db.transaction():
             self._validate_owner_balances(lines, day, exclude_txn_id=current.id,
-                                         force_brokerage_cash=current.type == DocType.BUY)
+                                         force_brokerage_cash=current.type == DocType.BUY,
+                                         validate_all_cash=validate_all_cash,
+                                         ignore_before_day=validate_all_cash)
             updated = replace(
                 current, date=fmt_date(day), description=(description or "").strip(),
                 counterparty=(counterparty or "").strip(), notes=(notes or "").strip(),

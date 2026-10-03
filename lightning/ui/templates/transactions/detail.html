@@ -2,7 +2,7 @@
 {% from "partials/macros.html" import amount %}
 {% block title %}{{ txn.ref }}{% endblock %}
 {% block heading %}<h1 class="code" style="font-size:20px">{{ txn.ref }}</h1>
-<div class="muted">{{ 'Refund' if txn.type.value == 'IN' and lines and lines[0].effect == 'OUTFLOW' else txn.type_label }} · {{ txn.date }}{% if txn.source == 'SYSTEM' %} · <span class="pill">System-generated</span>{% endif %}{% if txn.is_void %} · <span class="pill void">deleted</span>{% endif %}</div>{% endblock %}
+<div class="muted">{{ 'Refund' if txn.type.value == 'IN' and lines and lines[0].effect == 'OUTFLOW' else summary.type_label }} · {{ txn.date }}{% if txn.source == 'SYSTEM' %} · <span class="pill">System-generated</span>{% endif %}{% if txn.is_void %} · <span class="pill void">deleted</span>{% endif %}</div>{% endblock %}
 {% block content %}
 <div class="grid g2">
   <div class="card">
@@ -26,6 +26,7 @@
     <div class="actions" style="margin-top:14px">
       {% if not txn.is_void %}
         {% if txn.source == 'SYSTEM' %}<span class="muted small">Deleting this reevaluation removes its effect from the account.</span>
+        {% elif is_ownership %}<a class="btn" data-popup-open href="/transactions/{{ txn.id }}/ownership/edit">Edit</a>
         {% elif txn.type in ('BUY', 'SEL', 'DIV') or (txn.type == 'OPN' and lines[0].asset != 'CASH:' ~ base) %}<a class="btn" href="/investments/{{ txn.id }}/edit">Edit</a>
         {% elif txn.type == 'OPN' %}<a class="btn" href="/accounts/{{ lines[0].account_id }}/edit">Change opening balance</a>
         {% else %}<a class="btn" href="/accounts/{{ summary.account_id }}?edit={{ txn.id }}&acct={{ summary.account_id }}">Edit in transactions</a>{% endif %}

@@ -9,13 +9,12 @@ from lightning.core.dates import now_iso, parse_date
 from lightning.core.errors import ValidationError
 from lightning.core.money import ZERO, check_places, from_e6, to_decimal, to_e6
 from lightning.counterparties import CounterpartyService
-from lightning.ownership_migration import post_cash_owner_adjustment
 from lightning.database.connection import Database
 
 
 class MoneyFromOthersService:
-    def __init__(self, db: Database, accounts: AccountService):
-        self.db, self.accounts = db, accounts
+    def __init__(self, db: Database, accounts: AccountService, transactions=None):
+        self.db, self.accounts, self.transactions = db, accounts, transactions
 
     def _tag_exact_line(self, transaction_id: int, owner: str | None, account_id: int, asset_id: int,
                         quantity_e6: int) -> None:
@@ -79,36 +78,21 @@ class MoneyFromOthersService:
         if amount == ZERO:
             raise ValidationError("Enter a non-zero amount.", "amount")
         owner = owner.strip()
-        as_of = parsed
-        if transaction_id is None:
-            if amount > ZERO:
-                cash_asset = self.accounts.assets.cash_asset(account.currency)
-                own_balance = self.db.scalar("""SELECT COALESCE(SUM(le.quantity_e6),0) FROM ledger_entries le
-                                               JOIN transactions t ON t.id=le.transaction_id
-                                               WHERE le.account_id=? AND le.asset_id=? AND le.owner_id IS NULL
-                                               AND le.date<=? AND t.status='POSTED'""",
-                                              (account.id, cash_asset.id, as_of)) or 0
-                if int(own_balance) < to_e6(amount):
-                    raise ValidationError("There is not enough of your own cash in this account to assign.", "amount")
-            elif self.cash_balance(owner, account.id, as_of) + amount < ZERO:
-                raise ValidationError(f"This is more than the money currently held for {owner} in this account.",
-                                      "amount")
-        with self.db.transaction():
-            if transaction_id is None:
-                parties = CounterpartyService(self.db)
-                party = parties.resolve(owner)
-                if not party:
-                    party_id = parties.create(owner)
-                    party = {"id": party_id, "name": owner}
-                else:
-                    owner = party["name"]
-                cash_asset = self.accounts.assets.cash_asset(account.currency)
-                transaction_id = post_cash_owner_adjustment(self.db, parsed, owner, party["id"], account.id,
-                                                             cash_asset.id, to_e6(amount))
-            self.db.execute(
-                "INSERT INTO money_from_others(date,owner,account_id,amount_e6,notes,created_at,transaction_id) "
-                "VALUES(?,?,?,?,?,?,?)",
-                (parsed, owner, account.id, to_e6(amount), notes.strip(), now_iso(), transaction_id))
+        if transaction_id is not None:
+            self.sync_transaction(transaction_id, parsed, owner, account.id, amount, notes)
+            return
+        if self.transactions is None:
+            raise ValidationError("Ownership changes must be posted through the transaction service.")
+        parties = CounterpartyService(self.db)
+        party = parties.resolve(owner.strip())
+        if party and not party["active"]:
+            raise ValidationError("Choose an active saved person.", "owner")
+        if not party:
+            party = parties.get(parties.create(owner))
+        if amount > ZERO:
+            self.transactions.change_cash_ownership(parsed, account.id, amount, None, party["id"], notes)
+        else:
+            self.transactions.change_cash_ownership(parsed, account.id, abs(amount), party["id"], None, notes)
 
     def sync_transaction(self, transaction_id: int, day: str, owner: str | None, account_id: int,
                          amount: Decimal, notes: str = "") -> None:
@@ -130,10 +114,6 @@ class MoneyFromOthersService:
             balance_after += amount
         if balance_after < ZERO:
             raise ValidationError(f"This is more than the money currently held for {owner} in this account.", "amount")
-        self.db.execute(
-            "INSERT INTO money_from_others(date,owner,account_id,amount_e6,notes,created_at,transaction_id) "
-            "VALUES(?,?,?,?,?,?,?)",
-            (parse_date(day).isoformat(), owner.strip(), account_id, to_e6(amount), notes.strip(), now_iso(), transaction_id))
         asset = self.accounts.assets.cash_asset(account.currency)
         self._tag_exact_line(transaction_id, owner, account_id, asset.id, to_e6(amount))
 
@@ -167,12 +147,6 @@ class MoneyFromOthersService:
         moved = min(balance, amount)
         if moved <= ZERO:
             return
-        stamp = now_iso()
-        self.db.execute(
-            "INSERT INTO money_from_others(date,owner,account_id,amount_e6,notes,created_at,transaction_id) "
-            "VALUES(?,?,?,?,?,?,?),(?,?,?,?,?,?,?)",
-            (day, owner, source_id, -to_e6(moved), notes.strip(), stamp, transaction_id,
-             day, owner, target_id, to_e6(moved), notes.strip(), stamp, transaction_id))
         source = self.accounts.require_usable(source_id)
         target = self.accounts.require_usable(target_id)
         self._tag_exact_line(transaction_id, owner, source_id,
@@ -287,10 +261,22 @@ class MoneyFromOthersService:
 
     def history(self, limit: int = 100) -> list[dict]:
         rows = self.db.all(
-            "SELECT m.*,a.name AS account_name,a.currency FROM money_from_others m JOIN accounts a ON a.id=m.account_id "
-            "WHERE m.transaction_id IS NULL OR m.transaction_id IN (SELECT id FROM transactions WHERE status='POSTED') "
-            "ORDER BY m.date DESC,m.id DESC LIMIT ?", (limit,))
-        return [dict(row) | {"amount": from_e6(row["amount_e6"])} for row in rows]
+            "SELECT t.id,t.date,p.name owner,le.account_id,a.name account_name,a.currency,"
+            "SUM(le.quantity_e6) amount_e6,t.notes,t.description,t.ref "
+            "FROM ledger_entries le JOIN transactions t ON t.id=le.transaction_id AND t.status='POSTED' "
+            "JOIN counterparties p ON p.id=le.owner_id JOIN accounts a ON a.id=le.account_id "
+            "JOIN financial_assets f ON f.id=le.asset_id AND f.is_cash=1 "
+            "WHERE le.owner_id IS NOT NULL GROUP BY t.id,le.account_id,p.id "
+            "HAVING SUM(le.quantity_e6)<>0 ORDER BY t.date DESC,t.id DESC LIMIT ?", (limit,))
+        result = [dict(row) | {"amount": from_e6(row["amount_e6"])} for row in rows]
+        remaining = max(0, limit - len(result))
+        if remaining:
+            legacy = self.db.all(
+                "SELECT m.*,a.name AS account_name,a.currency FROM money_from_others m "
+                "JOIN accounts a ON a.id=m.account_id WHERE m.transaction_id IS NULL "
+                "ORDER BY m.date DESC,m.id DESC LIMIT ?", (remaining,))
+            result.extend(dict(row) | {"amount": from_e6(row["amount_e6"])} for row in legacy)
+        return sorted(result, key=lambda row: (row["date"], row.get("id", 0)), reverse=True)[:limit]
 
     def investment_positions(self, as_of: str) -> list[dict]:
         day = parse_date(as_of).isoformat()

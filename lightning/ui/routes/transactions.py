@@ -101,6 +101,78 @@ async def save_transaction_popup(request: Request, txn_id: int):
                                                    if txn.type.value == "OUT" and len(cash_lines) > 1 else []))
 
 
+@router.get("/transactions/{txn_id:int}/ownership/edit")
+async def edit_ownership_change(request: Request, txn_id: int):
+    c = container(request)
+    txn = c.transactions.get(txn_id)
+    if not c.transactions._is_ownership_transaction(txn) or txn.is_void:
+        return redirect(f"/transactions/{txn_id}", "This is not an active ownership entry.")
+    cash = [line for line in txn.lines if c.assets.get_asset(line.asset_id).is_cash]
+    expense = next((line for line in cash if line.effect.value == "OUTFLOW"), None)
+    owner_line = next((line for line in cash if line.owner_id is not None and line.quantity > 0), None)
+    if expense:
+        mode, amount, from_owner, to_owner = "expense", abs(expense.quantity), "", owner_line.owner_id if owner_line else ""
+        category_id = expense.category_id or ""
+    else:
+        debit = next((line for line in cash if line.quantity < 0), None)
+        credit = next((line for line in cash if line.quantity > 0), None)
+        mode = "assign"
+        amount = abs(debit.quantity) if debit else 0
+        from_owner = debit.owner_id if debit and debit.owner_id is not None else ""
+        to_owner = credit.owner_id if credit and credit.owner_id is not None else ""
+        category_id = ""
+    account = c.accounts.get(cash[0].account_id)
+    values = {"mode": mode, "date": txn.date, "amount": str(amount),
+              "from_owner_id": str(from_owner), "to_owner_id": str(to_owner),
+              "category_id": str(category_id), "notes": txn.notes}
+    return render(request, "accounts/ownership.html", account=account, values=values,
+                  owners=c.counterparties.list_active(),
+                  categories=[cat for cat in c.categories.pickable() if cat.movement.value == "OUTFLOW"],
+                  action=f"/transactions/{txn_id}/ownership/edit", error="", error_field="", txn_id=txn_id)
+
+
+@router.post("/transactions/{txn_id:int}/ownership/edit")
+async def save_ownership_change(request: Request, txn_id: int):
+    c = container(request)
+    txn = c.transactions.get(txn_id)
+    if not c.transactions._is_ownership_transaction(txn):
+        return redirect(f"/transactions/{txn_id}", "This is not an ownership entry.")
+    cash = next((line for line in txn.lines if c.assets.get_asset(line.asset_id).is_cash), None)
+    account = c.accounts.get(cash.account_id if cash else txn.lines[0].account_id)
+    form = await request.form()
+    values = {key: str(form.get(key, "")).strip() for key in
+              ("mode", "date", "amount", "from_owner_id", "to_owner_id", "category_id", "notes")}
+    action = f"/transactions/{txn_id}/ownership/edit"
+    try:
+        if values["mode"] == "expense":
+            if values["from_owner_id"]:
+                raise ValidationError("For an expense someone paid, set From to You.", "from_owner_id")
+            owner_id = int(values["to_owner_id"]) if values["to_owner_id"].isdigit() else None
+            category_id = int(values["category_id"]) if values["category_id"].isdigit() else None
+            if owner_id is None:
+                raise ValidationError("Choose the person who paid.", "to_owner_id")
+            if category_id is None:
+                raise ValidationError("Choose the expense category.", "category_id")
+            txn = c.transactions.record_expense_paid_by_person(values["date"], account.id, values["amount"],
+                                                               owner_id, category_id, values["notes"], txn_id)
+        elif values["mode"] == "assign":
+            from_owner_id = int(values["from_owner_id"]) if values["from_owner_id"].isdigit() else None
+            to_owner_id = int(values["to_owner_id"]) if values["to_owner_id"].isdigit() else None
+            if from_owner_id is None and to_owner_id is None:
+                raise ValidationError("Choose a person to change ownership with.", "to_owner_id")
+            txn = c.transactions.change_cash_ownership(values["date"], account.id, values["amount"],
+                                                       from_owner_id, to_owner_id, values["notes"], txn_id)
+        else:
+            raise ValidationError("Choose what happened.", "mode")
+        return redirect(f"/accounts/{account.id}", f"Saved {txn.ref}. Ownership is updated.")
+    except (LightningError, ValueError) as exc:
+        error = exc if isinstance(exc, LightningError) else ValidationError("Check the date, amount, and choices.")
+        return render(request, "accounts/ownership.html", status_code=400, account=account, values=values,
+                      owners=c.counterparties.list_active(),
+                      categories=[cat for cat in c.categories.pickable() if cat.movement.value == "OUTFLOW"],
+                      action=action, error=error.message, error_field=error.field or "", txn_id=txn_id)
+
+
 def _back(request: Request, default: str) -> str:
     back = request.query_params.get("back", "")
     return back if back.startswith("/") and not back.startswith("//") else default
@@ -204,6 +276,7 @@ async def transaction_detail(request: Request, txn_id: int):
                                        "covered_remaining": shown.remaining if shown is not budget_line else None,
                                        "month": txn.date[:7]})
     return render(request, "transactions/detail.html", txn=txn, summary=c.transactions.summarize(txn),
+                  is_ownership=c.transactions._is_ownership_transaction(txn),
                   replaced_revaluation=txn.id in c.transactions.replaced_revaluation_ids(),
                   lines=lines, history=c.transactions.history(txn_id), can_split=can_split,
                   cash_effects=cash_effects,

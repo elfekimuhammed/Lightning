@@ -1,6 +1,6 @@
 # Lightning — Project Overview
 
-**Last updated 2026-10-02 · app 0.4.0b1.**
+**Last updated 2026-10-03 · app 0.4.0b1.**
 
 This file tells the story: what Lightning is, who it is for, what it answers and where it goes next. [Architecture](ARCHITECTURE.md) holds the technical side. The [App brand guideline](APPLICATION_BRAND_GUIDE.md) holds the visual side. The [Glossary](GLOSSARY.md) defines every term and figure. Shipped changes go in `CHANGELOG.md`.
 
@@ -43,6 +43,7 @@ Every number comes from one of three layers, and each screen says which:
 - **Investments:** buy, sell and dividends inside the brokerage account; prices typed in or fetched; the period's *Net gain or loss* (Gain from sales + Price change on what you hold + Dividends and interest) alongside current holdings and *Holdings after sale (estimate)*.
 - **Overview:** Needs you at the top (a closed row that opens into the list), then your position: Net worth, Free cash, *What it is made of* and *If you sold today (estimate)* with a sale factor per class. Below that come Cash flow with the savings rate, Where it went, Investments at a glance, and Month by month as a closed row. Birdview was folded in on 2026-09-30, and `/birdview` redirects here.
 - **Held for others:** money and units you hold for someone else. Account headers show *In this account · What you own · Held for others*.
+- **Cash ownership:** from an account register, reassign cash between yourself and a saved person without changing gross account cash, or record an expense paid externally on your behalf. The latter remains an owned expense for budget and spending reports while attributing the same cash share to the payer.
 - **Every page:** months are picked from a month picker, never typed. Up to three key notes under the title give the page's answer in one sentence, and one set of charts follows the brand guideline.
 - **Desktop preview:** `Lightning.exe` on Windows (no Python needed), or `python -m lightning --profiles` on Linux. You get named profiles, each encrypted and opened with a password, with a recovery key shown once at setup. Use dummy data until the beta: legacy import and backup restore aren't in the UI yet.
 - **Demo:** `python -m lightning --demo`, or "See Lightning with a sample household" on an empty welcome page, opens Omar's last three months in a separate database.

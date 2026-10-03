@@ -50,6 +50,7 @@
 {% block top_actions %}
 {% if account and account.account_type.value == 'DEPOSIT' %}<a class="btn primary" href="/deposits/{{ account.id }}">View CDs</a>{% endif %}
 {% if account %}
+{% if account.active and account.account_type.value in ('CASH','BANK','BROKERAGE') %}<a class="btn" data-popup-open href="/accounts/{{ account.id }}/ownership/new">Change ownership</a>{% endif %}
 {% else %}<a class="btn primary" href="/accounts">Choose an account</a>
 {% endif %}
 <details class="action-menu"><summary>More actions</summary><div>{% if account %}<a href="/accounts/{{ account.id }}/import">Import CSV</a>{% endif %}<a href="/transactions/deleted">Deleted transactions</a>{% if account %}<a href="/accounts/{{ account.id }}/reconcile">Check against bank</a><a data-popup-open href="/accounts/{{ account.id }}/edit">Edit account</a>{% if account.active %}<form method="post" action="/accounts/{{ account.id }}/deactivate"><button class="danger-text">Deactivate</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>{% else %}<form method="post" action="/accounts/{{ account.id }}/reactivate"><button>Reactivate</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>{% endif %}{% endif %}</div></details>
@@ -258,7 +259,7 @@
         <td class="code {{ 'same-day' if r.date == ns.last_date }}">{{ r.date }}</td>
         {% if show_account %}<td class="small">{{ r.account_label }}</td>{% endif %}
         <td>{% if r.type == 'TRF' %}<span class="pill transfer">↔</span> {{ r.other_account_label }}{% else %}{{ r.counterparty or r.description or '—' }}{% endif %}</td>
-        {% set cat = r.type_label if r.type in ('BUY', 'SEL', 'DIV') else r.category_label.split(' › ')[-1] %}<td class="small" title="{{ r.category_label.split(' › ')[-1] ~ (' · in ' ~ r.category_label.split(' › ')[:-1]|join(' · ') if ' › ' in r.category_label else '') }}">{{ cat if cat != (r.counterparty or r.description) else '' }}</td>
+        {% set cat = r.type_label if r.type in ('BUY', 'SEL', 'DIV') or r.type_label == 'Ownership change' else r.category_label.split(' › ')[-1] %}<td class="small" title="{{ r.category_label.split(' › ')[-1] ~ (' · in ' ~ r.category_label.split(' › ')[:-1]|join(' · ') if ' › ' in r.category_label else '') }}">{{ cat if cat != (r.counterparty or r.description) else '' }}</td>
         <td class="small whom-cell {{ 'is-hidden' if not custody_owners.get(r.txn_id) }}">{{ custody_owners.get(r.txn_id, '') }}</td>
         {% set note_text = (r.notes ~ ((' ' ~ r.description) if r.type == 'TRF' and r.description else ''))|trim %}<td class="small muted register-note" title="{{ note_text }}">{{ note_text }}</td>
         <td class="num amount {{ r.amount|tone }}">{{ r.amount|money(True) }}</td>
