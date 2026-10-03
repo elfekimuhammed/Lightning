@@ -58,6 +58,15 @@ def test_encrypted_finance_roundtrip_and_backup(tmp_path):
             standard.close()
 
 
+def test_freed_memory_is_not_wiped_by_owner_decision(tmp_path):
+    # Process-wide in SQLCipher, and once on it cannot be turned off; it made ledger reads 3x slower.
+    db = Database(tmp_path / "x.db", key=KEY)
+    try:
+        assert db.scalar("PRAGMA cipher_memory_security") in ("0", 0)
+    finally:
+        db.close()
+
+
 def test_wrong_key_never_modifies_existing_database(tmp_path):
     path = tmp_path / "x.db"
     c = build(path, key=KEY)

@@ -64,7 +64,10 @@ class Database:
                     conn.execute(f'PRAGMA key = "x\'{self._key.hex()}\'"')
                     if not conn.execute("PRAGMA cipher_version").fetchone():
                         raise RuntimeError("SQLCipher is unavailable")
-                    conn.execute("PRAGMA cipher_memory_security = ON")
+                    # Owner decision 2026-10-03: off. Wiping every freed allocation made ledger reads
+                    # about 3x slower; SQLCipher still wipes its key material, and Python and the
+                    # window keep unwiped copies of the same data anyway (Architecture, threat model).
+                    conn.execute("PRAGMA cipher_memory_security = OFF")
                 # Forces wrong-key/corrupt-file rejection before migrations/seed.
                 conn.execute("SELECT count(*) FROM sqlite_master").fetchone()
                 conn.row_factory = self.driver.Row

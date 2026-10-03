@@ -162,12 +162,14 @@ XIRR is an annualized money-weighted rate using dated investment cash flows and 
 
 | Tab | Before | After | Enc. before | Enc. after |
 |---|---:|---:|---:|---:|
-| Overview | 507 ms | 163 ms | 962 ms | 237 ms |
-| Budget, All time (the period is remembered) | 4,597 ms | 326 ms | 6,994 ms | 406 ms |
-| Account register | 180 ms | 55 ms | 479 ms | 239 ms |
-| All transactions | 217 ms | 80 ms | 677 ms | 305 ms |
-| Investments | 360 ms | 181 ms | 520 ms | 277 ms |
-| Expense analysis, All time | 461 ms | 297 ms | 921 ms | 368 ms |
+| Overview | 507 ms | 163 ms | 962 ms | 139 ms |
+| Budget, All time (the period is remembered) | 4,597 ms | 326 ms | 6,994 ms | 249 ms |
+| Account register | 180 ms | 55 ms | 479 ms | 80 ms |
+| All transactions | 217 ms | 80 ms | 677 ms | 73 ms |
+| Investments | 360 ms | 181 ms | 520 ms | 191 ms |
+| Expense analysis, All time | 461 ms | 297 ms | 921 ms | 244 ms |
+
+"Enc. after" also has `cipher_memory_security` off (owner decision 2026-10-03, below).
 
 SELECT statements fell from 5,198 to 785 on the Overview, from 9,948 to 1,256 on Budget › All time and from 14,750 to 854 on Expense analysis › All time. The same crawl of 700 pages produced identical HTML with and without the cache.
 
@@ -175,7 +177,6 @@ Also done: `Valuer` checks for the `physical_items` table once instead of on eve
 
 Still open:
 
-- **`PRAGMA cipher_memory_security = ON`** makes ledger scans 3.2× slower (555 µs vs 173 µs for a full `GROUP BY`) and stays on for the whole process. With it off, the encrypted register and All transactions take about 85 ms instead of 250–320 ms. Turning it off is an owner decision.
 - **Registers still read the whole matching history to show 50 rows** (`ReportingService.register` → `_rows`). Row look-ups now come from the request cache; the next step is to read only the page's rows, with the running balance from SQL.
 - **Smaller:** legacy browser mode's Google Fonts stylesheet in `base.html` blocks rendering (about 240 ms online, longer offline); routes are `async def` with synchronous database work, so one slow page blocks other requests; the live database uses the rollback journal (`DELETE`, synchronous `FULL`).
 - **A cache between clicks** (keyed by a database-wide write counter and `today()`) is not needed at these speeds.
@@ -301,6 +302,7 @@ Start with bounded local candidate lists and a small result limit. If size or me
 - **Password changes** rewrap the same data key, so nothing is re-encrypted. A reset with the recovery key checks it against the database read-only, then atomically replaces the slot.
 - **The same scheme on Windows and Linux** (owner decision). DPAPI and automatic unlock are deferred.
 - **Threat model:** a copied database or backup without its key material is a 128-bit problem. Someone with both the database and `keys.json` can try passwords offline, which Argon2 slows but can't stop, so a passphrase must be at least 12 characters. Nothing protects an unlocked PC from malware.
+- **Freed memory is not wiped** (`PRAGMA cipher_memory_security = OFF`, owner decision 2026-10-03). Wiping every freed SQLite allocation made encrypted ledger reads about 3× slower. SQLCipher still wipes its own key material. Decrypted fragments may stay in the process's freed memory, and so in a crash dump, the page file or the hibernation file, until reused; Python objects and the WebView2 window hold unwiped copies of the same data either way. The setting is process-wide and, once on, cannot be turned off, so nothing else may turn it on.
 - **Not in v1:** recovery-key rotation and rewriting existing backups. A safe version needs a recoverable multi-file commit protocol. Old backups keep their old `key_id`.
 
 **Lifecycle and the database thread.**
