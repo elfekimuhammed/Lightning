@@ -8,6 +8,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+- 2026-10-03 · Claude: Architecture › Page speed opens with why pages were slow and which fix answered each cause (the speed audit now lives only there), and notes the bundled fonts.
 - 2026-10-03 · Claude: The Investment planner button uses guideline 3.8's vivid gradient (`--vivid`: #00995C to #0066FF at 135°).
 - 2026-10-03 · Claude: Out-of-date prices are flagged (UX plan item 7, guideline A01 honest numbers). `ReportingService.stale_prices` lists holdings valued from a price more than about two months old (cash, at-cost holdings and certificates are left out). The Overview's Needs you shows "Prices are out of date" with the oldest ones and "Update prices"; a holding page says "out of date, update it" beside its price. Omar sees it a year on, not on his first evening.
 - 2026-10-03 · Claude: Brand guideline 3.8, the owner's file, the same as the website's `brand-guidelines.html`. The vivid gradient is two stops, green #00995C to blue #0066FF (dark #3FE0A3 to #5AA9FF), no teal middle; on the website a breakdown shows EGP once on the big figure with bare numbers in its rows, a count in a money list carries ×, and a section about a count shows every item it counts. The website's Version D follows it (UX-2026.10.03.03). The app's Investment planner button still uses the old gradient (see Now and next).

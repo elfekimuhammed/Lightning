@@ -149,6 +149,14 @@ XIRR is an annualized money-weighted rate using dated investment cash flows and 
 
 **Reporting read performance.** `ReportingService.holdings()` batches account, asset and asset-class metadata once per invocation; `build_investment_report()` likewise loads account and asset metadata once per report call. These maps are request-local, not shared across requests, so there is no stale-data invalidation path after a ledger edit or profile switch. The 319-transfer synthetic report uses six SQL reads, compared with 641 asset point-lookups in the former per-ledger-row pattern. This reduced row-proportional query work; the request cache below removed the page-level repeats.
 
+**Why pages were slow, and what fixed it (2026-10-03).** A speed audit of the PC app, run from source on plain and encrypted profiles of 319, 1,087 and 2,239 transactions, found three causes. Each has a fix, described below:
+
+- **The same figure was recalculated many times on one page** (the Overview asked for its position at several dates; Budget re-read the same month's spending for every line). Fixed by the request cache: each figure is computed once per page.
+- **Encrypted reads paid for wiping every freed piece of memory** (SQLCipher's `cipher_memory_security`). Turned off by owner decision; the key itself is still wiped (see the threat model).
+- **Registers summed every row to show 50.** Fixed by register pages: only the visible page is read, and the running balance comes from one SQL sum.
+
+The window also caches the app's own files, and the fonts are bundled, so no page waits on Google Fonts.
+
 **Request cache** (`lightning/core/memo.py`, added 2026-10-03). A page asks for the same figure many times: the Overview's position at several dates, every account's share of one ledger scan, the same month's spending for every budget line. `ui/web.py` wraps every request in `request_cache(container.db)`. A read decorated with `@request_cached` then computes each distinct call once per request. Outside a request (tests, workflows, startup), nothing is cached. The rules that keep it safe:
 
 - **One request only:** nothing survives to the next click, so a save, an import, a profile switch or midnight can never show an old figure.
@@ -175,7 +183,7 @@ XIRR is an annualized money-weighted rate using dated investment cash flows and 
 
 SELECT statements fell from 5,198 to 785 on the Overview, from 9,948 to 1,256 on Budget › All time and from 14,750 to 854 on Expense analysis › All time. The same crawl of 700 pages produced identical HTML with and without the cache.
 
-Also done: `Valuer` checks for the `physical_items` table once instead of on every valuation (639 checks per Overview). The profile `Guard` lets the window keep `/static/` files (`Cache-Control: private, max-age=86400`) while pages stay `no-store`; each launch has a new random port, so a cached file never outlives its launch.
+Also done: `Valuer` checks for the `physical_items` table once instead of on every valuation (639 checks per Overview). Bricolage Grotesque and Manrope are served from `lightning/ui/static/fonts/` in every mode, so no page makes an outside font request. The profile `Guard` lets the window keep `/static/` files (`Cache-Control: private, max-age=86400`) while pages stay `no-store`; each launch has a new random port, so a cached file never outlives its launch.
 
 Still open:
 
