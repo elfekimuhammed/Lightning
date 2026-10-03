@@ -469,7 +469,7 @@ tr.clickable:hover td { background: var(--surface-2); }
 .reconcile-figures { display: flex; flex-wrap: wrap; gap: 28px; margin-top: 18px; }
 .reconcile-figures > div { display: grid; gap: 3px; }
 .reconcile-figures b { font-size: 20px; font-variant-numeric: tabular-nums; }
-.reconcile-lines { margin-top: 14px; }
+.reconcile-result { margin-top: 14px; }
 .pill.cleared { background: var(--ok-bg); color: var(--pos); }
 .expense-split { max-width: 760px; }
 .split-row { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(130px, 220px); gap: 10px; margin: 8px 0; }

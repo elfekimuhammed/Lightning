@@ -35,7 +35,7 @@ Every number comes from one of three layers, and each screen says which:
 
 ## What you can do today
 
-- **Accounts and ledger:** open an account with a starting balance; record money in, money out and transfers; edit, void and restore, bulk select, search, and reconcile against a statement.
+- **Accounts and ledger:** open an account with a starting balance; record money in, money out and transfers; edit, void and restore, bulk select, search, and check an account against the balance the bank shows: a small difference (up to 1% or 100, whichever is larger) becomes one balance adjustment counted as Other spending or Other income; a bigger one is reviewed row by row or reimported.
 - **CSV import:** stage a bank CSV with one signed column or separate in/out columns. Only rows that need a decision need attention; a new name typed on several rows is created once; duplicates are flagged.
 - **Budget:** Planned, Spent, then Left in plan. Each category takes one *Amount or %* field (`1,500`, or `12%` of average monthly income), or the average of recent months, with optional carryover. Views cover All time, YTD, Monthly and Custom. A loan's scheduled payments are planned automatically until you set your own amount.
 - **Cash planning (Plan · Recurring · Loans · Reserves):** *Safe to spend* until the next income, What you owe, the next 30 days and a three-month forecast. It also holds recurring bills, subscriptions and income (suggested from history, never created on their own), loans with progress and payoff date, and reserves with the emergency fund. A strict unique payment match settles automatically; an early or changed-amount payment is suggested for confirmation. The forecast separately shows estimated CD interest and maturity cash without calling returned principal income.
@@ -64,6 +64,18 @@ A sparkline never follows the period. It is a quick "where is this heading" besi
 ## The questions Lightning answers
 
 Each tab answers one main question first, then its natural follow-ups. **Partial** and **Missing** mark the gaps.
+
+**What Omar's test should do.** `tests/test_omar_year.py` is the acceptance check for every question here. Omar (below) is a real Egyptian salaried user, and the test judges Lightning the way he would, in the Windows WebView2 app:
+
+- **Right answers:** every figure reconciles across tabs and stays right after a year of real life.
+- **Usability:** each question is answered by starting at the Overview and clicking through. The route is checked; a dead end, a missing way back or a lost half-done task fails.
+- **Efficiency:** it counts his effort. One typed bank balance, not clearing lines one by one; one fix, not one per row; nothing typed twice.
+- **Speed:** pages must feel instant on an ordinary, encrypted PC. Long periods stay summarised (months, not 365 days) and pages stay light.
+- **Simplicity:** the fewest controls that do the job; no placeholder text to delete; nothing that needs a manual.
+- **Clarity:** plain words and readable numbers (no "System", no −1,351.7%), the date or period of every figure, and a warning when a plan cannot work.
+- **UI:** compact rows, readable messages, and layouts that fit the app window and a phone.
+
+User feedback becomes steps Omar takes: fixed points are checked as answers, open ones are strict expected failures. Speed and look are also judged on a real PC, because the test sees only what the screens show.
 
 | Screen | Main question | Leads with |
 |---|---|---|
@@ -150,7 +162,7 @@ Each tab answers one main question first, then its natural follow-ups. **Partial
 | Can I pay the loan off early? | — | Missing: no early payoff or lump-sum payment |
 
 
-**7. Is my data right?** Reconcile against the bank, review imports for gaps and duplicates, and run Checks. There is no stale-price warning yet (partial).
+**7. Is my data right?** Type the balance the bank shows and settle a small difference with one adjustment, review imports for gaps and duplicates, and run Checks. There is no stale-price warning yet (partial).
 
 **8. What changes when my pay changes?** A salaried user's pay is not one flat number: raises, a yearly bonus or profit share, a 13th month, Ramadan and Eid grants, and paydays moved early for holidays.
 

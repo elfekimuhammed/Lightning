@@ -8,6 +8,8 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+- Replaced line-by-line bank reconciliation with **Check against bank**: type the balance the bank shows on a date. A difference up to 1% of that balance or 100 (whichever is larger) is settled with one "Balance adjustment" row, counted as Other Personal spending or Other Income; a bigger one cannot be adjusted and links to that month's register or Import CSV. Omar's October check is now one typed balance instead of 62 Clear clicks.
+- Omar's test and the Project Overview now state what the test focuses on: right answers, usability, efficiency, speed, simplicity, clarity and UI, in the Windows WebView2 app.
 - Omar's year now walks through user feedback batch 001: 11 fixed points are checked and 13 open pain points are strict expected failures in `tests/test_omar_year.py`.
 - Removed `tests/test_omar_matching.py`; `tests/test_omar_year.py` remains the single Omar acceptance test.
 - Added the owner's git workflow rule to `AGENTS.md` and a `CLAUDE.md` that loads it: work on `main`, push every branch, and merge finished branch work into `main`.

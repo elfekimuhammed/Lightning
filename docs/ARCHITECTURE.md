@@ -65,7 +65,7 @@ core/                 dates, money, identifiers, posting rules; no app dependenc
 | `lightning/investments` + `reevaluations.py` | Trades, positions, investment calculations and valuation checkpoints |
 | `lightning/deposits` | Certificate terms and read-only interest/payout projections; principal and actual payments remain in the ledger |
 | `lightning/money_from_others.py` | Custody attribution for money and units held for others |
-| `lightning/bank_imports.py` + `reconciliation.py` | Staged CSV review and posting; statement reconciliation |
+| `lightning/bank_imports.py` + `reconciliation.py` | Staged CSV review and posting; checking an account against the bank's balance (a small difference posts one IN/OUT balance adjustment) |
 | `lightning/budgeting` + `reserves.py` | Spending plans and cash reserves (separate concepts) |
 | `lightning/planning` | Recurring items, loans, payments, what you owe, cash forecast; `position.py` computes every position figure once |
 | `lightning/reporting` + `integrity` | Read-only queries, derived reporting and data checks |

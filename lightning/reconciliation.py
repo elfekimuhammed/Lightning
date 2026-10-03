@@ -1,69 +1,87 @@
-"""Cleared transaction tracking and statement reconciliation."""
+"""Check an account against the balance the bank shows, and settle a small difference.
+
+The user types the ending balance from the bank (or wallet app) on a date. Lightning compares it with the
+account's own cash balance on that date. A small difference is settled with one balance adjustment, posted as
+ordinary Money out (Other Personal) or Money in (Other Income), so it counts in spending and income like any
+other row. A big difference is never adjusted: the user reviews the register or reimports the statement.
+"""
 
 from __future__ import annotations
 
-from datetime import date
+from dataclasses import dataclass
 from decimal import Decimal
 
-from lightning.core.errors import NotFoundError, ValidationError
-from lightning.core.money import ZERO, from_e6
+from lightning.core.dates import parse_date
+from lightning.core.errors import ValidationError
+from lightning.core.money import ZERO, from_e6, to_decimal
 from lightning.database.connection import Database
+
+SMALL_SHARE = Decimal("0.01")   # a difference up to 1% of the bank balance is small...
+SMALL_FLOOR = Decimal("100")    # ...or up to 100 in the account's currency, whichever is larger
+ADJUSTMENT = "Balance adjustment"
+SHORTFALL_CATEGORY = "EXP.PERSONAL.OTHER"          # Other Personal
+EXCESS_CATEGORY = "EXP.PERSONAL.OTHER_INCOME"      # Other Income
+
+
+@dataclass(frozen=True)
+class BalanceCheck:
+    through: str
+    bank_balance: Decimal
+    lightning_balance: Decimal
+    difference: Decimal          # bank − Lightning: positive means the bank has more
+    limit: Decimal               # the largest difference that is still small
+
+    @property
+    def matches(self) -> bool:
+        return self.difference == ZERO
+
+    @property
+    def small(self) -> bool:
+        return not self.matches and abs(self.difference) <= self.limit
 
 
 class ReconciliationService:
-    def __init__(self, db: Database):
-        self.db = db
+    def __init__(self, db: Database, categories=None, transactions=None):
+        self.db, self.categories, self.transactions = db, categories, transactions
 
-    def lines(self, account_id: int, through: str):
-        rows = [dict(row) for row in self.db.all(
-            "SELECT le.id AS line_id,le.date,le.quantity_e6,t.type,t.ref,t.counterparty,t.description,"
-            "le.memo,le.cleared,le.category_id FROM ledger_entries le "
+    def balance(self, account_id: int, through: str) -> Decimal:
+        """The account's cash on ``through``, every owner included: what the bank shows."""
+        total = self.db.scalar(
+            "SELECT COALESCE(SUM(le.quantity_e6),0) FROM ledger_entries le "
             "JOIN transactions t ON t.id=le.transaction_id "
             "WHERE le.account_id=? AND le.date<=? AND t.status='POSTED' "
-            "AND le.asset_id IN (SELECT id FROM financial_assets WHERE is_cash=1) "
-            "ORDER BY le.date DESC,t.id DESC,le.line_no DESC",
-            (account_id, through),
-        )]
-        for row in rows:
-            row["amount"] = from_e6(row["quantity_e6"])
-        return rows
-
-    def summary(self, account_id: int, through: str, statement_balance: Decimal | None):
-        row = self.db.one(
-            "SELECT COALESCE(SUM(CASE WHEN le.cleared=1 OR t.type='OPN' "
-            "THEN le.quantity_e6 ELSE 0 END),0) AS cleared_e6, "
-            "SUM(CASE WHEN le.cleared=0 AND t.type<>'OPN' THEN 1 ELSE 0 END) AS uncleared_count "
-            "FROM ledger_entries le JOIN transactions t ON t.id=le.transaction_id "
-            "WHERE le.account_id=? AND le.date<=? AND t.status='POSTED' "
             "AND le.asset_id IN (SELECT id FROM financial_assets WHERE is_cash=1)",
-            (account_id, through),
-        )
-        cleared = from_e6(row["cleared_e6"])
-        difference = statement_balance - cleared if statement_balance is not None else None
-        return {"cleared_balance": cleared, "uncleared_count": int(row["uncleared_count"] or 0),
-                "difference": difference, "reconciled": difference == ZERO if difference is not None else False}
+            (account_id, through))
+        return from_e6(total or 0)
 
-    def set_cleared(self, account_id: int, line_id: int, cleared: bool) -> None:
-        row = self.db.one(
-            "SELECT le.id,t.type FROM ledger_entries le JOIN transactions t ON t.id=le.transaction_id "
-            "WHERE le.id=? AND le.account_id=? AND le.asset_id IN "
-            "(SELECT id FROM financial_assets WHERE is_cash=1) AND t.status='POSTED'",
-            (line_id, account_id),
-        )
-        if not row:
-            raise NotFoundError("Transaction line not found in this account.")
-        if row["type"] == "OPN" and not cleared:
-            raise ValidationError("An opening balance is the starting point for reconciliation.")
-        self.db.execute("UPDATE ledger_entries SET cleared=? WHERE id=?", (int(cleared), line_id))
+    def check(self, account_id: int, through: str, bank_balance: Decimal) -> BalanceCheck:
+        mine = self.balance(account_id, through)
+        limit = max(SMALL_FLOOR, (abs(bank_balance) * SMALL_SHARE).quantize(Decimal("0.01")))
+        return BalanceCheck(through, bank_balance, mine, bank_balance - mine, limit)
+
+    def adjust(self, account_id: int, through: str, bank_balance: Decimal):
+        """Post the small difference so the account matches the bank on ``through``."""
+        result = self.check(account_id, through, bank_balance)
+        if result.matches:
+            raise ValidationError("The account already matches your bank; there is nothing to adjust.", "balance")
+        if not result.small:
+            raise ValidationError("The difference is too big to adjust. Review the register, or delete and "
+                                  "reimport the statement.", "balance")
+        notes = f"Bank showed {bank_balance:,.2f} on {through}"
+        if result.difference > ZERO:
+            category = self.categories.get_by_code(EXCESS_CATEGORY)
+            return self.transactions.record_inflow(through, account_id, result.difference, category.id,
+                                                   counterparty=ADJUSTMENT, notes=notes)
+        category = self.categories.get_by_code(SHORTFALL_CATEGORY)
+        return self.transactions.record_outflow(through, account_id, -result.difference, category.id,
+                                                counterparty=ADJUSTMENT, notes=notes)
 
     @staticmethod
-    def parse_statement_balance(value: str) -> Decimal:
-        from lightning.core.money import to_decimal
-        return to_decimal(value, "statement_balance")
+    def parse_bank_balance(value: str) -> Decimal:
+        if not str(value or "").strip():
+            raise ValidationError("Enter the balance your bank shows.", "balance")
+        return to_decimal(value, "balance")
 
     @staticmethod
     def validate_date(value: str) -> str:
-        try:
-            return date.fromisoformat(value).isoformat()
-        except (TypeError, ValueError):
-            raise ValidationError("Enter a valid statement date.", "date") from None
+        return parse_date(value).isoformat()   # 2026-10-31, 31/10/2026 or 31/10, like every date box

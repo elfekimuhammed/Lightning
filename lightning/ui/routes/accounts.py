@@ -182,40 +182,40 @@ def _popup_counterparty(c, raw_value):
     return raw
 
 
+def _bank_check_page(request, c, account_id: int, through: str, raw_balance: str, error: str = "", status_code=200):
+    """What does your bank say? The account's balance against the bank's, on one date."""
+    account = c.accounts.get(account_id)
+    check = None
+    try:
+        through = c.reconciliation.validate_date(through.strip() or today().isoformat())
+        if raw_balance.strip():
+            check = c.reconciliation.check(account_id, through, c.reconciliation.parse_bank_balance(raw_balance))
+    except LightningError as exc:
+        error = exc.message
+    dated = len(through) == 10 and through[4] == "-"
+    return render(request, "accounts/reconcile.html", account=account, through=through, balance_input=raw_balance,
+                  lightning_balance=c.reconciliation.balance(account_id, through) if dated else None,
+                  check=check, error=error, month_start=through[:8] + "01" if dated else "", status_code=status_code)
+
+
 @router.get("/{account_id:int}/reconcile")
 async def reconcile_account(request: Request, account_id: int):
-    c = container(request)
-    account = c.accounts.get(account_id)
-    through = str(request.query_params.get("date", today().isoformat()))
-    raw_balance = str(request.query_params.get("balance", ""))
-    error = ""
-    try:
-        through = c.reconciliation.validate_date(through)
-        statement_balance = c.reconciliation.parse_statement_balance(raw_balance) if raw_balance.strip() else None
-    except LightningError as exc:
-        statement_balance, error = None, exc.message
-    return render(request, "accounts/reconcile.html", account=account, through=through,
-                  balance_input=raw_balance, lines=c.reconciliation.lines(account_id, through),
-                  summary=c.reconciliation.summary(account_id, through, statement_balance), error=error)
+    qp = request.query_params
+    return _bank_check_page(request, container(request), account_id, str(qp.get("date", "")), str(qp.get("balance", "")))
 
 
 @router.post("/{account_id:int}/reconcile")
-async def update_reconciliation(request: Request, account_id: int):
+async def adjust_to_bank(request: Request, account_id: int):
+    """Post the small difference as one balance adjustment."""
     c = container(request)
     form = await request.form()
+    raw_date, raw_balance = str(form.get("date", "")), str(form.get("balance", ""))
     try:
-        through = c.reconciliation.validate_date(str(form.get("date", "")))
-        raw_balance = str(form.get("balance", ""))
-        action = str(form.get("action", ""))
-        line_id = int(str(form.get("line_id", "")))
-        if action not in {"clear", "unclear"}:
-            raise LightningError("Choose whether to clear or mark uncleared this transaction.")
-        c.reconciliation.set_cleared(account_id, line_id, action == "clear")
-    except (ValueError, LightningError) as exc:
-        msg = exc.message if isinstance(exc, LightningError) else "Choose a transaction to update."
-        return redirect(f"/accounts/{account_id}/reconcile", msg)
-    from urllib.parse import urlencode
-    return redirect(f"/accounts/{account_id}/reconcile?{urlencode({'date': through, 'balance': raw_balance})}")
+        through = c.reconciliation.validate_date(raw_date)
+        txn = c.reconciliation.adjust(account_id, through, c.reconciliation.parse_bank_balance(raw_balance))
+    except LightningError as exc:
+        return _bank_check_page(request, c, account_id, raw_date, raw_balance, exc.message, status_code=400)
+    return redirect(f"/accounts/{account_id}", f"Balance adjustment {txn.ref} posted. The account now matches your bank.")
 
 
 @router.post("/{account_id:int}/investment-entry")

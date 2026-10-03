@@ -1,44 +1,42 @@
 {% extends "base.html" %}
-{% block title %}Reconcile {{ account.name }}{% endblock %}
-{% block heading %}<div class="acct-title"><h1>Reconcile {{ account.name }}</h1></div><div class="muted small">Match cleared transactions to a statement balance.</div>{% endblock %}
+{% block title %}Check {{ account.name }}{% endblock %}
+{% block heading %}<div class="acct-title"><h1>Check {{ account.name }}</h1></div><div class="muted small">What does your bank say? Type the balance it shows.</div>{% endblock %}
 {% block top_actions %}<a class="btn small" href="/accounts/{{ account.id }}">Back to account</a>{% endblock %}
 {% block content %}
 <section class="card reconcile-summary">
   <form method="get" action="/accounts/{{ account.id }}/reconcile" class="reconcile-controls">
-    <label>As of <small class="muted">statement date</small><input type="text" placeholder="yyyy-mm-dd" inputmode="numeric" autocomplete="off" data-smart-date name="date" value="{{ through }}" required></label>
-    <label>Balance <small class="muted">on the statement</small><input type="text" name="balance" value="{{ balance_input }}" placeholder="e.g. 12,500.00" inputmode="decimal"></label>
-    <button class="btn primary">Compare</button>
+    <label>On <small class="muted">the date it shows</small><input type="text" placeholder="yyyy-mm-dd" inputmode="numeric" autocomplete="off" data-smart-date name="date" value="{{ through }}" required></label>
+    <label>Your bank shows <small class="muted">ending balance</small><input type="text" name="balance" value="{{ balance_input }}" placeholder="e.g. 12,500.00" inputmode="decimal" required></label>
+    <button class="btn primary">Check</button>
   </form>
   {% if error %}<p class="flash error">{{ error }}</p>{% endif %}
   <div class="reconcile-figures">
-    <div><span class="muted small">Cleared balance</span><b>{{ summary.cleared_balance|money }}</b></div>
-    <div><span class="muted small">Difference</span><b class="{{ summary.difference|tone if summary.difference is not none else 'muted' }}">{{ summary.difference|money(True) if summary.difference is not none else 'Enter statement balance' }}</b></div>
-    <div><span class="muted small">Uncleared items</span><b>{{ summary.uncleared_count }}</b></div>
+    <div><span class="muted small">Lightning shows</span><b>{{ lightning_balance|money if lightning_balance is not none else '—' }}</b></div>
+    {% if check %}<div><span class="muted small">Your bank shows</span><b>{{ check.bank_balance|money }}</b></div>
+    <div><span class="muted small">Difference</span><b class="{{ check.difference|tone }}">{{ check.difference|money(True) }}</b></div>{% endif %}
   </div>
-  {% if summary.reconciled %}<p class="flash">Reconciled through {{ through }}. The cleared balance matches the statement.</p>
-  {% elif summary.difference is not none %}<p class="muted small">Clear the transactions shown on your statement. A zero difference means the account matches.</p>{% endif %}
 </section>
-<section class="card reconcile-lines">
-  <h2>Transactions through {{ through }}</h2>
-  <div class="table-scroll"><table>
-    <thead><tr><th>Status</th><th>Date</th><th>Counterparty</th><th>Category</th><th class="num">Amount</th><th></th></tr></thead>
-    <tbody>
-    {% for line in lines %}
-    <tr>
-      <td>{% if line.cleared or line.type == 'OPN' %}<span class="pill cleared">Cleared</span>{% else %}<span class="pill">Uncleared</span>{% endif %}</td>
-      <td class="code">{{ line.date }}</td>
-      <td>{{ line.counterparty or line.description or ('Opening balance' if line.type == 'OPN' else line.ref) }}</td>
-      <td class="small muted">{{ line.memo or line.type }}</td>
-      <td class="num {{ line.amount|tone }}">{{ line.amount|money(True) }}</td>
-      <td>{% if line.type != 'OPN' %}<form method="post" action="/accounts/{{ account.id }}/reconcile">
-        <input type="hidden" name="date" value="{{ through }}"><input type="hidden" name="balance" value="{{ balance_input }}">
-        <input type="hidden" name="line_id" value="{{ line.line_id }}">
-        {% if line.cleared %}<button class="btn small" name="action" value="unclear">Mark uncleared</button>
-        {% else %}<button class="btn small" name="action" value="clear">Clear</button>{% endif %}
-      <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>{% endif %}</td>
-    </tr>
-    {% else %}<tr><td colspan="6" class="empty">No cash transactions on or before this date.</td></tr>{% endfor %}
-    </tbody>
-  </table></div>
-</section>
+{% if check %}<section class="card reconcile-result">
+  {% if check.matches %}
+  <h2>It matches</h2>
+  <p>{{ account.name }} matches your bank on {{ check.through }}. Nothing to do.</p>
+  {% elif check.small %}
+  <h2>A small difference</h2>
+  <p>Lightning is {{ check.difference|abs|money }} {{ account.currency }} {{ 'below' if check.difference > 0 else 'above' }} your bank, within the {{ check.limit|money }} that counts as small (1% of the balance, at least 100).</p>
+  <p class="muted small">One balance adjustment on {{ check.through }} makes them match. It counts as {{ 'Other Income' if check.difference > 0 else 'Other Personal spending' }}, and you can edit or delete it later like any row.</p>
+  <form method="post" action="/accounts/{{ account.id }}/reconcile" class="actions">
+    <input type="hidden" name="date" value="{{ check.through }}"><input type="hidden" name="balance" value="{{ balance_input }}">
+    <button class="btn primary">Post adjustment of {{ check.difference|money(True) }}</button>
+    <a class="btn" href="/accounts/{{ account.id }}?date_from={{ month_start }}&amp;date_to={{ check.through }}">Review rows instead</a>
+  <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
+  {% else %}
+  <h2>Too big to adjust</h2>
+  <p>Lightning is {{ check.difference|abs|money }} {{ account.currency }} {{ 'below' if check.difference > 0 else 'above' }} your bank, more than the {{ check.limit|money }} that counts as small. A row is probably missing, doubled or mistyped.</p>
+  <div class="actions">
+    <a class="btn primary" href="/accounts/{{ account.id }}?date_from={{ month_start }}&amp;date_to={{ check.through }}">Review {{ month_start[:7] }} row by row</a>
+    <a class="btn" href="/accounts/{{ account.id }}/import">Import the statement again</a>
+  </div>
+  <p class="muted small">To redo an import, select its rows in the register, delete them, then import the statement again.</p>
+  {% endif %}
+</section>{% endif %}
 {% endblock %}

@@ -9,6 +9,27 @@ for that question checks both the route he took and what the page told him.
 
 A question the app answers wrongly today is a strict expected failure. When the fix lands it fails
 as an unexpected pass, and the marker and the Overview's "Today" column must change together.
+
+What Omar's test focuses on. Omar is a real Egyptian user, not a tester: he judges Lightning by whether
+he gets the right answer quickly, with as little effort and as few words to decode as possible.
+Lightning ships as a Windows app (a WebView2 window over the same pages), so every check is a screen
+he would see there.
+- Right answers: every figure reconciles across tabs and after a year of real life (fees, refunds,
+  a bonus, early pay, a raise, Eid, installments, a sale, a job change).
+- Usability: each question is answered by starting at the Overview and clicking through; the route is
+  checked, and a dead end, a missing way back or a lost half-done task is a failure.
+- Efficiency: count the effort. One typed balance instead of clearing lines one by one; one fix
+  instead of one per row; nothing he must re-enter.
+- Speed: pages must feel instant on an ordinary PC, encrypted, in the WebView2 window; long
+  periods stay summarised (months, not 365 days) and pages stay light.
+- Simplicity: the fewest controls and choices that do the job; no placeholder text to delete, no
+  feature he needs a manual for.
+- Clarity: plain words and numbers a person can read (no "System", no −1,351.7%), the date or period
+  every figure belongs to, and a warning when something cannot work as planned.
+- UI: compact rows, readable messages, and layouts that work in the app window and on a phone.
+User feedback (the "user feedback" folder) is added here as steps Omar takes: fixed points are
+checked as answers, open ones are strict expected failures. Speed and look are judged on a real PC
+and in a browser; this file covers what the screens can show.
 """
 from __future__ import annotations
 
@@ -382,14 +403,8 @@ def _live_the_year(o: Omar) -> None:
     o.ask("emergency", "After the repair, how much is left in my emergency fund?", "Cash planning", "Reserves")
     o.ask("fixed", "Is the Carrefour mistake fixed, and the double Talabat gone?", "CIB Payroll")
     statement_balance = o.answers["fixed"].figure("In this account")
-    o.ask("reconcile", "Does Lightning match my bank statement?", "CIB Payroll", "Reconcile")
-    screen = b.submit({"balance": str(statement_balance)}, button="Compare")
-    o.notes["reconcile_lines"] = 0
-    while any(button[0] == "Clear" for form in screen.forms for button in form.buttons):  # one line at a time
-        assert o.notes["reconcile_lines"] < 200, "Clearing lines does not end"
-        screen = b.submit({"balance": str(statement_balance)}, button="Clear", page=screen)
-        o.notes["reconcile_lines"] += 1
-    o.answers["reconcile"].screen = screen
+    o.ask("reconcile", "Does Lightning match my bank statement?", "CIB Payroll", "Check against bank")
+    o.answers["reconcile"].screen = b.submit({"date": "2026-10-31", "balance": str(statement_balance)}, button="Check")
 
     # ============================================================== November: a dividend
     o.on("2026-11-30")
@@ -534,6 +549,15 @@ def _the_feedback_round(o: Omar) -> None:
     o.account("Family flat (my share)", "Other", "400,000", when="2027-09-30")
     o.ask("flat", "Is my share of the flat in my investments?", "Investments")
     o.notes["flat_page"] = b.go("Family flat (my share)")
+
+    # What does the bank say? He counts his wallet 30 short; CIB's app shows 5,000 less than Lightning.
+    wallet = money(b.go("Cash wallet", "Check against bank").after("Lightning shows"))
+    o.notes["wallet_check"] = b.submit({"date": "2027-09-30", "balance": str(wallet - 30)}, button="Check")
+    o.notes["wallet_adjusted"] = b.submit({}, button="Post adjustment")
+    b.go("Cash wallet", "Check against bank")
+    o.notes["wallet_rechecked"] = b.submit({"date": "2027-09-30", "balance": str(wallet - 30)}, button="Check")
+    cib = money(b.go("CIB Payroll", "Check against bank").after("Lightning shows"))
+    o.notes["cib_check"] = b.submit({"date": "2027-09-30", "balance": str(cib - 5000)}, button="Check")
 
     # A year of Vodafone Cash in one big file, with a mistake in one row.
     b.go("Vodafone Cash", "Import CSV")
@@ -691,11 +715,11 @@ def test_a_repair_paid_from_the_emergency_fund(omar):
     assert answer.shows("13,500.00 of 270,000.00")
 
 
-def test_reconciling_october_against_the_statement(omar):
+def test_checking_october_against_the_bank_balance(omar):
     answer = omar.answers["reconcile"]
     assert route(omar, "reconcile") == ["/", "/accounts/1", "/accounts/1/reconcile"]
     assert answer.figure("Difference") == 0
-    assert omar.notes["reconcile_lines"] == 62  # one Clear per line, the CD purchase among them: there is no "clear all up to this date"
+    assert answer.shows("It matches")   # one typed balance, no line-by-line clearing
 
 
 def test_a_dividend_is_listed_under_dividends_collected(omar):
@@ -939,3 +963,18 @@ def test_a_waiting_import_can_be_discarded(omar):
 @known_gap("The upload takes one CSV at a time")
 def test_several_statements_can_be_uploaded_together(omar):
     assert re.search(r'<input[^>]*type="file"[^>]*\bmultiple\b', omar.notes["upload_form"].html)
+
+
+def test_a_small_difference_from_the_bank_is_one_adjustment(omar):
+    check = omar.notes["wallet_check"]
+    assert check.shows("A small difference", "Lightning is 30.00 EGP above your bank", "Post adjustment of −30.00")
+    assert omar.notes["wallet_adjusted"].shows("Balance adjustment", "The account now matches your bank")
+    assert omar.notes["wallet_adjusted"].shows("2027-09-30 Balance adjustment Other Personal")
+    assert omar.notes["wallet_rechecked"].shows("It matches")
+
+
+def test_a_big_difference_from_the_bank_is_reviewed_not_adjusted(omar):
+    check = omar.notes["cib_check"]
+    assert check.shows("Too big to adjust", "Review 2027-09 row by row", "Import the statement again")
+    assert not any("Post adjustment" in (text or "") for form in check.forms for text, *_ in form.buttons)
+    assert check.link("Review 2027-09 row by row").href == "/accounts/1?date_from=2027-09-01&date_to=2027-09-30"
