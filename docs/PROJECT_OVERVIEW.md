@@ -8,9 +8,10 @@ This file tells the story: what Lightning is, who it is for, what it answers and
 
 The hand-off between the AIs working here (Codex and Claude sessions). Read it first; rewrite it when you finish (rules in `AGENTS.md`, section 2).
 
-- **Done · Codex:** bumped source version to 0.5.0b1 (display 0.5.0-beta.1) and updated current release/version references. This does not build, verify, or publish a package.
+- **Done · Codex:** bumped source version to 0.5.0b1 (display 0.5.0-beta.1), updated the package name, and pushed the main-triggered Windows workflow. Package CI status is not yet verified.
 - **In progress:** none; no files claimed.
-- **Next:** build and test the 0.5.0-beta.1 package before announcing or distributing it.
+- **Owner decision · 2026-10-03:** keep at least the three latest versioned downloads permanently. Each release gets its own immutable download and an additional entry on the website; never replace an older version's file or page entry. Do not remove an older release without the owner's decision.
+- **Next:** verify the 0.5.0-beta.1 Windows package; arrange permanent public versioned downloads and add 0.5 to the website archive while preserving 0.4. The website repository is not connected to this workspace.
 - **Questions for the owner:** none.
 
 - **2026-10-03 · Claude · paused (UX pass, guideline 3.6):** done today: batch 1, the owner's two decisions, category pickers, first run, import review per name, bulk category edit, out-of-date prices, the guideline's fonts and two-leaf logo. **Next, in order:** UX plan items 5 (one name, one number: drop repeated Free cash breakdowns and the Overview column waterfall), 6 (registers as two-line rows), 8 (Reserves table and emergency fund wording), 9 (words and numbers sweep). No files claimed; whoever picks these up claims `lightning/ui/templates/` and `lightning/ui/static/style.css` first.
