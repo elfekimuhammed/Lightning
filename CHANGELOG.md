@@ -8,6 +8,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [0.5.0b1] — 2026-10-03 — Next Windows desktop beta (package build pending)
 
+- 2026-10-03 · Claude: Omar is now **Mohab** everywhere, at the owner's request: Mohab's test (`tests/test_mohab_year.py`), the sample household (`lightning/samples/mohab_2026/`, `generate_mohab_2026.py`, `load_mohab_2026`, the `/sample/mohab-2026` routes), the demo, the welcome page, the docs and older changelog entries. The website and its sample pack follow.
 - 2026-10-03 · Claude: Budget group detail (owner request): "Tracked · N categories" and "Not tracked · N categories · X expected" are collapsible lists, each with "Select all" that ticks its rows for the bulk rules (% of income, 3m or 6m average) and updates the "N selected" count. Tracked opens by default; Not tracked starts closed.
 - 2026-10-03 · Codex: Set the source version to 0.5.0b1 (display 0.5.0-beta.1) for the next beta. The Windows package workflow now runs from `main` and names the ZIP `Lightning-v0.5.0-beta.1-Windows-x64.zip`. This records the packaging setup only; Windows build verification and distribution are still pending.
 
