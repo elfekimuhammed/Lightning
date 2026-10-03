@@ -16,7 +16,8 @@ not know it.
 | [Changelog](CHANGELOG.md) | Every change, newest first under `Unreleased` | Every change you push |
 
 - Do not add new files under `docs/`. Put the content in one of the files above.
-- Where the app's CSS still differs from the brand guideline, the guideline is the target.
+
+**The brand guideline is strict, not a suggestion.** Every visual follows it exactly: colours and what they mean, headers, type and numbers, cards and KPI cards, controls and fields, lists, every chart, words, spacing and icons. Before you push any change a user can see, check it against the guideline's "Before it ships" list (A16). If the app's CSS differs from the guideline, the guideline wins and the CSS is fixed. If something the screen needs is not in the guideline, do not invent a new style: use the closest rule and ask the owner under **Now and next**.
 - Old changelog entries are history, not the current specification.
 
 ## 2. Every task, in this order
@@ -24,7 +25,7 @@ not know it.
 1. **Start fresh.** `git pull` on `main`. Read **Now and next** at the top of the Project Overview and the newest changelog entries. Read only the other sections your task touches.
 2. **Claim long work.** If the task will take more than one sitting, add a line to **Now and next**: who, what, and which files you are working in. Push that first. Stay out of files another AI has claimed.
 3. **Work in small, finished steps.** Commit and push each step to `main` once its tests pass. Never leave work unpushed.
-4. **Test.** Run the tests for what you changed. For any change a user can see, also run Omar's test (`tests/test_omar_year.py`); section 4 says what it checks.
+4. **Test.** Run the tests for what you changed. For any change a user can see, also run Omar's test (`tests/test_omar_year.py`; section 4 says what it checks) and look at the screen against the brand guideline's A16 checklist.
 5. **Write it down.** Add a changelog entry that starts with the date and who you are: `2026-10-03 · Claude:` or `2026-10-03 · Codex:`. Update the files from section 1 that your change touches.
 6. **Hand off.** Rewrite **Now and next** in four short parts: done, in progress (with claimed files), next, and questions for the owner. Then push.
 
