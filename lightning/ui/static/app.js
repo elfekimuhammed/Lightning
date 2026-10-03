@@ -103,11 +103,23 @@ const initOwnDataPickers = (root = document) => {
     select.dispatchEvent(new Event("change", { bubbles: true }));
     close();
   };
-  const render = () => {
-    const query = input.value.trim().toLocaleLowerCase();
-    const matches = entries().filter((option) => !query || option.textContent.toLocaleLowerCase().includes(query)).slice(0, 50);
+  // Guideline 3.6 A10.3 / A11: an empty choice ("Choose a category", value "") is a hint, never text to
+  // delete; categories show under their L1 as a header (never "L1 › L2"); focus lists every choice.
+  const groupOf = (option) => option.parentElement?.tagName === "OPTGROUP" ? option.parentElement.label : "";
+  const shown = () => { const option = select.selectedOptions[0]; return option && option.value !== "" ? option.textContent.trim() : ""; };
+  const render = (all = false) => {
+    const query = all ? "" : input.value.trim().toLocaleLowerCase();
+    const matches = entries().filter((option) => !query || `${groupOf(option)} ${option.textContent}`.toLocaleLowerCase().includes(query)).slice(0, 80);
     list.replaceChildren();
+    let lastGroup = "";
     matches.forEach((option, i) => {
+      const group = groupOf(option);
+      if (group && group !== lastGroup) {
+        const header = document.createElement("div");
+        header.className = "picker-group"; header.setAttribute("role", "presentation"); header.textContent = group;
+        list.append(header);
+      }
+      lastGroup = group;
       const button = document.createElement("button");
       button.type = "button"; button.className = "counterparty-option"; button.setAttribute("role", "option");
       button.id = `${list.id}-${i}`; button.dataset.value = option.value; button.textContent = option.textContent.trim();
@@ -121,9 +133,11 @@ const initOwnDataPickers = (root = document) => {
     list.style.left = `${Math.max(8, rect.left)}px`; list.style.top = `${rect.bottom + 4}px`; list.style.width = `${Math.max(230, rect.width)}px`;
     list.hidden = false; input.setAttribute("aria-expanded", "true"); active = -1;
   };
-  input.value = select.selectedOptions[0]?.textContent.trim() || "";
+  input.value = shown();
   input.addEventListener("input", () => { select.value = ""; input.setCustomValidity(wasRequired ? "Choose an option from the list." : ""); render(); });
-  input.addEventListener("focus", render);
+  // Focus shows every choice and selects the current text, so typing replaces it instead of filtering by it.
+  input.addEventListener("focus", () => { render(true); input.select(); });
+  input.addEventListener("click", () => { if (list.hidden) { render(true); input.select(); } });
   input.addEventListener("keydown", (event) => {
     const options = list.querySelectorAll('[role="option"]');
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
@@ -139,11 +153,11 @@ const initOwnDataPickers = (root = document) => {
       if (target) { event.preventDefault(); choose(Array.from(select.options).find((option) => option.value === target.dataset.value)); }
     } else if (event.key === "Escape") close();
   });
-  select.addEventListener("change", () => { input.value = select.selectedOptions[0]?.textContent.trim() || ""; });
+  select.addEventListener("change", () => { input.value = shown(); });
   const disabledObserver = new MutationObserver(() => { input.disabled = select.disabled; });
   disabledObserver.observe(select, { attributes: true, attributeFilter: ["disabled"] });
   if (wasRequired) { input.setCustomValidity(select.value ? "" : "Choose an option from the list."); select.required = false; }
-  select.form?.addEventListener("reset", () => requestAnimationFrame(() => { input.value = select.selectedOptions[0]?.textContent.trim() || ""; close(); }));
+  select.form?.addEventListener("reset", () => requestAnimationFrame(() => { input.value = shown(); close(); }));
   document.addEventListener("click", (event) => { if (!wrapper.contains(event.target)) close(); });
   });
 
@@ -996,8 +1010,11 @@ if (categoryCatalogueNode) {
     const results = document.getElementById(input.dataset.categoryResults);
     const formId = input.getAttribute("form");
     let activeIndex = -1;
+    // Text that is exactly a category (the row's current choice) lists everything, so the user picks
+    // again instead of first deleting it; only typed text filters.
+    const isChoice = () => categories.some((item) => [item.name, item.label].includes(input.value.trim()));
     const matchesFor = () => {
-      const query = input.value.trim().toLocaleLowerCase().replaceAll("›", " ").replace(/\s+/g, " ");
+      const query = isChoice() ? "" : input.value.trim().toLocaleLowerCase().replaceAll("›", " ").replace(/\s+/g, " ");
       return categories.filter((item) => !query ||
         `${item.parent} ${item.name} ${item.label}`.toLocaleLowerCase().replaceAll("›", " ").replace(/\s+/g, " ").includes(query));
     };
@@ -1063,10 +1080,10 @@ if (categoryCatalogueNode) {
     });
     input.addEventListener("focus", render);
     input.addEventListener("focus", () => {
-      if (input.dataset.autofilled === "true") input.select();
+      if (input.dataset.autofilled === "true" || isChoice()) input.select();
     });
     input.addEventListener("click", () => {
-      if (input.dataset.autofilled === "true") input.select();
+      if (input.dataset.autofilled === "true" || isChoice()) { input.select(); render(); }
     });
     input.addEventListener("keydown", (event) => {
       const options = [...results.querySelectorAll(".category-option")];

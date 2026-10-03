@@ -891,16 +891,22 @@ def test_thndr_can_be_where_a_transfer_went(omar):
     assert "THNDR" in _review_choices(omar.notes["review"], "transfer_account_id_")
 
 
-@known_gap("A new row's category starts as the choice \"Uncategorized\", which he must delete before typing")
 def test_an_unanswered_category_starts_empty(omar):
+    # Nothing to delete before choosing: an empty "Choose a category"; "Uncategorized" is still a choice.
     form = omar.notes["review"].form("Post ready rows")
-    assert all(value == "" for name, value in form.fields.items() if name.startswith("category_"))
+    categories = {name: value for name, value in form.fields.items() if name.startswith("category_")}
+    assert categories and all(value == "" for value in categories.values())
+    assert "Uncategorized" in _review_choices(omar.notes["review"], "category_")
 
 
-@known_gap("Category choices show only the last name: two \"Transportation\" with no Personal or Work before them")
-def test_category_choices_name_their_group(omar):
-    choices = _review_choices(omar.notes["review"], "category_")
-    assert "Personal › Transportation" in choices and "Work › Transportation" in choices
+def test_category_choices_sit_under_their_group(omar):
+    # Guideline 3.6: the L1 as a header with its categories under it, never "L1 › L2".
+    html = omar.notes["review"].html
+    select = html[html.index('name="category_'):]
+    select = select[:select.index("</select>")]
+    groups = dict(re.findall(r'<optgroup label="([^"]+)">(.*?)</optgroup>', select, re.S))
+    assert ">Transportation<" in groups["Personal"] and ">Transportation<" in groups["Work"]
+    assert "›" not in select
 
 
 def test_a_saved_change_says_so_in_a_status_message(omar):
