@@ -12,7 +12,7 @@ not know it.
 | [Project Overview](docs/PROJECT_OVERVIEW.md) | **Now and next** (the hand-off, at the top), what Lightning is, the owner's decisions, the questions each screen answers, Omar's test, the UX plan, known gaps, roadmap | You finish any task: always rewrite **Now and next**; record any owner decision |
 | [Architecture](docs/ARCHITECTURE.md) | Module boundaries, financial rules, data model, UI contract, desktop app and encrypted profiles | You change how something is built or calculated |
 | [Glossary](docs/GLOSSARY.md) | One name and one meaning for every term and figure | You add or rename a term or figure |
-| [Brand guideline](docs/BRAND_GUIDELINE.html) | How every screen looks and reads (3.7). Part A is the app, Part B the website. Open it in a browser | The owner gives a new version. The website repo has the same file as `brand-guidelines.html`: change both together |
+| [Brand guideline](docs/BRAND_GUIDELINE.html) | How every screen looks and reads (3.8). Part A is the app, Part B the website. Open it in a browser | The owner gives a new version. The website repo has the same file as `brand-guidelines.html`: change both together |
 | [Changelog](CHANGELOG.md) | Every change, newest first under `Unreleased` | Every change you push |
 
 - Do not add new files under `docs/`. Put the content in one of the files above.
