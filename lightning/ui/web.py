@@ -21,6 +21,7 @@ from lightning.bootstrap import Container
 from lightning.core.dates import fmt_date, month_of, today
 from lightning.core.errors import NotFoundError
 from lightning.core.figures import FIGURES
+from lightning.core.memo import request_cache
 from lightning.core.money import ZERO, fmt
 
 UI_DIR = Path(__file__).parent
@@ -183,6 +184,20 @@ PERIOD_KEYS = ("period", "month", "date_from", "date_to")
 PERIOD_COOKIE = "lightning_period"
 
 
+class RequestCache:
+    """Each request computes a repeated figure once (``lightning.core.memo``); a write empties it."""
+
+    def __init__(self, app, state):
+        self.app, self.state = app, state
+
+    async def __call__(self, scope, receive, send):
+        current = getattr(self.state, "container", None) if scope["type"] == "http" else None
+        if current is None:
+            return await self.app(scope, receive, send)
+        with request_cache(current.db):
+            await self.app(scope, receive, send)
+
+
 def create_app(c: Container | None = None) -> FastAPI:
     from .routes import accounts, bank_imports, birdview, budget, categories, counterparties, dashboard, deposits, exports, integrity, investments, physical_items, planning, reserves, search, settings, transactions
 
@@ -229,4 +244,5 @@ def create_app(c: Container | None = None) -> FastAPI:
     async def not_found(request: Request, exc: NotFoundError):
         return render(request, "not_found.html", status_code=404, message=exc.message)
 
+    app.add_middleware(RequestCache, state=app.state)  # outermost, so every page and middleware shares it
     return app

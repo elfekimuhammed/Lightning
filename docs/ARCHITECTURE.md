@@ -147,26 +147,38 @@ The four horizons apply consistently to flow, expense, and position views; the p
 
 XIRR is an annualized money-weighted rate using dated investment cash flows and an ending value. Since-inception XIRR is a separate measure from the selected period's currency return. A period-specific XIRR needs an opening valuation as an initial cash flow. If dates, flows, or ending value are inadequate, show an unavailable reason rather than 0%. Build owned-only cash flows before showing XIRR on the Overview; missing prices must not become invented historical quotes.
 
-**Reporting read performance.** `ReportingService.holdings()` batches account, asset and asset-class metadata once per invocation; `build_investment_report()` likewise loads account and asset metadata once per report call. These maps are request-local, not shared across requests, so there is no stale-data invalidation path after a ledger edit or profile switch. The 319-transfer synthetic report uses six SQL reads, compared with 641 asset point-lookups in the former per-ledger-row pattern. This reduces row-proportional query work but does not meet the end-to-end 500 ms tab target by itself; page-level repeated position/history calculations remain a follow-up.
+**Reporting read performance.** `ReportingService.holdings()` batches account, asset and asset-class metadata once per invocation; `build_investment_report()` likewise loads account and asset metadata once per report call. These maps are request-local, not shared across requests, so there is no stale-data invalidation path after a ledger edit or profile switch. The 319-transfer synthetic report uses six SQL reads, compared with 641 asset point-lookups in the former per-ledger-row pattern. This reduced row-proportional query work; the request cache below removed the page-level repeats.
 
-**Page speed (measured 2026-10-03 from source, not a packaged build).** Server time per tab, median of three, on a 4-vCPU 2.1 GHz container; the WebView2/Chromium window adds about 250–400 ms per page at 4× CPU throttle. "Enc." is SQLCipher keyed as `Database.conn` keys it.
+**Request cache** (`lightning/core/memo.py`, added 2026-10-03). A page asks for the same figure many times: the Overview's position at several dates, every account's share of one ledger scan, the same month's spending for every budget line. `ui/web.py` wraps every request in `request_cache(container.db)`. A read decorated with `@request_cached` then computes each distinct call once per request. Outside a request (tests, workflows, startup), nothing is cached. The rules that keep it safe:
 
-| Tab | 319 txns | 2,239 txns | 2,239 txns, enc. |
-|---|---:|---:|---:|
-| Overview | 204 ms | 571 ms | 913 ms |
-| Budget, All time (the period is remembered) | 446 ms | 4,488 ms | 6,337 ms |
-| Account register | 62 ms | 170 ms | 476 ms |
-| All transactions | 58 ms | 304 ms | 700 ms |
-| Expense analysis, All time | 107 ms | 539 ms | 942 ms |
+- **One request only:** nothing survives to the next click, so a save, an import, a profile switch or midnight can never show an old figure.
+- **Any write empties it:** the memo compares SQLite's `total_changes` on the connection, so a write anywhere in the request, through any service, drops every cached value.
+- **Never inside a transaction:** while `conn.in_transaction` is true the memo neither serves nor stores, so a rolled-back write leaves nothing behind and a workflow always reads its own writes.
+- **Callers get copies:** cached lists, dicts and tuples come back copied (`deep=True` for the investment report, whose dict callers extend), so a caller that edits its result cannot change the next one.
+- **What is cached:** pure reads only, with hashable arguments and dates normalised to `yyyy-mm-dd`: `ReportingService` holdings, net worth, custody by account, held-for-others value, brokerage cash by account, money out by category and first activity date; `PositionService.at`; `build_investment_report`; category tree and look-ups by id; asset classes and assets; accounts. `get(id)` on categories, assets and accounts reads from one cached map per request instead of one query per row.
+- **Guard:** `tests/test_reporting_performance.py` loads Omar's 2026 plus two earlier years and checks, per main tab, a ceiling on SELECT statements. Without the cache every tab is far over it (1,100–7,100 statements). The test also checks that every tab renders byte-identical HTML with and without the cache.
 
-Every tab grows with the ledger. The causes, biggest first:
+**Page speed (2026-10-03, from source).** Server time per tab, median of three, on a 4-vCPU 2.1 GHz container, for a 2,239-transaction ledger (Omar's 2026 plus five earlier years). "Enc." is SQLCipher keyed as `Database.conn` keys it. The WebView2/Chromium window adds about 250–400 ms per page at 4× CPU throttle.
 
-- **The same figures are recomputed within one request.** The Overview calls `PositionService.at()` 14 times and `ReportingService.holdings()` (a full ledger scan) 94 times, because `owned_liquid_cash` → `owned_account_value` → `account_value` and `custody_value_by_account` re-scan the ledger once per account. Budget › All time calls `_rolling_average` about 630 times, each with a fresh `{}` cache; each re-runs `_owned_spending` six times and rebuilds the category tree (`_investment_ids`), about 9,950 SQL statements per page. Investments runs `build_investment_report` 14 times (mostly the six-month sparkline); Expense analysis makes about 14,000 `CategoryService.get` point reads. A prototype per-request memo of these pure reads, cleared at the start of each request, produced byte-identical HTML with the Overview 2.7× and Budget › All time 17× faster (4.5 s → 0.26 s).
-- **`PRAGMA cipher_memory_security = ON`** makes ledger scans 3.2× slower (555 µs vs 173 µs for a full `GROUP BY`) and stays on for the process. Keying and decryption alone cost almost nothing. Turning it off is an owner decision.
-- **Registers summarise every row to show 50.** The account register and All transactions load the whole matching history (1,501 rows for one account) and look up account, category and asset per row in `TransactionService.summarize` (about 6,800 SQL statements). A save is one commit and 15 ms; the reload after it is the slow part.
-- **Smaller:** the profile `Guard` sends `Cache-Control: no-store` for `/static/` too, so each click re-fetches about 0.9 MB (including a 513 KB logo shown at 22 px), which costs only 20–40 ms; legacy browser mode's Google Fonts stylesheet blocks rendering (about 240 ms online, longer offline); routes are `async def` with synchronous database work, so one slow page blocks other requests; the live database uses the rollback journal (`DELETE`, synchronous `FULL`).
+| Tab | Before | After | Enc. before | Enc. after |
+|---|---:|---:|---:|---:|
+| Overview | 507 ms | 163 ms | 962 ms | 237 ms |
+| Budget, All time (the period is remembered) | 4,597 ms | 326 ms | 6,994 ms | 406 ms |
+| Account register | 180 ms | 55 ms | 479 ms | 239 ms |
+| All transactions | 217 ms | 80 ms | 677 ms | 305 ms |
+| Investments | 360 ms | 181 ms | 520 ms | 277 ms |
+| Expense analysis, All time | 461 ms | 297 ms | 921 ms | 368 ms |
 
-**Plan.** (1) A request-scoped memo for pure read functions, bypassed inside `db.transaction()`, so no figure can be stale. (2) Fix the two worst loops: one month-spending map and one category tree per Budget page; holdings computed once and grouped by account. (3) Owner decision on `cipher_memory_security`. (4) Registers: batch lookups and summarise only the rows shown, with the running balance from SQL. (5) Only if still needed: a cache that lasts between clicks, keyed by a database-wide write counter bumped on every `COMMIT` and by `today()`. (6) Long-lived caching for versioned `/static/` files, a small logo, no render-blocking font link. (7) A speed test on the 2,239-transaction ledger against the 500 ms tab target.
+SELECT statements fell from 5,198 to 785 on the Overview, from 9,948 to 1,256 on Budget › All time and from 14,750 to 854 on Expense analysis › All time. The same crawl of 700 pages produced identical HTML with and without the cache.
+
+Also done: `Valuer` checks for the `physical_items` table once instead of on every valuation (639 checks per Overview). The profile `Guard` lets the window keep `/static/` files (`Cache-Control: private, max-age=86400`) while pages stay `no-store`; each launch has a new random port, so a cached file never outlives its launch. The logo is 96 px (5.8 KB) instead of 1,254 px (513 KB).
+
+Still open:
+
+- **`PRAGMA cipher_memory_security = ON`** makes ledger scans 3.2× slower (555 µs vs 173 µs for a full `GROUP BY`) and stays on for the whole process. With it off, the encrypted register and All transactions take about 85 ms instead of 250–320 ms. Turning it off is an owner decision.
+- **Registers still read the whole matching history to show 50 rows** (`ReportingService.register` → `_rows`). Row look-ups now come from the request cache; the next step is to read only the page's rows, with the running balance from SQL.
+- **Smaller:** legacy browser mode's Google Fonts stylesheet in `base.html` blocks rendering (about 240 ms online, longer offline); routes are `async def` with synchronous database work, so one slow page blocks other requests; the live database uses the rollback journal (`DELETE`, synchronous `FULL`).
+- **A cache between clicks** (keyed by a database-wide write counter and `today()`) is not needed at these speeds.
 
 ## Cash planning contract
 

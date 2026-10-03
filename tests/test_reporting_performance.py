@@ -116,3 +116,122 @@ def test_investment_report_does_not_fetch_asset_metadata_per_ledger_row(c, setup
           f"service_ms={small_ms:.1f}/{after_ms:.1f} (12/319 transfers); "
           f"former row lookup loop={legacy_lookup_queries} SQL, {lookup_ms:.1f}ms; "
           f"optimized total queries={after_queries}, former estimated total={after_queries - 1 + legacy_lookup_queries}")
+
+
+# -- the request cache (lightning/core/memo.py) ---------------------------------------------------
+
+def _select_count(c, action):
+    statements = []
+    c.db.conn.set_trace_callback(statements.append)
+    try:
+        result = action()
+    finally:
+        c.db.conn.set_trace_callback(None)
+    return result, sum(sql.lstrip().upper().startswith("SELECT") for sql in statements)
+
+
+def test_a_request_reads_a_figure_once_and_forgets_it_after_a_write(c, setup):
+    from lightning.core.memo import request_cache
+    accounts, cats = setup
+    with request_cache(c.db):
+        first, first_reads = _select_count(c, lambda: c.reporting.net_worth("2026-10-01").total)
+        again, again_reads = _select_count(c, lambda: c.reporting.net_worth("2026-10-01").total)
+        assert first_reads > 0 and again_reads == 0 and again == first
+        c.transactions.record_inflow("2026-10-01", accounts["cib"].id, "1200", cats["EXP.WORK.SALARY"].id)
+        assert c.reporting.net_worth("2026-10-01").total == first + Decimal("1200")
+
+
+def test_nothing_is_cached_inside_a_transaction_so_a_rollback_leaves_nothing_behind(c, setup):
+    from lightning.core.memo import request_cache
+    accounts, cats = setup
+    with request_cache(c.db):
+        before = c.reporting.net_worth("2026-10-01").total
+        try:
+            with c.db.transaction():
+                c.transactions.record_inflow("2026-10-01", accounts["cib"].id, "500", cats["EXP.WORK.SALARY"].id)
+                assert c.reporting.net_worth("2026-10-01").total == before + Decimal("500")
+                raise RuntimeError("roll back")
+        except RuntimeError:
+            pass
+        assert c.reporting.net_worth("2026-10-01").total == before
+
+
+def test_a_caller_that_edits_a_cached_result_does_not_change_the_next_one(c, setup):
+    from lightning.core.memo import request_cache
+    with request_cache(c.db):
+        rows, unvalued = c.reporting.holdings("2026-10-01")
+        count = len(rows)
+        rows.clear()
+        unvalued.append("edited by a caller")
+        again_rows, again_unvalued = c.reporting.holdings("2026-10-01")
+        assert len(again_rows) == count and "edited by a caller" not in again_unvalued
+
+
+def _years_of_history(c, years):
+    """Ordinary activity before Omar's 2026: salary, a cash withdrawal, 20 card and 10 cash payments a month."""
+    import random
+    rnd = random.Random(7)
+    names = {account.name: account.id for account in c.accounts.list()}
+    bank, wallet = names["CIB Payroll"], names["Cash wallet"]
+    cats = {cat.code: cat.id for cat in c.categories.tree()}
+    spend = [cats[code] for code in ("EXP.PERSONAL.FOOD", "EXP.PERSONAL.DINING", "EXP.PERSONAL.TRANSPORT",
+                                     "EXP.PERSONAL.UTILITIES", "EXP.PERSONAL.SHOPPING")]
+    with c.db.transaction():
+        for year in range(2026 - years, 2026):
+            for month in range(1, 13):
+                day = lambda d: f"{year}-{month:02d}-{d:02d}"
+                c.transactions.record_inflow(day(1), bank, "30000", cats["EXP.WORK.SALARY"], "Salary", "Employer")
+                c.transactions.record_transfer(day(2), bank, wallet, "5000", "Cash")
+                for _ in range(20):
+                    c.transactions.record_outflow(day(rnd.randint(3, 28)), bank, str(rnd.randint(50, 900)),
+                                                  rnd.choice(spend), "Card", rnd.choice(["Carrefour", "Uber"]))
+                for _ in range(10):
+                    c.transactions.record_outflow(day(rnd.randint(3, 28)), wallet, str(rnd.randint(20, 300)),
+                                                  rnd.choice(spend[:3]), "Cash", "Kiosk")
+
+
+# Pages, and the most SELECT statements each may run on Omar's 2026 plus two earlier years
+# (about 1,100 transactions). Before the request cache they ran 1,700 to 10,000; repeated
+# figures (positions, ledger scans, month spending, category look-ups) must stay computed once.
+PAGE_READ_BUDGET = {
+    "/": 1200, "/accounts/1": 800, "/transactions": 800, "/budget?period=month": 400,
+    "/budget?period=all": 1500, "/plan": 700, "/investments": 700, "/birdview/expenses?period=all": 1200,
+}
+
+
+def test_main_tabs_read_each_figure_once_and_show_the_same_pages_as_without_the_cache(c, monkeypatch):
+    import contextlib
+    import re
+    from fastapi.testclient import TestClient
+    import lightning.ui.web as web
+    from lightning.samples import load_omar_2026
+
+    monkeypatch.setenv("LIGHTNING_TODAY", "2026-10-02")
+    load_omar_2026(c)
+    _years_of_history(c, 2)
+    app = web.create_app(c)
+    nonce = re.compile(r'nonce="[^"]*"')
+    with TestClient(app) as browser:
+        for path in PAGE_READ_BUDGET:
+            browser.get(path)  # settle anything a first visit records (matched bill payments)
+        cached = {}
+        for path, budget in PAGE_READ_BUDGET.items():
+            statements = []
+            original_conn = type(c.db).conn.fget
+
+            def traced(db, _statements=statements):
+                conn = original_conn(db)
+                conn.set_trace_callback(_statements.append)
+                return conn
+
+            monkeypatch.setattr(type(c.db), "conn", property(traced))
+            response = browser.get(path)
+            monkeypatch.setattr(type(c.db), "conn", property(original_conn))
+            c.db.conn.set_trace_callback(None)
+            reads = sum(sql.lstrip().upper().startswith("SELECT") for sql in statements)
+            assert response.status_code == 200, path
+            assert reads <= budget, f"{path} ran {reads} SELECT statements (budget {budget})"
+            cached[path] = nonce.sub("", response.text)
+        monkeypatch.setattr(web, "request_cache", lambda _db: contextlib.nullcontext())
+        for path in PAGE_READ_BUDGET:
+            assert nonce.sub("", browser.get(path).text) == cached[path], f"{path} differs without the cache"

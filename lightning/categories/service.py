@@ -8,6 +8,7 @@ import re
 
 from lightning.core.codes import path_segment, validate_path_code
 from lightning.core.errors import ConflictError, NotFoundError, ValidationError
+from lightning.core.memo import in_request, request_cached
 from lightning.database.connection import Database
 
 from .domain import MAX_DEPTH, SYSTEM_CODE, Category, CategoryFamily, Direction, IncomeClass, Movement, Scope
@@ -20,6 +21,7 @@ class CategoryService:
         self.repo = CategoryRepository(db)
 
     # -- reading -----------------------------------------------------------
+    @request_cached
     def tree(self, movement: Movement | None = None, active_only: bool = False) -> list[Category]:
         """Activity categories in tree order. Movement is a legacy/reporting filter only."""
         cats = self.repo.list()
@@ -51,8 +53,12 @@ class CategoryService:
             key=lambda c: (self.display_name(c.id).casefold(), c.id),
         )
 
+    @request_cached
+    def _by_id(self) -> dict[int, Category]:
+        return {item.id: item for item in self.repo.list()}
+
     def get(self, category_id: int) -> Category:
-        found = self.repo.get(category_id)
+        found = self._by_id().get(category_id) if in_request() else self.repo.get(category_id)
         if not found:
             raise NotFoundError("Category not found.")
         return found

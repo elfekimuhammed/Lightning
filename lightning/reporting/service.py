@@ -15,6 +15,7 @@ from lightning.assets.service import AssetService
 from lightning.categories.domain import CategoryFamily, IncomeClass, Scope
 from lightning.categories.service import CategoryService
 from lightning.core.dates import fmt_date, parse_date, parse_month, previous_day
+from lightning.core.memo import request_cached
 from lightning.core.money import ZERO, from_e6
 from lightning.money_from_others import MoneyFromOthersService
 from lightning.core.refs import DOC_LABELS, DocType
@@ -159,7 +160,10 @@ class ReportingService:
 
     # -- holdings & net worth ---------------------------------------------
     def holdings(self, as_of: date | str) -> tuple[list[HoldingValue], list[str]]:
-        day = self._day(as_of)
+        return self._holdings(self._day(as_of))
+
+    @request_cached
+    def _holdings(self, day: str) -> tuple[list[HoldingValue], list[str]]:
         result, unvalued = [], []
         # Resolve ledger metadata in batches. The previous loop performed three
         # point reads for every account/asset pair even when many rows shared
@@ -184,7 +188,10 @@ class ReportingService:
         return result, unvalued
 
     def net_worth(self, as_of: date | str) -> NetWorth:
-        day = self._day(as_of)
+        return self._net_worth(self._day(as_of))
+
+    @request_cached
+    def _net_worth(self, day: str) -> NetWorth:
         holdings, unvalued = self.holdings(day)
         by_account: dict[int, tuple[Account, Decimal]] = {}
         roots: dict[str, Group] = {}
@@ -230,7 +237,10 @@ class ReportingService:
 
     def owned_brokerage_cash_by_account(self, as_of: date | str) -> list[dict]:
         """Owned brokerage cash at an account boundary, for reconciled detail views."""
-        day = self._day(as_of)
+        return [dict(row) for row in self._owned_brokerage_cash_by_account(self._day(as_of))]
+
+    @request_cached
+    def _owned_brokerage_cash_by_account(self, day: str) -> list[dict]:
         rows = []
         for account in self.accounts.list(active_only=True):
             if account.account_type != AccountType.BROKERAGE:
@@ -241,6 +251,7 @@ class ReportingService:
             rows.append({"id": account.id, "label": account.label, "value": valuation.value})
         return rows
 
+    @request_cached
     def first_activity_date(self) -> str | None:
         return self.q.first_entry_date()
 
@@ -282,7 +293,10 @@ class ReportingService:
         return sorted(rows, key=lambda row: (row["owner"].casefold(), row["asset_name"].casefold()))
 
     def _money_from_others_value(self, as_of: date | str) -> tuple[Decimal, list[str]]:
-        day = self._day(as_of)
+        return self._money_from_others_value_on(self._day(as_of))
+
+    @request_cached
+    def _money_from_others_value_on(self, day: str) -> tuple[Decimal, list[str]]:
         totals = self.money_from_others.totals_by_account(day)
         total, unvalued = ZERO, []
         for row in totals:
@@ -305,7 +319,10 @@ class ReportingService:
 
     def custody_value_by_account(self, as_of: date | str) -> dict[int, Decimal]:
         """Market value held for others, partitioned by account for gross/owned comparisons."""
-        day = self._day(as_of)
+        return self._custody_value_by_account(self._day(as_of))
+
+    @request_cached
+    def _custody_value_by_account(self, day: str) -> dict[int, Decimal]:
         values: dict[int, Decimal] = {}
         for row in self.money_from_others.totals_by_account(day):
             account = self.accounts.get(row["account_id"])
@@ -410,7 +427,10 @@ class ReportingService:
 
     def money_out_by_category(self, date_from: date | str, date_to: date | str) -> dict[int, Decimal]:
         """Money out per category (positive; refunds reduce it), for the category itself only."""
-        start, end = self._day(date_from), self._day(date_to)
+        return self._money_out_by_category(self._day(date_from), self._day(date_to))
+
+    @request_cached
+    def _money_out_by_category(self, start: str, end: str) -> dict[int, Decimal]:
         totals: dict[int, Decimal] = {}
         for row in self.q.category_totals(start, end):
             if row["effect"] != "OUTFLOW":

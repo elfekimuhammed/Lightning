@@ -74,6 +74,9 @@ def test_host_auth_origin_and_body_limits(tmp_path):
         assert browser.post("/profiles/new", data={"csrf": "invalid"}).status_code == 403
         response = browser.get("/profiles/new")
         assert response.headers["cache-control"] == "no-store"
+        static = browser.get("/static/app.js")
+        assert static.status_code == 200
+        assert static.headers["cache-control"] == "private, max-age=86400"  # app files only; pages stay no-store
         assert response.headers["referrer-policy"] == "same-origin"
         assert "script-src-attr 'none'" in response.headers["content-security-policy"]
         assert "script-src 'self' 'nonce-" in response.headers["content-security-policy"]
