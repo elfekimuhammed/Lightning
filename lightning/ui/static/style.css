@@ -2887,3 +2887,6 @@ a.chart-sankey-label:hover b { color:var(--azure); }
 /* Bulk edit in the selection bar: a 30px picker and its button on one line. */
 .main .selection-tools .bulk-category { display:inline-flex; align-items:center; gap:6px; margin:0; }
 .main .selection-tools .bulk-category :is(input,select):not(#_):not(.x_) { height:30px; min-height:30px; width:220px; font-size:var(--fs-2); }
+/* Guideline 3.8 · the vivid gradient (brand only: the logo and the one special button, Investment planner). */
+:root { --vivid:linear-gradient(135deg,#00995C 0%,#0066FF 100%); }
+.btn.btn-planner { background:var(--vivid)!important; }
