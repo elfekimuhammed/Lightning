@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 
@@ -19,7 +20,8 @@ def test_own_data_fields_use_progressive_type_and_pick_enhancement():
     assert 'root.matches?.(selector) ? [root] : []' in app
     assert 'find("select[data-own-picker]")' in app
     assert "initOwnDataPickers();" in app
-    assert "content.innerHTML = html;\n    initOwnDataPickers(content);" in app
+    # Popup content is enhanced right after it is inserted (other set-up calls may sit in between).
+    assert re.search(r"content\.innerHTML = html;(?:\n[^\n]*){0,3}?\n\s*initOwnDataPickers\(content\);", app)
     assert 'select.dataset.ownPickerReady' in app
     assert 'input.dataset.ownSuggestionsReady' in app
     assert 'setAttribute("role", "combobox")' in app

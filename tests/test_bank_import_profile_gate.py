@@ -23,6 +23,11 @@ def _form_request(body, path):
     }, receive)
 
 
+async def _read_form(request, **limits):
+    # Starlette's form() returns an awaitable wrapper, not a coroutine that asyncio.run accepts.
+    return await request.form(**limits)
+
+
 def test_profile_gate_field_budget_accepts_review_over_former_40k_budget():
     # Eleven controls per row mirrors the review form; ordinary forms remain
     # limited to 2,000 fields while large imports receive a bounded larger cap.
@@ -40,10 +45,10 @@ def test_profile_gate_field_budget_accepts_review_over_former_40k_budget():
     path = "/accounts/1/import/1/confirm"
 
     with pytest.raises(HTTPException) as rejected:
-        asyncio.run(_form_request(body, path).form(max_fields=2_000))
+        asyncio.run(_read_form(_form_request(body, path), max_fields=2_000))
     assert rejected.value.status_code == 400
 
-    parsed = asyncio.run(_form_request(body, path).form(max_fields=_form_field_limit(path)))
+    parsed = asyncio.run(_read_form(_form_request(body, path), max_fields=_form_field_limit(path)))
     assert len(parsed) == row_count * 11
     assert _form_field_limit("/accounts/1/import") == 2_000
 
