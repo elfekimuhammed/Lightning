@@ -283,6 +283,7 @@ Fields never sit in read-only list rows. Arabic text gets `dir="auto"`. Group lo
 - Money in is green with +; money out is ink with −; transfers carry no sign.
 - Avatars are 36px with a 12px radius: rose soft for out, tint growth for in, tint held for transfer.
 - Status is a word with a dot (green, gold, strong rose), or one sentence in an alert.
+- **Feedback messages:** success/status notices use ink text on the growth surface and dismiss after five seconds; errors use ink text on the rose-soft surface and remain until the user corrects the issue or leaves the flow. Mark notices as polite `status` live regions and errors as assertive `alert` live regions; popup and post-save messages follow the same behavior.
 - **Grouped tables (Holdings).** A total row first, then one group per class. Headers are never highlighted: the total and class rows carry no band or tint, only weight. The total has a line-control hairline under it, and a thin hairline separates each class group from the one before. There are no lines between rows inside a group.
 - **One accent per table.** Names are ink links (azure only on hover). Only a gain percentage carries a sign colour; amounts under it are muted. Choices inside a row (Horizon) are a quiet word (Short, Medium, Long, or "Set" in muted) that opens the select when clicked, never coloured badges. Units read as one line with room to breathe: "15,000 unit", the unit in muted meta type.
 - Badges are pills: "925.00 over" on rose soft, "+4.2%" on tint growth.

@@ -13,13 +13,14 @@ from decimal import Decimal, InvalidOperation
 from lightning.categories.domain import Movement
 from lightning.core.dates import now_iso, parse_date
 from lightning.core.errors import ConflictError, LightningError, NotFoundError, ValidationError
+from lightning.core.limits import MAX_CSV_IMPORT_BYTES
 from lightning.core.refs import DocType
 from lightning.transactions.domain import TxnSource
 
 REQUIRED = ("Date", "Amount")
 OPTIONAL = ("Counterparty", "Category", "Notes", "Reference")
 SEPARATE_AMOUNT_FIELDS = ("Inflow", "Outflow")
-MAX_BYTES = 5 * 1024 * 1024
+MAX_BYTES = MAX_CSV_IMPORT_BYTES
 
 
 class _ImportReviewRequired(Exception):
@@ -81,7 +82,7 @@ def _separate_amount(inflow: str, outflow: str) -> str:
 
 def decode_csv(data: bytes) -> tuple[list[str], list[dict[str, str]]]:
     if len(data) > MAX_BYTES:
-        raise ValidationError("CSV files must be 5 MB or smaller.", "file")
+        raise ValidationError("CSV files must be 5 MiB or smaller.", "file")
     try:
         text = data.decode("utf-8-sig")
     except UnicodeDecodeError:

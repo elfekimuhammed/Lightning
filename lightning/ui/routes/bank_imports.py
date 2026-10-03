@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse, PlainTextResponse
 
 from lightning.bank_imports import OPTIONAL, REQUIRED, SEPARATE_AMOUNT_FIELDS, decode_csv
 from lightning.core.errors import LightningError, ValidationError
+from lightning.core.limits import MAX_CSV_MAPPING_REQUEST_BYTES, MAX_IMPORT_REVIEW_REQUEST_BYTES
 from lightning.core.money import fmt
 
 from ..web import container, redirect, render
@@ -154,7 +155,8 @@ async def upload(request: Request, account_id: int):
 @router.post("/{account_id:int}/import/map")
 async def map_columns(request: Request, account_id: int):
     c = container(request)
-    form = await request.form()
+    form = await request.form(max_files=0, max_fields=2_000,
+                              max_part_size=MAX_CSV_MAPPING_REQUEST_BYTES)
     headers = []
     data = b""
     mapping = {}
@@ -206,7 +208,8 @@ async def confirm(request: Request, account_id: int, batch_id: int):
         return redirect(f"/accounts/{account_id}", "Import batch not found for this account.")
     # Starlette defaults to 1,000 form fields. The review has several editable
     # controls per imported row, so size the parser budget to this staged batch.
-    form = await request.form(max_fields=_review_form_max_fields(len(rows)))
+    form = await request.form(max_fields=_review_form_max_fields(len(rows)),
+                              max_part_size=MAX_IMPORT_REVIEW_REQUEST_BYTES)
     decisions = {}
     for row in rows:
         row_id = row["_import_row_id"]

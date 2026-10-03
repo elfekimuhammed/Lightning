@@ -212,8 +212,8 @@ code, .code { font-family: "JetBrains Mono", ui-monospace, "Cascadia Mono", Cons
 .btn.in::before { content: "+"; font-weight: 700; }
 .btn.move::before { content: "⇄"; }
 
-.flash { padding: 10px 14px; border-radius: 8px; margin-bottom: 16px; background: var(--ok-bg); }
-.flash.error { background: var(--warn-bg); color: var(--warn); }
+.flash { padding: 10px 14px; border-radius: 8px; margin-bottom: 16px; background: var(--ok-bg); color: var(--ink); }
+.flash.error { background: var(--rose-soft); color: var(--ink); }
 
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
 th { text-align: left; color: var(--muted); font-weight: 500; font-size: 12.5px; padding: 6px 8px; border-bottom: 1px solid var(--border); }

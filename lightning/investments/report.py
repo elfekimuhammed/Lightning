@@ -69,8 +69,9 @@ def saved_and_invested(flow, money_added: Decimal) -> dict:
 
 def build_investment_report(db, accounts, assets, reporting, start: str, end: str):
     """Return period flows and end positions for the user's own investment portfolio."""
-    investment_account_ids = {a.id for a in accounts.list(active_only=False)
-                              if a.account_type in INVESTMENT_ACCOUNT_TYPES}
+    account_rows = accounts.list(active_only=False)
+    account_by_id = {a.id: a for a in account_rows}
+    investment_account_ids = {a.id for a in account_rows if a.account_type in INVESTMENT_ACCOUNT_TYPES}
     placeholders = ",".join("?" for _ in investment_account_ids)
     if not placeholders:
         return {"new_money": ZERO, "withdrawn": ZERO, "net_money": ZERO,
@@ -85,6 +86,10 @@ def build_investment_report(db, accounts, assets, reporting, start: str, end: st
         f"LEFT JOIN investment_dividend_assets da ON da.transaction_id=t.id "
         f"WHERE t.status='POSTED' AND t.type<>'VAL' AND le.owner_id IS NULL AND le.date<=? "
         f"ORDER BY le.date,t.id,le.line_no", (end,))
+    # Metadata is stable for this read-only report invocation. Loading it once
+    # avoids one SELECT per historical ledger row while keeping all results
+    # local to this report (no cross-request invalidation concerns).
+    asset_by_id = {a.id: a for a in assets.list_assets()}
     # Average cost is retained independently for each account and asset.
     books = defaultdict(lambda: {"units": ZERO, "cost": ZERO, "realized": ZERO})
     movements = defaultdict(Decimal)
@@ -93,7 +98,7 @@ def build_investment_report(db, accounts, assets, reporting, start: str, end: st
     # Use asset metadata by id; account boundaries are determined by account type.
     for row in rows:
         key = (row["owner_id"], row["account_id"], row["asset_id"])
-        asset = assets.get_asset(row["asset_id"])
+        asset = asset_by_id[row["asset_id"]]
         q, amount = from_e6(row["quantity_e6"]), from_e6(row["amount_base_e6"])
         if asset.is_cash:
             if row["account_id"] in investment_account_ids:
@@ -139,7 +144,7 @@ def build_investment_report(db, accounts, assets, reporting, start: str, end: st
     for (owner_id, account_id, asset_id), b in books.items():
         if b["units"] <= ZERO:
             continue
-        asset = assets.get_asset(asset_id)
+        asset = asset_by_id[asset_id]
         valuation = reporting.value_of(asset_id, b["units"], end)
         value = valuation.value
         if value is None:
@@ -153,7 +158,7 @@ def build_investment_report(db, accounts, assets, reporting, start: str, end: st
             total_value += value
             unrealized += value-b["cost"]
         total_cost += b["cost"]
-        holdings.append({"account": accounts.get(account_id).label, "asset": asset.name,
+        holdings.append({"account": account_by_id[account_id].label, "asset": asset.name,
                          "units": b["units"], "cost": b["cost"], "value": value,
                          "realized": b["realized"], "unrealized": None if value is None else value-b["cost"],
                          "price_date": valuation.price_date, "price_source": valuation.source})

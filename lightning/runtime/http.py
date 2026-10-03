@@ -8,14 +8,61 @@ import socket
 import threading
 import time
 from dataclasses import dataclass, field
+import re
 
 import uvicorn
+from starlette.formparsers import MultiPartParser
 from starlette.requests import Request
 from starlette.responses import PlainTextResponse, RedirectResponse
+from lightning.core.limits import (
+    MAX_CSV_IMPORT_BYTES,
+    MAX_CSV_MAPPING_REQUEST_BYTES,
+    MAX_CSV_UPLOAD_REQUEST_BYTES,
+    MAX_IMPORT_REVIEW_FIELDS,
+    MAX_IMPORT_REVIEW_REQUEST_BYTES,
+)
 
-# Below Starlette's 1 MiB upload spool threshold: no uploaded CSV hits a plaintext
-# temporary file. Larger imports need a separately designed in-memory upload path.
+# Ordinary profile requests remain small. Bank-import routes get separate, still
+# bounded allowances so an accepted CSV can reach review without being written
+# to a plaintext temporary file.
 MAX_BODY = 512 * 1024
+MAX_IMPORT_FILE_BYTES = MAX_CSV_IMPORT_BYTES
+MAX_IMPORT_UPLOAD_BODY = MAX_CSV_UPLOAD_REQUEST_BYTES
+MAX_IMPORT_MAP_BODY = MAX_CSV_MAPPING_REQUEST_BYTES
+MAX_IMPORT_CONFIRM_BODY = MAX_IMPORT_REVIEW_REQUEST_BYTES
+MAX_IMPORT_CONFIRM_FIELDS = MAX_IMPORT_REVIEW_FIELDS
+
+
+def request_body_limit(path: str, method: str = "POST") -> int:
+    """Return the bounded request-body allowance for protected-profile routes."""
+    if method != "POST":
+        return MAX_BODY
+    if re.fullmatch(r"/accounts/\d+/import", path):
+        return MAX_IMPORT_UPLOAD_BODY
+    if re.fullmatch(r"/accounts/\d+/import/map", path):
+        return MAX_IMPORT_MAP_BODY
+    if re.fullmatch(r"/accounts/\d+/import/\d+/confirm", path):
+        return MAX_IMPORT_CONFIRM_BODY
+    return MAX_BODY
+
+
+def request_too_large_message(path: str) -> str:
+    if re.fullmatch(r"/accounts/\d+/import(?:/map)?", path):
+        return "CSV files must be 5 MiB or smaller. Choose a smaller CSV and try again."
+    if re.fullmatch(r"/accounts/\d+/import/\d+/confirm", path):
+        return "This import review is too large to submit at once. Split the CSV into smaller files."
+    return "This request is too large."
+
+
+def configure_memory_only_import_uploads() -> None:
+    """Keep Starlette's spooled upload below disk-rollover size for guarded CSVs.
+
+    The profile Guard bounds the only route accepting file parts to 5 MiB plus
+    a small multipart envelope, and rejects files on all other routes. Raising
+    this threshold above that route's complete body size keeps imported bytes
+    in memory instead of allowing SpooledTemporaryFile to roll them to disk.
+    """
+    MultiPartParser.spool_max_size = MAX_IMPORT_UPLOAD_BODY + 1
 
 
 @dataclass
@@ -45,6 +92,14 @@ def body_receiver(body: bytes):
         await asyncio.Event().wait()
 
     return receive
+
+
+def _append_bounded_chunk(chunks: bytearray, incoming: bytes, limit: int) -> bool:
+    """Append only when the combined request body remains within its cap."""
+    if len(chunks) + len(incoming) > limit:
+        return False
+    chunks.extend(incoming)
+    return True
 
 
 class Guard:
@@ -101,6 +156,11 @@ class Guard:
             response = PlainTextResponse("A same-origin form submission is required.", 403)
         if response is not None:
             return await response(scope, receive, secured_send)
+        limit = request_body_limit(request.url.path, request.method)
+        too_large = request_too_large_message(request.url.path)
+        content_length = request.headers.get("content-length")
+        if content_length and content_length.isdecimal() and int(content_length) > limit:
+            return await PlainTextResponse(too_large, 413)(scope, receive, secured_send)
         try:
             chunks = bytearray()
             async with asyncio.timeout(15):
@@ -108,16 +168,17 @@ class Guard:
                     message = await receive()
                     if message["type"] == "http.disconnect":
                         return
-                    chunks.extend(message.get("body", b""))
-                    if len(chunks) > MAX_BODY:
-                        response = PlainTextResponse("Request too large. The current upload limit is 512 KiB.", 413)
+                    if not _append_bounded_chunk(chunks, message.get("body", b""), limit):
+                        response = PlainTextResponse(too_large, 413)
                         return await response(scope, receive, secured_send)
                     if not message.get("more_body", False):
                         break
         except TimeoutError:
             return await PlainTextResponse("Request timed out", 408)(scope, receive, secured_send)
-        scope["state"]["request_body"] = bytes(chunks)
-        await self.app(scope, body_receiver(bytes(chunks)), secured_send)
+        body = bytes(chunks)
+        del chunks
+        scope["state"]["request_body"] = body
+        await self.app(scope, body_receiver(body), secured_send)
 
 
 class Host:

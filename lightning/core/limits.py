@@ -1,0 +1,13 @@
+"""Shared, bounded resource limits used across application layers."""
+
+MAX_CSV_IMPORT_BYTES = 5 * 1024 * 1024
+IMPORT_REQUEST_ENVELOPE_BYTES = 64 * 1024
+MAX_CSV_UPLOAD_REQUEST_BYTES = MAX_CSV_IMPORT_BYTES + IMPORT_REQUEST_ENVELOPE_BYTES
+MAX_CSV_MAPPING_REQUEST_BYTES = ((MAX_CSV_IMPORT_BYTES + 2) // 3) * 4 + IMPORT_REQUEST_ENVELOPE_BYTES
+# Confirmation posts expand a CSV into editable form controls. Twelve fields
+# per row and 600,000 fields cover the current review schema for about 50,000
+# rows; 32 MiB allows those names/values and URL-encoding overhead while keeping
+# Guard's in-memory body and the parser's in-memory form explicitly bounded.
+# Larger reviews remain intentionally capped and should be split into files.
+MAX_IMPORT_REVIEW_REQUEST_BYTES = 32 * 1024 * 1024
+MAX_IMPORT_REVIEW_FIELDS = 600_000

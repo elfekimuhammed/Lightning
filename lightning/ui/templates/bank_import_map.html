@@ -5,7 +5,7 @@
 <section class="card form-card">
   <p>We matched the columns we could. Check the suggestions and adjust them before reviewing transactions. For statements with two amount columns, choose which means money in and which means money out; we’ll combine them into one signed Amount. Your original file is unchanged.</p>
   {% if error %}<p class="flash error">{{ error }}</p>{% endif %}
-  <form method="post" action="/accounts/{{ account.id }}/import/map">
+  <form method="post" enctype="multipart/form-data" action="/accounts/{{ account.id }}/import/map">
     <input type="hidden" name="payload" value="{{ payload }}"><input type="hidden" name="filename" value="{{ filename }}">
     <label>Date <select name="map_Date" required><option value="">Choose date column…</option>{% for h in headers %}<option value="{{ h }}" {{ 'selected' if mapping.get('Date') == h }}> {{ h }}</option>{% endfor %}</select></label>
     <fieldset class="import-amount-model">

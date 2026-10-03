@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 import time
 from contextlib import suppress
 from contextlib import asynccontextmanager
@@ -13,9 +14,36 @@ from starlette.responses import JSONResponse, PlainTextResponse, RedirectRespons
 from lightning.database.backup import list_backups
 from lightning.ui.web import create_app, templates
 
-from .http import Credentials, Guard, body_receiver, equal
+from .http import (MAX_IMPORT_CONFIRM_BODY, MAX_IMPORT_CONFIRM_FIELDS,
+                   MAX_IMPORT_MAP_BODY, Credentials, Guard,
+                   body_receiver, configure_memory_only_import_uploads, equal)
 from .paths import choose_data_root, discover_profiles, resolve_profile
 from .session import ProfileError, ProfileSession
+
+_DEFAULT_FORM_FIELDS = 2_000
+_IMPORT_CONFIRM_FORM_FIELDS = MAX_IMPORT_CONFIRM_FIELDS
+
+
+def _form_field_limit(path: str) -> int:
+    if re.fullmatch(r"/accounts/\d+/import/\d+/confirm", path):
+        return _IMPORT_CONFIRM_FORM_FIELDS
+    return _DEFAULT_FORM_FIELDS
+
+
+def _form_part_limit(path: str) -> int:
+    # The mapping page carries the CSV as base64 in one multipart text field.
+    if re.fullmatch(r"/accounts/\d+/import/map", path):
+        return MAX_IMPORT_MAP_BODY
+    # A large CSV can include a correspondingly long notes cell in one review row.
+    if re.fullmatch(r"/accounts/\d+/import/\d+/confirm", path):
+        return MAX_IMPORT_CONFIRM_BODY
+    return 512 * 1024
+
+
+def _form_file_limit(path: str) -> int:
+    # Only the initial CSV upload route accepts a file part. Rejecting files on
+    # every other form avoids creating spooled temporary files on those routes.
+    return 1 if re.fullmatch(r"/accounts/\d+/import", path) else 0
 
 
 class SessionGate:
@@ -44,7 +72,9 @@ class SessionGate:
                 body = scope["state"]["request_body"]
                 parsed = Request(scope, body_receiver(body))
                 try:
-                    async with parsed.form(max_files=1, max_fields=2000, max_part_size=512*1024) as form:
+                    async with parsed.form(max_files=_form_file_limit(request.url.path),
+                                           max_fields=_form_field_limit(request.url.path),
+                                           max_part_size=_form_part_limit(request.url.path)) as form:
                         token = form.get("csrf" if profile_route else "__session", "")
                         expected = self.session.csrf if profile_route else self.session.token
                         valid = isinstance(token, str) and equal(token, expected)
@@ -61,6 +91,7 @@ class SessionGate:
 
 
 def profile_app(credentials: Credentials, root: Path | str | None = None):
+    configure_memory_only_import_uploads()
     session = ProfileSession(root)
     app = create_app(None)
     app.state.profile_session = session

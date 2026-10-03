@@ -1,5 +1,54 @@
 // Small helpers only — no financial logic lives in the browser.
 
+// Give every server-rendered or dynamically-inserted message the same
+// accessible behavior. Success/status messages are transient; errors stay
+// visible so users can correct the cause or dismiss them through the flow.
+const flashTimers = new WeakMap();
+const initFlashMessages = (root = document, refresh = false) => {
+  const flashes = [
+    ...(root.matches?.(".flash") ? [root] : []),
+    ...root.querySelectorAll(".flash"),
+  ];
+  flashes.forEach((flash) => {
+    const isError = flash.classList.contains("error");
+    flash.setAttribute("role", isError ? "alert" : "status");
+    flash.setAttribute("aria-live", isError ? "assertive" : "polite");
+    flash.setAttribute("aria-atomic", "true");
+    const prior = flashTimers.get(flash);
+    if (prior) clearTimeout(prior);
+    flashTimers.delete(flash);
+    if (isError || !flash.textContent.trim()) return;
+    // Only newly inserted or explicitly refreshed messages get a fresh timer.
+    if (!refresh && flash.dataset.flashReady) return;
+    flash.dataset.flashReady = "1";
+    flashTimers.set(flash, setTimeout(() => {
+      if (flash.isConnected) flash.remove();
+      flashTimers.delete(flash);
+    }, 5000));
+  });
+};
+initFlashMessages();
+const flashObserver = new MutationObserver((changes) => {
+  changes.forEach((change) => {
+    if (change.type === "characterData") {
+      const flash = change.target.parentElement?.closest(".flash");
+      if (flash) initFlashMessages(flash, true);
+      return;
+    }
+    const changedFlash = change.target instanceof Element
+      ? change.target.closest(".flash")
+      : change.target.parentElement?.closest(".flash");
+    if (changedFlash) initFlashMessages(changedFlash, true);
+    change.addedNodes.forEach((node) => {
+      if (node.nodeType === Node.ELEMENT_NODE) initFlashMessages(node, true);
+    });
+  });
+});
+const popupFlashRoot = document.getElementById("app-popup-content");
+if (popupFlashRoot) {
+  flashObserver.observe(popupFlashRoot, { childList: true, subtree: true, characterData: true });
+}
+
 // Own-data fields keep their native submitted value and gain an accessible
 // type-and-pick surface. Popup markup is inserted after startup, so this must
 // be safe to call repeatedly on any subtree.
@@ -1306,6 +1355,7 @@ document.querySelectorAll("[data-counterparty-filter]").forEach((search) => {
   };
   const show = (html, title = "Dialog") => {
     content.innerHTML = html;
+    initFlashMessages(content, true);
     initOwnDataPickers(content);
     const h = content.querySelector("h1, h2, [data-popup-title]");
     if (h) { h.id = "app-popup-title"; dialog.setAttribute("aria-labelledby", h.id); }
@@ -1562,6 +1612,7 @@ document.querySelectorAll("[data-counterparty-filter]").forEach((search) => {
       if (topbar) topbar.after(flash); else document.querySelector("main")?.prepend(flash);
     }
     flash.textContent = success;
+    initFlashMessages(flash, true);
   }
   if (new URLSearchParams(location.search).get("popup") === "1" && location.pathname.startsWith("/transactions/")) {
     baseUrl = location.pathname + location.search.replace(/(?:\?|&)popup=1/, "");

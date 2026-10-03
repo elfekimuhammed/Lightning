@@ -9,6 +9,9 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 ## [Unreleased]
 
 - Added the owner's git workflow rule to `AGENTS.md` and a `CLAUDE.md` that loads it: work on `main`, push every branch, and merge finished branch work into `main`.
+- Improve protected-profile CSV imports: accept source CSVs up to 5 MiB, with separately bounded mapping and review requests; keep unrelated forms at 512 KiB and uploaded bytes in memory (no plaintext temp-file spill). The importer remains CSV-only; PDFs are not supported.
+- Make success/status messages accessible and temporary (five seconds); keep errors visible with ink-on-rose styling. Register balance clipping was not reproduced; the existing horizontally scrollable layout remains unchanged.
+- Batch-load account/asset/class metadata in holdings and investment reports. In the 319-transfer synthetic report, SQL stayed at 6 reads instead of 641 per-row asset lookups; this service-level improvement does not yet establish the <500 ms full-tab goal.
 - Corrected Batch 001 feedback traceability: App Feedback now attributes the 27 existing tickets to El Feki, records unavailable sender emails explicitly, and uses unique sequential Ticket # values 1–27.
 - Added `user feedback/user-feedback-batch-001.md`, a polished and grouped compilation of the 27 current App Feedback submissions, with source-ticket traceability and prioritisation.
 - Replace the app's former bolt mark with the supplied blue-and-teal ribbon logo in the main and profile headers and favicon; use its ICO conversion for the Windows executable. Package workflow artifacts now contain the named distributable ZIP and its SHA-256 file rather than only the loose app folder.

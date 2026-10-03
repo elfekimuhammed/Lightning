@@ -58,8 +58,8 @@
   </aside>
   <main class="main">
     <div class="topbar">{% set back = back_url(request) %}{% if back %}<a class="btn page-back" href="{{ back }}" aria-label="Back to the page you came from"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>Back</a>{% endif %}<div>{% block heading %}{% endblock %}</div><div class="actions">{% block top_actions %}{% endblock %}</div></div>
-    {% if msg %}<div class="flash">{{ msg }}</div>{% endif %}
-    {% if error %}<div class="flash error">{{ error }}</div>{% endif %}
+    {% if msg %}<div class="flash" role="status" aria-live="polite" aria-atomic="true">{{ msg }}</div>{% endif %}
+    {% if error %}<div class="flash error" role="alert" aria-live="assertive" aria-atomic="true">{{ error }}</div>{% endif %}
     {% block content %}{% endblock %}
   </main>
 </div>

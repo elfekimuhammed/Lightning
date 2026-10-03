@@ -161,14 +161,20 @@ class ReportingService:
     def holdings(self, as_of: date | str) -> tuple[list[HoldingValue], list[str]]:
         day = self._day(as_of)
         result, unvalued = [], []
+        # Resolve ledger metadata in batches. The previous loop performed three
+        # point reads for every account/asset pair even when many rows shared
+        # the same account, asset, or class.
+        accounts = {item.id: item for item in self.accounts.list()}
+        assets = {item.id: item for item in self.assets.list_assets()}
+        classes = {item.id: item for item in self.assets.list_classes()}
         for row in self.q.holdings(day):
             quantity = from_e6(row["quantity_e6"])
             if quantity == ZERO:
                 continue
-            account = self.accounts.get(row["account_id"])
-            asset = self.assets.get_asset(row["asset_id"])
+            account = accounts[row["account_id"]]
+            asset = assets[row["asset_id"]]
             class_id = account.cash_class_id if asset.is_cash else asset.asset_class_id
-            asset_class = self.assets.get_class(class_id)
+            asset_class = classes[class_id]
             valuation = self.valuer.value(asset, quantity, day)
             if valuation.value is None:
                 unvalued.append(f"{account.label} — {valuation.reason}")
@@ -182,11 +188,12 @@ class ReportingService:
         holdings, unvalued = self.holdings(day)
         by_account: dict[int, tuple[Account, Decimal]] = {}
         roots: dict[str, Group] = {}
+        classes_by_code = {item.code: item for item in self.assets.list_classes()}
         for h in holdings:
             value = h.value or ZERO
             acc, total = by_account.get(h.account.id, (h.account, ZERO))
             by_account[h.account.id] = (acc, total + value)
-            root = self.assets.get_class_by_code(h.asset_class_code.split(".")[0])
+            root = classes_by_code[h.asset_class_code.split(".")[0]]
             group = roots.setdefault(root.code, Group(root.code, root.name, ZERO))
             group.value += value
             if h.asset_class_code != root.code:

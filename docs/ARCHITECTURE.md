@@ -147,6 +147,8 @@ The four horizons apply consistently to flow, expense, and position views; the p
 
 XIRR is an annualized money-weighted rate using dated investment cash flows and an ending value. Since-inception XIRR is a separate measure from the selected period's currency return. A period-specific XIRR needs an opening valuation as an initial cash flow. If dates, flows, or ending value are inadequate, show an unavailable reason rather than 0%. Build owned-only cash flows before showing XIRR on the Overview; missing prices must not become invented historical quotes.
 
+**Reporting read performance.** `ReportingService.holdings()` batches account, asset and asset-class metadata once per invocation; `build_investment_report()` likewise loads account and asset metadata once per report call. These maps are request-local, not shared across requests, so there is no stale-data invalidation path after a ledger edit or profile switch. The 319-transfer synthetic report uses six SQL reads, compared with 641 asset point-lookups in the former per-ledger-row pattern. This reduces row-proportional query work but does not meet the end-to-end 500 ms tab target by itself; page-level repeated position/history calculations remain a follow-up.
+
 ## Cash planning contract
 
 `lightning/planning/` owns planned items (`planned_items`) and their settled payments (`planned_payments`). It reads the ledger, budget and reserves through their services and never posts on its own; recording a payment goes through `TransactionService` like any other entry.
@@ -287,7 +289,7 @@ Start with bounded local candidate lists and a small result limit. If size or me
 - **Cookie names** differ per instance, so demo and real instances don't overwrite each other.
 - **Headers:** `no-store` responses and a nonce-based script CSP. There are no inline event attributes.
 - **Referrers:** `Referrer-Policy` is same-origin. `no-referrer` would turn same-origin POSTs into `Origin: null`; only the launch exchange uses no-referrer.
-- **Uploads:** a streamed cap of 512 KiB per request, below the multipart spool threshold, so no plaintext temp file is ever written.
+- **Uploads:** ordinary protected-profile POSTs remain capped at 512 KiB. The CSV import route accepts at most 5 MiB of source CSV (plus a bounded multipart envelope); its base64 column-mapping request and expanded review confirmation have separate, bounded limits. Starlette's multipart spool threshold is raised just above the guarded upload-body limit, keeping uploaded CSV bytes in memory rather than writing plaintext temp files. The CSV parser still enforces the 5 MiB source-file cap. PDFs are not accepted or parsed by this flow. If these limits change, retain route-specific body/field bounds and verify that the spooled upload does not roll to disk.
 - **No outside requests:** fonts are local in profile mode and HTTP access logs are off. Logs never hold query strings, form values, amounts, names, tokens or key material.
 
 **Window** (`lightning/desktop/window.py`).
