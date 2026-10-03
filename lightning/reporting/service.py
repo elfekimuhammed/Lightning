@@ -187,6 +187,22 @@ class ReportingService:
                                        valuation.source))
         return result, unvalued
 
+    def stale_prices(self, as_of: date | str, days: int = 62) -> list[dict]:
+        """Holdings valued from a price older than ``days`` (about two months): honest numbers need a
+        recent price. Cash, holdings valued at what you paid and certificates (valued at principal)
+        are left out: there is no market price to update. One entry per asset, oldest first."""
+        day = self._day(as_of)
+        cutoff = fmt_date(parse_date(day) - timedelta(days=days))
+        stale: dict[int, dict] = {}
+        for holding in self.holdings(day)[0]:
+            if (holding.price_date is None or holding.price_source in ("CASH", "COST")
+                    or holding.asset_class_code.startswith("DEPOSIT") or holding.price_date >= cutoff):
+                continue
+            asset = self.assets.get_asset(holding.asset_id)
+            stale.setdefault(holding.asset_id, {"asset_id": holding.asset_id, "name": asset.name,
+                                                "price_date": holding.price_date})
+        return sorted(stale.values(), key=lambda row: (row["price_date"], row["name"]))
+
     def net_worth(self, as_of: date | str) -> NetWorth:
         return self._net_worth(self._day(as_of))
 

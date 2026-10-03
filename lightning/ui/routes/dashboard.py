@@ -149,6 +149,14 @@ async def dashboard(request: Request):
         attention.append({"label": "Cash may run short",
                           "detail": f"The cash forecast ends {lowest.month} at {fmt(lowest.closing)} {c.base_currency}.",
                           "href": "/plan", "priority": 1})
+    # Honest numbers: a holding priced more than two months ago is shown at an old value.
+    stale = c.reporting.stale_prices(today())
+    if stale:
+        named = ", ".join(f"{row['name']} ({row['price_date']})" for row in stale[:2])
+        more = f" and {len(stale) - 2} more" if len(stale) > 2 else ""
+        attention.append({"label": "Prices are out of date",
+                          "detail": f"Last priced: {named}{more}. Values use these old prices.",
+                          "href": "/investments/prices", "action": "Update prices", "priority": 2})
     current_budget = c.budgets.month_view(month_of(today()))
     for section in current_budget.sections:
         if section.planned_actual > section.available:

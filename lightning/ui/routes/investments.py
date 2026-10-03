@@ -392,7 +392,8 @@ async def holding_detail(request: Request, asset_id: int):
                                  [("Price change", h.unrealized or ZERO), ("Gain from sales", h.realized),
                                   ("Dividends and interest", h.dividends)],
                                  ("Value plus what it paid you", h.cost_basis + total_return))
-    return render(request,"investments/holding.html",h=h,asset=asset,bucket=bucket,horizon=horizon,day=day,
+    stale_price=any(row["asset_id"]==asset_id for row in c.reporting.stale_prices(day))
+    return render(request,"investments/holding.html",h=h,asset=asset,bucket=bucket,horizon=horizon,day=day,stale_price=stale_price,
                   journey=journey, gain_pct=gain_pct, total_return=total_return, breakdown=breakdown,
                   xirr_pct=h.xirr * 100 if h.xirr is not None and held_a_year else None,
                   start=start,period_realized=h.realized-(previous.realized if previous else ZERO),

@@ -945,6 +945,12 @@ def test_an_emergency_target_above_his_cash_is_flagged(omar):
     assert omar.answers["emergency_target"].shows("more than the cash you own")
 
 
+def test_old_prices_are_flagged_and_fresh_ones_are_not(omar):
+    # Honest numbers: a year on, his fund, shares and gold still carry September 2026 prices.
+    assert omar.answers["all_time"].shows("Prices are out of date", "Update prices")
+    assert not omar.answers["position"].shows("Prices are out of date")   # priced the same evening
+
+
 def test_the_savings_rate_for_all_time(omar):
     assert omar.answers["all_time"].figure("Savings rate All time") == D("50.3")
 
