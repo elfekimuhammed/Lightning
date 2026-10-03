@@ -289,6 +289,7 @@ def _first_evening(o: Omar) -> None:
         "destination_account_id": Choose("CIB Payroll")}, button="Record CD purchase")
     o.ask("accounts", "Are all six accounts in, with the right balances?", "Manage accounts")
     o.ask("opening", "I typed 1/7. Did the starting balances go in on 1 July?", "Vodafone Cash")
+    o.ask("setup", "My accounts are in. What should I do next?")
 
     # Three months of CIB from the bank's CSV.
     b.go("CIB Payroll", "Import CSV")
@@ -621,7 +622,7 @@ def route(omar, key):
 def test_an_empty_lightning_says_where_to_start(omar):
     answer = omar.answers["start"]
     assert route(omar, "start") == ["/"]
-    assert answer.shows("Where do you keep your money?", "Bank", "Brokerage", "Physical asset")
+    assert answer.shows("Where do you keep your money?", "Bank account", "Certificates", "Brokerage", "Gold and other things")
 
 
 def test_six_accounts_with_their_balances(omar):
@@ -630,6 +631,15 @@ def test_six_accounts_with_their_balances(omar):
     assert answer.figure("Total balance") == D("141700")
     for name in ("CIB Payroll", "Cash wallet", "Vodafone Cash", "THNDR", "NBE 3-year certificate", "Gold at home"):
         assert answer.shows(name)
+
+
+def test_the_overview_says_what_to_set_up_next_and_then_gets_out_of_the_way(omar):
+    setup = omar.answers["setup"]
+    assert route(omar, "setup") == ["/"]
+    # Accounts and history are in (the NBE certificate purchase is his first record); salary, the
+    # emergency fund and the budget are next, each one click away.
+    assert setup.shows("Get set up", "2 of 5 done", "Add your salary and bills", "Set an emergency fund", "Make a budget")
+    assert not omar.answers["needs_you"].shows("Get set up")  # all five done by October
 
 
 def test_dates_typed_as_day_and_month_become_full_dates(omar):

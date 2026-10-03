@@ -25,6 +25,7 @@
     {% else %}<p class="chart-empty">Add your recurring bills, subscriptions, income and loans on <a href="/plan/recurring">Recurring</a> to see what is coming.</p>{% endif %}</section>
 </div></section>
 
+{% if has_income %}
 <header class="overview-section-head inv-head" id="plan-forecast"><h2>Where is my cash heading?</h2><span>The last {{ p.heading.labels|length - f.months|length if p.heading.labels else 0 }} month ends, then the next {{ f.months|length }}</span></header>
 <section class="card wide-card"><div class="overview-split">
   <section><div class="overview-block-head"><div><h3>Free cash, then the forecast</h3><p>Solid: what it was · dashed: the forecast{% if f.lowest %} · lowest {{ f.lowest.closing|money }} in {{ f.lowest.month }}{% endif %}</p></div></div>
@@ -38,6 +39,11 @@
     </table></div></details></section>
 </div></section>
 
+{% else %}
+<header class="overview-section-head inv-head" id="plan-forecast"><h2>Where is my cash heading?</h2><span>Today</span></header>
+<section class="card wide-card empty-state"><p>Add your salary and bills to see where your cash is heading. Lightning forecasts from what you expect to come in and go out; with nothing planned it would only be guessing.</p><div class="actions"><a class="btn primary" href="/plan/recurring">Add salary and bills</a></div></section>
+
+{% endif %}
 <header class="overview-section-head inv-head"><h2>What is promised?</h2><span>Today</span></header>
 <section class="card wide-card"><div class="overview-split">
   <section><div class="overview-block-head"><div><h3>{{ fig.what_you_owe.label }}</h3><p>Bills already due and loans</p></div></div>

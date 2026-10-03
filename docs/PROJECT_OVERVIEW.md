@@ -299,7 +299,7 @@ From a full UX review on 2026-10-03: Omar's year at a 1,366 × 768 window (the P
 
 **Next, by impact:**
 
-1. **First run.** A "Get set up" card in Needs you until done: accounts → import a statement → salary and bills (from Looks recurring) → emergency fund → budget. The welcome adds "Import a statement" and the CD type; Import CSV moves out of More actions to a visible button. Plan shows "Add your salary and bills to see this" instead of a forecast from no data.
+1. ~~**First run.**~~ Done 2026-10-03: a "Get set up" card on the Overview until five steps are done; the welcome lists certificates and uses real icons; a new bank account leads with Import a statement; Plan shows an empty state instead of a forecast from no income.
 2. **Import review, one decision per name.** Group rows by counterparty name ("SEOUDI MARKET · 30 rows"), one Counterparty / Category / Transfer pick per group, rows collapsed under it; one counterparty control instead of two; "Held for" offers only people; the button says what it posts ("Post 114 rows") and undecided rows stay in review; a "Discard this import" action. Today a 300-row file is a 68,763px page.
 3. ~~**The category picker.**~~ Done 2026-10-03: focus lists every choice under its L1 header and selects the current text; the import starts on an empty "Choose a category".
 4. **Bulk edit.** When rows are selected, a bar offers Set category, Set counterparty, Delete, Export.

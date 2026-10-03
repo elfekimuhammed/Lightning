@@ -5,6 +5,12 @@
 {% block content %}
 {% from "partials/charts.html" import stat_tiles, donut, trend, waterfall, column_waterfall, sankey, month_calendar as month_cal %}
 {% if period_error %}<p class="flash error">{{ period_error }}</p>{% endif %}
+{% if setup %}{% set done = setup|selectattr("done")|list|length %}
+<section class="card setup-card" aria-labelledby="setup-heading">
+  <div class="card-head"><div><h2 id="setup-heading">Get set up</h2><p>{{ done }} of {{ setup|length }} done · each step makes the Overview more useful</p></div></div>
+  <div class="overview-inline-list">{% for step in setup %}{% if step.done %}<div class="overview-action-row setup-step is-done"><span><b>{{ step.label }}</b><small>{{ step.detail }}</small></span><span class="status-word"><i class="dot dot-in"></i>Done</span></div>{% else %}<a class="overview-action-row setup-step" href="{{ step.href }}"><span><b>{{ step.label }}</b><small>{{ step.detail }}</small></span><span>{{ step.action }}</span></a>{% endif %}{% endfor %}</div>
+</section>
+{% endif %}
 {% if attention %}
 <details class="card needs-you" aria-labelledby="needs-heading">
   <summary><span class="needs-you-dot" aria-hidden="true"></span><b id="needs-heading">Needs you</b><span class="needs-you-count">{{ attention|length }}</span><small>{{ attention[0].label }}{% if attention|length > 1 %} and {{ attention|length - 1 }} more{% endif %}</small></summary>

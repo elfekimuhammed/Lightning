@@ -105,19 +105,21 @@ async def plan_page(request: Request):
     next_payments = [p for p in c.planning.all_payments(window_end, day)
                      if p.status in (PaymentStatus.DUE, PaymentStatus.UPCOMING)]
     plan = visuals.cash_plan(c, forecast, day)
-    stats = _plan_stats(forecast, plan, day)
-    return render(request, "planning/plan.html", tabs=TABS, plan_tab="plan", forecast=forecast, owe=owe,
+    # Honest numbers (A01): with no income planned there is nothing to forecast from.
+    has_income = bool(c.planning.items((PlanKind.INCOME,)))
+    stats = _plan_stats(forecast, plan, day, has_income)
+    return render(request, "planning/plan.html", tabs=TABS, plan_tab="plan", forecast=forecast, owe=owe, has_income=has_income,
                   notes=[], plan=plan, stats=stats, forecast_chart=visuals.forecast_trend(forecast),
                   next_payments=next_payments, as_of=fmt_date(day), window_end=fmt_date(window_end),
                   has_items=bool(c.planning.items()), labels=_labels(c))
 
 
-def _plan_stats(f, plan, day) -> list[dict]:
+def _plan_stats(f, plan, day, has_income: bool = True) -> list[dict]:
     """Four cards: safe to spend, free cash, what is due before the next income, the lowest point ahead."""
     until = f.next_income_date
     days = (parse_date(until) - day).days if until else 90
     per_day = f.safe_to_spend / days if days > 0 and f.safe_to_spend > 0 else None
-    low = f.lowest
+    low = f.lowest if has_income else None
     nxt = plan["before_income"][0] if plan["before_income"] else None
     return [
         {"key": "safe", "surface": "hold", "label": label("safe_to_spend"), "value": f.safe_to_spend, "kind": "money",
