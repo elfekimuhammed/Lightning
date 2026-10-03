@@ -1,6 +1,6 @@
-"""Write Omar's 2026 sample: one CSV per account, 1 January to 2 October 2026.
+"""Write Mohab's 2026 sample: one CSV per account, 1 January to 2 October 2026.
 
-    python -m lightning.samples.generate_omar_2026
+    python -m lightning.samples.generate_mohab_2026
 
 The numbers are fixed (a seeded random generator), so the files only change when this script does.
 Bank, cash and wallet accounts use Lightning's bank CSV format (Date, Amount, Counterparty, Category,
@@ -16,7 +16,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 from pathlib import Path
 
-HERE = Path(__file__).parent / "omar_2026"
+HERE = Path(__file__).parent / "mohab_2026"
 FIRST, LAST = date(2026, 1, 1), date(2026, 10, 2)
 MONTHS = [date(2026, m, 1) for m in range(1, 10)]
 
@@ -34,7 +34,7 @@ TRAVEL = "Personal › Travel"
 FEES = "Personal › Fees & Charges"
 LOAN = "System › Loan payments"
 HELD = "System › Money Held for Others"
-INTERNAL = "Internal transfer"   # money moving between Omar's own accounts
+INTERNAL = "Internal transfer"   # money moving between Mohab's own accounts
 
 
 def money(value) -> str:

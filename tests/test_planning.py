@@ -169,7 +169,7 @@ def test_overview_lists_due_bills_under_needs_you(c, setup, monkeypatch):
 
 def test_a_due_bill_inside_a_budget_is_not_counted_twice(c, setup, monkeypatch):
     # Rent is due and unpaid: it comes off free cash as a bill due, so it must not also be
-    # budget still to spend (Omar, 2026-10-06: Safe to spend was 12,000 too low).
+    # budget still to spend (Mohab, 2026-10-06: Safe to spend was 12,000 too low).
     monkeypatch.setenv("LIGHTNING_TODAY", "2026-10-06")
     accounts, cats = setup
     housing = c.categories.get_by_code("EXP.PERSONAL.HOUSING")

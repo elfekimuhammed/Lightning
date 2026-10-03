@@ -1,6 +1,6 @@
-"""Sample data people can load to try Lightning without their own: Omar's 2026, one CSV per account.
+"""Sample data people can load to try Lightning without their own: Mohab's 2026, one CSV per account.
 
-The files live in ``lightning/samples/omar_2026`` (``generate_omar_2026.py`` writes them):
+The files live in ``lightning/samples/mohab_2026`` (``generate_mohab_2026.py`` writes them):
 
 - ``accounts.csv``: the six accounts and their 1 January balances.
 - ``cib-payroll.csv``, ``cash-wallet.csv``, ``vodafone-cash.csv``: bank CSV format. They load through
@@ -11,7 +11,7 @@ The files live in ``lightning/samples/omar_2026`` (``generate_omar_2026.py`` wri
 - ``thndr.csv``: buys, a sale and a dividend; ``gold-at-home.csv``: the gold pieces; ``prices.csv``:
   month-end prices, which drive the revaluations.
 
-``load_omar_2026`` fills an empty Lightning with all of it, then adds the plan (budget, emergency
+``load_mohab_2026`` fills an empty Lightning with all of it, then adds the plan (budget, emergency
 fund, recurring bills, the car loan), the same way the screens would.
 """
 from __future__ import annotations
@@ -23,14 +23,14 @@ from pathlib import Path
 from lightning.core.dates import fmt_date, today
 from lightning.core.errors import NotFoundError
 
-OMAR_2026 = Path(__file__).parent / "omar_2026"
+MOHAB_2026 = Path(__file__).parent / "mohab_2026"
 BANK_FILES = ("cib-payroll.csv", "cash-wallet.csv", "vodafone-cash.csv")   # in this order
 FILES = ("accounts.csv", "nbe-3-year-certificate.csv", *BANK_FILES, "thndr.csv", "gold-at-home.csv", "prices.csv")
 GOLD_PRICES = {"GOLD21": "REF:GLD-21K", "GOLD24": "REF:GLD-24K"}
 
 
 def rows(name: str) -> list[dict[str, str]]:
-    with open(OMAR_2026 / name, newline="", encoding="utf-8") as f:
+    with open(MOHAB_2026 / name, newline="", encoding="utf-8") as f:
         return list(csv.DictReader(f))
 
 
@@ -50,7 +50,7 @@ def import_bank_file(c, account_id: int, name: str) -> dict:
     """Import one bank-format sample file the way Import CSV does, posting every ready row.
 
     Returns the import summary; a row that is not ready is an error in the sample."""
-    data = (OMAR_2026 / name).read_bytes()
+    data = (MOHAB_2026 / name).read_bytes()
     batch_id, _ = c.bank_imports.stage(account_id, name, data)
     _, staged = c.bank_imports.preview(batch_id)
     waiting = [row for row in staged if not row["_ready"]]
@@ -62,8 +62,8 @@ def import_bank_file(c, account_id: int, name: str) -> dict:
     return result
 
 
-def load_omar_2026(c, as_of: date | None = None) -> dict:
-    """Fill an empty Lightning with Omar's 2026. Returns a short summary for messages."""
+def load_mohab_2026(c, as_of: date | None = None) -> dict:
+    """Fill an empty Lightning with Mohab's 2026. Returns a short summary for messages."""
     if c.accounts.list():
         raise ValueError("The 2026 sample can only be added to an empty Lightning.")
     day = as_of or today()

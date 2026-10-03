@@ -168,7 +168,7 @@ def test_a_caller_that_edits_a_cached_result_does_not_change_the_next_one(c, set
 
 
 def _years_of_history(c, years):
-    """Ordinary activity before Omar's 2026: salary, a cash withdrawal, 20 card and 10 cash payments a month."""
+    """Ordinary activity before Mohab's 2026: salary, a cash withdrawal, 20 card and 10 cash payments a month."""
     import random
     rnd = random.Random(7)
     names = {account.name: account.id for account in c.accounts.list()}
@@ -190,7 +190,7 @@ def _years_of_history(c, years):
                                                   rnd.choice(spend[:3]), "Cash", "Kiosk")
 
 
-# Pages, and the most SELECT statements each may run on Omar's 2026 plus two earlier years
+# Pages, and the most SELECT statements each may run on Mohab's 2026 plus two earlier years
 # (about 1,100 transactions). Before the request cache they ran 1,700 to 10,000; repeated
 # figures (positions, ledger scans, month spending, category look-ups) must stay computed once.
 PAGE_READ_BUDGET = {
@@ -204,10 +204,10 @@ def test_main_tabs_read_each_figure_once_and_show_the_same_pages_as_without_the_
     import re
     from fastapi.testclient import TestClient
     import lightning.ui.web as web
-    from lightning.samples import load_omar_2026
+    from lightning.samples import load_mohab_2026
 
     monkeypatch.setenv("LIGHTNING_TODAY", "2026-10-02")
-    load_omar_2026(c)
+    load_mohab_2026(c)
     _years_of_history(c, 2)
     app = web.create_app(c)
     nonce = re.compile(r'nonce="[^"]*"')
@@ -238,10 +238,10 @@ def test_main_tabs_read_each_figure_once_and_show_the_same_pages_as_without_the_
 
 
 def test_a_register_page_reads_only_its_rows_and_matches_the_full_register(c, monkeypatch):
-    from lightning.samples import load_omar_2026
+    from lightning.samples import load_mohab_2026
 
     monkeypatch.setenv("LIGHTNING_TODAY", "2026-10-02")
-    load_omar_2026(c)
+    load_mohab_2026(c)
     _years_of_history(c, 1)
     for account_id in [account.id for account in c.accounts.list()] + [None]:
         for start, end in (("1900-01-01", "9999-12-31"), ("2026-03-01", "2026-08-31"), ("2030-01-01", "2030-12-31")):

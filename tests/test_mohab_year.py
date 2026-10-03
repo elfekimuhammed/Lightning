@@ -1,6 +1,6 @@
-"""Omar's year, through the screens only: the reference workflow in docs/PROJECT_OVERVIEW.md.
+"""Mohab's year, through the screens only: the reference workflow in docs/PROJECT_OVERVIEW.md.
 
-Omar is 31, salaried, in Cairo. He starts with an empty Lightning on 30 September 2026, sets up the
+Mohab is 31, salaried, in Cairo. He starts with an empty Lightning on 30 September 2026, sets up the
 last three months, and then lives a year in it: October 2026 to September 2027. He only does what a
 person can do in the app: open pages, follow links, fill in the forms on the page and press their
 buttons (tests/screens.py). Along the way he asks the questions a salaried person asks. Each one is
@@ -10,7 +10,7 @@ for that question checks both the route he took and what the page told him.
 A question the app answers wrongly today is a strict expected failure. When the fix lands it fails
 as an unexpected pass, and the marker and the Overview's "Today" column must change together.
 
-What Omar's test focuses on. Omar is a real Egyptian user, not a tester: he judges Lightning by whether
+What Mohab's test focuses on. Mohab is a real Egyptian user, not a tester: he judges Lightning by whether
 he gets the right answer quickly, with as little effort and as few words to decode as possible.
 Lightning ships as a Windows app (a WebView2 window over the same pages), so every check is a screen
 he would see there.
@@ -27,7 +27,7 @@ he would see there.
 - Clarity: plain words and numbers a person can read (no "System", no −1,351.7%), the date or period
   every figure belongs to, and a warning when something cannot work as planned.
 - UI: compact rows, readable messages, and layouts that work in the app window and on a phone.
-User feedback (the "user feedback" folder) is added here as steps Omar takes: fixed points are
+User feedback (the "user feedback" folder) is added here as steps Mohab takes: fixed points are
 checked as answers, open ones are strict expected failures. Speed and look are judged on a real PC
 and in a browser; this file covers what the screens can show.
 """
@@ -74,7 +74,7 @@ class Answer:
         return money(self.screen.after(label))
 
 
-class Omar:
+class Mohab:
     """One user and his browser tab."""
 
     def __init__(self, c):
@@ -246,7 +246,7 @@ def _statement() -> bytes:
     return ("Date,Description,Amount\n" + "\n".join(f'{d},{t},"{a}"' for d, t, a in rows) + "\n").encode()
 
 
-# What Omar answers for each imported name: (counterparty, category, transfer to, held for). None = skip.
+# What Mohab answers for each imported name: (counterparty, category, transfer to, held for). None = skip.
 IMPORT_DECISIONS = {
     "ACME EGYPT PAYROLL": ("ACME Egypt", "Salary", None, None),
     "CARREFOUR MAADI": ("Carrefour", "Food & Groceries", None, None),
@@ -268,7 +268,7 @@ IMPORT_DECISIONS = {
 }
 
 
-def _first_evening(o: Omar) -> None:
+def _first_evening(o: Mohab) -> None:
     """30 September 2026: an empty Lightning, the last three months set up."""
     b = o.b
     o.on("2026-09-30")
@@ -380,7 +380,7 @@ def _first_evening(o: Omar) -> None:
     o.ask("checks", "Is my data right?", "Settings", "Data checks")
 
 
-def _live_the_year(o: Omar) -> None:
+def _live_the_year(o: Mohab) -> None:
     b = o.b
     _first_evening(o)
 
@@ -520,7 +520,7 @@ def _live_the_year(o: Omar) -> None:
     _exercise_cash_ownership(o)
 
 
-def _exercise_cash_ownership(o: Omar) -> None:
+def _exercise_cash_ownership(o: Mohab) -> None:
     """Use the account workflow to assign part of the cash to Mom, then record an expense she paid."""
     o.on("2027-09-30")
     b = o.b
@@ -558,9 +558,9 @@ def _year_statement() -> bytes:
     return ("Date,Value date,Description,Reference,Debit,Credit,Balance\n" + "\n".join(rows) + "\n").encode()
 
 
-def _the_feedback_round(o: Omar) -> None:
+def _the_feedback_round(o: Mohab) -> None:
     """30 September 2027, after the year's answers are read: the pain points users reported in
-    user feedback/user-feedback-batch-001.md, walked through by Omar. Nothing here changes an answer above."""
+    user feedback/user-feedback-batch-001.md, walked through by Mohab. Nothing here changes an answer above."""
     b = o.b
     # Reports: All time, a past month, and what is a snapshot of today.
     b.go()
@@ -610,14 +610,14 @@ def _the_feedback_round(o: Omar) -> None:
 
 
 @pytest.fixture(scope="module")
-def omar(tmp_path_factory):
+def mohab(tmp_path_factory):
     pinned = os.environ.get("LIGHTNING_TODAY")
     with pytest.MonkeyPatch.context() as patch:
-        # Records are stamped with the day Omar made them, not the day the test runs.
+        # Records are stamped with the day Mohab made them, not the day the test runs.
         patch.setattr(dates, "_local_now", lambda: datetime.combine(dates.today(), time(12), timezone.utc))
-        c = build(tmp_path_factory.mktemp("omar") / "omar.db")
+        c = build(tmp_path_factory.mktemp("mohab") / "mohab.db")
         try:
-            person = Omar(c)
+            person = Mohab(c)
             _live_the_year(person)
             yield person
         finally:
@@ -625,274 +625,274 @@ def omar(tmp_path_factory):
             os.environ["LIGHTNING_TODAY"] = pinned or ""
 
 
-# ------------------------------------------------------------------ what Omar found, question by question
+# ------------------------------------------------------------------ what Mohab found, question by question
 # Each test: the route from the Overview, then what the page told him.
 
-def route(omar, key):
+def route(mohab, key):
     """The pages he went through, without the period each one remembered in its address."""
-    return [step.split("?")[0] for step in omar.answers[key].trail]
+    return [step.split("?")[0] for step in mohab.answers[key].trail]
 
 
-def test_an_empty_lightning_says_where_to_start(omar):
-    answer = omar.answers["start"]
-    assert route(omar, "start") == ["/"]
+def test_an_empty_lightning_says_where_to_start(mohab):
+    answer = mohab.answers["start"]
+    assert route(mohab, "start") == ["/"]
     assert answer.shows("Where do you keep your money?", "Bank account", "Certificates", "Brokerage", "Gold and other things")
 
 
-def test_six_accounts_with_their_balances(omar):
-    answer = omar.answers["accounts"]
-    assert route(omar, "accounts") == ["/", "/accounts"]
+def test_six_accounts_with_their_balances(mohab):
+    answer = mohab.answers["accounts"]
+    assert route(mohab, "accounts") == ["/", "/accounts"]
     assert answer.figure("Total balance") == D("141700")
     for name in ("CIB Payroll", "Cash wallet", "Vodafone Cash", "THNDR", "NBE 3-year certificate", "Gold at home"):
         assert answer.shows(name)
 
 
-def test_the_overview_says_what_to_set_up_next_and_then_gets_out_of_the_way(omar):
-    setup = omar.answers["setup"]
-    assert route(omar, "setup") == ["/"]
+def test_the_overview_says_what_to_set_up_next_and_then_gets_out_of_the_way(mohab):
+    setup = mohab.answers["setup"]
+    assert route(mohab, "setup") == ["/"]
     # Accounts and history are in (the NBE certificate purchase is his first record); salary, the
     # emergency fund and the budget are next, each one click away.
     assert setup.shows("Get set up", "2 of 5 done", "Add your salary and bills", "Set an emergency fund", "Make a budget")
-    assert not omar.answers["needs_you"].shows("Get set up")  # all five done by October
+    assert not mohab.answers["needs_you"].shows("Get set up")  # all five done by October
 
 
-def test_dates_typed_as_day_and_month_become_full_dates(omar):
-    assert omar.answers["opening"].shows("2026-07-01")
+def test_dates_typed_as_day_and_month_become_full_dates(mohab):
+    assert mohab.answers["opening"].shows("2026-07-01")
 
 
-def test_the_import_posts_what_he_decided_and_skips_the_card_payment(omar):
-    assert omar.notes["import"].shows("42 posted · 1 skipped · 0 duplicates")
+def test_the_import_posts_what_he_decided_and_skips_the_card_payment(mohab):
+    assert mohab.notes["import"].shows("42 posted · 1 skipped · 0 duplicates")
 
 
-def test_what_he_owns_leaves_out_moms_money(omar):
-    position = omar.answers["position"]
-    assert route(omar, "position") == ["/"]
+def test_what_he_owns_leaves_out_moms_money(mohab):
+    position = mohab.answers["position"]
+    assert route(mohab, "position") == ["/"]
     assert position.shows("Excludes money held for others")
     assert position.figure("What you own Excludes money held for others") == D("250565")  # reports show whole pounds
     assert position.figure("Gold") == D("57195")  # 8 g + 4.3 g of 21K at 4,650
-    moms = omar.answers["moms_money"]
-    assert route(omar, "moms_money") == ["/", "/money-from-others"]
+    moms = mohab.answers["moms_money"]
+    assert route(mohab, "moms_money") == ["/", "/money-from-others"]
     assert moms.shows("Mom CIB Payroll 10,000.00")
 
 
-def test_what_he_owes_and_when_the_car_is_paid_off(omar):
-    answer = omar.answers["owe"]
-    assert route(omar, "owe") == ["/", "/plan/loans"]
+def test_what_he_owes_and_when_the_car_is_paid_off(mohab):
+    answer = mohab.answers["owe"]
+    assert route(mohab, "owe") == ["/", "/plan/loans"]
     assert answer.figure("Loans still to pay") == D("52500")
     assert answer.shows("Paid off on 2028-06-05", "3 of 24 payments made")
 
 
-def test_safe_to_spend_until_payday(omar):
-    answer = omar.answers["safe"]
-    assert route(omar, "safe") == ["/", "/plan"]
+def test_safe_to_spend_until_payday(mohab):
+    answer = mohab.answers["safe"]
+    assert route(mohab, "safe") == ["/", "/plan"]
     assert answer.figure("Safe to spend until 2026-10-01") == D("51354")
 
 
-def test_free_cash_shows_what_was_taken_off(omar):
-    answer = omar.answers["free_cash"]
+def test_free_cash_shows_what_was_taken_off(mohab):
+    answer = mohab.answers["free_cash"]
     assert answer.shows("Cash you own 72,663 Reserves −20,000 Emergency fund 20,000")
     assert answer.figure("Free cash After reserves and bills due Cash planning") == D("52663")
 
 
-def test_september_spending_by_category(omar):
-    answer = omar.answers["where"]
-    assert route(omar, "where") == ["/", "/birdview/expenses"]
+def test_september_spending_by_category(mohab):
+    answer = mohab.answers["where"]
+    assert route(mohab, "where") == ["/", "/birdview/expenses"]
     assert answer.shows("Money out 23,390 EGP Against 2026-08 −1,364", "Housing & Rent 12,000 · 51%")
 
 
-def test_the_budget_says_what_is_over(omar):
-    answer = omar.answers["plan"]
-    assert route(omar, "plan") == ["/", "/budget"]
+def test_the_budget_says_what_is_over(mohab):
+    answer = mohab.answers["plan"]
+    assert route(mohab, "plan") == ["/", "/budget"]
     assert answer.shows("Categories over plan 2 Transportation, Food & Groceries")
 
 
-def test_investments_lead_with_the_periods_result(omar):
-    answer = omar.answers["investing"]
-    assert route(omar, "investing") == ["/", "/investments"]
+def test_investments_lead_with_the_periods_result(mohab):
+    answer = mohab.answers["investing"]
+    assert route(mohab, "investing") == ["/", "/investments"]
     assert answer.shows("Net gain or loss 2026-09 +5,673")
 
 
-def test_data_checks_pass_after_setup(omar):
-    assert route(omar, "checks") == ["/", "/settings", "/checks"]
-    assert omar.answers["checks"].shows("Passed 8 Needs attention 0")
+def test_data_checks_pass_after_setup(mohab):
+    assert route(mohab, "checks") == ["/", "/settings", "/checks"]
+    assert mohab.answers["checks"].shows("Passed 8 Needs attention 0")
 
 
-def test_adding_an_investment_confirms_it_by_name(omar):
-    message = omar.notes["new_fund"].text
+def test_adding_an_investment_confirms_it_by_name(mohab):
+    message = mohab.notes["new_fund"].text
     assert "Azimut money market fund" in message and "FND:AZMM" not in message
 
 
-def test_needs_you_lists_the_bills_that_are_due(omar):
-    answer = omar.answers["needs_you"]
+def test_needs_you_lists_the_bills_that_are_due(mohab):
+    answer = mohab.answers["needs_you"]
     assert answer.shows("Bill due: Landlord", "Loan payment due: Car loan")
 
 
-def test_paying_from_the_overview_moves_net_worth_only_by_the_salary(omar):
-    before = omar.answers["needs_you"].figure("Net worth Excludes money held for others")
-    after = omar.answers["paid_from_overview"].figure("Net worth Excludes money held for others")
+def test_paying_from_the_overview_moves_net_worth_only_by_the_salary(mohab):
+    before = mohab.answers["needs_you"].figure("Net worth Excludes money held for others")
+    after = mohab.answers["paid_from_overview"].figure("Net worth Excludes money held for others")
     assert after - before == D("45000")  # rent and the loan were already owed
-    assert omar.answers["paid_from_overview"].shows("Nothing needs you today")
+    assert mohab.answers["paid_from_overview"].shows("Nothing needs you today")
 
 
-def test_a_mistake_is_fixed_in_place_and_a_double_entry_deleted(omar):
-    register = omar.answers["fixed"]
+def test_a_mistake_is_fixed_in_place_and_a_double_entry_deleted(mohab):
+    register = mohab.answers["fixed"]
     assert register.shows("2026-10-26 Carrefour Food & Groceries −4,060.00")
     assert "−4,600.00" not in register.screen.text
     assert register.screen.text.count("2026-10-10 Talabat") == 1
 
 
-def test_the_atm_fee_is_only_inside_others(omar):
+def test_the_atm_fee_is_only_inside_others(mohab):
     # Four, then Other (guideline 3.6): the fees (the monthly 15 and the ATM's 25) are inside Other, with
     # Eating Out 670, Utilities & Bills 1,480 and Gifts & Donations 2,000.
-    assert omar.answers["atm"].shows("Other 4,190")
+    assert mohab.answers["atm"].shows("Other 4,190")
 
 
-def test_a_refund_lowers_money_out(omar):
-    assert omar.answers["refund"].shows("Money out 32,701 EGP Against 2026-09 +9,311")
+def test_a_refund_lowers_money_out(mohab):
+    assert mohab.answers["refund"].shows("Money out 32,701 EGP Against 2026-09 +9,311")
 
 
 @known_gap("Where did it go? leaves out a category whose only activity is a refund: 34,000 against Money out 32,701")
-def test_where_it_went_adds_up_to_money_out(omar):
-    text = omar.answers["refund"].screen.text
+def test_where_it_went_adds_up_to_money_out(mohab):
+    text = mohab.answers["refund"].screen.text
     table = text[text.find("Show the numbers Category Money out Share"):text.find("Is this period unusual?")]
     assert sum(money(m) for m in re.findall(r"([\d,]+(?:\.\d\d)?) [\d.]+%", table)) == D("32701")
 
 
-def test_a_repair_paid_from_the_emergency_fund(omar):
-    answer = omar.answers["emergency"]
-    assert route(omar, "emergency") == ["/", "/plan", "/plan/reserves"]
+def test_a_repair_paid_from_the_emergency_fund(mohab):
+    answer = mohab.answers["emergency"]
+    assert route(mohab, "emergency") == ["/", "/plan", "/plan/reserves"]
     assert answer.shows("13,500.00 of 270,000.00")
 
 
-def test_checking_october_against_the_bank_balance(omar):
-    answer = omar.answers["reconcile"]
-    assert route(omar, "reconcile") == ["/", "/accounts/1", "/accounts/1/reconcile"]
+def test_checking_october_against_the_bank_balance(mohab):
+    answer = mohab.answers["reconcile"]
+    assert route(mohab, "reconcile") == ["/", "/accounts/1", "/accounts/1/reconcile"]
     assert answer.figure("Difference") == 0
     assert answer.shows("It matches")   # one typed balance, no line-by-line clearing
 
 
-def test_a_dividend_is_listed_under_dividends_collected(omar):
-    assert route(omar, "dividend")[:2] == ["/", "/investments"]
-    assert omar.answers["dividend"].shows("2026-11-20", "Commercial International Bank")
+def test_a_dividend_is_listed_under_dividends_collected(mohab):
+    assert route(mohab, "dividend")[:2] == ["/", "/investments"]
+    assert mohab.answers["dividend"].shows("2026-11-20", "Commercial International Bank")
 
 
 @known_gap("The dividends list shows the date and the share but not how much was paid")
-def test_the_dividends_list_says_how_much(omar):
-    assert omar.answers["dividend"].shows("300.00")
+def test_the_dividends_list_says_how_much(mohab):
+    assert mohab.answers["dividend"].shows("300.00")
 
 
-def test_a_reimbursed_work_expense_leaves_no_spending(omar):
-    text = omar.answers["work"].screen.text
-    assert omar.answers["work"].shows("Money out 23,415 EGP Against 2026-11 0 · 0%")  # the same as November
+def test_a_reimbursed_work_expense_leaves_no_spending(mohab):
+    text = mohab.answers["work"].screen.text
+    assert mohab.answers["work"].shows("Money out 23,415 EGP Against 2026-11 0 · 0%")  # the same as November
     assert "Work" not in text[text.find("Where did it go?"):text.find("Is this period unusual?")]
 
 
-def test_the_bonus_shows_in_money_in(omar):
-    answer = omar.answers["bonus"]
+def test_the_bonus_shows_in_money_in(mohab):
+    answer = mohab.answers["bonus"]
     assert answer.shows("Bonus 90,000")
 
 
-def test_average_monthly_income_ignores_the_bonus_and_counts_early_pay_when_due(omar):
-    assert omar.answers["bonus_budget"].figure("Average monthly income") == D("45000")
+def test_average_monthly_income_ignores_the_bonus_and_counts_early_pay_when_due(mohab):
+    assert mohab.answers["bonus_budget"].figure("Average monthly income") == D("45000")
 
 
-def test_an_early_payday_is_suggested_and_settles_once_confirmed(omar):
-    assert re.search(r"ACME Egypt Income [^+]* 1 due", omar.answers["january_pay"].screen.text)
-    assert not re.search(r"ACME Egypt Income [^+]* \d+ due", omar.answers["january_pay_after"].screen.text)
+def test_an_early_payday_is_suggested_and_settles_once_confirmed(mohab):
+    assert re.search(r"ACME Egypt Income [^+]* 1 due", mohab.answers["january_pay"].screen.text)
+    assert not re.search(r"ACME Egypt Income [^+]* \d+ due", mohab.answers["january_pay_after"].screen.text)
 
 
-def test_a_yearly_bill_is_spread_over_the_months_left(omar):
-    answer = omar.answers["set_aside"]
-    assert route(omar, "set_aside") == ["/", "/plan"]
+def test_a_yearly_bill_is_spread_over_the_months_left(mohab):
+    answer = mohab.answers["set_aside"]
+    assert route(mohab, "set_aside") == ["/", "/plan"]
     assert answer.shows("Saving for goals −2,250")
 
 
-def test_a_raise_waits_for_omar_to_confirm_it(omar):
+def test_a_raise_waits_for_mohab_to_confirm_it(mohab):
     # A different amount is suggested, never matched on its own: he chooses it.
-    assert re.search(r"ACME Egypt Income [^+]* 1 due", omar.answers["raise"].screen.text)
+    assert re.search(r"ACME Egypt Income [^+]* 1 due", mohab.answers["raise"].screen.text)
 
 
-def test_recurring_offers_the_raise_for_later_months(omar):
-    assert omar.notes["raise_offered"]
+def test_recurring_offers_the_raise_for_later_months(mohab):
+    assert mohab.notes["raise_offered"]
 
 
-def test_after_the_raise_the_plan_is_at_50000(omar):
-    assert re.search(r"ACME Egypt Income [^+]*\+50,000\.00", omar.answers["raise_after"].screen.text)
+def test_after_the_raise_the_plan_is_at_50000(mohab):
+    assert re.search(r"ACME Egypt Income [^+]*\+50,000\.00", mohab.answers["raise_after"].screen.text)
 
 
-def test_installments_are_owed_like_a_loan(omar):
-    answer = omar.answers["owe_more"]
+def test_installments_are_owed_like_a_loan(mohab):
+    answer = mohab.answers["owe_more"]
     assert answer.figure("Loans still to pay") == D("61500")
     assert answer.shows("Phone installments", "Last payment 2028-03-15")
 
 
-def test_eid_gifts_given_are_spending_and_gifts_received_are_not(omar):
-    assert omar.answers["eid"].shows("Money out 26,415 EGP", "Gifts & Donations 5,000 · 19%")
+def test_eid_gifts_given_are_spending_and_gifts_received_are_not(mohab):
+    assert mohab.answers["eid"].shows("Money out 26,415 EGP", "Gifts & Donations 5,000 · 19%")
 
 
-def test_a_sale_shows_its_gain_after_fees(omar):
-    answer = omar.answers["sale"]
-    assert route(omar, "sale")[:2] == ["/", "/investments"]   # then the holding itself
+def test_a_sale_shows_its_gain_after_fees(mohab):
+    answer = mohab.answers["sale"]
+    assert route(mohab, "sale")[:2] == ["/", "/investments"]   # then the holding itself
     assert answer.shows("Gain from sales +1,025", "Total return +2,375")  # 7,100 − 75/150 of 12,150
 
 
-def test_the_insurance_is_paid_from_its_goal(omar):
-    assert omar.answers["insurance"].shows("Car insurance", "9,000.00 paid · 0.00 unpaid remainder")
+def test_the_insurance_is_paid_from_its_goal(mohab):
+    assert mohab.answers["insurance"].shows("Car insurance", "9,000.00 paid · 0.00 unpaid remainder")
 
 
-def test_the_rent_rise_is_offered_and_taken(omar):
-    assert omar.answers["rent"].shows("Last paid 13,200.00 Use 13,200.00 from now on")
-    assert omar.answers["rent_after"].shows("Landlord Bill · Housing & Rent 13,200.00")
+def test_the_rent_rise_is_offered_and_taken(mohab):
+    assert mohab.answers["rent"].shows("Last paid 13,200.00 Use 13,200.00 from now on")
+    assert mohab.answers["rent_after"].shows("Landlord Bill · Housing & Rent 13,200.00")
 
 
-def test_the_trip_goal_keeps_what_was_not_spent(omar):
-    text = omar.answers["trip"].screen.text
+def test_the_trip_goal_keeps_what_was_not_spent(mohab):
+    text = mohab.answers["trip"].screen.text
     assert re.search(r"Sahel trip .*?800\.00", text)
 
 
-def test_end_of_service_is_not_monthly_pay(omar):
-    assert omar.answers["end_of_service"].figure("Average monthly income") == D("50000")
+def test_end_of_service_is_not_monthly_pay(mohab):
+    assert mohab.answers["end_of_service"].figure("Average monthly income") == D("50000")
 
 
-def test_between_jobs_the_next_pay_is_the_new_employer(omar):
-    answer = omar.answers["next_pay"]
+def test_between_jobs_the_next_pay_is_the_new_employer(mohab):
+    answer = mohab.answers["next_pay"]
     assert answer.shows("Safe to spend until 2027-10-01", "Valeo 2027-10-01 · Income +55,000")
 
 
-def test_the_emergency_fund_in_months(omar):
-    answer = omar.answers["last"]
+def test_the_emergency_fund_in_months(mohab):
+    answer = mohab.answers["last"]
     assert answer.shows("Emergency fund covers 0.3 months")
 
 
-def test_the_year_on_the_overview(omar):
-    answer = omar.answers["year"]
+def test_the_year_on_the_overview(mohab):
+    answer = mohab.answers["year"]
     assert answer.figure("Savings rate 2026-10-01 to 2027-09-30") == D("50.5")
     assert answer.figure("Change in net worth 2026-10-01 to 2027-09-30") == D("341284")
     assert answer.figure("Loans still to pay") == D("34500")
 
 
-def test_the_years_spending(omar):
-    assert omar.answers["year_spending"].shows("Money out 333,266 EGP", "Housing & Rent 148,800 · 44%")
+def test_the_years_spending(mohab):
+    assert mohab.answers["year_spending"].shows("Money out 333,266 EGP", "Housing & Rent 148,800 · 44%")
 
 
-def test_the_years_investments(omar):
+def test_the_years_investments(mohab):
     # 1,025 from the sale + 225 price change + 300 dividends
-    assert omar.answers["year_investing"].shows("Net gain or loss 2026-10-01 to 2027-09-30 +1,550")
+    assert mohab.answers["year_investing"].shows("Net gain or loss 2026-10-01 to 2027-09-30 +1,550")
 
 
-def test_data_checks_pass_after_a_year(omar):
-    assert omar.answers["year_checks"].shows("Passed 8 Needs attention 0")
+def test_data_checks_pass_after_a_year(mohab):
+    assert mohab.answers["year_checks"].shows("Passed 8 Needs attention 0")
 
 
-def test_cash_ownership_and_external_expense_keep_the_account_total(omar):
-    flow = omar.notes["cash_ownership"]
+def test_cash_ownership_and_external_expense_keep_the_account_total(mohab):
+    flow = mohab.notes["cash_ownership"]
     assert flow["assignment"].shows("Ownership change")
     assert flow["expense"].shows("Expense paid for you", "Food & Groceries", "Mom")
     assert flow["gross_before"] == flow["gross_after_assignment"] == flow["gross_after_expense"]
 
 
 # ------------------------------------------------------------------ what users reported (user feedback, batch 001)
-# The pain points from "user feedback/user-feedback-batch-001.md", met by Omar on his way through the year.
+# The pain points from "user feedback/user-feedback-batch-001.md", met by Mohab on his way through the year.
 # A fixed point is checked like any other answer; one that is still open is a strict expected failure.
 
 def _review_choices(screen: Screen, prefix: str) -> list[str]:
@@ -900,35 +900,35 @@ def _review_choices(screen: Screen, prefix: str) -> list[str]:
     return [label for _, label in screen.form("Post ready rows").options[f"group_{prefix}0"]]
 
 
-def test_leaving_an_import_keeps_it_waiting_on_the_overview(omar):
-    assert route(omar, "import_waiting") == ["/"]
-    assert omar.answers["import_waiting"].shows("Imported activity needs a decision", "cib-jul-sep.csv")
+def test_leaving_an_import_keeps_it_waiting_on_the_overview(mohab):
+    assert route(mohab, "import_waiting") == ["/"]
+    assert mohab.answers["import_waiting"].shows("Imported activity needs a decision", "cib-jul-sep.csv")
 
 
-def test_import_csv_leads_back_to_the_waiting_import(omar):
-    assert omar.notes["import_again"].shows("cib-jul-sep.csv is waiting for you", "Continue the review", "Discard it")
+def test_import_csv_leads_back_to_the_waiting_import(mohab):
+    assert mohab.notes["import_again"].shows("cib-jul-sep.csv is waiting for you", "Continue the review", "Discard it")
 
 
-def test_one_decision_per_name_in_the_import(omar):
+def test_one_decision_per_name_in_the_import(mohab):
     # 43 rows from three months of CIB are 17 names: he answers 17 times, not 43.
-    assert omar.notes["import_decisions"] == 17
+    assert mohab.notes["import_decisions"] == 17
 
 
-def test_thndr_can_be_where_a_transfer_went(omar):
-    assert "THNDR" in _review_choices(omar.notes["review"], "transfer_account_id_")
+def test_thndr_can_be_where_a_transfer_went(mohab):
+    assert "THNDR" in _review_choices(mohab.notes["review"], "transfer_account_id_")
 
 
-def test_an_unanswered_category_starts_empty(omar):
+def test_an_unanswered_category_starts_empty(mohab):
     # Nothing to delete before choosing: an empty "Choose a category"; "Uncategorized" is still a choice.
-    form = omar.notes["review"].form("Post ready rows")
+    form = mohab.notes["review"].form("Post ready rows")
     categories = {name: value for name, value in form.fields.items() if name.startswith("group_category_")}
     assert categories and all(value == "" for value in categories.values())
-    assert "Uncategorized" in _review_choices(omar.notes["review"], "category_")
+    assert "Uncategorized" in _review_choices(mohab.notes["review"], "category_")
 
 
-def test_category_choices_sit_under_their_group(omar):
+def test_category_choices_sit_under_their_group(mohab):
     # Guideline 3.6: the L1 as a header with its categories under it, never "L1 › L2".
-    html = omar.notes["review"].html
+    html = mohab.notes["review"].html
     select = html[html.index('name="group_category_'):]
     select = select[:select.index("</select>")]
     groups = dict(re.findall(r'<optgroup label="([^"]+)">(.*?)</optgroup>', select, re.S))
@@ -936,141 +936,141 @@ def test_category_choices_sit_under_their_group(omar):
     assert "›" not in select
 
 
-def test_a_saved_change_says_so_in_a_status_message(omar):
-    assert re.search(r'class="flash"[^>]*role="status"', omar.notes["prices_saved"].html)
+def test_a_saved_change_says_so_in_a_status_message(mohab):
+    assert re.search(r'class="flash"[^>]*role="status"', mohab.notes["prices_saved"].html)
 
 
 @known_gap("The emergency target (270,000) is far above the cash he owns (72,663) and nothing warns him")
-def test_an_emergency_target_above_his_cash_is_flagged(omar):
-    assert omar.answers["emergency_target"].shows("more than the cash you own")
+def test_an_emergency_target_above_his_cash_is_flagged(mohab):
+    assert mohab.answers["emergency_target"].shows("more than the cash you own")
 
 
-def test_old_prices_are_flagged_and_fresh_ones_are_not(omar):
+def test_old_prices_are_flagged_and_fresh_ones_are_not(mohab):
     # Honest numbers: a year on, his fund, shares and gold still carry September 2026 prices.
-    assert omar.answers["all_time"].shows("Prices are out of date", "Update prices")
-    assert not omar.answers["position"].shows("Prices are out of date")   # priced the same evening
+    assert mohab.answers["all_time"].shows("Prices are out of date", "Update prices")
+    assert not mohab.answers["position"].shows("Prices are out of date")   # priced the same evening
 
 
-def test_the_savings_rate_for_all_time(omar):
-    assert omar.answers["all_time"].figure("Savings rate All time") == D("50.3")
+def test_the_savings_rate_for_all_time(mohab):
+    assert mohab.answers["all_time"].figure("Savings rate All time") == D("50.3")
 
 
-def test_the_overview_says_which_parts_follow_the_period(omar):
-    answer = omar.answers["past_month"]
+def test_the_overview_says_which_parts_follow_the_period(mohab):
+    answer = mohab.answers["past_month"]
     assert answer.shows("Cash flow 2026-10-01 to 2026-10-31", "Investments 2026-10-01 to 2026-10-31",
                         "Month by month 2026-07 to today")
 
 
 @known_gap("Your position follows the chosen period (As of 2026-10-31) instead of staying a snapshot of today")
-def test_your_position_stays_today_whatever_the_period(omar):
-    assert omar.answers["past_month"].shows("Your position As of 2027-09-30")
+def test_your_position_stays_today_whatever_the_period(mohab):
+    assert mohab.answers["past_month"].shows("Your position As of 2027-09-30")
 
 
-def test_where_money_went_folds_small_categories_into_other(omar):
-    assert omar.answers["year"].shows("Other")
+def test_where_money_went_folds_small_categories_into_other(mohab):
+    assert mohab.answers["year"].shows("Other")
 
 
-def test_a_month_of_spending_is_shown_day_by_day(omar):
-    assert omar.answers["where"].shows("Day by day")
+def test_a_month_of_spending_is_shown_day_by_day(mohab):
+    assert mohab.answers["where"].shows("Day by day")
 
 
 @known_gap("A year of spending is still 365 day squares; a long period should be shown month by month")
-def test_a_year_of_spending_is_shown_month_by_month(omar):
-    assert not omar.answers["year_spending"].shows("Day by day")
+def test_a_year_of_spending_is_shown_month_by_month(mohab):
+    assert not mohab.answers["year_spending"].shows("Day by day")
 
 
-def test_categories_say_which_way_money_moves_and_whether_it_repeats(omar):
-    assert omar.answers["categories"].shows("− Expense + Income ± Both Recurring One-off")
+def test_categories_say_which_way_money_moves_and_whether_it_repeats(mohab):
+    assert mohab.answers["categories"].shows("− Expense + Income ± Both Recurring One-off")
 
 
 @known_gap("Categories still opens with the key line \"− expense · + income · ± both\" above controls that say it")
-def test_categories_need_no_sign_key(omar):
-    assert not omar.answers["categories"].shows("− expense · + income · ± both")
+def test_categories_need_no_sign_key(mohab):
+    assert not mohab.answers["categories"].shows("− expense · + income · ± both")
 
 
 @known_gap("The investment planner is a one-off what-if; there is no monthly investing goal to keep")
-def test_a_monthly_investing_goal_is_kept(omar):
-    screen = omar.answers["invest_monthly"].screen
+def test_a_monthly_investing_goal_is_kept(mohab):
+    screen = mohab.answers["invest_monthly"].screen
     assert any("month" in name for form in screen.forms for name in form.fields)
 
 
-def test_selected_rows_can_be_edited_together(omar):
-    assert omar.answers["bulk"].shows("Set category")
-    rows = omar.notes["bulk_rows"]
+def test_selected_rows_can_be_edited_together(mohab):
+    assert mohab.answers["bulk"].shows("Set category")
+    rows = mohab.notes["bulk_rows"]
     assert rows >= 12   # one Talabat order a month, and the doubled one he deleted is gone
-    done = omar.notes["bulk_done"]
+    done = mohab.notes["bulk_done"]
     assert done.shows(f"Food & Groceries is now the category of {rows} rows.")
     assert done.shows("Talabat Food & Groceries") and "Talabat Eating Out" not in done.text
 
 
 @known_gap("A fund can only be valued by its unit price; he cannot type the value THNDR shows")
-def test_a_fund_can_be_valued_by_its_total(omar):
-    assert "value" in omar.answers["fund_value"].screen.field_in_row("Azimut")
+def test_a_fund_can_be_valued_by_its_total(mohab):
+    assert "value" in mohab.answers["fund_value"].screen.field_in_row("Azimut")
 
 
-def test_other_investments_are_in_the_investment_analysis(omar):
-    assert route(omar, "flat") == ["/", "/investments"]
-    assert omar.answers["flat"].shows("Other Investments", "400,000")
+def test_other_investments_are_in_the_investment_analysis(mohab):
+    assert route(mohab, "flat") == ["/", "/investments"]
+    assert mohab.answers["flat"].shows("Other Investments", "400,000")
 
 
 @known_gap("An asset he only knows the worth of (the flat) has no way to record a new value")
-def test_the_flat_can_be_given_a_new_value(omar):
-    assert any("value" in (text or "").casefold() for form in omar.notes["flat_page"].forms for text, *_ in form.buttons)
+def test_the_flat_can_be_given_a_new_value(mohab):
+    assert any("value" in (text or "").casefold() for form in mohab.notes["flat_page"].forms for text, *_ in form.buttons)
 
 
-def test_a_300_row_statement_with_seven_columns_reaches_review(omar):
-    form = omar.notes["big_review"].form("Post ready rows")
+def test_a_300_row_statement_with_seven_columns_reaches_review(mohab):
+    form = mohab.notes["big_review"].form("Post ready rows")
     assert sum(name.startswith("notes_") for name in form.fields) == 300
 
 
-def test_a_review_with_errors_still_has_a_way_on_and_a_way_back(omar):
-    screen = omar.notes["import_error"]
+def test_a_review_with_errors_still_has_a_way_on_and_a_way_back(mohab):
+    screen = mohab.notes["import_error"]
     assert screen.shows("Nothing was imported")
     assert screen.form("Post ready rows")
     assert screen.link("Finish later").href == "/accounts/3"
 
 
-def test_a_waiting_import_can_be_discarded(omar):
-    assert omar.notes["import_error"].shows("Discard this import")
+def test_a_waiting_import_can_be_discarded(mohab):
+    assert mohab.notes["import_error"].shows("Discard this import")
 
 
 @known_gap("The upload takes one CSV at a time")
-def test_several_statements_can_be_uploaded_together(omar):
-    assert re.search(r'<input[^>]*type="file"[^>]*\bmultiple\b', omar.notes["upload_form"].html)
+def test_several_statements_can_be_uploaded_together(mohab):
+    assert re.search(r'<input[^>]*type="file"[^>]*\bmultiple\b', mohab.notes["upload_form"].html)
 
 
-def test_a_small_difference_from_the_bank_is_one_adjustment(omar):
-    check = omar.notes["wallet_check"]
+def test_a_small_difference_from_the_bank_is_one_adjustment(mohab):
+    check = mohab.notes["wallet_check"]
     assert check.shows("A small difference", "Lightning is 30.00 EGP above your bank", "Post adjustment of −30.00")
-    assert omar.notes["wallet_adjusted"].shows("Balance adjustment", "The account now matches your bank")
-    assert omar.notes["wallet_adjusted"].shows("2027-09-30 Balance adjustment Other Personal")
-    assert omar.notes["wallet_rechecked"].shows("It matches")
+    assert mohab.notes["wallet_adjusted"].shows("Balance adjustment", "The account now matches your bank")
+    assert mohab.notes["wallet_adjusted"].shows("2027-09-30 Balance adjustment Other Personal")
+    assert mohab.notes["wallet_rechecked"].shows("It matches")
 
 
-def test_a_big_difference_from_the_bank_is_reviewed_not_adjusted(omar):
-    check = omar.notes["cib_check"]
+def test_a_big_difference_from_the_bank_is_reviewed_not_adjusted(mohab):
+    check = mohab.notes["cib_check"]
     assert check.shows("Too big to adjust", "Review 2027-09 row by row", "Import the statement again")
     assert not any("Post adjustment" in (text or "") for form in check.forms for text, *_ in form.buttons)
     review = check.link("Review 2027-09 row by row").href
     assert review.startswith("/accounts/1?date_from=2027-09-01&date_to=2027-09-30&return_to=/accounts/1/reconcile")
 
 
-def test_settings_prepares_one_owned_ai_analysis_workbook(omar):
+def test_settings_prepares_one_owned_ai_analysis_workbook(mohab):
     from io import BytesIO
     from xml.etree import ElementTree as ET
     from zipfile import ZipFile
 
-    screen = omar.b.go("Settings")
+    screen = mohab.b.go("Settings")
     assert screen.shows("Your data", "Export for AI", "All time", "YTD", "Monthly", "Custom",
                         "Prepare AI analysis", "Prompt for your AI tool", "Copy prompt")
-    screen = omar.b.submit(button="All time", action=r"/settings$")
+    screen = mohab.b.submit(button="All time", action=r"/settings$")
     assert screen.shows("2026-07-01 to 2027-09-30", "transactions", "investment records")
     prompt = screen.html.split('data-ai-prompt', 1)[1].split('>', 1)[1].split('</textarea>', 1)[0]
     prompt = prompt.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
     assert "lightning-analysis-2026-07-01-to-2027-09-30.xlsx" in prompt
     assert "Categories used in the exported activity" in prompt
     form = screen.form(button="Prepare AI analysis", action=r"/settings/ai-analysis")
-    response = omar.b.client.post(form.action, data=form.fields)
+    response = mohab.b.client.post(form.action, data=form.fields)
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     assert 'filename="lightning-analysis-2026-07-01-to-2027-09-30.xlsx"' in response.headers["content-disposition"]

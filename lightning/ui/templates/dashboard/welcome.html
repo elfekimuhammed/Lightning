@@ -28,12 +28,12 @@
 <section class="card demo-card">
   <div class="label">Just looking?</div>
   <h2>See Lightning with a sample household</h2>
-  <p class="muted">Omar's last three months in Cairo: salary, rent and groceries, a THNDR portfolio, gold at home, money kept for his mother, a budget, an emergency fund and a car loan. Everything is sample data; every screen works with it.</p>
+  <p class="muted">Mohab's last three months in Cairo: salary, rent and groceries, a THNDR portfolio, gold at home, money kept for his mother, a budget, an emergency fund and a car loan. Everything is sample data; every screen works with it.</p>
   <form method="post" action="/demo"><button class="btn">Add the sample household</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
-  <h2>Or a full year: Omar's 2026</h2>
+  <h2>Or a full year: Mohab's 2026</h2>
   <p class="muted">January to today, one CSV per account: salary, a bonus and a raise, bills, Ramadan and both Eids, a Sahel trip, THNDR trades and a dividend, gold, and month-end prices. Enough to try every analysis.</p>
-  <form method="post" action="/sample/omar-2026"><button class="btn">Load Omar's 2026</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
-  <p class="muted small">Or download the files and import them yourself with Import CSV, CIB Payroll first: <a href="/samples/omar-2026/accounts.csv">accounts</a> · <a href="/samples/omar-2026/cib-payroll.csv">CIB Payroll</a> · <a href="/samples/omar-2026/cash-wallet.csv">Cash wallet</a> · <a href="/samples/omar-2026/vodafone-cash.csv">Vodafone Cash</a> · <a href="/samples/omar-2026/thndr.csv">THNDR</a> · <a href="/samples/omar-2026/gold-at-home.csv">Gold at home</a> · <a href="/samples/omar-2026/prices.csv">prices</a>.</p>
+  <form method="post" action="/sample/mohab-2026"><button class="btn">Load Mohab's 2026</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
+  <p class="muted small">Or download the files and import them yourself with Import CSV, CIB Payroll first: <a href="/samples/mohab-2026/accounts.csv">accounts</a> · <a href="/samples/mohab-2026/cib-payroll.csv">CIB Payroll</a> · <a href="/samples/mohab-2026/cash-wallet.csv">Cash wallet</a> · <a href="/samples/mohab-2026/vodafone-cash.csv">Vodafone Cash</a> · <a href="/samples/mohab-2026/thndr.csv">THNDR</a> · <a href="/samples/mohab-2026/gold-at-home.csv">Gold at home</a> · <a href="/samples/mohab-2026/prices.csv">prices</a>.</p>
   <p class="muted small">{% if request.state.secure_profiles|default(false) %}This fills this empty profile. Create a separate profile for sample data to keep it apart from your own money.{% else %}This fills this empty Lightning. To keep a demo apart from your own money, start Lightning with <code>--demo</code>; it opens a separate database.{% endif %}</p>
 </section>
 {% endblock %}

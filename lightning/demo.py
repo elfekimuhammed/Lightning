@@ -1,4 +1,4 @@
-"""A sample household for demos: Omar's last three months, dated relative to today.
+"""A sample household for demos: Mohab's last three months, dated relative to today.
 
     python -m lightning --demo        # opens a separate demo database, rebuilt on every start
 
@@ -41,7 +41,7 @@ def _investment(c, name: str, class_code: str, symbol: str):
 
 
 def build_demo(c, as_of: date | None = None) -> dict:
-    """Fill an empty Lightning with Omar's household. Returns a short summary for messages."""
+    """Fill an empty Lightning with Mohab's household. Returns a short summary for messages."""
     if c.accounts.list():
         raise ValueError("The demo household can only be added to an empty Lightning.")
     day = as_of or today()
@@ -100,7 +100,7 @@ def build_demo(c, as_of: date | None = None) -> dict:
         if post_last:
             tx.record_outflow(post_last, cib.id, "1,299", cat["EXP.PERSONAL.SHOPPING"], counterparty="Amazon")
 
-        # Held for others: Mom keeps 10,000 in Omar's CIB account.
+        # Held for others: Mom keeps 10,000 in Mohab's CIB account.
         when = _on(months[1], 10, day)
         if when:
             mom = c.counterparties.resolve("Mom")

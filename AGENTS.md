@@ -9,7 +9,7 @@ not know it.
 
 | File | What it holds | Update it when |
 |---|---|---|
-| [Project Overview](docs/PROJECT_OVERVIEW.md) | **Now and next** (the hand-off, at the top), what Lightning is, the owner's decisions, the questions each screen answers, Omar's test, the UX plan, known gaps, roadmap | You finish any task: always rewrite **Now and next**; record any owner decision |
+| [Project Overview](docs/PROJECT_OVERVIEW.md) | **Now and next** (the hand-off, at the top), what Lightning is, the owner's decisions, the questions each screen answers, Mohab's test, the UX plan, known gaps, roadmap | You finish any task: always rewrite **Now and next**; record any owner decision |
 | [Architecture](docs/ARCHITECTURE.md) | Module boundaries, financial rules, data model, UI contract, desktop app and encrypted profiles | You change how something is built or calculated |
 | [Glossary](docs/GLOSSARY.md) | One name and one meaning for every term and figure | You add or rename a term or figure |
 | [Brand guideline](docs/BRAND_GUIDELINE.html) | How every screen looks and reads (3.8). Part A is the app, Part B the website. Open it in a browser | The owner gives a new version. The website repo has the same file as `brand-guidelines.html`: change both together |
@@ -25,7 +25,7 @@ not know it.
 1. **Start fresh.** `git pull` on `main`. Read **Now and next** at the top of the Project Overview and the newest changelog entries. Read only the other sections your task touches.
 2. **Claim long work.** If the task will take more than one sitting, add a line to **Now and next**: who, what, and which files you are working in. Push that first. Stay out of files another AI has claimed.
 3. **Work in small, finished steps.** Commit and push each step to `main` once its tests pass. Never leave work unpushed.
-4. **Test.** Run the tests for what you changed. For any change a user can see, also run Omar's test (`tests/test_omar_year.py`; section 4 says what it checks) and look at the screen against the brand guideline's A16 checklist.
+4. **Test.** Run the tests for what you changed. For any change a user can see, also run Mohab's test (`tests/test_mohab_year.py`; section 4 says what it checks) and look at the screen against the brand guideline's A16 checklist.
 5. **Write it down.** Add a changelog entry that starts with the date and who you are: `2026-10-03 · Claude:` or `2026-10-03 · Codex:`. Update the files from section 1 that your change touches.
 6. **Hand off.** Rewrite **Now and next** in four short parts: done, in progress (with claimed files), next, and questions for the owner. Then push.
 
@@ -40,9 +40,9 @@ not know it.
 - It ships mainly as a Windows app (a WebView2 window over the same pages, with encrypted profiles). The window has no browser Back, address bar or new tabs, so every page needs its own way forward and back. Linux `--profiles` mode shares the same pages; legacy browser mode (`python -m lightning`) is separate.
 - Profile data and backups live in Documents/Lightning, never in Git or the app ZIP. Use dummy data until ordinary-PC acceptance, legacy import and backup restore are finished.
 
-## 4. Omar's test is the acceptance check
+## 4. Mohab's test is the acceptance check
 
-`tests/test_omar_year.py` is Omar, a 31-year-old salaried user in Cairo, living a full year in Lightning through the screens only. It checks right answers, usability, efficiency, speed, simplicity, clarity and the brand guideline, as written at the top of the file and in the Project Overview. A screen that is wrong today is a strict expected failure (`known_gap`); when you fix it, remove the marker and update the Project Overview. User feedback (the `user feedback` folder) becomes steps Omar takes.
+`tests/test_mohab_year.py` is Mohab, a 31-year-old salaried user in Cairo, living a full year in Lightning through the screens only. It checks right answers, usability, efficiency, speed, simplicity, clarity and the brand guideline, as written at the top of the file and in the Project Overview. A screen that is wrong today is a strict expected failure (`known_gap`); when you fix it, remove the marker and update the Project Overview. User feedback (the `user feedback` folder) becomes steps Mohab takes.
 
 ## 5. Git (owner rule)
 

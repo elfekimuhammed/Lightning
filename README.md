@@ -43,7 +43,7 @@ python.org, with "Add python.exe to PATH" ticked). Your browser opens at `http:/
 
 Options: `python -m lightning --db path\to\file.db --port 9000 --no-browser`
 
-**Try it with sample data:** `python -m lightning --demo` opens Omar's household (three months of
+**Try it with sample data:** `python -m lightning --demo` opens Mohab's household (three months of
 money in and out, investments, gold, a budget, bills, an emergency fund and a car loan, dated up to
 today) at `http://127.0.0.1:8766`. It lives in its own `data/demo.db`, rebuilt on every start, so
 your own database is never touched. An empty Lightning also offers it on the welcome page.

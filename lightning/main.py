@@ -3,7 +3,7 @@
     python -m lightning                 # opens http://127.0.0.1:8765 in your browser
     python -m lightning --db my.db --port 9000 --no-browser
     python -m lightning --demo          # a sample household in its own database, on port 8766
-    python -m lightning --sample        # Omar's 2026 from the sample CSVs, in its own database, on port 8767
+    python -m lightning --sample        # Mohab's 2026 from the sample CSVs, in its own database, on port 8767
 """
 
 from __future__ import annotations
@@ -35,7 +35,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--demo", action="store_true",
                         help="open a sample household in a separate demo database (rebuilt on every start)")
     parser.add_argument("--sample", action="store_true",
-                        help="open Omar's 2026 (loaded from the sample CSVs) in a separate database (rebuilt on every start)")
+                        help="open Mohab's 2026 (loaded from the sample CSVs) in a separate database (rebuilt on every start)")
     args = parser.parse_args(argv)
     if args.demo and args.sample:
         parser.error("choose --demo or --sample, not both")
@@ -82,9 +82,9 @@ def main(argv: list[str] | None = None) -> None:
         summary = build_demo(container)
         print(f"Demo household ready: {summary['accounts']} accounts, {summary['from']} to {summary['to']}.")
     elif sample == "sample":
-        from lightning.samples import load_omar_2026
-        summary = load_omar_2026(container)
-        print(f"Omar's 2026 ready: {summary['rows']} imported rows, {summary['from']} to {summary['to']}.")
+        from lightning.samples import load_mohab_2026
+        summary = load_mohab_2026(container)
+        print(f"Mohab's 2026 ready: {summary['rows']} imported rows, {summary['from']} to {summary['to']}.")
     from lightning.assets.market_data import refresh_market_prices, refresh_reevaluation_prices
 
     try:

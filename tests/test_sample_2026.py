@@ -1,4 +1,4 @@
-"""Omar's 2026 sample: every bank CSV imports through Import CSV with nothing to review, and the
+"""Mohab's 2026 sample: every bank CSV imports through Import CSV with nothing to review, and the
 whole sample loads, reconciles and opens on every tab."""
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from decimal import Decimal
 
 import pytest
 
-from lightning.samples import BANK_FILES, OMAR_2026, load_omar_2026, rows
+from lightning.samples import BANK_FILES, MOHAB_2026, load_mohab_2026, rows
 from lightning.ui.web import create_app
 from screens import Browser, Choose
 
@@ -21,7 +21,7 @@ def on_2_october(monkeypatch):
 
 
 def _lines(name: str) -> int:
-    with open(OMAR_2026 / name, newline="", encoding="utf-8") as f:
+    with open(MOHAB_2026 / name, newline="", encoding="utf-8") as f:
         return sum(1 for _ in csv.DictReader(f))
 
 
@@ -43,7 +43,7 @@ def test_every_bank_csv_imports_every_row_with_nothing_to_review(c, on_2_october
         account = next(r["Name"] for r in rows("accounts.csv") if r["File"] == name)
         b.go(account, "Import CSV")
         page = b.submit({}, button="Review statement",
-                        files={"file": (name, (OMAR_2026 / name).read_bytes(), "text/csv")})
+                        files={"file": (name, (MOHAB_2026 / name).read_bytes(), "text/csv")})
         if page.shows("Match your columns"):   # the headers are Lightning's own, so this should not happen
             pytest.fail(f"{name} asked for its columns to be matched")
         assert page.shows("Needs a decision None."), f"{name}: {page.text[:600]}"
@@ -81,7 +81,7 @@ def test_an_internal_row_whose_account_is_unknown_asks_which_account(c, on_2_oct
 
 
 def test_the_whole_sample_loads_and_adds_up(c, on_2_october):
-    summary = load_omar_2026(c)
+    summary = load_mohab_2026(c)
     assert summary == {"accounts": 6, "rows": sum(_lines(n) for n in BANK_FILES), "from": "2026-01-01",
                        "to": "2026-10-02"}
     day = date(2026, 10, 2)
@@ -104,9 +104,9 @@ def test_the_whole_sample_loads_and_adds_up(c, on_2_october):
 def test_the_welcome_page_loads_the_sample_and_offers_the_files(c, on_2_october):
     b = Browser(create_app(c))
     welcome = b.open("/")
-    assert welcome.shows("Omar's 2026")
+    assert welcome.shows("Mohab's 2026")
     for name in ("accounts.csv", *BANK_FILES, "thndr.csv", "gold-at-home.csv", "prices.csv"):
-        assert b.client.get(f"/samples/omar-2026/{name}").status_code == 200
-    done = b.submit({}, button="Load Omar's 2026")
-    assert done.shows("Omar's 2026 added")
+        assert b.client.get(f"/samples/mohab-2026/{name}").status_code == 200
+    done = b.submit({}, button="Load Mohab's 2026")
+    assert done.shows("Mohab's 2026 added")
     assert len(c.accounts.list()) == 6

@@ -15,9 +15,9 @@ The hand-off between the AIs working here (Codex and Claude sessions). Read it f
 - **Questions for the owner:** none.
 
 - **2026-10-03 · Claude · paused (UX pass, guideline 3.6):** done today: batch 1, the owner's two decisions, category pickers, first run, import review per name, bulk category edit, out-of-date prices, the guideline's fonts and two-leaf logo. **Next, in order:** UX plan items 5 (one name, one number: drop repeated Free cash breakdowns and the Overview column waterfall), 6 (registers as two-line rows), 8 (Reserves table and emergency fund wording), 9 (words and numbers sweep). No files claimed; whoever picks these up claims `lightning/ui/templates/` and `lightning/ui/static/style.css` first.
-- **Done today:** Check against bank replaces line-by-line reconciliation (Claude); cash ownership changes and expenses paid by someone else (Codex); Omar walks through user feedback batch 001 (Claude); the brand guideline is one file, 3.6 (Claude); UX batch 1 (Claude); website: the two-leaf logo everywhere, Version D, and guideline 3.7 for Part B only (Claude).
+- **Done today:** Check against bank replaces line-by-line reconciliation (Claude); cash ownership changes and expenses paid by someone else (Codex); Mohab walks through user feedback batch 001 (Claude); the brand guideline is one file, 3.6 (Claude); UX batch 1 (Claude); website: the two-leaf logo everywhere, Version D, and guideline 3.7 for Part B only (Claude).
 - **2026-10-03 · Codex · done:** Settings › Your data can prepare one local AI-analysis workbook for All time, YTD, Monthly or Custom. It contains Lightning's summary, owned transaction lines, reevaluation checkpoints and the category hierarchy; the matching editable prompt is copied when possible. Lightning never uploads the data.
-- **Figure bugs found, not yet fixed (calculation, not presentation):** an "Other" asset account (Omar's flat, 400,000) is counted as brokerage cash and as holdings, so "Holdings value" reads 472,053 in one place and 172,053 in another, and "Brokerage cash" 700 vs 400,700; recording an asset you already had counts as Change in net worth (+374,288); Safe to spend on the day before payday ignores bills due right after it.
+- **Figure bugs found, not yet fixed (calculation, not presentation):** an "Other" asset account (Mohab's flat, 400,000) is counted as brokerage cash and as holdings, so "Holdings value" reads 472,053 in one place and 172,053 in another, and "Brokerage cash" 700 vs 400,700; recording an asset you already had counts as Change in net worth (+374,288); Safe to spend on the day before payday ignores bills due right after it.
 - **2026-10-03 · Claude · done:** speed. A request cache makes every main tab compute each figure once: Budget › All time went from 7.0 s to 0.41 s, and the Overview from 0.96 s to 0.24 s, on an encrypted 2,239-transaction profile; static files are cached in the PC window and the logo is 5.8 KB (details under **Request cache** and **Page speed** in [Architecture](ARCHITECTURE.md#wealth-history-and-performance)). No files claimed.
 - **Fixed (was red on `main` since `d80c77c`):** `tests/test_figures.py`. The new Planned and Left in plan wording is now in the registry (`lightning/core/figures.py`) and the Glossary is regenerated from it (Claude, picker commit).
 - **2026-10-03 · Claude · done:** registers read only the 50 rows shown (encrypted register 37 ms, All transactions 39 ms on 2,239 transactions); SQLCipher freed-memory wiping is off (owner decision). No files claimed.
@@ -72,7 +72,7 @@ Every number comes from one of three layers, and each screen says which:
 - **Cash ownership:** from an account register, reassign cash between yourself and a saved person without changing gross account cash, or record an expense paid externally on your behalf. The latter remains an owned expense for budget and spending reports while attributing the same cash share to the payer.
 - **Every page:** months are picked from a month picker, never typed. Up to three key notes under the title give the page's answer in one sentence, and one set of charts follows the brand guideline.
 - **Desktop preview:** `Lightning.exe` on Windows (no Python needed), or `python -m lightning --profiles` on Linux. You get named profiles, each encrypted and opened with a password, with a recovery key shown once at setup. Use dummy data until the beta: legacy import and backup restore aren't in the UI yet.
-- **Demo:** `python -m lightning --demo`, or "See Lightning with a sample household" on an empty welcome page, opens Omar's last three months in a separate database.
+- **Demo:** `python -m lightning --demo`, or "See Lightning with a sample household" on an empty welcome page, opens Mohab's last three months in a separate database.
 
 ## Period and fixed-horizon visuals
 
@@ -92,7 +92,7 @@ A sparkline never follows the period. It is a quick "where is this heading" besi
 
 Each tab answers one main question first, then its natural follow-ups. **Partial** and **Missing** mark the gaps.
 
-**What Omar's test should do.** `tests/test_omar_year.py` is the acceptance check for every question here. Omar (below) is a real Egyptian salaried user, and the test judges Lightning the way he would, in the Windows WebView2 app:
+**What Mohab's test should do.** `tests/test_mohab_year.py` is the acceptance check for every question here. Mohab (below) is a real Egyptian salaried user, and the test judges Lightning the way he would, in the Windows WebView2 app:
 
 - **Right answers:** every figure reconciles across tabs and stays right after a year of real life.
 - **Usability:** each question is answered by starting at the Overview and clicking through. The route is checked; a dead end, a missing way back or a lost half-done task fails.
@@ -102,7 +102,7 @@ Each tab answers one main question first, then its natural follow-ups. **Partial
 - **Clarity:** plain words and readable numbers (no "System", no −1,351.7%), the date or period of every figure, and a warning when a plan cannot work.
 - **UI:** compact rows, readable messages, and layouts that fit the app window and a phone.
 
-User feedback becomes steps Omar takes: fixed points are checked as answers, open ones are strict expected failures. Speed and look are also judged on a real PC, because the test sees only what the screens show.
+User feedback becomes steps Mohab takes: fixed points are checked as answers, open ones are strict expected failures. Speed and look are also judged on a real PC, because the test sees only what the screens show.
 
 | Screen | Main question | Leads with |
 |---|---|---|
@@ -137,8 +137,8 @@ User feedback becomes steps Omar takes: fixed points are checked as answers, ope
 | Will I run short? | Cash forecast with its lowest point; Overview warns | Answered (3 months fixed) |
 | Is my salary late? | — | Left out by decision |
 | Can I afford this purchase now? | Safe to spend, before and after a new reserve | Partial: no "what if I buy it" check |
-| Does an early payday count twice? | Recurring shows a plausible early payment; once Omar confirms it, the January plan is settled and the average attributes it to January, while the bank-date cash-flow report stays unchanged | Answered with confirmation (Omar step 18) |
-| I have no salary this month: how long until the next one? | Safe to spend until the next scheduled income | Answered (Omar step 27) |
+| Does an early payday count twice? | Recurring shows a plausible early payment; once Mohab confirms it, the January plan is settled and the average attributes it to January, while the bank-date cash-flow report stays unchanged | Answered with confirmation (Mohab step 18) |
+| I have no salary this month: how long until the next one? | Safe to spend until the next scheduled income | Answered (Mohab step 27) |
 
 **3. Where did my money go?**
 
@@ -149,7 +149,7 @@ User feedback becomes steps Omar takes: fixed points are checked as answers, ope
 | How much did I keep? | Savings rate (Net flow ÷ Money in) | Answered |
 | What do subscriptions cost a year? | Cash planning › Recurring | Answered |
 | A merchant or a few categories I care about? | No saved watchlist | Missing |
-| A refund came back: did my spending go down? | It reduces the category in the month the refund arrives, not the month of the purchase | Partial (Omar step 13) |
+| A refund came back: did my spending go down? | It reduces the category in the month the refund arrives, not the month of the purchase | Partial (Mohab step 13) |
 | How much did I spend on work that my employer owes me back? | Work categories; the reimbursement is a refund in the same category | Partial: nothing lists what is still unreimbursed |
 | How much went in fees and bank charges this year? | Expense analysis › Fees & Charges, YTD | Answered |
 
@@ -162,8 +162,8 @@ User feedback becomes steps Omar takes: fixed points are checked as answers, ope
 | Is my loan in the plan? | "Includes … of loan payments scheduled this month" | Answered |
 | What about next month? | Rules repeat; a future month cannot be opened yet | Partial |
 | Where should the rest of my income go? | No "ready to assign" view | Missing |
-| Rent went up, or I got a raise: does the plan follow? | A changed amount prompts Omar to confirm the payment, choose the future planned amount and review any reserve target; neither plan nor reserve changes silently | Answered with confirmation (Omar steps 20, 24) |
-| What should I set aside for yearly bills (car licence, insurance, school fees)? | A reserve with a due date; Saving for goals spreads it over the months left | Answered (Omar step 19) |
+| Rent went up, or I got a raise: does the plan follow? | A changed amount prompts Mohab to confirm the payment, choose the future planned amount and review any reserve target; neither plan nor reserve changes silently | Answered with confirmation (Mohab steps 20, 24) |
+| What should I set aside for yearly bills (car licence, insurance, school fees)? | A reserve with a due date; Saving for goals spreads it over the months left | Answered (Mohab step 19) |
 | Have I actually set it aside? | The goal's assigned cash, which moves only when he assigns it | Partial: nothing asks him to assign the monthly amount |
 
 **5. How are my investments doing?**
@@ -184,7 +184,7 @@ User feedback becomes steps Omar takes: fixed points are checked as answers, ope
 | Follow-up | Answered by | Status |
 |---|---|---|
 | How long could I live if I lost my job? | Emergency fund in months of Average monthly income | Partial: it should be months of *spending*, since spending is what continues when the salary stops |
-| I paid for a repair from the emergency fund: what now? | The fund shows what is left; Free cash is unchanged | Partial: nothing reminds him to refill it (Omar step 14) |
+| I paid for a repair from the emergency fund: what now? | The fund shows what is left; Free cash is unchanged | Partial: nothing reminds him to refill it (Mohab step 14) |
 | When is the car loan paid off? | Loans › last payment | Answered |
 | Can I pay the loan off early? | — | Missing: no early payoff or lump-sum payment |
 
@@ -196,15 +196,15 @@ User feedback becomes steps Omar takes: fixed points are checked as answers, ope
 | Follow-up | Answered by | Status |
 |---|---|---|
 | Where did my bonus go? | Money in › Bonus; Expense analysis for the same period | Answered |
-| Does a bonus change my budget? | `BudgetService.income_average` excludes `EXP.WORK.BONUS` by default; a bonus does not lift Average monthly income | Answered; Omar step 17's average is instead affected by January salary booked in December (step 18) |
-| I changed jobs: what happens to my income figures? | Stop the old salary (its history stays) and add the new one | End-of-service pay is irregular and excluded by default; the no-pay-month average still skips zero-income months (Omar step 27) |
+| Does a bonus change my budget? | `BudgetService.income_average` excludes `EXP.WORK.BONUS` by default; a bonus does not lift Average monthly income | Answered; Mohab step 17's average is instead affected by January salary booked in December (step 18) |
+| I changed jobs: what happens to my income figures? | Stop the old salary (its history stays) and add the new one | End-of-service pay is irregular and excluded by default; the no-pay-month average still skips zero-income months (Mohab step 27) |
 | Was I paid my raise? | The account register shows the new amount; Cash planning › Recurring keeps the scheduled payment Due until he links it by hand | Partial |
 
 Money held for others is left out of every owned, budget and performance view. Transfers are never income or spending. Refunds reduce spending in their original category.
 
-## Reference workflow: a month with Omar
+## Reference workflow: a month with Mohab
 
-The acceptance persona is **Omar**, 31, salaried, in Cairo. He earns 45,000 EGP a month from ACME Egypt, paid into CIB. He has a CIB payroll account, a cash wallet and Vodafone Cash; an NBE 3-year certificate; and a THNDR account with COMI, Fawry and a money market fund. His gold is an L'Azurde ring bought by card and a gold pound from his grandmother. He holds 10,000 EGP of his mother's money in CIB. He pays rent, internet, phone and electricity monthly, and has a 24-month car loan.
+The acceptance persona is **Mohab**, 31, salaried, in Cairo. He earns 45,000 EGP a month from ACME Egypt, paid into CIB. He has a CIB payroll account, a cash wallet and Vodafone Cash; an NBE 3-year certificate; and a THNDR account with COMI, Fawry and a money market fund. His gold is an L'Azurde ring bought by card and a gold pound from his grandmother. He holds 10,000 EGP of his mother's money in CIB. He pays rent, internet, phone and electricity monthly, and has a 24-month car loan.
 
 Drive it in a browser through the screens only, and re-run it after any workflow change. The numbers must still reconcile. The demo household is the same month, dated to today.
 
@@ -221,9 +221,9 @@ Drive it in a browser through the screens only, and re-run it after any workflow
 | 9 | On 2026-10-06 mark salary, rent and a loan payment paid from the Overview | Plan → Ledger | Each posts a real transaction; Net worth moves only by the salary (+45,000); loans still to pay 57,500 |
 | 10 | Read every tab | Report | Free cash and What you own read the same everywhere; Checks pass |
 
-**The rest of Omar's year.** Steps 1–10 are one ordinary month. Steps 11–28 carry the same household from October 2026 to September 2027 through what a salaried year brings: fees, a refund, a repair, a bonus, an early payday, a raise, Eid, installments, a share sale, a rent rise, a holiday, and a job change with a month between jobs. Every month also has the routine: salary on the 1st, rent on the 3rd, the car loan on the 5th, groceries, phone, internet and electricity.
+**The rest of Mohab's year.** Steps 1–10 are one ordinary month. Steps 11–28 carry the same household from October 2026 to September 2027 through what a salaried year brings: fees, a refund, a repair, a bonus, an early payday, a raise, Eid, installments, a share sale, a rent rise, a holiday, and a job change with a month between jobs. Every month also has the routine: salary on the 1st, rent on the 3rd, the car loan on the 5th, groceries, phone, internet and electricity.
 
-`tests/test_omar_year.py` runs these steps through the services, one test per step. A step that is wrong today is a strict expected failure. When its fix lands, the test fails as an unexpected pass, and its marker and the **Today** column below must change together. Steps 1–10 are still driven in a browser.
+`tests/test_mohab_year.py` runs these steps through the services, one test per step. A step that is wrong today is a strict expected failure. When its fix lands, the test fails as an unexpected pass, and its marker and the **Today** column below must change together. Steps 1–10 are still driven in a browser.
 
 | # | When | Step | What must be true afterwards | Today |
 |---|---|---|---|---|
@@ -233,25 +233,25 @@ Drive it in a browser through the screens only, and re-run it after any workflow
 | 14 | 18 Oct | Pays a 6,500 car repair from the emergency fund | The fund drops to 13,500; Free cash is unchanged; cash drops by 6,500 | Answered; nothing reminds him to refill the fund |
 | 15 | 20 Nov | Gets a 300 COMI dividend | Money in shows Dividends next to Salary; pay is unchanged | Answered |
 | 16 | 10–22 Dec | Pays a 1,200 work Uber; ACME pays it back | Work spending for December is 0; the refund is not income | Answered |
-| 17 | 20 Dec | ACME pays a 90,000 year-end bonus | Net worth +90,000; Average monthly income stays 45,000 | Answered after Omar confirms the separately suggested early January salary; Bonus itself stays excluded |
-| 18 | 24 Dec | January's salary comes before the holidays | It settles January's payment; January's forecast expects no more pay | Answered after Omar confirms the early-pay suggestion; cash-flow reporting still uses 24 December |
+| 17 | 20 Dec | ACME pays a 90,000 year-end bonus | Net worth +90,000; Average monthly income stays 45,000 | Answered after Mohab confirms the separately suggested early January salary; Bonus itself stays excluded |
+| 18 | 24 Dec | January's salary comes before the holidays | It settles January's payment; January's forecast expects no more pay | Answered after Mohab confirms the early-pay suggestion; cash-flow reporting still uses 24 December |
 | 19 | Jan–Apr | Plans 9,000 car insurance due 30 April, pays it from the goal | Saving for goals shows 2,250 a month | Answered; but no cash moves into the goal until he assigns it, and it cannot pay the bill until he does |
-| 20 | 1 Feb | Raise to 50,000 | February settles after Omar confirms the changed-amount suggestion; later payments are planned at 50,000 only after he chooses it; December stays paid at 45,000 | Answered with confirmation, not automatic plan changes |
+| 20 | 1 Feb | Raise to 50,000 | February settles after Mohab confirms the changed-amount suggestion; later payments are planned at 50,000 only after he chooses it; December stays paid at 45,000 | Answered with confirmation, not automatic plan changes |
 | 21 | 9–10 Mar | Eid: gives 3,000 in cash, receives 1,000 | Gifts & Donations and Gifts Received; gifts do not change the salary average | Answered; the rolling January–March salary average is 48,333.33 after January's 45,000 pay and two 50,000 pays |
 | 22 | Mar | Buys a phone on 12 installments of 2,000 from 15 April | What you owe +24,000; each installment settles itself | Answered (as a loan; credit cards are out of scope) |
 | 23 | 20 Apr | Sells 75 of 150 COMI for 7,100 after a 25 fee; moves it to CIB | 75 left; Gain from sales after fees; April's Money in is only the salary | Answered |
-| 24 | 3 Jun | Rent rises 10% to 13,200 | June settles; July onwards is planned at 13,200 after Omar accepts the prompt; reserve target is reviewed separately | Answered with confirmation; neither future plan nor reserve changes silently |
+| 24 | 3 Jun | Rent rises 10% to 13,200 | June settles; July onwards is planned at 13,200 after Mohab accepts the prompt; reserve target is reviewed separately | Answered with confirmation; neither future plan nor reserve changes silently |
 | 25 | Jul–Aug | Sets aside 15,000 for a Sahel trip; spends 14,200 | 800 left in the goal | Answered |
 | 26 | 31 Aug | Leaves ACME with 30,000 end of service; adds Valeo at 55,000 from 1 October | The old salary stops with its history; Average monthly income stays 50,000 | Right since Categories marks Bonus irregular |
 | 27 | Sep | Between jobs, no pay | Next income is Valeo on 1 October; the average does not rise | Known gap: zero-income months are skipped by the average; the test checks non-increase, not zero-month inclusion |
 | 28 | 30 Sep | Reads the year | Money in 651,300 and Money out 295,186; Change in what you own 357,364; loans still to pay 34,500; Checks pass; nothing is due | Answered, except *why* net worth changed (M3.2) |
 
-**What users reported.** After the year's answers are read, Omar walks through the pain points in `user feedback/user-feedback-batch-001.md`: leaving and resuming an import, a 300-row seven-column statement, a review with an error, transfer and category choices, the emergency target against his cash, All time and past-month reports, categories, a monthly investing goal, bulk editing, valuing a fund or his share of the family flat by its total. Fixed points are checked as answers. Open ones are strict expected failures: the waiting import is not offered back or discardable, one CSV at a time, categories start as "Uncategorized" and lack their group, no warning when the emergency target exceeds cash, Your position follows the period, a year of spending is drawn day by day, the Categories sign key, no monthly investing goal, no bulk edit, and no direct value for a fund or an asset like a flat. Loading speed, keeping the scroll position, compact review rows, chart colours and the register balance are not checked from the screens.
+**What users reported.** After the year's answers are read, Mohab walks through the pain points in `user feedback/user-feedback-batch-001.md`: leaving and resuming an import, a 300-row seven-column statement, a review with an error, transfer and category choices, the emergency target against his cash, All time and past-month reports, categories, a monthly investing goal, bulk editing, valuing a fund or his share of the family flat by its total. Fixed points are checked as answers. Open ones are strict expected failures: the waiting import is not offered back or discardable, one CSV at a time, categories start as "Uncategorized" and lack their group, no warning when the emergency target exceeds cash, Your position follows the period, a year of spending is drawn day by day, the Categories sign key, no monthly investing goal, no bulk edit, and no direct value for a fund or an asset like a flat. Loading speed, keeping the scroll position, compact review rows, chart colours and the register balance are not checked from the screens.
 
 **Not scripted, because Lightning cannot record them yet:**
 
 - **A gam'eya.** Example: 10 months of 5,000, with the 50,000 pot in month 4. The payments are commitments, and the pot is his own money back, not income. Lightning has no gam'eya type, and an inflow needs an income category.
-- **The NBE certificate maturing.** Its portfolio forecasts interest and maturity proceeds; Omar enters the actual principal redemption and statement interest manually. Forecasts never post ledger activity automatically.
+- **The NBE certificate maturing.** Its portfolio forecasts interest and maturity proceeds; Mohab enters the actual principal redemption and statement interest manually. Forecasts never post ledger activity automatically.
 - **Dollar savings.** This waits for M4.
 - **Paying the car loan off early.** There is no lump-sum payment.
 - **A payslip's deductions** (income tax, social insurance). These are left out: record net pay.
@@ -286,12 +286,12 @@ The reference apps are YNAB, Monarch, Copilot, Simplifi, Rocket Money, Lunch Mon
 | 8 | Give every pound a job | YNAB "Ready to assign" | Closes question 4's last follow-up |
 | 9 | Watchlists | Simplifi | Track one habit without a full budget |
 | 10 | Shared household | Monarch partner access | Couples manage money together |
-| 11 | Guided first setup | Monarch, YNAB onboarding | Omar's first run needed six account forms before seeing anything |
+| 11 | Guided first setup | Monarch, YNAB onboarding | Mohab's first run needed six account forms before seeing anything |
 | 12 | Receipts and attachments | Monarch, Lunch Money | Warranty and gold purchase receipts |
 
 **Known finance gaps** (the early-pay, raise and rent paths now require explicit confirmation; no-pay-month averaging in step 27 only has a non-increase assertion):
 
-- **Unconfirmed early salary** remains in the bank-posting month of the income average and may leave a future salary payment due. The Recurring tab suggests the plausible match; Omar must confirm the specific transaction before the scheduled-month average and forecast adjust.
+- **Unconfirmed early salary** remains in the bank-posting month of the income average and may leave a future salary payment due. The Recurring tab suggests the plausible match; Mohab must confirm the specific transaction before the scheduled-month average and forecast adjust.
 - **A changed recurring amount** prompts a future-plan update and a reserve review, but the user must choose them. A reserve is named only when the payment is explicitly linked to it; a name or category match does not silently change cash assignments.
 - **CD projections** use an actual/365 day-count estimate, not a bank guarantee. Interest is never posted automatically. Existing account-level `cd_terms` stay visible as legacy and are not automatically converted. Cash in old `DEPOSIT` accounts must be moved out; these legacy terms remain pending a safe conversion workflow. Actual bank interest entries are not yet linked to certificates to reconcile projections.
 - **The emergency fund** should count months of spending, not of income.
@@ -300,7 +300,7 @@ Bank sync and bill negotiation are not adopted. Any sync first needs a provider 
 
 ## UX plan (guideline 3.6)
 
-From a full UX review on 2026-10-03: Omar's year at a 1,366 × 768 window (the PC app), every screen checked against Brand guideline 3.6 Part A. The structure (Overview, Budget, Investments, Expense analysis, Cash planning, Held for others, Settings, accounts in the sidebar) stays. Batch 1 is done; the rest is ranked by what a real user meets first.
+From a full UX review on 2026-10-03: Mohab's year at a 1,366 × 768 window (the PC app), every screen checked against Brand guideline 3.6 Part A. The structure (Overview, Budget, Investments, Expense analysis, Cash planning, Held for others, Settings, accounts in the sidebar) stays. Batch 1 is done; the rest is ranked by what a real user meets first.
 
 **The user's route.** A salaried user opens Lightning to answer, in order: *Where do I start?* → *Is my money in?* → *How much can I spend before payday?* → *What is due?* → *Am I on plan?* → *Where did it go?* → *How are my investments?* → *Is my data right?* Each tab answers one of these first; the Overview's Needs you is the to-do list across them.
 
@@ -309,7 +309,7 @@ From a full UX review on 2026-10-03: Omar's year at a 1,366 × 768 window (the P
 **Next, by impact:**
 
 1. ~~**First run.**~~ Done 2026-10-03: a "Get set up" card on the Overview until five steps are done; the welcome lists certificates and uses real icons; a new bank account leads with Import a statement; Plan shows an empty state instead of a forecast from no income.
-2. ~~**Import review, one decision per name.**~~ Done 2026-10-03: one choice per imported name with its rows collapsed under it (Omar answers 17 names instead of 43 rows; the 300-row statement is 287 KB instead of 2.2 MB); "Discard this import"; Import CSV offers to continue or discard a waiting review. Still open: the button says "Post ready rows" while undecided rows post as Unaccounted.
+2. ~~**Import review, one decision per name.**~~ Done 2026-10-03: one choice per imported name with its rows collapsed under it (Mohab answers 17 names instead of 43 rows; the 300-row statement is 287 KB instead of 2.2 MB); "Discard this import"; Import CSV offers to continue or discard a waiting review. Still open: the button says "Post ready rows" while undecided rows post as Unaccounted.
 3. ~~**The category picker.**~~ Done 2026-10-03: focus lists every choice under its L1 header and selects the current text; the import starts on an empty "Choose a category".
 4. ~~**Bulk edit.**~~ Done 2026-10-03: Set category for selected rows; transfers, investments and splits are skipped and counted. Still open: bulk counterparty.
 5. **One name, one number.** Keep the Free cash breakdown on the Overview and Plan only; Reserves shows one line. One "If sold" figure and name. Loans still to pay once per tab. Remove the Overview's second donut ("What you hold") and the column waterfall that repeats the Net flow list.
@@ -332,7 +332,7 @@ From a full UX review on 2026-10-03: Omar's year at a 1,366 × 768 window (the P
 
 ### Pre-ZIP release readiness
 
-Verified UI fixes: Budget overlap at about 941px, the Cash planning tab strip and shared period pill at 390px, Settings data-card overflow, and account/all-transactions registers scrolling inside their cards. Holdings now uses five columns with expandable details, and the reviewed own-data fields have type-and-pick controls. Omar's early salary, raise and rent scenarios pass with explicit confirmations; the CD terms and forecast mechanism is covered by focused tests. A full interactive click-through of every control and acceptance on an ordinary Windows PC remain outstanding before the ZIP release. No new ZIP is implied by these source changes.
+Verified UI fixes: Budget overlap at about 941px, the Cash planning tab strip and shared period pill at 390px, Settings data-card overflow, and account/all-transactions registers scrolling inside their cards. Holdings now uses five columns with expandable details, and the reviewed own-data fields have type-and-pick controls. Mohab's early salary, raise and rent scenarios pass with explicit confirmations; the CD terms and forecast mechanism is covered by focused tests. A full interactive click-through of every control and acceptance on an ordinary Windows PC remain outstanding before the ZIP release. No new ZIP is implied by these source changes.
 
 | Milestone | State | Next |
 |---|---|---|

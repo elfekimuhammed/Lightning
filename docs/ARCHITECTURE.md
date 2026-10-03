@@ -164,9 +164,9 @@ The window also caches the app's own files, and the fonts are bundled, so no pag
 - **Never inside a transaction:** while `conn.in_transaction` is true the memo neither serves nor stores, so a rolled-back write leaves nothing behind and a workflow always reads its own writes.
 - **Callers get copies:** cached lists, dicts and tuples come back copied (`deep=True` for the investment report, whose dict callers extend), so a caller that edits its result cannot change the next one.
 - **What is cached:** pure reads only, with hashable arguments and dates normalised to `yyyy-mm-dd`: `ReportingService` holdings, net worth, custody by account, held-for-others value, brokerage cash by account, money out by category and first activity date; `PositionService.at`; `build_investment_report`; category tree and look-ups by id; asset classes and assets; accounts. `get(id)` on categories, assets and accounts reads from one cached map per request instead of one query per row.
-- **Guard:** `tests/test_reporting_performance.py` loads Omar's 2026 plus two earlier years and checks, per main tab, a ceiling on SELECT statements. Without the cache every tab is far over it (1,100–7,100 statements). The test also checks that every tab renders byte-identical HTML with and without the cache.
+- **Guard:** `tests/test_reporting_performance.py` loads Mohab's 2026 plus two earlier years and checks, per main tab, a ceiling on SELECT statements. Without the cache every tab is far over it (1,100–7,100 statements). The test also checks that every tab renders byte-identical HTML with and without the cache.
 
-**Page speed (2026-10-03, from source).** Server time per tab, median of three, on a 4-vCPU 2.1 GHz container, for a 2,239-transaction ledger (Omar's 2026 plus five earlier years). "Enc." is SQLCipher keyed as `Database.conn` keys it. The WebView2/Chromium window adds about 250–400 ms per page at 4× CPU throttle.
+**Page speed (2026-10-03, from source).** Server time per tab, median of three, on a 4-vCPU 2.1 GHz container, for a 2,239-transaction ledger (Mohab's 2026 plus five earlier years). "Enc." is SQLCipher keyed as `Database.conn` keys it. The WebView2/Chromium window adds about 250–400 ms per page at 4× CPU throttle.
 
 | Tab | Before | After | Enc. before | Enc. after |
 |---|---:|---:|---:|---:|
@@ -372,5 +372,5 @@ Start with bounded local candidate lists and a small result limit. If size or me
 5. Post every main-ledger effect through `TransactionService`. Generated valuation journals use `source=SYSTEM` and stable links to their reevaluation details.
 6. Keep the UI thin (see UI contract).
 7. Test the changed workflow and its invariants: date and money edge cases, ownership and net-worth effects, posting, archive and void. Run the full pytest suite, the import-boundary checks and `git diff --check`. Keep meaningful business assertions when updating old tests.
-8. For UI changes, check populated and empty data and a 390px viewport in a browser, and re-run the Omar walkthrough when a workflow changes (steps 11–28 run in `tests/test_omar_year.py`).
+8. For UI changes, check populated and empty data and a 390px viewport in a browser, and re-run the Mohab walkthrough when a workflow changes (steps 11–28 run in `tests/test_mohab_year.py`).
 9. Log changes under `Unreleased` in `CHANGELOG.md`, and change version headings only when releasing. Keep the four docs consistent: everything goes in Project Overview, Architecture, the Brand guideline or the Glossary, not in new files under `docs/`. The Brand guideline is one file, `docs/BRAND_GUIDELINE.html`, identical to the website's `brand-guidelines.html`.

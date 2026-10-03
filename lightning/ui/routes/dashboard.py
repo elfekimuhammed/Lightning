@@ -373,32 +373,32 @@ async def add_demo_household(request: Request):
         summary = build_demo(c)
     except (LightningError, ValueError) as exc:  # nothing is kept: the ledger part is one transaction
         return redirect("/", f"The sample household could not be added: {getattr(exc, 'message', exc)}")
-    return redirect("/", f"Sample household added: Omar's money from {summary['from']} to {summary['to']}.")
+    return redirect("/", f"Sample household added: Mohab's money from {summary['from']} to {summary['to']}.")
 
 
-@router.post("/sample/omar-2026")
+@router.post("/sample/mohab-2026")
 async def add_sample_2026(request: Request):
-    """Fill an empty Lightning with Omar's 2026, loaded from the sample CSV files."""
+    """Fill an empty Lightning with Mohab's 2026, loaded from the sample CSV files."""
     c = container(request)
     if c.accounts.list():
         return redirect("/", "The 2026 sample can only be added to an empty Lightning.")
-    from lightning.samples import load_omar_2026
+    from lightning.samples import load_mohab_2026
     try:
-        summary = load_omar_2026(c)
+        summary = load_mohab_2026(c)
     except (LightningError, ValueError) as exc:
         return redirect("/", f"The 2026 sample could not be added: {getattr(exc, 'message', exc)}")
-    return redirect("/", f"Omar's 2026 added: {summary['rows']} imported rows across {summary['accounts']} accounts, "
+    return redirect("/", f"Mohab's 2026 added: {summary['rows']} imported rows across {summary['accounts']} accounts, "
                          f"{summary['from']} to {summary['to']}.")
 
 
-@router.get("/samples/omar-2026/{name}")
+@router.get("/samples/mohab-2026/{name}")
 async def sample_file(request: Request, name: str):
     """Download one of the sample CSVs, to try Import CSV with a real file."""
     from fastapi.responses import FileResponse
-    from lightning.samples import FILES, OMAR_2026
+    from lightning.samples import FILES, MOHAB_2026
     if name not in FILES:
         return redirect("/", "There is no such sample file.")
-    return FileResponse(OMAR_2026 / name, media_type="text/csv; charset=utf-8", filename=name)
+    return FileResponse(MOHAB_2026 / name, media_type="text/csv; charset=utf-8", filename=name)
 
 
 @router.get("/explain/{kind}")
