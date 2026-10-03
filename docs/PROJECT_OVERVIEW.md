@@ -6,13 +6,14 @@ This file tells the story: what Lightning is, who it is for, what it answers and
 
 ## Now and next
 
-The hand-off between the two AIs (Claude and Codex). Read it first; rewrite it when you finish (rules in `AGENTS.md`).
+The hand-off between the AIs working here (Codex and Claude sessions). Read it first; rewrite it when you finish (rules in `AGENTS.md`, section 2).
 
 - **2026-10-03 · Claude · in progress:** the UX pass against Brand guideline 3.6 Part A. Batch 1 is pushed (see the changelog). The rest is ranked under **UX plan (guideline 3.6)** below. Still claimed: `lightning/ui/templates/`, `lightning/ui/static/style.css`. Omar runs on the plain source build; the PC (WebView2, encrypted) app serves the same pages.
 - **Done today:** Check against bank replaces line-by-line reconciliation (Claude); cash ownership changes and expenses paid by someone else (Codex); Omar walks through user feedback batch 001 (Claude); the brand guideline is one file, 3.6 (Claude); UX batch 1 (Claude).
 - **Figure bugs found, not yet fixed (calculation, not presentation):** an "Other" asset account (Omar's flat, 400,000) is counted as brokerage cash and as holdings, so "Holdings value" reads 472,053 in one place and 172,053 in another, and "Brokerage cash" 700 vs 400,700; recording an asset you already had counts as Change in net worth (+374,288); Overview "Left in plan" (−2,317 of 24,698) and Budget (11,853 of 38,898) disagree because Budget adds a low-confidence Travel estimate; Safe to spend on the day before payday ignores bills due right after it.
 - **2026-10-03 · Claude · done:** speed audit of the PC app from source, in [Speed audit](SPEED_AUDIT.md). Next: a request-scoped cache and the two worst loops (Budget rolling averages, per-account ledger re-scans), then register paging. Not started; no code claimed.
-- **Questions for the owner:** speed: (1) switch SQLCipher `cipher_memory_security` off for about 2× faster encrypted pages? (2) after the request cache, add a cache that lasts between clicks (cleared on every save) only if pages are still slow? UX: see the decisions at the end of **UX plan (guideline 3.6)**.
+- **Owner decisions 2026-10-03:** Budget's low-confidence background estimates stay in Left in plan, marked with a small "!" that says why; the Overview's Investments section shrinks to one row of figures with a link to the Investments tab.
+- **Questions for the owner:** keep `docs/SPEED_AUDIT.md` as its own file (AGENTS.md says no new files under `docs/`) or fold it into Architecture? Speed: (1) switch SQLCipher `cipher_memory_security` off for about 2× faster encrypted pages? (2) after the request cache, add a cache that lasts between clicks (cleared on every save) only if pages are still slow? UX: see the decisions at the end of **UX plan (guideline 3.6)**.
 
 ## What Lightning is
 
@@ -302,12 +303,15 @@ From a full UX review on 2026-10-03: Omar's year at a 1,366 × 768 window (the P
 8. **Reserves table** as two-line rows with a meter; the emergency fund shows "13,500 left of 20,000 · 6,500 used · Refill"; paid reserves move to completed.
 9. **Words and numbers sweep:** whole EGP on big figures everywhere; no jargon ("custody subledger", "M4", "5 MiB", internal codes on Prices); sentence-case "counterparty"; segments for 2–4 choices; the app's own dialog for Deactivate.
 
-**Decisions for the owner:**
+**Owner decisions (2026-10-03):**
 
-- Should "Looks recurring" stop suggesting variable spending (Carrefour, Talabat) and CD interest, and get a Dismiss?
-- Budget's low-confidence background estimates (Travel 14,200 this month): count them in Left in plan, show them apart, or drop them?
-- The Overview's Investments section repeats the Investments tab: keep a short row of figures with a link, or keep the section as is?
-- Accounts and All transactions have no item in the main navigation (only the sidebar): add them, or keep the sidebar as the way in?
+- Budget's low-confidence background estimates count in Left in plan, with a small "!" beside them that says they are low confidence and why.
+- The Overview's Investments section shrinks to one row of figures with a link to the Investments tab.
+
+**Still open (asked again in plainer words):**
+
+- *Recurring suggestions.* Cash planning › Recurring has a "Looks recurring" list that offers to track things that repeated. It offers Carrefour and Talabat (shopping that changes every month, which belongs in the budget) and the NBE certificate's interest (already in the forecast, so tracking it counts it twice). Stop offering those, and add a "Not recurring" button to hide a suggestion?
+- *Menu.* The main menu has Overview, Budget, Investments, Expense analysis, Cash planning, Held for others and Settings. Your accounts list and "every transaction across all accounts" are reachable only from the account list in the left column. Add "Accounts" and "Transactions" to the main menu?
 
 ## Roadmap
 
