@@ -92,7 +92,7 @@ def trend(labels: list[str], series: list[dict], plan: Decimal | None = None,
             "zero_y": y(ZERO) if bottom < 0 else None}
 
 
-def bars(rows: list[dict], limit: int = 6) -> dict:
+def bars(rows: list[dict], limit: int = 4) -> dict:
     """Horizontal bars, largest first, from zero. rows: [{"label", "value", "href"?}]."""
     ordered = sorted((r for r in rows if r["value"]), key=lambda r: -abs(r["value"]))
     shown, rest = ordered[:limit], ordered[limit:]
@@ -335,8 +335,8 @@ def shared_lines(series: list[list[Decimal | None]]) -> list[str]:
     return out
 
 
-def donut(slices: list[dict], limit: int = 6) -> dict:
-    """Parts of one whole: at most ``limit`` slices, the rest folded into "Other".
+def donut(slices: list[dict], limit: int = 5) -> dict:
+    """Parts of one whole: four by name, then "Other" (``limit`` counts Other).
 
     slices: [{"label", "value", "tone"}]; ordered by tone (cash, deposits, gold, equity, other) so
     that neighbouring hues stay distinct. Returns stroke-dash segments on a circle of

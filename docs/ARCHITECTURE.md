@@ -214,6 +214,8 @@ Budget's ordinary view is a compact plan summary and Personal/Work/Investment ro
 - **The period control** keeps custom dates and filters across submissions and supported drilldowns. Position figures use the period end; flows use the whole interval.
 - **Failures stay visible.** Invalid edits keep the typed values and show the error, including inside a disclosure. A missing valuation is never replaced with zero. Expandable rows add up to their parent or say why a breakdown is unavailable.
 - **Distinct concepts stay distinct:** What you own, account balances including custody, Free cash, Left in plan and If you sold today. Investment transfers are not expenses. Brokerage holdings are never counted as brokerage cash.
+- **A way back without browser chrome.** The desktop window has no Back button, so a full page shows one when it was opened with `return_to`. Pages reached from many places (`/transactions`, `/investments/holding`, `/investments/planner`, `/investments/prices`) fall back to the same-origin `Referer`; the main tabs never do (`lightning/ui/web.py`, `_back_url`).
+- **Brand guideline 3.6 in CSS.** The last block of `style.css` ("Guideline 3.6") holds the rules that override older layers: KPI tone by meaning (`surface-in|hold|out|over` on `stat_tile`, with an icon tile), money out in ink, soft field wells, Nile sub-tabs, no all caps. Change rules there rather than adding another layer.
 - A presentation change never introduces a new financial model or forecast.
 
 ## CSV import and export contract

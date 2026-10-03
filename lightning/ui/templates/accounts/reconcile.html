@@ -27,13 +27,13 @@
   <form method="post" action="/accounts/{{ account.id }}/reconcile" class="actions">
     <input type="hidden" name="date" value="{{ check.through }}"><input type="hidden" name="balance" value="{{ balance_input }}">
     <button class="btn primary">Post adjustment of {{ check.difference|money(True) }}</button>
-    <a class="btn" href="/accounts/{{ account.id }}?date_from={{ month_start }}&amp;date_to={{ check.through }}">Review rows instead</a>
+    <a class="btn" href="/accounts/{{ account.id }}?date_from={{ month_start }}&amp;date_to={{ check.through }}&amp;return_to={{ ('/accounts/' ~ account.id ~ '/reconcile?date=' ~ check.through ~ '&balance=' ~ balance_input)|urlencode }}">Review rows instead</a>
   <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
   {% else %}
   <h2>Too big to adjust</h2>
   <p>Lightning is {{ check.difference|abs|money }} {{ account.currency }} {{ 'below' if check.difference > 0 else 'above' }} your bank, more than the {{ check.limit|money }} that counts as small. A row is probably missing, doubled or mistyped.</p>
   <div class="actions">
-    <a class="btn primary" href="/accounts/{{ account.id }}?date_from={{ month_start }}&amp;date_to={{ check.through }}">Review {{ month_start[:7] }} row by row</a>
+    <a class="btn primary" href="/accounts/{{ account.id }}?date_from={{ month_start }}&amp;date_to={{ check.through }}&amp;return_to={{ ('/accounts/' ~ account.id ~ '/reconcile?date=' ~ check.through ~ '&balance=' ~ balance_input)|urlencode }}">Review {{ month_start[:7] }} row by row</a>
     <a class="btn" href="/accounts/{{ account.id }}/import">Import the statement again</a>
   </div>
   <p class="muted small">To redo an import, select its rows in the register, delete them, then import the statement again.</p>

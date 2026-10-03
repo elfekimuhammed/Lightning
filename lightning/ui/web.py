@@ -102,10 +102,18 @@ templates.env.filters["compact"] = _compact
 templates.env.globals["abs"] = abs
 
 
+# Pages reached from many places with no Back of their own; the main tabs are left out on purpose.
+_REFERER_BACK_PAGES = ("/transactions", "/investments/holding", "/investments/planner", "/investments/prices")
+
+
 def _back_url(request) -> str:
     """Where a full page's Back button goes: the page it was opened from (``return_to``), only if
     it is a page of this app. Empty when there is nowhere to go back to."""
     raw = str(request.query_params.get("return_to", "") or "")
+    if not raw and request.url.path.startswith(_REFERER_BACK_PAGES):
+        # The desktop window has no browser Back: detail pages opened from a chart, a row or a
+        # report fall back to the in-app page that linked here (same origin only, checked below).
+        raw = str(request.headers.get("referer", "") or "")
     parts = urlsplit(raw)
     if parts.netloc and parts.netloc != request.url.netloc:
         return ""

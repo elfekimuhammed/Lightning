@@ -2787,3 +2787,52 @@ a.chart-sankey-label:hover b { color:var(--azure); }
 }
 .main .budget-savings .budget-top-head span { white-space:nowrap; }
 .main .budget-savings .inv-saved-body { margin-top:10px; }
+
+/* ===================================================================================
+   Guideline 3.6 (docs/BRAND_GUIDELINE.html, Part A). Last in the file so it wins.
+   =================================================================================== */
+/* A16 · no all caps anywhere. */
+.eyebrow,.sidebar-heading,.side-group,.counterparty-group-title,.category-group-title,.level-tag { text-transform:none!important; letter-spacing:0!important; }
+
+/* A08 · KPI cards: coloured by what the number means, never by position. White card, a top edge and an
+   icon tile in the tone colour, the figure in ink. in = green · hold = azure · out = soft rose · over = strong rose. */
+.main .stat-tile.surface-in { --kpi-tone:var(--meadow-dark); --kpi-tint:var(--tint-growth); }
+.main .stat-tile.surface-hold { --kpi-tone:var(--azure); --kpi-tint:var(--tint-held); }
+.main .stat-tile.surface-out { --kpi-tone:#E68CA8; --kpi-tint:var(--rose-soft); }
+.main .stat-tile.surface-over { --kpi-tone:var(--rose); --kpi-tint:var(--rose-soft); }
+.main .stat-tile:is(.surface-in,.surface-hold,.surface-out,.surface-over) { background:linear-gradient(180deg,#FFFFFF 0%,#F7FBF9 100%); --tile-edge:var(--kpi-tone); }
+.main .stat-tile-head { align-items:center; }
+.main .stat-tile-icon { display:grid; place-items:center; width:32px; height:32px; flex:none; border-radius:10px; background:var(--kpi-tint, var(--tint-held)); color:var(--kpi-tone, var(--azure)); }
+.main .stat-tile-icon svg { width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:1.75; stroke-linecap:round; stroke-linejoin:round; }
+.main .stat-tile-head .stat-tile-label { flex:1; min-width:0; }
+.main .stat-tile-value.is-negative { color:var(--ink); }
+
+/* A03 / A11 · money out reads in ink with its minus; strong rose is kept for "needs you" (over, short). */
+.neg { color:var(--ink); }
+.main .ledger tr.row-out td:first-child { border-left-color:#E68CA8; }
+.main .ledger tr.row-invest td:first-child { border-left-color:var(--azure); }
+
+/* A10.3 · fields are soft tinted wells: no border, never white. Focus deepens the well with a green edge. */
+:is(input:not([type]),input[type=text],input[type=search],input[type=number],input[type=email],input[type=tel],input[type=url],input[type=password],input[type=month],select,textarea):not(#_):not(.x_) {
+  background:#EEF4F2; border-color:transparent;
+}
+:is(input,select,textarea):not(#_):not(.x_):focus-visible { background:#E4EEEA; border-color:var(--meadow-dark); }
+.field.has-error :is(input,select,textarea):not(#_):not(.x_), [aria-invalid="true"]:not(#_):not(.x_) { background:var(--rose-soft); border-color:transparent; }
+
+/* A10.4 / A05 · sub-tabs: one pill bar, the chosen tab in Nile; tab headers on paper with a Nile icon tile.
+   No tab colours: icons tell them apart. */
+.main :is(.tab-plan,.tab-recurring,.tab-loans,.tab-reserves) { --tab-ink:var(--nile, #0A2442); --tab-tint:transparent; }
+.main .plan-tab[aria-current="page"] { background:var(--nile, #0A2442); color:#FFFFFF; box-shadow:none; }
+.main .plan-tab-head { background:var(--paper, #F7FBF9); }
+.main .plan-tab-icon { background:var(--nile, #0A2442); box-shadow:none; }
+
+/* A11 · the register fits the window: no forced 1,120px width that clips the balance at 1,366px. */
+.main .register-table-scroll > table { min-width:0; }
+
+/* A12.3.3 / A12.2.9 · plan bar and bullets: spent in soft rose, left in Meadow, over in strong rose. */
+.main .plan-bar .spent, .main .bullet-spent { background:#E68CA8; }
+.main i.k.spent { background:#E68CA8; }
+/* A08.1 · anatomy: icon tile and chip on the top row, the label under them, then the figure. */
+.main .stat-tile-head { flex-wrap:wrap; row-gap:10px; }
+.main .stat-tile-head .stat-tile-label { order:3; flex:0 0 100%; }
+.main .stat-tile-head .stat-chip { margin-left:auto; }

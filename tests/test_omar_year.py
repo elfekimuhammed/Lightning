@@ -718,8 +718,9 @@ def test_a_mistake_is_fixed_in_place_and_a_double_entry_deleted(omar):
 
 
 def test_the_atm_fee_is_only_inside_others(omar):
-    # Only the five biggest categories are named; the fees (the monthly 15 and the ATM's 25) are in Others.
-    assert omar.answers["atm"].shows("Others 2,190")
+    # Four, then Other (guideline 3.6): the fees (the monthly 15 and the ATM's 25) are inside Other, with
+    # Eating Out 670, Utilities & Bills 1,480 and Gifts & Donations 2,000.
+    assert omar.answers["atm"].shows("Other 4,190")
 
 
 def test_a_refund_lowers_money_out(omar):
@@ -918,7 +919,7 @@ def test_the_savings_rate_for_all_time(omar):
 def test_the_overview_says_which_parts_follow_the_period(omar):
     answer = omar.answers["past_month"]
     assert answer.shows("Cash flow 2026-10-01 to 2026-10-31", "Investments 2026-10-01 to 2026-10-31",
-                        "Month by month Every month from 2026-07 to today")
+                        "Month by month 2026-07 to today")
 
 
 @known_gap("Your position follows the chosen period (As of 2026-10-31) instead of staying a snapshot of today")
@@ -927,7 +928,7 @@ def test_your_position_stays_today_whatever_the_period(omar):
 
 
 def test_where_money_went_folds_small_categories_into_other(omar):
-    assert omar.answers["year"].shows("Other spending")
+    assert omar.answers["year"].shows("Other")
 
 
 def test_a_month_of_spending_is_shown_day_by_day(omar):
@@ -1008,4 +1009,5 @@ def test_a_big_difference_from_the_bank_is_reviewed_not_adjusted(omar):
     check = omar.notes["cib_check"]
     assert check.shows("Too big to adjust", "Review 2027-09 row by row", "Import the statement again")
     assert not any("Post adjustment" in (text or "") for form in check.forms for text, *_ in form.buttons)
-    assert check.link("Review 2027-09 row by row").href == "/accounts/1?date_from=2027-09-01&date_to=2027-09-30"
+    review = check.link("Review 2027-09 row by row").href
+    assert review.startswith("/accounts/1?date_from=2027-09-01&date_to=2027-09-30&return_to=/accounts/1/reconcile")

@@ -133,8 +133,8 @@ async def dashboard(request: Request):
                           "href": f"/accounts/{row['account_id']}/import/{row['batch_id']}#import-row-{row['id']}", "priority": 1})
     for reserve in c.reserves.list_active():
         if reserve.get("due_date") and reserve["due_date"] < fmt_date(today()) and reserve["effective_allocated"] > ZERO:
-            attention.append({"label": f"Overdue reserve: {reserve['name']}",
-                              "detail": f"Due {reserve['due_date']} · {fmt(reserve['effective_allocated'])} {c.base_currency} remains assigned.",
+            attention.append({"label": f"{reserve['name']} is past its date",
+                              "detail": f"Due {reserve['due_date']} · {fmt(reserve['effective_allocated'])} {c.base_currency} still set aside.",
                               "href": "/plan/reserves", "priority": 2})
     # Payments that are due and unpaid today, whatever period is selected.
     for payment in c.planning.what_you_owe(today()).bills_due_items:
@@ -152,8 +152,8 @@ async def dashboard(request: Request):
     current_budget = c.budgets.month_view(month_of(today()))
     for section in current_budget.sections:
         if section.planned_actual > section.available:
-            attention.append({"label": f"Budget exceeded: {section.name}",
-                              "detail": f"{fmt(section.planned_actual - section.available)} {c.base_currency} over plan this month.",
+            attention.append({"label": f"{section.name} over plan",
+                              "detail": f"{fmt(section.planned_actual - section.available)} {c.base_currency} over this month's plan.",
                               "href": "/budget", "priority": 2})
     attention = sorted(attention, key=lambda item: item["priority"])
     change, change_reason = c.position.change_in_what_you_own(first, as_of, since_first_record=period.key == "all")
@@ -292,23 +292,32 @@ def _period_stats(c, period, first, as_of, position, cash_flow, change, change_r
         nw_change, nw_reason = change, change_reason
     lead = "net_worth" if owes else "what_you_own"
     stats = [{
-        "key": "change", "surface": "lead", "label": label("change_in_net_worth" if owes else "change_in_what_you_own"),
+        "key": "change", "surface": "hold", "label": label("change_in_net_worth" if owes else "change_in_what_you_own"),
         "value": nw_change, "kind": "money", "badge": {"tone": sign(nw_change), "text": period_name},
         "sub": nw_reason if nw_change is None else f"{label(lead)} {fmt(position.net_worth if owes else position.what_you_own)}",
         "spark": visuals.trend_spark(networth_trend), "spark_tone": "hold", "href": "#owned-heading",
     }]
     rate = cash_flow.savings_rate
+    # Honest numbers: when money out is more than twice money in, a rate like −1,375% says nothing.
+    # Show the gap in words instead (guideline A01).
+    thin = rate is not None and rate < -100
+    if rate is None:
+        savings_sub = "No money in this period"
+    elif thin:
+        savings_sub = f"{fmt(-cash_flow.net)} more went out than the {fmt(cash_flow.inflows)} that came in"
+    else:
+        savings_sub = f"kept of {fmt(cash_flow.inflows)} {label('money_in').lower()}"
     stats.append({
-        "key": "savings", "surface": "white", "label": label("savings_rate"), "value": rate, "kind": "rate",
+        "key": "savings", "surface": "over" if thin else "in", "label": label("savings_rate"),
+        "value": None if thin else rate, "kind": "rate", "empty": "—" if thin else None,
         "badge": {"tone": sign(cash_flow.net), "text": period_name},
-        "figure": cash_flow.net, "sub": (f"kept of {fmt(cash_flow.inflows)} {label('money_in').lower()}" if rate is not None
-                                         else "No money in this period"),
+        "figure": cash_flow.net, "sub": savings_sub,
         "spark": visuals.savings_rate_spark(c, as_of), "spark_tone": "in",
         "href": f"/transactions?date_from={fmt_date(first)}&date_to={fmt_date(as_of)}",
     })
     invest = investing_rate(money_added, cash_flow.inflows, cash_flow.net)
     stats.append({
-        "key": "investing", "surface": "mint", "label": label("investing_rate"), "value": invest, "kind": "rate",
+        "key": "investing", "surface": "in", "label": label("investing_rate"), "value": invest, "kind": "rate",
         "badge": {"tone": sign(money_added), "text": period_name},
         "figure": money_added, "sub": label("new_money_in").lower() if invest is not None else "No money in this period",
         "meter": {"width": float(max(min(invest, 100), 0)) if invest is not None else 0.0, "tone": "hold"},
@@ -321,7 +330,9 @@ def _period_stats(c, period, first, as_of, position, cash_flow, change, change_r
         used = planned - left
         share = used / planned * 100 if planned > 0 else None
         stats.append({
-            "key": "plan", "surface": "white", "label": f"{label('left_in_plan')} · {month}", "value": left, "kind": "money",
+            "key": "plan", "surface": "over" if left < 0 else "out",
+            "label": f"Over plan · {month}" if left < 0 else f"{label('left_in_plan')} · {month}",
+            "value": -left if left < 0 else left, "kind": "money",
             "badge": {"tone": "over" if left < 0 else "flat",
                       "text": "Over plan" if left < 0 else (f"{share:.0f}% used" if share is not None else month)},
             "sub": f"of {fmt(planned)} {label('planned').lower()}",
@@ -329,7 +340,7 @@ def _period_stats(c, period, first, as_of, position, cash_flow, change, change_r
             "href": f"/budget?month={month}",
         })
     else:
-        stats.append({"key": "plan", "surface": "white", "label": f"{label('left_in_plan')} · {month}", "value": None,
+        stats.append({"key": "plan", "surface": "out", "label": f"{label('left_in_plan')} · {month}", "value": None,
                       "kind": "money", "empty": "No plan yet", "sub": f"Set a plan for {month}",
                       "href": f"/budget?month={month}"})
     return stats

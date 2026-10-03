@@ -131,7 +131,7 @@
   </section>
 
   {% if month_calendar.years %}{% set mc = month_calendar %}<section class="overview-section" aria-labelledby="months-heading">
-    <header class="overview-section-head"><h2 id="months-heading">Month by month</h2><span>Every month from {{ mc.from }} to today · darker is more · click a month to open it</span></header>
+    <header class="overview-section-head"><h2 id="months-heading">Month by month</h2><span>{{ mc.from }} to today</span></header>
     <article class="overview-block wide-card"><div class="overview-split">
       <section><div class="overview-block-head"><div><h3>Total expenses</h3><p>{% if mc.biggest and mc.biggest.spend %}Most in {{ mc.biggest.key }} · {{ mc.biggest.spend|money }}{% else %}No spending yet{% endif %}</p></div></div>
         {{ month_cal(mc, 'spend') }}

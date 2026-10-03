@@ -9,7 +9,7 @@
 {% set f = forecast %}{% set p = plan %}
 {{ stat_tiles(stats, base, 'Your cash') }}
 
-<header class="overview-section-head inv-head" id="plan-build"><h2>How is safe to spend worked out?</h2><span>Today · until {{ f.next_income_date or 'three months from now' }}</span></header>
+<header class="overview-section-head inv-head" id="plan-build"><h2>How is safe to spend worked out?</h2><span>Today to {{ f.next_income_date or 'three months from now' }}</span></header>
 <section class="card wide-card"><div class="overview-split">
   <section><div class="overview-block-head"><div><h3>From free cash to safe to spend</h3><p>What is already promised comes off first</p></div></div>
     {{ waterfall(p.build) }}

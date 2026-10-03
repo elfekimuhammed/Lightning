@@ -113,7 +113,7 @@ def money_in_groups(c, first: date, last: date) -> list[dict]:
     return rows
 
 
-def money_sankey(c, first: date, last: date, cash_flow, sources_shown: int = 3, targets_shown: int = 5) -> dict:
+def money_sankey(c, first: date, last: date, cash_flow, sources_shown: int = 3, targets_shown: int = 4) -> dict:
     """Where money in went: income by category into money in, and money in out to spending
     categories and what you kept. When money out is larger, the gap comes from what you had."""
     incomes = money_in_groups(c, first, last)
@@ -133,9 +133,9 @@ def money_sankey(c, first: date, last: date, cash_flow, sources_shown: int = 3, 
     targets = spending[:targets_shown]
     rest_out = cash_flow.outflows - sum((t["value"] for t in targets), ZERO)
     if rest_out > 0:
-        targets.append({"label": "Other spending", "value": rest_out, "tone": "spend"})
+        targets.append({"label": "Other", "value": rest_out, "tone": "spend"})
     if cash_flow.net > 0:
-        targets.append({"label": "Kept", "value": cash_flow.net, "tone": "hold"})
+        targets.append({"label": "Kept", "value": cash_flow.net, "tone": "in"})
     return charts.sankey(sources, targets, "Money in")
 
 
@@ -419,7 +419,7 @@ def _range_marks(low, high, median, now) -> dict | None:
 
 
 def expense_analysis(c, first: date, last: date, code_filter: str = "", history: int = 12,
-                     floor_share: Decimal = Decimal(1), top: int = 5) -> dict:
+                     floor_share: Decimal = Decimal(1), top: int = 4) -> dict:
     """Expense analysis in five questions, big items only.
 
     Categories (L2) under ``floor_share`` % of money out, or past the ``top`` largest, fold into
@@ -458,7 +458,7 @@ def expense_analysis(c, first: date, last: date, code_filter: str = "", history:
                      "above": high is not None and per_month > high, "below": low is not None and per_month < low,
                      "range": _range_marks(low, high, median, per_month),
                      "href": f"/transactions?category_id={category.id}&date_from={fmt_date(first)}&date_to={fmt_date(last)}"})
-    if small > 0:  # everything past the biggest five is one "Others" row, with its own history
+    if small > 0:  # everything past the biggest four is one "Other" row, with its own history
         big_codes = {code for code, _, _ in big}
         past = [sum((v for code, (_, v) in h.items() if code not in big_codes), ZERO) for h in hist]
         per_month = small / months_in
@@ -468,7 +468,7 @@ def expense_analysis(c, first: date, last: date, code_filter: str = "", history:
         median = (ordered[len(ordered) // 2] if len(ordered) % 2 else (ordered[len(ordered) // 2 - 1] + ordered[len(ordered) // 2]) / 2) if ordered else None
         low, high = (min(past), max(past)) if past else (None, None)
         scale = max([per_month] + past) or Decimal(1)
-        rows.append({"code": "", "name": "Others", "others": True, "value": small, "per_month": per_month,
+        rows.append({"code": "", "name": "Other", "others": True, "value": small, "per_month": per_month,
                      "share": small / total * 100, "usual": usual, "past": past, "low": low, "high": high, "median": median,
                      "above": high is not None and per_month > high, "below": low is not None and per_month < low,
                      "range": _range_marks(low, high, median, per_month),
@@ -481,9 +481,9 @@ def expense_analysis(c, first: date, last: date, code_filter: str = "", history:
                  "over": bool(r["usual"]) and r["per_month"] > r["usual"] * Decimal("1.1"),
                  "change": (r["per_month"] - r["usual"]) / r["usual"] * 100 if r["usual"] else None,
                  "now_h": float(r["per_month"] / col_max * 100), "usual_h": float((r["usual"] or ZERO) / col_max * 100)}
-                for r in rows[:6]]
+                for r in rows[:5]]
     # Small multiples: the same twelve months plus now, one scale for every panel.
-    panels = rows[:6]
+    panels = rows[:4]
     lines = charts.shared_lines([r["past"] + [r["per_month"]] for r in panels])
     multiples = [{"name": r["name"], "now": r["per_month"], "line": line, "points": len(r["past"]) + 1}
                  for r, line in zip(panels, lines)]
@@ -595,7 +595,7 @@ def cash_plan(c, forecast, day: date) -> dict:
     top = max([r["in"] for r in rows] + [r["out"] for r in rows] + [ZERO]) or Decimal(1)
     for r in rows:
         r["in_h"], r["out_h"] = float(r["in"] / top * 100), float(r["out"] / top * 100)
-    # What is promised: each loan's money still to pay, largest first, five then Others.
+    # What is promised: each loan's money still to pay, largest first, four then Other.
     loans = []
     for item in c.planning.items((PlanKind.LOAN,)):
         progress = c.planning.loan_progress(item, day)
@@ -603,9 +603,9 @@ def cash_plan(c, forecast, day: date) -> dict:
             loans.append({"label": item.name, "value": progress["still_to_pay"],
                           "note": f"ends {progress['last_date']}" if progress["last_date"] else ""})
     loans.sort(key=lambda r: -r["value"])
-    if len(loans) > 5:
-        rest = loans[5:]
-        loans = loans[:5] + [{"label": "Others", "value": sum((r["value"] for r in rest), ZERO), "note": f"{len(rest)} loans"}]
+    if len(loans) > 4:
+        rest = loans[4:]
+        loans = loans[:4] + [{"label": "Other", "value": sum((r["value"] for r in rest), ZERO), "note": f"{len(rest)} loans"}]
     return {"build": build, "marks": marks, "upcoming": upcoming, "before_income": before_income,
             "before_total": sum((p.amount for p in before_income), ZERO), "heading": heading, "flows": rows,
             "loan_bars": charts.bars(loans, 6), "forecast_spark": charts.sparkline([m.closing for m in f.months]),

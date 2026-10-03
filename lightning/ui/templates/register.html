@@ -262,7 +262,8 @@
         {% set cat = r.type_label if r.type in ('BUY', 'SEL', 'DIV') or r.type_label == 'Ownership change' else r.category_label.split(' › ')[-1] %}<td class="small" title="{{ r.category_label.split(' › ')[-1] ~ (' · in ' ~ r.category_label.split(' › ')[:-1]|join(' · ') if ' › ' in r.category_label else '') }}">{{ cat if cat != (r.counterparty or r.description) else '' }}</td>
         <td class="small whom-cell {{ 'is-hidden' if not custody_owners.get(r.txn_id) }}">{{ custody_owners.get(r.txn_id, '') }}</td>
         {% set note_text = (r.notes ~ ((' ' ~ r.description) if r.type == 'TRF' and r.description else ''))|trim %}<td class="small muted register-note" title="{{ note_text }}">{{ note_text }}</td>
-        <td class="num amount {{ r.amount|tone }}">{{ r.amount|money(True) }}</td>
+        {# A11: in is green with +, out is ink with −, a transfer has no sign. #}
+        <td class="num amount {{ '' if r.type == 'TRF' else r.amount|tone }}">{{ r.amount|abs|money if r.type == 'TRF' else r.amount|money(True) }}</td>
         {% if with_balance %}<td class="num muted">{{ r.balance|money }}</td>{% endif %}
         <td><a class="small" href="{{ href }}">{{ 'Edit' if r.type in ('IN','OUT','TRF') else 'Details' }}</a></td>
       </tr>

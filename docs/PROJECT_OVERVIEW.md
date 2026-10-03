@@ -8,10 +8,11 @@ This file tells the story: what Lightning is, who it is for, what it answers and
 
 The hand-off between the two AIs (Claude and Codex). Read it first; rewrite it when you finish (rules in `AGENTS.md`).
 
-- **2026-10-03 · Claude · in progress:** a UX pass against Brand guideline 3.6 Part A: the user's route from the Overview, redundant elements, and every button, header, field and list against A01–A16. Claimed: `lightning/ui/templates/`, `lightning/ui/static/style.css`, `tests/test_omar_year.py`. Omar is re-run on the plain source build; the PC (WebView2, encrypted) app shares the same pages.
-- **Done today:** Check against bank replaces line-by-line reconciliation (Claude); cash ownership changes and expenses paid by someone else (Codex); Omar walks through user feedback batch 001 (Claude); the brand guideline is one file, 3.6 (Claude).
+- **2026-10-03 · Claude · in progress:** the UX pass against Brand guideline 3.6 Part A. Batch 1 is pushed (see the changelog). The rest is ranked under **UX plan (guideline 3.6)** below. Still claimed: `lightning/ui/templates/`, `lightning/ui/static/style.css`. Omar runs on the plain source build; the PC (WebView2, encrypted) app serves the same pages.
+- **Done today:** Check against bank replaces line-by-line reconciliation (Claude); cash ownership changes and expenses paid by someone else (Codex); Omar walks through user feedback batch 001 (Claude); the brand guideline is one file, 3.6 (Claude); UX batch 1 (Claude).
+- **Figure bugs found, not yet fixed (calculation, not presentation):** an "Other" asset account (Omar's flat, 400,000) is counted as brokerage cash and as holdings, so "Holdings value" reads 472,053 in one place and 172,053 in another, and "Brokerage cash" 700 vs 400,700; recording an asset you already had counts as Change in net worth (+374,288); Overview "Left in plan" (−2,317 of 24,698) and Budget (11,853 of 38,898) disagree because Budget adds a low-confidence Travel estimate; Safe to spend on the day before payday ignores bills due right after it.
 - **2026-10-03 · Claude · done:** speed audit of the PC app from source, in [Speed audit](SPEED_AUDIT.md). Next: a request-scoped cache and the two worst loops (Budget rolling averages, per-account ledger re-scans), then register paging. Not started; no code claimed.
-- **Questions for the owner:** (1) switch SQLCipher `cipher_memory_security` off for about 2× faster encrypted pages? (2) after the request cache, add a cache that lasts between clicks (cleared on every save) only if pages are still slow?
+- **Questions for the owner:** speed: (1) switch SQLCipher `cipher_memory_security` off for about 2× faster encrypted pages? (2) after the request cache, add a cache that lasts between clicks (cleared on every save) only if pages are still slow? UX: see the decisions at the end of **UX plan (guideline 3.6)**.
 
 ## What Lightning is
 
@@ -280,6 +281,33 @@ The reference apps are YNAB, Monarch, Copilot, Simplifi, Rocket Money, Lunch Mon
 - **The emergency fund** should count months of spending, not of income.
 
 Bank sync and bill negotiation are not adopted. Any sync first needs a provider and regional coverage; local CSV stays the foundation. A "safe to spend" figure must always say which obligations and income it includes. Simplifi's projection, which leaves out planned spending, shows why.
+
+## UX plan (guideline 3.6)
+
+From a full UX review on 2026-10-03: Omar's year at a 1,366 × 768 window (the PC app), every screen checked against Brand guideline 3.6 Part A. The structure (Overview, Budget, Investments, Expense analysis, Cash planning, Held for others, Settings, accounts in the sidebar) stays. Batch 1 is done; the rest is ranked by what a real user meets first.
+
+**The user's route.** A salaried user opens Lightning to answer, in order: *Where do I start?* → *Is my money in?* → *How much can I spend before payday?* → *What is due?* → *Am I on plan?* → *Where did it go?* → *How are my investments?* → *Is my data right?* Each tab answers one of these first; the Overview's Needs you is the to-do list across them.
+
+**Done in batch 1:** KPI cards coloured by meaning with an icon tile; Needs you words ("Personal over plan", "Sahel trip is past its date"); an "Over plan" card instead of a negative "Left in plan"; no impossible savings rates (−1,375.2% becomes "—" with the gap in words); four, then Other in donuts, the Sankey, treemaps, bars and small multiples; section headers carry only the title and dates; trend month labels no longer overlap; money out in ink and transfers unsigned in registers; soft field wells; Nile sub-tabs; no all caps; the register's balance no longer clipped at 1,366px; budget spent in soft rose; a Back route on transaction, holding, planner and prices pages; Accounts calls its total What you own.
+
+**Next, by impact:**
+
+1. **First run.** A "Get set up" card in Needs you until done: accounts → import a statement → salary and bills (from Looks recurring) → emergency fund → budget. The welcome adds "Import a statement" and the CD type; Import CSV moves out of More actions to a visible button. Plan shows "Add your salary and bills to see this" instead of a forecast from no data.
+2. **Import review, one decision per name.** Group rows by counterparty name ("SEOUDI MARKET · 30 rows"), one Counterparty / Category / Transfer pick per group, rows collapsed under it; one counterparty control instead of two; "Held for" offers only people; the button says what it posts ("Post 114 rows") and undecided rows stay in review; a "Discard this import" action. Today a 300-row file is a 68,763px page.
+3. **The category picker.** On focus show every choice with its L1 as a header (never "L1 › L2"), and select the current text instead of filtering by "Uncategorized". One picker for the register and the import.
+4. **Bulk edit.** When rows are selected, a bar offers Set category, Set counterparty, Delete, Export.
+5. **One name, one number.** Keep the Free cash breakdown on the Overview and Plan only; Reserves shows one line. One "If sold" figure and name. Loans still to pay once per tab. Remove the Overview's second donut ("What you hold") and the column waterfall that repeats the Net flow list.
+6. **Registers as two-line rows** (A11): counterparty and amount, then category · account · date with the balance under the amount; no Action column (row click and right-click already do it); header figures in whole EGP.
+7. **Honest prices.** A "Prices older than two months" data check and Needs you item; holding pages say "Price from 2026-09-30 · Update price".
+8. **Reserves table** as two-line rows with a meter; the emergency fund shows "13,500 left of 20,000 · 6,500 used · Refill"; paid reserves move to completed.
+9. **Words and numbers sweep:** whole EGP on big figures everywhere; no jargon ("custody subledger", "M4", "5 MiB", internal codes on Prices); sentence-case "counterparty"; segments for 2–4 choices; the app's own dialog for Deactivate.
+
+**Decisions for the owner:**
+
+- Should "Looks recurring" stop suggesting variable spending (Carrefour, Talabat) and CD interest, and get a Dismiss?
+- Budget's low-confidence background estimates (Travel 14,200 this month): count them in Left in plan, show them apart, or drop them?
+- The Overview's Investments section repeats the Investments tab: keep a short row of figures with a link, or keep the section as is?
+- Accounts and All transactions have no item in the main navigation (only the sidebar): add them, or keep the sidebar as the way in?
 
 ## Roadmap
 
