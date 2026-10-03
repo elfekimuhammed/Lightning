@@ -1,6 +1,6 @@
 # Architecture
 
-**Last updated 2026-10-02 · app 0.4.0b1** (`lightning/__init__.py`, matched by `pyproject.toml`).
+**Last updated 2026-10-03 · app 0.4.0b1** (`lightning/__init__.py`, matched by `pyproject.toml`).
 
 This file holds the technical side: stack, module boundaries, data model and every calculation contract. The product story is in [Project Overview](PROJECT_OVERVIEW.md), the visual system in the [Brand guideline](BRAND_GUIDELINE.html), and term definitions in the [Glossary](GLOSSARY.md).
 
@@ -69,7 +69,7 @@ core/                 dates, money, identifiers, posting rules; no app dependenc
 | `lightning/budgeting` + `reserves.py` | Spending plans and cash reserves (separate concepts) |
 | `lightning/planning` | Recurring items, loans, payments, what you owe, cash forecast; `position.py` computes every position figure once |
 | `lightning/reporting` + `integrity` | Read-only queries, derived reporting and data checks |
-| `lightning/workflows` | Atomic cross-module use-cases |
+| `lightning/workflows` | Atomic cross-module use-cases; local read-only AI-analysis workbook assembly |
 | `lightning/ui` | Routes, templates, static assets. `charts.py` (chart geometry), `visuals.py` (chart data read from services) and `keynotes.py` (each page's key notes) never compute a financial figure |
 | `lightning/demo.py` | The sample household |
 
@@ -221,6 +221,8 @@ Budget's ordinary view is a compact plan summary and Personal/Work/Investment ro
 Import normalizes either one signed amount column or separate inflow/outflow columns into one signed amount (money out is negative) before review. Nothing downstream depends on the source CSV's shape. Rows stay unposted until the user reviews them. The AI preparation helper builds exact CSV instructions and current matching names locally and never contacts an AI provider.
 
 Selected CSV exports are available from the transaction register, Categories, and the reevaluation ledger. Each request uses explicit selected IDs, with a 1,000-record limit; it does not silently export a whole account or database. A transaction export has one row per ledger line of each selected transaction, including stable transaction and line IDs, account, asset, category, quantity, amount, base amount, and beneficial-owner ID. A transfer or split transaction can therefore have multiple rows. Category exports include hierarchy, direction, active state, and budget flags. Reevaluation exports contain per-asset checkpoint values and the linked main-journal reference, including pending-price state. These are inspection/backup files, not the bank-import format. Amounts retain stored decimal precision and currencies are not aggregated. User-entered text that starts like a spreadsheet formula is prefixed with an apostrophe.
+
+**Export for AI** (`Settings › Your data`) is a separate, one-workbook handoff. The user selects All time, YTD, Monthly or Custom using `ui.periods.parse_period`; the exact dates and record counts update with the selection. `AIAnalysisService` reads Lightning's reporting and reevaluation services and creates one `.xlsx` in memory with Summary, Transactions, Investment ledger and Categories sheets. Transactions include every posted, owned ledger line in the period, without the selected-export cap. A line owned by another person is omitted even when its parent document has a user-owned line; a categorized expense paid externally for the user remains included. Opening reevaluation checkpoints are labeled as context. Strings use OOXML inline text cells so names, notes and other user content cannot become spreadsheet formulas. The generated prompt is editable and copied when possible; the app never sends the workbook or prompt to an AI provider. No plaintext temporary export is written to disk.
 
 ## Search and identity contract
 

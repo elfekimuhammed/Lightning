@@ -289,6 +289,42 @@ class ReevaluationService:
                              for key in ("units_e6", "price_e6", "value_base_e6", "return_base_e6")}
                 for row in rows]
 
+    def history_for_period(self, start: str, end: str,
+                           opening_positions: set[tuple[int, int]] | None = None) -> list[dict]:
+        """All owned checkpoints in a period plus the last prior checkpoint per opening holding."""
+        columns = ("e.id,p.date,p.reason,p.status,e.account_id,a.name AS account_name,e.asset_id,f.name AS asset_name,"
+                   "e.owner_id,c.name AS owner_name,e.units_e6,e.price_e6,e.currency,e.value_base_e6,e.return_base_e6,"
+                   "e.price_source,e.needs_price,e.journal_transaction_id,t.ref")
+        joins = ("FROM reevaluation_entries e JOIN reevaluation_periods p ON p.id=e.period_id "
+                 "JOIN accounts a ON a.id=e.account_id JOIN financial_assets f ON f.id=e.asset_id "
+                 "LEFT JOIN counterparties c ON c.id=e.owner_id "
+                 "LEFT JOIN transactions t ON t.id=e.journal_transaction_id ")
+        rows = self.db.all("SELECT " + columns + " " + joins +
+                           "WHERE e.owner_id IS NULL AND p.date BETWEEN ? AND ? "
+                           "ORDER BY p.date,a.name,f.name,e.id", (start,end))
+        context_keys = sorted(opening_positions or set())
+        if context_keys:
+            context = []
+            for offset in range(0, len(context_keys), 300):
+                chunk = context_keys[offset:offset + 300]
+                values = ",".join("(?,?)" for _ in chunk)
+                params = [value for pair in chunk for value in pair] + [start]
+                context.extend(self.db.all(
+                    "WITH wanted(account_id,asset_id) AS (VALUES " + values + "), ranked AS (SELECT " +
+                    columns + ",ROW_NUMBER() OVER (PARTITION BY e.account_id,e.asset_id "
+                    "ORDER BY p.date DESC,e.id DESC) AS rn " + joins +
+                    "JOIN wanted w ON w.account_id=e.account_id AND w.asset_id=e.asset_id "
+                    "WHERE e.owner_id IS NULL AND p.date<?) "
+                    "SELECT * FROM ranked WHERE rn=1", tuple(params)))
+            context.sort(key=lambda row: (row["date"], row["account_name"], row["asset_name"], row["id"]))
+        else:
+            context = []
+        def convert(row, scope):
+            return dict(row) | {key: (from_e6(row[key]) if row[key] is not None else None)
+                                for key in ("units_e6", "price_e6", "value_base_e6", "return_base_e6")} | {"scope": scope}
+        return ([convert(row, "OPENING_CONTEXT") for row in context]
+                + [convert(row, "IN_PERIOD") for row in rows])
+
     def record_manual_price(self, asset_id: int, day: str, price: Decimal, fetch_price=None) -> int:
         self.reporting.assets.set_price(asset_id, day, price, source="REEVALUATION_MANUAL")
         reference_items = (" OR e.asset_id IN (SELECT asset_id FROM physical_items WHERE reference_asset_id=?)"

@@ -1635,6 +1635,30 @@ document.querySelectorAll("[data-month-picker]").forEach((picker) => {
   const fromIndex = (index) => `${Math.floor(index / 12)}-${String(index % 12 + 1).padStart(2, "0")}`;
   const currentIndex = /^\d{4}-\d{2}$/.test(currentMonth || "") ? toIndex(currentMonth) : Infinity;
   const valid = (value) => /^\d{4}-(0[1-9]|1[0-2])$/.test(value) && toIndex(value) <= currentIndex;
+  if (form?.hasAttribute("data-period-auto-apply")) {
+    const customInputs = [...form.querySelectorAll('[name="date_from"], [name="date_to"]')]
+      .filter((input) => input.type !== "hidden");
+    customInputs.forEach((input) => input.addEventListener("input", () => input.setCustomValidity("")));
+    customInputs.forEach((input) => input.addEventListener("change", () => {
+      const value = input.value.trim();
+      if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(value) || toIndex(value) > currentIndex) {
+        input.setCustomValidity(`Use yyyy-mm, up to ${currentMonth}.`);
+        input.reportValidity();
+        return;
+      }
+      input.setCustomValidity("");
+      if (customInputs.every((field) => field.value.trim() && field.checkValidity())) {
+        const start = customInputs.find((field) => field.name === "date_from");
+        const end = customInputs.find((field) => field.name === "date_to");
+        if (toIndex(end.value.trim()) < toIndex(start.value.trim())) {
+          end.setCustomValidity("The end month must be the same as or after the start month.");
+          end.reportValidity();
+          return;
+        }
+        form.requestSubmit(form.querySelector('[name="period"][value="custom"]'));
+      }
+    }));
+  }
   if (monthlyButton && monthValue) monthlyButton.addEventListener("click", () => { monthValue.value = currentMonth; });
   // Enter in a month box keeps the selected period; the browser would
   // otherwise submit with the first button (All time).

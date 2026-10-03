@@ -7,11 +7,38 @@ from __future__ import annotations
 
 import html
 import re
+import asyncio
 from dataclasses import dataclass, field
 from html.parser import HTMLParser
 from urllib.parse import urljoin, urlsplit
 
-from fastapi.testclient import TestClient
+import httpx
+
+
+class _ScreenClient:
+    """Synchronous screen-test facade over HTTPX's ASGI transport.
+
+    Starlette's TestClient blocks against the Python 3.14 / HTTPX runtime in the project preview; the
+    in-process ASGI transport exercises the same routes without opening a socket.
+    """
+
+    def __init__(self, app, base_url: str):
+        self.app = app
+        self.base_url = base_url
+        self.cookies = httpx.Cookies()
+
+    async def _request(self, method, url, **kwargs):
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=self.app), base_url=self.base_url,
+                                     cookies=self.cookies, follow_redirects=True) as client:
+            response = await client.request(method, url, **kwargs)
+            self.cookies.update(client.cookies)
+            return response
+
+    def get(self, url, **kwargs):
+        return asyncio.run(self._request("GET", url, **kwargs))
+
+    def post(self, url, **kwargs):
+        return asyncio.run(self._request("POST", url, **kwargs))
 
 
 def visible_text(markup: str) -> str:
@@ -270,7 +297,7 @@ class Browser:
     """Opens pages and keeps the current one, like a tab."""
 
     def __init__(self, app):
-        self.client = TestClient(app, base_url="http://127.0.0.1", raise_server_exceptions=True)
+        self.client = _ScreenClient(app, base_url="http://127.0.0.1")
         self.page: Screen | None = None
         self.trail: list[str] = []
 

@@ -12,6 +12,8 @@ from lightning.core.dates import fmt_date, today
 from ..web import container, redirect, render
 from lightning.categories.domain import Movement, CategoryFamily
 from lightning.core.dates import month_of
+from lightning.workflows.ai_analysis import AIAnalysisService
+from ..periods import parse_period
 
 router = APIRouter(prefix="/settings")
 
@@ -61,6 +63,17 @@ async def settings_page(request: Request):
     if section == "targets":
         from .investments import target_plan
         plan = target_plan(c)
+    ai_period = ai_preview = ai_prompt = None
+    if section == "general":
+        try:
+            ai_period = parse_period(request.query_params, today(), c.reporting.first_activity_date())
+        except LightningError:
+            ai_period = parse_period({}, today(), c.reporting.first_activity_date())
+        ai_service = AIAnalysisService(c)
+        ai_snapshot = ai_service._snapshot(ai_period, include_workbook_rows=False)
+        ai_preview = ai_snapshot["preview"]
+        ai_filename = f"lightning-analysis-{ai_period.start_text}-to-{ai_period.end_text}.xlsx"
+        ai_prompt = ai_service.prompt(ai_period, ai_filename, ai_snapshot)
     return render(request, "settings/index.html", db_path=c.db.path, backups=[b.name for b in backups], plan=plan,
                   classes=c.assets.list_classes(), assets=c.assets.list_assets(), factor_rows=factor_rows, factor_groups=factor_groups,
                   section=request.query_params.get("section", "general"), return_to=return_to,
@@ -73,7 +86,25 @@ async def settings_page(request: Request):
                   manual_income=c.settings.get("budget_manual_monthly_income") or "",
                   suggestion_percent=c.settings.get("budget_track_suggestion_percent") or "20",
                   suggestion_fixed=c.settings.get("budget_track_suggestion_fixed") or "",
-                  ceiling_percent=c.settings.get("budget_monthly_ceiling_percent") or "100")
+                  ceiling_percent=c.settings.get("budget_monthly_ceiling_percent") or "100",
+                  ai_period=ai_period, ai_preview=ai_preview, ai_prompt=ai_prompt,
+                  ai_month=month_of(ai_period.end) if ai_period else month_of(today()),
+                  current_month=month_of(today()))
+
+
+@router.post("/ai-analysis")
+async def prepare_ai_analysis(request: Request):
+    c = container(request)
+    try:
+        form = await request.form()
+        period = parse_period(form, today(), c.reporting.first_activity_date())
+        content, filename, _ = AIAnalysisService(c).build(period)
+    except (LightningError, ValueError) as exc:
+        message = exc.message if isinstance(exc, LightningError) else str(exc)
+        return Response(message, status_code=400, media_type="text/plain; charset=utf-8")
+    return Response(content, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": f'attachment; filename="{filename}"',
+                             "Cache-Control": "no-store"})
 
 
 @router.post("/liquidation-factor/{asset_class_id:int}")

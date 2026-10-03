@@ -87,6 +87,35 @@ class ReportQueries:
         )
         return [dict(r) for r in rows]
 
+    def ai_analysis_lines(self, date_from: str, date_to: str) -> list[dict]:
+        """Owned posted ledger lines for a local analysis workbook, without pagination."""
+        rows = self.db.all(
+            "SELECT le.transaction_id,le.line_no,le.date,le.account_id,a.code AS account_code,a.name AS account_name,"
+            "a.currency AS account_currency,le.asset_id,f.code AS asset_code,f.name AS asset_name,f.currency AS currency,"
+            "t.ref,t.type,t.description,t.counterparty,t.notes,le.category_id,c.code AS category_code,"
+            "c.name AS category_name,c.direction,c.income_class,c.family,le.effect,le.quantity_e6,"
+            "le.unit_price_e6,le.amount_e6,le.amount_base_e6,le.fx_rate_e6,le.memo,le.owner_id,"
+            "EXISTS(SELECT 1 FROM ledger_entries custody JOIN categories cc ON cc.id=custody.category_id "
+            "WHERE custody.transaction_id=t.id AND cc.code='EXP.SYSTEM.CUSTODY' AND custody.effect='INFLOW') "
+            "AS has_custody_entry "
+            "FROM ledger_entries le JOIN transactions t ON t.id=le.transaction_id AND t.status='POSTED' "
+            "JOIN accounts a ON a.id=le.account_id JOIN financial_assets f ON f.id=le.asset_id "
+            "LEFT JOIN categories c ON c.id=le.category_id "
+            "WHERE le.date BETWEEN ? AND ? AND le.owner_id IS NULL "
+            "ORDER BY le.date,t.id,le.line_no", (date_from,date_to))
+        return [dict(row) for row in rows]
+
+    def ai_analysis_counts(self, date_from: str, date_to: str) -> tuple[int, int, set[int]]:
+        row = self.db.one(
+            "SELECT COUNT(*) AS lines,COUNT(DISTINCT t.id) AS transactions "
+            "FROM ledger_entries le JOIN transactions t ON t.id=le.transaction_id AND t.status='POSTED' "
+            "WHERE le.date BETWEEN ? AND ? AND le.owner_id IS NULL", (date_from,date_to))
+        category_ids = {int(item["category_id"]) for item in self.db.all(
+            "SELECT DISTINCT le.category_id FROM ledger_entries le JOIN transactions t "
+            "ON t.id=le.transaction_id AND t.status='POSTED' WHERE le.date BETWEEN ? AND ? "
+            "AND le.owner_id IS NULL AND le.category_id IS NOT NULL", (date_from,date_to))}
+        return int(row["transactions"] or 0), int(row["lines"] or 0), category_ids
+
     def monthly_effects(self, date_from: str, date_to: str) -> list[dict]:
         rows = self.db.all(
             f"SELECT substr(le.date, 1, 7) AS month, le.effect, SUM(le.amount_base_e6) AS total"

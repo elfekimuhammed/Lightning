@@ -1009,3 +1009,35 @@ def test_a_big_difference_from_the_bank_is_reviewed_not_adjusted(omar):
     assert check.shows("Too big to adjust", "Review 2027-09 row by row", "Import the statement again")
     assert not any("Post adjustment" in (text or "") for form in check.forms for text, *_ in form.buttons)
     assert check.link("Review 2027-09 row by row").href == "/accounts/1?date_from=2027-09-01&date_to=2027-09-30"
+
+
+def test_settings_prepares_one_owned_ai_analysis_workbook(omar):
+    from io import BytesIO
+    from xml.etree import ElementTree as ET
+    from zipfile import ZipFile
+
+    screen = omar.b.go("Settings")
+    assert screen.shows("Your data", "Export for AI", "All time", "YTD", "Monthly", "Custom",
+                        "Prepare AI analysis", "Prompt for your AI tool", "Copy prompt")
+    screen = omar.b.submit(button="All time", action=r"/settings$")
+    assert screen.shows("2026-07-01 to 2027-09-30", "transactions", "investment records")
+    prompt = screen.html.split('data-ai-prompt', 1)[1].split('>', 1)[1].split('</textarea>', 1)[0]
+    prompt = prompt.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
+    assert "lightning-analysis-2026-07-01-to-2027-09-30.xlsx" in prompt
+    assert "Categories used in the exported activity" in prompt
+    form = screen.form(button="Prepare AI analysis", action=r"/settings/ai-analysis")
+    response = omar.b.client.post(form.action, data=form.fields)
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    assert 'filename="lightning-analysis-2026-07-01-to-2027-09-30.xlsx"' in response.headers["content-disposition"]
+    with ZipFile(BytesIO(response.content)) as workbook:
+        xml = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+        root = ET.fromstring(workbook.read("xl/workbook.xml"))
+        assert [sheet.attrib["name"] for sheet in root.findall(f".//{{{xml}}}sheet")] == [
+            "Summary", "Transactions", "Investment ledger", "Categories"]
+        transaction_sheet = ET.fromstring(workbook.read("xl/worksheets/sheet2.xml"))
+        roles = {row.findall(f"{{{xml}}}c")[6].find(f"{{{xml}}}is/{{{xml}}}t").text
+                 for row in transaction_sheet.findall(f".//{{{xml}}}row")[1:]
+                 if len(row.findall(f"{{{xml}}}c")) > 6}
+        assert {"transfer", "refund", "investment contribution", "investment sale", "dividend",
+                "ownership change", "expense paid externally"} <= roles
