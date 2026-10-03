@@ -2890,3 +2890,13 @@ a.chart-sankey-label:hover b { color:var(--azure); }
 /* Guideline 3.8 · the vivid gradient (brand only: the logo and the one special button, Investment planner). */
 :root { --vivid:linear-gradient(135deg,#00995C 0%,#0066FF 100%); }
 .btn.btn-planner { background:var(--vivid)!important; }
+/* Budget detail: Tracked and Not tracked collapse; each has Select all for the bulk rules. */
+.main .budget-set { margin-top:12px; }
+.main .budget-set > summary { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:8px 0; cursor:pointer; list-style:none; border-bottom:1px solid var(--line); }
+.main .budget-set > summary::-webkit-details-marker { display:none; }
+.main .budget-set > summary h3 { margin:0; }
+.main .budget-set > summary h3::before { content:""; display:inline-block; width:7px; height:7px; margin:0 10px 2px 2px; border-right:2px solid var(--muted); border-bottom:2px solid var(--muted); transform:rotate(-45deg); transition:transform .15s; }
+.main .budget-set[open] > summary h3::before { transform:rotate(45deg); }
+.main .budget-select-all { display:inline-flex; align-items:center; gap:8px; font:600 var(--fs-2)/1 var(--body); color:var(--ink-2); }
+.main .budget-select-all input { width:16px; height:16px; }
+.main .budget-set .budget-select-all { margin:10px 0 4px; }
