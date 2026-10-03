@@ -545,6 +545,16 @@ if (ledger) {
     syncSelection();
   });
   document.getElementById("delete-selected")?.addEventListener("click", () => deleteTransactions(selectedIds()));
+  // Bulk edit: the selected rows travel with the chosen category; the server keeps each row's
+  // date, amount and counterparty and skips rows that cannot take the category.
+  document.getElementById("bulk-category-form")?.addEventListener("submit", (event) => {
+    const form = event.currentTarget;
+    form.querySelectorAll('input[name="txn_ids"], input[name="back"]').forEach((input) => input.remove());
+    const ids = selectedIds();
+    if (!ids.length) { event.preventDefault(); return; }
+    const back = document.createElement("input"); back.type = "hidden"; back.name = "back"; back.value = location.pathname + location.search; form.append(back);
+    ids.forEach((id) => { const input = document.createElement("input"); input.type = "hidden"; input.name = "txn_ids"; input.value = id; form.append(input); });
+  });
   document.getElementById("export-selected")?.addEventListener("click", () => {
     const ids = selectedIds();
     if (!ids.length) return;

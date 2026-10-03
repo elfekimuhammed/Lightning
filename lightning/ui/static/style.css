@@ -2884,3 +2884,6 @@ a.chart-sankey-label:hover b { color:var(--azure); }
 .main .import-row .iso-date-control { display:flex; align-items:center; gap:4px; min-width:0; }
 .main .import-row .iso-date-control input[type=text] { flex:1; min-width:0; }
 .main .import-row .date-picker-button:not(#_) { width:30px!important; min-width:30px!important; height:30px!important; min-height:30px!important; padding:0!important; background:#EEF4F2!important; border-color:transparent!important; }
+/* Bulk edit in the selection bar: a 30px picker and its button on one line. */
+.main .selection-tools .bulk-category { display:inline-flex; align-items:center; gap:6px; margin:0; }
+.main .selection-tools .bulk-category :is(input,select):not(#_):not(.x_) { height:30px; min-height:30px; width:220px; font-size:var(--fs-2); }

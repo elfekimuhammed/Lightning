@@ -220,6 +220,11 @@
 <div class="card ledger" data-counterparties='{{ counterparty_categories|tojson }}' data-accounts='{{ account_options|tojson }}'>
   <div class="selection-tools" id="selection-tools" hidden>
     <span id="selection-count" class="muted small">0 selected</span>
+    {# Bulk edit (user feedback, ticket 20): one category for every selected row. #}
+    <form method="post" action="/transactions/bulk-category" class="bulk-category" id="bulk-category-form">
+      {% from "partials/macros.html" import category_options %}<select name="category_id" aria-label="Category for the selected rows" data-own-picker><option value="">Set a category…</option>{{ category_options(category_groups()) }}</select>
+      <button class="btn small">Set category</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}">
+    </form>
     <button type="button" class="btn small" id="export-selected">Export selected</button>
     <button type="button" class="btn small danger" id="delete-selected">Delete selected</button>
   </div>

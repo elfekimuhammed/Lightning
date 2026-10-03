@@ -574,6 +574,13 @@ def _the_feedback_round(o: Omar) -> None:
     o.ask("categories", "Which categories are income, which are spending, and which repeat?", "Settings", "Categories")
     o.ask("invest_monthly", "Can I keep a goal of investing 3,000 every month?", "Investments", "Investment planner")
     o.ask("bulk", "I selected six Talabat rows. Can I change their category together?", "CIB Payroll")
+    # He types Talabat in CIB Payroll's search box, ticks every row and gives them one category.
+    found = b.open(f"{b.go('CIB Payroll').path.split('?')[0]}?q=Talabat")
+    talabat = re.findall(r'class="transaction-select"[^>]*value="(\d+)"', found.html) or \
+        re.findall(r'value="(\d+)"[^>]*class="transaction-select"', found.html)
+    o.notes["bulk_rows"] = len(talabat)
+    o.notes["bulk_done"] = b.submit({"txn_ids": talabat, "category_id": Choose("Food & Groceries"),
+                                     "back": found.path}, action="/transactions/bulk-category")
     o.ask("fund_value", "THNDR shows the fund's value, not its unit price. Can I type that?",
           "Settings", "Valuations", "Update prices")
 
@@ -981,9 +988,13 @@ def test_a_monthly_investing_goal_is_kept(omar):
     assert any("month" in name for form in screen.forms for name in form.fields)
 
 
-@known_gap("Selected register rows can be exported or deleted, but not edited together")
 def test_selected_rows_can_be_edited_together(omar):
-    assert omar.answers["bulk"].shows("Edit selected")
+    assert omar.answers["bulk"].shows("Set category")
+    rows = omar.notes["bulk_rows"]
+    assert rows >= 12   # one Talabat order a month, and the doubled one he deleted is gone
+    done = omar.notes["bulk_done"]
+    assert done.shows(f"Food & Groceries is now the category of {rows} rows.")
+    assert done.shows("Talabat Food & Groceries") and "Talabat Eating Out" not in done.text
 
 
 @known_gap("A fund can only be valued by its unit price; he cannot type the value THNDR shows")

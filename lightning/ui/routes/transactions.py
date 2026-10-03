@@ -367,6 +367,31 @@ async def delete_transactions(request: Request):
     return redirect(destination, f"Deleted {count} transaction(s). You can restore them from history.")
 
 
+@router.post("/transactions/bulk-category")
+async def categorize_transactions(request: Request):
+    """Bulk edit: one category for every selected money-in or money-out row."""
+    c = container(request)
+    form = await request.form()
+    ids = [int(value) for value in form.getlist("txn_ids") if str(value).isdigit()]
+    back = str(form.get("back", ""))
+    destination = back if back.startswith("/") and not back.startswith("//") else "/transactions"
+    if not ids:
+        return redirect(destination, "Choose at least one transaction.")
+    if not str(form.get("category_id", "")).isdigit():
+        return redirect(destination, "Choose a category to give the selected rows.")
+    try:
+        category_id = int(str(form.get("category_id")))
+        changed, skipped = c.transactions.set_category(ids, category_id)
+    except LightningError as exc:
+        return redirect(destination, exc.message)
+    name = c.categories.get(category_id).name
+    message = f"{name} is now the category of {len(changed)} row{'s' if len(changed) != 1 else ''}."
+    if skipped:
+        message += (f" {len(skipped)} left as {'they were' if len(skipped) != 1 else 'it was'}: transfers, investment rows, "
+                    "split expenses and rows going the other way keep their own category.")
+    return redirect(destination, message)
+
+
 @router.post("/transactions/{txn_id:int}/restore")
 async def restore_transaction(request: Request, txn_id: int):
     try:
