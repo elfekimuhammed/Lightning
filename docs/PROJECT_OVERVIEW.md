@@ -10,7 +10,8 @@ The hand-off between the two AIs (Claude and Codex). Read it first; rewrite it w
 
 - **2026-10-03 · Claude · in progress:** a UX pass against Brand guideline 3.6 Part A: the user's route from the Overview, redundant elements, and every button, header, field and list against A01–A16. Claimed: `lightning/ui/templates/`, `lightning/ui/static/style.css`, `tests/test_omar_year.py`. Omar is re-run on the plain source build; the PC (WebView2, encrypted) app shares the same pages.
 - **Done today:** Check against bank replaces line-by-line reconciliation (Claude); cash ownership changes and expenses paid by someone else (Codex); Omar walks through user feedback batch 001 (Claude); the brand guideline is one file, 3.6 (Claude).
-- **Questions for the owner:** none open.
+- **2026-10-03 · Claude · done:** speed audit of the PC app from source, in [Speed audit](SPEED_AUDIT.md). Next: a request-scoped cache and the two worst loops (Budget rolling averages, per-account ledger re-scans), then register paging. Not started; no code claimed.
+- **Questions for the owner:** (1) switch SQLCipher `cipher_memory_security` off for about 2× faster encrypted pages? (2) after the request cache, add a cache that lasts between clicks (cleared on every save) only if pages are still slow?
 
 ## What Lightning is
 
