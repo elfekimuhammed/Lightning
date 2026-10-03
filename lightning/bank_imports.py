@@ -401,6 +401,34 @@ class BankImportService:
         )
         return bool(row)
 
+    def waiting(self, account_id: int) -> list[dict]:
+        """Statements this account left half-reviewed, oldest first: Import CSV offers to finish or
+        discard them before another one starts."""
+        return [dict(row) for row in self.db.all(
+            "SELECT b.id,b.file_name,b.created_at,COUNT(r.id) AS waiting FROM bank_import_batches b "
+            "JOIN bank_import_rows r ON r.batch_id=b.id AND r.status='REVIEW' "
+            "WHERE b.account_id=? AND b.status='REVIEW' GROUP BY b.id ORDER BY b.id", (account_id,))]
+
+    def discard(self, batch_id: int) -> int:
+        """Throw away a statement still in review. Rows already posted stay posted; the rest are
+        marked skipped, or the whole batch is removed when nothing from it was posted. Returns the
+        number of rows discarded."""
+        batch = self.db.one("SELECT * FROM bank_import_batches WHERE id=?", (batch_id,))
+        if not batch:
+            raise NotFoundError("Import batch not found.")
+        if batch["status"] == "POSTED":
+            raise ConflictError("This statement has already been posted.")
+        waiting = self.db.scalar("SELECT COUNT(*) FROM bank_import_rows WHERE batch_id=? AND status='REVIEW'", (batch_id,))
+        posted = self.db.scalar("SELECT COUNT(*) FROM bank_import_rows WHERE batch_id=? AND status='POSTED'", (batch_id,))
+        with self.db.transaction():
+            if posted:
+                self.db.execute("UPDATE bank_import_rows SET status='SKIPPED' WHERE batch_id=? AND status='REVIEW'", (batch_id,))
+                self.db.execute("UPDATE bank_import_batches SET status='POSTED',posted_at=? WHERE id=?", (now_iso(), batch_id))
+            else:
+                self.db.execute("DELETE FROM bank_import_rows WHERE batch_id=?", (batch_id,))
+                self.db.execute("DELETE FROM bank_import_batches WHERE id=?", (batch_id,))
+        return int(waiting or 0)
+
     def confirm(self, batch_id: int, decisions: dict[int, dict]):
         batch = self.db.one("SELECT * FROM bank_import_batches WHERE id=?", (batch_id,))
         if not batch:

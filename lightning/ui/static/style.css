@@ -2858,3 +2858,29 @@ a.chart-sankey-label:hover b { color:var(--azure); }
 .main .dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--muted); }
 .main .dot-in { background:var(--meadow); }
 .main .setup-step .status-word { color:var(--ink-2)!important; }
+/* Import review · one decision per name (UX plan item 2). A name is a two-line row; open it for its
+   choices (soft wells, 36px in a card) and its rows (30px wells, five fields at most). */
+.main .import-review h3 { margin:20px 0 8px; font:700 var(--fs-section, 17px)/1.3 var(--display); color:var(--ink); }
+.main .import-group { border-top:1px solid var(--line); }
+.main .import-group > summary { display:grid; grid-template-columns:minmax(0,1fr) auto minmax(160px,auto); align-items:center; gap:16px; padding:12px 4px; cursor:pointer; list-style:none; }
+.main .import-group > summary::-webkit-details-marker { display:none; }
+.main .import-group-name { display:grid; gap:2px; min-width:0; }
+.main .import-group-name small { color:var(--ink-2); font-size:var(--fs-meta); }
+.main .import-group .status-word.is-over, .main .import-group .neg { color:var(--rose); }
+.main .dot-over { background:var(--rose); }
+.main .import-group-fields { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px 16px; padding:4px 4px 12px; }
+.main .import-group-fields label { display:grid; gap:6px; font:600 var(--fs-meta)/1.3 var(--body); color:var(--ink-2); }
+.main .import-group-fields :is(input,select):not(#_):not(.x_) { height:36px; min-height:36px; }
+.main .import-check { display:flex!important; align-items:center; gap:8px; }
+.main .import-check input { width:16px; height:16px; }
+.main .import-rows { display:grid; gap:4px; padding:0 4px 14px; }
+.main .import-row { display:grid; grid-template-columns:64px 120px 120px minmax(0,1fr) minmax(0,190px) 70px; align-items:center; gap:8px; }
+.main .import-row :is(input,select):not([type=checkbox]):not(#_):not(.x_) { height:30px; min-height:30px; padding:0 10px; font-size:var(--fs-2); }
+.main .import-row-line { color:var(--muted); font-size:var(--fs-meta); }
+.main .import-row-note { grid-column:2 / -1; color:var(--ink-2); }
+.main .import-discard { margin-top:12px; }
+@media (max-width:760px) { .main .import-row { grid-template-columns:1fr 1fr; } .main .import-group > summary { grid-template-columns:1fr auto; } }
+.main .import-row { grid-template-columns:56px 170px 110px minmax(0,1fr) minmax(0,190px) 64px; }
+.main .import-row .iso-date-control { display:flex; align-items:center; gap:4px; min-width:0; }
+.main .import-row .iso-date-control input[type=text] { flex:1; min-width:0; }
+.main .import-row .date-picker-button:not(#_) { width:30px!important; min-width:30px!important; height:30px!important; min-height:30px!important; padding:0!important; background:#EEF4F2!important; border-color:transparent!important; }

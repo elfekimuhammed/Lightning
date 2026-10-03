@@ -2,6 +2,12 @@
 {% block title %}Import account CSV{% endblock %}
 {% block heading %}<div class="acct-title"><h1>Import statement</h1></div><p class="muted">{{ account.name }}</p>{% endblock %}
 {% block content %}
+{% for w in waiting %}<section class="card import-waiting">
+  <h2>{{ w.file_name }} is waiting for you</h2>
+  <p class="muted">{{ w.waiting }} row{{ 's' if w.waiting != 1 }} still to review, started {{ w.created_at[:10] }}. Finish it or discard it before importing another statement, so no row is posted twice.</p>
+  <div class="actions"><a class="btn primary" href="/accounts/{{ account.id }}/import/{{ w.id }}">Continue the review</a>
+  <form method="post" action="/accounts/{{ account.id }}/import/{{ w.id }}/discard" data-confirm-delete="Discard this import? Nothing from {{ w.file_name }} is posted. You can import the file again later."><button class="btn">Discard it</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form></div>
+</section>{% endfor %}
 <section class="card form-card">
   <p>Upload this account’s activity CSV. Standard columns are <b>Date</b>, <b>Counterparty</b>, and signed <b>Amount</b>; Category, Notes, and Reference are optional.</p>
   <p class="muted small">We’ll preview rows before posting. Money out is negative; money in is positive. For investment holdings, use the investment transaction row to record units; this imports account cash movements.</p>

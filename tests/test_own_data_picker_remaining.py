@@ -11,11 +11,12 @@ def template(name):
 def test_remaining_own_data_selects_use_type_and_pick():
     expectations = {
         "bank_import_preview.html": [
-            'name="counterparty_choice_{{ r._import_row_id }}" data-own-picker',
-            'name="category_{{ r._import_row_id }}" data-own-picker',
-            'name="transfer_account_id_{{ r._import_row_id }}" data-own-picker',
-            'name="owner_choice_{{ r._import_row_id }}" data-own-picker',
-            'name="counterparty_{{ r._import_row_id }}" value="{{ r.Counterparty }}" list=',
+            # One decision per name: the choices sit on the name, not on every row.
+            'name="group_counterparty_choice_{{ i }}" data-own-picker',
+            'name="group_category_{{ i }}" data-own-picker',
+            'name="group_transfer_account_id_{{ i }}" data-own-picker',
+            'name="group_owner_choice_{{ i }}" data-own-picker',
+            'name="group_counterparty_{{ i }}" value="{{ g.counterparty }}" list=',
         ],
         "transactions/form_popup.html": [
             'name="to_account_id" data-own-picker',
@@ -60,10 +61,11 @@ def test_remaining_own_data_selects_use_type_and_pick():
 def test_redundant_search_fields_are_removed_without_changing_submission_fields():
     source = template("bank_import_preview.html")
     assert "data-option-filter" not in source
-    assert 'name="counterparty_choice_{{ r._import_row_id }}"' in source
-    assert 'name="category_{{ r._import_row_id }}"' in source
-    assert 'name="owner_choice_{{ r._import_row_id }}"' in source
-    assert 'name="transfer_account_id_{{ r._import_row_id }}"' in source
+    assert 'name="group_counterparty_choice_{{ i }}"' in source
+    assert 'name="group_category_{{ i }}"' in source
+    assert 'name="group_owner_choice_{{ i }}"' in source
+    assert 'name="group_transfer_account_id_{{ i }}"' in source
+    assert 'name="group_of_{{ rid }}"' in source
 
     popup = template("transactions/form_popup.html")
     assert "data-owner-filter" not in popup

@@ -1,40 +1,67 @@
 {% extends "base.html" %}
 {% block title %}Review statement{% endblock %}
 {% block heading %}<div class="acct-title"><h1>{% if batch.status == 'POSTED' %}Import result{% else %}Review import{% endif %}</h1></div><p class="muted">{{ account.name }} · {{ batch.file_name }}</p>{% endblock %}
-{% macro review_row(r, force_open=false) %}
-<details class="import-review-row" id="import-row-{{ r._import_row_id }}" data-import-key="{{ (r.Counterparty or '')|lower|trim }}" {{ 'open' if force_open or r._row_error or r._errors else '' }}><summary><span>Line {{ r._line }} · {{ r.Date }} · {{ r.Counterparty or 'No counterparty' }}</span><b>{{ r.Amount if r._errors else r.Amount|money(True) }}</b>{% if r._row_error %}<span class="neg">{{ r._row_error }}</span>{% elif r._reference_duplicate or r._similarity_warning %}<span class="muted">Same date and amount or reference — review before posting</span>{% elif r._needs_account %}<span class="neg">Internal transfer · pick the account it moved to or from</span>{% elif not r._ready %}<span class="muted">Needs a decision</span>{% elif r._transfer_target %}<span class="pos">Ready · transfer {{ 'from' if r.Amount|float > 0 else 'to' }} {{ r._transfer_target }}</span>{% else %}<span class="pos">Ready</span>{% endif %}</summary>
-<div class="import-review-fields"><label>Date<input type="text" name="date_{{ r._import_row_id }}" value="{{ r.Date }}" placeholder="yyyy-mm-dd" inputmode="numeric" data-smart-date></label>
-<label>Counterparty<input type="text" name="counterparty_{{ r._import_row_id }}" value="{{ r.Counterparty }}" list="counterparties-{{ r._import_row_id }}" data-own-suggestions><datalist id="counterparties-{{ r._import_row_id }}">{% for name in counterparty_search_names %}<option value="{{ name }}">{% endfor %}</datalist>{% if r._suggestions %}<small>Possible matches: {% for name, score in r._suggestions %}{{ name }}{% if not loop.last %}, {% endif %}{% endfor %}</small>{% endif %}</label>
-<label>Choose Counterparty<select id="import-counterparty-{{ r._import_row_id }}" name="counterparty_choice_{{ r._import_row_id }}" data-own-picker><option value="" {{ 'selected' if not r._counterparty_choice and not r._counterparty_id }}>Choose explicitly / leave unlinked</option>{% for cp in counterparties %}<option value="existing:{{ cp.id }}" {{ 'selected' if r._counterparty_choice == 'existing:' ~ cp.id|string or (not r._counterparty_choice and r._counterparty_id == cp.id) }}>{{ cp.name }}</option>{% endfor %}<option value="new" {{ 'selected' if r._counterparty_choice == 'new' }}>Create typed name as new</option><option value="unlinked" {{ 'selected' if r._counterparty_choice == 'unlinked' }}>Leave unlinked</option></select></label>
-<label>Category<select id="import-category-{{ r._import_row_id }}" name="category_{{ r._import_row_id }}" data-own-picker><option value="" {{ 'selected' if not r._category_id }}>Choose a category</option><option value="__uncategorized__">Uncategorized</option>{% from "partials/macros.html" import category_options %}{{ category_options(category_groups(categories|map(attribute='id')|list), r._category_id or '') }}</select></label>
-<label>Internal transfer to <select name="transfer_account_id_{{ r._import_row_id }}" data-own-picker><option value="">Not a transfer</option>{% for destination in account_choices %}<option value="{{ destination.id }}" {{ 'selected' if r.get('_transfer_account_id') == destination.id|string }}>{{ destination.name }}</option>{% endfor %}</select>{% if r._needs_account %}<small class="neg">The category says internal, but no account matches. Pick the account the money moved to or from.</small>{% elif r._transfer_target_suggestion and not r._transfer_target %}<small>Possible transfer to {{ r._transfer_target_suggestion }} — choose the account to confirm.</small>{% endif %}</label>
-<label class="import-owner-field">Held for<select id="import-owner-{{ r._import_row_id }}" name="owner_choice_{{ r._import_row_id }}" data-own-picker><option value="" {{ 'selected' if not r.get('_owner_choice') }}>Choose if this is held for someone else</option><option value="self" {{ 'selected' if r.get('_owner_choice') == 'self' }}>You own it</option>{% for cp in counterparties %}<option value="existing:{{ cp.id }}" {{ 'selected' if r.get('_owner_choice') == 'existing:' ~ cp.id|string }}>{{ cp.name }} owns it</option>{% endfor %}</select><input type="hidden" name="whom_{{ r._import_row_id }}" value=""></label>
-<label>Notes<input type="text" name="notes_{{ r._import_row_id }}" value="{{ r.Notes }}"></label><label>Amount<input class="num money-input" type="text" inputmode="decimal" autocomplete="off" name="amount_{{ r._import_row_id }}" value="{{ r.Amount }}"></label>
-<label><input type="checkbox" name="remember_category_{{ r._import_row_id }}" {{ 'checked' if r.get('_remember_category') }}> Remember category for this Counterparty</label>
-<label><input type="checkbox" name="skip_{{ r._import_row_id }}" {{ 'checked' if r.get('_skip') or r._similarity_warning or r._reference_duplicate }}> Skip this row</label>
-</div></details>
+{% from "partials/macros.html" import category_options %}
+{#
+  One decision per name (guideline 3.6 · UX plan item 2). Rows with the same imported name form one
+  block: one Counterparty, Category, Transfer and Held-for choice for all of them; each row keeps its
+  own date, amount, note and skip, and a category of its own only when the statement gave it one that
+  differs. Every row still posts on its own (group_of_<row> tells the server which choices it follows).
+#}
+{% macro status(g) -%}
+{% set lead = g.lead %}
+{%- if g.errors %}<span class="status-word is-over"><i class="dot dot-over"></i>{{ g.errors|length }} to fix</span>
+{%- elif lead._needs_account %}<span class="status-word is-over"><i class="dot dot-over"></i>Internal transfer · pick the account it moved to or from</span>
+{%- elif g.needs %}<span class="status-word"><i class="dot"></i>Needs a decision</span>
+{%- elif g.duplicates %}<span class="status-word"><i class="dot"></i>{{ g.duplicates }} possible duplicate{{ 's' if g.duplicates != 1 }}</span>
+{%- elif lead._transfer_target %}<span class="status-word"><i class="dot dot-in"></i>Ready · transfer {{ 'from' if g.total > 0 else 'to' }} {{ lead._transfer_target }}</span>
+{%- else %}<span class="status-word"><i class="dot dot-in"></i>Ready</span>{% endif %}
+{%- endmacro %}
+
+{% macro group_block(g, open=false) %}
+{% set i = g.i %}{% set lead = g.lead %}
+<details class="import-group" id="import-group-{{ i }}" {{ 'open' if open }}>
+  <summary><span class="import-group-name"><b>{{ g.name }}</b><small>{{ g.count }} row{{ 's' if g.count != 1 }}</small></span><b class="num">{{ g.total|money(True) }}</b>{{ status(g) }}</summary>
+  <div class="import-group-fields">
+    <label>Counterparty<input type="text" name="group_counterparty_{{ i }}" value="{{ g.counterparty }}" list="import-counterparty-names" data-own-suggestions>{% if lead._suggestions %}<small>Possible matches: {% for name, score in lead._suggestions %}{{ name }}{% if not loop.last %}, {% endif %}{% endfor %}</small>{% endif %}</label>
+    <label>Save as<select name="group_counterparty_choice_{{ i }}" data-own-picker><option value="" {{ 'selected' if not g.counterparty_choice and not lead._counterparty_id }}>Leave unlinked</option>{% for cp in counterparties %}<option value="existing:{{ cp.id }}" {{ 'selected' if g.counterparty_choice == 'existing:' ~ cp.id|string or (not g.counterparty_choice and lead._counterparty_id == cp.id) }}>{{ cp.name }}</option>{% endfor %}<option value="new" {{ 'selected' if g.counterparty_choice == 'new' }}>A new counterparty with the name above</option></select></label>
+    <label>Category<select name="group_category_{{ i }}" data-own-picker><option value="" {{ 'selected' if not g.category }}>Choose a category</option><option value="__uncategorized__" {{ 'selected' if g.category == '__uncategorized__' }}>Uncategorized</option>{{ category_options(category_groups(categories|map(attribute='id')|list), g.category) }}</select></label>
+    <label>Moved to or from<select name="group_transfer_account_id_{{ i }}" data-own-picker><option value="">Not a transfer</option>{% for destination in account_choices %}<option value="{{ destination.id }}" {{ 'selected' if g.transfer == destination.id|string }}>{{ destination.name }}</option>{% endfor %}</select>{% if lead._needs_account %}<small class="neg">The category says internal, but no account matches. Pick the account the money moved to or from.</small>{% elif lead._transfer_target_suggestion and not lead._transfer_target %}<small>Possible transfer to {{ lead._transfer_target_suggestion }}: choose the account to confirm.</small>{% endif %}</label>
+    <label class="import-owner-field">Held for<select name="group_owner_choice_{{ i }}" data-own-picker><option value="" {{ 'selected' if not g.owner_choice }}>Only if it is someone else's money</option><option value="self" {{ 'selected' if g.owner_choice == 'self' }}>You own it</option>{% for cp in counterparties %}<option value="existing:{{ cp.id }}" {{ 'selected' if g.owner_choice == 'existing:' ~ cp.id|string }}>{{ cp.name }} owns it</option>{% endfor %}</select><input type="hidden" name="group_whom_{{ i }}" value=""></label>
+    <label class="import-check"><input type="checkbox" name="group_remember_{{ i }}" {{ 'checked' if g.remember }}> Use this category for {{ g.name }} next time</label>
+  </div>
+  <div class="import-rows">
+    {% for r in g.rows %}{% set rid = r._import_row_id %}
+    <div class="import-row{{ ' has-error' if r._row_error or r._errors }}" id="import-row-{{ rid }}">
+      <input type="hidden" name="group_of_{{ rid }}" value="{{ i }}">
+      <span class="import-row-line">Line {{ r._line }}</span>
+      <input type="text" name="date_{{ rid }}" value="{{ r.Date }}" placeholder="yyyy-mm-dd" inputmode="numeric" aria-label="Date, line {{ r._line }}" data-smart-date>
+      <input class="num money-input" type="text" inputmode="decimal" autocomplete="off" name="amount_{{ rid }}" value="{{ r.Amount }}" aria-label="Amount, line {{ r._line }}">
+      <input type="text" name="notes_{{ rid }}" value="{{ r.Notes }}" placeholder="Note" aria-label="Note, line {{ r._line }}">
+      {% if r._category_id and r._category_id|string != g.category %}<select name="category_{{ rid }}" aria-label="Category for line {{ r._line }} only" data-own-picker><option value="">Same as above</option>{{ category_options(category_groups(categories|map(attribute='id')|list), r._category_id) }}</select>{% else %}<span></span>{% endif %}
+      <label class="import-check"><input type="checkbox" name="skip_{{ rid }}" {{ 'checked' if r.get('_skip') or r._similarity_warning or r._reference_duplicate }}> Skip</label>
+      {% if r._row_error %}<small class="import-row-note neg">{{ r._row_error }}</small>{% elif r._errors %}<small class="import-row-note neg">{{ r._errors|join(' ') }}</small>{% elif r._reference_duplicate or r._similarity_warning %}<small class="import-row-note">Same date and amount or reference as a row you already have: skipped unless you untick it</small>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</details>
 {% endmacro %}
+
 {% block content %}
 {% if batch.status == 'POSTED' %}<section class="card"><h2>Import complete</h2><p>{{ summary.posted }} posted · {{ summary.skipped }} skipped · {{ summary.duplicates }} duplicates.</p><a class="btn" href="/accounts/{{ account.id }}">Return to account</a></section>
 {% else %}
-{% if error %}<div class="flash error">{{ error }}</div>{% endif %}{% if msg %}<div class="flash">{{ msg }}</div>{% endif %}
-<form method="post" action="/accounts/{{ account.id }}/import/{{ batch.id }}/confirm"><section class="card import-review"><div class="card-heading"><div><span class="eyebrow">Review</span><h2>Confirm statement rows</h2></div><button class="btn primary">Post ready rows</button></div><p class="muted small">Routine rows stay collapsed. Answer one row and every other row with the same name is filled in the same way; you can still change any of them. Counterparty and owner suggestions require your choice.</p>
-{% set problem_rows = rows|selectattr("_row_error")|list %}{% if problem_rows %}<h3>Fix {{ problem_rows|length }} row{{ "" if problem_rows|length == 1 else "s" }}</h3>{% for r in problem_rows %}{{ review_row(r, true) }}{% endfor %}<details class="import-ready-group"><summary>Other rows · your edits are kept</summary>{% for r in rows if not r._row_error %}{{ review_row(r) }}{% endfor %}</details>{% else %}<h3>Needs a decision</h3>{% set ns=namespace(count=0) %}{% for r in rows if not r._reference_duplicate and not r._similarity_warning and (not r._ready or r._row_error) %}{{ review_row(r, true) }}{% set ns.count=ns.count+1 %}{% endfor %}{% if ns.count == 0 %}<p class="muted small">None.</p>{% endif %}
-<h3>Possible duplicates</h3>{% set ns=namespace(count=0) %}{% for r in rows if r._reference_duplicate or r._similarity_warning %}{{ review_row(r, true) }}{% set ns.count=ns.count+1 %}{% endfor %}{% if ns.count == 0 %}<p class="muted small">None.</p>{% endif %}
-<details class="import-ready-group"><summary>Ready rows</summary>{% for r in rows if r._ready and not r._row_error %}{{ review_row(r) }}{% endfor %}</details>
+<datalist id="import-counterparty-names">{% for name in counterparty_search_names %}<option value="{{ name }}">{% endfor %}</datalist>
+<form method="post" action="/accounts/{{ account.id }}/import/{{ batch.id }}/confirm" id="import-review-form"><section class="card import-review">
+  <div class="card-heading"><div><h2>{{ rows|length }} row{{ 's' if rows|length != 1 }} · {{ groups|length }} name{{ 's' if groups|length != 1 }}</h2><p class="muted small">Decide once for each name; every row with that name follows it. Open a name to change a single row's date, amount or note, or to skip it.</p></div><button class="btn primary">Post ready rows</button></div>
+  {% set fix = groups|selectattr("errors")|list %}
+  {% set fix_rows = fix|map(attribute='errors')|map('length')|sum %}{% if fix %}<h3>Fix {{ fix_rows }} row{{ 's' if fix_rows != 1 }}</h3>{% for g in fix %}{{ group_block(g, true) }}{% endfor %}{% endif %}
+  <h3>Needs a decision</h3>{% set ns = namespace(count=0) %}{% for g in groups if not g.errors and g.needs %}{{ group_block(g, true) }}{% set ns.count = ns.count + 1 %}{% endfor %}{% if ns.count == 0 %}<p class="muted small">None.</p>{% endif %}
+  <h3>Possible duplicates</h3>{% set ns = namespace(count=0) %}{% for g in groups if not g.errors and not g.needs and g.duplicates %}{{ group_block(g) }}{% set ns.count = ns.count + 1 %}{% endfor %}{% if ns.count == 0 %}<p class="muted small">None.</p>{% endif %}
+  <h3>Ready</h3>{% set ns = namespace(count=0) %}{% for g in groups if not g.errors and not g.needs and not g.duplicates %}{{ group_block(g) }}{% set ns.count = ns.count + 1 %}{% endfor %}{% if ns.count == 0 %}<p class="muted small">None.</p>{% endif %}
+  <div class="actions"><button class="btn primary">Post ready rows</button><a class="btn" href="/accounts/{{ account.id }}">Finish later</a></div>
+</section><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
+<form method="post" action="/accounts/{{ account.id }}/import/{{ batch.id }}/discard" class="import-discard" data-confirm-delete="Discard this import? Nothing from {{ batch.file_name }} is posted. You can import the file again later.">
+  <button class="btn danger">Discard this import</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}">
+</form>
 {% endif %}
-<div class="actions"><button class="btn primary">Post ready rows</button><a class="btn" href="/accounts/{{ account.id }}">Cancel</a></div></section><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
-{% endif %}<script nonce="{{ request.state.csp_nonce|default('') }}">(()=>{
-// Same name, same answer: copy a decision to the other rows with the same imported name,
-// unless the user already changed that row's field by hand.
-const rows=[...document.querySelectorAll('details.import-review-row[data-import-key]')];
-const field=(row,prefix)=>row.querySelector(`[name^="${prefix}"]`);
-const fields=['counterparty_choice_','counterparty_','category_','transfer_account_id_'];
-rows.forEach(row=>fields.forEach(prefix=>{const input=field(row,prefix);if(!input)return;
-  input.addEventListener('change',()=>{input.dataset.touched='1';const key=row.dataset.importKey;if(!key)return;let filled=0;
-    rows.forEach(other=>{if(other===row||other.dataset.importKey!==key)return;const target=field(other,prefix);
-      if(!target||target.dataset.touched)return;target.value=input.value;target.dataset.copied='1';filled++;
-      const tag=other.querySelector('summary .muted');if(tag&&prefix==='category_'&&input.value!=='__uncategorized__')tag.textContent='Filled from a row with the same name';});
-    if(filled){let note=row.querySelector('.import-same-name');if(!note){note=document.createElement('small');note.className='import-same-name muted';row.querySelector('.import-review-fields')?.prepend(note)}note.textContent=`Also applied to ${filled} other row${filled===1?'':'s'} with the same name.`}
-  });}));
-})();</script><script nonce="{{ request.state.csp_nonce|default('') }}">(()=>{const target=location.hash?document.getElementById(location.hash.slice(1)):null;if(target?.matches('details.import-review-row')){target.open=true;target.scrollIntoView({block:'center'})}})();</script>{% endblock %}
+<script nonce="{{ request.state.csp_nonce|default('') }}">(()=>{const target=location.hash?document.getElementById(location.hash.slice(1)):null;const block=target?.closest('details.import-group');if(block){block.open=true;target.scrollIntoView({block:'center'})}})();</script>{% endblock %}

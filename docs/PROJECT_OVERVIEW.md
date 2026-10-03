@@ -300,7 +300,7 @@ From a full UX review on 2026-10-03: Omar's year at a 1,366 × 768 window (the P
 **Next, by impact:**
 
 1. ~~**First run.**~~ Done 2026-10-03: a "Get set up" card on the Overview until five steps are done; the welcome lists certificates and uses real icons; a new bank account leads with Import a statement; Plan shows an empty state instead of a forecast from no income.
-2. **Import review, one decision per name.** Group rows by counterparty name ("SEOUDI MARKET · 30 rows"), one Counterparty / Category / Transfer pick per group, rows collapsed under it; one counterparty control instead of two; "Held for" offers only people; the button says what it posts ("Post 114 rows") and undecided rows stay in review; a "Discard this import" action. Today a 300-row file is a 68,763px page.
+2. ~~**Import review, one decision per name.**~~ Done 2026-10-03: one choice per imported name with its rows collapsed under it (Omar answers 17 names instead of 43 rows; the 300-row statement is 287 KB instead of 2.2 MB); "Discard this import"; Import CSV offers to continue or discard a waiting review. Still open: the button says "Post ready rows" while undecided rows post as Unaccounted.
 3. ~~**The category picker.**~~ Done 2026-10-03: focus lists every choice under its L1 header and selects the current text; the import starts on an empty "Choose a category".
 4. **Bulk edit.** When rows are selected, a bar offers Set category, Set counterparty, Delete, Export.
 5. **One name, one number.** Keep the Free cash breakdown on the Overview and Plan only; Reserves shows one line. One "If sold" figure and name. Loans still to pay once per tab. Remove the Overview's second donut ("What you hold") and the column waterfall that repeats the Net flow list.

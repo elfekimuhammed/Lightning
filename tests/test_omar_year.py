@@ -302,23 +302,30 @@ def _first_evening(o: Omar) -> None:
     o.notes["import_again"] = b.go("CIB Payroll", "Import CSV")
     b.go("Imported activity needs a decision")
     review = b.page.form("Post ready rows")
-    answers, named = {}, set()
-    for row in sorted({int(k.rsplit("_", 1)[1]) for k in review.fields if k.startswith("notes_")}):
-        decision = IMPORT_DECISIONS[review.fields[f"notes_{row}"]]
+    # One decision per name: he answers each imported name once, and every row with that name follows it.
+    names = {k.rsplit("_", 1)[1]: v for k, v in review.fields.items()
+             if k.startswith("group_counterparty_") and not k.startswith("group_counterparty_choice_")}
+    rows_of: dict[str, list[str]] = {}
+    for k, group in review.fields.items():
+        if k.startswith("group_of_"):
+            rows_of.setdefault(group, []).append(k.rsplit("_", 1)[1])
+    answers = {}
+    for group, raw in names.items():
+        decision = IMPORT_DECISIONS[raw]
         if decision is None:
-            answers[f"skip_{row}"] = TICK
+            answers.update({f"skip_{row}": TICK for row in rows_of[group]})
             continue
         party, category, transfer_to, held_for = decision
-        answers[f"counterparty_{row}"] = party
-        if party and party not in named:
-            answers[f"counterparty_choice_{row}"] = "new"
-            named.add(party)
+        answers[f"group_counterparty_{group}"] = party
+        if party:
+            answers[f"group_counterparty_choice_{group}"] = "new"
         if transfer_to:
-            answers[f"transfer_account_id_{row}"] = Choose(transfer_to)
+            answers[f"group_transfer_account_id_{group}"] = Choose(transfer_to)
         if category:
-            answers[f"category_{row}"] = Choose(category)
+            answers[f"group_category_{group}"] = Choose(category)
         if held_for:
-            answers[f"whom_{row}"] = held_for
+            answers[f"group_whom_{group}"] = held_for
+    o.notes["import_decisions"] = len(names)
     o.notes["import"] = b.submit(answers, button="Post ready rows")
 
     # THNDR: two shares with their fees, then a money market fund he adds himself.
@@ -882,9 +889,8 @@ def test_cash_ownership_and_external_expense_keep_the_account_total(omar):
 # A fixed point is checked like any other answer; one that is still open is a strict expected failure.
 
 def _review_choices(screen: Screen, prefix: str) -> list[str]:
-    form = screen.form("Post ready rows")
-    row = min(int(k.rsplit("_", 1)[1]) for k in form.fields if k.startswith("notes_"))
-    return [label for _, label in form.options[f"{prefix}{row}"]]
+    """The choices one name's picker offers (every name offers the same)."""
+    return [label for _, label in screen.form("Post ready rows").options[f"group_{prefix}0"]]
 
 
 def test_leaving_an_import_keeps_it_waiting_on_the_overview(omar):
@@ -892,9 +898,13 @@ def test_leaving_an_import_keeps_it_waiting_on_the_overview(omar):
     assert omar.answers["import_waiting"].shows("Imported activity needs a decision", "cib-jul-sep.csv")
 
 
-@known_gap("Import CSV opens a fresh upload while a review is still waiting; it should lead back to that review")
 def test_import_csv_leads_back_to_the_waiting_import(omar):
-    assert omar.notes["import_again"].shows("cib-jul-sep.csv")
+    assert omar.notes["import_again"].shows("cib-jul-sep.csv is waiting for you", "Continue the review", "Discard it")
+
+
+def test_one_decision_per_name_in_the_import(omar):
+    # 43 rows from three months of CIB are 17 names: he answers 17 times, not 43.
+    assert omar.notes["import_decisions"] == 17
 
 
 def test_thndr_can_be_where_a_transfer_went(omar):
@@ -904,7 +914,7 @@ def test_thndr_can_be_where_a_transfer_went(omar):
 def test_an_unanswered_category_starts_empty(omar):
     # Nothing to delete before choosing: an empty "Choose a category"; "Uncategorized" is still a choice.
     form = omar.notes["review"].form("Post ready rows")
-    categories = {name: value for name, value in form.fields.items() if name.startswith("category_")}
+    categories = {name: value for name, value in form.fields.items() if name.startswith("group_category_")}
     assert categories and all(value == "" for value in categories.values())
     assert "Uncategorized" in _review_choices(omar.notes["review"], "category_")
 
@@ -912,7 +922,7 @@ def test_an_unanswered_category_starts_empty(omar):
 def test_category_choices_sit_under_their_group(omar):
     # Guideline 3.6: the L1 as a header with its categories under it, never "L1 › L2".
     html = omar.notes["review"].html
-    select = html[html.index('name="category_'):]
+    select = html[html.index('name="group_category_'):]
     select = select[:select.index("</select>")]
     groups = dict(re.findall(r'<optgroup label="([^"]+)">(.*?)</optgroup>', select, re.S))
     assert ">Transportation<" in groups["Personal"] and ">Transportation<" in groups["Work"]
@@ -1000,10 +1010,9 @@ def test_a_review_with_errors_still_has_a_way_on_and_a_way_back(omar):
     screen = omar.notes["import_error"]
     assert screen.shows("Nothing was imported")
     assert screen.form("Post ready rows")
-    assert screen.link("Cancel").href == "/accounts/3"
+    assert screen.link("Finish later").href == "/accounts/3"
 
 
-@known_gap("Leaving a review keeps it waiting; there is no way to discard it")
 def test_a_waiting_import_can_be_discarded(omar):
     assert omar.notes["import_error"].shows("Discard this import")
 
