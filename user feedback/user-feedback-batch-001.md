@@ -7,7 +7,8 @@
 - **Landing release:** UX-2026.10.02.07
 - **App build:** 0.4.0-beta.1
 - **Device:** Desktop
-- **Coverage:** 27 submitted rows, source tickets 1–26 plus one later row whose source ticket number repeats as 1
+- **Coverage:** 27 submitted rows, now referenced in the sheet by unique Ticket # values 1–27
+- **Sender:** El Feki for all 27 rows; sender email was not captured in the source submissions
 
 ## Executive summary
 
@@ -100,4 +101,4 @@ The feedback is concentrated in five themes: responsiveness and state preservati
 
 ## Traceability
 
-Every row in the source `App Feedback` tab was included once in this compilation. The repeated source ticket number is retained as a separate final row because it has a distinct submission timestamp/row and distinct feedback content.
+Every row in the source `App Feedback` tab was included once in this compilation. The final row had a repeated source ticket number, so the sheet now assigns it the unique reference Ticket #27. All current rows are attributed to El Feki; the optional sender email was not present in the captured data.
