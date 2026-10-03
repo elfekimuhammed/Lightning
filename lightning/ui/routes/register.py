@@ -199,11 +199,16 @@ def page(request: Request, account_id: int | None, entry: dict | None = None, ed
                     category_ids.add(child); pending.append(child)
         category_txns = c.reporting.category_transaction_ids(category_ids)
         matched_ids = category_txns if matched_ids is None else matched_ids & category_txns
-    all_rows = c.reporting.register(account_id, date_from, date_to, matched_ids)
     page_size = 50
-    total_pages = max(1, (len(all_rows) + page_size - 1) // page_size)
-    page_number = min(max(_int(qp.get("page")) or 1, 1), total_pages)
-    rows = all_rows[(page_number - 1) * page_size:page_number * page_size]
+    if matched_ids is None:  # read only the page shown; its running balance comes from SQL
+        rows, total_rows, page_number = c.reporting.register_page(
+            account_id, date_from, date_to, _int(qp.get("page")) or 1, page_size)
+    else:  # a search or category filter: no running balance, so filter the rows in Python
+        all_rows = c.reporting.register(account_id, date_from, date_to, matched_ids)
+        total_rows = len(all_rows)
+        page_number = min(max(_int(qp.get("page")) or 1, 1), max(1, -(-total_rows // page_size)))
+        rows = all_rows[(page_number - 1) * page_size:page_number * page_size]
+    total_pages = max(1, -(-total_rows // page_size))
     custody_owners = {row.txn_id: c.money_from_others.transaction_owner(row.txn_id) for row in rows}
     edit_id = edit_id or _int(qp.get("edit"))
     edit_acct = edit_acct or _int(qp.get("acct")) or account_id
@@ -260,7 +265,7 @@ def page(request: Request, account_id: int | None, entry: dict | None = None, ed
         entry=entry or {"date": qp.get("date") or fmt_date(today()), "account_id": qp.get("new_acct", "")},
         edit_id=edit_id if edit_values is not None else None, edit_acct=edit_acct, edit=edit_values or {},
         q=q, month=month, date_from=from_query, date_to=to_query, base_url=base_url, keep_qs=urlencode(keep),
-        page_number=page_number, total_pages=total_pages, total_rows=len(all_rows), page_base_qs=page_base_qs,
+        page_number=page_number, total_pages=total_pages, total_rows=total_rows, page_base_qs=page_base_qs,
         search_suggestions=c.counterparties.suggestions(q, limit=3) if q else [],
         post_url=(f"/accounts/{account_id}/register" if account_id else "/transactions/register"),
         show_account=account is None, error=error, error_field=error_field,

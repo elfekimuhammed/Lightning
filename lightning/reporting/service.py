@@ -617,6 +617,25 @@ class ReportingService:
             rows = [r for r in rows if r.txn_id in txn_ids]
         return list(reversed(rows))
 
+    def register_page(self, account_id: int | None, date_from: date | str, date_to: date | str,
+                      page: int, page_size: int = 50) -> tuple[list[StatementRow], int, int]:
+        """One page of ``register`` (newest first) without reading the rest: (rows, total rows, page).
+
+        The page is clamped to the pages there are. A single account's running balance starts from
+        the opening balance plus the movement of every older row, summed in SQL."""
+        start, end = self._day(date_from), self._day(date_to)
+        total = self.q.statement_count(account_id, start, end)
+        pages = max(1, -(-total // page_size))
+        page = min(max(page, 1), pages)
+        newest = total - (page - 1) * page_size          # rows are read oldest first
+        first = max(0, newest - page_size)
+        opening = None
+        if account_id:
+            opening = from_e6(self.q.account_quantity(account_id, before=start)
+                              + self.q.statement_movement(account_id, start, end, first))
+        lines = self.q.statement_lines(account_id, start, end, limit=newest - first, offset=first)
+        return list(reversed(self._rows(lines, opening))), total, page
+
     def _rows(self, lines: list[dict], opening: Decimal | None) -> list[StatementRow]:
         running = opening
         rows = []

@@ -235,3 +235,26 @@ def test_main_tabs_read_each_figure_once_and_show_the_same_pages_as_without_the_
         monkeypatch.setattr(web, "request_cache", lambda _db: contextlib.nullcontext())
         for path in PAGE_READ_BUDGET:
             assert nonce.sub("", browser.get(path).text) == cached[path], f"{path} differs without the cache"
+
+
+def test_a_register_page_reads_only_its_rows_and_matches_the_full_register(c, monkeypatch):
+    from lightning.samples import load_omar_2026
+
+    monkeypatch.setenv("LIGHTNING_TODAY", "2026-10-02")
+    load_omar_2026(c)
+    _years_of_history(c, 1)
+    for account_id in [account.id for account in c.accounts.list()] + [None]:
+        for start, end in (("1900-01-01", "9999-12-31"), ("2026-03-01", "2026-08-31"), ("2030-01-01", "2030-12-31")):
+            full = c.reporting.register(account_id, start, end)
+            pages = max(1, -(-len(full) // 50))
+            for asked in range(0, pages + 2):  # out-of-range pages are clamped
+                rows, total, page = c.reporting.register_page(account_id, start, end, asked)
+                expected_page = min(max(asked, 1), pages)
+                assert (total, page) == (len(full), expected_page)
+                assert rows == full[(expected_page - 1) * 50:expected_page * 50]  # running balances included
+    lines = []
+    original = c.reporting.q.statement_lines
+    monkeypatch.setattr(c.reporting.q, "statement_lines",
+                        lambda *args, **kwargs: lines.append(original(*args, **kwargs)) or lines[-1])
+    c.reporting.register_page(1, "1900-01-01", "9999-12-31", 3)
+    assert len(lines) == 1 and len(lines[0]) == 50  # read one page, not the whole history

@@ -164,21 +164,22 @@ XIRR is an annualized money-weighted rate using dated investment cash flows and 
 |---|---:|---:|---:|---:|
 | Overview | 507 ms | 163 ms | 962 ms | 139 ms |
 | Budget, All time (the period is remembered) | 4,597 ms | 326 ms | 6,994 ms | 249 ms |
-| Account register | 180 ms | 55 ms | 479 ms | 80 ms |
-| All transactions | 217 ms | 80 ms | 677 ms | 73 ms |
+| Account register | 180 ms | 43 ms | 479 ms | 37 ms |
+| All transactions | 217 ms | 49 ms | 677 ms | 39 ms |
 | Investments | 360 ms | 181 ms | 520 ms | 191 ms |
 | Expense analysis, All time | 461 ms | 297 ms | 921 ms | 244 ms |
 
-"Enc. after" also has `cipher_memory_security` off (owner decision 2026-10-03, below).
+"Enc. after" also has `cipher_memory_security` off (owner decision 2026-10-03, under the threat model). The register rows also read one page only (below).
+
+**Register pages.** The account register and All transactions show 50 rows a page, newest first. Without a search or category filter, `ReportingService.register_page` counts the rows in SQL (`statement_count`), reads only that page (`statement_lines` with `LIMIT`/`OFFSET`) and starts a single account's running balance from the opening balance plus the movement of every older row, summed in SQL (`statement_movement`). Rows are ordered by date, transaction and account, so the two rows of a transfer keep one order and a page boundary never repeats or skips a row. A search or category filter shows no running balance and still filters the full list in Python. `tests/test_reporting_performance.py` checks every page against the full register.
 
 SELECT statements fell from 5,198 to 785 on the Overview, from 9,948 to 1,256 on Budget › All time and from 14,750 to 854 on Expense analysis › All time. The same crawl of 700 pages produced identical HTML with and without the cache.
 
-Also done: `Valuer` checks for the `physical_items` table once instead of on every valuation (639 checks per Overview). The profile `Guard` lets the window keep `/static/` files (`Cache-Control: private, max-age=86400`) while pages stay `no-store`; each launch has a new random port, so a cached file never outlives its launch. The logo is 96 px (5.8 KB) instead of 1,254 px (513 KB).
+Also done: `Valuer` checks for the `physical_items` table once instead of on every valuation (639 checks per Overview). The profile `Guard` lets the window keep `/static/` files (`Cache-Control: private, max-age=86400`) while pages stay `no-store`; each launch has a new random port, so a cached file never outlives its launch.
 
 Still open:
 
-- **Registers still read the whole matching history to show 50 rows** (`ReportingService.register` → `_rows`). Row look-ups now come from the request cache; the next step is to read only the page's rows, with the running balance from SQL.
-- **Smaller:** legacy browser mode's Google Fonts stylesheet in `base.html` blocks rendering (about 240 ms online, longer offline); routes are `async def` with synchronous database work, so one slow page blocks other requests; the live database uses the rollback journal (`DELETE`, synchronous `FULL`).
+- **Smaller:** routes are `async def` with synchronous database work, so one slow page blocks other requests; the live database uses the rollback journal (`DELETE`, synchronous `FULL`).
 - **A cache between clicks** (keyed by a database-wide write counter and `today()`) is not needed at these speeds.
 
 ## Cash planning contract
