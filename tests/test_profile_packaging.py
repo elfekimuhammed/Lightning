@@ -256,7 +256,11 @@ def test_notices_cover_what_ships_and_strict_mode_stops_on_a_gap(tmp_path, monke
     package_app.write_notices(bundle, strict=False)
     listed = (bundle / "licenses" / "dependency-versions.txt").read_text(encoding="utf-8")
     assert listed.startswith("Python==") and "fastapi==" in listed
-    assert "pytest==" not in listed and "pyinstaller==" not in listed.lower()  # build tools are not shipped
+    for tool in ("pytest==", "import-linter==", "httpx==", "rich=="):  # build and test tools are not shipped
+        assert tool not in listed.lower(), tool
+    # PyInstaller is listed only for the loader it puts in the app, when it is installed (in CI).
+    assert all(line.endswith("(bootloader and loader)") for line in listed.splitlines()
+               if line.lower().startswith("pyinstaller=="))
     assert (bundle / "licenses" / "Python" / "LICENSE.txt").is_file()
     third_party = {path.name for path in (bundle / "licenses" / "third-party").iterdir()}
     assert {"SQLCipher-LICENSE.txt", "Microsoft-WebView2-SDK-LICENSE.txt", "NETStandard.Library-LICENSE.txt",
