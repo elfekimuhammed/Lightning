@@ -15,7 +15,7 @@ from __future__ import annotations
 import os
 import re
 from dataclasses import dataclass
-from datetime import datetime, time, timezone
+from datetime import datetime, time, timedelta, timezone
 from decimal import Decimal
 
 import pytest
@@ -274,6 +274,11 @@ def _first_evening(o: Omar) -> None:
     b.submit({}, button="Review statement", files={"file": ("cib-jul-sep.csv", _statement(), "text/csv")})
     b.submit({"map_Date": Choose("Date"), "map_Amount": Choose("Amount"), "map_Counterparty": Choose("Description")},
              button="Preview rows")
+    o.notes["review"] = b.page
+    # Halfway through he leaves to check something, then comes back to the review from the Overview.
+    o.ask("import_waiting", "I left the import half done. Does Lightning remember it?")
+    o.notes["import_again"] = b.go("CIB Payroll", "Import CSV")
+    b.go("Imported activity needs a decision")
     review = b.page.form("Post ready rows")
     answers, named = {}, set()
     for row in sorted({int(k.rsplit("_", 1)[1]) for k in review.fields if k.startswith("notes_")}):
@@ -321,7 +326,7 @@ def _first_evening(o: Omar) -> None:
                         ("31/8", {"Commercial International": "84.20", "Fawry": "9.10", "21K gold": "4,200"}),
                         ("30/9", {"Commercial International": "86.50", "Fawry": "9.40", "Azimut": "121.30",
                                   "21K gold": "4,650"})):
-        o.prices(when, typed)
+        o.notes["prices_saved"] = o.prices(when, typed)
 
     o.ask("position", "How much do I have, and how much of it is really mine?")
     o.ask("moms_money", "How much of Mom's money am I holding?", "Held for others")
@@ -331,6 +336,8 @@ def _first_evening(o: Omar) -> None:
     b.submit({}, button="Create plan")
     b.go("Cash planning", "Reserves")
     b.submit({"allocated": "20,000"}, action="/reserves/emergency")
+    o.ask("emergency_target", "Six months of income is far more than the cash I have. Does Lightning say so?",
+          "Cash planning", "Reserves")
     for name in ("ACME Egypt", "Landlord", "WE Internet", "North Cairo Electricity"):
         o.track(name)
     o.add_loan("Car loan", "Toyota Finance", "2,500", "2026-07-05", "24", "60,000")
@@ -486,6 +493,57 @@ def _live_the_year(o: Omar) -> None:
         screen = o.period(page, "2026-10-01", "2027-09-30")
         o.answers[key] = Answer(question, list(b.trail) + ["Custom 2026-10-01 to 2027-09-30"], screen)
     o.ask("year_checks", "Is everything still right after a year?", "Settings", "Data checks")
+    _the_feedback_round(o)
+
+
+def _year_statement() -> bytes:
+    """A year of Vodafone Cash as the wallet exports it: 300 rows, seven columns, debit and credit apart."""
+    shops = ("CARREFOUR MAADI", "TALABAT", "SEOUDI MARKET", "UBER", "VODAFONE", "WE INTERNET", "PHARMACY 19011",
+             "SHELL FUEL", "AMAZON.EG", "INSTAPAY")
+    rows, balance = [], D("50000")
+    for n in range(300):
+        day = dates.parse_date("2026-10-01") + timedelta(days=n * 365 // 300)
+        topup = n % 25 == 0
+        amount = D("5000") if topup else D((n * 37) % 900 + 50)
+        balance += amount if topup else -amount
+        rows.append(f"{day:%d/%m/%Y},{day:%d/%m/%Y},{'TOP UP FROM CIB' if topup else shops[n % 10]},VF{26000000 + n},"
+                    f"{'' if topup else amount},{amount if topup else ''},{balance}")
+    return ("Date,Value date,Description,Reference,Debit,Credit,Balance\n" + "\n".join(rows) + "\n").encode()
+
+
+def _the_feedback_round(o: Omar) -> None:
+    """30 September 2027, after the year's answers are read: the pain points users reported in
+    user feedback/user-feedback-batch-001.md, walked through by Omar. Nothing here changes an answer above."""
+    b = o.b
+    # Reports: All time, a past month, and what is a snapshot of today.
+    b.go()
+    o.answers["all_time"] = Answer("What is my savings rate over all time?", ["/", "All time"],
+                                   b.submit({}, button="All time"))
+    o.answers["past_month"] = Answer("What did October 2026 look like?", ["/", "Custom 2026-10-01 to 2026-10-31"],
+                                     o.period("", "2026-10-01", "2026-10-31"))
+    o.on("2027-09-30")   # opening Lightning again forgets the period he picked
+
+    # Categories, the investment plan, and editing several rows at once.
+    o.ask("categories", "Which categories are income, which are spending, and which repeat?", "Settings", "Categories")
+    o.ask("invest_monthly", "Can I keep a goal of investing 3,000 every month?", "Investments", "Investment planner")
+    o.ask("bulk", "I selected six Talabat rows. Can I change their category together?", "CIB Payroll")
+    o.ask("fund_value", "THNDR shows the fund's value, not its unit price. Can I type that?",
+          "Settings", "Valuations", "Update prices")
+
+    # His share of the family flat: he only knows what it is worth.
+    o.account("Family flat (my share)", "Other", "400,000", when="2027-09-30")
+    o.ask("flat", "Is my share of the flat in my investments?", "Investments")
+    o.notes["flat_page"] = b.go("Family flat (my share)")
+
+    # A year of Vodafone Cash in one big file, with a mistake in one row.
+    b.go("Vodafone Cash", "Import CSV")
+    o.notes["upload_form"] = b.page
+    b.submit({}, button="Review statement", files={"file": ("vodafone-year.csv", _year_statement(), "text/csv")})
+    o.notes["big_review"] = b.submit({"amount_model": "SEPARATE", "map_Date": Choose("Date"), "map_Inflow": Choose("Credit"),
+                                      "map_Outflow": Choose("Debit"), "map_Counterparty": Choose("Description"),
+                                      "map_Reference": Choose("Reference")}, button="Preview rows")
+    first = min(int(k.rsplit("_", 1)[1]) for k in b.page.form("Post ready rows").fields if k.startswith("notes_"))
+    o.notes["import_error"] = b.submit({f"date_{first}": "31/31/2026"}, button="Post ready rows")
 
 
 @pytest.fixture(scope="module")
@@ -751,3 +809,133 @@ def test_the_years_investments(omar):
 
 def test_data_checks_pass_after_a_year(omar):
     assert omar.answers["year_checks"].shows("Passed 8 Needs attention 0")
+
+
+# ------------------------------------------------------------------ what users reported (user feedback, batch 001)
+# The pain points from "user feedback/user-feedback-batch-001.md", met by Omar on his way through the year.
+# A fixed point is checked like any other answer; one that is still open is a strict expected failure.
+
+def _review_choices(screen: Screen, prefix: str) -> list[str]:
+    form = screen.form("Post ready rows")
+    row = min(int(k.rsplit("_", 1)[1]) for k in form.fields if k.startswith("notes_"))
+    return [label for _, label in form.options[f"{prefix}{row}"]]
+
+
+def test_leaving_an_import_keeps_it_waiting_on_the_overview(omar):
+    assert route(omar, "import_waiting") == ["/"]
+    assert omar.answers["import_waiting"].shows("Imported activity needs a decision", "cib-jul-sep.csv")
+
+
+@known_gap("Import CSV opens a fresh upload while a review is still waiting; it should lead back to that review")
+def test_import_csv_leads_back_to_the_waiting_import(omar):
+    assert omar.notes["import_again"].shows("cib-jul-sep.csv")
+
+
+def test_thndr_can_be_where_a_transfer_went(omar):
+    assert "THNDR" in _review_choices(omar.notes["review"], "transfer_account_id_")
+
+
+@known_gap("A new row's category starts as the choice \"Uncategorized\", which he must delete before typing")
+def test_an_unanswered_category_starts_empty(omar):
+    form = omar.notes["review"].form("Post ready rows")
+    assert all(value == "" for name, value in form.fields.items() if name.startswith("category_"))
+
+
+@known_gap("Category choices show only the last name: two \"Transportation\" with no Personal or Work before them")
+def test_category_choices_name_their_group(omar):
+    choices = _review_choices(omar.notes["review"], "category_")
+    assert "Personal › Transportation" in choices and "Work › Transportation" in choices
+
+
+def test_a_saved_change_says_so_in_a_status_message(omar):
+    assert re.search(r'class="flash"[^>]*role="status"', omar.notes["prices_saved"].html)
+
+
+@known_gap("The emergency target (270,000) is far above the cash he owns (72,663) and nothing warns him")
+def test_an_emergency_target_above_his_cash_is_flagged(omar):
+    assert omar.answers["emergency_target"].shows("more than the cash you own")
+
+
+def test_the_savings_rate_for_all_time(omar):
+    assert omar.answers["all_time"].figure("Savings rate All time") == D("50.3")
+
+
+def test_the_overview_says_which_parts_follow_the_period(omar):
+    answer = omar.answers["past_month"]
+    assert answer.shows("Cash flow 2026-10-01 to 2026-10-31", "Investments 2026-10-01 to 2026-10-31",
+                        "Month by month Every month from 2026-07 to today")
+
+
+@known_gap("Your position follows the chosen period (As of 2026-10-31) instead of staying a snapshot of today")
+def test_your_position_stays_today_whatever_the_period(omar):
+    assert omar.answers["past_month"].shows("Your position As of 2027-09-30")
+
+
+def test_where_money_went_folds_small_categories_into_other(omar):
+    assert omar.answers["year"].shows("Other spending")
+
+
+def test_a_month_of_spending_is_shown_day_by_day(omar):
+    assert omar.answers["where"].shows("Day by day")
+
+
+@known_gap("A year of spending is still 365 day squares; a long period should be shown month by month")
+def test_a_year_of_spending_is_shown_month_by_month(omar):
+    assert not omar.answers["year_spending"].shows("Day by day")
+
+
+def test_categories_say_which_way_money_moves_and_whether_it_repeats(omar):
+    assert omar.answers["categories"].shows("− Expense + Income ± Both Recurring One-off")
+
+
+@known_gap("Categories still opens with the key line \"− expense · + income · ± both\" above controls that say it")
+def test_categories_need_no_sign_key(omar):
+    assert not omar.answers["categories"].shows("− expense · + income · ± both")
+
+
+@known_gap("The investment planner is a one-off what-if; there is no monthly investing goal to keep")
+def test_a_monthly_investing_goal_is_kept(omar):
+    screen = omar.answers["invest_monthly"].screen
+    assert any("month" in name for form in screen.forms for name in form.fields)
+
+
+@known_gap("Selected register rows can be exported or deleted, but not edited together")
+def test_selected_rows_can_be_edited_together(omar):
+    assert omar.answers["bulk"].shows("Edit selected")
+
+
+@known_gap("A fund can only be valued by its unit price; he cannot type the value THNDR shows")
+def test_a_fund_can_be_valued_by_its_total(omar):
+    assert "value" in omar.answers["fund_value"].screen.field_in_row("Azimut")
+
+
+def test_other_investments_are_in_the_investment_analysis(omar):
+    assert route(omar, "flat") == ["/", "/investments"]
+    assert omar.answers["flat"].shows("Other Investments", "400,000")
+
+
+@known_gap("An asset he only knows the worth of (the flat) has no way to record a new value")
+def test_the_flat_can_be_given_a_new_value(omar):
+    assert any("value" in (text or "").casefold() for form in omar.notes["flat_page"].forms for text, *_ in form.buttons)
+
+
+def test_a_300_row_statement_with_seven_columns_reaches_review(omar):
+    form = omar.notes["big_review"].form("Post ready rows")
+    assert sum(name.startswith("notes_") for name in form.fields) == 300
+
+
+def test_a_review_with_errors_still_has_a_way_on_and_a_way_back(omar):
+    screen = omar.notes["import_error"]
+    assert screen.shows("Nothing was imported")
+    assert screen.form("Post ready rows")
+    assert screen.link("Cancel").href == "/accounts/3"
+
+
+@known_gap("Leaving a review keeps it waiting; there is no way to discard it")
+def test_a_waiting_import_can_be_discarded(omar):
+    assert omar.notes["import_error"].shows("Discard this import")
+
+
+@known_gap("The upload takes one CSV at a time")
+def test_several_statements_can_be_uploaded_together(omar):
+    assert re.search(r'<input[^>]*type="file"[^>]*\bmultiple\b', omar.notes["upload_form"].html)

@@ -8,6 +8,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+- Omar's year now walks through user feedback batch 001: 11 fixed points are checked and 13 open pain points are strict expected failures in `tests/test_omar_year.py`.
 - Removed `tests/test_omar_matching.py`; `tests/test_omar_year.py` remains the single Omar acceptance test.
 - Added the owner's git workflow rule to `AGENTS.md` and a `CLAUDE.md` that loads it: work on `main`, push every branch, and merge finished branch work into `main`.
 - Improve protected-profile CSV imports: accept source CSVs up to 5 MiB, with separately bounded mapping and review requests; keep unrelated forms at 512 KiB and uploaded bytes in memory (no plaintext temp-file spill). The importer remains CSV-only; PDFs are not supported.
