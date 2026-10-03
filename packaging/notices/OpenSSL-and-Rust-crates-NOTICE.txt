@@ -1,0 +1,12 @@
+Statically linked third-party code inside Python extension modules
+
+- OpenSSL is linked into cryptography's _rust extension and into sqlcipher3's _sqlite3 extension, and
+  ships with Python (_ssl, _hashlib). OpenSSL 3 and later are licensed under the Apache License 2.0;
+  its full text is in Python-3.13-incorporated-software.txt (section "OpenSSL").
+- Rust crates are compiled into cryptography's _rust extension (asn1, base64, openssl, openssl-sys,
+  pem, pyo3 and others) and pydantic-core's _pydantic_core extension (jiter, speedate, regex, serde_json,
+  url, uuid, icu_normalizer and others). They are licensed under the MIT and/or Apache-2.0 licences
+  (icu_* under Unicode-3.0). The exact list for each locked version is in that project's Cargo.lock:
+  https://github.com/pyca/cryptography and https://github.com/pydantic/pydantic-core
+- libffi is linked into cffi's _cffi_backend extension (MIT; see section "libffi" of
+  Python-3.13-incorporated-software.txt).

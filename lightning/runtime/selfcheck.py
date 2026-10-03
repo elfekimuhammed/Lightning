@@ -1,10 +1,79 @@
 """Frozen-app acceptance using a disposable household, never user data."""
+import asyncio
+import re
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from time import perf_counter
 
 from lightning.ui.web import UI_DIR, create_app
 
 from .session import ProfileSession
+
+# The main finance pages, rendered from the bundle on an encrypted synthetic profile. A template,
+# static file or module missing from the build fails here, not on a user's PC.
+FINANCE_PAGES = ("/", "/accounts/new", "/transactions", "/budget", "/plan", "/investments",
+                 "/birdview/expenses", "/settings")
+_STATIC_LINK = re.compile(r'(?:href|src)="(/static/[^"?#]+)')
+_FONT_URL = re.compile(r"url\(\s*['\"]?\./([^'\")]+)")
+
+
+def get(app, path: str) -> tuple[int, bytes]:
+    """One GET request through the app in this thread, with no server or network: (status, body).
+
+    The encrypted database only answers on the thread that opened it, and every finance route is
+    async, so the whole request runs on this thread's event loop."""
+    route, _, query = path.partition("?")
+    scope = {"type": "http", "asgi": {"version": "3.0", "spec_version": "2.3"}, "http_version": "1.1",
+             "method": "GET", "scheme": "http", "path": route, "raw_path": route.encode(), "root_path": "",
+             "query_string": query.encode(), "headers": [(b"host", b"127.0.0.1")],
+             "client": ("127.0.0.1", 50000), "server": ("127.0.0.1", 80)}
+    status, body, asked = 0, [], False
+
+    async def receive():
+        nonlocal asked
+        if not asked:
+            asked = True
+            return {"type": "http.request", "body": b"", "more_body": False}
+        await asyncio.Event().wait()  # the client stays connected until the response is complete
+
+    async def send(message):
+        nonlocal status
+        if message["type"] == "http.response.start":
+            status = message["status"]
+        elif message["type"] == "http.response.body":
+            body.append(message.get("body", b""))
+
+    asyncio.run(app(scope, receive, send))
+    return status, b"".join(body)
+
+
+def finance_page_checks(container) -> dict[str, bool]:
+    """Render each finance page and every app file the Overview and the font sheet name."""
+    from lightning.demo import build_demo  # an offline sample household, so pages have content
+
+    if not container.accounts.list():
+        build_demo(container)
+    app = create_app(container)
+    checks: dict[str, bool] = {}
+    pages = list(FINANCE_PAGES)
+    first_account = next(iter(container.accounts.list()), None)
+    if first_account is not None:
+        pages.append(f"/accounts/{first_account.id}")
+    static: set[str] = set()
+    for path in pages:
+        started = perf_counter()
+        status, body = get(app, path)
+        text = body.decode("utf-8", "replace")
+        checks[f"page {path}"] = (status == 200 and "</html>" in text and "Traceback" not in text
+                                  and perf_counter() - started < 30)
+        static.update(_STATIC_LINK.findall(text))
+    fonts = (UI_DIR / "static" / "fonts" / "fonts.css").read_text(encoding="utf-8")
+    static.update(f"/static/fonts/{name}" for name in _FONT_URL.findall(fonts))
+    checks["static files linked"] = bool(static)
+    for path in sorted(static):
+        status, body = get(app, path)
+        checks[f"file {path}"] = status == 200 and bool(body)
+    return checks
 
 
 def run_profile_checks() -> dict[str, bool]:
@@ -24,6 +93,7 @@ def run_profile_checks() -> dict[str, bool]:
             app = create_app(session.container)
             checks["finance_routes"] = (str(app.url_path_for("dashboard")) == "/"
                                         and str(app.url_path_for("new_account")) == "/accounts/new")
+            checks.update(finance_page_checks(session.container))
             session.close()
             session.unlock(str(path), "temporary synthetic password")
             checks["profile_reopen"] = session.container.settings.get("profile_check") == "synthetic marker"

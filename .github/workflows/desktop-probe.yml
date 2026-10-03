@@ -1,36 +1,75 @@
-name: Windows desktop feasibility
+# Lightning for Windows: test every push, build the app, and publish tagged releases.
+#
+# - Every push to main runs the full test suite on Linux.
+# - The Windows app is built only after that suite passes, and only when something that can change
+#   the app changed (a docs-only push skips it). Tags and manual runs always build.
+# - The ZIP that is uploaded is the ZIP that was tested: it is extracted to a fresh folder and its
+#   own Lightning.exe must pass the self-check and the real WebView2 window check.
+# - A tag vX.Y.Z[-beta.N] that matches the source version and sits on main publishes that tested ZIP
+#   as a new, never-replaced release in elfekimuhammed/Lightning-downloads.
+#   How to release: docs/ARCHITECTURE.md › Desktop app and encrypted profiles › Build and release.
+name: Windows app
 
 on:
   workflow_dispatch:
   push:
-    branches: [main, codex/desktop-beta]
+    branches: [main]
+    tags: ['v*']
 
 permissions:
   contents: read
 
 concurrency:
-  group: desktop-probe-${{ github.ref }}
-  cancel-in-progress: true
+  group: windows-app-${{ github.ref }}
+  # A newer push to main replaces an older build of main; a release tag is never cancelled.
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+env:
+  PYTHONUTF8: '1'
+  DOWNLOADS_REPO: elfekimuhammed/Lightning-downloads
 
 jobs:
-  linux-regressions:
+  tests:
+    name: Full test suite (Linux)
     runs-on: ubuntu-24.04
-    timeout-minutes: 6
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read  # to find the last commit whose Windows build succeeded
+    outputs:
+      build_windows: ${{ steps.scope.outputs.build_windows }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0  # the docs-only check and the release-tag check read history
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: '3.13'
+      - name: Decide whether the Windows app must be built
+        id: scope
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python packaging/ci_scope.py
+      - name: Check the release tag
+        if: startsWith(github.ref, 'refs/tags/')
+        run: python packaging/ci_scope.py --check-release-tag
       - name: Install locked Linux dependencies
         run: |
           python -m pip install --require-hashes --only-binary=:all: -r requirements/desktop-probe-linux.lock
-      - name: Full shared regression suite
-        run: python -m pytest -o addopts= -o faulthandler_timeout=60 -q
+      - name: Full test suite
+        run: python -m pytest -o addopts= -o faulthandler_timeout=120 -q
       - name: Check import contracts
         run: lint-imports
-  windows-probe:
+
+  windows:
+    name: Build and test the Windows app
+    needs: tests
+    if: needs.tests.outputs.build_windows == 'true'
     runs-on: windows-2025
-    timeout-minutes: 20
+    timeout-minutes: 40
+    outputs:
+      artifact: ${{ steps.package.outputs.artifact }}
+      zip: ${{ steps.package.outputs.zip }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
@@ -41,9 +80,9 @@ jobs:
           python -m pip install --require-hashes --only-binary=:all: -r requirements/build-tools.lock
           python -m pip install --require-hashes --only-binary=:all: --no-binary=proxy-tools --no-build-isolation -r requirements/desktop-probe-win.lock
       - name: Test Windows profiles, encrypted storage, desktop and UI
-        timeout-minutes: 6
+        timeout-minutes: 10
         run: >-
-          python -m pytest -o addopts= -o faulthandler_timeout=60 -vv
+          python -m pytest -o addopts= -o faulthandler_timeout=120 -q
           tests/test_desktop_crypto.py tests/test_desktop_window.py
           tests/test_desktop_server.py tests/test_desktop_packaging.py tests/test_profile_packaging.py
           tests/test_profile_app.py tests/test_profile_session.py
@@ -51,63 +90,78 @@ jobs:
           tests/test_encrypted_database.py tests/test_database_staging.py
           tests/test_migration_safety.py tests/test_database.py
           tests/test_figures.py tests/test_ui.py
-      - name: Check import contracts
-        run: lint-imports
-      - name: Build one-folder executable
+      - name: Build the one-folder executables
         run: |
           pyinstaller --clean --noconfirm packaging/desktop-probe.spec
           pyinstaller --clean --noconfirm packaging/desktop-app.spec
-      - name: Test frozen encryption and resources
+      - name: Probe self-check (encryption and resources)
+        shell: pwsh
+        run: ./packaging/run_check.ps1 -Exe dist/LightningProbe/LightningProbe.exe -Report reports/probe-self-check.json -Arguments '--self-check'
+      - name: Probe window check (real WebView2)
+        shell: pwsh
+        run: ./packaging/run_check.ps1 -Exe dist/LightningProbe/LightningProbe.exe -Report reports/probe-window.json -Arguments '--smoke' -TimeoutSeconds 120
+      - name: Package the app
+        id: package
+        shell: pwsh
+        run: python packaging/package_app.py --strict
+      - name: Extract the packaged ZIP to a fresh folder
+        id: shipped
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force reports | Out-Null
-          $taskProcess = Start-Process -FilePath dist/LightningProbe/LightningProbe.exe -ArgumentList '--self-check --report reports/frozen-check.json' -Wait -PassThru
-          Get-Content reports/frozen-check.json
-          if ($taskProcess.ExitCode -ne 0) { throw 'Frozen self-check failed' }
-      - name: Test real WebView2 window
-        shell: pwsh
-        run: |
-          $taskProcess = Start-Process -FilePath dist/LightningProbe/LightningProbe.exe -ArgumentList '--smoke --report reports/window-check.json' -PassThru
-          if (-not $taskProcess.WaitForExit(90000)) {
-            Stop-Process -Id $taskProcess.Id -Force
-            throw 'Window smoke timed out'
+          $zip = "dist/${{ steps.package.outputs.zip }}"
+          $expected = ((Get-Content -LiteralPath dist/APP_SHA256SUMS -Raw).Trim() -split '\s+')[0].ToLowerInvariant()
+          $actual = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -ne $expected) { throw "Checksum mismatch: $actual (ZIP) vs $expected (APP_SHA256SUMS)" }
+          $target = Join-Path $env:RUNNER_TEMP 'shipped'
+          if (Test-Path $target) { Remove-Item -Recurse -Force $target }
+          Expand-Archive -LiteralPath $zip -DestinationPath $target
+          $exe = Join-Path $target 'Lightning/Lightning.exe'
+          if (-not (Test-Path -LiteralPath $exe)) { throw "The ZIP has no Lightning/Lightning.exe" }
+          foreach ($file in 'README.txt', 'BUILD_INFO.txt', 'licenses/dependency-versions.txt') {
+            if (-not (Test-Path -LiteralPath (Join-Path $target "Lightning/$file"))) { throw "The ZIP has no Lightning/$file" }
           }
-          Get-Content reports/window-check.json
-          if ($taskProcess.ExitCode -ne 0) { throw 'Window smoke failed' }
-      - name: Test frozen finance app profile encryption
+          "exe=$exe" >> $env:GITHUB_OUTPUT
+      - name: Shipped app self-check (encrypted profile, finance pages)
         shell: pwsh
-        run: |
-          $taskProcess = Start-Process -FilePath dist/Lightning/Lightning.exe -ArgumentList '--self-check --report reports/app-self-check.json' -Wait -PassThru
-          Get-Content reports/app-self-check.json
-          if ($taskProcess.ExitCode -ne 0) { throw 'Frozen finance app self-check failed' }
-      - name: Test real profile chooser in WebView2
+        run: ./packaging/run_check.ps1 -Exe '${{ steps.shipped.outputs.exe }}' -Report reports/app-self-check.json -Arguments '--self-check'
+      - name: Shipped app window check (profile chooser in WebView2)
         shell: pwsh
-        run: |
-          $taskProcess = Start-Process -FilePath dist/Lightning/Lightning.exe -ArgumentList '--smoke --report reports/profile-chooser-smoke.json' -PassThru
-          if (-not $taskProcess.WaitForExit(90000)) {
-            Stop-Process -Id $taskProcess.Id -Force
-            throw 'Profile chooser smoke timed out'
-          }
-          Get-Content reports/profile-chooser-smoke.json
-          if ($taskProcess.ExitCode -ne 0) { throw 'Profile chooser smoke failed' }
-      - name: Collect notices and package app
-        shell: pwsh
-        run: |
-          python packaging/package_app.py
-      - name: Name downloadable app
-        shell: pwsh
-        run: |
-          $version = python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])"
-          $version = $version -replace 'b([0-9]+)$', '-beta.$1'
-          $date = (Get-Date).ToUniversalTime().ToString('yyyy-MM-dd')
-          $shortSha = $env:GITHUB_SHA.Substring(0, 8)
-          $name = 'Lightning-v{0}-Windows-x64-{1}-r{2}-{3}' -f $version, $date, $env:GITHUB_RUN_NUMBER, $shortSha
-          "LIGHTNING_ARTIFACT_NAME=$name" >> $env:GITHUB_ENV
+        run: ./packaging/run_check.ps1 -Exe '${{ steps.shipped.outputs.exe }}' -Report reports/app-window.json -Arguments '--smoke' -TimeoutSeconds 120
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: ${{ env.LIGHTNING_ARTIFACT_NAME }}
+          name: ${{ steps.package.outputs.artifact }}
           path: |
             dist/Lightning-v*-Windows-x64.zip
             dist/APP_SHA256SUMS
+            dist/BUILD_INFO.txt
           if-no-files-found: error
-          retention-days: 7
+          overwrite: true  # a re-run of a tag build replaces its own earlier upload
+          retention-days: ${{ startsWith(github.ref, 'refs/tags/') && 90 || 7 }}
+      - name: Keep the check reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: windows-check-reports-r${{ github.run_number }}-a${{ github.run_attempt }}
+          path: reports/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  release:
+    name: Publish the release
+    needs: [tests, windows]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: ${{ needs.windows.outputs.artifact }}
+          path: release
+      - name: Publish to Lightning-downloads
+        working-directory: release
+        env:
+          GH_TOKEN: ${{ secrets.LIGHTNING_DOWNLOADS_TOKEN }}
+          TAG: ${{ github.ref_name }}
+          ZIP: ${{ needs.windows.outputs.zip }}
+        run: bash "$GITHUB_WORKSPACE/packaging/publish_release.sh"

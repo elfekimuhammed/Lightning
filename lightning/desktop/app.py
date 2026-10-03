@@ -6,6 +6,7 @@ import json
 import multiprocessing
 import sys
 import tempfile
+import traceback
 from contextlib import ExitStack
 from pathlib import Path
 
@@ -18,12 +19,15 @@ def run(argv=None) -> int:
     parser.add_argument("--smoke", action="store_true", help="open/check/close isolated profile chooser")
     parser.add_argument("--report", type=Path, help="non-secret diagnostic JSON")
     args = parser.parse_args(argv)
-    report = {"ok": False, "mode": "self-check" if args.self_check else "profiles"}
+    report = {"ok": False, "mode": "self-check" if args.self_check else ("smoke" if args.smoke else "profiles")}
+    stage = "start"
     try:
         if args.self_check:
+            stage = "security-checks"
             from lightning.security.selfcheck import run_checks
-            from lightning.runtime.selfcheck import run_profile_checks
             checks = run_checks()
+            stage = "profile-checks"
+            from lightning.runtime.selfcheck import run_profile_checks
             checks.update(run_profile_checks())
             report["checks"] = checks
             if not checks or not all(value is True for value in checks.values()):
@@ -32,11 +36,13 @@ def run(argv=None) -> int:
             from lightning.runtime.app import profile_app
             from lightning.runtime.http import Host
             from lightning.desktop.window import run_window
+            stage = "local-server"
             with ExitStack() as stack:
                 root = args.profile_root
                 if args.smoke:
                     root = Path(stack.enter_context(tempfile.TemporaryDirectory(prefix="lightning-profile-smoke-"))) / "Profiles"
                 host = Host(lambda credentials: profile_app(credentials, root)).start()
+                stage = "window"
                 try:
                     result = run_window(host.launch_url, host.origin, smoke=args.smoke,
                                         diagnostics=report.setdefault("window", {}), profile_mode=True)
@@ -47,6 +53,11 @@ def run(argv=None) -> int:
         report["ok"] = True
     except Exception as exc:
         report["error_type"] = type(exc).__name__
+        report["error_stage"] = stage
+        # Where it failed, never what it said: file, function and line only, so the report holds no
+        # paths, profile names or values from the message.
+        report["error_frames"] = [f"{Path(frame.filename).name}:{frame.name}:{frame.lineno}"
+                                  for frame in traceback.extract_tb(exc.__traceback__)][-12:]
     if args.report:
         args.report.parent.mkdir(parents=True, exist_ok=True)
         args.report.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")

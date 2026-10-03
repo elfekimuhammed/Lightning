@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+# Publish a tested, tagged Windows build as a NEW release in the public downloads repository.
+#
+# Run by the release job of .github/workflows/desktop-probe.yml, from the folder that holds the
+# downloaded build artifact (the ZIP, APP_SHA256SUMS and BUILD_INFO.txt).
+#
+# Never replaces anything: if the release or its tag already exists in the downloads repository the
+# job fails. The files are uploaded to a draft first, downloaded back and compared byte for byte, and
+# only then published. Needs:
+#   GH_TOKEN        fine-grained token with Contents: read and write on DOWNLOADS_REPO
+#   DOWNLOADS_REPO  owner/name of the public downloads repository
+#   TAG             the release tag, e.g. v0.5.0-beta.1 (already checked against the source version)
+#   ZIP             the ZIP's file name, e.g. Lightning-v0.5.0-beta.1-Windows-x64.zip
+set -euo pipefail
+
+fail() { echo "::error::$*"; exit 1; }
+
+: "${DOWNLOADS_REPO:?}" "${TAG:?}" "${ZIP:?}"
+[[ -n "${GH_TOKEN:-}" ]] || fail "The LIGHTNING_DOWNLOADS_TOKEN secret is not set. Create a fine-grained personal access token with Contents: read and write on ${DOWNLOADS_REPO} only, add it to this repository as the Actions secret LIGHTNING_DOWNLOADS_TOKEN, then re-run this job. Nothing was published."
+[[ "$ZIP" =~ ^Lightning-v[0-9A-Za-z.+-]+-Windows-x64\.zip$ ]] || fail "Unexpected ZIP name: $ZIP"
+[[ "$ZIP" == "Lightning-${TAG}-Windows-x64.zip" ]] || fail "The ZIP $ZIP was not built as release $TAG (a development build cannot be published)."
+
+for file in "$ZIP" APP_SHA256SUMS BUILD_INFO.txt; do
+  [[ -f "$file" ]] || fail "The build artifact has no $file."
+done
+grep -Eq "^[0-9a-f]{64}  ${ZIP//./\\.}\$" APP_SHA256SUMS || fail "APP_SHA256SUMS does not describe $ZIP."
+sha256sum --check --strict APP_SHA256SUMS || fail "The ZIP does not match APP_SHA256SUMS."
+grep -qx "Build: release ${TAG}" BUILD_INFO.txt || fail "BUILD_INFO.txt does not say this is release ${TAG}."
+zip_sha=$(sha256sum "$ZIP" | cut -d' ' -f1)
+
+# The token must reach the downloads repository before anything else is decided.
+gh api "repos/${DOWNLOADS_REPO}" --jq .full_name >/dev/null \
+  || fail "The token cannot read ${DOWNLOADS_REPO}. Check that LIGHTNING_DOWNLOADS_TOKEN has Contents: read and write on it."
+
+# exists | missing; anything else is an error and stops the job.
+lookup() {
+  local out
+  if out=$(gh api "$1" 2>&1); then echo exists; return; fi
+  if [[ "$out" == *"HTTP 404"* ]]; then echo missing; return; fi
+  echo "$out" >&2
+  fail "Could not check $1."
+}
+[[ $(lookup "repos/${DOWNLOADS_REPO}/releases/tags/${TAG}") == missing ]] \
+  || fail "${DOWNLOADS_REPO} already has a release ${TAG}. Published versions are never replaced: bump the version for a new build."
+[[ $(lookup "repos/${DOWNLOADS_REPO}/git/ref/tags/${TAG}") == missing ]] \
+  || fail "${DOWNLOADS_REPO} already has a tag ${TAG}. Published versions are never replaced: bump the version for a new build."
+
+# A draft left by an earlier failed attempt of this same release was never published: remove it.
+for id in $(gh api --paginate "repos/${DOWNLOADS_REPO}/releases" \
+              --jq ".[] | select(.draft and .tag_name == \"${TAG}\") | .id"); do
+  echo "Removing unpublished draft ${id} left by an earlier attempt."
+  gh api -X DELETE "repos/${DOWNLOADS_REPO}/releases/${id}" >/dev/null
+done
+
+version="${TAG#v}"
+pretty=$(sed -E 's/-beta\.([0-9]+)$/ beta \1/; s/-rc\.([0-9]+)$/ release candidate \1/' <<<"$version")
+prerelease=false
+[[ "$version" == *-* ]] && prerelease=true
+commit=$(sed -n 's/^Commit: //p' BUILD_INFO.txt)
+run=$(sed -n 's/^Run: //p' BUILD_INFO.txt)
+
+notes=$(mktemp)
+{
+  echo "Lightning ${pretty} for Windows (x64), built from Lightning source commit ${commit} (${run})."
+  echo
+  echo "Download **${ZIP}**, extract it once into a new folder, then run \`Lightning\\Lightning.exe\`."
+  echo "The Microsoft Edge WebView2 Runtime is required; Python is not."
+  echo
+  if [[ "$prerelease" == true ]]; then
+    echo "This is a beta: use test data only. The app is not code-signed, so Windows may warn before the first start."
+  else
+    echo "The app is not code-signed, so Windows may warn before the first start."
+  fi
+  echo
+  echo "SHA-256 of ${ZIP}: \`${zip_sha}\` (also in APP_SHA256SUMS)."
+} >"$notes"
+
+release_json=$(gh api -X POST "repos/${DOWNLOADS_REPO}/releases" \
+  -f tag_name="$TAG" -f target_commitish=main -f name="Lightning ${pretty} for Windows" \
+  -F body=@"$notes" -F draft=true -F prerelease="$prerelease")
+release_id=$(jq -r .id <<<"$release_json")
+upload_url="https://uploads.github.com/repos/${DOWNLOADS_REPO}/releases/${release_id}/assets"
+echo "Created draft release ${release_id}."
+
+for file in "$ZIP" APP_SHA256SUMS; do
+  type=application/octet-stream
+  [[ "$file" == *.zip ]] && type=application/zip
+  gh api -X POST "${upload_url}?name=${file}" -H "Content-Type: ${type}" --input "$file" --jq .name >/dev/null
+  echo "Uploaded ${file}."
+done
+
+# Download every asset back from the draft and compare it with what was tested.
+check_dir=$(mktemp -d)
+mapfile -t assets < <(gh api "repos/${DOWNLOADS_REPO}/releases/${release_id}/assets" --jq '.[] | "\(.id) \(.name)"')
+[[ ${#assets[@]} -eq 2 ]] || fail "The draft has ${#assets[@]} files instead of 2."
+for entry in "${assets[@]}"; do
+  id=${entry%% *}; name=${entry#* }
+  gh api -H "Accept: application/octet-stream" "repos/${DOWNLOADS_REPO}/releases/assets/${id}" >"${check_dir}/${name}"
+  cmp -s "${check_dir}/${name}" "$name" || fail "The uploaded ${name} differs from the tested file. The draft was left unpublished."
+done
+echo "Both files read back identical to the tested build."
+
+published=$(gh api -X PATCH "repos/${DOWNLOADS_REPO}/releases/${release_id}" -F draft=false)
+[[ $(jq -r .draft <<<"$published") == false ]] || fail "The release did not publish."
+[[ $(jq -r .tag_name <<<"$published") == "$TAG" ]] || fail "The published release has the wrong tag."
+url=$(jq -r .html_url <<<"$published")
+echo "Published ${url}"
+if [[ $(jq -r '.immutable // false' <<<"$published") != true ]]; then
+  echo "::warning::${DOWNLOADS_REPO} does not make releases immutable. Turn on release immutability in its Settings so a published version can never be changed."
+fi
+{
+  echo "### Released Lightning ${pretty}"
+  echo
+  echo "- Download page: ${url}"
+  echo "- ZIP: ${ZIP}"
+  echo "- SHA-256: \`${zip_sha}\`"
+} >>"${GITHUB_STEP_SUMMARY:-/dev/null}"

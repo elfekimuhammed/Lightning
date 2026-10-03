@@ -35,7 +35,7 @@ changes to valuable data.
 Current limits
 --------------
 This preview does not include legacy database import or a backup-restore screen.
-The browser finance app's upload limit is 512 KiB per request.
+Import CSV accepts bank CSV files up to 5 MiB; other forms are limited to 512 KiB.
 
 Linux developers can continue using the source browser app with:
   python -m lightning --profiles
