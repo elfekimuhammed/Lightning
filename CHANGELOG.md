@@ -9,6 +9,10 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 ## [Unreleased]
 
 - Fixed two tests that failed on `main`: the profile-gate test now awaits Starlette's `request.form()` wrapper, and the picker test allows set-up calls between inserting popup content and enhancing its pickers. With the hash-locked Linux dependencies (including `sqlcipher3`), the full suite passes.
+- Add account-level **Change ownership**: move cash between the user's share and a saved person while keeping the account's gross balance unchanged. The posting goes through `TransactionService`, validates each owner's dated cash position, and appears as a readable ownership event.
+- Add **Someone paid an expense for you**: record the owned expense against its category and attribute the matching in-account cash share to the payer. It counts in spending and budgets, preserves gross account cash, and can be linked to a reserve or planned payment.
+- Keep new cash ownership history in the ledger. Legacy unlinked custody records remain readable for compatibility; edits, voids and restores validate resulting owner balances.
+- Extend Omar's screen-driven year to assign cash to a saved person and record an expense they paid, confirming that the account's gross cash does not change.
 - Replaced line-by-line bank reconciliation with **Check against bank**: type the balance the bank shows on a date. A difference up to 1% of that balance or 100 (whichever is larger) is settled with one "Balance adjustment" row, counted as Other Personal spending or Other Income; a bigger one cannot be adjusted and links to that month's register or Import CSV. Omar's October check is now one typed balance instead of 62 Clear clicks.
 - Omar's test and the Project Overview now state what the test focuses on: right answers, usability, efficiency, speed, simplicity, clarity and UI, in the Windows WebView2 app.
 - Omar's year now walks through user feedback batch 001: 11 fixed points are checked and 13 open pain points are strict expected failures in `tests/test_omar_year.py`.

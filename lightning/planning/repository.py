@@ -113,8 +113,14 @@ class PlanningRepository:
         """Read a posted, owned transaction that is valid for an explicit payment link."""
         effect = "INFLOW" if incoming else "OUTFLOW"
         doc_type = "IN" if incoming else "OUT"
-        where = ["t.id=?", "t.status='POSTED'", "t.type=?", "l.effect=?", "l.owner_id IS NULL"]
-        params: list = [transaction_id, doc_type, effect]
+        where = ["t.id=?", "t.status='POSTED'", "l.effect=?", "l.owner_id IS NULL"]
+        params: list = [transaction_id, effect]
+        if incoming:
+            where.append("t.type='IN'")
+        else:
+            # An externally paid expense is represented by an ADJ whose owned
+            # expense line is still a real budget/planned-payment outflow.
+            where.append("(t.type='OUT' OR (t.type='ADJ' AND t.description LIKE 'Ownership: expense paid by %'))")
         if account_id:
             where.append("l.account_id=?")
             params.append(account_id)

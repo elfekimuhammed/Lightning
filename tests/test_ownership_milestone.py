@@ -1,3 +1,4 @@
+from datetime import date
 from decimal import Decimal
 
 import pytest
@@ -83,3 +84,65 @@ def test_internal_cash_spend_checks_the_owners_dated_balance(c):
     shares = c.assets.create_investment("Test share", "STOCK", "CASHCHECK")
     with pytest.raises(ValidationError, match="selected owner's"):
         c.investments.buy_total("2026-09-11", broker.id, shares.id, "1", "2500", owner_id=dad)
+
+
+def test_cash_ownership_can_be_reassigned_without_changing_account_balance(c):
+    bank = c.account_flows.open_account("CIB", "BANK", "2026-09-01", "20000")
+    dad = c.counterparties.create("Dad")
+
+    txn = c.transactions.change_cash_ownership("2026-09-10", bank.id, "5000", None, dad)
+
+    assert txn.type == DocType.ADJ
+    assert c.reporting.account_balance(bank.id, "2026-09-10") == Decimal("20000")
+    assert c.reporting.money_from_others_total("2026-09-10") == Decimal("5000")
+    assert c.transactions.summarize(txn).type_label == "Ownership change"
+    with pytest.raises(ValidationError, match="user's balance"):
+        c.transactions.change_cash_ownership("2026-09-11", bank.id, "16000", None, dad)
+
+
+def test_external_expense_reduces_owned_cash_and_counts_as_spending(c):
+    bank = c.account_flows.open_account("CIB", "BANK", "2026-09-01", "20000")
+    dad = c.counterparties.create("Dad")
+    category = c.categories.get_by_code("EXP.PERSONAL.FOOD")
+    item_id = c.planning.create(kind="BILL", name="Groceries", amount="2500", frequency="MONTHLY",
+                                start_date="2026-09-10", account_id=str(bank.id),
+                                category_id=str(category.id), counterparty_id=str(dad))
+
+    txn = c.transactions.record_expense_paid_by_person(
+        "2026-09-10", bank.id, "2500", dad, category.id, "Dad paid groceries")
+
+    assert c.reporting.account_balance(bank.id, "2026-09-10") == Decimal("20000")
+    assert c.reporting.money_from_others_total("2026-09-10") == Decimal("2500")
+    assert c.reporting.cash_flow("2026-09-01", "2026-09-30").outflows == Decimal("2500")
+    assert c.transactions.summarize(txn).type_label == "Expense paid for you"
+    assert c.transactions.summarize(txn).category_label == c.categories.display_name(category.id)
+    assert c.planning.match_payments(date.fromisoformat("2026-09-30")) == 1
+    payment = c.planning.payments(c.planning.get(item_id), "2026-09-30", date.fromisoformat("2026-09-30"))[0]
+    assert payment.transaction_id == txn.id
+
+
+def test_external_expense_can_settle_a_planned_payment_and_reserve(c):
+    bank = c.account_flows.open_account("CIB", "BANK", "2026-09-01", "20000")
+    dad = c.counterparties.create("Dad")
+    category = c.categories.get_by_code("EXP.PERSONAL.FOOD")
+    reserve = c.reserves.create("Groceries", "3000", category_id=category.id)
+    c.reserves.allocate(reserve["id"], "3000")
+    txn = c.transactions.record_expense_paid_by_person(
+        "2026-09-10", bank.id, "2500", dad, category.id, "Dad paid groceries")
+
+    c.reserves.set_expense_link(reserve["id"], txn.id, "2500")
+    linked = c.reserves.links_for_transaction(txn.id)
+    assert linked[0]["amount"] == Decimal("2500")
+
+
+def test_voiding_owned_cash_cannot_make_the_owner_balance_negative(c):
+    bank = c.account_flows.open_account("CIB", "BANK", "2026-09-01", "0")
+    dad = c.counterparties.create("Dad")
+    salary = c.categories.get_by_code("EXP.WORK.SALARY")
+    food = c.categories.get_by_code("EXP.PERSONAL.FOOD")
+    deposit = c.transactions.record_inflow("2026-09-10", bank.id, "2000", salary.id, owner_id=dad)
+    c.transactions.record_outflow("2026-09-11", bank.id, "1500", food.id, owner_id=dad)
+
+    with pytest.raises(ValidationError, match="selected owner's balance"):
+        c.transactions.void(deposit.id)
+    assert not c.transactions.get(deposit.id).is_void

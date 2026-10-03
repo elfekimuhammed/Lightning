@@ -509,6 +509,30 @@ def _live_the_year(o: Omar) -> None:
         o.answers[key] = Answer(question, list(b.trail) + ["Custom 2026-10-01 to 2027-09-30"], screen)
     o.ask("year_checks", "Is everything still right after a year?", "Settings", "Data checks")
     _the_feedback_round(o)
+    _exercise_cash_ownership(o)
+
+
+def _exercise_cash_ownership(o: Omar) -> None:
+    """Use the account workflow to assign part of the cash to Mom, then record an expense she paid."""
+    o.on("2027-09-30")
+    b = o.b
+    account = b.go("CIB Payroll")
+    gross_before = money(account.after("In this account"))
+    b.click("Change ownership")
+    assignment = b.submit({"mode": Choose("Change who owns this money"), "date": "2027-09-30", "amount": "500",
+                           "from_owner_id": Choose("You"), "to_owner_id": Choose("Mom")}, button="Save")
+    gross_after_assignment = money(b.go("CIB Payroll").after("In this account"))
+
+    b.click("Change ownership")
+    external_expense = b.submit({"mode": Choose("Someone paid an expense for you"), "date": "2027-09-30",
+                                 "amount": "400", "from_owner_id": Choose("You"),
+                                 "to_owner_id": Choose("Mom"), "category_id": Choose("Food & Groceries"),
+                                 "notes": "Mom paid for groceries"}, button="Save")
+    gross_after_expense = money(b.go("CIB Payroll").after("In this account"))
+    o.notes["cash_ownership"] = {"assignment": assignment, "expense": external_expense,
+                                 "gross_before": gross_before,
+                                 "gross_after_assignment": gross_after_assignment,
+                                 "gross_after_expense": gross_after_expense}
 
 
 def _year_statement() -> bytes:
@@ -833,6 +857,13 @@ def test_the_years_investments(omar):
 
 def test_data_checks_pass_after_a_year(omar):
     assert omar.answers["year_checks"].shows("Passed 8 Needs attention 0")
+
+
+def test_cash_ownership_and_external_expense_keep_the_account_total(omar):
+    flow = omar.notes["cash_ownership"]
+    assert flow["assignment"].shows("Ownership change")
+    assert flow["expense"].shows("Expense paid for you", "Food & Groceries", "Mom")
+    assert flow["gross_before"] == flow["gross_after_assignment"] == flow["gross_after_expense"]
 
 
 # ------------------------------------------------------------------ what users reported (user feedback, batch 001)

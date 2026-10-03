@@ -115,7 +115,7 @@ def build(db_path: str | Path | None = None, backup_on_start: bool = False, *,
     transactions = TransactionService(db, accounts, assets, categories, audit, base)
     counterparties = CounterpartyService(db)
     reserves = CashReserveService(db)
-    money_from_others = MoneyFromOthersService(db, accounts)
+    money_from_others = MoneyFromOthersService(db, accounts, transactions)
     physical_items = PhysicalItemService(db, accounts, assets, audit)
     bank_imports = BankImportService(db, accounts, categories, counterparties, transactions, money_from_others, reserves)
     reporting = ReportingService(db, accounts, assets, categories, base, money_from_others)

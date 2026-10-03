@@ -166,6 +166,58 @@ async def save_transaction_popup(request: Request, account_id: int):
                                                    f"/accounts/{account_id}/transaction/new", error))
 
 
+@router.get("/{account_id:int}/ownership/new")
+async def new_ownership_change(request: Request, account_id: int):
+    c = container(request)
+    account = c.accounts.require_usable(account_id)
+    values = {"mode": "assign", "date": today().isoformat(), "amount": "", "from_owner_id": "",
+              "to_owner_id": "", "category_id": "", "notes": ""}
+    return render(request, "accounts/ownership.html", account=account, values=values,
+                  owners=c.counterparties.list_active(),
+                  categories=[cat for cat in c.categories.pickable() if cat.movement.value == "OUTFLOW"],
+                  action=f"/accounts/{account_id}/ownership/new", error="", error_field="")
+
+
+@router.post("/{account_id:int}/ownership/new")
+async def save_ownership_change(request: Request, account_id: int):
+    c = container(request)
+    account = c.accounts.require_usable(account_id)
+    form = await request.form()
+    values = {key: str(form.get(key, "")).strip() for key in
+              ("mode", "date", "amount", "from_owner_id", "to_owner_id", "category_id", "notes")}
+    action = f"/accounts/{account_id}/ownership/new"
+    try:
+        if values["mode"] == "expense":
+            if values["from_owner_id"]:
+                raise ValidationError("For an expense someone paid, set From to You.", "from_owner_id")
+            owner_id = int(values["to_owner_id"]) if values["to_owner_id"].isdigit() else None
+            category_id = int(values["category_id"]) if values["category_id"].isdigit() else None
+            if owner_id is None:
+                raise ValidationError("Choose the person who paid.", "to_owner_id")
+            if category_id is None:
+                raise ValidationError("Choose the expense category.", "category_id")
+            txn = c.transactions.record_expense_paid_by_person(values["date"], account.id, values["amount"],
+                                                               owner_id, category_id, values["notes"])
+            c.planning.match_payments(today())
+            c.reserves.auto_link_transaction(txn.id)
+        elif values["mode"] == "assign":
+            from_owner_id = int(values["from_owner_id"]) if values["from_owner_id"].isdigit() else None
+            to_owner_id = int(values["to_owner_id"]) if values["to_owner_id"].isdigit() else None
+            if from_owner_id is None and to_owner_id is None:
+                raise ValidationError("Choose a person to change ownership with.", "to_owner_id")
+            txn = c.transactions.change_cash_ownership(values["date"], account.id, values["amount"],
+                                                       from_owner_id, to_owner_id, values["notes"])
+        else:
+            raise ValidationError("Choose what happened.", "mode")
+    except (LightningError, ValueError) as exc:
+        error = exc if isinstance(exc, LightningError) else ValidationError("Check the date, amount, and choices.")
+        return render(request, "accounts/ownership.html", status_code=400, account=account, values=values,
+                      owners=c.counterparties.list_active(),
+                      categories=[cat for cat in c.categories.pickable() if cat.movement.value == "OUTFLOW"],
+                      action=action, error=error.message, error_field=error.field or "")
+    return redirect(f"/transactions/{txn.id}", f"Saved {txn.ref}. Ownership in {account.label} is updated.")
+
+
 def _popup_counterparty(c, raw_value):
     raw = str(raw_value or "").strip()
     if not raw:
