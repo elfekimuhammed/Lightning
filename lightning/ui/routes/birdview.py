@@ -194,7 +194,7 @@ def _expense_stats(a, total, prior, prior_label, largest, selected, first, last,
         rows = payments(start, end)
         monthly.append(sum((r["value"] for r in rows), ZERO))
         counts.append(Decimal(len(rows)))
-    stats = [{"key": "out", "surface": "lead", "label": label("money_out"), "value": total, "kind": "money",
+    stats = [{"key": "out", "surface": "out", "label": label("money_out"), "value": total, "kind": "money",
               "spark": charts.sparkline(monthly), "spark_tone": "spend",
               "compare": [compare(f"Against {prior_label}" if prior_label else "Against the period before", total, prior),
                           compare(f"Against your usual {'month' if months == 1 else 'months'}", total,
@@ -204,19 +204,19 @@ def _expense_stats(a, total, prior, prior_label, largest, selected, first, last,
     count = len(now_rows)
     average = total / count if count else None
     before = payments(prior_from, prior_to) if prior_from and prior_to else None
-    stats.append({"key": "payments", "surface": "white", "label": "Average payment", "value": average, "kind": "money",
+    stats.append({"key": "payments", "surface": "out", "label": "Average payment", "value": average, "kind": "money",
                   "empty": "—", "spark": charts.sparkline(counts), "spark_tone": "hold",
                   "sub": (f"{count} payment{'s' if count != 1 else ''}"
                           + (f" · {len(before)} in {prior_label}" if before is not None and prior_label else "")),
                   "href": f"/transactions?{query}"})
     top = a["rows"][0] if a["rows"] else None
-    stats.append({"key": "top", "surface": "mint", "label": f"Biggest · {top['name']}" if top else "Biggest category",
+    stats.append({"key": "top", "surface": "out", "label": f"Biggest · {top['name']}" if top else "Biggest category",
                   "value": top["value"] if top else None, "kind": "money", "empty": "—",
                   "sub": f"{top['share']:.0f}% of money out" if top else "No spending yet",
                   "meter": {"width": float(top["share"]), "tone": "spend"} if top else None, "href": top["href"] if top else ""})
     big = largest[0] if largest else None
     times = big["value"] / average if big and average else None
-    stats.append({"key": "payment", "surface": "white", "label": "Largest payment", "value": big["value"] if big else None,
+    stats.append({"key": "payment", "surface": "out", "label": "Largest payment", "value": big["value"] if big else None,
                   "kind": "money", "empty": "—",
                   "sub": (f"{big['counterparty'] or big['category']} · {big['date']}" + (f" · {times:.1f}× the average" if times else "")) if big else "No payments yet",
                   "meter": {"width": float(min(Decimal(100), big["value"] / total * 100)), "tone": "over"} if big and total else None,

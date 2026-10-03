@@ -1,5 +1,5 @@
 # Claude Code instructions
 
-Read [AGENTS.md](AGENTS.md) first: it routes to the project docs and holds the git workflow rule (work on `main`, push every branch, merge finished work into `main`).
+Follow [AGENTS.md](AGENTS.md): it is the one set of instructions for every AI working here (Claude and Codex). It says which files carry the project, the six steps of every task, and the git rule (work on `main` and push to `origin main`).
 
 @AGENTS.md

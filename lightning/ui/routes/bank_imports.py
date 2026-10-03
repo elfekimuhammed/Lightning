@@ -3,11 +3,12 @@ from __future__ import annotations
 import base64
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, PlainTextResponse
+from decimal import Decimal, InvalidOperation
 
 from lightning.bank_imports import OPTIONAL, REQUIRED, SEPARATE_AMOUNT_FIELDS, decode_csv
 from lightning.core.errors import LightningError, ValidationError
 from lightning.core.limits import MAX_CSV_MAPPING_REQUEST_BYTES, MAX_IMPORT_REVIEW_REQUEST_BYTES
-from lightning.core.money import fmt
+from lightning.core.money import ZERO, fmt
 
 from ..web import container, redirect, render
 
@@ -85,13 +86,17 @@ def _review_form_max_fields(row_count: int) -> int:
 async def import_page(request: Request, account_id: int):
     c = container(request)
     account = c.accounts.get(account_id)
-    return render(request, "bank_import_upload.html", account=account,
+    return render(request, "bank_import_upload.html", account=account, waiting=_waiting_imports(c, account_id),
                   ai_prompt=_ai_prompt(account, _ai_reference(c)))
+
+
+def _waiting_imports(c, account_id: int) -> list[dict]:
+    return c.bank_imports.waiting(account_id)
 
 
 def _render_upload(request, c, account_id, *, error="", status_code=200):
     account = c.accounts.get(account_id)
-    return render(request, "bank_import_upload.html", account=account,
+    return render(request, "bank_import_upload.html", account=account, waiting=_waiting_imports(c, account_id),
                   ai_prompt=_ai_prompt(account, _ai_reference(c)), error=error, status_code=status_code)
 
 
@@ -185,19 +190,122 @@ async def map_columns(request: Request, account_id: int):
     return redirect(f"/accounts/{account_id}/import/{batch_id}")
 
 
+def _amount(row) -> Decimal:
+    try:
+        return Decimal(str(row.get("Amount", "")).replace(",", "").replace("−", "-"))
+    except (InvalidOperation, ValueError):
+        return ZERO
+
+
+def _review_groups(rows: list[dict], form=None) -> list[dict]:
+    """One decision per name (guideline 3.6, UX plan item 2): rows with the same imported name form a
+    group with one Counterparty, Category, Transfer and Held-for choice; each row keeps its own date,
+    amount, note and skip. Presentation only: the service still receives one decision per row."""
+    by_key: dict[str, list[dict]] = {}
+    for row in rows:
+        key = " ".join(str(row.get("Counterparty") or "").casefold().split())
+        by_key.setdefault(key or f"__line_{row['_line']}", []).append(row)
+    groups = []
+    for index, (key, members) in enumerate(by_key.items()):
+        lead = members[0]
+        duplicates = [r for r in members if r.get("_reference_duplicate") or r.get("_similarity_warning")]
+        categories = {r.get("_category_id") for r in members}
+        value = (lambda name, default: str(form.get(f"group_{name}_{index}", default)) if form is not None else default)
+        group = {
+            "i": index, "key": key, "rows": members, "lead": lead, "count": len(members),
+            "name": lead.get("Counterparty") or "No counterparty",
+            "total": sum((_amount(r) for r in members), ZERO),
+            "errors": [r for r in members if r.get("_row_error") or r.get("_errors")],
+            "duplicates": len(duplicates),
+            "needs": any(not r.get("_ready") for r in members if r not in duplicates),
+            "category": value("category", str(lead.get("_category_id") or "") if len(categories) == 1 else ""),
+            "counterparty": value("counterparty", lead.get("Counterparty") or ""),
+            "counterparty_choice": value("counterparty_choice", lead.get("_counterparty_choice") or ""),
+            "transfer": value("transfer_account_id", str(lead.get("_transfer_account_id") or "")),
+            "owner_choice": value("owner_choice", lead.get("_owner_choice") or ""),
+            "remember": (form.get(f"group_remember_{index}") == "on") if form is not None else False,
+        }
+        groups.append(group)
+    order = lambda g: (0 if g["errors"] else 1 if g["needs"] else 2 if g["duplicates"] else 3, int(g["lead"]["_line"]))
+    return sorted(groups, key=order)
+
+
+def _render_review(request, c, account_id: int, batch, rows, *, summary, form=None, msg="", error="", status_code=200):
+    account = c.accounts.get(account_id)
+    return render(request, "bank_import_preview.html", account=account, batch=batch, rows=rows,
+                  groups=_review_groups(rows, form), categories=_categories(c),
+                  counterparties=c.counterparties.list_active(),
+                  account_choices=[a for a in c.accounts.list(active_only=True)
+                                   if a.id != account_id and a.currency == account.currency],
+                  counterparty_search_names=c.counterparties.search_names(),
+                  summary=summary, msg=msg, error=error, status_code=status_code)
+
+
 @router.get("/{account_id:int}/import/{batch_id:int}")
 async def preview(request: Request, account_id: int, batch_id: int):
     c = container(request)
     batch, rows = c.bank_imports.preview(batch_id)
     if batch["account_id"] != account_id:
         return redirect(f"/accounts/{account_id}", "Import batch not found for this account.")
-    categories = _categories(c)
-    counterparties = c.counterparties.list_active()
-    return render(request, "bank_import_preview.html", account=c.accounts.get(account_id), batch=batch, rows=rows,
-                  categories=categories, counterparties=counterparties,
-                  account_choices=[a for a in c.accounts.list(active_only=True) if a.id != account_id and a.currency == c.accounts.get(account_id).currency],
-                  counterparty_search_names=c.counterparties.search_names(),
-                  summary=c.bank_imports.summary(batch_id))
+    return _render_review(request, c, account_id, batch, rows, summary=c.bank_imports.summary(batch_id))
+
+
+@router.post("/{account_id:int}/import/{batch_id:int}/discard")
+async def discard(request: Request, account_id: int, batch_id: int):
+    c = container(request)
+    batch, _ = c.bank_imports.preview(batch_id)
+    if batch["account_id"] != account_id:
+        return redirect(f"/accounts/{account_id}", "Import batch not found for this account.")
+    try:
+        count = c.bank_imports.discard(batch_id)
+    except LightningError as exc:
+        return redirect(f"/accounts/{account_id}/import/{batch_id}", exc.message)
+    return redirect(f"/accounts/{account_id}",
+                    f"Import discarded: {count} row{'s' if count != 1 else ''} from {batch['file_name']} were not posted.")
+
+
+def _decision(form, row) -> dict:
+    """One row's decision. Rows sent with group_of_<row> take the group's choices (one decision per
+    name) unless the row sends its own category; rows without it keep their own fields."""
+    row_id = row["_import_row_id"]
+    group = form.get(f"group_of_{row_id}")
+    own = lambda name, default="": str(form.get(f"{name}_{row_id}", default))
+    shared = (lambda name, default="": str(form.get(f"group_{name}_{group}", default))) if group is not None else own
+    category_choice = own("category") or (shared("category") if group is not None else "")
+    decision = {"category_id": category_choice if category_choice and category_choice != "__uncategorized__" else None,
+                "force_uncategorized": category_choice == "__uncategorized__",
+                "skip": form.get(f"skip_{row_id}") == "on",
+                "date": form.get(f"date_{row_id}", row["Date"]),
+                "counterparty": shared("counterparty", row["Counterparty"]),
+                "amount": form.get(f"amount_{row_id}", row["Amount"]),
+                "notes": form.get(f"notes_{row_id}", row["Notes"]),
+                "whom": own("whom") or (shared("whom") if group is not None else ""),
+                "owner_choice": shared("owner_choice"),
+                "counterparty_choice": shared("counterparty_choice"),
+                "remember_category": (form.get(f"group_remember_{group}") if group is not None
+                                      else form.get(f"remember_category_{row_id}")) == "on",
+                "transfer_account_id": shared("transfer_account_id")}
+    selected = decision["counterparty_choice"]
+    if selected.startswith("existing:"):
+        decision["counterparty_id"] = int(selected.split(":", 1)[1])
+    elif selected == "new":
+        decision["new_counterparty"] = decision["counterparty"]
+    return decision
+
+
+def _keep_typed(form, rows) -> None:
+    """After a failed post, show each row with what the user typed."""
+    for row in rows:
+        row_id = row["_import_row_id"]
+        decision = _decision(form, row)
+        row["Date"], row["Amount"], row["Notes"] = str(decision["date"]), str(decision["amount"]), str(decision["notes"])
+        row["Counterparty"] = str(decision["counterparty"])
+        row["_owner_choice"] = decision["owner_choice"]
+        row["_counterparty_choice"] = decision["counterparty_choice"]
+        row["_category_id"] = int(decision["category_id"]) if str(decision["category_id"] or "").isdigit() else None
+        row["_skip"] = decision["skip"]
+        row["_transfer_account_id"] = decision["transfer_account_id"]
+        row["_remember_category"] = decision["remember_category"]
 
 
 @router.post("/{account_id:int}/import/{batch_id:int}/confirm")
@@ -210,85 +318,27 @@ async def confirm(request: Request, account_id: int, batch_id: int):
     # controls per imported row, so size the parser budget to this staged batch.
     form = await request.form(max_fields=_review_form_max_fields(len(rows)),
                               max_part_size=MAX_IMPORT_REVIEW_REQUEST_BYTES)
-    decisions = {}
-    for row in rows:
-        row_id = row["_import_row_id"]
-        category_choice = str(form.get(f"category_{row_id}", ""))
-        whom = str(form.get(f"whom_{row_id}", ""))
-        decision = {"category_id": category_choice if category_choice and category_choice != "__uncategorized__" else None,
-                    "force_uncategorized": category_choice == "__uncategorized__",
-                    "skip": form.get(f"skip_{row_id}") == "on",
-                    "date": form.get(f"date_{row_id}", row["Date"]),
-                    "counterparty": form.get(f"counterparty_{row_id}", row["Counterparty"]),
-                    "amount": form.get(f"amount_{row_id}", row["Amount"]),
-                    "notes": form.get(f"notes_{row_id}", row["Notes"]),
-                    "whom": whom,
-                    "owner_choice": form.get(f"owner_choice_{row_id}", ""),
-                    "counterparty_choice": form.get(f"counterparty_choice_{row_id}", ""),
-                    "remember_category": form.get(f"remember_category_{row_id}") == "on"}
-        decision["transfer_account_id"] = str(form.get(f"transfer_account_id_{row_id}", ""))
-        selected = decision["counterparty_choice"]
-        if selected.startswith("existing:"):
-            decision["counterparty_id"] = int(selected.split(":", 1)[1])
-        elif selected == "new":
-            decision["new_counterparty"] = decision["counterparty"]
-        decisions[row_id] = decision
+    decisions = {row["_import_row_id"]: _decision(form, row) for row in rows}
     try:
         count = c.bank_imports.confirm(batch_id, decisions)
     except LightningError as exc:
         batch, rows = c.bank_imports.preview(batch_id)
-        for row in rows:
-            row_id = row["_import_row_id"]
-            row["Date"] = str(form.get(f"date_{row_id}", row["Date"]))
-            row["Counterparty"] = str(form.get(f"counterparty_{row_id}", row["Counterparty"]))
-            row["Amount"] = str(form.get(f"amount_{row_id}", row["Amount"]))
-            row["Notes"] = str(form.get(f"notes_{row_id}", row["Notes"]))
-            row["_whom"] = str(form.get(f"whom_{row_id}", ""))
-            row["_owner_choice"] = str(form.get(f"owner_choice_{row_id}", ""))
-            category_choice = str(form.get(f"category_{row_id}", ""))
-            row["_category_id"] = int(category_choice) if category_choice.isdigit() else None
-            row["_counterparty_choice"] = str(form.get(f"counterparty_choice_{row_id}", ""))
-            row["_remember_category"] = form.get(f"remember_category_{row_id}") == "on"
-            row["_skip"] = form.get(f"skip_{row_id}") == "on"
-            row["_transfer_account_id"] = str(form.get(f"transfer_account_id_{row_id}", ""))
-        counterparties = c.counterparties.list_active()
-        return render(request, "bank_import_preview.html", account=c.accounts.get(account_id), batch=batch, rows=rows,
-                      categories=_categories(c), counterparties=counterparties,
-                      account_choices=[a for a in c.accounts.list(active_only=True) if a.id != account_id and a.currency == c.accounts.get(account_id).currency],
-                      counterparty_search_names=c.counterparties.search_names(),
-                      summary=c.bank_imports.summary(batch_id), error=exc.message, status_code=400)
+        _keep_typed(form, rows)
+        return _render_review(request, c, account_id, batch, rows, summary=c.bank_imports.summary(batch_id),
+                              form=form, error=exc.message, status_code=400)
     if count.get("errors"):
         batch, review_rows = c.bank_imports.preview(batch_id)
+        _keep_typed(form, review_rows)
         for row in review_rows:
-            row_id = row["_import_row_id"]
-            row["Date"] = str(form.get(f"date_{row_id}", row["Date"]))
-            row["Counterparty"] = str(form.get(f"counterparty_{row_id}", row["Counterparty"]))
-            row["Amount"] = str(form.get(f"amount_{row_id}", row["Amount"]))
-            row["Notes"] = str(form.get(f"notes_{row_id}", row["Notes"]))
-            row["_whom"] = str(form.get(f"whom_{row_id}", row.get("_whom", "")))
-            row["_owner_choice"] = str(form.get(f"owner_choice_{row_id}", ""))
-            category_choice = str(form.get(f"category_{row_id}", ""))
-            row["_category_id"] = int(category_choice) if category_choice.isdigit() else None
-            row["_counterparty_choice"] = str(form.get(f"counterparty_choice_{row_id}", ""))
-            row["_remember_category"] = form.get(f"remember_category_{row_id}") == "on"
-            row["_skip"] = form.get(f"skip_{row_id}") == "on"
-            row["_transfer_account_id"] = str(form.get(f"transfer_account_id_{row_id}", ""))
-            row["_row_error"] = count["errors"].get(int(row_id))
-            row["_hide_row"] = not bool(row["_row_error"])
-        counterparties = c.counterparties.list_active()
-        msg = (f"Nothing was imported. {len(count['errors'])} row(s) need attention. "
-               "Only rows with problems are shown; other rows remain in the review and their edits are kept.")
-        return render(request, "bank_import_preview.html", account=c.accounts.get(account_id), batch=batch,
-                      rows=review_rows, categories=_categories(c), counterparties=counterparties,
-                      account_choices=[a for a in c.accounts.list(active_only=True) if a.id != account_id and a.currency == c.accounts.get(account_id).currency],
-                      counterparty_search_names=c.counterparties.search_names(),
-                      summary=c.bank_imports.summary(batch_id), msg=msg)
+            row["_row_error"] = count["errors"].get(int(row["_import_row_id"]))
+        problems = len(count["errors"])
+        msg = (f"Nothing was imported yet: {problems} row{'s' if problems != 1 else ''} need{'' if problems != 1 else 's'} "
+               "attention. Fix them below; your other choices are kept.")
+        return _render_review(request, c, account_id, batch, review_rows, summary=c.bank_imports.summary(batch_id),
+                              form=form, msg=msg)
     feedback = _budget_import_feedback(c, batch_id)
     if count.get("ambiguous_reserves"):
         feedback += f" {count['ambiguous_reserves']} row(s) could match multiple reserves; choose beside each transaction in its account list."
     batch, result_rows = c.bank_imports.preview(batch_id)
-    return render(request, "bank_import_preview.html", account=c.accounts.get(account_id), batch=batch,
-                  rows=result_rows, categories=_categories(c), counterparties=c.counterparties.list_active(),
-                  account_choices=[a for a in c.accounts.list(active_only=True) if a.id != account_id and a.currency == c.accounts.get(account_id).currency],
-                  counterparty_search_names=c.counterparties.search_names(), summary=count,
-                  msg=f"Import complete: {count['posted']} posted, {count['skipped']} skipped, {count['duplicates']} duplicates.{feedback}")
+    return _render_review(request, c, account_id, batch, result_rows, summary=count,
+                          msg=f"Import complete: {count['posted']} posted, {count['skipped']} skipped, {count['duplicates']} duplicates.{feedback}")

@@ -13,7 +13,7 @@ from decimal import Decimal
 from lightning.accounts.domain import Account, AccountType
 from lightning.accounts.service import AccountService
 from lightning.assets.service import AssetService
-from lightning.categories.domain import Movement
+from lightning.categories.domain import Direction, Movement
 from lightning.categories.service import CategoryService
 from lightning.counterparties import CounterpartyService
 from lightning.core.dates import fmt_date, parse_date, today
@@ -492,6 +492,34 @@ class TransactionService:
         current = self._editable(txn_id, EDITABLE_TYPES)
         day = self._check_date(date)
         return self._update(current, day, list(current.lines), current.description, counterparty, notes)
+
+    def set_category(self, txn_ids: list[int], category_id: int) -> tuple[list[int], list[int]]:
+        """Bulk edit: give several money-in or money-out rows one category, keeping each row's date,
+        amount, counterparty, notes and owner. Rows that cannot take it (transfers, investment and
+        opening rows, split expenses, or a category for the other direction) are left as they are.
+        All changed rows are saved together. Returns (changed ids, skipped ids)."""
+        category = self.categories.get(category_id)
+        # Money held for others needs an owner per row, so it is never set in bulk.
+        if category.is_system or category.code == "EXP.SYSTEM.CUSTODY":
+            raise ValidationError("Choose a spending or income category.", "category")
+        changed, skipped = [], []
+        with self.db.transaction():
+            for txn_id in dict.fromkeys(txn_ids):
+                current = self.get(txn_id)
+                lines_with_category = [line for line in current.lines if line.category_id]
+                wanted = Direction.IN if current.type == DocType.IN else Direction.OUT
+                if (current.is_void or current.type not in {DocType.IN, DocType.OUT} or len(lines_with_category) != 1
+                        or category.direction not in (wanted, Direction.BOTH)):
+                    skipped.append(txn_id)
+                    continue
+                if lines_with_category[0].category_id == category_id:
+                    changed.append(txn_id)
+                    continue
+                lines = [replace(line, category_id=category_id) if line.category_id else line for line in current.lines]
+                self._update(current, parse_date(current.date), lines, current.description, current.counterparty,
+                             current.notes)
+                changed.append(txn_id)
+        return changed, skipped
 
     def update_expense_split(self, txn_id: int, allocations: list[tuple[int, object]]) -> Transaction:
         """Replace an expense's category allocation while preserving its total cash movement."""

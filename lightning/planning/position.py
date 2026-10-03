@@ -21,6 +21,7 @@ from decimal import Decimal
 
 from lightning.core.dates import fmt_date, parse_date, today
 from lightning.core.errors import NotFoundError
+from lightning.core.memo import request_cached
 from lightning.core.money import ZERO
 
 from lightning.investments.domain import DEFAULT_SALE_FACTOR
@@ -276,8 +277,11 @@ class PositionService:
         return closing.net_worth - opening.net_worth, ""
 
     def at(self, as_of: date | str | None = None) -> Position:
-        day = parse_date(as_of) if as_of is not None else today()
-        text = fmt_date(day)
+        return self._at(fmt_date(parse_date(as_of) if as_of is not None else today()))
+
+    @request_cached
+    def _at(self, text: str) -> Position:
+        day = parse_date(text)
         if day == today():
             # Settle bills that a posted transaction already paid before counting what is due.
             self.planning.match_payments(day)

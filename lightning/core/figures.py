@@ -95,9 +95,12 @@ _TABLE = [
     ("base_budget", "Base budget", "The amount the budget rule gives: fixed, a share of income or an average."),
     ("carryover", "Carryover", "Unused plan from last month, added to this month when carryover is on.",
      "Left in plan last month"),
-    ("planned", "Planned", "What you plan to spend this month.", "Base budget + Carryover"),
+    ("planned", "Planned", "What you plan to spend this month. The month's total also counts background "
+     "estimates for untracked categories; one from a single month of spending is low confidence and shows a "
+     "\"!\" that says why.", "Base budget + Carryover"),
     ("spent", "Spent", "Money out in the category this month."),
-    ("left_in_plan", "Left in plan", "What is left of the plan.", "Planned − Spent"),
+    ("left_in_plan", "Left in plan", "What is left of the plan; the Overview and Budget show the same month "
+     "figure, and a negative one reads \"Over plan\". One-off categories are left out of Spent.", "Planned − Spent"),
     # ------------------------------------------------------------ investments (a period)
     ("cost", "Cost", "What you paid for the units you still hold."),
     ("unrealized_gain", "Unrealized gain", "Gain or loss on units you still hold.", "Holdings value − Cost"),

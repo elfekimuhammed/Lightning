@@ -105,6 +105,12 @@ def test_cash_planning_tabs_scroll_within_the_bar_on_narrow_viewports(c):
     assert 'class="plan-tabs-bar" aria-label="Cash planning"' in page.text
     for href in ("/plan", "/plan/recurring", "/plan/loans", "/plan/reserves"):
         assert f'href="{href}"' in page.text
+    # With no income planned the forecast is an empty state, not a guess (guideline A01).
+    assert "Add your salary and bills to see where your cash is heading" in page.text
+    cib = c.account_flows.open_account("CIB", "BANK", "2026-09-01", "1000")
+    c.planning.create(kind="INCOME", name="Salary", amount="30000", frequency="MONTHLY", start_date="2026-10-01",
+                      account_id=str(cib.id), category_id=str(c.categories.get_by_code("EXP.WORK.SALARY").id))
+    page = client.get("/plan")
     assert '<div class="table-scroll"><table class="plan-forecast-table">' in page.text
 
     stylesheet = Path("lightning/ui/static/style.css").read_text(encoding="utf-8")

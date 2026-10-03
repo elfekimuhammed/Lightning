@@ -127,7 +127,12 @@ class Guard:
                 # for native form POSTs. Keep exact-origin checks and use
                 # same-origin, which still suppresses all external referrers.
                 referrer = b"no-referrer" if request.url.path == "/__launch" else b"same-origin"
-                headers.extend([(b"cache-control", b"no-store"), (b"referrer-policy", referrer),
+                # Pages are never stored. The app's own CSS, JS, fonts and images hold no user data and
+                # each launch gets a new random port (a new origin), so the window may keep them for the
+                # session instead of fetching and parsing them again on every click.
+                static = request.url.path.startswith("/static/") and message.get("status") == 200
+                cache = b"private, max-age=86400" if static else b"no-store"
+                headers.extend([(b"cache-control", cache), (b"referrer-policy", referrer),
                                 (b"x-content-type-options", b"nosniff"), (b"x-frame-options", b"DENY"),
                                 (b"content-security-policy", csp.encode("ascii"))])
                 message = {**message, "headers": headers}

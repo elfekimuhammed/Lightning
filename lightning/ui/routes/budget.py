@@ -313,9 +313,11 @@ def _page(request: Request, month: str, values: dict | None = None, error: str =
     meter_lines.sort(key=lambda r: (not r["m"]["over"], -(r["m"].get("share") or 0)))
     month_first, month_last = parse_month(month)
     days_left = (month_last - today()).days + 1 if month_first <= today() <= month_last else 0
-    notes = keynotes.budget_left(view.available - view.actual, days_left,
+    # The same Left in plan as the headline and the Overview (background estimates counted in).
+    month_left = c.budgets.plan_summary(month)["left"] if c.budgets.has_plan(month) else ZERO
+    notes = keynotes.budget_left(month_left, days_left,
                                  [r["label"] for r in meter_lines if r["m"]["over"]], "#budget-meters") if c.budgets.has_plan(month) else []
-    left_note = keynotes.per_day(view.available - view.actual, days_left) if c.budgets.has_plan(month) else ""
+    left_note = keynotes.per_day(month_left, days_left) if c.budgets.has_plan(month) else ""
     flow = c.reporting.cash_flow(period.start, period.end)
     return render(request, "budget.html", notes=notes, meter_lines=meter_lines, left_note=left_note,
                   savings=flow, saved_split_data=saved_and_invested(flow, build_investment_report(
@@ -333,6 +335,7 @@ def _page(request: Request, month: str, values: dict | None = None, error: str =
                   personal_group=next((cat.id for cat in c.categories.tree(Movement.OUTFLOW)
                                        if cat.depth == 1 and cat.scope == Scope.PERSONAL), None),
                   free_cash=c.reserves.cash_summary(c.reporting.owned_liquid_cash(today()), c.planning.what_you_owe().bills_due)["free_cash"],
+                  low_confidence=keynotes.low_confidence_note(c.budgets.plan_summary(month)["low_confidence"]) if period.key == "month" else "",
                   period=period, period_actual=period_actual, period_budgeted=period_budgeted,
                   period_left=period_left, period_carryover=period_carryover, group_totals=group_totals,
                   group_rows=group_rows,

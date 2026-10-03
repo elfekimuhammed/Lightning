@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "partials/charts.html" import tone_icon %}
 {% block title %}Investments{% endblock %}
 {% block heading %}<div class="birdview-title"><div><h1>Investments</h1><div class="muted">Valued as of {{ period.end_display }}</div></div><a class="btn btn-planner" data-popup-open href="/investments/planner"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 20h18M6 16l4-5 4 3 6-8"/><path d="M16 6h4v4"/></svg>Investment planner</a><a class="btn small icon-btn" aria-label="Investment settings" title="Investment settings" href="/settings?section=investments&amp;return_to={{ request.url.path|urlencode }}{% if request.url.query %}%3F{{ request.url.query|urlencode }}{% endif %}"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7h-9M14 17H4M4 7h3M20 17h-2"/><circle cx="9" cy="7" r="2.5"/><circle cx="16" cy="17" r="2.5"/></svg></a></div>{% endblock %}
 {% block top_actions %}{% from "partials/macros.html" import period_control %}{{ period_control("/investments", period.key, period.start_text[:7], this_month, period.start_text, period.end_text) }}{% endblock %}
@@ -12,20 +13,20 @@
 {% else %}
 {% set result = investment_report.result %}
 <section class="stat-tiles inv-top" aria-label="This period">
-  <div class="stat-tile surface-white inv-saved-tile">{% set w = waffle %}{% set bar = w.bar %}
-    <span class="stat-tile-head"><span class="stat-tile-label">Saved and invested</span><span class="stat-chip">{{ chip }}</span></span>
+  <div class="stat-tile surface-in inv-saved-tile">{% set w = waffle %}{% set bar = w.bar %}
+    <span class="stat-tile-head">{{ tone_icon('in') }}<span class="stat-tile-label">Saved and invested</span><span class="stat-chip">{{ chip }}</span></span>
     {{ saved_split(w) }}
   </div>
-  <div class="stat-tile surface-white inv-result-tile">
-    <span class="stat-tile-head"><span class="stat-tile-label">{{ fig.result.label }}</span><span class="stat-chip is-{{ 'up' if result and result > 0 else ('down' if result and result < 0 else 'flat') }}">{{ chip }}</span></span>
+  <div class="stat-tile surface-{{ 'over' if result is not none and result < 0 else 'in' }} inv-result-tile">
+    <span class="stat-tile-head">{{ tone_icon('over' if result is not none and result < 0 else 'in') }}<span class="stat-tile-label">{{ fig.result.label }}</span><span class="stat-chip is-{{ 'up' if result and result > 0 else ('down' if result and result < 0 else 'flat') }}">{{ chip }}</span></span>
     <span class="stat-tile-value{{ ' is-negative' if result is not none and result < 0 }}">{% if result is none %}Unavailable{% else %}{{ result|money(True) }}<small>{{ base }}</small>{% endif %}</span>
     <span class="stat-tile-sub inv-notes">
       <span>{% if growth is not none %}<b class="{{ growth|tone }}">{{ '%+.1f'|format(growth)|replace('-', '−') }}%</b>{% else %}<b>—</b>{% endif %}<em>{{ fig.period_growth.label }}</em></span>
       <span>{% if since_xirr is not none %}<b class="{{ since_xirr|tone }}">{{ '%+.1f'|format(since_xirr * 100)|replace('-', '−') }}%</b>{% else %}<b>—</b>{% endif %}<em>XIRR{{ ' a year' if since_xirr is not none else ' · after a year' }} <button type="button" class="info-tip" aria-label="What is XIRR?" data-tip="XIRR is your average yearly return since your first investment. It counts when you added or took out money, so a late deposit doesn't look like growth. It shows once you have held for a full year.">?</button></em></span>
     </span>
   </div>
-  <a class="stat-tile surface-mint" href="#holdings-table">
-    <span class="stat-tile-head"><span class="stat-tile-label">{{ fig.portfolio_value.label }}</span><span class="stat-chip">Last 6 months</span></span>
+  <a class="stat-tile surface-hold" href="#holdings-table">
+    <span class="stat-tile-head">{{ tone_icon('hold') }}<span class="stat-tile-label">{{ fig.portfolio_value.label }}</span><span class="stat-chip">Last 6 months</span></span>
     {% if value_spark.spark.points %}<span class="stat-tile-visual" aria-hidden="true"><svg class="stat-tile-spark tone-hold" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="{{ value_spark.spark.area }}"/><polyline points="{{ value_spark.spark.points }}" vector-effect="non-scaling-stroke"/></svg><span class="stat-tile-dot tone-hold" style="left:{{ '%.2f'|format(value_spark.spark.last[0]) }}%;top:{{ '%.2f'|format(value_spark.spark.last[1]) }}%"></span></span>{% endif %}
     <span class="stat-tile-value">{% if value_spark.latest is not none %}{{ value_spark.latest|money }}<small>{{ base }}</small>{% else %}Unavailable{% endif %}</span>
     <span class="stat-tile-sub">{% if value_spark.first is not none and value_spark.latest is not none %}<b class="{{ (value_spark.latest - value_spark.first)|tone }}">{{ (value_spark.latest - value_spark.first)|money(True) }}</b> since six months ago · today{% else %}Holdings and brokerage cash · today{% endif %}</span>
@@ -46,7 +47,7 @@
 {% if investment_report.unresolved_dividends %}<p class="notice">{{ investment_report.unresolved_dividends }} dividend(s) have unresolved asset attribution; the amount remains in cash.</p>{% endif %}
 {% if investment_report.recon_difference is not none and investment_report.recon_difference|abs > 0.01 %}<p class="notice">Portfolio reconciliation differs from closing value by {{ investment_report.recon_difference|money(True) }}. The source is unresolved.</p>{% endif %}
 
-<header class="overview-section-head inv-head"><h2>Holdings</h2><span>As of {{ period.end_text }} · classes and holdings by weight</span></header>
+<header class="overview-section-head inv-head"><h2>Holdings</h2><span>As of {{ period.end_text }}</span></header>
 <section class="card wide-card holdings-card"><div class="holdings-toolbar"><div class="holdings-filters"><input id="holding-search" placeholder="Search holdings" data-filter-holdings aria-label="Search holdings"><select id="horizon-filter" data-filter-holdings aria-label="Horizon"><option value="">All horizons</option><option>Short</option><option>Medium</option><option>Long</option><option>Unassigned</option></select></div></div>
 <div class="table-wrap"><table id="holdings-table" class="holdings-grouped"><thead><tr><th>Investment</th><th class="num">{{ fig.cost.label }}</th><th class="num">Current value</th><th class="num">{{ fig.unrealized_gain.label }}</th><th>Horizon</th></tr></thead>
 {% set tot_cost = holding_groups|sum(attribute='cost') %}{% set tot_value = holding_groups|sum(attribute='value') %}<tbody class="holding-total"><tr><th>All holdings<small>{{ holding_groups|map(attribute='rows')|map('length')|sum }} holdings · 100%</small></th><td class="num">{{ tot_cost|money }}</td><td class="num">{{ tot_value|money }}</td><td class="num gain">{% if tot_cost %}<b class="{{ (tot_value - tot_cost)|tone }}">{{ '%+.1f'|format((tot_value - tot_cost) / tot_cost * 100)|replace('-', '−') }}%</b>{% endif %}<small>{{ (tot_value - tot_cost)|money(True) }}</small></td><td></td></tr></tbody>
@@ -73,7 +74,7 @@ document.querySelectorAll('[data-horizon-edit]').forEach(b=>b.addEventListener('
   </div>
 </section>
 
-<header class="overview-section-head inv-head"><h2>Intended investment horizon</h2><span>Today · Short up to 1 year · Medium over 1 through 5 years · Long over 5 years</span></header>
+<header class="overview-section-head inv-head"><h2>Intended investment horizon</h2><span>Today</span></header>
 <section class="card wide-card analysis-card"><div class="horizon-stack" role="img" aria-label="Portfolio value by intended investment horizon">{% for label in ['Short','Medium','Long','Unassigned'] %}{% set v=horizons.get(label,0) %}{% set pct=(v/owned_value*100) if owned_value else 0 %}<button type="button" class="horizon-segment horizon-{{ label|lower }}" style="width:{{ pct }}%" title="{{ label }} {{ v|money }} · {{ pct|round(1) }}%" data-horizon-filter="{{ label }}">{% if pct>8 %}{{ label }} · {{ pct|round(1) }}%{% endif %}</button>{% endfor %}</div><div class="horizon-legend">{% for label in ['Short','Medium','Long','Unassigned'] %}{% set v=horizons.get(label,0) %}<button type="button" data-horizon-filter="{{ label }}"><i class="dot horizon-dot-{{ label|lower }}"></i><span>{{ label }}<small>{{ ((v/owned_value*100) if owned_value else 0)|round(1) }}% · {{ v|money }}</small></span></button>{% endfor %}</div></section>
 
 {% endif %}{% endif %}{% endblock %}

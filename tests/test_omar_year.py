@@ -289,6 +289,7 @@ def _first_evening(o: Omar) -> None:
         "destination_account_id": Choose("CIB Payroll")}, button="Record CD purchase")
     o.ask("accounts", "Are all six accounts in, with the right balances?", "Manage accounts")
     o.ask("opening", "I typed 1/7. Did the starting balances go in on 1 July?", "Vodafone Cash")
+    o.ask("setup", "My accounts are in. What should I do next?")
 
     # Three months of CIB from the bank's CSV.
     b.go("CIB Payroll", "Import CSV")
@@ -301,23 +302,30 @@ def _first_evening(o: Omar) -> None:
     o.notes["import_again"] = b.go("CIB Payroll", "Import CSV")
     b.go("Imported activity needs a decision")
     review = b.page.form("Post ready rows")
-    answers, named = {}, set()
-    for row in sorted({int(k.rsplit("_", 1)[1]) for k in review.fields if k.startswith("notes_")}):
-        decision = IMPORT_DECISIONS[review.fields[f"notes_{row}"]]
+    # One decision per name: he answers each imported name once, and every row with that name follows it.
+    names = {k.rsplit("_", 1)[1]: v for k, v in review.fields.items()
+             if k.startswith("group_counterparty_") and not k.startswith("group_counterparty_choice_")}
+    rows_of: dict[str, list[str]] = {}
+    for k, group in review.fields.items():
+        if k.startswith("group_of_"):
+            rows_of.setdefault(group, []).append(k.rsplit("_", 1)[1])
+    answers = {}
+    for group, raw in names.items():
+        decision = IMPORT_DECISIONS[raw]
         if decision is None:
-            answers[f"skip_{row}"] = TICK
+            answers.update({f"skip_{row}": TICK for row in rows_of[group]})
             continue
         party, category, transfer_to, held_for = decision
-        answers[f"counterparty_{row}"] = party
-        if party and party not in named:
-            answers[f"counterparty_choice_{row}"] = "new"
-            named.add(party)
+        answers[f"group_counterparty_{group}"] = party
+        if party:
+            answers[f"group_counterparty_choice_{group}"] = "new"
         if transfer_to:
-            answers[f"transfer_account_id_{row}"] = Choose(transfer_to)
+            answers[f"group_transfer_account_id_{group}"] = Choose(transfer_to)
         if category:
-            answers[f"category_{row}"] = Choose(category)
+            answers[f"group_category_{group}"] = Choose(category)
         if held_for:
-            answers[f"whom_{row}"] = held_for
+            answers[f"group_whom_{group}"] = held_for
+    o.notes["import_decisions"] = len(names)
     o.notes["import"] = b.submit(answers, button="Post ready rows")
 
     # THNDR: two shares with their fees, then a money market fund he adds himself.
@@ -566,6 +574,13 @@ def _the_feedback_round(o: Omar) -> None:
     o.ask("categories", "Which categories are income, which are spending, and which repeat?", "Settings", "Categories")
     o.ask("invest_monthly", "Can I keep a goal of investing 3,000 every month?", "Investments", "Investment planner")
     o.ask("bulk", "I selected six Talabat rows. Can I change their category together?", "CIB Payroll")
+    # He types Talabat in CIB Payroll's search box, ticks every row and gives them one category.
+    found = b.open(f"{b.go('CIB Payroll').path.split('?')[0]}?q=Talabat")
+    talabat = re.findall(r'class="transaction-select"[^>]*value="(\d+)"', found.html) or \
+        re.findall(r'value="(\d+)"[^>]*class="transaction-select"', found.html)
+    o.notes["bulk_rows"] = len(talabat)
+    o.notes["bulk_done"] = b.submit({"txn_ids": talabat, "category_id": Choose("Food & Groceries"),
+                                     "back": found.path}, action="/transactions/bulk-category")
     o.ask("fund_value", "THNDR shows the fund's value, not its unit price. Can I type that?",
           "Settings", "Valuations", "Update prices")
 
@@ -621,7 +636,7 @@ def route(omar, key):
 def test_an_empty_lightning_says_where_to_start(omar):
     answer = omar.answers["start"]
     assert route(omar, "start") == ["/"]
-    assert answer.shows("Where do you keep your money?", "Bank", "Brokerage", "Physical asset")
+    assert answer.shows("Where do you keep your money?", "Bank account", "Certificates", "Brokerage", "Gold and other things")
 
 
 def test_six_accounts_with_their_balances(omar):
@@ -630,6 +645,15 @@ def test_six_accounts_with_their_balances(omar):
     assert answer.figure("Total balance") == D("141700")
     for name in ("CIB Payroll", "Cash wallet", "Vodafone Cash", "THNDR", "NBE 3-year certificate", "Gold at home"):
         assert answer.shows(name)
+
+
+def test_the_overview_says_what_to_set_up_next_and_then_gets_out_of_the_way(omar):
+    setup = omar.answers["setup"]
+    assert route(omar, "setup") == ["/"]
+    # Accounts and history are in (the NBE certificate purchase is his first record); salary, the
+    # emergency fund and the budget are next, each one click away.
+    assert setup.shows("Get set up", "2 of 5 done", "Add your salary and bills", "Set an emergency fund", "Make a budget")
+    assert not omar.answers["needs_you"].shows("Get set up")  # all five done by October
 
 
 def test_dates_typed_as_day_and_month_become_full_dates(omar):
@@ -718,8 +742,9 @@ def test_a_mistake_is_fixed_in_place_and_a_double_entry_deleted(omar):
 
 
 def test_the_atm_fee_is_only_inside_others(omar):
-    # Only the five biggest categories are named; the fees (the monthly 15 and the ATM's 25) are in Others.
-    assert omar.answers["atm"].shows("Others 2,190")
+    # Four, then Other (guideline 3.6): the fees (the monthly 15 and the ATM's 25) are inside Other, with
+    # Eating Out 670, Utilities & Bills 1,480 and Gifts & Donations 2,000.
+    assert omar.answers["atm"].shows("Other 4,190")
 
 
 def test_a_refund_lowers_money_out(omar):
@@ -871,9 +896,8 @@ def test_cash_ownership_and_external_expense_keep_the_account_total(omar):
 # A fixed point is checked like any other answer; one that is still open is a strict expected failure.
 
 def _review_choices(screen: Screen, prefix: str) -> list[str]:
-    form = screen.form("Post ready rows")
-    row = min(int(k.rsplit("_", 1)[1]) for k in form.fields if k.startswith("notes_"))
-    return [label for _, label in form.options[f"{prefix}{row}"]]
+    """The choices one name's picker offers (every name offers the same)."""
+    return [label for _, label in screen.form("Post ready rows").options[f"group_{prefix}0"]]
 
 
 def test_leaving_an_import_keeps_it_waiting_on_the_overview(omar):
@@ -881,25 +905,35 @@ def test_leaving_an_import_keeps_it_waiting_on_the_overview(omar):
     assert omar.answers["import_waiting"].shows("Imported activity needs a decision", "cib-jul-sep.csv")
 
 
-@known_gap("Import CSV opens a fresh upload while a review is still waiting; it should lead back to that review")
 def test_import_csv_leads_back_to_the_waiting_import(omar):
-    assert omar.notes["import_again"].shows("cib-jul-sep.csv")
+    assert omar.notes["import_again"].shows("cib-jul-sep.csv is waiting for you", "Continue the review", "Discard it")
+
+
+def test_one_decision_per_name_in_the_import(omar):
+    # 43 rows from three months of CIB are 17 names: he answers 17 times, not 43.
+    assert omar.notes["import_decisions"] == 17
 
 
 def test_thndr_can_be_where_a_transfer_went(omar):
     assert "THNDR" in _review_choices(omar.notes["review"], "transfer_account_id_")
 
 
-@known_gap("A new row's category starts as the choice \"Uncategorized\", which he must delete before typing")
 def test_an_unanswered_category_starts_empty(omar):
+    # Nothing to delete before choosing: an empty "Choose a category"; "Uncategorized" is still a choice.
     form = omar.notes["review"].form("Post ready rows")
-    assert all(value == "" for name, value in form.fields.items() if name.startswith("category_"))
+    categories = {name: value for name, value in form.fields.items() if name.startswith("group_category_")}
+    assert categories and all(value == "" for value in categories.values())
+    assert "Uncategorized" in _review_choices(omar.notes["review"], "category_")
 
 
-@known_gap("Category choices show only the last name: two \"Transportation\" with no Personal or Work before them")
-def test_category_choices_name_their_group(omar):
-    choices = _review_choices(omar.notes["review"], "category_")
-    assert "Personal › Transportation" in choices and "Work › Transportation" in choices
+def test_category_choices_sit_under_their_group(omar):
+    # Guideline 3.6: the L1 as a header with its categories under it, never "L1 › L2".
+    html = omar.notes["review"].html
+    select = html[html.index('name="group_category_'):]
+    select = select[:select.index("</select>")]
+    groups = dict(re.findall(r'<optgroup label="([^"]+)">(.*?)</optgroup>', select, re.S))
+    assert ">Transportation<" in groups["Personal"] and ">Transportation<" in groups["Work"]
+    assert "›" not in select
 
 
 def test_a_saved_change_says_so_in_a_status_message(omar):
@@ -911,6 +945,12 @@ def test_an_emergency_target_above_his_cash_is_flagged(omar):
     assert omar.answers["emergency_target"].shows("more than the cash you own")
 
 
+def test_old_prices_are_flagged_and_fresh_ones_are_not(omar):
+    # Honest numbers: a year on, his fund, shares and gold still carry September 2026 prices.
+    assert omar.answers["all_time"].shows("Prices are out of date", "Update prices")
+    assert not omar.answers["position"].shows("Prices are out of date")   # priced the same evening
+
+
 def test_the_savings_rate_for_all_time(omar):
     assert omar.answers["all_time"].figure("Savings rate All time") == D("50.3")
 
@@ -918,7 +958,7 @@ def test_the_savings_rate_for_all_time(omar):
 def test_the_overview_says_which_parts_follow_the_period(omar):
     answer = omar.answers["past_month"]
     assert answer.shows("Cash flow 2026-10-01 to 2026-10-31", "Investments 2026-10-01 to 2026-10-31",
-                        "Month by month Every month from 2026-07 to today")
+                        "Month by month 2026-07 to today")
 
 
 @known_gap("Your position follows the chosen period (As of 2026-10-31) instead of staying a snapshot of today")
@@ -927,7 +967,7 @@ def test_your_position_stays_today_whatever_the_period(omar):
 
 
 def test_where_money_went_folds_small_categories_into_other(omar):
-    assert omar.answers["year"].shows("Other spending")
+    assert omar.answers["year"].shows("Other")
 
 
 def test_a_month_of_spending_is_shown_day_by_day(omar):
@@ -954,9 +994,13 @@ def test_a_monthly_investing_goal_is_kept(omar):
     assert any("month" in name for form in screen.forms for name in form.fields)
 
 
-@known_gap("Selected register rows can be exported or deleted, but not edited together")
 def test_selected_rows_can_be_edited_together(omar):
-    assert omar.answers["bulk"].shows("Edit selected")
+    assert omar.answers["bulk"].shows("Set category")
+    rows = omar.notes["bulk_rows"]
+    assert rows >= 12   # one Talabat order a month, and the doubled one he deleted is gone
+    done = omar.notes["bulk_done"]
+    assert done.shows(f"Food & Groceries is now the category of {rows} rows.")
+    assert done.shows("Talabat Food & Groceries") and "Talabat Eating Out" not in done.text
 
 
 @known_gap("A fund can only be valued by its unit price; he cannot type the value THNDR shows")
@@ -983,10 +1027,9 @@ def test_a_review_with_errors_still_has_a_way_on_and_a_way_back(omar):
     screen = omar.notes["import_error"]
     assert screen.shows("Nothing was imported")
     assert screen.form("Post ready rows")
-    assert screen.link("Cancel").href == "/accounts/3"
+    assert screen.link("Finish later").href == "/accounts/3"
 
 
-@known_gap("Leaving a review keeps it waiting; there is no way to discard it")
 def test_a_waiting_import_can_be_discarded(omar):
     assert omar.notes["import_error"].shows("Discard this import")
 
@@ -1008,7 +1051,8 @@ def test_a_big_difference_from_the_bank_is_reviewed_not_adjusted(omar):
     check = omar.notes["cib_check"]
     assert check.shows("Too big to adjust", "Review 2027-09 row by row", "Import the statement again")
     assert not any("Post adjustment" in (text or "") for form in check.forms for text, *_ in form.buttons)
-    assert check.link("Review 2027-09 row by row").href == "/accounts/1?date_from=2027-09-01&date_to=2027-09-30"
+    review = check.link("Review 2027-09 row by row").href
+    assert review.startswith("/accounts/1?date_from=2027-09-01&date_to=2027-09-30&return_to=/accounts/1/reconcile")
 
 
 def test_settings_prepares_one_owned_ai_analysis_workbook(omar):

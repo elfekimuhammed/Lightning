@@ -21,6 +21,7 @@ from lightning.bootstrap import Container
 from lightning.core.dates import fmt_date, month_of, today
 from lightning.core.errors import NotFoundError
 from lightning.core.figures import FIGURES
+from lightning.core.memo import request_cache
 from lightning.core.money import ZERO, fmt
 
 UI_DIR = Path(__file__).parent
@@ -102,10 +103,18 @@ templates.env.filters["compact"] = _compact
 templates.env.globals["abs"] = abs
 
 
+# Pages reached from many places with no Back of their own; the main tabs are left out on purpose.
+_REFERER_BACK_PAGES = ("/transactions", "/investments/holding", "/investments/planner", "/investments/prices")
+
+
 def _back_url(request) -> str:
     """Where a full page's Back button goes: the page it was opened from (``return_to``), only if
     it is a page of this app. Empty when there is nowhere to go back to."""
     raw = str(request.query_params.get("return_to", "") or "")
+    if not raw and request.url.path.startswith(_REFERER_BACK_PAGES):
+        # The desktop window has no browser Back: detail pages opened from a chart, a row or a
+        # report fall back to the in-app page that linked here (same origin only, checked below).
+        raw = str(request.headers.get("referer", "") or "")
     parts = urlsplit(raw)
     if parts.netloc and parts.netloc != request.url.netloc:
         return ""
@@ -175,6 +184,20 @@ PERIOD_KEYS = ("period", "month", "date_from", "date_to")
 PERIOD_COOKIE = "lightning_period"
 
 
+class RequestCache:
+    """Each request computes a repeated figure once (``lightning.core.memo``); a write empties it."""
+
+    def __init__(self, app, state):
+        self.app, self.state = app, state
+
+    async def __call__(self, scope, receive, send):
+        current = getattr(self.state, "container", None) if scope["type"] == "http" else None
+        if current is None:
+            return await self.app(scope, receive, send)
+        with request_cache(current.db):
+            await self.app(scope, receive, send)
+
+
 def create_app(c: Container | None = None) -> FastAPI:
     from .routes import accounts, bank_imports, birdview, budget, categories, counterparties, dashboard, deposits, exports, integrity, investments, physical_items, planning, reserves, search, settings, transactions
 
@@ -221,4 +244,5 @@ def create_app(c: Container | None = None) -> FastAPI:
     async def not_found(request: Request, exc: NotFoundError):
         return render(request, "not_found.html", status_code=404, message=exc.message)
 
+    app.add_middleware(RequestCache, state=app.state)  # outermost, so every page and middleware shares it
     return app

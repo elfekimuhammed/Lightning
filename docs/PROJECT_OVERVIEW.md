@@ -6,13 +6,22 @@ This file tells the story: what Lightning is, who it is for, what it answers and
 
 ## Now and next
 
-The hand-off between the two AIs (Claude and Codex). Read it first; rewrite it when you finish (rules in `AGENTS.md`).
+The hand-off between the AIs working here (Codex and Claude sessions). Read it first; rewrite it when you finish (rules in `AGENTS.md`, section 2).
 
-- **2026-10-03 · Claude · in progress:** a UX pass against Brand guideline 3.6 Part A: the user's route from the Overview, redundant elements, and every button, header, field and list against A01–A16. Claimed: `lightning/ui/templates/`, `lightning/ui/static/style.css`, `tests/test_omar_year.py`. Omar is re-run on the plain source build; the PC (WebView2, encrypted) app shares the same pages.
-- **Done today:** Check against bank replaces line-by-line reconciliation (Claude); cash ownership changes and expenses paid by someone else (Codex); Omar walks through user feedback batch 001 (Claude); the brand guideline is one file, 3.6 (Claude).
+- **2026-10-03 · Claude · paused (UX pass, guideline 3.6):** done today: batch 1, the owner's two decisions, category pickers, first run, import review per name, bulk category edit, out-of-date prices, the guideline's fonts and two-leaf logo. **Next, in order:** UX plan items 5 (one name, one number: drop repeated Free cash breakdowns and the Overview column waterfall), 6 (registers as two-line rows), 8 (Reserves table and emergency fund wording), 9 (words and numbers sweep). No files claimed; whoever picks these up claims `lightning/ui/templates/` and `lightning/ui/static/style.css` first.
+- **Done today:** Check against bank replaces line-by-line reconciliation (Claude); cash ownership changes and expenses paid by someone else (Codex); Omar walks through user feedback batch 001 (Claude); the brand guideline is one file, 3.6 (Claude); UX batch 1 (Claude); website: the two-leaf logo everywhere, Version D, and guideline 3.7 for Part B only (Claude).
 - **2026-10-03 · Codex · done:** Settings › Your data can prepare one local AI-analysis workbook for All time, YTD, Monthly or Custom. It contains Lightning's summary, owned transaction lines, reevaluation checkpoints and the category hierarchy; the matching editable prompt is copied when possible. Lightning never uploads the data.
-- **2026-10-03 · Claude · done:** speed audit of the PC app from source, in [Speed audit](SPEED_AUDIT.md). Next: a request-scoped cache and the two worst loops (Budget rolling averages, per-account ledger re-scans), then register paging. Not started; no code claimed.
-- **Questions for the owner:** (1) switch SQLCipher `cipher_memory_security` off for about 2× faster encrypted pages? (2) after the request cache, add a cache that lasts between clicks (cleared on every save) only if pages are still slow?
+- **Figure bugs found, not yet fixed (calculation, not presentation):** an "Other" asset account (Omar's flat, 400,000) is counted as brokerage cash and as holdings, so "Holdings value" reads 472,053 in one place and 172,053 in another, and "Brokerage cash" 700 vs 400,700; recording an asset you already had counts as Change in net worth (+374,288); Safe to spend on the day before payday ignores bills due right after it.
+- **2026-10-03 · Claude · done:** speed. A request cache makes every main tab compute each figure once: Budget › All time went from 7.0 s to 0.41 s, and the Overview from 0.96 s to 0.24 s, on an encrypted 2,239-transaction profile; static files are cached in the PC window and the logo is 5.8 KB (details under **Request cache** and **Page speed** in [Architecture](ARCHITECTURE.md#wealth-history-and-performance)). No files claimed.
+- **Fixed (was red on `main` since `d80c77c`):** `tests/test_figures.py`. The new Planned and Left in plan wording is now in the registry (`lightning/core/figures.py`) and the Glossary is regenerated from it (Claude, picker commit).
+- **2026-10-03 · Claude · done:** registers read only the 50 rows shown (encrypted register 37 ms, All transactions 39 ms on 2,239 transactions); SQLCipher freed-memory wiping is off (owner decision). No files claimed.
+- **Done (was asked of the UX session):** the Google Fonts link is gone; Bricolage Grotesque and Manrope are bundled locally (Claude).
+- **Owner decision 2026-10-03 (done):** SQLCipher no longer wipes freed memory (`cipher_memory_security = OFF`): encrypted pages are about 3× faster on ledger reads; the key is still wiped (Architecture › threat model).
+- **Owner decisions 2026-10-03 (both done):** Budget's low-confidence background estimates stay in Left in plan, marked with a small "!" that says why (Overview and Budget now show one figure, from `BudgetService.plan_summary`); the Overview's Investments section is one row of figures with a link to the Investments tab.
+- **Logo (done):** the app shows the two-leaf mark (sidebar, favicon, profile screen) and the Windows `lightning.ico` is rebuilt from the two-leaf app icon (Claude).
+- **Gap found:** when everything was sold during a period, the Investments tab shows only "No holdings yet" and hides the period's gain (the Overview row still shows it).
+- **Guideline 3.8 (2026-10-03 · done):** the owner's new guideline is in `docs/BRAND_GUIDELINE.html` and on the website; the Investment planner button uses its vivid gradient `linear-gradient(135deg,#00995C 0%,#0066FF 100%)` (`--vivid` in `style.css`, Claude).
+- **Questions for the owner:** UX: see the decisions at the end of **UX plan (guideline 3.6)**.
 
 ## What Lightning is
 
@@ -281,6 +290,36 @@ The reference apps are YNAB, Monarch, Copilot, Simplifi, Rocket Money, Lunch Mon
 - **The emergency fund** should count months of spending, not of income.
 
 Bank sync and bill negotiation are not adopted. Any sync first needs a provider and regional coverage; local CSV stays the foundation. A "safe to spend" figure must always say which obligations and income it includes. Simplifi's projection, which leaves out planned spending, shows why.
+
+## UX plan (guideline 3.6)
+
+From a full UX review on 2026-10-03: Omar's year at a 1,366 × 768 window (the PC app), every screen checked against Brand guideline 3.6 Part A. The structure (Overview, Budget, Investments, Expense analysis, Cash planning, Held for others, Settings, accounts in the sidebar) stays. Batch 1 is done; the rest is ranked by what a real user meets first.
+
+**The user's route.** A salaried user opens Lightning to answer, in order: *Where do I start?* → *Is my money in?* → *How much can I spend before payday?* → *What is due?* → *Am I on plan?* → *Where did it go?* → *How are my investments?* → *Is my data right?* Each tab answers one of these first; the Overview's Needs you is the to-do list across them.
+
+**Done in batch 1:** KPI cards coloured by meaning with an icon tile; Needs you words ("Personal over plan", "Sahel trip is past its date"); an "Over plan" card instead of a negative "Left in plan"; no impossible savings rates (−1,375.2% becomes "—" with the gap in words); four, then Other in donuts, the Sankey, treemaps, bars and small multiples; section headers carry only the title and dates; trend month labels no longer overlap; money out in ink and transfers unsigned in registers; soft field wells; Nile sub-tabs; no all caps; the register's balance no longer clipped at 1,366px; budget spent in soft rose; a Back route on transaction, holding, planner and prices pages; Accounts calls its total What you own.
+
+**Next, by impact:**
+
+1. ~~**First run.**~~ Done 2026-10-03: a "Get set up" card on the Overview until five steps are done; the welcome lists certificates and uses real icons; a new bank account leads with Import a statement; Plan shows an empty state instead of a forecast from no income.
+2. ~~**Import review, one decision per name.**~~ Done 2026-10-03: one choice per imported name with its rows collapsed under it (Omar answers 17 names instead of 43 rows; the 300-row statement is 287 KB instead of 2.2 MB); "Discard this import"; Import CSV offers to continue or discard a waiting review. Still open: the button says "Post ready rows" while undecided rows post as Unaccounted.
+3. ~~**The category picker.**~~ Done 2026-10-03: focus lists every choice under its L1 header and selects the current text; the import starts on an empty "Choose a category".
+4. ~~**Bulk edit.**~~ Done 2026-10-03: Set category for selected rows; transfers, investments and splits are skipped and counted. Still open: bulk counterparty.
+5. **One name, one number.** Keep the Free cash breakdown on the Overview and Plan only; Reserves shows one line. One "If sold" figure and name. Loans still to pay once per tab. Remove the Overview's second donut ("What you hold") and the column waterfall that repeats the Net flow list.
+6. **Registers as two-line rows** (A11): counterparty and amount, then category · account · date with the balance under the amount; no Action column (row click and right-click already do it); header figures in whole EGP.
+7. ~~**Honest prices.**~~ Done 2026-10-03: Needs you says "Prices are out of date" (older than about two months) and links to Update prices; the holding page flags its own price.
+8. **Reserves table** as two-line rows with a meter; the emergency fund shows "13,500 left of 20,000 · 6,500 used · Refill"; paid reserves move to completed.
+9. **Words and numbers sweep:** whole EGP on big figures everywhere; no jargon ("custody subledger", "M4", "5 MiB", internal codes on Prices); sentence-case "counterparty"; segments for 2–4 choices; the app's own dialog for Deactivate.
+
+**Owner decisions (2026-10-03):**
+
+- Budget's low-confidence background estimates count in Left in plan, with a small "!" beside them that says they are low confidence and why.
+- The Overview's Investments section shrinks to one row of figures with a link to the Investments tab.
+
+**Still open (asked again in plainer words):**
+
+- *Recurring suggestions.* Cash planning › Recurring has a "Looks recurring" list that offers to track things that repeated. It offers Carrefour and Talabat (shopping that changes every month, which belongs in the budget) and the NBE certificate's interest (already in the forecast, so tracking it counts it twice). Stop offering those, and add a "Not recurring" button to hide a suggestion?
+- *Menu.* The main menu has Overview, Budget, Investments, Expense analysis, Cash planning, Held for others and Settings. Your accounts list and "every transaction across all accounts" are reachable only from the account list in the left column. Add "Accounts" and "Transactions" to the main menu?
 
 ## Roadmap
 

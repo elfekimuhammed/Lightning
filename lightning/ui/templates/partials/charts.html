@@ -19,7 +19,10 @@
     {% for s in t.series %}{% for d in s.dots %}<span class="chart-dot tone-{{ s.tone }}{{ ' is-over' if d.over }}" style="left:{{ '%.2f'|format(d.x) }}%;top:{{ '%.2f'|format(d.y) }}%" tabindex="0" data-tip="{{ d.label }} · {{ s.name }} {{ d.value|money }}{{ ' · over plan' if d.over }}" aria-label="{{ d.label }}, {{ s.name }} {{ d.value|money }}"></span>{% endfor %}
     {% if s.last %}<span class="chart-end" style="left:{{ '%.2f'|format(s.last.x) }}%;top:{{ '%.2f'|format(s.last.y) }}%">{{ s.last.value|money }}</span>{% endif %}{% endfor %}
   </div>
-  <div class="chart-x">{% for lab in t.labels %}<span style="left:{{ '%.2f'|format(lab.x) }}%">{{ lab.text }}</span>{% endfor %}</div>
+  {# Month labels never touch (A12): past six months, the months between the ends read "04 05 06", and past
+     twelve only every second or third shows. The table under the chart keeps every month. #}
+  {% set n = t.labels|length %}{% set step = ((n + 11) // 12) if n > 12 else 1 %}
+  <div class="chart-x">{% for lab in t.labels %}{% if loop.first or loop.last or loop.index0 % step == 0 and (n - loop.index0) > step // 2 %}<span style="left:{{ '%.2f'|format(lab.x) }}%">{{ lab.text[5:] if n > 6 and lab.text|length == 7 and lab.text[4] == '-' and not (loop.first or loop.last) else lab.text }}</span>{% endif %}{% endfor %}</div>
   <details class="chart-table"><summary>Show the numbers</summary><table><thead><tr><th>Month</th>{% for s in t.series %}<th class="num">{{ s.name }}</th>{% endfor %}</tr></thead><tbody>{% for lab in t.labels %}{% set i = loop.index0 %}<tr><td>{{ lab.text }}</td>{% for s in t.series %}<td class="num">{{ s['values'][i]|money if s['values'][i] is not none else '—' }}</td>{% endfor %}</tr>{% endfor %}</tbody></table></details>
   {% endif %}
   <figcaption class="sr-only">{{ caption }}</figcaption>
@@ -146,15 +149,26 @@
 </figure>
 {% endmacro %}
 
-{# Stat card · guideline 2.5: label and period chip on top, one big number, one line under it, and a quiet
-   visual (a sparkline or a meter) in the card's lower right. surface: lead | white | mint. #}
+{# The KPI card's icon tile (guideline 3.6 A08.1), in the colour of what the number means:
+   in (green, in and growing) · hold (azure, money you hold) · out (soft rose, money out) · over (strong rose, needs you). #}
+{% macro tone_icon(tone) %}<span class="stat-tile-icon" aria-hidden="true"><svg viewBox="0 0 24 24">{% if tone == 'in' %}<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>{% elif tone == 'out' %}<polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/>{% elif tone == 'over' %}<circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>{% else %}<path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/>{% endif %}</svg></span>{% endmacro %}
+
+{# A small "!" for a figure that rests on an estimate: the words say why it is uncertain (A01 honest numbers). #}
+{% macro warn_tip(text) %}<span class="info-tip is-warn" tabindex="0" role="note" aria-label="Low confidence: {{ text }}" data-tip="{{ text }}">!</span>{% endmacro %}
+
+{# A rate as people read it: a true minus and thousands separators (guideline A06.1). #}
+{% macro rate(v) %}{{ '−' if v < 0 }}{{ '{:,.1f}'.format(v|abs) }}{% endmacro %}
+
+{# KPI card · guideline 3.6 A08: coloured by what the number means, never by position. Icon tile and
+   label with the period chip on top, one big ink figure, one line under it, and one quiet visual.
+   surface: in | hold | out | over. #}
 {% macro stat_tile(s, base) %}
 {% set tag = 'a' if s.href else 'div' %}
 <{{ tag }} class="stat-tile surface-{{ s.surface }}{{ ' has-compare' if s.compare }}"{% if s.href %} href="{{ s.href }}"{% endif %} aria-label="{{ s.label }}">
-  <span class="stat-tile-head"><span class="stat-tile-label">{{ s.label }}</span>
+  <span class="stat-tile-head">{{ tone_icon(s.surface) }}<span class="stat-tile-label">{{ s.label }}{% if s.warn %} {{ warn_tip(s.warn) }}{% endif %}</span>
     {% if s.badge %}<span class="stat-chip is-{{ s.badge.tone }}">{% set arrow = s.badge.arrow if s.badge.arrow is defined else s.badge.tone %}{% if arrow in ('up','down') %}<svg viewBox="0 0 24 24" aria-hidden="true">{% if arrow == 'up' %}<path d="M12 19V5M5 12l7-7 7 7"/>{% else %}<path d="M12 5v14M5 12l7 7 7-7"/>{% endif %}</svg>{% endif %}{{ s.badge.text }}</span>{% endif %}</span>
   {% set shown = (s.value|money(s.key == 'change' or s.signed is defined and s.signed)) if s.value is not none and s.kind != 'rate' else '' %}
-  <span class="stat-tile-value{{ ' is-negative' if s.value is not none and s.value < 0 }}{{ ' is-long' if shown|length > 7 }}">{% if s.value is none %}{{ s.empty or '—' }}{% elif s.kind == 'rate' %}{{ '%.1f'|format(s.value) }}<small>%</small>{% else %}{{ s.value|money(s.key == 'change' or s.signed is defined and s.signed) }}<small>{{ base }}</small>{% endif %}</span>
+  <span class="stat-tile-value{{ ' is-negative' if s.value is not none and s.value < 0 }}{{ ' is-long' if shown|length > 7 }}">{% if s.value is none %}{{ s.empty or '—' }}{% elif s.kind == 'rate' %}{{ rate(s.value) }}<small>%</small>{% else %}{{ s.value|money(s.key == 'change' or s.signed is defined and s.signed) }}<small>{{ base }}</small>{% endif %}</span>
   {% if s.sub is defined and s.sub %}<span class="stat-tile-sub">{% if s.figure is defined and s.figure is not none and s.value is not none %}<b class="{{ s.figure|tone }}">{{ s.figure|money(True) }}</b> {% endif %}{{ s.sub }}</span>{% endif %}
   {% if s.compare %}<span class="stat-compare">{% for k in s.compare %}<span class="is-{{ k.tone }}"><small>{{ k.label }}</small><b>{% if k.tone in ('up','down') %}<svg viewBox="0 0 24 24" aria-hidden="true">{% if k.tone == 'up' %}<path d="M12 19V5M5 12l7-7 7 7"/>{% else %}<path d="M12 5v14M5 12l7 7 7-7"/>{% endif %}</svg>{% endif %}{{ k.text }}</b></span>{% endfor %}</span>{% endif %}
   {% if s.meter %}<span class="stat-tile-meter tone-{{ s.meter.tone }}"><i style="width:{{ '%.1f'|format(s.meter.width) }}%"></i></span>{% endif %}

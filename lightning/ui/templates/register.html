@@ -61,8 +61,8 @@
 {% set ncols = 8 + (1 if show_account else 0) + (1 if with_balance else 0) %}
 
 {% if account and request.query_params.get('welcome') %}
-<section class="card account-next-step"><b>Next step</b><p class="muted">{% if account.account_type.value == 'DEPOSIT' %}Manage certificates in this bank's CD portfolio.{% elif account.account_type.value == 'BROKERAGE' %}Add cash to this brokerage account before recording a buy.{% elif account.account_type.value == 'PHYSICAL_ASSET' %}Add a named item such as a gold ring.{% else %}Record your first Money out, Money in, or Transfer activity.{% endif %}</p>
-{% if account.account_type.value == 'DEPOSIT' %}<a class="btn primary" href="/deposits/{{ account.id }}">View CDs</a>{% elif account.account_type.value == 'PHYSICAL_ASSET' %}<a class="btn primary" data-popup-open href="/accounts/{{ account.id }}/items/new">Add physical item</a>{% else %}<a class="btn primary" href="#quick-add">{% if account.account_type.value == 'BROKERAGE' %}Fund brokerage cash{% else %}Add transaction{% endif %}</a>{% endif %}
+<section class="card account-next-step"><b>Next step</b><p class="muted">{% if account.account_type.value == 'DEPOSIT' %}Manage certificates in this bank's CD portfolio.{% elif account.account_type.value == 'BROKERAGE' %}Add cash to this brokerage account before recording a buy.{% elif account.account_type.value == 'PHYSICAL_ASSET' %}Add a named item such as a gold ring.{% elif account.account_type.value == 'BANK' %}Import your bank's statement to bring in your history, or add your first row by hand.{% else %}Record your first Money out, Money in, or Transfer activity.{% endif %}</p>
+{% if account.account_type.value == 'DEPOSIT' %}<a class="btn primary" href="/deposits/{{ account.id }}">View CDs</a>{% elif account.account_type.value == 'PHYSICAL_ASSET' %}<a class="btn primary" data-popup-open href="/accounts/{{ account.id }}/items/new">Add physical item</a>{% elif account.account_type.value == 'BANK' %}<a class="btn primary" href="/accounts/{{ account.id }}/import">Import a statement</a><a class="btn" href="#quick-add">Add a transaction</a>{% else %}<a class="btn primary" href="#quick-add">{% if account.account_type.value == 'BROKERAGE' %}Fund brokerage cash{% else %}Add transaction{% endif %}</a>{% endif %}
 </section>
 {% endif %}
 
@@ -220,6 +220,11 @@
 <div class="card ledger" data-counterparties='{{ counterparty_categories|tojson }}' data-accounts='{{ account_options|tojson }}'>
   <div class="selection-tools" id="selection-tools" hidden>
     <span id="selection-count" class="muted small">0 selected</span>
+    {# Bulk edit (user feedback, ticket 20): one category for every selected row. #}
+    <form method="post" action="/transactions/bulk-category" class="bulk-category" id="bulk-category-form">
+      {% from "partials/macros.html" import category_options %}<select name="category_id" aria-label="Category for the selected rows" data-own-picker><option value="">Set a category…</option>{{ category_options(category_groups()) }}</select>
+      <button class="btn small">Set category</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}">
+    </form>
     <button type="button" class="btn small" id="export-selected">Export selected</button>
     <button type="button" class="btn small danger" id="delete-selected">Delete selected</button>
   </div>
@@ -262,7 +267,8 @@
         {% set cat = r.type_label if r.type in ('BUY', 'SEL', 'DIV') or r.type_label == 'Ownership change' else r.category_label.split(' › ')[-1] %}<td class="small" title="{{ r.category_label.split(' › ')[-1] ~ (' · in ' ~ r.category_label.split(' › ')[:-1]|join(' · ') if ' › ' in r.category_label else '') }}">{{ cat if cat != (r.counterparty or r.description) else '' }}</td>
         <td class="small whom-cell {{ 'is-hidden' if not custody_owners.get(r.txn_id) }}">{{ custody_owners.get(r.txn_id, '') }}</td>
         {% set note_text = (r.notes ~ ((' ' ~ r.description) if r.type == 'TRF' and r.description else ''))|trim %}<td class="small muted register-note" title="{{ note_text }}">{{ note_text }}</td>
-        <td class="num amount {{ r.amount|tone }}">{{ r.amount|money(True) }}</td>
+        {# A11: in is green with +, out is ink with −, a transfer has no sign. #}
+        <td class="num amount {{ '' if r.type == 'TRF' else r.amount|tone }}">{{ r.amount|abs|money if r.type == 'TRF' else r.amount|money(True) }}</td>
         {% if with_balance %}<td class="num muted">{{ r.balance|money }}</td>{% endif %}
         <td><a class="small" href="{{ href }}">{{ 'Edit' if r.type in ('IN','OUT','TRF') else 'Details' }}</a></td>
       </tr>

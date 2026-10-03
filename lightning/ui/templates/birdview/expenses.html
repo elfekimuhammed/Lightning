@@ -11,7 +11,7 @@
 {% if spending_total == 0 and not a.rows %}
 <section class="card empty"><h2>No spending in this period</h2><p>Try a longer period, or review the transactions recorded for these dates.</p><a class="btn" href="/transactions?date_from={{ date_from }}&amp;date_to={{ date_to }}">View transactions</a></section>
 {% else %}
-<header class="overview-section-head inv-head"><h2>Where did it go?</h2><span>{{ date_from }} to {{ date_to }} · the five biggest categories, then Others</span></header>
+<header class="overview-section-head inv-head"><h2>Where did it go?</h2><span>{{ date_from }} to {{ date_to }}</span></header>
 <section class="card wide-card" aria-label="Where it went"><div class="overview-split">
   <section><div class="overview-block-head"><div><h3>By category</h3><p>Size is money out</p></div></div>
   <div class="treemap" role="img" aria-label="Money out by category: {% for t in a.tiles %}{{ t.label }} {{ t.value|money }}{{ ', ' if not loop.last }}{% endfor %}">
@@ -41,7 +41,7 @@
 </div></section>
 
 {% else %}<section class="card"><p class="chart-empty">Comparisons start once there is a whole month before this period.</p></section>{% endif %}
-<header class="overview-section-head inv-head"><h2>Day by day</h2><span>{{ 'The last twelve months of the period' if calendar.cut_note else 'Every day of the period' }} · darker is more · click a day for its transactions</span></header>
+<header class="overview-section-head inv-head"><h2>Day by day</h2><span>{{ date_from }} to {{ date_to }}</span></header>
 {% from 'partials/charts.html' import day_calendar %}
 <section class="card wide-card"><div class="overview-split">
   <section><div class="overview-block-head"><div><h3>Total expenses</h3><p>{% if calendar.busiest %}Most on {{ calendar.busiest[0] }} · {{ calendar.busiest[1]|money }} · nothing spent on {{ calendar.quiet_days }} of {{ calendar.days }} days{% else %}No spending in this period{% endif %}</p></div></div>

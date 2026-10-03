@@ -12,6 +12,7 @@ from lightning.assets.service import AssetService
 from lightning.core.codes import validate_account_code
 from lightning.core.dates import fmt_date, parse_date, today
 from lightning.core.errors import ConflictError, NotFoundError, ValidationError
+from lightning.core.memo import in_request, request_cached
 from lightning.database.connection import Database
 
 from .domain import DEFAULT_CASH_CLASS, OFFERED_TYPES, TYPE_LABELS, Account, AccountType, suggest_code
@@ -27,11 +28,16 @@ class AccountService:
         self.allow_foreign = allow_foreign  # other currencies need FX rates (M4)
 
     # -- reading -----------------------------------------------------------
+    @request_cached
     def list(self, active_only: bool = False) -> list[Account]:
         return self.repo.list(active_only)
 
+    @request_cached
+    def _by_id(self) -> dict[int, Account]:
+        return {item.id: item for item in self.repo.list(False)}
+
     def get(self, account_id: int) -> Account:
-        found = self.repo.get(account_id)
+        found = self._by_id().get(account_id) if in_request() else self.repo.get(account_id)
         if not found:
             raise NotFoundError("Account not found.")
         return found

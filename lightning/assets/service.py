@@ -8,6 +8,7 @@ from decimal import Decimal
 from lightning.core.codes import slug, validate_asset_code
 from lightning.core.dates import fmt_date, parse_date, today
 from lightning.core.errors import ConflictError, NotFoundError, ValidationError
+from lightning.core.memo import in_request, request_cached
 from lightning.core.money import ZERO, check_places, to_decimal
 from lightning.database.connection import Database
 
@@ -22,6 +23,7 @@ class AssetService:
         self.base_currency = base_currency
 
     # -- asset classes -----------------------------------------------------
+    @request_cached
     def list_classes(self) -> list[AssetClass]:
         """Tree order: each parent followed by its children."""
         classes = self.repo.list_classes()
@@ -39,7 +41,7 @@ class AssetService:
         return ordered
 
     def get_class(self, class_id: int) -> AssetClass:
-        found = self.repo.get_class(class_id)
+        found = (self._classes_by_id().get(class_id) if in_request() else self.repo.get_class(class_id))
         if not found:
             raise NotFoundError("Asset class not found.")
         return found
@@ -67,11 +69,20 @@ class AssetService:
         return current
 
     # -- financial assets --------------------------------------------------
+    @request_cached
+    def _classes_by_id(self) -> dict[int, AssetClass]:
+        return {item.id: item for item in self.repo.list_classes()}
+
+    @request_cached
     def list_assets(self) -> list[FinancialAsset]:
         return self.repo.list_assets()
 
+    @request_cached
+    def _assets_by_id(self) -> dict[int, FinancialAsset]:
+        return {item.id: item for item in self.repo.list_assets()}
+
     def get_asset(self, asset_id: int) -> FinancialAsset:
-        found = self.repo.get_asset(asset_id)
+        found = (self._assets_by_id().get(asset_id) if in_request() else self.repo.get_asset(asset_id))
         if not found:
             raise NotFoundError("Financial asset not found.")
         return found

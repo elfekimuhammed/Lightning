@@ -146,13 +146,24 @@ class ReportQueries:
             f"SELECT DISTINCT t.id FROM transactions t JOIN ledger_entries le ON le.transaction_id=t.id "
             f"WHERE t.status='POSTED' AND le.category_id IN ({marks})", tuple(sorted(category_ids)))}
 
-    def statement_lines(self, account_id: int | None, date_from: str, date_to: str) -> list[dict]:
-        """Posted cash lines for one account (or every account when account_id is None) — the register."""
+    @staticmethod
+    def _statement_filter(account_id: int | None, date_from: str, date_to: str) -> tuple[str, list]:
         where = f"le.date BETWEEN ? AND ? AND {CASH_ONLY}"
         params: list = [date_from, date_to]
         if account_id is not None:
             where = "le.account_id = ? AND " + where
             params.insert(0, account_id)
+        return where, params
+
+    # One register row per transaction, account and date, oldest first. The account breaks ties so
+    # the two rows of a transfer keep one order, and a page boundary never repeats or skips one.
+    _STATEMENT_GROUP = " GROUP BY le.date,le.account_id,t.id ORDER BY le.date, t.id, le.account_id"
+
+    def statement_lines(self, account_id: int | None, date_from: str, date_to: str,
+                        limit: int = -1, offset: int = 0) -> list[dict]:
+        """Posted cash lines for one account (or every account when account_id is None) — the register.
+        ``limit``/``offset`` select a slice of the rows, oldest first."""
+        where, params = self._statement_filter(account_id, date_from, date_to)
         rows = self.db.all(
             f"SELECT le.date, le.account_id, SUM(le.quantity_e6) AS quantity_e6, SUM(le.amount_e6) AS amount_e6,"
             f" MAX(le.effect) AS effect, CASE WHEN COUNT(*)=1 THEN MAX(le.category_id) END AS category_id,"
@@ -161,11 +172,25 @@ class ReportQueries:
             f" (SELECT o.account_id FROM ledger_entries o WHERE o.transaction_id = t.id"
             f"  AND o.account_id != le.account_id LIMIT 1) AS other_account_id"
             f" FROM ledger_entries le {POSTED}"
-            f" WHERE {where}"
-            f" GROUP BY le.date,le.account_id,t.id ORDER BY le.date, t.id",
-            tuple(params),
+            f" WHERE {where}{self._STATEMENT_GROUP} LIMIT ? OFFSET ?",
+            (*params, limit, offset),
         )
         return [dict(r) for r in rows]
+
+    def _statement_groups(self, account_id: int | None, date_from: str, date_to: str) -> tuple[str, list]:
+        where, params = self._statement_filter(account_id, date_from, date_to)
+        return (f"SELECT SUM(le.quantity_e6) AS q FROM ledger_entries le {POSTED}"
+                f" WHERE {where}{self._STATEMENT_GROUP}"), params
+
+    def statement_count(self, account_id: int | None, date_from: str, date_to: str) -> int:
+        """How many register rows statement_lines would return."""
+        grouped, params = self._statement_groups(account_id, date_from, date_to)
+        return int(self.db.scalar(f"SELECT COUNT(*) FROM ({grouped})", tuple(params)))
+
+    def statement_movement(self, account_id: int | None, date_from: str, date_to: str, first: int) -> int:
+        """The summed movement (_e6) of the oldest ``first`` register rows."""
+        grouped, params = self._statement_groups(account_id, date_from, date_to)
+        return int(self.db.scalar(f"SELECT COALESCE(SUM(q), 0) FROM ({grouped} LIMIT ?)", (*params, first)))
 
     def latest_price(self, asset_id: int, as_of: str) -> dict | None:
         row = self.db.one(

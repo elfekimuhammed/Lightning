@@ -5,6 +5,12 @@
 {% block content %}
 {% from "partials/charts.html" import stat_tiles, donut, trend, waterfall, column_waterfall, sankey, month_calendar as month_cal %}
 {% if period_error %}<p class="flash error">{{ period_error }}</p>{% endif %}
+{% if setup %}{% set done = setup|selectattr("done")|list|length %}
+<section class="card setup-card" aria-labelledby="setup-heading">
+  <div class="card-head"><div><h2 id="setup-heading">Get set up</h2><p>{{ done }} of {{ setup|length }} done · each step makes the Overview more useful</p></div></div>
+  <div class="overview-inline-list">{% for step in setup %}{% if step.done %}<div class="overview-action-row setup-step is-done"><span><b>{{ step.label }}</b><small>{{ step.detail }}</small></span><span class="status-word"><i class="dot dot-in"></i>Done</span></div>{% else %}<a class="overview-action-row setup-step" href="{{ step.href }}"><span><b>{{ step.label }}</b><small>{{ step.detail }}</small></span><span>{{ step.action }}</span></a>{% endif %}{% endfor %}</div>
+</section>
+{% endif %}
 {% if attention %}
 <details class="card needs-you" aria-labelledby="needs-heading">
   <summary><span class="needs-you-dot" aria-hidden="true"></span><b id="needs-heading">Needs you</b><span class="needs-you-count">{{ attention|length }}</span><small>{{ attention[0].label }}{% if attention|length > 1 %} and {{ attention|length - 1 }} more{% endif %}</small></summary>
@@ -99,39 +105,21 @@
 
   <section class="overview-section" aria-labelledby="investments-heading">
     <header class="overview-section-head"><h2 id="investments-heading">Investments</h2><span>{{ date_from }} to {{ date_to }}</span></header>
-    <article class="overview-block wide-card overview-investment-card">
-    <div class="overview-block-head"><div><p>Your portfolio and this period's {{ fig.result.label|lower }}</p></div><a class="quiet-link" href="/investments?{{ period_query }}">Investment detail</a></div>
-    <div class="overview-investment-layout">
-      <div class="overview-investment-breakdown">
-        <div class="overview-headline">{{ investment_report.portfolio_value|money if investment_report.portfolio_value is not none else 'Unavailable' }}{% if investment_report.portfolio_value is not none %} <small>{{ base }}</small>{% endif %}</div>
-        <div class="overview-inline-list">
-          <div class="overview-static-row"><span>{{ fig.holdings_value.label }}</span><b>{{ investment_report.holdings_value|money if investment_report.holdings_value is not none else 'Unavailable' }}</b></div>
-          <div class="overview-static-row"><span>{{ fig.brokerage_cash.label }}</span><b>{{ investment_report.brokerage_cash|money if investment_report.brokerage_cash is not none else 'Unavailable' }}</b></div>
-          <div class="overview-static-row"><span>{{ fig.new_money_in.label }}</span><b>{{ investment_report.new_money|money }}</b></div>
-          <div class="overview-static-row"><span>{{ fig.result.label }}</span><b>{% if investment_report.period_result_available %}{{ investment_report.period_result|money(True) }}{% else %}Unavailable{% endif %}</b></div>
-        </div>
-        {% if investment_report.missing %}<p class="overview-context">A required valuation is missing, so the result is unavailable.</p>{% endif %}{% if investment_report.at_cost and not investment_report.missing %}<p class="overview-context">{{ investment_report.at_cost|length }} holding(s) valued at cost until a price is entered.</p>{% endif %}
-        <section class="overview-holdings" aria-labelledby="allocation-heading"><h3 id="allocation-heading">What you hold</h3>{{ donut(investment_donut, fig.holdings_value.label, base, (fig.what_you_own.label, pos.what_you_own)) }}</section>
+    {# Owner decision 2026-10-03: one row of figures here; the detail lives on the Investments tab. #}
+    <article class="overview-block wide-card overview-investment-row" aria-label="Investments in this period">
+      <div class="overview-figure-row">
+        <div><span>{{ fig.portfolio_value.label }}</span><b>{{ investment_report.portfolio_value|money if investment_report.portfolio_value is not none else 'Unavailable' }}</b></div>
+        <div><span>{{ fig.holdings_value.label }}</span><b>{{ investment_report.holdings_value|money if investment_report.holdings_value is not none else 'Unavailable' }}</b></div>
+        <div><span>{{ fig.new_money_in.label }}</span><b>{{ investment_report.new_money|money }}</b></div>
+        <div><span>{{ fig.result.label }}</span><b class="{{ investment_report.period_result|tone if investment_report.period_result_available else '' }}">{% if investment_report.period_result_available %}{{ investment_report.period_result|money(True) }}{% else %}Unavailable{% endif %}</b></div>
+        <a class="quiet-link" href="/investments?{{ period_query }}">See investments</a>
       </div>
-      <div class="overview-investment-insights">
-        <section class="overview-investment-classes" aria-labelledby="investment-returns-heading">
-          <h3 id="investment-returns-heading">{{ fig.result.label }} by asset class</h3>
-          {% for row in investment_class_returns %}<div class="overview-investment-return-row"><span>{{ row.label }}</span><span class="overview-investment-track"><i class="{{ 'negative' if row.result < 0 else 'positive' }}" style="width:{{ (row.result|abs / investment_class_scale * 100)|round(1) }}%"></i></span><b class="{{ row.result|tone }}">{{ row.result|money(True) }}</b></div>{% else %}<p class="muted small">No financial asset returns in this period.</p>{% endfor %}
-        </section>
-        <section class="overview-investment-movers" aria-labelledby="investment-movers-heading">
-          <h3 id="investment-movers-heading">Biggest movers</h3>
-          <div class="overview-investment-mover-columns">
-            <div><h4>Winners</h4>{% for row in investment_winners %}<div class="overview-investment-mover"><span>{{ row.label }}</span><b class="positive">{{ row.result|money(True) }}</b></div>{% else %}<p class="muted small">No gains in this period.</p>{% endfor %}</div>
-            <div><h4>Losers</h4>{% for row in investment_losers %}<div class="overview-investment-mover"><span>{{ row.label }}</span><b class="negative">{{ row.result|money(True) }}</b></div>{% else %}<p class="muted small">No losses in this period.</p>{% endfor %}</div>
-          </div>
-        </section>
-      </div>
-    </div>
+      {% if investment_report.missing %}<p class="overview-context">A required valuation is missing, so the result is unavailable.</p>{% elif investment_report.at_cost %}<p class="overview-context">{{ investment_report.at_cost|length }} holding(s) valued at cost until a price is entered.</p>{% endif %}
     </article>
   </section>
 
   {% if month_calendar.years %}{% set mc = month_calendar %}<section class="overview-section" aria-labelledby="months-heading">
-    <header class="overview-section-head"><h2 id="months-heading">Month by month</h2><span>Every month from {{ mc.from }} to today · darker is more · click a month to open it</span></header>
+    <header class="overview-section-head"><h2 id="months-heading">Month by month</h2><span>{{ mc.from }} to today</span></header>
     <article class="overview-block wide-card"><div class="overview-split">
       <section><div class="overview-block-head"><div><h3>Total expenses</h3><p>{% if mc.biggest and mc.biggest.spend %}Most in {{ mc.biggest.key }} · {{ mc.biggest.spend|money }}{% else %}No spending yet{% endif %}</p></div></div>
         {{ month_cal(mc, 'spend') }}

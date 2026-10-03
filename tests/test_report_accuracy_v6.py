@@ -35,6 +35,7 @@ def test_period_returns_keep_holdings_sold_out_in_the_period(c):
     client.post(f"/accounts/{thndr.id}/investment-entry", data={**entry, "date": "2026-09-20",
                 "instrument_key": f"asset:{comi.id}", "units": "100", "total": "8000", "trade_action": "sell"})
     page = client.get("/?period=month&month=2026-09").text
-    returns = page[page.index("Net gain or loss by asset class"):page.index("Biggest movers")]
-    assert "Stocks" in returns and "+1,000" in returns
+    # The Overview shows the period's result in one row (owner decision 2026-10-03); by class is on Investments.
+    returns = page[page.index('aria-label="Investments in this period"'):page.index("See investments")]
+    assert "+1,000" in returns
 

@@ -139,8 +139,8 @@ Every figure a screen shows is listed here once. **From** says which layer its i
 | **If you sold today (estimate)** | Free cash plus what your deposits and holdings might fetch. | Free cash + Investments if sold (estimate) | `planning.position.Position.if_you_sold_today` |
 | **Change in net worth** | How much net worth grew or shrank in the period. | Net worth at the end − Net worth the day before the start | `planning.position.PositionService.change_in_net_worth` |
 | **Carryover** | Unused plan from last month, added to this month when carryover is on. | Left in plan last month | `budgeting.domain.BudgetLine.opening_carryover` |
-| **Planned** | What you plan to spend this month. | Base budget + Carryover | `budgeting.domain.BudgetLine.available` |
-| **Left in plan** | What is left of the plan. | Planned − Spent | `budgeting.domain.BudgetLine.remaining` |
+| **Planned** | What you plan to spend this month. The month's total also counts background estimates for untracked categories; one from a single month of spending is low confidence and shows a "!" that says why. | Base budget + Carryover | `budgeting.domain.BudgetLine.available` |
+| **Left in plan** | What is left of the plan; the Overview and Budget show the same month figure, and a negative one reads "Over plan". One-off categories are left out of Spent. | Planned − Spent | `budgeting.domain.BudgetLine.remaining` |
 | **Safe to spend** | Free cash after what is promised before your next income. An estimate. | Free cash − Bills and loan payments before next income − Budget left to spend − Saving for goals | `planning.forecast.CashForecaster._safe_to_spend` |
 | **Budget left to spend** | This month's left in plan less the scheduled bills it already covers, so a bill is never counted twice. | Left in plan − Bills inside the plan | `planning.domain.ForecastMonth.budget_spending` |
 

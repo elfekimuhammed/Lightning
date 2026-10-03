@@ -30,6 +30,13 @@ class Valuer:
     def __init__(self, queries: ReportQueries, base_currency: str):
         self.q = queries
         self.base = base_currency
+        self._has_items = False
+
+    def _physical_items(self) -> bool:
+        # Migrations only ever add this table, so once it exists the answer cannot change.
+        if not self._has_items:
+            self._has_items = self.q.db.has_table("physical_items")
+        return self._has_items
 
     def value(self, asset: FinancialAsset, quantity: Decimal, as_of: date | str) -> Valuation:
         day = as_of if isinstance(as_of, str) else as_of.isoformat()
@@ -37,7 +44,7 @@ class Valuer:
             price, price_date, source = ONE, None, "CASH"
         else:
             item = self.q.db.one("SELECT net_gold_grams_e6,reference_asset_id,account_id,karat FROM physical_items WHERE asset_id=?",
-                                 (asset.id,)) if self.q.db.has_table("physical_items") else None
+                                 (asset.id,)) if self._physical_items() else None
             if item:
                 reference = self.q.latest_price(item["reference_asset_id"], day)
                 manual = self.q.db.one("SELECT date,quantity_e6,total_value_e6 FROM physical_item_valuations "

@@ -147,7 +147,48 @@ The four horizons apply consistently to flow, expense, and position views; the p
 
 XIRR is an annualized money-weighted rate using dated investment cash flows and an ending value. Since-inception XIRR is a separate measure from the selected period's currency return. A period-specific XIRR needs an opening valuation as an initial cash flow. If dates, flows, or ending value are inadequate, show an unavailable reason rather than 0%. Build owned-only cash flows before showing XIRR on the Overview; missing prices must not become invented historical quotes.
 
-**Reporting read performance.** `ReportingService.holdings()` batches account, asset and asset-class metadata once per invocation; `build_investment_report()` likewise loads account and asset metadata once per report call. These maps are request-local, not shared across requests, so there is no stale-data invalidation path after a ledger edit or profile switch. The 319-transfer synthetic report uses six SQL reads, compared with 641 asset point-lookups in the former per-ledger-row pattern. This reduces row-proportional query work but does not meet the end-to-end 500 ms tab target by itself; page-level repeated position/history calculations remain a follow-up. The 2026-10-03 [Speed audit](SPEED_AUDIT.md) measures them per page and sets out the plan: a request-scoped cache first, then a cache between clicks cleared on every write.
+**Reporting read performance.** `ReportingService.holdings()` batches account, asset and asset-class metadata once per invocation; `build_investment_report()` likewise loads account and asset metadata once per report call. These maps are request-local, not shared across requests, so there is no stale-data invalidation path after a ledger edit or profile switch. The 319-transfer synthetic report uses six SQL reads, compared with 641 asset point-lookups in the former per-ledger-row pattern. This reduced row-proportional query work; the request cache below removed the page-level repeats.
+
+**Why pages were slow, and what fixed it (2026-10-03).** A speed audit of the PC app, run from source on plain and encrypted profiles of 319, 1,087 and 2,239 transactions, found three causes. Each has a fix, described below:
+
+- **The same figure was recalculated many times on one page** (the Overview asked for its position at several dates; Budget re-read the same month's spending for every line). Fixed by the request cache: each figure is computed once per page.
+- **Encrypted reads paid for wiping every freed piece of memory** (SQLCipher's `cipher_memory_security`). Turned off by owner decision; the key itself is still wiped (see the threat model).
+- **Registers summed every row to show 50.** Fixed by register pages: only the visible page is read, and the running balance comes from one SQL sum.
+
+The window also caches the app's own files, and the fonts are bundled, so no page waits on Google Fonts.
+
+**Request cache** (`lightning/core/memo.py`, added 2026-10-03). A page asks for the same figure many times: the Overview's position at several dates, every account's share of one ledger scan, the same month's spending for every budget line. `ui/web.py` wraps every request in `request_cache(container.db)`. A read decorated with `@request_cached` then computes each distinct call once per request. Outside a request (tests, workflows, startup), nothing is cached. The rules that keep it safe:
+
+- **One request only:** nothing survives to the next click, so a save, an import, a profile switch or midnight can never show an old figure.
+- **Any write empties it:** the memo compares SQLite's `total_changes` on the connection, so a write anywhere in the request, through any service, drops every cached value.
+- **Never inside a transaction:** while `conn.in_transaction` is true the memo neither serves nor stores, so a rolled-back write leaves nothing behind and a workflow always reads its own writes.
+- **Callers get copies:** cached lists, dicts and tuples come back copied (`deep=True` for the investment report, whose dict callers extend), so a caller that edits its result cannot change the next one.
+- **What is cached:** pure reads only, with hashable arguments and dates normalised to `yyyy-mm-dd`: `ReportingService` holdings, net worth, custody by account, held-for-others value, brokerage cash by account, money out by category and first activity date; `PositionService.at`; `build_investment_report`; category tree and look-ups by id; asset classes and assets; accounts. `get(id)` on categories, assets and accounts reads from one cached map per request instead of one query per row.
+- **Guard:** `tests/test_reporting_performance.py` loads Omar's 2026 plus two earlier years and checks, per main tab, a ceiling on SELECT statements. Without the cache every tab is far over it (1,100–7,100 statements). The test also checks that every tab renders byte-identical HTML with and without the cache.
+
+**Page speed (2026-10-03, from source).** Server time per tab, median of three, on a 4-vCPU 2.1 GHz container, for a 2,239-transaction ledger (Omar's 2026 plus five earlier years). "Enc." is SQLCipher keyed as `Database.conn` keys it. The WebView2/Chromium window adds about 250–400 ms per page at 4× CPU throttle.
+
+| Tab | Before | After | Enc. before | Enc. after |
+|---|---:|---:|---:|---:|
+| Overview | 507 ms | 163 ms | 962 ms | 139 ms |
+| Budget, All time (the period is remembered) | 4,597 ms | 326 ms | 6,994 ms | 249 ms |
+| Account register | 180 ms | 43 ms | 479 ms | 37 ms |
+| All transactions | 217 ms | 49 ms | 677 ms | 39 ms |
+| Investments | 360 ms | 181 ms | 520 ms | 191 ms |
+| Expense analysis, All time | 461 ms | 297 ms | 921 ms | 244 ms |
+
+"Enc. after" also has `cipher_memory_security` off (owner decision 2026-10-03, under the threat model). The register rows also read one page only (below).
+
+**Register pages.** The account register and All transactions show 50 rows a page, newest first. Without a search or category filter, `ReportingService.register_page` counts the rows in SQL (`statement_count`), reads only that page (`statement_lines` with `LIMIT`/`OFFSET`) and starts a single account's running balance from the opening balance plus the movement of every older row, summed in SQL (`statement_movement`). Rows are ordered by date, transaction and account, so the two rows of a transfer keep one order and a page boundary never repeats or skips a row. A search or category filter shows no running balance and still filters the full list in Python. `tests/test_reporting_performance.py` checks every page against the full register.
+
+SELECT statements fell from 5,198 to 785 on the Overview, from 9,948 to 1,256 on Budget › All time and from 14,750 to 854 on Expense analysis › All time. The same crawl of 700 pages produced identical HTML with and without the cache.
+
+Also done: `Valuer` checks for the `physical_items` table once instead of on every valuation (639 checks per Overview). Bricolage Grotesque and Manrope are served from `lightning/ui/static/fonts/` in every mode, so no page makes an outside font request. The profile `Guard` lets the window keep `/static/` files (`Cache-Control: private, max-age=86400`) while pages stay `no-store`; each launch has a new random port, so a cached file never outlives its launch.
+
+Still open:
+
+- **Smaller:** routes are `async def` with synchronous database work, so one slow page blocks other requests; the live database uses the rollback journal (`DELETE`, synchronous `FULL`).
+- **A cache between clicks** (keyed by a database-wide write counter and `today()`) is not needed at these speeds.
 
 ## Cash planning contract
 
@@ -214,11 +255,13 @@ Budget's ordinary view is a compact plan summary and Personal/Work/Investment ro
 - **The period control** keeps custom dates and filters across submissions and supported drilldowns. Position figures use the period end; flows use the whole interval.
 - **Failures stay visible.** Invalid edits keep the typed values and show the error, including inside a disclosure. A missing valuation is never replaced with zero. Expandable rows add up to their parent or say why a breakdown is unavailable.
 - **Distinct concepts stay distinct:** What you own, account balances including custody, Free cash, Left in plan and If you sold today. Investment transfers are not expenses. Brokerage holdings are never counted as brokerage cash.
+- **A way back without browser chrome.** The desktop window has no Back button, so a full page shows one when it was opened with `return_to`. Pages reached from many places (`/transactions`, `/investments/holding`, `/investments/planner`, `/investments/prices`) fall back to the same-origin `Referer`; the main tabs never do (`lightning/ui/web.py`, `_back_url`).
+- **Brand guideline 3.6 in CSS.** The last block of `style.css` ("Guideline 3.6") holds the rules that override older layers: KPI tone by meaning (`surface-in|hold|out|over` on `stat_tile`, with an icon tile), money out in ink, soft field wells, Nile sub-tabs, no all caps. Change rules there rather than adding another layer.
 - A presentation change never introduces a new financial model or forecast.
 
 ## CSV import and export contract
 
-Import normalizes either one signed amount column or separate inflow/outflow columns into one signed amount (money out is negative) before review. Nothing downstream depends on the source CSV's shape. Rows stay unposted until the user reviews them. The AI preparation helper builds exact CSV instructions and current matching names locally and never contacts an AI provider.
+Import normalizes either one signed amount column or separate inflow/outflow columns into one signed amount (money out is negative) before review. Nothing downstream depends on the source CSV's shape. Rows stay unposted until the user reviews them. The review groups rows by their imported name and asks once per name (`group_<field>_<n>` form fields; each row sends `group_of_<row>`); the route turns that into one decision per row, so `BankImportService.confirm` is unchanged and per-row fields still work. A row keeps its own date, amount, note and skip, and its own category only when the statement gave it a different one. A statement left in review can be discarded (`BankImportService.discard`: nothing posted is touched), and Import CSV shows any waiting review first (`BankImportService.waiting`). The AI preparation helper builds exact CSV instructions and current matching names locally and never contacts an AI provider.
 
 Selected CSV exports are available from the transaction register, Categories, and the reevaluation ledger. Each request uses explicit selected IDs, with a 1,000-record limit; it does not silently export a whole account or database. A transaction export has one row per ledger line of each selected transaction, including stable transaction and line IDs, account, asset, category, quantity, amount, base amount, and beneficial-owner ID. A transfer or split transaction can therefore have multiple rows. Category exports include hierarchy, direction, active state, and budget flags. Reevaluation exports contain per-asset checkpoint values and the linked main-journal reference, including pending-price state. These are inspection/backup files, not the bank-import format. Amounts retain stored decimal precision and currencies are not aggregated. User-entered text that starts like a spreadsheet formula is prefixed with an apostrophe.
 
@@ -270,6 +313,7 @@ Start with bounded local candidate lists and a small result limit. If size or me
 - **Password changes** rewrap the same data key, so nothing is re-encrypted. A reset with the recovery key checks it against the database read-only, then atomically replaces the slot.
 - **The same scheme on Windows and Linux** (owner decision). DPAPI and automatic unlock are deferred.
 - **Threat model:** a copied database or backup without its key material is a 128-bit problem. Someone with both the database and `keys.json` can try passwords offline, which Argon2 slows but can't stop, so a passphrase must be at least 12 characters. Nothing protects an unlocked PC from malware.
+- **Freed memory is not wiped** (`PRAGMA cipher_memory_security = OFF`, owner decision 2026-10-03). Wiping every freed SQLite allocation made encrypted ledger reads about 3× slower. SQLCipher still wipes its own key material. Decrypted fragments may stay in the process's freed memory, and so in a crash dump, the page file or the hibernation file, until reused; Python objects and the WebView2 window hold unwiped copies of the same data either way. The setting is process-wide and, once on, cannot be turned off, so nothing else may turn it on.
 - **Not in v1:** recovery-key rotation and rewriting existing backups. A safe version needs a recoverable multi-file commit protocol. Old backups keep their old `key_id`.
 
 **Lifecycle and the database thread.**

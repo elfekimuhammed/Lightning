@@ -3,6 +3,7 @@ from collections import defaultdict
 from decimal import Decimal
 
 from lightning.accounts.domain import INVESTMENT_ACCOUNT_TYPES
+from lightning.core.memo import request_cached
 from lightning.core.money import ZERO, from_e6
 
 
@@ -67,6 +68,7 @@ def saved_and_invested(flow, money_added: Decimal) -> dict:
             "money_in": inflow, "net": flow.net, "money_added": money_added}
 
 
+@request_cached(deep=True)
 def build_investment_report(db, accounts, assets, reporting, start: str, end: str):
     """Return period flows and end positions for the user's own investment portfolio."""
     account_rows = accounts.list(active_only=False)

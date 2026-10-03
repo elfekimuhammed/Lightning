@@ -18,12 +18,12 @@ from lightning.core.money import ZERO, fmt as _fmt, to_decimal
 def fmt(value, places: int = 0, signed: bool = False) -> str:
     """Reporting text rounds to the nearest unit (stored values keep their decimals)."""
     return _fmt(value, places, signed)
-from lightning.investments.report import investing_rate, investment_period, results_by_asset
+from lightning.investments.report import investing_rate, investment_period
 
 from ..web import container, render
 from ..web import redirect
 from ..periods import Period, parse_period
-from .. import visuals
+from .. import keynotes, visuals
 
 router = APIRouter()
 
@@ -133,8 +133,8 @@ async def dashboard(request: Request):
                           "href": f"/accounts/{row['account_id']}/import/{row['batch_id']}#import-row-{row['id']}", "priority": 1})
     for reserve in c.reserves.list_active():
         if reserve.get("due_date") and reserve["due_date"] < fmt_date(today()) and reserve["effective_allocated"] > ZERO:
-            attention.append({"label": f"Overdue reserve: {reserve['name']}",
-                              "detail": f"Due {reserve['due_date']} · {fmt(reserve['effective_allocated'])} {c.base_currency} remains assigned.",
+            attention.append({"label": f"{reserve['name']} is past its date",
+                              "detail": f"Due {reserve['due_date']} · {fmt(reserve['effective_allocated'])} {c.base_currency} still set aside.",
                               "href": "/plan/reserves", "priority": 2})
     # Payments that are due and unpaid today, whatever period is selected.
     for payment in c.planning.what_you_owe(today()).bills_due_items:
@@ -149,13 +149,22 @@ async def dashboard(request: Request):
         attention.append({"label": "Cash may run short",
                           "detail": f"The cash forecast ends {lowest.month} at {fmt(lowest.closing)} {c.base_currency}.",
                           "href": "/plan", "priority": 1})
+    # Honest numbers: a holding priced more than two months ago is shown at an old value.
+    stale = c.reporting.stale_prices(today())
+    if stale:
+        named = ", ".join(f"{row['name']} ({row['price_date']})" for row in stale[:2])
+        more = f" and {len(stale) - 2} more" if len(stale) > 2 else ""
+        attention.append({"label": "Prices are out of date",
+                          "detail": f"Last priced: {named}{more}. Values use these old prices.",
+                          "href": "/investments/prices", "action": "Update prices", "priority": 2})
     current_budget = c.budgets.month_view(month_of(today()))
     for section in current_budget.sections:
         if section.planned_actual > section.available:
-            attention.append({"label": f"Budget exceeded: {section.name}",
-                              "detail": f"{fmt(section.planned_actual - section.available)} {c.base_currency} over plan this month.",
+            attention.append({"label": f"{section.name} over plan",
+                              "detail": f"{fmt(section.planned_actual - section.available)} {c.base_currency} over this month's plan.",
                               "href": "/budget", "priority": 2})
     attention = sorted(attention, key=lambda item: item["priority"])
+    setup = _setup_steps(c, accounts)
     change, change_reason = c.position.change_in_what_you_own(first, as_of, since_first_record=period.key == "all")
     change_label = (f"{label('change_in_what_you_own')} since your first record" if period.key == "all"
                     else label("change_in_what_you_own"))
@@ -227,19 +236,6 @@ async def dashboard(request: Request):
         for row in sorted((row for row in closing_report["holdings"] if row["price_source"] != "CASH"),
                           key=lambda row: (row["value"] is None, -(row["value"] or ZERO), row["asset"]))[:5]
     ]
-    # Reuse the investment ledger's dated positions for asset-class and asset
-    # performance. Returns combine each holding's unrealized movement,
-    # realized gain/loss and distributions across the selected range.
-    class_results, asset_results = results_by_asset(c.investments, c.money_from_others, c.reporting,
-                                                    fmt_date(first - timedelta(days=1)), fmt_date(as_of))
-    class_rows = [{"label": name, "result": value} for name, value in
-                  sorted(class_results.items(), key=lambda item: (-abs(item[1]), item[0].casefold()))]
-    asset_result_rows = list(asset_results.values())
-    winners = sorted((row for row in asset_result_rows if row["result"] > ZERO),
-                     key=lambda row: row["result"], reverse=True)[:2]
-    losers = sorted((row for row in asset_result_rows if row["result"] < ZERO),
-                    key=lambda row: row["result"])[:2]
-    class_scale = max((abs(row["result"]) for row in class_rows), default=ZERO) or Decimal(1)
     investment_flow = closing_report["new_money"]
     investment_share = (investment_flow / cash_flow.inflows * 100
                         if cash_flow.inflows > ZERO else None)
@@ -255,7 +251,6 @@ async def dashboard(request: Request):
         money_in_rows=visuals.money_in_groups(c, first, as_of),
         money_out_rows=visuals.money_out_groups(c, first, as_of),
         money_sankey=visuals.money_sankey(c, first, as_of, cash_flow),
-        investment_donut=visuals.holdings_donut(position),
         wealth_donut=visuals.holdings_donut(position, include_deposits=True, include_cash=True),
         networth_trend=networth_trend, free_cash_steps=visuals.free_cash_steps(position),
         month_calendar=visuals.month_calendar(c, today()),
@@ -265,16 +260,37 @@ async def dashboard(request: Request):
                      if period.key == "all" and not first_activity else f"{fmt_date(first)} to {fmt_date(as_of)} · Position as of {fmt_date(as_of)}"),
         pos=position, cash_accounts=cash_accounts, owe=owe,
         change=change, change_reason=change_reason, change_label=change_label,
-        attention=attention,
+        attention=attention, setup=setup,
         net_worth=net_worth,
         account_contributions=account_contributions, expense_groups=expense_groups,
         categorized_spending=categorized_spending,
         investment_report=investment_report, investment_holdings=investment_holdings,
-        investment_class_returns=class_rows, investment_class_scale=class_scale,
-        investment_winners=winners, investment_losers=losers,
         cash_flow=cash_flow, investment_flow=investment_flow,
         investment_share=investment_share, savings_rate=savings_rate,
     )
+
+
+def _setup_steps(c, accounts) -> list[dict] | None:
+    """Get set up: the five things that make the Overview useful, in the order a new user meets them.
+    Shown until every step is done; each step is read from the data, so it ticks itself."""
+    from lightning.planning.domain import PlanKind
+    bank = next((a for a in accounts if a.account_type.value == "BANK" and a.active), None)
+    steps = [
+        {"label": "Add where you keep your money", "detail": "Your bank, cash, certificates, THNDR and gold",
+         "done": bool(accounts), "href": "/accounts/new", "action": "Add an account"},
+        {"label": "Bring in your history", "detail": "Import your bank's statement, or add rows by hand",
+         "done": c.reporting.first_activity_date() is not None,
+         "href": f"/accounts/{bank.id}/import" if bank else "/accounts", "action": "Import a statement"},
+        {"label": "Add your salary and bills", "detail": "So Cash planning knows what comes in and what is due",
+         "done": bool(c.planning.items((PlanKind.INCOME, PlanKind.BILL))), "href": "/plan/recurring",
+         "action": "Add salary and bills"},
+        {"label": "Set an emergency fund", "detail": "Cash set aside for the unexpected",
+         "done": any(r.get("kind") == "EMERGENCY" and (r.get("allocated") or ZERO) > ZERO for r in c.reserves.list_active()),
+         "href": "/plan/reserves", "action": "Set it"},
+        {"label": "Make a budget", "detail": "A plan for this month, built from your own spending",
+         "done": c.budgets.has_plan(month_of(today())), "href": "/budget", "action": "Make a budget"},
+    ]
+    return None if all(step["done"] for step in steps) else steps
 
 
 def _period_stats(c, period, first, as_of, position, cash_flow, change, change_reason, money_added,
@@ -292,23 +308,32 @@ def _period_stats(c, period, first, as_of, position, cash_flow, change, change_r
         nw_change, nw_reason = change, change_reason
     lead = "net_worth" if owes else "what_you_own"
     stats = [{
-        "key": "change", "surface": "lead", "label": label("change_in_net_worth" if owes else "change_in_what_you_own"),
+        "key": "change", "surface": "hold", "label": label("change_in_net_worth" if owes else "change_in_what_you_own"),
         "value": nw_change, "kind": "money", "badge": {"tone": sign(nw_change), "text": period_name},
         "sub": nw_reason if nw_change is None else f"{label(lead)} {fmt(position.net_worth if owes else position.what_you_own)}",
         "spark": visuals.trend_spark(networth_trend), "spark_tone": "hold", "href": "#owned-heading",
     }]
     rate = cash_flow.savings_rate
+    # Honest numbers: when money out is more than twice money in, a rate like −1,375% says nothing.
+    # Show the gap in words instead (guideline A01).
+    thin = rate is not None and rate < -100
+    if rate is None:
+        savings_sub = "No money in this period"
+    elif thin:
+        savings_sub = f"{fmt(-cash_flow.net)} more went out than the {fmt(cash_flow.inflows)} that came in"
+    else:
+        savings_sub = f"kept of {fmt(cash_flow.inflows)} {label('money_in').lower()}"
     stats.append({
-        "key": "savings", "surface": "white", "label": label("savings_rate"), "value": rate, "kind": "rate",
+        "key": "savings", "surface": "over" if thin else "in", "label": label("savings_rate"),
+        "value": None if thin else rate, "kind": "rate", "empty": "—" if thin else None,
         "badge": {"tone": sign(cash_flow.net), "text": period_name},
-        "figure": cash_flow.net, "sub": (f"kept of {fmt(cash_flow.inflows)} {label('money_in').lower()}" if rate is not None
-                                         else "No money in this period"),
+        "figure": cash_flow.net, "sub": savings_sub,
         "spark": visuals.savings_rate_spark(c, as_of), "spark_tone": "in",
         "href": f"/transactions?date_from={fmt_date(first)}&date_to={fmt_date(as_of)}",
     })
     invest = investing_rate(money_added, cash_flow.inflows, cash_flow.net)
     stats.append({
-        "key": "investing", "surface": "mint", "label": label("investing_rate"), "value": invest, "kind": "rate",
+        "key": "investing", "surface": "in", "label": label("investing_rate"), "value": invest, "kind": "rate",
         "badge": {"tone": sign(money_added), "text": period_name},
         "figure": money_added, "sub": label("new_money_in").lower() if invest is not None else "No money in this period",
         "meter": {"width": float(max(min(invest, 100), 0)) if invest is not None else 0.0, "tone": "hold"},
@@ -316,20 +341,22 @@ def _period_stats(c, period, first, as_of, position, cash_flow, change, change_r
     })
     month = month_of(as_of)
     if c.budgets.has_plan(month):
-        view = c.budgets.month_view(month)
-        planned, left = view.available, view.remaining
+        summary = c.budgets.plan_summary(month)  # the same figures as the Budget tab
+        planned, left = summary["planned"], summary["left"]
         used = planned - left
         share = used / planned * 100 if planned > 0 else None
         stats.append({
-            "key": "plan", "surface": "white", "label": f"{label('left_in_plan')} · {month}", "value": left, "kind": "money",
+            "key": "plan", "surface": "over" if left < 0 else "out",
+            "label": f"Over plan · {month}" if left < 0 else f"{label('left_in_plan')} · {month}",
+            "value": -left if left < 0 else left, "kind": "money",
             "badge": {"tone": "over" if left < 0 else "flat",
                       "text": "Over plan" if left < 0 else (f"{share:.0f}% used" if share is not None else month)},
             "sub": f"of {fmt(planned)} {label('planned').lower()}",
             "meter": {"width": float(min(max(share or 0, 0), 100)), "tone": "over" if left < 0 else "in"},
-            "href": f"/budget?month={month}",
+            "href": f"/budget?month={month}", "warn": keynotes.low_confidence_note(summary["low_confidence"]),
         })
     else:
-        stats.append({"key": "plan", "surface": "white", "label": f"{label('left_in_plan')} · {month}", "value": None,
+        stats.append({"key": "plan", "surface": "out", "label": f"{label('left_in_plan')} · {month}", "value": None,
                       "kind": "money", "empty": "No plan yet", "sub": f"Set a plan for {month}",
                       "href": f"/budget?month={month}"})
     return stats

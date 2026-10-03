@@ -2787,3 +2787,106 @@ a.chart-sankey-label:hover b { color:var(--azure); }
 }
 .main .budget-savings .budget-top-head span { white-space:nowrap; }
 .main .budget-savings .inv-saved-body { margin-top:10px; }
+
+/* ===================================================================================
+   Guideline 3.6 (docs/BRAND_GUIDELINE.html, Part A). Last in the file so it wins.
+   =================================================================================== */
+/* A16 · no all caps anywhere. */
+.eyebrow,.sidebar-heading,.side-group,.counterparty-group-title,.category-group-title,.level-tag { text-transform:none!important; letter-spacing:0!important; }
+
+/* A08 · KPI cards: coloured by what the number means, never by position. White card, a top edge and an
+   icon tile in the tone colour, the figure in ink. in = green · hold = azure · out = soft rose · over = strong rose. */
+.main .stat-tile.surface-in { --kpi-tone:var(--meadow-dark); --kpi-tint:var(--tint-growth); }
+.main .stat-tile.surface-hold { --kpi-tone:var(--azure); --kpi-tint:var(--tint-held); }
+.main .stat-tile.surface-out { --kpi-tone:#E68CA8; --kpi-tint:var(--rose-soft); }
+.main .stat-tile.surface-over { --kpi-tone:var(--rose); --kpi-tint:var(--rose-soft); }
+.main .stat-tile:is(.surface-in,.surface-hold,.surface-out,.surface-over) { background:linear-gradient(180deg,#FFFFFF 0%,#F7FBF9 100%); --tile-edge:var(--kpi-tone); }
+.main .stat-tile-head { align-items:center; }
+.main .stat-tile-icon { display:grid; place-items:center; width:32px; height:32px; flex:none; border-radius:10px; background:var(--kpi-tint, var(--tint-held)); color:var(--kpi-tone, var(--azure)); }
+.main .stat-tile-icon svg { width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:1.75; stroke-linecap:round; stroke-linejoin:round; }
+.main .stat-tile-head .stat-tile-label { flex:1; min-width:0; }
+.main .stat-tile-value.is-negative { color:var(--ink); }
+
+/* A03 / A11 · money out reads in ink with its minus; strong rose is kept for "needs you" (over, short). */
+.neg { color:var(--ink); }
+.main .ledger tr.row-out td:first-child { border-left-color:#E68CA8; }
+.main .ledger tr.row-invest td:first-child { border-left-color:var(--azure); }
+
+/* A10.3 · fields are soft tinted wells: no border, never white. Focus deepens the well with a green edge. */
+:is(input:not([type]),input[type=text],input[type=search],input[type=number],input[type=email],input[type=tel],input[type=url],input[type=password],input[type=month],select,textarea):not(#_):not(.x_) {
+  background:#EEF4F2; border-color:transparent;
+}
+:is(input,select,textarea):not(#_):not(.x_):focus-visible { background:#E4EEEA; border-color:var(--meadow-dark); }
+.field.has-error :is(input,select,textarea):not(#_):not(.x_), [aria-invalid="true"]:not(#_):not(.x_) { background:var(--rose-soft); border-color:transparent; }
+
+/* A10.4 / A05 · sub-tabs: one pill bar, the chosen tab in Nile; tab headers on paper with a Nile icon tile.
+   No tab colours: icons tell them apart. */
+.main :is(.tab-plan,.tab-recurring,.tab-loans,.tab-reserves) { --tab-ink:var(--nile, #0A2442); --tab-tint:transparent; }
+.main .plan-tab[aria-current="page"] { background:var(--nile, #0A2442); color:#FFFFFF; box-shadow:none; }
+.main .plan-tab-head { background:var(--paper, #F7FBF9); }
+.main .plan-tab-icon { background:var(--nile, #0A2442); box-shadow:none; }
+
+/* A11 · the register fits the window: no forced 1,120px width that clips the balance at 1,366px. */
+.main .register-table-scroll > table { min-width:0; }
+
+/* A12.3.3 / A12.2.9 · plan bar and bullets: spent in soft rose, left in Meadow, over in strong rose. */
+.main .plan-bar .spent, .main .bullet-spent { background:#E68CA8; }
+.main i.k.spent { background:#E68CA8; }
+/* A08.1 · anatomy: icon tile and chip on the top row, the label under them, then the figure. */
+.main .stat-tile-head { flex-wrap:wrap; row-gap:10px; }
+.main .stat-tile-head .stat-tile-label { order:3; flex:0 0 100%; }
+.main .stat-tile-head .stat-chip { margin-left:auto; }
+/* Overview · Investments in one row (owner decision 2026-10-03): label over figure, tile figure size (A06). */
+.main .overview-figure-row { display:flex; flex-wrap:wrap; align-items:flex-end; gap:16px 48px; }
+.main .overview-figure-row > div { display:grid; gap:4px; }
+.main .overview-figure-row > div span { font:600 var(--fs-meta)/1.3 var(--body); color:var(--ink-2); }
+.main .overview-figure-row > div b { font:800 24px/1.1 var(--display); color:var(--ink); font-variant-numeric:tabular-nums; }
+.main .overview-figure-row > div b.pos { color:var(--positive); }
+.main .overview-figure-row .quiet-link { margin-left:auto; align-self:center; }
+/* A11 · picker results: the L1 as a bold header, its categories under it (never "L1 › L2"). */
+.counterparty-results .picker-group { padding:8px 12px 4px; font:700 var(--fs-meta)/1.3 var(--body); color:var(--ink); }
+.counterparty-results .picker-group ~ .counterparty-option { padding-left:20px; }
+/* A15 · setup rows: Lucide icons, 20px, 1.75 stroke, in a soft tile. */
+.setup-icon { border-radius:10px!important; background:var(--tint-held)!important; color:var(--ink)!important; }
+.setup-icon svg { width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:1.75; stroke-linecap:round; stroke-linejoin:round; }
+/* Get set up (first run): A07 card, two-line rows, status as a word with a dot (A11). */
+.main .setup-card { margin-bottom:var(--gap-block, 16px); }
+.main .setup-card .card-head h2 { margin:0; }
+.main .setup-card .card-head p { margin:2px 0 12px; color:var(--ink-2); font-size:var(--fs-2); }
+.main .setup-step.is-done b { color:var(--ink-2); }
+.main .status-word { display:inline-flex; align-items:center; gap:6px; font:600 var(--fs-2)/1 var(--body); color:var(--ink-2); }
+.main .dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--muted); }
+.main .dot-in { background:var(--meadow); }
+.main .setup-step .status-word { color:var(--ink-2)!important; }
+/* Import review · one decision per name (UX plan item 2). A name is a two-line row; open it for its
+   choices (soft wells, 36px in a card) and its rows (30px wells, five fields at most). */
+.main .import-review h3 { margin:20px 0 8px; font:700 var(--fs-section, 17px)/1.3 var(--display); color:var(--ink); }
+.main .import-group { border-top:1px solid var(--line); }
+.main .import-group > summary { display:grid; grid-template-columns:minmax(0,1fr) auto minmax(160px,auto); align-items:center; gap:16px; padding:12px 4px; cursor:pointer; list-style:none; }
+.main .import-group > summary::-webkit-details-marker { display:none; }
+.main .import-group-name { display:grid; gap:2px; min-width:0; }
+.main .import-group-name small { color:var(--ink-2); font-size:var(--fs-meta); }
+.main .import-group .status-word.is-over, .main .import-group .neg { color:var(--rose); }
+.main .dot-over { background:var(--rose); }
+.main .import-group-fields { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px 16px; padding:4px 4px 12px; }
+.main .import-group-fields label { display:grid; gap:6px; font:600 var(--fs-meta)/1.3 var(--body); color:var(--ink-2); }
+.main .import-group-fields :is(input,select):not(#_):not(.x_) { height:36px; min-height:36px; }
+.main .import-check { display:flex!important; align-items:center; gap:8px; }
+.main .import-check input { width:16px; height:16px; }
+.main .import-rows { display:grid; gap:4px; padding:0 4px 14px; }
+.main .import-row { display:grid; grid-template-columns:64px 120px 120px minmax(0,1fr) minmax(0,190px) 70px; align-items:center; gap:8px; }
+.main .import-row :is(input,select):not([type=checkbox]):not(#_):not(.x_) { height:30px; min-height:30px; padding:0 10px; font-size:var(--fs-2); }
+.main .import-row-line { color:var(--muted); font-size:var(--fs-meta); }
+.main .import-row-note { grid-column:2 / -1; color:var(--ink-2); }
+.main .import-discard { margin-top:12px; }
+@media (max-width:760px) { .main .import-row { grid-template-columns:1fr 1fr; } .main .import-group > summary { grid-template-columns:1fr auto; } }
+.main .import-row { grid-template-columns:56px 170px 110px minmax(0,1fr) minmax(0,190px) 64px; }
+.main .import-row .iso-date-control { display:flex; align-items:center; gap:4px; min-width:0; }
+.main .import-row .iso-date-control input[type=text] { flex:1; min-width:0; }
+.main .import-row .date-picker-button:not(#_) { width:30px!important; min-width:30px!important; height:30px!important; min-height:30px!important; padding:0!important; background:#EEF4F2!important; border-color:transparent!important; }
+/* Bulk edit in the selection bar: a 30px picker and its button on one line. */
+.main .selection-tools .bulk-category { display:inline-flex; align-items:center; gap:6px; margin:0; }
+.main .selection-tools .bulk-category :is(input,select):not(#_):not(.x_) { height:30px; min-height:30px; width:220px; font-size:var(--fs-2); }
+/* Guideline 3.8 · the vivid gradient (brand only: the logo and the one special button, Investment planner). */
+:root { --vivid:linear-gradient(135deg,#00995C 0%,#0066FF 100%); }
+.btn.btn-planner { background:var(--vivid)!important; }
