@@ -243,3 +243,14 @@ def held_for_others(owners: list[dict], total: Decimal | None) -> dict | None:
     amount = f"{fmt(total)} in all. " if total else ""
     return note("info", f"You hold money for {who}", "It stays in your accounts but is not counted as yours.",
                 label=f"Held for {who}", figure=fmt(total) if total else "")
+
+
+def low_confidence_note(estimates: list[dict]) -> str:
+    """The words behind the small "!" beside a plan that counts a low-confidence estimate."""
+    if not estimates:
+        return ""
+    parts = [f"{_fmt(e['estimate'], 0)} for {e['name']}" for e in estimates]
+    months = {e["observed"] for e in estimates}
+    basis = "one month of spending" if months == {1} else "too few months of spending"
+    return (f"Includes {', '.join(parts)}: an estimate from {basis}, so it is low confidence. "
+            "Set a limit on Budget to replace it.")

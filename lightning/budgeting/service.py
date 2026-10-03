@@ -469,6 +469,65 @@ class BudgetService:
         cache[key] = (total / observed).quantize(Decimal("0.01")) if observed else None
         return cache[key]
 
+    def background_estimates(self, month: str) -> list[dict]:
+        """Monthly expectations for untracked spending categories: the average of the last three
+        completed months that had spending. They count in the month's plan (owner decision
+        2026-10-03); an estimate from one observed month is low confidence and the screens say so.
+        Categories that are tracked, one-off, have children, or sit under a parent's own limit
+        (covered) are left out, so nothing is counted twice."""
+        view = self.month_view(month)
+        tracked = {line.category_id for section in view.sections for line in section.lines
+                   if line.direct is not None or line.average_months or line.income_percent is not None}
+        tracked |= self._id_list("budget_tracked_categories") or set()
+        exclusions = self.one_off_ids(with_children=False)
+        categories = self.categories.tree(Movement.OUTFLOW)
+        by_id = {category.id: category for category in categories}
+        children: dict[int, list[int]] = {}
+        for category in categories:
+            if category.parent_id:
+                children.setdefault(category.parent_id, []).append(category.id)
+        groups = {group.category_id for section in view.sections for group in section.groups}
+        months, cursor = [], parse_month(month)[0]
+        for _ in range(3):  # the three completed months before this one, newest first
+            start, end = parse_month((cursor - timedelta(days=1)).strftime("%Y-%m"))
+            months.append(self._owned_spending(start, end))
+            cursor = start
+        estimates, cache = [], {}
+        for section in view.sections:
+            for line in section.lines:
+                if (line.depth <= 1 or line.category_id in tracked or line.covered
+                        or children.get(line.category_id) or line.category_id in exclusions):
+                    continue
+                estimate = self._rolling_average(line.category_id, month, 3, children, cache)
+                if estimate is None:
+                    continue
+                parent = by_id.get(line.category_id)
+                while parent and parent.depth > 1 and parent.parent_id:
+                    parent = by_id.get(parent.parent_id)
+                if not parent or parent.id not in groups:
+                    continue
+                tree, pending = {line.category_id}, [line.category_id]
+                while pending:
+                    kids = children.get(pending.pop(), [])
+                    tree.update(kids)
+                    pending.extend(kids)
+                observed = sum(1 for amounts in months if any(cid in amounts for cid in tree))
+                estimates.append({"category_id": line.category_id, "name": line.name, "group_id": parent.id,
+                                  "estimate": estimate, "observed": observed, "low_confidence": observed <= 1})
+        return estimates
+
+    def plan_summary(self, month: str) -> dict:
+        """The month's plan as every screen shows it: Planned (limits plus background estimates),
+        Spent (owned spending, one-off categories left out) and Left in plan."""
+        view = self.month_view(month)
+        estimates = self.background_estimates(month)
+        planned = view.available + sum((e["estimate"] for e in estimates), ZERO)
+        first, last = parse_month(month)
+        one_offs = self.one_off_ids()
+        spent = sum((v for cid, v in self._owned_spending(first, last).items() if cid not in one_offs), ZERO)
+        return {"planned": planned, "spent": spent, "left": planned - spent, "estimates": estimates,
+                "low_confidence": [e for e in estimates if e["low_confidence"]]}
+
     def set_income_percentage(self, category_id: int, month: str, percent: object,
                               only_this_month: bool = False) -> bool:
         parse_month(month); category = self._budgetable(category_id)

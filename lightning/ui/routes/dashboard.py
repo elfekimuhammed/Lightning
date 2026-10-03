@@ -18,12 +18,12 @@ from lightning.core.money import ZERO, fmt as _fmt, to_decimal
 def fmt(value, places: int = 0, signed: bool = False) -> str:
     """Reporting text rounds to the nearest unit (stored values keep their decimals)."""
     return _fmt(value, places, signed)
-from lightning.investments.report import investing_rate, investment_period, results_by_asset
+from lightning.investments.report import investing_rate, investment_period
 
 from ..web import container, render
 from ..web import redirect
 from ..periods import Period, parse_period
-from .. import visuals
+from .. import keynotes, visuals
 
 router = APIRouter()
 
@@ -227,19 +227,6 @@ async def dashboard(request: Request):
         for row in sorted((row for row in closing_report["holdings"] if row["price_source"] != "CASH"),
                           key=lambda row: (row["value"] is None, -(row["value"] or ZERO), row["asset"]))[:5]
     ]
-    # Reuse the investment ledger's dated positions for asset-class and asset
-    # performance. Returns combine each holding's unrealized movement,
-    # realized gain/loss and distributions across the selected range.
-    class_results, asset_results = results_by_asset(c.investments, c.money_from_others, c.reporting,
-                                                    fmt_date(first - timedelta(days=1)), fmt_date(as_of))
-    class_rows = [{"label": name, "result": value} for name, value in
-                  sorted(class_results.items(), key=lambda item: (-abs(item[1]), item[0].casefold()))]
-    asset_result_rows = list(asset_results.values())
-    winners = sorted((row for row in asset_result_rows if row["result"] > ZERO),
-                     key=lambda row: row["result"], reverse=True)[:2]
-    losers = sorted((row for row in asset_result_rows if row["result"] < ZERO),
-                    key=lambda row: row["result"])[:2]
-    class_scale = max((abs(row["result"]) for row in class_rows), default=ZERO) or Decimal(1)
     investment_flow = closing_report["new_money"]
     investment_share = (investment_flow / cash_flow.inflows * 100
                         if cash_flow.inflows > ZERO else None)
@@ -255,7 +242,6 @@ async def dashboard(request: Request):
         money_in_rows=visuals.money_in_groups(c, first, as_of),
         money_out_rows=visuals.money_out_groups(c, first, as_of),
         money_sankey=visuals.money_sankey(c, first, as_of, cash_flow),
-        investment_donut=visuals.holdings_donut(position),
         wealth_donut=visuals.holdings_donut(position, include_deposits=True, include_cash=True),
         networth_trend=networth_trend, free_cash_steps=visuals.free_cash_steps(position),
         month_calendar=visuals.month_calendar(c, today()),
@@ -270,8 +256,6 @@ async def dashboard(request: Request):
         account_contributions=account_contributions, expense_groups=expense_groups,
         categorized_spending=categorized_spending,
         investment_report=investment_report, investment_holdings=investment_holdings,
-        investment_class_returns=class_rows, investment_class_scale=class_scale,
-        investment_winners=winners, investment_losers=losers,
         cash_flow=cash_flow, investment_flow=investment_flow,
         investment_share=investment_share, savings_rate=savings_rate,
     )
@@ -325,8 +309,8 @@ def _period_stats(c, period, first, as_of, position, cash_flow, change, change_r
     })
     month = month_of(as_of)
     if c.budgets.has_plan(month):
-        view = c.budgets.month_view(month)
-        planned, left = view.available, view.remaining
+        summary = c.budgets.plan_summary(month)  # the same figures as the Budget tab
+        planned, left = summary["planned"], summary["left"]
         used = planned - left
         share = used / planned * 100 if planned > 0 else None
         stats.append({
@@ -337,7 +321,7 @@ def _period_stats(c, period, first, as_of, position, cash_flow, change, change_r
                       "text": "Over plan" if left < 0 else (f"{share:.0f}% used" if share is not None else month)},
             "sub": f"of {fmt(planned)} {label('planned').lower()}",
             "meter": {"width": float(min(max(share or 0, 0), 100)), "tone": "over" if left < 0 else "in"},
-            "href": f"/budget?month={month}",
+            "href": f"/budget?month={month}", "warn": keynotes.low_confidence_note(summary["low_confidence"]),
         })
     else:
         stats.append({"key": "plan", "surface": "out", "label": f"{label('left_in_plan')} · {month}", "value": None,

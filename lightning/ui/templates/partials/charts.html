@@ -153,6 +153,9 @@
    in (green, in and growing) · hold (azure, money you hold) · out (soft rose, money out) · over (strong rose, needs you). #}
 {% macro tone_icon(tone) %}<span class="stat-tile-icon" aria-hidden="true"><svg viewBox="0 0 24 24">{% if tone == 'in' %}<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>{% elif tone == 'out' %}<polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/>{% elif tone == 'over' %}<circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>{% else %}<path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/>{% endif %}</svg></span>{% endmacro %}
 
+{# A small "!" for a figure that rests on an estimate: the words say why it is uncertain (A01 honest numbers). #}
+{% macro warn_tip(text) %}<span class="info-tip is-warn" tabindex="0" role="note" aria-label="Low confidence: {{ text }}" data-tip="{{ text }}">!</span>{% endmacro %}
+
 {# A rate as people read it: a true minus and thousands separators (guideline A06.1). #}
 {% macro rate(v) %}{{ '−' if v < 0 }}{{ '{:,.1f}'.format(v|abs) }}{% endmacro %}
 
@@ -162,7 +165,7 @@
 {% macro stat_tile(s, base) %}
 {% set tag = 'a' if s.href else 'div' %}
 <{{ tag }} class="stat-tile surface-{{ s.surface }}{{ ' has-compare' if s.compare }}"{% if s.href %} href="{{ s.href }}"{% endif %} aria-label="{{ s.label }}">
-  <span class="stat-tile-head">{{ tone_icon(s.surface) }}<span class="stat-tile-label">{{ s.label }}</span>
+  <span class="stat-tile-head">{{ tone_icon(s.surface) }}<span class="stat-tile-label">{{ s.label }}{% if s.warn %} {{ warn_tip(s.warn) }}{% endif %}</span>
     {% if s.badge %}<span class="stat-chip is-{{ s.badge.tone }}">{% set arrow = s.badge.arrow if s.badge.arrow is defined else s.badge.tone %}{% if arrow in ('up','down') %}<svg viewBox="0 0 24 24" aria-hidden="true">{% if arrow == 'up' %}<path d="M12 19V5M5 12l7-7 7 7"/>{% else %}<path d="M12 5v14M5 12l7 7 7-7"/>{% endif %}</svg>{% endif %}{{ s.badge.text }}</span>{% endif %}</span>
   {% set shown = (s.value|money(s.key == 'change' or s.signed is defined and s.signed)) if s.value is not none and s.kind != 'rate' else '' %}
   <span class="stat-tile-value{{ ' is-negative' if s.value is not none and s.value < 0 }}{{ ' is-long' if shown|length > 7 }}">{% if s.value is none %}{{ s.empty or '—' }}{% elif s.kind == 'rate' %}{{ rate(s.value) }}<small>%</small>{% else %}{{ s.value|money(s.key == 'change' or s.signed is defined and s.signed) }}<small>{{ base }}</small>{% endif %}</span>

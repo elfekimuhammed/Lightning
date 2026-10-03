@@ -16,9 +16,9 @@ not know it.
 | [Changelog](CHANGELOG.md) | Every change, newest first under `Unreleased` | Every change you push |
 
 - Do not add new files under `docs/`. Put the content in one of the files above.
+- Old changelog entries are history, not the current specification.
 
 **The brand guideline is strict, not a suggestion.** Every visual follows it exactly: colours and what they mean, headers, type and numbers, cards and KPI cards, controls and fields, lists, every chart, words, spacing and icons. Before you push any change a user can see, check it against the guideline's "Before it ships" list (A16). If the app's CSS differs from the guideline, the guideline wins and the CSS is fixed. If something the screen needs is not in the guideline, do not invent a new style: use the closest rule and ask the owner under **Now and next**.
-- Old changelog entries are history, not the current specification.
 
 ## 2. Every task, in this order
 

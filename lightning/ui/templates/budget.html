@@ -23,7 +23,7 @@
       {{ saved_split(saved_split_data) }}
     </div>
     <div class="budget-plan">
-      <div class="budget-top-head"><h2>{{ fig.planned.label }}</h2><span>{{ period_budgeted|money }} {{ base }}</span></div>
+      <div class="budget-top-head"><h2>{{ fig.planned.label }}</h2><span>{{ period_budgeted|money }} {{ base }}{% if low_confidence %} {% from "partials/charts.html" import warn_tip %}{{ warn_tip(low_confidence) }}{% endif %}</span></div>
       <div class="plan-bar{{ ' is-over' if plan_bar.is_over }}" role="img" aria-label="Spent {{ period_actual|money }} of {{ period_budgeted|money }} planned">
         <i class="spent" style="width:{{ '%.2f'|format(plan_bar.spent) }}%"></i><i class="left" style="width:{{ '%.2f'|format(plan_bar.left) }}%"></i>{% if plan_bar.over %}<i class="over" style="width:{{ '%.2f'|format(plan_bar.over) }}%"></i>{% endif %}
       </div>
