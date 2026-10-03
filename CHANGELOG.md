@@ -8,6 +8,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+- 2026-10-03 · Claude: The brand guideline is now one file, `docs/BRAND_GUIDELINE.html` (3.6: Part A the app, Part B the website), the same file as the website's `brand-guidelines.html`. Removed `docs/APPLICATION_BRAND_GUIDE.md`, `docs/APPLICATION_BRAND_GUIDE.html` and the 2.10 generator in `tools/brand_guide/`. `AGENTS.md` gains the two-AI working rules (pull first, small pushes, dated and signed changelog entries, a **Now and next** hand-off at the top of the Project Overview).
 - Fixed two tests that failed on `main`: the profile-gate test now awaits Starlette's `request.form()` wrapper, and the picker test allows set-up calls between inserting popup content and enhancing its pickers. With the hash-locked Linux dependencies (including `sqlcipher3`), the full suite passes.
 - Add account-level **Change ownership**: move cash between the user's share and a saved person while keeping the account's gross balance unchanged. The posting goes through `TransactionService`, validates each owner's dated cash position, and appears as a readable ownership event.
 - Add **Someone paid an expense for you**: record the owned expense against its category and attribute the matching in-account cash share to the payer. It counts in spending and budgets, preserves gross account cash, and can be linked to a reserve or planned payment.

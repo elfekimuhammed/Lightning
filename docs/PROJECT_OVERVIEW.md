@@ -2,7 +2,15 @@
 
 **Last updated 2026-10-03 · app 0.4.0b1.**
 
-This file tells the story: what Lightning is, who it is for, what it answers and where it goes next. [Architecture](ARCHITECTURE.md) holds the technical side. The [App brand guideline](APPLICATION_BRAND_GUIDE.md) holds the visual side. The [Glossary](GLOSSARY.md) defines every term and figure. Shipped changes go in `CHANGELOG.md`.
+This file tells the story: what Lightning is, who it is for, what it answers and where it goes next. [Architecture](ARCHITECTURE.md) holds the technical side. The [Brand guideline](BRAND_GUIDELINE.html) holds the visual side. The [Glossary](GLOSSARY.md) defines every term and figure. Shipped changes go in `CHANGELOG.md`.
+
+## Now and next
+
+The hand-off between the two AIs (Claude and Codex). Read it first; rewrite it when you finish (rules in `AGENTS.md`).
+
+- **2026-10-03 · Claude · in progress:** a UX pass against Brand guideline 3.6 Part A: the user's route from the Overview, redundant elements, and every button, header, field and list against A01–A16. Claimed: `lightning/ui/templates/`, `lightning/ui/static/style.css`, `tests/test_omar_year.py`. Omar is re-run on the plain source build; the PC (WebView2, encrypted) app shares the same pages.
+- **Done today:** Check against bank replaces line-by-line reconciliation (Claude); cash ownership changes and expenses paid by someone else (Codex); Omar walks through user feedback batch 001 (Claude); the brand guideline is one file, 3.6 (Claude).
+- **Questions for the owner:** none open.
 
 ## What Lightning is
 
