@@ -1,12 +1,17 @@
 # Lightning — Project Overview
 
-**Last updated 2026-10-03 · app 0.4.0b1.**
+**Last updated 2026-10-03 · app 0.5.0b1.**
 
 This file tells the story: what Lightning is, who it is for, what it answers and where it goes next. [Architecture](ARCHITECTURE.md) holds the technical side. The [Brand guideline](BRAND_GUIDELINE.html) holds the visual side. The [Glossary](GLOSSARY.md) defines every term and figure. Shipped changes go in `CHANGELOG.md`.
 
 ## Now and next
 
 The hand-off between the AIs working here (Codex and Claude sessions). Read it first; rewrite it when you finish (rules in `AGENTS.md`, section 2).
+
+- **Done · Codex:** bumped source version to 0.5.0b1 (display 0.5.0-beta.1) and updated current release/version references. This does not build, verify, or publish a package.
+- **In progress:** none; no files claimed.
+- **Next:** build and test the 0.5.0-beta.1 package before announcing or distributing it.
+- **Questions for the owner:** none.
 
 - **2026-10-03 · Claude · paused (UX pass, guideline 3.6):** done today: batch 1, the owner's two decisions, category pickers, first run, import review per name, bulk category edit, out-of-date prices, the guideline's fonts and two-leaf logo. **Next, in order:** UX plan items 5 (one name, one number: drop repeated Free cash breakdowns and the Overview column waterfall), 6 (registers as two-line rows), 8 (Reserves table and emergency fund wording), 9 (words and numbers sweep). No files claimed; whoever picks these up claims `lightning/ui/templates/` and `lightning/ui/static/style.css` first.
 - **Done today:** Check against bank replaces line-by-line reconciliation (Claude); cash ownership changes and expenses paid by someone else (Codex); Omar walks through user feedback batch 001 (Claude); the brand guideline is one file, 3.6 (Claude); UX batch 1 (Claude); website: the two-leaf logo everywhere, Version D, and guideline 3.7 for Part B only (Claude).
@@ -341,6 +346,6 @@ Verified UI fixes: Budget overlap at about 941px, the Cash planning tab strip an
 | Physical gold items | In progress | Item purchase/sale and report integration |
 | M7 Planning and imports | Partial | Shipped: CSV import and Cash planning. Next: review inbox, matching manual entries with imports, reminders |
 | Search | Planned | One typo-tolerant search across pages and records (contract in Architecture) |
-| Desktop app (v0.4.0b1) | Development preview | Shipped: `Lightning.exe` for Windows and `--profiles` on Linux, with password-protected encrypted profiles in Documents/Lightning. Next: legacy import, backup restore, native file pickers, ordinary-PC testing, then a Windows-first beta for a few testers, hosted on the owner's website (design in Architecture) |
+| Desktop app (v0.5.0b1) | Development preview | Shipped: `Lightning.exe` for Windows and `--profiles` on Linux, with password-protected encrypted profiles in Documents/Lightning. Next: legacy import, backup restore, native file pickers, ordinary-PC testing, then a Windows-first beta for a few testers, hosted on the owner's website (design in Architecture) |
 
 **Next up:** matching manual entries with imports, then one review inbox.

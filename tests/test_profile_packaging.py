@@ -16,7 +16,8 @@ def test_desktop_version_and_one_extract_artifact_agree():
     assert metadata["project"]["version"] == __version__
     assert DISPLAY_VERSION == __version__.replace("b", "-beta.")
     workflow = (ROOT / ".github" / "workflows" / "desktop-probe.yml").read_text(encoding="utf-8")
-    assert "dist/Lightning-windows-x64.zip" in workflow
+    assert "dist/Lightning-v*-Windows-x64.zip" in workflow
+    assert "branches: [main, codex/desktop-beta]" in workflow
     assert "dist/APP_SHA256SUMS" in workflow
     assert "name: ${{ env.LIGHTNING_ARTIFACT_NAME }}" in workflow
     assert "dist/LightningProbe-windows-x64.zip" not in workflow
@@ -102,7 +103,7 @@ def test_package_stops_before_zipping_any_user_database(tmp_path, monkeypatch):
         assert "Unexpected user data" in str(exc)
     else:
         raise AssertionError("packager created a ZIP containing profile data")
-    assert not (tmp_path / "dist" / "Lightning-windows-x64.zip").exists()
+    assert not list((tmp_path / "dist").glob("Lightning-v*-Windows-x64.zip"))
 
 
 def test_packaged_readme_displays_current_version(tmp_path, monkeypatch):
@@ -121,3 +122,4 @@ def test_packaged_readme_displays_current_version(tmp_path, monkeypatch):
     package_app.package()
 
     assert (bundle / "README.txt").read_text(encoding="utf-8") == f"Lightning v{DISPLAY_VERSION}\n"
+    assert (tmp_path / "dist" / f"Lightning-v{DISPLAY_VERSION}-Windows-x64.zip").is_file()

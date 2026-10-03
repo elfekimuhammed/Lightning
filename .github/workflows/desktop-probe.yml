@@ -3,7 +3,7 @@ name: Windows desktop feasibility
 on:
   workflow_dispatch:
   push:
-    branches: [codex/desktop-beta]
+    branches: [main, codex/desktop-beta]
 
 permissions:
   contents: read
@@ -107,7 +107,7 @@ jobs:
         with:
           name: ${{ env.LIGHTNING_ARTIFACT_NAME }}
           path: |
-            dist/Lightning-windows-x64.zip
+            dist/Lightning-v*-Windows-x64.zip
             dist/APP_SHA256SUMS
           if-no-files-found: error
           retention-days: 7

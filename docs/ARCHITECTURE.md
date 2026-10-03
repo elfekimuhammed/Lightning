@@ -1,6 +1,6 @@
 # Architecture
 
-**Last updated 2026-10-03 · app 0.4.0b1** (`lightning/__init__.py`, matched by `pyproject.toml`).
+**Last updated 2026-10-03 · app 0.5.0b1** (`lightning/__init__.py`, matched by `pyproject.toml`).
 
 This file holds the technical side: stack, module boundaries, data model and every calculation contract. The product story is in [Project Overview](PROJECT_OVERVIEW.md), the visual system in the [Brand guideline](BRAND_GUIDELINE.html), and term definitions in the [Glossary](GLOSSARY.md).
 
@@ -288,7 +288,7 @@ Start with bounded local candidate lists and a small result limit. If size or me
 
 ## Desktop app and encrypted profiles
 
-**State: v0.4.0b1 development preview.** It is connected end to end and passes Windows CI, but it is not yet a distributable financial beta. Use dummy data until ordinary-PC acceptance passes.
+**State: v0.5.0b1 development preview (display version 0.5.0-beta.1).** This is a source version bump only; no package build or release verification is claimed here. Use dummy data until ordinary-PC acceptance passes.
 
 **Shape.** FastAPI, Jinja and every financial service stay as they are. There is no frontend rewrite and no second financial implementation.
 

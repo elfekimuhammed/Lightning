@@ -55,7 +55,8 @@ def package() -> Path:
         if _is_user_data(path.relative_to(bundle)):
             raise RuntimeError(f"Unexpected user data in bundle: {path.relative_to(bundle)}")
 
-    archive = Path(shutil.make_archive(str(ROOT / "dist" / "Lightning-windows-x64"), "zip", bundle.parent, bundle.name))
+    archive_name = f"Lightning-v{DISPLAY_VERSION}-Windows-x64"
+    archive = Path(shutil.make_archive(str(ROOT / "dist" / archive_name), "zip", bundle.parent, bundle.name))
     with archive.open("rb") as stream:
         digest = hashlib.file_digest(stream, "sha256").hexdigest()
     (ROOT / "dist" / "APP_SHA256SUMS").write_text(f"{digest}  {archive.name}\n", encoding="utf-8")

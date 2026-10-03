@@ -6,9 +6,12 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 - Add it under `## [Unreleased]`.
 
-## [Unreleased]
+## [0.5.0b1] — 2026-10-03 — Next Windows desktop beta (package build pending)
 
 - 2026-10-03 · Claude: Budget group detail (owner request): "Tracked · N categories" and "Not tracked · N categories · X expected" are collapsible lists, each with "Select all" that ticks its rows for the bulk rules (% of income, 3m or 6m average) and updates the "N selected" count. Tracked opens by default; Not tracked starts closed.
+- 2026-10-03 · Codex: Set the source version to 0.5.0b1 (display 0.5.0-beta.1) for the next beta. The Windows package workflow now runs from `main` and names the ZIP `Lightning-v0.5.0-beta.1-Windows-x64.zip`. This records the packaging setup only; Windows build verification and distribution are still pending.
+
+## [Unreleased]
 - 2026-10-03 · Codex: Add **Export for AI** under Settings › Your data. It prepares one local `.xlsx` workbook for All time, YTD, Monthly or Custom, with Lightning-calculated totals, all owned period ledger lines, investment checkpoints and category hierarchy. The period and record counts update immediately; the editable companion prompt is copied when possible, with a visible copy fallback. User text is stored as spreadsheet text, exports are not capped at 1,000 lines or silently truncated, and Lightning does not upload the workbook. Omar's screen-driven acceptance flow covers the download.
 - 2026-10-03 · Claude: Architecture › Page speed opens with why pages were slow and which fix answered each cause (the speed audit now lives only there), and notes the bundled fonts.
 - 2026-10-03 · Claude: The Investment planner button uses guideline 3.8's vivid gradient (`--vivid`: #00995C to #0066FF at 135°).

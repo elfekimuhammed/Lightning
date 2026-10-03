@@ -10,7 +10,7 @@ desktop build instructions (`packaging/` and `.github/workflows/desktop-probe.ym
 and the desktop design and status in [Architecture](docs/ARCHITECTURE.md#desktop-app-and-encrypted-profiles). It does not contain
 anyone's financial databases, passwords, recovery keys or installed app.
 
-The current **Windows desktop preview** is v0.4.0-beta.1. A separate, versioned
+The current **Windows desktop preview** is v0.5.0-beta.1. A separate, versioned
 app ZIP is produced by the [Windows desktop feasibility workflow](https://github.com/elfekimuhammed/Lightning/actions/workflows/desktop-probe.yml).
 Download the ZIP from a successful workflow run's artifacts and extract it once
 into a new folder. `Lightning.exe` and `README.txt` are directly inside the
