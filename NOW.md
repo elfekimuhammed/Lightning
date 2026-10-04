@@ -21,7 +21,7 @@ Last rewritten 2026-10-04 · Claude.
 ## Codex
 
 - **Last done (2026-10-04):** integrated the follow-up review into [Multiple devices](docs/proposals/multiple_devices.md): dependency-based work tracks, per-task reading, smaller subtasks, early restore/matching releases and offline analysis. Clarified locked lending and connected the existing Windows updater roadmap. Two owner choices below; no sync code.
-- **In progress · claimed files:** Task 01 writer/lifecycle inventory and deterministic fixture (Luna under Codex: `tests/test_sync_write_inventory.py`, relevant writer paths read only); task 04a Android dependency/build feasibility (Codex: isolated `android/` build files). Codex owns `NOW.md` and `CHANGELOG.md` for this work.
+- **In progress · claimed files:** Task 01 writer/lifecycle inventory and deterministic fixture (Luna under Codex: `tests/test_sync_write_inventory.py`, relevant writer paths read only); task 02a promotion journal model (Luna: `lightning/database/promotion.py`, `tests/test_database_promotion_model.py`); task 04a Android dependency/build feasibility (Codex: isolated `android/` build files). Codex owns `NOW.md` and `CHANGELOG.md` for this work.
 
 ## Next (unclaimed; claim it in your lane before you start)
 
