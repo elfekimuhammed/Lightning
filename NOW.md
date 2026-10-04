@@ -21,7 +21,7 @@ Last rewritten 2026-10-05 · Codex.
 ## Codex
 
 - **Last done (2026-10-05):** tasks 01, 02a and 02b: writer inventory, two-node fixture, promotion restart model and POSIX durable-file primitives. Focused tests pass. The Android probe separately failed to resolve pinned SQLCipher and cryptography Android wheels; no APK exists. The full local suite hung in a UI test under Python 3.14, so GitHub's Python 3.13 suite is the release check.
-- **In progress · claimed files:** Task 02c Windows promotion durability (Luna under Codex: `lightning/database/promotion_windows.py`, `tests/test_database_promotion_windows.py`; Codex integrates `.github/workflows/desktop-probe.yml`); task 04a Android dependency/build feasibility (Codex: `android/`, `.github/workflows/android-feasibility.yml`, `.github/workflows/android-native-wheels.yml`). Native wheel source builds are being probed. Codex owns `NOW.md` and `CHANGELOG.md` for this work.
+- **In progress · claimed files:** Task 02c Windows promotion durability (Luna under Codex: `lightning/database/promotion_windows.py`, `tests/test_database_promotion_windows.py`; Codex integrates `.github/workflows/desktop-probe.yml`); task 04a Android dependency/build feasibility (Codex: `android/`, `.github/workflows/android-feasibility.yml`, `.github/workflows/android-native-wheels.yml`); task 05a in-memory authority/message contract (Codex: `lightning/sync/`, `tests/test_sync_domain.py`). Native wheel source builds are being probed. Codex owns `NOW.md` and `CHANGELOG.md` for this work.
 
 ## Next (unclaimed; claim it in your lane before you start)
 
