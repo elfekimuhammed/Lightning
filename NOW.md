@@ -20,7 +20,7 @@ Last rewritten 2026-10-05 · Codex.
 
 ## Codex
 
-- **Last done (2026-10-05):** 01, 02a–02c and 03a preview landed. GitHub run 37243426966 passed Linux and Windows package. Luna added P1–P4 process-exit restore tests; CI pending. 05a blocks stale grant replay. Android run 37244107860 is underway. Restore needs Windows drills and ambiguous repair before real data. Checkout/return is in-memory only.
+- **Last done (2026-10-05):** 01, 02a–02c and 03a preview landed. GitHub run 37243426966 passed Linux and Windows package. Luna added P1–P4 process-exit restore tests; Windows CI pending. 05a blocks stale grant replay. Android run 37244107860 found missing Python headers and Conan compiler settings. Restore needs Windows drills and ambiguous repair before real data. Checkout/return is in-memory only.
 - **In progress · claimed files:** Task 02d journal integration (`lightning/database/promotion.py`, `tests/test_database_promotion.py` landed; reboot/fault evidence and runtime gating remain); task 03a safety hardening (Luna under Codex: `lightning/runtime/restore.py`, `lightning/database/promotion_windows.py`, `tests/test_profile_session.py`, `tests/test_database_promotion_windows.py`; Codex reviews and owns restore UI/docs). First: durable intent/source-copy manifest and Windows marker publication; next: explicit deterministic repair. Task 04a Android build feasibility (Codex: `android/` and Android workflows); remaining 05a schemas (Codex: `lightning/sync/`, `tests/test_sync_domain.py`). Android source-wheel blockers: `android/README.md`. Codex owns `NOW.md` and `CHANGELOG.md`.
 
 ## Next (unclaimed; claim it in your lane before you start)

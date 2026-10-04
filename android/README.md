@@ -51,6 +51,16 @@ are the build references.
 The first configuration rerun, [run 37240415999](https://github.com/elfekimuhammed/Lightning/actions/runs/37240415999),
 stopped before either compiler: cibuildwheel evaluates `CIBW_ENVIRONMENT_ANDROID`
 without shell glob expansion, so the inline `find /tmp/cibw-run-*/...` received
-the `*` literally. The next probe uses a small Python locator to expand the
-pattern and requires exactly one target `Python.h`. The Conan API setting has
-therefore not been tested yet; these were configuration errors, not wheel results.
+the `*` literally. A small Python locator replaced that glob and requires
+exactly one target `Python.h`. These were configuration errors, not wheel results.
+
+The locator rerun, [run 37244107860](https://github.com/elfekimuhammed/Lightning/actions/runs/37244107860),
+passed that earlier failure. Cryptography still fails when its Rust/C build
+cannot include `Python.h`; cibuildwheel's Android environment subsequently
+rewrites `CFLAGS`, so the compiler's actual include path must be inspected at
+the build hook. SQLCipher passes `os.api_level=24` to Conan, then OpenSSL's
+dependency graph rejects the incomplete profile because `settings.compiler`
+is undefined. Neither job produced a wheel. The next probe must supply an
+explicit Android Clang Conan profile and a target-header path that survives
+the build environment setup. These remain configuration findings; they do not
+establish Android runtime or 16 KB page compatibility.
