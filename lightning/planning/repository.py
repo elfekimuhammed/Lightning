@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from lightning.core.dates import now_iso
+from lightning.core.memo import request_cached
 from lightning.core.money import from_e6, to_e6
 from lightning.database.connection import Database
 
@@ -25,6 +26,7 @@ class PlanningRepository:
     def __init__(self, db: Database):
         self.db = db
 
+    @request_cached
     def items(self, active_only: bool = True) -> list[PlannedItem]:
         rows = self.db.all("SELECT * FROM planned_items" + (" WHERE active=1" if active_only else "")
                            + " ORDER BY kind, name COLLATE NOCASE, id")
@@ -63,8 +65,11 @@ class PlanningRepository:
     def has_payments(self, item_id: int) -> bool:
         return bool(self.db.scalar("SELECT 1 FROM planned_payments WHERE planned_item_id=? LIMIT 1", (item_id,)))
 
+    @request_cached
     def settled(self) -> dict[tuple[int, str], dict]:
-        """Settled payments whose transaction is still posted (a voided payment is unpaid again)."""
+        """Settled payments whose transaction is still posted (a voided payment is unpaid again).
+
+        Read once per request: the Overview's twelve month-end positions each ask for every item's payments."""
         rows = self.db.all(
             "SELECT p.planned_item_id,p.due_date,p.status,p.transaction_id,p.amount_e6 FROM planned_payments p "
             "LEFT JOIN transactions t ON t.id=p.transaction_id "

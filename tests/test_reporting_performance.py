@@ -193,9 +193,11 @@ def _years_of_history(c, years):
 # Pages, and the most SELECT statements each may run on Mohab's 2026 plus two earlier years
 # (about 1,100 transactions). Before the request cache they ran 1,700 to 10,000; repeated
 # figures (positions, ledger scans, month spending, category look-ups) must stay computed once.
+# Tightened 2026-10-04 (bill payments, prices and gold items read once per request; register owners
+# in one read): the pages then ran 130 to 550, and each budget is about 1.3 times that.
 PAGE_READ_BUDGET = {
-    "/": 1200, "/accounts/1": 800, "/transactions": 800, "/budget?period=month": 400,
-    "/budget?period=all": 1500, "/plan": 700, "/investments": 700, "/birdview/expenses?period=all": 1200,
+    "/": 600, "/accounts/1": 460, "/transactions": 470, "/budget?period=month": 175,
+    "/budget?period=all": 710, "/plan": 340, "/investments": 235, "/birdview/expenses?period=all": 230,
 }
 
 

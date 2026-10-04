@@ -185,6 +185,23 @@ class MoneyFromOthersService:
         row = self.db.one("SELECT owner FROM money_from_others WHERE transaction_id=?", (transaction_id,))
         return row["owner"] if row else ""
 
+    def transaction_owners(self, transaction_ids) -> dict[int, str]:
+        """transaction_owner for many transactions in two reads (a register page), "" when it is yours."""
+        ids = sorted(set(transaction_ids))
+        owners = {txn_id: "" for txn_id in ids}
+        if not ids:
+            return owners
+        marks = ",".join("?" * len(ids))
+        for row in self.db.all(f"SELECT transaction_id, owner FROM money_from_others WHERE transaction_id IN ({marks})", ids):
+            owners[row["transaction_id"]] = row["owner"]
+        # The ledger's owner wins over the legacy table, as in transaction_owner.
+        for row in self.db.all("SELECT le.transaction_id, MIN(p.name) owner FROM ledger_entries le "
+                               "JOIN counterparties p ON p.id=le.owner_id "
+                               f"WHERE le.transaction_id IN ({marks}) AND le.owner_id IS NOT NULL "
+                               "GROUP BY le.transaction_id", ids):
+            owners[row["transaction_id"]] = row["owner"]
+        return owners
+
     def investment_transaction_owner(self, transaction_id: int) -> str:
         row = self.db.one("SELECT p.name owner FROM ledger_entries le JOIN counterparties p ON p.id=le.owner_id JOIN financial_assets f ON f.id=le.asset_id AND f.is_cash=0 WHERE le.transaction_id=? AND le.owner_id IS NOT NULL LIMIT 1", (transaction_id,))
         if row:

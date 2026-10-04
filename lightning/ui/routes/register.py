@@ -209,7 +209,7 @@ def page(request: Request, account_id: int | None, entry: dict | None = None, ed
         page_number = min(max(_int(qp.get("page")) or 1, 1), max(1, -(-total_rows // page_size)))
         rows = all_rows[(page_number - 1) * page_size:page_number * page_size]
     total_pages = max(1, -(-total_rows // page_size))
-    custody_owners = {row.txn_id: c.money_from_others.transaction_owner(row.txn_id) for row in rows}
+    custody_owners = c.money_from_others.transaction_owners(row.txn_id for row in rows)
     edit_id = edit_id or _int(qp.get("edit"))
     edit_acct = edit_acct or _int(qp.get("acct")) or account_id
     if edit_id and edit_values is None:
@@ -221,7 +221,7 @@ def page(request: Request, account_id: int | None, entry: dict | None = None, ed
                 "category": c.categories.get(row.category_id).name if row.category_id else "",
                 "category_choice": str(row.category_id) if row.category_id else "",
                 "amount": str(row.amount),
-                "whom": c.money_from_others.transaction_owner(row.txn_id),
+                "whom": custody_owners.get(row.txn_id, ""),
             }
     holdings, account_value, account_owned_value, account_held_value = [], None, None, None
     account_asset_breakdown = []

@@ -8,6 +8,7 @@ from decimal import Decimal
 
 from lightning.core.dates import now_iso, today
 from lightning.core.errors import ConflictError, NotFoundError, ValidationError
+from lightning.core.memo import request_cached
 from lightning.core.money import ZERO, from_e6, to_decimal, to_e6
 from lightning.database.connection import Database
 
@@ -16,6 +17,7 @@ class CashReserveService:
     def __init__(self, db: Database):
         self.db = db
 
+    @request_cached(deep=True)
     def list_active(self):
         return [self._row(row) for row in self.db.all(
             "SELECT r.*,(SELECT COALESCE(SUM(l.amount_e6),0) FROM reserve_transaction_links l "

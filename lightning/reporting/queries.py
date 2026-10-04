@@ -6,6 +6,7 @@ Only POSTED transactions count. All sums are over exact integer (_e6) columns.
 
 from __future__ import annotations
 
+from lightning.core.memo import request_cached
 from lightning.database.connection import Database
 
 POSTED = "JOIN transactions t ON t.id = le.transaction_id AND t.status = 'POSTED'"
@@ -192,6 +193,7 @@ class ReportQueries:
         grouped, params = self._statement_groups(account_id, date_from, date_to)
         return int(self.db.scalar(f"SELECT COALESCE(SUM(q), 0) FROM ({grouped} LIMIT ?)", (*params, first)))
 
+    @request_cached
     def latest_price(self, asset_id: int, as_of: str) -> dict | None:
         row = self.db.one(
             "SELECT price_e6, currency, date, source FROM price_history WHERE asset_id = ? AND date <= ?"
@@ -200,6 +202,7 @@ class ReportQueries:
         )
         return dict(row) if row else None
 
+    @request_cached
     def latest_trade_price(self, asset_id: int, as_of: str) -> dict | None:
         """The price of the most recent buy or sell on or before the date."""
         row = self.db.one(
@@ -209,6 +212,23 @@ class ReportQueries:
             (asset_id, as_of),
         )
         return dict(row) if row else None
+
+    @request_cached
+    def physical_item(self, asset_id: int) -> dict | None:
+        """The gold item behind an asset, if it is one."""
+        row = self.db.one("SELECT net_gold_grams_e6,reference_asset_id,account_id,karat FROM physical_items WHERE asset_id=?",
+                          (asset_id,))
+        return dict(row) if row else None
+
+    @request_cached
+    def manual_item_value(self, asset_id: int, as_of: str) -> dict | None:
+        row = self.db.one("SELECT date,quantity_e6,total_value_e6 FROM physical_item_valuations "
+                          "WHERE asset_id=? AND date<=? ORDER BY date DESC,id DESC LIMIT 1", (asset_id, as_of))
+        return dict(row) if row else None
+
+    @request_cached
+    def asset_purity(self, asset_id: int) -> int | None:
+        return self.db.scalar("SELECT purity_e6 FROM financial_assets WHERE id=?", (asset_id,))
 
     def average_opening_cost(self, asset_id: int, as_of: str) -> dict | None:
         """Cost per unit of holdings entered as already owned — the last resort for a value."""

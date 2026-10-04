@@ -5,6 +5,7 @@ from __future__ import annotations
 import sqlite3
 
 from lightning.core.dates import now_iso
+from lightning.core.memo import request_cached
 from lightning.database.connection import Database
 
 from .domain import Category, CategoryFamily, Direction, IncomeClass, Movement, Scope
@@ -39,6 +40,7 @@ class CategoryRepository:
         row = self.db.one("SELECT * FROM categories WHERE id = ?", (category_id,))
         return _row(row) if row else None
 
+    @request_cached(deep=True)
     def get_by_code(self, code: str) -> Category | None:
         row = self.db.one("SELECT * FROM categories WHERE code = ?", (code,))
         return _row(row) if row else None
