@@ -268,6 +268,12 @@ class CashReserveService:
         return -1 if len(candidates) > 1 else 0
 
     def suggested_reserves(self, transaction_id: int) -> list[dict]:
+        # A register page asks this for every spending row. Only a reserve with a funded unpaid amount
+        # equal to the spending can match, so the cheap checks come first and most rows stop there.
+        eligible = [reserve for reserve in self.list_active() if reserve["target"] - reserve["spent"] > ZERO
+                    and reserve["effective_allocated"] >= reserve["target"] - reserve["spent"]]
+        if not eligible:
+            return []
         transaction = self.db.one(
             "SELECT id,counterparty_id,type,status,description FROM transactions WHERE id=?", (transaction_id,)
         )
@@ -276,20 +282,20 @@ class CashReserveService:
         if (not transaction or (transaction["type"] != "OUT" and not external_expense) or
                 transaction["status"] != "POSTED"):
             return []
-        has_non_user_lines = self.db.scalar(
-            "SELECT 1 FROM ledger_entries WHERE transaction_id=? AND owner_id IS NOT NULL", (transaction_id,))
-        if (self.db.scalar("SELECT 1 FROM money_from_others WHERE transaction_id=?", (transaction_id,)) or
-                (has_non_user_lines and not external_expense)):
-            return []
-        if self.db.scalar("SELECT 1 FROM reserve_transaction_links WHERE transaction_id=?", (transaction_id,)):
-            return []
         remaining = int(self.db.scalar(
             "SELECT COALESCE(SUM(ABS(le.amount_base_e6)),0) FROM ledger_entries le "
             "JOIN financial_assets a ON a.id=le.asset_id WHERE le.transaction_id=? AND a.is_cash=1 "
             "AND le.effect='OUTFLOW' AND le.owner_id IS NULL",
             (transaction_id,),
         ) or 0)
-        if remaining <= 0:
+        if remaining <= 0 or remaining not in {to_e6(r["target"] - r["spent"]) for r in eligible}:
+            return []
+        has_non_user_lines = self.db.scalar(
+            "SELECT 1 FROM ledger_entries WHERE transaction_id=? AND owner_id IS NOT NULL", (transaction_id,))
+        if (self.db.scalar("SELECT 1 FROM money_from_others WHERE transaction_id=?", (transaction_id,)) or
+                (has_non_user_lines and not external_expense)):
+            return []
+        if self.db.scalar("SELECT 1 FROM reserve_transaction_links WHERE transaction_id=?", (transaction_id,)):
             return []
         categories = {int(row["category_id"]) for row in self.db.all(
             "SELECT DISTINCT category_id FROM ledger_entries WHERE transaction_id=? AND category_id IS NOT NULL",
@@ -298,13 +304,13 @@ class CashReserveService:
             "SELECT DISTINCT le.account_id FROM ledger_entries le JOIN financial_assets a ON a.id=le.asset_id "
             "WHERE le.transaction_id=? AND a.is_cash=1 AND le.quantity_e6<0", (transaction_id,))}
         candidates = []
-        for reserve in self.list_active():
+        for reserve in eligible:
             matched = ((transaction["counterparty_id"] is not None and
                         reserve["counterparty_id"] == transaction["counterparty_id"]) or
                        (reserve["category_id"] is not None and reserve["category_id"] in categories))
             matched = matched or (reserve.get("account_id") is not None and reserve["account_id"] in cash_accounts)
             unpaid = reserve["target"] - reserve["spent"]
-            if matched and unpaid > ZERO and to_e6(unpaid) == remaining and reserve["effective_allocated"] >= unpaid:
+            if matched and to_e6(unpaid) == remaining:
                 candidates.append({"id": reserve["id"], "name": reserve["name"], "amount": unpaid})
         return candidates
 
