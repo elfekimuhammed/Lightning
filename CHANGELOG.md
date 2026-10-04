@@ -16,6 +16,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - 2026-10-03 · Codex: Set the source version to 0.5.0b1 (display 0.5.0-beta.1) for the next beta. The Windows package workflow now runs from `main` and names the ZIP `Lightning-v0.5.0-beta.1-Windows-x64.zip`. This records the packaging setup only; Windows build verification and distribution are still pending.
 
 ## [Unreleased]
+- 2026-10-04 · Codex: Renamed the proposed permanent coordinator from authority node to home node; the temporary role remains writer node and read-only copies remain reader nodes.
 - 2026-10-04 · Codex: Drafted the multi-device authority, single-writer checkout/check-in protocol and downside audit in `docs/temp_multiple_sync_devices.md`. This is a proposal, with no sync code yet.
 - 2026-10-04 · Claude: Fixed: the remembered period kept a month that was "this month" after the calendar moved on. It now moves to the new current month; a past month picked on purpose stays. Test `tests/test_remembered_period.py`.
 - 2026-10-04 · Claude: Fixes from an AI review of Mohab's year:

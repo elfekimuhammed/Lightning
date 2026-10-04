@@ -8,10 +8,10 @@ This file tells the story: what Lightning is, who it is for, what it answers and
 
 The hand-off between the AIs working here (Codex and Claude sessions). Read it first; rewrite it when you finish (rules in `AGENTS.md`, section 2).
 
-- **Done · Codex · 2026-10-04:** drafted the proposed authority / single-writer checkout architecture and downside audit in [`temp_multiple_sync_devices.md`](temp_multiple_sync_devices.md). No sync implementation has started. The owner chose one authority per profile (PC/laptop initially; server possible later) and one temporary writer at a time.
+- **Done · Codex · 2026-10-04:** drafted the proposed home-node / single-writer checkout architecture and downside audit in [`temp_multiple_sync_devices.md`](temp_multiple_sync_devices.md). No sync implementation has started. The owner chose one home node per profile (PC/laptop initially; server possible later) and one temporary writer node at a time.
 - **In progress:** no files claimed for sync. Other work and claims below remain in force.
-- **Next for multiple devices:** settle unattended authority key custody and lost-writer recovery, then prove Android's native dependencies and implement verified snapshot promotion before two-PC checkout/check-in.
-- **Questions for the owner:** should the first authority require an unlock to verify each return, and may it store encrypted unaccepted recovery checkpoints during a checkout? See the proposal's decision section.
+- **Next for multiple devices:** settle unattended home-node key custody and lost-writer recovery, then prove Android's native dependencies and implement verified snapshot promotion before two-PC checkout/check-in.
+- **Questions for the owner:** should the first home node require an unlock to verify each return, and may it store encrypted unaccepted recovery checkpoints during a checkout? See the proposal's decision section.
 - **Done · Codex:** bumped source version to 0.5.0b1 (display 0.5.0-beta.1), updated the package name, and pushed the main-triggered Windows workflow. Package CI status is not yet verified.
 - **2026-10-04 · Claude · done:** packaging and release pipeline (Architecture › Build and release). The Windows build waits for the full suite. The shipped ZIP is the one tested, marked as downloaded from the internet. Tags publish immutable releases to `Lightning-downloads`. Licences cover everything bundled. CI is green on Windows. No files claimed.
 - **Owner, please retest on the PC whose window failed to start:** a ZIP downloaded in a browser used to break the window: .NET refused the files Windows marks as downloaded. Builds from `f4e1603` on ship `Lightning.exe.config`, which fixes this, and CI now tests a copy marked that way. Use the newest Actions build or the next release.
