@@ -1,15 +1,18 @@
-"""Pure journal model for crash-safe database candidate promotion.
+"""Journal model and POSIX file-operation adapter for candidate promotion.
 
-This module deliberately does not touch the filesystem or the authority store.
-It validates durable intent and chooses a restart action from observed hashes;
-platform-specific POSIX/Windows adapters and publication are separate work.
+The state machine chooses restart actions but does not integrate them with an
+authority store. The POSIX adapter supplies durable, same-directory primitives;
+it does not decide when a caller may publish or clean up a referenced file.
 """
 
 from __future__ import annotations
 
+import hashlib
+import os
+import stat
 from dataclasses import dataclass, replace
 from enum import IntEnum, StrEnum
-from pathlib import PurePath
+from pathlib import Path, PurePath
 from typing import Protocol, runtime_checkable
 
 
@@ -156,8 +159,242 @@ class PromotionFileOps(Protocol):
         ...
 
     def unlink(self, name: str) -> None:
-        """Remove only an adapter-owned, unreferenced file and flush metadata."""
+        """Remove a caller-confirmed unreferenced sibling and flush metadata."""
         ...
+
+
+class PosixPromotionFileOps:
+    """POSIX sibling-file operations rooted at one already-created directory.
+
+    Names are always validated as plain siblings and opened relative to a held
+    directory descriptor with no-follow semantics. The caller must hold its
+    profile operation gate and prove a file is unreferenced before unlinking.
+    The adapter never follows file symlinks and refuses regular files with more
+    than one hard link. Any data or directory fsync failure is raised.
+    """
+
+    def __init__(self, directory: str | Path):
+        if os.name == "nt":
+            raise OSError("PosixPromotionFileOps is unavailable on Windows")
+        path = Path(os.path.abspath(directory))
+        probe = Path(path.anchor)
+        for part in path.parts[1:]:
+            probe = probe / part
+            if probe.is_symlink():
+                raise ValueError("Promotion directory path must not contain symbolic links")
+        path = path.resolve(strict=True)
+        info = path.stat(follow_symlinks=False)
+        if not stat.S_ISDIR(info.st_mode):
+            raise ValueError("Promotion root must be a directory")
+        flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
+        directory_fd = os.open(path, flags)
+        try:
+            opened_info = os.fstat(directory_fd)
+            named_info = os.stat(path, follow_symlinks=False)
+            if (not stat.S_ISDIR(named_info.st_mode)
+                    or (opened_info.st_dev, opened_info.st_ino) != (info.st_dev, info.st_ino)
+                    or (named_info.st_dev, named_info.st_ino) != (info.st_dev, info.st_ino)):
+                raise OSError("Promotion directory changed while opening")
+        except BaseException:
+            os.close(directory_fd)
+            raise
+        self._directory_fd = directory_fd
+        self._directory_path = path
+        self._directory_identity = (info.st_dev, info.st_ino)
+        self._closed = False
+
+    def close(self) -> None:
+        if not self._closed:
+            os.close(self._directory_fd)
+            self._closed = True
+
+    def __enter__(self) -> PosixPromotionFileOps:
+        self._ensure_open()
+        return self
+
+    def __exit__(self, exc_type, exc, traceback) -> None:
+        self.close()
+
+    def _ensure_open(self) -> None:
+        if self._closed:
+            raise RuntimeError("Promotion file adapter is closed")
+        try:
+            opened = os.fstat(self._directory_fd)
+            named = os.stat(self._directory_path, follow_symlinks=False)
+        except OSError as exc:
+            raise OSError("Promotion directory path is no longer available") from exc
+        if (not stat.S_ISDIR(named.st_mode)
+                or (opened.st_dev, opened.st_ino) != self._directory_identity
+                or (named.st_dev, named.st_ino) != self._directory_identity):
+            raise OSError("Promotion directory path changed after adapter construction")
+
+    @staticmethod
+    def _validate_name(name: str) -> str:
+        _validate_file_name(name)
+        return name
+
+    @staticmethod
+    def _require_single_regular(info: os.stat_result, name: str) -> None:
+        if not stat.S_ISREG(info.st_mode):
+            raise ValueError(f"Promotion path is not a regular file: {name}")
+        if info.st_nlink != 1:
+            raise ValueError(f"Hard-linked promotion files are not allowed: {name}")
+
+    def _open_regular(self, name: str, flags: int) -> tuple[int, os.stat_result]:
+        self._ensure_open()
+        name = self._validate_name(name)
+        nofollow = getattr(os, "O_NOFOLLOW", 0)
+        fd = os.open(name, flags | nofollow | getattr(os, "O_NONBLOCK", 0), dir_fd=self._directory_fd)
+        try:
+            info = os.fstat(fd)
+            self._require_single_regular(info, name)
+            named = os.stat(name, dir_fd=self._directory_fd, follow_symlinks=False)
+            self._require_single_regular(named, name)
+            if (named.st_dev, named.st_ino) != (info.st_dev, info.st_ino):
+                raise OSError(f"Promotion path changed while opening: {name}")
+            return fd, info
+        except BaseException:
+            os.close(fd)
+            raise
+
+    def _fsync_directory(self) -> None:
+        self._ensure_open()
+        os.fsync(self._directory_fd)
+
+    def sha256(self, name: str) -> str | None:
+        name = self._validate_name(name)
+        try:
+            fd, before = self._open_regular(name, os.O_RDONLY)
+        except FileNotFoundError:
+            return None
+        digest = hashlib.sha256()
+        try:
+            while True:
+                block = os.read(fd, 1024 * 1024)
+                if not block:
+                    break
+                digest.update(block)
+            after = os.fstat(fd)
+            named = os.stat(name, dir_fd=self._directory_fd, follow_symlinks=False)
+            self._require_single_regular(named, name)
+            stable_before = (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns, before.st_ctime_ns)
+            stable_after = (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns, after.st_ctime_ns)
+            if stable_before != stable_after or (named.st_dev, named.st_ino) != (after.st_dev, after.st_ino):
+                raise OSError(f"Promotion file changed while hashing: {name}")
+            return digest.hexdigest()
+        finally:
+            os.close(fd)
+
+    def copy_exclusive(self, source: str, destination: str) -> None:
+        source = self._validate_name(source)
+        destination = self._validate_name(destination)
+        if source == destination:
+            raise ValueError("Copy source and destination must differ")
+        source_fd, source_before = self._open_regular(source, os.O_RDONLY)
+        destination_fd = None
+        created_identity = None
+        try:
+            destination_fd = os.open(
+                destination,
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0),
+                0o600,
+                dir_fd=self._directory_fd,
+            )
+            created = os.fstat(destination_fd)
+            self._require_single_regular(created, destination)
+            created_identity = (created.st_dev, created.st_ino)
+            while True:
+                block = os.read(source_fd, 1024 * 1024)
+                if not block:
+                    break
+                view = memoryview(block)
+                while view:
+                    written = os.write(destination_fd, view)
+                    if written <= 0:
+                        raise OSError("Short write while copying promotion file")
+                    view = view[written:]
+            os.fsync(destination_fd)
+            source_after = os.fstat(source_fd)
+            source_named = os.stat(source, dir_fd=self._directory_fd, follow_symlinks=False)
+            self._require_single_regular(source_named, source)
+            stable_before = (
+                source_before.st_dev, source_before.st_ino, source_before.st_size,
+                source_before.st_mtime_ns, source_before.st_ctime_ns,
+            )
+            stable_after = (
+                source_after.st_dev, source_after.st_ino, source_after.st_size,
+                source_after.st_mtime_ns, source_after.st_ctime_ns,
+            )
+            if stable_before != stable_after or (source_named.st_dev, source_named.st_ino) != (
+                source_after.st_dev, source_after.st_ino
+            ):
+                raise OSError(f"Promotion source changed while copying: {source}")
+            os.close(destination_fd)
+            destination_fd = None
+            self._fsync_directory()
+        except BaseException:
+            if destination_fd is not None:
+                os.close(destination_fd)
+                destination_fd = None
+            if created_identity is not None:
+                try:
+                    current = os.stat(destination, dir_fd=self._directory_fd, follow_symlinks=False)
+                    if (current.st_dev, current.st_ino) == created_identity:
+                        os.unlink(destination, dir_fd=self._directory_fd)
+                        try:
+                            self._fsync_directory()
+                        except OSError:
+                            pass
+                except FileNotFoundError:
+                    pass
+            raise
+        finally:
+            os.close(source_fd)
+
+    def atomic_replace(self, source: str, destination: str) -> None:
+        source = self._validate_name(source)
+        destination = self._validate_name(destination)
+        if source == destination:
+            raise ValueError("Replace source and destination must differ")
+        source_fd, source_info = self._open_regular(source, os.O_RDONLY)
+        destination_fd = None
+        try:
+            destination_fd, destination_info = self._open_regular(destination, os.O_RDONLY)
+            # Recheck the names immediately before the rename. The process-level
+            # operation gate excludes Lightning writers; dir_fd/no-follow keeps
+            # resolution inside the pinned directory.
+            self._assert_name_is_inode(source, source_info)
+            self._assert_name_is_inode(destination, destination_info)
+            os.fsync(source_fd)
+            os.replace(
+                source, destination,
+                src_dir_fd=self._directory_fd,
+                dst_dir_fd=self._directory_fd,
+            )
+            self._fsync_directory()
+            published = os.stat(destination, dir_fd=self._directory_fd, follow_symlinks=False)
+            if (published.st_dev, published.st_ino) != (source_info.st_dev, source_info.st_ino):
+                raise OSError("Published path does not refer to the opened candidate")
+        finally:
+            if destination_fd is not None:
+                os.close(destination_fd)
+            os.close(source_fd)
+
+    def _assert_name_is_inode(self, name: str, info: os.stat_result) -> None:
+        current = os.stat(name, dir_fd=self._directory_fd, follow_symlinks=False)
+        self._require_single_regular(current, name)
+        if (current.st_dev, current.st_ino) != (info.st_dev, info.st_ino):
+            raise OSError(f"Promotion path changed before publication: {name}")
+
+    def unlink(self, name: str) -> None:
+        name = self._validate_name(name)
+        fd, opened = self._open_regular(name, os.O_RDONLY)
+        try:
+            self._assert_name_is_inode(name, opened)
+            os.unlink(name, dir_fd=self._directory_fd)
+            self._fsync_directory()
+        finally:
+            os.close(fd)
 
 
 class FileState(StrEnum):

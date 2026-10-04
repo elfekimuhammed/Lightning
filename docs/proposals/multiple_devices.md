@@ -1,6 +1,6 @@
 # Multiple devices: implementation plan
 
-**Status: implementation started · 2026-10-05 · Tasks 01 and 02a are foundations only; no working sync or restore yet.**
+**Status: implementation started · 2026-10-05 · Tasks 01 and 02a–02b are foundations only; no working sync or restore yet.**
 
 One Android phone holds the accepted encrypted ledger. It can lend editing to one paired Windows PC or laptop, which works from its own local copy even when the phone leaves. Returning the copy brings editing home. There is no automatic merge and no cloud dependency.
 
@@ -694,7 +694,7 @@ The update-direction question is **resolved** by the existing owner-requested Wi
 
 ### Evidence still needed
 
-- Reproducible Android builds of the pinned encrypted/crypto stack and acceptable performance. The first arm64 Chaquopy probe failed to resolve `sqlcipher3==0.6.2` ([GitHub run](https://github.com/elfekimuhammed/Lightning/actions/runs/37234716636)); no APK or phone result exists yet. Its published `cryptography` Android index lists only 42.0.8, below Lightning's pinned 50.0.2 and the Argon2id API introduced in 44. Build compatible native wheels or evaluate the narrow adapter before continuing Android product work.
+- Reproducible Android builds of the pinned encrypted/crypto stack and acceptable performance. The [arm64 Chaquopy jobs](https://github.com/elfekimuhammed/Lightning/actions/runs/37235081432) independently failed to resolve `sqlcipher3==0.6.2` and `cryptography==50.0.2` (only 42.0.8 is offered). The latter lacks Lightning's Argon2id API, introduced in 44. No APK or phone result exists yet. Build compatible native wheels or evaluate the narrow adapter before continuing Android product work.
 - Proven file durability and restart behavior on Windows and Android storage.
 - A compliant foreground-service lifecycle and local discovery on the chosen Android support matrix.
 - Bank-specific sanitized examples, SMS permission approval where required and measured matching quality.
