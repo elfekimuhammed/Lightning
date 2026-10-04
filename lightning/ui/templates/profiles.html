@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
-  <title>{% if mode == 'choose' %}Choose a profile{% elif mode == 'setup' %}Create a profile{% elif mode == 'recovery-key' %}Save your recovery key{% elif mode == 'unlock' %}Unlock your profile{% elif mode == 'recover' %}Reset your password{% elif mode == 'restore' %}Restore a backup{% elif mode == 'manage' %}Profile settings{% else %}Profiles{% endif %} · Lightning</title>
+  <title>{% if mode == 'choose' %}Choose a profile{% elif mode == 'setup' %}Create a profile{% elif mode == 'recovery-key' %}Save your recovery key{% elif mode == 'unlock' %}Unlock your profile{% elif mode == 'recover' %}Reset your password{% elif mode == 'restore' %}Restore a backup{% elif mode == 'resume-restore' %}Resume a restore{% elif mode == 'manage' %}Profile settings{% else %}Profiles{% endif %} · Lightning</title>
   <link rel="stylesheet" href="/static/fonts/fonts.css">
   <link rel="stylesheet" href="/static/profiles.css">
 </head>
@@ -39,6 +39,9 @@
         {% elif mode == 'restore' %}
           <h1 id="page-title">Restore a backup</h1>
           <p>Return this profile to a saved copy. Later edits will not appear in the restored profile. Lightning keeps the current database for recovery.</p>
+        {% elif mode == 'resume-restore' %}
+          <h1 id="page-title">Resume a restore</h1>
+          <p>Lightning will check the saved copies and continue a restore that stopped partway through. If it cannot prove the next step is safe, the profile stays locked.</p>
         {% elif mode == 'manage' %}
           <h1 id="page-title">Profile settings</h1>
           <p>Manage access to your encrypted financial data.</p>
@@ -46,6 +49,7 @@
       </section>
 
       {% if error %}<div class="alert alert-error" role="alert" aria-live="assertive">{{ error }}</div>{% endif %}
+      {% if error and selected and mode in ['unlock', 'restore'] and 'restore' in error|lower %}<p><a class="text-link" href="/profiles/restore/resume?db={{ selected|urlencode }}">Check interrupted restore →</a></p>{% endif %}
       {% if notice %}<div class="alert alert-notice" role="status">{{ notice }}</div>{% endif %}
       {% if mode != 'choose' and mode != 'manage' %}<p><a class="text-link" href="/profiles">← Back to profiles</a></p>{% endif %}
       {% if selected %}<p class="selected-database">Selected database: <code>{{ selected }}</code></p>{% endif %}
@@ -147,6 +151,19 @@
             <div class="field"><label for="restore-password">Profile password</label><input id="restore-password" name="password" type="password" required autocomplete="current-password"></div>
             <label class="check-row"><input type="checkbox" name="confirm" value="yes" required><span>Replace this profile with the selected backup.</span></label>
             <div class="form-actions"><button class="button button-primary" type="submit">Restore backup</button><a class="text-link" href="/profiles">Cancel</a></div>
+          </form>
+        </section>
+
+      {% elif mode == 'resume-restore' %}
+        <section class="panel form-panel" aria-labelledby="resume-restore-heading">
+          <h2 id="resume-restore-heading">Check recovery copies</h2>
+          <p>Lightning checks the recorded operation and encrypted recovery copies before continuing. It will keep the profile locked if any evidence is missing or does not match.</p>
+          <form method="post" action="/profiles/restore/resume" class="form-stack">
+            <input type="hidden" name="csrf" value="{{ csrf }}">
+            <input type="hidden" name="db" value="{{ selected }}">
+            <div class="field"><label for="resume-restore-password">Profile password</label><input id="resume-restore-password" name="password" type="password" required autocomplete="current-password"></div>
+            <label class="check-row"><input type="checkbox" name="confirm" value="yes" required><span>Check and resume this interrupted restore.</span></label>
+            <div class="form-actions"><button class="button button-primary" type="submit">Check and resume</button><a class="text-link" href="/profiles">Cancel</a></div>
           </form>
         </section>
 

@@ -410,3 +410,67 @@ def test_interrupted_restore_marker_blocks_fresh_unlock(tmp_path, monkeypatch):
     with pytest.raises(ProfileError, match="interrupted restore"):
         fresh.unlock(str(live), PASSWORD)
     assert not fresh.container
+
+
+@pytest.mark.parametrize("boundary", ["P1", "P2", "P3", "P4"])
+def test_resume_interrupted_restore_advances_durable_phases(tmp_path, monkeypatch, boundary):
+    from lightning.database.promotion import PromotionPhase, SqlitePromotionJournalStore
+    from lightning.runtime.restore import EncryptedBackupRestorer
+
+    session, _ = created(tmp_path)
+    live, paths = session.paths.db_path, session.paths
+    session.container.settings.set("restore_marker", "current")
+    selected = session.container.backup_now()
+    session.close()
+
+    def inject_once(method, predicate=lambda *args, **kwargs: True):
+        original = getattr(SqlitePromotionJournalStore, method)
+        tripped = {"value": False}
+
+        def wrapper(self, *args, **kwargs):
+            result = original(self, *args, **kwargs)
+            if not tripped["value"] and predicate(*args, **kwargs):
+                tripped["value"] = True
+                raise OSError(f"injected {boundary} interruption")
+            return result
+
+        monkeypatch.setattr(SqlitePromotionJournalStore, method, wrapper)
+        return tripped
+
+    if boundary == "P1":
+        inject_once("prepare")
+    elif boundary == "P2":
+        inject_once("advance", lambda _old, new: new.phase is PromotionPhase.PREVIOUS_PROTECTED)
+    elif boundary == "P3":
+        if os.name == "nt":
+            from lightning.database.promotion_windows import WindowsPromotionFileOps as FileOps
+        else:
+            from lightning.database.promotion import PosixPromotionFileOps as FileOps
+        original = FileOps.atomic_replace
+        tripped = {"value": False}
+
+        def replace_then_fail(self, source, destination):
+            result = original(self, source, destination)
+            if not tripped["value"]:
+                tripped["value"] = True
+                raise OSError("injected P3 interruption")
+            return result
+
+        monkeypatch.setattr(FileOps, "atomic_replace", replace_then_fail)
+    else:
+        inject_once("commit_authority")
+
+    with pytest.raises(ProfileError):
+        session.restore_backup(str(live), str(selected), PASSWORD)
+    assert session.container is None and session.lock is None
+    # The interruption hook is one-shot; recovery uses the durable journal and
+    # verifies encrypted candidate/previous files before advancing further.
+    if boundary == "P3":
+        monkeypatch.setattr(FileOps, "atomic_replace", original)
+    session.retry_at = 0.0
+    EncryptedBackupRestorer(session).resume_interrupted_restore(str(live), PASSWORD)
+    assert session.container is None and session.lock is None
+    assert len(list(paths.data_dir.glob(".lightning-restore-*.state"))) == 1
+    session.unlock(str(live), PASSWORD)
+    assert session.container.settings.get("restore_marker") == "current"
+    session.close()

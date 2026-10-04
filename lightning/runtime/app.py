@@ -248,6 +248,29 @@ def profile_app(credentials: Credentials, root: Path | str | None = None):
         return page(request, "unlock", selected=selected,
                     notice="Backup restored. The previous database was kept for recovery. Unlock this profile to review it.")
 
+    @app.get("/profiles/restore/resume")
+    async def resume_restore_page(request: Request):
+        if session.container:
+            return RedirectResponse("/profiles", 303)
+        return page(request, "resume-restore", selected=request.query_params.get("db", ""))
+
+    @app.post("/profiles/restore/resume")
+    async def resume_restore(request: Request):
+        form = await request.form()
+        selected = str(form.get("db", ""))
+        if form.get("confirm") != "yes":
+            return page(request, "resume-restore", status=400, selected=selected,
+                        error="Confirm that Lightning should check and resume this restore.")
+        try:
+            session.resume_interrupted_restore(selected, str(form.get("password", "")))
+        except ProfileError as exc:
+            return page(request, "resume-restore", status=400, selected=selected, error=str(exc))
+        except Exception:
+            return page(request, "resume-restore", status=400, selected=selected,
+                        error="Restore recovery needs inspection. The profile remains locked and its copies were kept.")
+        return page(request, "unlock", selected=selected,
+                    notice="Restore checks finished. Unlock this profile to review the recovered database.")
+
     @app.post("/profiles/password")
     async def password(request: Request):
         form = await request.form()

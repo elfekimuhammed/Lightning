@@ -222,6 +222,11 @@ class ProfileSession:
 
         EncryptedBackupRestorer(self).restore_backup(selected, backup_path, password)
 
+    def resume_interrupted_restore(self, selected: str, password: str) -> None:
+        from lightning.runtime.restore import EncryptedBackupRestorer
+
+        EncryptedBackupRestorer(self).resume_interrupted_restore(selected, password)
+
     @staticmethod
     def _verify(paths: ProfilePaths, key: bytes) -> None:
         db = Database(paths.db_path, key=key, read_only=True)

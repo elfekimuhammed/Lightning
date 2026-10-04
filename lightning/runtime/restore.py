@@ -206,11 +206,11 @@ class EncryptedBackupRestorer:
                     existing = adapter.sha256(path.name)
                     if existing is None and not replace_existing:
                         adapter.copy_exclusive(temporary.name, path.name)
+                        adapter.unlink(temporary.name)
                     elif existing is not None and replace_existing:
                         adapter.atomic_replace(temporary.name, path.name)
                     else:
                         raise FileExistsError(path) if existing is not None else FileNotFoundError(path)
-                    adapter.unlink(temporary.name)
             else:
                 exists = path.exists() or path.is_symlink()
                 if exists and replace_existing:
@@ -518,6 +518,163 @@ class EncryptedBackupRestorer:
                 # unreferenced partial after it has been atomically consumed.
                 if not staged.path.exists():
                     staged.path.unlink(missing_ok=True)
+            lock.close()
+
+    def resume_interrupted_restore(self, selected: str, password: str) -> None:
+        """Forward-resume the single durable pending restore for a locked profile.
+
+        This deliberately has no cancel or rollback path. Any uncertainty in the
+        manifest, journal, retained source, or pre-restore snapshot leaves the
+        profile locked with its recovery evidence intact.
+        """
+        self.session._attempt()
+        self.session._locked()
+        paths = self.session._select(selected)
+        if paths.profile is None:
+            raise ProfileError("Restore recovery requires a named Lightning profile.")
+        lock = self.session._acquire(paths)
+        file_ops = None
+        try:
+            try:
+                key = unwrap_key(read_slot(paths.keys_path), password)
+            except (ProfileError, ValueError) as exc:
+                raise ProfileError("The profile password could not unlock its encrypted database.") from exc
+            reserved = (paths.data_dir / ".sync", paths.data_dir / "sync-control.sqlite",
+                        paths.data_dir / ".lightning-sync.sqlite")
+            if any(path.exists() or path.is_symlink() for path in reserved):
+                raise ProfileError("Restore recovery is unavailable while sync authority state exists or cannot be verified.")
+
+            markers = self._restore_marker_paths(paths)
+            pending: list[tuple[Path, RestoreManifest]] = []
+            for marker in markers:
+                try:
+                    info = marker.stat(follow_symlinks=False)
+                    if marker.is_symlink() or not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+                        raise OSError("unsafe restore manifest")
+                    with marker.open("rb") as handle:
+                        manifest = RestoreManifest.from_bytes(handle.read(_MAX_MANIFEST_BYTES + 1))
+                except Exception as exc:
+                    raise ProfileError("A restore operation manifest is malformed or unsafe; this profile remains locked.") from exc
+                marker_id = marker.name.removeprefix(".lightning-restore-").removesuffix(".state")
+                if (marker_id != manifest.operation_id or paths.profile.profile_id != manifest.profile_id or
+                        paths.db_path.name != manifest.live_name):
+                    raise ProfileError("A restore manifest belongs to another operation or profile.")
+                if manifest.state == "PENDING":
+                    pending.append((marker, manifest))
+            if len(pending) != 1:
+                raise ProfileError("Resume requires exactly one pending restore operation.")
+            marker, manifest = pending[0]
+            manifest_ids = {path.name.removeprefix(".lightning-restore-").removesuffix(".state")
+                            for path in markers}
+            for control in self._restore_journal_paths(paths):
+                control_id = control.name.removeprefix(".lightning-restore-").removesuffix(".sqlite")
+                if control_id not in manifest_ids:
+                    raise ProfileError("An unclaimed restore journal blocks recovery; this profile remains locked.")
+            journal_path = paths.data_dir / f".lightning-restore-{manifest.operation_id}.sqlite"
+            try:
+                info = journal_path.stat(follow_symlinks=False)
+                if journal_path.is_symlink() or not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+                    raise OSError("unsafe restore journal")
+                connection = sqlite3.connect(journal_path.resolve(strict=True).as_uri() + "?mode=ro", uri=True)
+                try:
+                    row = connection.execute(
+                        "SELECT accepted_checkpoint_id, accepted_sha256, journal_json "
+                        "FROM promotion_control WHERE singleton=1"
+                    ).fetchone()
+                    observed = SqlitePromotionJournalStore._row_state(row)
+                finally:
+                    connection.close()
+            except Exception as exc:
+                raise ProfileError("The pending restore has no readable matching journal; this profile remains locked.") from exc
+            journal = observed.journal
+            if (journal is None or journal.operation_id != manifest.operation_id or
+                    journal.phase not in (PromotionPhase.PREPARED, PromotionPhase.PREVIOUS_PROTECTED,
+                                          PromotionPhase.FILE_PUBLISHED, PromotionPhase.AUTHORITY_PUBLISHED,
+                                          PromotionPhase.ACTIVATED) or
+                    journal.live_name != manifest.live_name or
+                    journal.candidate_name != manifest.candidate_name or
+                    journal.previous_name != manifest.previous_name or
+                    journal.old_checkpoint_id != manifest.old_checkpoint_id or
+                    journal.old_sha256 != manifest.old_sha256 or
+                    journal.new_checkpoint_id != manifest.new_checkpoint_id or
+                    journal.new_sha256 != manifest.candidate_sha256 or observed.accepted is None or
+                    observed.accepted.checkpoint_id not in (manifest.old_checkpoint_id, manifest.new_checkpoint_id) or
+                    observed.accepted.sha256 not in (manifest.old_sha256, manifest.candidate_sha256) or
+                    (observed.accepted.checkpoint_id == manifest.old_checkpoint_id and
+                     observed.accepted.sha256 != manifest.old_sha256) or
+                    (observed.accepted.checkpoint_id == manifest.new_checkpoint_id and
+                     observed.accepted.sha256 != manifest.candidate_sha256)):
+                raise ProfileError("Pending restore manifest and journal disagree; this profile remains locked.")
+
+            source_copy = paths.backups_dir / manifest.source_copy_name
+            pre_restore = paths.backups_dir / manifest.pre_restore_name
+            try:
+                for path, expected in ((source_copy, manifest.source_copy_sha256),
+                                       (pre_restore, manifest.pre_restore_sha256)):
+                    self._require_clean_database_file(path)
+                    if self._digest(path) != expected:
+                        raise ProfileError("A protected restore file does not match its manifest.")
+                    self._verify_file(path, key)
+                original_source = paths.backups_dir / manifest.source_backup_name
+                if original_source.exists() or original_source.is_symlink():
+                    self._require_clean_database_file(original_source)
+                    if self._digest(original_source) != manifest.source_sha256:
+                        raise ProfileError("The selected backup no longer matches its manifest.")
+            except Exception as exc:
+                raise ProfileError("Protected restore source or pre-restore evidence is missing or corrupt; profile remains locked.") from exc
+
+            store = SqlitePromotionJournalStore(journal_path)
+            if os.name == "nt":
+                from lightning.database.promotion_windows import WindowsPromotionFileOps
+                file_ops = WindowsPromotionFileOps(paths.data_dir)
+            else:
+                from lightning.database.promotion import PosixPromotionFileOps
+                file_ops = PosixPromotionFileOps(paths.data_dir)
+            service = CandidatePromotionService(file_ops, store)
+
+            def verify(name: str) -> None:
+                if not _manifest_name(name):
+                    raise ProfileError("Promotion journal contains an unsafe file name.")
+                self._verify_file(paths.data_dir / name, key)
+
+            def remain_locked(_checkpoint: str, live_name: str) -> None:
+                self._verify_file(paths.data_dir / live_name, key)
+
+            try:
+                result = service.recover(
+                    live_name=manifest.live_name,
+                    operation_gate=_held_profile_lock(lock),
+                    verify_database=verify,
+                    activate=remain_locked,
+                )
+                final = store.read_state()
+                if (result.phase is not PromotionPhase.ACTIVATED or final.journal is None or
+                        final.journal.operation_id != manifest.operation_id or
+                        final.journal.phase is not PromotionPhase.ACTIVATED or final.accepted is None or
+                        final.accepted.checkpoint_id != manifest.new_checkpoint_id or
+                        final.accepted.sha256 != manifest.candidate_sha256):
+                    raise ProfileError("Restore recovery did not reach the accepted P5 state; profile remains locked.")
+                for path, expected in ((source_copy, manifest.source_copy_sha256),
+                                       (pre_restore, manifest.pre_restore_sha256),
+                                       (paths.data_dir / manifest.previous_name, manifest.old_sha256)):
+                    self._require_clean_database_file(path)
+                    if self._digest(path) != expected:
+                        raise ProfileError("Restore recovery evidence changed; profile remains locked.")
+                    self._verify_file(path, key)
+                if (original_source.exists() or original_source.is_symlink()) and self._digest(original_source) != manifest.source_sha256:
+                    raise ProfileError("The selected backup changed during restore recovery; profile remains locked.")
+                self._write_restore_manifest(marker, replace(manifest, state="COMPLETE"),
+                                             replace_existing=True)
+                self.session.retry_at = 0.0
+            finally:
+                file_ops.close()
+        except Exception as exc:
+            if isinstance(exc, ProfileError):
+                raise
+            if isinstance(exc, PromotionBlocked):
+                raise ProfileError("Restore recovery is blocked; the profile remains locked and evidence was preserved.") from exc
+            raise ProfileError("Restore recovery failed safely; the profile remains locked and evidence was preserved.") from exc
+        finally:
             lock.close()
 
     @staticmethod

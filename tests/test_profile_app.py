@@ -146,6 +146,56 @@ def test_restore_screen_replaces_only_after_confirmed_encrypted_backup(tmp_path)
         assert browser.portal.call(app.session.container.settings.get, "restore_ui_marker") == "saved version"
 
 
+def test_restore_repair_screen_requires_confirmation_and_finishes_pending_operation(tmp_path, monkeypatch):
+    from lightning.database.promotion import SqlitePromotionJournalStore
+
+    browser, app, cfg = start(tmp_path)
+    with browser:
+        browser.get("/__launch", params={"code": cfg.launch_code})
+        create(browser)
+        live_path = app.session.paths.db_path
+        backup_path = browser.portal.call(app.session.container.backup_now)
+        csrf = token(browser.get("/profiles").text)
+        browser.post("/profiles/lock", data={"csrf": csrf})
+
+        original_prepare = SqlitePromotionJournalStore.prepare
+        injected = {"done": False}
+
+        def fail_after_p1(self, journal):
+            result = original_prepare(self, journal)
+            if not injected["done"]:
+                injected["done"] = True
+                raise OSError("injected interruption")
+            return result
+
+        monkeypatch.setattr(SqlitePromotionJournalStore, "prepare", fail_after_p1)
+        restore_page = browser.get("/profiles/restore", params={"db": str(live_path),
+                                                             "backup": str(backup_path)})
+        failed = browser.post("/profiles/restore", data={
+            "csrf": token(restore_page.text), "db": str(live_path),
+            "backup": str(backup_path), "password": PASSWORD, "confirm": "yes",
+        })
+        assert failed.status_code == 400
+        assert "Check interrupted restore" in failed.text
+        repair = browser.get("/profiles/restore/resume", params={"db": str(live_path)})
+        denied = browser.post("/profiles/restore/resume", data={
+            "csrf": token(repair.text), "db": str(live_path), "password": PASSWORD,
+        })
+        assert denied.status_code == 400
+        app.session.retry_at = 0.0
+        resumed = browser.post("/profiles/restore/resume", data={
+            "csrf": token(denied.text), "db": str(live_path),
+            "password": PASSWORD, "confirm": "yes",
+        })
+        assert resumed.status_code == 200, resumed.text
+        assert "Restore checks finished" in resumed.text
+        assert app.session.container is None
+        unlocked = browser.post("/profiles/unlock", data={
+            "csrf": token(resumed.text), "db": str(live_path), "password": PASSWORD,
+        })
+        assert unlocked.status_code == 200, unlocked.text
+
+
 def test_finance_routes_are_all_async():
     import inspect
     from fastapi.routing import APIRoute
