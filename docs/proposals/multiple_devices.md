@@ -1,6 +1,6 @@
 # Multiple devices: implementation plan
 
-**Status: planned, not built · 2026-10-04 · Codex, integrating Claude's review and the owner's decisions.**
+**Status: implementation started · 2026-10-05 · Tasks 01 and 02a are foundations only; no working sync or restore yet.**
 
 One Android phone holds the accepted encrypted ledger. It can lend editing to one paired Windows PC or laptop, which works from its own local copy even when the phone leaves. Returning the copy brings editing home. There is no automatic merge and no cloud dependency.
 

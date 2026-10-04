@@ -10,6 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-05 · Codex: Added the P0–P5 promotion journal model and restart decisions for database replacement. The model blocks ambiguous files and authority state; filesystem adapters and restore remain to build.
 - 2026-10-05 · Codex: Started the multi-device build with Luna: mapped the current writer paths and added a two-node read-only fixture. Added an isolated Android arm64 dependency probe and manual GitHub build workflow; pinned crypto/SQLCipher packaging remains an open gate.
 - 2026-10-04 · Claude: Multiple-devices plan, at the owner's request: task 05 split into 05a/05b so the protocol starts before Windows durability finishes; "View saved copy" builds after task 06; a killed-app lend test; a "what you will see" summary in the Project Overview.
 - 2026-10-04 · Codex: applied the multi-device follow-up review: dependency-based parallel tracks, task reading guides and smaller steps, early restore/matching releases, offline PC analysis and explicit locked-lend checks. Linked the existing Windows updater decision; recorded fingerprint/interim-PC choices without changing the defaults.

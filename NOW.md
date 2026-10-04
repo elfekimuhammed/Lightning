@@ -20,8 +20,8 @@ Last rewritten 2026-10-05 · Codex.
 
 ## Codex
 
-- **Last done (2026-10-05):** task 01 mapped writer/lifecycle paths and added a deterministic two-node read-only fixture; added the isolated Android dependency APK probe for task 04a. Focused tests pass. The full local suite hung in a UI test under the available Python 3.14 environment; GitHub's Python 3.13 suite remains the release check.
-- **In progress · claimed files:** Task 02a promotion journal model (Luna under Codex: `lightning/database/promotion.py`, `tests/test_database_promotion_model.py`); task 04a Android dependency/build feasibility (Codex: `android/`, `.github/workflows/android-feasibility.yml`). Codex owns `NOW.md` and `CHANGELOG.md` for this work.
+- **Last done (2026-10-05):** tasks 01 and 02a: writer/lifecycle inventory, two-node read-only fixture, and the P0–P5 promotion journal/restart model. Focused tests pass. Added the isolated Android dependency APK probe; the full local suite hung in a UI test under Python 3.14, so GitHub's Python 3.13 suite is the release check.
+- **In progress · claimed files:** Task 04a Android dependency/build feasibility (Codex: `android/`, `.github/workflows/android-feasibility.yml`). Codex owns `NOW.md` and `CHANGELOG.md` for this work.
 
 ## Next (unclaimed; claim it in your lane before you start)
 
@@ -30,7 +30,7 @@ Last rewritten 2026-10-05 · Codex.
 3. **Competition research:** App Store, Reddit and Facebook reviews were not reachable; see the last section of `docs/COMPETITION.md`. Owner questions are in *For the owner*.
 4. **Speed, if wanted:** a stable window origin, so the 290 KB stylesheet and 109 KB script stay cached across launches; trim unused CSS in `style.css`.
 
-5. **Multiple devices:** task 01 is done; 02a and 04a are in progress under Codex. Follow the [dependencies and Read column](docs/proposals/multiple_devices.md#15-implementation-work-packages) for later work. Restore/matching can ship independently.
+5. **Multiple devices:** tasks 01 and 02a are done; 04a is in progress. Next on the safe-restore track is 02b POSIX file publication, then 02c Windows durability. Follow the [dependencies and Read column](docs/proposals/multiple_devices.md#15-implementation-work-packages).
 
 ## For the owner
 
