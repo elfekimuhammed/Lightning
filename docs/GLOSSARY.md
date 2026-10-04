@@ -1,11 +1,20 @@
 # Glossary and taxonomy
 
-## Document status
+Canonical product and technical terms. The product story is in [Project Overview](PROJECT_OVERVIEW.md), calculation contracts in [Architecture](ARCHITECTURE.md), and the visual system in the [Brand guideline](BRAND_GUIDELINE.html). The figures table under "Reported figures" is generated from `lightning/core/figures.py` (`python -m lightning.core.figures`), and `tests/test_figures.py` keeps the two in step: change a figure there, never here.
 
-- **Last updated:** 2026-09-30
-- **Document revision:** 2026-09-30.3
-- **App version:** 0.3.0 (`lightning/__init__.py`); `pyproject.toml` packaging metadata remains at 0.1.0.
-- **Role:** canonical product and technical terms. The product story lives in [Project Overview](PROJECT_OVERVIEW.md), calculation contracts in [Architecture](ARCHITECTURE.md), and the visual system in the [Brand guideline](BRAND_GUIDELINE.html).
+## Contents
+
+Look up one term with `grep -n -i '<term>' docs/GLOSSARY.md`. Read a whole section only when you add or rename terms in it.
+
+| Section | Holds |
+|---|---|
+| The basic model | Ledger, accounts, transactions, postings and the other core nouns |
+| Three layers: ledger, plan, report | What each layer may do |
+| Reported figures: one name, one calculation, one function | Every figure a screen shows, its formula and its function (generated) |
+| Category taxonomy (why the activity happened) | L1, L2 and L3 categories |
+| Names and identifiers | Names versus codes |
+| Asset and account taxonomy (what vs where) | Asset classes and account kinds |
+| Transaction and posting types | Every transaction and posting type |
 
 This is Lightning's canonical language for product, database, code, and UI. Use these definitions consistently. The user's visible label is the **Name**; IDs and codes support data integrity and lookup and should not clutter ordinary screens.
 

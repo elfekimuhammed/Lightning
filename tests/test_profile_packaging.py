@@ -181,7 +181,7 @@ def _ci_scope():
 def test_only_documentation_skips_the_windows_build():
     scope = _ci_scope()
     for path in ("docs/ARCHITECTURE.md", "CHANGELOG.md", "README.md", "user feedback/batch.md",
-                 "Claude outputs/x.zip", "run.sh", "Lightning.desktop"):
+                 "Claude outputs/x.zip", "tools/guideline.py", "run.sh", "Lightning.desktop", "NOW.md"):
         assert scope.cannot_reach_app(path), path
     for path in ("lightning/ui/web.py", "lightning/samples/notes.md", "packaging/APP_README.txt",
                  "packaging/package_app.py", "tests/test_ui.py", "requirements/desktop-probe-win.lock",

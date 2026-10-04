@@ -1,10 +1,32 @@
 # Architecture
 
-**Last updated 2026-10-03 · app 0.5.0b1** (`lightning/__init__.py`, matched by `pyproject.toml`).
+**Last updated 2026-10-04 · app 0.5.0b1** (`lightning/__init__.py`, matched by `pyproject.toml`).
 
 This file holds the technical side: stack, module boundaries, data model and every calculation contract. The product story is in [Project Overview](PROJECT_OVERVIEW.md), the visual system in the [Brand guideline](BRAND_GUIDELINE.html), and term definitions in the [Glossary](GLOSSARY.md).
 
 Lightning is a local-first, single-user **modular monolith**: one Python process, one SQLite database, and a server-rendered browser UI. The architecture puts correctness first, then clear ownership of data, then adding new financial-asset types without duplicating transaction logic.
+
+## Contents
+
+Read only the section your task needs (`grep -n '^## ' docs/ARCHITECTURE.md`, then read from that line).
+
+| Section | Read it when |
+|---|---|
+| Stack and local operation | You add a dependency or change how Lightning starts |
+| Three layers: ledger, plan, report | You are new to the code |
+| Runtime and dependency direction | You add an import between modules |
+| Modules | You look for where something lives |
+| One main ledger; one linked valuation ledger | You touch transactions, postings, holdings or prices |
+| Data ownership and derived values | You add a stored or derived value |
+| Position and reporting contract | You change any figure on the Overview, Investments or reports, or the figures layer |
+| Cash planning contract | You change bills, income, the forecast or Safe to spend |
+| Budget and reserve contract | You change the budget, reserves or the emergency fund |
+| Persistence, precision, and indexing | You add a migration, an index or a money column |
+| UI contract | You add a page, route or template |
+| CSV import and export contract | You change import, export or the AI-analysis workbook |
+| Search and identity contract | You change names, counterparties or search |
+| Desktop app and encrypted profiles | You touch the Windows window, profiles, encryption, packaging or releases |
+| Working rules | Always, before you push code (short) |
 
 ## Stack and local operation
 

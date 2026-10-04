@@ -26,6 +26,7 @@ _NEVER_SHIPPED = (
     re.compile(r"^docs/"),
     re.compile(r"^user feedback/"),
     re.compile(r"^Claude outputs/"),
+    re.compile(r"^tools/"),  # helpers for the people and AIs working here; nothing imports them
     re.compile(r"^(?!lightning/|packaging/)[^\n]*\.md$"),
     re.compile(r"^Lightning\.desktop$"),
     re.compile(r"^run\.sh$"),
