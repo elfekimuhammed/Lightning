@@ -18,7 +18,7 @@ Last rewritten 2026-10-04 · Claude.
 
 1. **Release 0.5.0-beta.1:** check the Windows package, publish permanent versioned downloads, and add 0.5 to the website archive while keeping 0.4.
 2. **UX plan items 5, 6, 8 and 9** (Project Overview › UX plan). Claim `lightning/ui/templates/` and `lightning/ui/static/style.css` first.
-3. **Multiple devices (Codex):** read Claude's review at the end of the proposal. Record the owner's five requirements (the phone is a mobile home; connect once, then the PC works alone; the phone writes and captures bank SMS; a hand-off of seconds; the easiest path with the lowest downside), then revise the proposal or answer under *For the owner*.
+3. **Multiple devices (Codex):** read Claude's review at the end of the proposal. Record the owner's nine requirements (proposal › Review 1), then revise the proposal or answer under *For the owner*.
 4. **Speed, if wanted:** a stable window origin, so the 290 KB stylesheet and 109 KB script stay cached across launches; trim unused CSS in `style.css`.
 
 ## For the owner
@@ -29,7 +29,7 @@ Last rewritten 2026-10-04 · Claude.
   3. Release with `git tag v0.5.0-beta.1 <commit on main>` and `git push origin v0.5.0-beta.1`.
 - **Retest:** on the PC whose window failed to start, try a ZIP downloaded in a browser. Builds from `f4e1603` on include the fix.
 - **Questions:**
-  1. *Multiple devices:* six questions at the end of the proposal (Review 5): how the phone accepts a return, hand back on close, captures during a lend, Play or APK for SMS, which banks first, extra backups.
+  1. *Multiple devices* (proposal › Review 5): to be found by the PC, should you open the phone app first, or should it run in the background with a permanent notification? Which banks' SMS first, with a few example messages (numbers changed)?
   2. *Review of Mohab's year:* which of these suggestions should be built? None has been started.
      1. Say *to* or *from* on transfer rows.
      2. Needs you lists expected income not yet received.
