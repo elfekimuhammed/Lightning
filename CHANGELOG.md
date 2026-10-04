@@ -16,6 +16,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - 2026-10-03 · Codex: Set the source version to 0.5.0b1 (display 0.5.0-beta.1) for the next beta. The Windows package workflow now runs from `main` and names the ZIP `Lightning-v0.5.0-beta.1-Windows-x64.zip`. This records the packaging setup only; Windows build verification and distribution are still pending.
 
 ## [Unreleased]
+- 2026-10-05 · Claude: Brand guideline 3.15, the same file as the website's `brand-guidelines.html`. Website only: phones first (one-line hero sentences, full-width buttons, one-column screens, 54px fields).
 - 2026-10-04 · Claude: Brand guideline 3.14, the same file as the website's `brand-guidelines.html`. Website only: white fields (never grey), a dark Take the survey button, a sign-off at the end of each page, and one calculator chip. The app's soft field wells (A10) are unchanged.
 - 2026-10-04 · Claude: Brand guideline 3.13, the same file as the website's `brand-guidelines.html`. Website only: the small-change calculator is a split card with its answer on the vivid gradient, the one card allowed there.
 - 2026-10-04 · Claude: Brand guideline 3.12, the same file as the website's `brand-guidelines.html`. Website words only: show what Lightning does well and never compare it with other apps.
