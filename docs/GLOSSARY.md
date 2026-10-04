@@ -103,6 +103,9 @@ Every figure a screen shows is listed here once. **From** says which layer its i
 | **Savings rate** | The share of money in that you kept. | Net flow ÷ Money in | `reporting.service.CashFlow.savings_rate` |
 | **Opening balances in the period** | Money and assets you recorded as already yours (opening balances and existing holdings) during the period. They were yours before, so they are not a change. | Read directly from the ledger | `reporting.service.ReportingService.opening_balances_between` |
 | **Change in what you own** | How much what you own grew or shrank in the period. | What you own at the end − What you own the day before the start − Opening balances in the period | `planning.position.PositionService.change_in_what_you_own` |
+| **Per month** | A period's money out divided by the calendar months it covers, so a year to date compares with a single month. | Read directly from the ledger | `reporting.spending.spending_profile` |
+| **Usual month** | The average money out of the last six whole months before the period. | Read directly from the ledger | `reporting.spending._against_history` |
+| **Usual range** | The lowest, middle and highest monthly money out of the twelve whole months before the period. It needs three of them. | Read directly from the ledger | `reporting.spending._against_history` |
 | **Investing rate** | The share of money in that you moved into investments, out of what you saved, so it is never more than the savings rate. | Money added ÷ Money in | `investments.report.investing_rate` |
 | **Average monthly income** | Income in your chosen income categories, averaged over the last 3 or 6 completed months that had any (Settings › Budget). The budget, reserves and the cash forecast all use it. | Read directly from the ledger | `budgeting.service.BudgetService.income_average` |
 | **Spent** | Money out in the category this month. | Read directly from the ledger | `budgeting.domain.BudgetLine.actual` |
@@ -113,6 +116,8 @@ Every figure a screen shows is listed here once. **From** says which layer its i
 | **Dividends and interest** | Distributions and interest received. | Read directly from the ledger | `investments.report.build_investment_report` |
 | **Net gain or loss** | What your investments earned or lost in the period: sales, price changes and payouts. | Gain from sales + Price change on what you hold + Dividends and interest | `investments.report.investment_period` |
 | **Money added** | Cash moved into investment accounts from outside, less cash taken out. | Read directly from the ledger | `investments.report.build_investment_report` |
+| **Typical move** | How much a holding's month-end price usually moves in a month: the spread (standard deviation) of its monthly price changes, once there are three. | Read directly from the ledger | `investments.journey.holding_history` |
+| **Fall from its high** | How far a holding's month-end price sits below the highest month-end price before it, in percent. | Read directly from the ledger | `investments.journey.holding_history` |
 | **Average cost** | What you paid for each unit you still hold, fees included. | Cost ÷ Units | `investments.domain.Position.average_cost` |
 | **Growth** | Net gain or loss as a share of what the portfolio started the period with, plus money added. | Net gain or loss ÷ (Portfolio value at the start + Money added) | `investments.report.period_growth` |
 

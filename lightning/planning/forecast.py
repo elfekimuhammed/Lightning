@@ -161,18 +161,19 @@ class CashForecaster:
             next_date, next_estimated = fmt_date(parse_month(month_keys[1])[0]) if len(month_keys) > 1 else None, True
         else:
             next_date, next_estimated = None, False
-        safe, parts = self._safe_to_spend(free, upcoming, next_date, day, rows)
+        before = [p for p in upcoming if not p.item.is_income and (next_date is None or p.due_date < next_date)]
+        safe, parts = self._safe_to_spend(free, before, next_date, day, rows)
         return CashForecast(fmt_date(day), free, average, average_months, next_date, next_estimated,
-                            safe, parts, rows, [p for p in upcoming if p.due_date <= next_date] if next_date else upcoming[:10])
+                            safe, parts, rows, [p for p in upcoming if p.due_date <= next_date] if next_date else upcoming[:10],
+                            before)
 
-    def _safe_to_spend(self, free: Decimal, upcoming: list[Payment], until: str | None, day: date,
+    def _safe_to_spend(self, free: Decimal, before: list[Payment], until: str | None, day: date,
                        rows: list[ForecastMonth]) -> tuple[Decimal, list[tuple[str, Decimal]]]:
         """Free cash less what is already promised before the next income.
 
         Budget and goal needs count for every month until the next income, not just this one: between
         jobs, next month's spending still comes out of today's cash. The month the income lands in
         counts for the days before it."""
-        before = [p for p in upcoming if not p.item.is_income and (until is None or p.due_date < until)]
         bills = sum((p.amount for p in before), ZERO)
         spending = goals = ZERO
         for index, row in enumerate(rows):

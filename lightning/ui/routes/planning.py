@@ -131,7 +131,7 @@ def _plan_stats(f, plan, day, has_income: bool = True) -> list[dict]:
          "href": "#plan-build"},
         {"key": "free", "surface": "hold", "label": label("free_cash"), "value": f.free_cash, "kind": "money",
          "sub": "Cash you own after reserves and bills due · today", "href": "/"},
-        {"key": "before", "surface": "out", "label": "Due before your next income", "value": plan["before_total"], "kind": "money",
+        {"key": "before", "surface": "out", "label": label("payments_before_next_income"), "value": plan["before_total"], "kind": "money",
          "badge": {"tone": "flat", "text": f"{len(plan['before_income'])} payment{'s' if len(plan['before_income']) != 1 else ''}"},
          "sub": f"Next: {nxt.item.name} · {nxt.due_date}" if nxt else "Nothing is due before then",
          "href": "#plan-next"},

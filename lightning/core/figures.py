@@ -88,6 +88,11 @@ _TABLE = [
      "What you own at the end − What you own the day before the start − Opening balances in the period"),
     ("change_in_net_worth", "Change in net worth", "How much net worth grew or shrank in the period.",
      "Net worth at the end − Net worth the day before the start − Opening balances in the period"),
+    ("per_month", "Per month", "A period's money out divided by the calendar months it covers, so a year to date "
+     "compares with a single month."),
+    ("usual_month", "Usual month", "The average money out of the last six whole months before the period."),
+    ("usual_range", "Usual range", "The lowest, middle and highest monthly money out of the twelve whole months "
+     "before the period. It needs three of them."),
     ("investing_rate", "Investing rate", "The share of money in that you moved into investments, out of what you saved, so it is never more than the savings rate.",
      "Money added ÷ Money in"),
     ("average_monthly_income", "Average monthly income",
@@ -113,6 +118,10 @@ _TABLE = [
     ("result", "Net gain or loss", "What your investments earned or lost in the period: sales, price changes and payouts.",
      "Gain from sales + Price change on what you hold + Dividends and interest"),
     ("new_money_in", "Money added", "Cash moved into investment accounts from outside, less cash taken out."),
+    ("typical_move", "Typical move", "How much a holding's month-end price usually moves in a month: the spread "
+     "(standard deviation) of its monthly price changes, once there are three."),
+    ("fall_from_high", "Fall from its high", "How far a holding's month-end price sits below the highest month-end "
+     "price before it, in percent."),
     ("average_cost", "Average cost", "What you paid for each unit you still hold, fees included.", "Cost ÷ Units"),
     ("period_growth", "Growth", "Net gain or loss as a share of what the portfolio started the period with, plus money added.",
      "Net gain or loss ÷ (Portfolio value at the start + Money added)"),
@@ -158,6 +167,11 @@ _SOURCES = {
     "opening_balances_in_period": (LEDGER, "lightning.reporting.service.ReportingService.opening_balances_between"),
     "change_in_what_you_own": (LEDGER, "lightning.planning.position.PositionService.change_in_what_you_own"),
     "change_in_net_worth": (BOTH, "lightning.planning.position.PositionService.change_in_net_worth"),
+    "per_month": (LEDGER, "lightning.reporting.spending.spending_profile"),
+    "usual_month": (LEDGER, "lightning.reporting.spending._against_history"),
+    "usual_range": (LEDGER, "lightning.reporting.spending._against_history"),
+    "typical_move": (LEDGER, "lightning.investments.journey.holding_history"),
+    "fall_from_high": (LEDGER, "lightning.investments.journey.holding_history"),
     "investing_rate": (LEDGER, f"{INV}.investing_rate"),
     "average_monthly_income": (LEDGER, "lightning.budgeting.service.BudgetService.income_average"),
     "base_budget": (PLAN, f"{BL}.budget"),

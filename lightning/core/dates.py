@@ -89,3 +89,13 @@ def month_of(value: date) -> str:
 
 def previous_day(value: date) -> date:
     return value - timedelta(days=1)
+
+
+def months_back(end: date, count: int, first_activity: str | None) -> list[str]:
+    """Up to ``count`` months ending with ``end``'s month, never before the first recorded activity."""
+    keys, cursor = [], end.replace(day=1)
+    floor = parse_date(first_activity).replace(day=1) if first_activity else cursor
+    while len(keys) < count and cursor >= floor:
+        keys.append(month_of(cursor))
+        cursor = (cursor - timedelta(days=1)).replace(day=1)
+    return list(reversed(keys))

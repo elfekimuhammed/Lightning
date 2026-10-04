@@ -9,22 +9,14 @@ from datetime import date, timedelta
 from decimal import Decimal
 from urllib.parse import urlencode
 
-from lightning.core.dates import fmt_date, month_of, parse_date, parse_month
-from lightning.core.money import ZERO, from_e6
+from lightning.core.dates import fmt_date, months_back, parse_date, parse_month
+from lightning.core.money import ZERO
 
 from lightning.planning.domain import PlanKind
+from lightning.investments import journey
+from lightning.reporting.spending import spending_profile
 
 from . import charts
-
-
-def months_back(end: date, count: int, first_activity: str | None) -> list[str]:
-    """Up to ``count`` months ending with ``end``'s month, never before the first recorded activity."""
-    keys, cursor = [], end.replace(day=1)
-    floor = parse_date(first_activity).replace(day=1) if first_activity else cursor
-    while len(keys) < count and cursor >= floor:
-        keys.append(month_of(cursor))
-        cursor = (cursor - timedelta(days=1)).replace(day=1)
-    return list(reversed(keys))
 
 
 def flow_trend(c, end: date, count: int = 6) -> dict:
@@ -237,66 +229,22 @@ def account_bars(c, first: date, last: date) -> dict:
 
 
 def holding_journey(c, account_id: int, asset_id: int, end: date, months: int = 24) -> dict:
-    """One holding's month-end history (price, units, value, cost) and what it says about
-    profitability and volatility. Up to ``months`` month ends, from its first trade to ``end``."""
-    lines = [l for l in c.reporting.investment_lines(fmt_date(end), account_id)
-             if l.get("asset_id") == asset_id or l.get("dividend_asset_id") == asset_id]
-    trades = [l for l in lines if l.get("asset_id") == asset_id and l["type"] != "DIV"]
-    if not trades:
+    """One holding's month-end history as charts; the figures come from `investments.journey`."""
+    j = journey.holding_history(c.reporting, c.investments, account_id, asset_id, end, months)
+    if not j["labels"]:
         return {"labels": [], "trades": []}
-    first = parse_date(trades[0]["date"])
-    keys = months_back(end, months, fmt_date(first))
-    labels, price, value, cost = [], [], [], []
-    for key in keys:
-        _, last = parse_month(key)
-        day = min(last, end)
-        pos = next((x for x in c.investments.portfolio(fmt_date(day), account_id).positions if x.asset_id == asset_id), None)
-        labels.append(key)
-        price.append(pos.price if pos and pos.quantity else None)
-        value.append(pos.value if pos and pos.quantity else None)
-        cost.append(pos.cost_basis if pos and pos.quantity else None)
-    returns = []
-    for i in range(1, len(price)):
-        if price[i] is not None and price[i - 1]:
-            returns.append((labels[i], (price[i] / price[i - 1] - 1) * 100))
-    peak, drawdown = None, []
-    for p in price:
-        if p is None:
-            drawdown.append(None)
-            continue
-        peak = p if peak is None or p > peak else peak
-        drawdown.append((p / peak - 1) * 100 if peak else ZERO)
-    moves = [r for _, r in returns]
-    typical = None
-    if len(moves) >= 3:
-        mean = sum(moves, ZERO) / len(moves)
-        typical = (sum(((m - mean) ** 2 for m in moves), ZERO) / len(moves)).sqrt()
-    known_dd = [d for d in drawdown if d is not None]
-    # The journey: every trade and payout, with units held after it.
-    held, journey = ZERO, []
-    names = {"BUY": "Bought", "SEL": "Sold", "DIV": "Dividend", "OPN": "Starting holding", "ADJ": "Adjusted"}
-    for l in lines:
-        units = ZERO if l["type"] == "DIV" else from_e6(l["quantity_e6"] or 0)
-        amount = from_e6(l["amount_base_e6"] or 0)
-        held += units
-        journey.append({"date": l["date"], "kind": names.get(l["type"], "Holding added" if units > 0 else "Units out"),
-                        "units": units, "amount": abs(amount), "price": abs(amount / units) if units else None,
-                        "held": held, "ref": l.get("ref")})
-    average = cost[-1] / (value[-1] / price[-1]) if cost[-1] and value[-1] and price[-1] else None
+    labels, price, value, cost = j["labels"], j["price"], j["value"], j["cost"]
     return {
-        "labels": labels, "first": fmt_date(first), "months_held": len(keys),
+        "labels": labels, "first": j["first"], "months_held": j["months_held"],
         "price": charts.trend(labels, [{"name": "Price", "tone": "hold", "values": price, "plan_applies": False}],
-                              plan=average),
+                              plan=j["average"]),
         "value_cost": charts.trend(labels, [{"name": "Value", "tone": "hold", "values": value, "area": True},
                                             {"name": "Cost", "tone": "other", "values": cost}]),
         "drawdown": charts.trend(labels, [{"name": "Below its high", "tone": "spend", "area": True,
-                                           "values": drawdown}]),
-        "returns": charts.diverging([{"label": k, "value": v} for k, v in returns]),
-        "best": max(returns, key=lambda r: r[1]) if returns else None,
-        "worst": min(returns, key=lambda r: r[1]) if returns else None,
-        "typical": typical, "max_drawdown": min(known_dd) if known_dd else None,
-        "up": sum(1 for m in moves if m > 0), "down": sum(1 for m in moves if m < 0),
-        "spark": charts.sparkline(value[-6:]), "trades": list(reversed(journey)),
+                                           "values": j["drawdown"]}]),
+        "returns": charts.diverging([{"label": k, "value": v} for k, v in j["returns"]]),
+        "best": j["best"], "worst": j["worst"], "typical": j["typical"], "max_drawdown": j["max_drawdown"],
+        "up": j["up"], "down": j["down"], "spark": charts.sparkline(value[-6:]), "trades": j["trades"],
     }
 
 
@@ -418,66 +366,21 @@ def _range_marks(low, high, median, now) -> dict | None:
 
 def expense_analysis(c, first: date, last: date, code_filter: str = "", history: int = 12,
                      floor_share: Decimal = Decimal(1), top: int = 4) -> dict:
-    """Expense analysis in five questions, big items only.
-
-    Categories (L2) under ``floor_share`` % of money out, or past the ``top`` largest, fold into
-    "Smaller categories". History is the ``history`` whole months before the period; "now" is the
-    period's money out per month, so a year to date compares like with like."""
-    def by_cat(start, end):
-        rows = {}
-        for g in c.reporting.spending_by_category(start, end, depth=2):
-            if g.value > 0 and (not code_filter or g.code.startswith(code_filter)):
-                rows[g.code] = (g.label.split(" › ")[-1], g.value)
-        return rows
-
-    now = by_cat(first, last)
-    total = sum((v for _, v in now.values()), ZERO)
-    months_in = max(1, (last.year - first.year) * 12 + last.month - first.month + 1)
-    ranked = sorted(now.items(), key=lambda kv: -kv[1][1])
-    big = [(code, name, value) for code, (name, value) in ranked[:top]
-           if total and value / total * 100 >= floor_share]
-    small = total - sum((v for _, _, v in big), ZERO)
-    # Whole months before the period, oldest first, never before the first record.
-    keys = months_back(first.replace(day=1) - timedelta(days=1), history, c.reporting.first_activity_date())
-    hist = [by_cat(*parse_month(k)) for k in keys]
-    rows = []
-    for code, name, value in big:
-        past = [h.get(code, ("", ZERO))[1] for h in hist]
-        per_month = value / months_in
-        recent = past[-6:]
-        usual = sum(recent, ZERO) / len(recent) if recent else None
-        ordered = sorted(past)
-        median = (ordered[len(ordered) // 2] if len(ordered) % 2 else (ordered[len(ordered) // 2 - 1] + ordered[len(ordered) // 2]) / 2) if ordered else None
-        low, high = (min(past), max(past)) if past else (None, None)
-        scale = max([per_month] + past) or Decimal(1)
-        category = c.categories.get_by_code(code)
-        rows.append({"code": code, "name": name, "value": value, "per_month": per_month, "share": value / total * 100,
-                     "usual": usual, "past": past, "low": low, "high": high, "median": median,
-                     "above": high is not None and per_month > high, "below": low is not None and per_month < low,
-                     "range": _range_marks(low, high, median, per_month),
-                     "href": f"/transactions?category_id={category.id}&date_from={fmt_date(first)}&date_to={fmt_date(last)}"})
-    if small > 0:  # everything past the biggest four is one "Other" row, with its own history
-        big_codes = {code for code, _, _ in big}
-        past = [sum((v for code, (_, v) in h.items() if code not in big_codes), ZERO) for h in hist]
-        per_month = small / months_in
-        recent = past[-6:]
-        usual = sum(recent, ZERO) / len(recent) if recent else None
-        ordered = sorted(past)
-        median = (ordered[len(ordered) // 2] if len(ordered) % 2 else (ordered[len(ordered) // 2 - 1] + ordered[len(ordered) // 2]) / 2) if ordered else None
-        low, high = (min(past), max(past)) if past else (None, None)
-        scale = max([per_month] + past) or Decimal(1)
-        rows.append({"code": "", "name": "Other", "others": True, "value": small, "per_month": per_month,
-                     "share": small / total * 100, "usual": usual, "past": past, "low": low, "high": high, "median": median,
-                     "above": high is not None and per_month > high, "below": low is not None and per_month < low,
-                     "range": _range_marks(low, high, median, per_month),
-                     "href": f"/transactions?date_from={fmt_date(first)}&date_to={fmt_date(last)}"})
+    """Expense analysis in five questions, big items only: the figures come from
+    `reporting.spending.spending_profile`; this only shapes them into charts."""
+    profile = spending_profile(c.reporting, first, last, code_filter, history, floor_share, top)
+    rows, keys, months_in = profile["rows"], profile["history_keys"], profile["months_in"]
+    for r in rows:
+        r["range"] = _range_marks(r["low"], r["high"], r["median"], r["per_month"])
+        r["href"] = (f"/transactions?date_from={fmt_date(first)}&date_to={fmt_date(last)}" if r.get("others") else
+                     f"/transactions?category_id={c.categories.get_by_code(r['code']).id}"
+                     f"&date_from={fmt_date(first)}&date_to={fmt_date(last)}")
     tiles = charts.treemap([{"label": r["name"], "value": r["value"], "share": r["share"], "href": r["href"],
                              "small": r.get("others", False)} for r in rows])
     # Clustered columns: usual month (neutral) beside now (its meaning colour), one scale, from zero.
     col_max = max([r["per_month"] for r in rows] + [r["usual"] or ZERO for r in rows] + [ZERO]) or Decimal(1)
     clusters = [{"name": r["name"], "now": r["per_month"], "usual": r["usual"],
-                 "over": bool(r["usual"]) and r["per_month"] > r["usual"] * Decimal("1.1"),
-                 "change": (r["per_month"] - r["usual"]) / r["usual"] * 100 if r["usual"] else None,
+                 "over": r["over_usual"], "change": r["change_vs_usual"],
                  "now_h": float(r["per_month"] / col_max * 100), "usual_h": float((r["usual"] or ZERO) / col_max * 100)}
                 for r in rows[:5]]
     # Small multiples: the same twelve months plus now, one scale for every panel.
@@ -487,19 +390,13 @@ def expense_analysis(c, first: date, last: date, code_filter: str = "", history:
                  for r, line in zip(panels, lines)]
     # Heatmap: category by month, each cell against that row's own average (four rose steps). The
     # history months, then every month of the period itself (a period of three months shows three).
-    period_keys = months_back(last, months_in, fmt_date(first))
-    period_months = [by_cat(max(parse_month(k)[0], first), min(parse_month(k)[1], last)) for k in period_keys]
+    period_keys = profile["period_keys"]
     past_cols = keys[-max(1, 12 - len(period_keys)):] if keys else []
     heat_keys = past_cols + period_keys
     now_from = len(past_cols)
     heat = []
     for r in rows:
-        values = r["past"][-len(past_cols):] if past_cols else []
-        if r.get("others"):
-            big_codes = {row["code"] for row in rows if not row.get("others")}
-            values = values + [sum((v for code, (_, v) in m.items() if code not in big_codes), ZERO) for m in period_months]
-        else:
-            values = values + [m.get(r["code"], ("", ZERO))[1] for m in period_months]
+        values = (r["past"][-len(past_cols):] if past_cols else []) + r["period_values"]
         known = [v for v in values if v > 0]
         avg = sum(known, ZERO) / len(known) if known else ZERO
         cells = []
@@ -508,7 +405,6 @@ def expense_analysis(c, first: date, last: date, code_filter: str = "", history:
             step = 0 if v <= 0 else 1 if ratio < Decimal("0.75") else 2 if ratio < Decimal("1.1") else 3 if ratio < Decimal("1.5") else 4
             cells.append({"value": v, "step": step})
         heat.append({"name": r["name"], "cells": cells})
-    heat_now = now_from
     # Net cash flow by month, the same months: money in, money out and what was left.
     flow_rows = {"Money in": [], "Money out": [], "Net flow": []}
     for k in heat_keys:
@@ -533,14 +429,10 @@ def expense_analysis(c, first: date, last: date, code_filter: str = "", history:
     flow_heat = [{"name": "Money in", "cells": steps(flow_rows["Money in"], "in")},
                  {"name": "Money out", "cells": steps(flow_rows["Money out"], "out")},
                  {"name": "Net flow", "cells": net_cells, "net": True}]
-    usual_total = sum((r["usual"] or ZERO for r in rows), ZERO)
-    recent_all = [sum((v for _, v in h.values()), ZERO) for h in hist[-6:]]
-    usual_out = sum(recent_all, ZERO) / len(recent_all) if recent_all else None
-    return {"rows": rows, "total": total, "small": small, "months_in": months_in, "tiles": tiles,
-            "clusters": clusters, "multiples": multiples, "heat": heat, "heat_keys": heat_keys, "heat_now": now_from,
-            "flow_heat": flow_heat,
-            "history_months": len(keys), "usual_total": usual_total, "usual_out": usual_out,
-            "per_month": total / months_in,
+    return {"rows": rows, "total": profile["total"], "small": profile["small"], "months_in": months_in,
+            "tiles": tiles, "clusters": clusters, "multiples": multiples, "heat": heat, "heat_keys": heat_keys,
+            "heat_now": now_from, "flow_heat": flow_heat, "history_months": len(keys),
+            "usual_total": profile["usual_total"], "usual_out": profile["usual_out"], "per_month": profile["per_month"],
             "has_history": len(keys) >= 1, "has_range": len(keys) >= 3}
 
 
@@ -565,7 +457,7 @@ def cash_plan(c, forecast, day: date) -> dict:
         rows_used[row] = x
         marks.append({"name": p.item.name, "amount": p.amount, "income": p.item.is_income, "due": p.due_date,
                       "x": x, "row": row, "late": p.status.value == "DUE"})
-    before_income = [p for p in upcoming if not p.item.is_income and (f.next_income_date is None or p.due_date < f.next_income_date)]
+    before_income = f.payments_before_income   # the same payments Safe to spend takes off
     # Where cash is heading: free cash at the last five month ends, then the forecast's month ends.
     past_keys = months_back(day.replace(day=1) - timedelta(days=1), 5, c.reporting.first_activity_date())
     past = []
@@ -583,12 +475,9 @@ def cash_plan(c, forecast, day: date) -> dict:
     series.append({"name": "Forecast", "tone": "hold", "values": ahead, "dashed": True, "over": over})
     heading = charts.trend(labels, series)
     # In and out for each month ahead: money in up, what goes out down, one scale.
-    rows = [{"month": m.month, "income": m.income, "deposit_cash": m.deposit_cash,
-             "in": m.income + m.deposit_cash,
+    rows = [{"month": m.month, "income": m.income, "deposit_cash": m.deposit_cash, "in": m.money_in,
              "commitments": m.commitments, "budget_spending": m.budget_spending, "goal_saving": m.goal_saving,
-             "out": m.commitments + m.budget_spending + m.goal_saving,
-             "net": m.income + m.deposit_cash - (m.commitments + m.budget_spending + m.goal_saving),
-             "estimated": m.income_estimated}
+             "out": m.money_out, "net": m.net, "estimated": m.income_estimated}
             for m in f.months]
     top = max([r["in"] for r in rows] + [r["out"] for r in rows] + [ZERO]) or Decimal(1)
     for r in rows:

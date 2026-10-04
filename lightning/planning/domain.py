@@ -113,6 +113,18 @@ class ForecastMonth:
     closing: Decimal
     deposit_cash: Decimal = ZERO
 
+    @property
+    def money_in(self) -> Decimal:
+        return self.income + self.deposit_cash
+
+    @property
+    def money_out(self) -> Decimal:
+        return self.commitments + self.budget_spending + self.goal_saving
+
+    @property
+    def net(self) -> Decimal:
+        return self.money_in - self.money_out
+
 
 @dataclass(frozen=True)
 class CashForecast:
@@ -126,6 +138,8 @@ class CashForecast:
     safe_to_spend_parts: list[tuple[str, Decimal]]
     months: list[ForecastMonth]
     upcoming: list[Payment]
+    # The payments Safe to spend takes off: scheduled, not yet due, before the next income.
+    payments_before_income: list[Payment] = field(default_factory=list)
 
     @property
     def lowest(self) -> ForecastMonth | None:

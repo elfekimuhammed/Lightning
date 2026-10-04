@@ -307,3 +307,23 @@ def test_safe_to_spend_counts_every_month_until_the_next_income(c, setup, monkey
     assert f.next_income_date == "2026-12-16"
     assert parts["Budget left to spend"] == -(Decimal("3000") + Decimal("1451.61")) - f.months[0].budget_spending
     assert f.safe_to_spend == f.free_cash + sum(v for k, v in parts.items() if k != "Free cash")
+
+
+def test_the_plan_card_and_safe_to_spend_count_the_same_payments(c, setup, monkeypatch):
+    # The card used to count overdue bills (already in Bills due) and look only 30 days ahead, so with
+    # the next pay two months away it disagreed with Safe to spend's own line (2026-10-04).
+    import re
+    from fastapi.testclient import TestClient
+    from lightning.ui.web import create_app
+    monkeypatch.setenv("LIGHTNING_TODAY", "2026-10-31")
+    c.planning.create(kind="INCOME", name="New job", amount="40000", frequency="MONTHLY", start_date="2026-12-20")
+    c.planning.create(kind="BILL", name="Gym", amount="700", frequency="MONTHLY", start_date="2026-10-20")   # overdue
+    c.planning.create(kind="BILL", name="Insurance", amount="3000", frequency="ONCE", start_date="2026-12-10")
+    f = c.forecaster.forecast(date(2026, 10, 31))
+    part = -dict(f.safe_to_spend_parts)["Bills and loan payments before next income"]
+    assert part == sum(p.amount for p in f.payments_before_income)
+    assert "Insurance" in {p.item.name for p in f.payments_before_income}            # 40 days ahead
+    assert all(p.status.value == "UPCOMING" for p in f.payments_before_income)       # the overdue Gym is in Bills due
+    page = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", TestClient(create_app(c)).get("/plan").text))
+    card = re.search(r"Bills and loan payments before next income \d+ payments? ([\d,]+) EGP", page)
+    assert card and card.group(1) == f"{part:,.0f}"
