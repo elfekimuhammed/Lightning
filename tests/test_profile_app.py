@@ -95,6 +95,57 @@ def test_escaped_paths_and_failed_passwords_do_not_leak(tmp_path):
         assert "never echo this password" not in page.text
 
 
+def test_restore_chooser_requires_explicit_confirmation(tmp_path):
+    browser, app, cfg = start(tmp_path)
+    with browser:
+        browser.get("/__launch", params={"code": cfg.launch_code})
+        create(browser)
+        live_path = app.session.paths.db_path
+        backup_path = app.session.container.backup_now()
+        csrf = token(browser.get("/profiles").text)
+        browser.post("/profiles/lock", data={"csrf": csrf})
+        chooser = browser.get("/profiles")
+        assert "Restore" in chooser.text
+        page = browser.get("/profiles/restore", params={"db": str(live_path),
+                                                       "backup": str(backup_path)})
+        assert page.status_code == 200
+        assert "Replace this profile with the selected backup" in page.text
+        denied = browser.post("/profiles/restore", data={
+            "csrf": token(page.text), "db": str(live_path), "backup": str(backup_path),
+            "password": PASSWORD,
+        })
+        assert denied.status_code == 400
+        assert "Confirm that this backup" in denied.text
+        assert app.session.container is None
+
+
+def test_restore_screen_replaces_only_after_confirmed_encrypted_backup(tmp_path):
+    browser, app, cfg = start(tmp_path)
+    with browser:
+        browser.get("/__launch", params={"code": cfg.launch_code})
+        create(browser)
+        live_path = app.session.paths.db_path
+        app.session.container.settings.set("restore_ui_marker", "saved version")
+        backup_path = app.session.container.backup_now()
+        app.session.container.settings.set("restore_ui_marker", "newer version")
+        csrf = token(browser.get("/profiles").text)
+        browser.post("/profiles/lock", data={"csrf": csrf})
+        page = browser.get("/profiles/restore", params={"db": str(live_path),
+                                                       "backup": str(backup_path)})
+        restored = browser.post("/profiles/restore", data={
+            "csrf": token(page.text), "db": str(live_path), "backup": str(backup_path),
+            "password": PASSWORD, "confirm": "yes",
+        })
+        assert restored.status_code == 200, restored.text
+        assert "Backup restored" in restored.text
+        assert app.session.container is None
+        unlocked = browser.post("/profiles/unlock", data={
+            "csrf": token(restored.text), "db": str(live_path), "password": PASSWORD,
+        })
+        assert unlocked.status_code == 200, unlocked.text
+        assert app.session.container.settings.get("restore_ui_marker") == "saved version"
+
+
 def test_finance_routes_are_all_async():
     import inspect
     from fastapi.routing import APIRoute

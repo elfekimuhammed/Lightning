@@ -20,8 +20,8 @@ Last rewritten 2026-10-05 · Codex.
 
 ## Codex
 
-- **Last done (2026-10-05):** tasks 01 and 02a–02c: writer inventory, two-node fixture, promotion restart model and POSIX/Windows file adapters. GitHub run 37236091730 passed the full Linux suite, Windows adapter tests and packaged-app checks. The core checkout/return message and in-memory state contract is also tested; durable control records and real writer gates remain. Android has no pinned native wheels yet; no APK exists.
-- **In progress · claimed files:** Task 02d journal integration (Luna's `lightning/database/promotion.py`, `tests/test_database_promotion.py` landed; GitHub Windows tests passed, reboot/fault evidence and runtime gating remain); task 03a encrypted restore (Luna under Codex: backend `lightning/runtime/session.py`, `tests/test_profile_session.py`, new restore helper if needed; Codex: `lightning/runtime/app.py`, `lightning/ui/templates/profiles.html`, `lightning/ui/static/profiles.css`, related route tests); task 04a Android dependency/build feasibility (Codex: `android/`, `.github/workflows/android-feasibility.yml`, `.github/workflows/android-native-wheels.yml`); remaining task 05a message/status schemas (Codex: `lightning/sync/`, `tests/test_sync_domain.py`). Both Android source-wheel experiments failed at build configuration; see `android/README.md`. Codex owns `NOW.md` and `CHANGELOG.md` for this work.
+- **Last done (2026-10-05):** tasks 01, 02a–02c and the first 03a restore preview: writer inventory, two-node fixture, P0–P5 promotion, POSIX/Windows adapters, and a locked-profile encrypted backup restore route. Focused restore/promotion/docs checks pass locally; the restore UI test stalls in the local Python 3.14 runner and GitHub CI is pending. This is not release acceptance: interrupted restores need deterministic repair and ordinary Windows testing. The checkout/return message and in-memory state contract is tested; durable sync control and real writer gates remain. Android has no pinned native wheels yet; no APK exists.
+- **In progress · claimed files:** Task 02d journal integration (`lightning/database/promotion.py`, `tests/test_database_promotion.py` landed; reboot/fault evidence and runtime gating remain); task 04a Android dependency/build feasibility (Codex: `android/`, `.github/workflows/android-feasibility.yml`, `.github/workflows/android-native-wheels.yml`); remaining task 05a message/status schemas (Codex: `lightning/sync/`, `tests/test_sync_domain.py`). Both Android source-wheel experiments failed at build configuration; see `android/README.md`. Codex owns `NOW.md` and `CHANGELOG.md` for this work.
 
 ## Next (unclaimed; claim it in your lane before you start)
 
@@ -30,7 +30,7 @@ Last rewritten 2026-10-05 · Codex.
 3. **Competition research:** App Store, Reddit and Facebook reviews were not reachable; see the last section of `docs/COMPETITION.md`. Owner questions are in *For the owner*.
 4. **Speed, if wanted:** a stable window origin, so the 290 KB stylesheet and 109 KB script stay cached across launches; trim unused CSS in `style.css`.
 
-5. **Multiple devices:** tasks 01 and 02a–02c are done; 02d and 04a are in progress. Next on the safe-restore track is 03a encrypted restore after 02d. Follow the [dependencies and Read column](docs/proposals/multiple_devices.md#15-implementation-work-packages).
+5. **Multiple devices:** tasks 01 and 02a–02c are done; 02d and 04a are in progress. The first 03a encrypted restore preview is wired; next is an interrupted-operation repair path, fault/reboot drills and ordinary Windows restore acceptance before using real profile data. Follow the [dependencies and Read column](docs/proposals/multiple_devices.md#15-implementation-work-packages).
 
 ## For the owner
 

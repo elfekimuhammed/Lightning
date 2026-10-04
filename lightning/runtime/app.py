@@ -133,7 +133,7 @@ def profile_app(credentials: Credentials, root: Path | str | None = None):
 
     def page(request: Request, mode: str, *, error="", status=200, **context):
         values = dict(mode=mode, csrf=session.csrf, error=error, root=str(session.root),
-                      profiles=[], backups=[], selected="", name="", recovery="",
+                      profiles=[], backups=[], selected="", backup="", name="", recovery="",
                       active_name=session.name, notice="")
         values.update(context)
         return templates.TemplateResponse(request, "profiles.html", values, status_code=status)
@@ -161,7 +161,8 @@ def profile_app(credentials: Credentials, root: Path | str | None = None):
             backups = []
             for info in found:
                 paths = resolve_profile(info.path)
-                backups.extend({"path": str(item.path), "label": item.path.name}
+                backups.extend({"path": str(item.path), "label": item.path.name,
+                                "db": str(paths.db_path)}
                                for item in list_backups(paths.backups_dir, paths.db_path))
             return page(request, "choose", profiles=found, backups=backups)
         except (OSError, ValueError):
@@ -218,6 +219,34 @@ def profile_app(credentials: Credentials, root: Path | str | None = None):
             session.recover(selected, str(form.get("recovery", "")), str(form.get("password", "")), str(form.get("confirm", "")))
             return page(request, "unlock", selected=selected, notice="Password reset. Unlock with your new password.")
         return await action(request, "recover", operation, selected=selected)
+
+    @app.get("/profiles/restore")
+    async def restore_page(request: Request):
+        if session.container:
+            return RedirectResponse("/profiles", 303)
+        return page(request, "restore", selected=request.query_params.get("db", ""),
+                    backup=request.query_params.get("backup", ""))
+
+    @app.post("/profiles/restore")
+    async def restore(request: Request):
+        form = await request.form()
+        selected = str(form.get("db", ""))
+        backup_path = str(form.get("backup", ""))
+        if form.get("confirm") != "yes":
+            return page(request, "restore", status=400, selected=selected, backup=backup_path,
+                        error="Confirm that this backup will replace the current profile.")
+        try:
+            session.restore_backup(selected, backup_path, str(form.get("password", "")))
+        except ProfileError as exc:
+            return page(request, "restore", status=400, selected=selected,
+                        backup=backup_path, error=str(exc))
+        except Exception:
+            # Replacement may already have happened before a disk or process
+            # error. Never promise the old live path is still unchanged.
+            return page(request, "restore", status=400, selected=selected,
+                        backup=backup_path, error="Restore needs checking. Keep this profile locked and inspect the selected backup and retained copies before trying again.")
+        return page(request, "unlock", selected=selected,
+                    notice="Backup restored. The previous database was kept for recovery. Unlock this profile to review it.")
 
     @app.post("/profiles/password")
     async def password(request: Request):
