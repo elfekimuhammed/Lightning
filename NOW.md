@@ -21,7 +21,7 @@ Last rewritten 2026-10-05 · Codex.
 ## Codex
 
 - **Last done (2026-10-05):** tasks 01 and 02a: writer/lifecycle inventory, two-node read-only fixture, and the P0–P5 promotion journal/restart model. Focused tests pass. Added the isolated Android dependency APK probe; the full local suite hung in a UI test under Python 3.14, so GitHub's Python 3.13 suite is the release check.
-- **In progress · claimed files:** Task 02b POSIX file publication (Luna under Codex: `lightning/database/promotion.py`, `tests/test_database_promotion_posix.py`); task 04a Android dependency/build feasibility (Codex: `android/`, `.github/workflows/android-feasibility.yml`). Codex owns `NOW.md` and `CHANGELOG.md` for this work.
+- **In progress · claimed files:** Task 02b POSIX file publication (Luna under Codex: `lightning/database/promotion.py`, `tests/test_database_promotion_posix.py`); task 04a Android dependency/build feasibility (Codex: `android/`, `.github/workflows/android-feasibility.yml`). GitHub's probe cannot resolve pinned `sqlcipher3` for Android; native wheel/adapter work is next. Codex owns `NOW.md` and `CHANGELOG.md` for this work.
 
 ## Next (unclaimed; claim it in your lane before you start)
 

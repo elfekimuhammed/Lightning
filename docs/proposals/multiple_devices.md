@@ -694,7 +694,7 @@ The update-direction question is **resolved** by the existing owner-requested Wi
 
 ### Evidence still needed
 
-- Reproducible Android builds of the pinned encrypted/crypto stack and acceptable performance.
+- Reproducible Android builds of the pinned encrypted/crypto stack and acceptable performance. The first arm64 Chaquopy probe failed to resolve `sqlcipher3==0.6.2` ([GitHub run](https://github.com/elfekimuhammed/Lightning/actions/runs/37234716636)); no APK or phone result exists yet. Its published `cryptography` Android index lists only 42.0.8, below Lightning's pinned 50.0.2 and the Argon2id API introduced in 44. Build compatible native wheels or evaluate the narrow adapter before continuing Android product work.
 - Proven file durability and restart behavior on Windows and Android storage.
 - A compliant foreground-service lifecycle and local discovery on the chosen Android support matrix.
 - Bank-specific sanitized examples, SMS permission approval where required and measured matching quality.

@@ -10,6 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-05 · Codex: The Android dependency probe reached Chaquopy resolution on GitHub and confirmed no Android distribution for pinned `sqlcipher3==0.6.2`; recorded the native-wheel gate in the proposal and probe README. No APK was produced.
 - 2026-10-05 · Codex: Added the P0–P5 promotion journal model and restart decisions for database replacement. The model blocks ambiguous files and authority state; filesystem adapters and restore remain to build.
 - 2026-10-05 · Codex: Started the multi-device build with Luna: mapped the current writer paths and added a two-node read-only fixture. Added an isolated Android arm64 dependency probe and manual GitHub build workflow; pinned crypto/SQLCipher packaging remains an open gate.
 - 2026-10-04 · Claude: brand guideline updated to 3.16 from the website copy. Only B08 (the website calculator) changed, so Part A and the app's CSS are unchanged.
