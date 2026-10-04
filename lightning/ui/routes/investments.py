@@ -73,8 +73,10 @@ async def portfolio(request: Request):
     try:
         period = parse_period(request.query_params, today_date,
                               min((x.price_date for x in all_port.positions if x.price_date), default=None))
-    except LightningError:
+        period_error = ""
+    except LightningError as exc:
         period = parse_period({}, today_date)
+        period_error = exc.message  # say why this month is shown instead of the range asked for
     day = period.end_text
     investment_report = investment_period(c.db, c.accounts, c.assets, c.reporting,
                                           period.start_text, period.end_text)
@@ -199,7 +201,7 @@ async def portfolio(request: Request):
                   owned_cost=owned_cost, owned_unrealized=owned_unrealized, custody_units=custody,
                   own_by_holding=own_by_holding, period=period, period_realized=p.realized-prior.realized,
                   period_dividends=period_distributions, since_xirr=(p.xirr if not any(custody.values()) and _year_of_history(c, period.end) else None),
-                  owned_rows=owned_rows, period_activity=period_activity, horizons=horizons,
+                  owned_rows=owned_rows, period_activity=period_activity, period_error=period_error, horizons=horizons,
                   buckets=buckets, targets=targets, target_total=target_total,
                   owned_positions=owned_positions, max_class_result=max_class_result,
                   allocation_classes=allocation_classes, own_units_by_holding=own_units_by_holding,

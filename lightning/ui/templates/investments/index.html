@@ -4,6 +4,7 @@
 {% block heading %}<div class="birdview-title"><div><h1>Investments</h1><div class="muted">Valued as of {{ period.end_display }}</div></div><a class="btn btn-planner" data-popup-open href="/investments/planner"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 20h18M6 16l4-5 4 3 6-8"/><path d="M16 6h4v4"/></svg>Investment planner</a><a class="btn small icon-btn" aria-label="Investment settings" title="Investment settings" href="/settings?section=investments&amp;return_to={{ request.url.path|urlencode }}{% if request.url.query %}%3F{{ request.url.query|urlencode }}{% endif %}"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7h-9M14 17H4M4 7h3M20 17h-2"/><circle cx="9" cy="7" r="2.5"/><circle cx="16" cy="17" r="2.5"/></svg></a></div>{% endblock %}
 {% block top_actions %}{% from "partials/macros.html" import period_control %}{{ period_control("/investments", period.key, period.start_text[:7], this_month, period.start_text, period.end_text) }}{% endblock %}
 {% block content %}
+{% if period_error %}<p class="flash error">{{ period_error }}</p>{% endif %}
 {% from "partials/charts.html" import key_notes, trend, donut, bars, diverging, saved_split %}
 {% set chip = {"month": period.start_text[:7], "ytd": "Year to date", "all": "All time"}.get(period.key, period.start_text ~ " to " ~ period.end_text) %}
 

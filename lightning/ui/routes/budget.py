@@ -43,8 +43,9 @@ def _page(request: Request, month: str, values: dict | None = None, error: str =
     earliest = c.budgets.first_owned_spending_date()
     try:
         period = parse_period(request.query_params, today(), earliest)
-    except ValidationError:
+    except ValidationError as exc:
         period = parse_period({"period": "month", "month": month}, today())
+        error = error or exc.message  # say why the month is shown instead of the range asked for
     month = period.end.strftime("%Y-%m")
     view = c.budgets.month_view(month)
     cursor = period.start.replace(day=1)
