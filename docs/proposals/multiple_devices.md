@@ -254,7 +254,7 @@ Opening the PC app without unlocking costs nothing: the phone never stopped writ
 
 - The PC must be near the phone to start or end a lend: the same Wi-Fi, the phone's hotspot, or a USB cable.
 - A forgotten lend blocks editing on the phone, and its SMS wait.
-- To be found by the PC, the phone app must be reachable on Wi-Fi. Android stops background apps, so this needs either the phone app open, or a foreground service with a visible notification (owner to choose, Review 5).
+- To be found by the PC, the phone app must be open (owner's choice, Review 5).
 - Python on Android is the biggest technical bet.
 - Every paired device can decrypt the profile.
 - App versions must match across devices.
@@ -279,10 +279,10 @@ Answered 2026-10-04 (now requirements 6–9 in Review 1):
 5. Bank SMS formats: still open. Each bank words its messages differently, so the parser needs a few real examples from each bank the owner uses, with the numbers changed.
 6. Backups: local only; a cloud opt-in may come later.
 
-Still open:
+Answered later the same day:
 
-- **Being found by the PC:** Android stops background apps. Either (a) the owner opens the phone app before using the PC, or (b) Lightning runs a foreground service on trusted Wi-Fi, which Android shows as a permanent notification and which uses some battery.
-- **Which banks first**, and a few example SMS from each.
+- **Being found by the PC:** the owner opens the phone app when using the PC. Lightning says so plainly ("Open Lightning on your phone") instead of running in the background.
+- **Bank SMS formats:** no samples yet. Make time to log how each bank words its SMS, bank by bank, as examples are gathered.
 
 ### Review 6. What Codex should do with this
 

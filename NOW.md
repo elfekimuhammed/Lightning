@@ -30,7 +30,7 @@ Last rewritten 2026-10-04 · Claude.
   3. Release with `git tag v0.5.0-beta.1 <commit on main>` and `git push origin v0.5.0-beta.1`.
 - **Retest:** on the PC whose window failed to start, try a ZIP downloaded in a browser. Builds from `f4e1603` on include the fix.
 - **Questions:**
-  1. *Multiple devices* (proposal › Review 5): to be found by the PC, should you open the phone app first, or should it run in the background with a permanent notification? Which banks' SMS first, with a few example messages (numbers changed)?
+  1. *Multiple devices:* none open now. Bank SMS samples will be logged bank by bank later (proposal › Review 5).
   2. *Review of Mohab's year:* which of these suggestions should be built? None has been started.
      1. Say *to* or *from* on transfer rows.
      2. Needs you lists expected income not yet received.
