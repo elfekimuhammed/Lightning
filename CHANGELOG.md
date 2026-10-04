@@ -10,6 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-05 · Codex: Fixed restore screen tests to create backups and read encrypted settings on the profile's owning ASGI thread; the first GitHub Linux gate exposed the test-thread mistake.
 - 2026-10-05 · Codex: Added Luna's encrypted backup restore backend and a locked-profile chooser/confirmation screen. Successful restores retain both source and prior database; ambiguous operations block unlock. Repair flow and ordinary Windows acceptance remain.
 - 2026-10-05 · Codex: Claimed the restore chooser and confirmation UI while Luna builds the locked-profile backend; the screen is not yet available.
 - 2026-10-05 · Codex: Promotion now refuses unresolved SQLite WAL, shared-memory and rollback-journal sidecars before preparing or resuming publication, preserving existing files for repair.

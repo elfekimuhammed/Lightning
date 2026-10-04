@@ -101,7 +101,7 @@ def test_restore_chooser_requires_explicit_confirmation(tmp_path):
         browser.get("/__launch", params={"code": cfg.launch_code})
         create(browser)
         live_path = app.session.paths.db_path
-        backup_path = app.session.container.backup_now()
+        backup_path = browser.portal.call(app.session.container.backup_now)
         csrf = token(browser.get("/profiles").text)
         browser.post("/profiles/lock", data={"csrf": csrf})
         chooser = browser.get("/profiles")
@@ -125,9 +125,9 @@ def test_restore_screen_replaces_only_after_confirmed_encrypted_backup(tmp_path)
         browser.get("/__launch", params={"code": cfg.launch_code})
         create(browser)
         live_path = app.session.paths.db_path
-        app.session.container.settings.set("restore_ui_marker", "saved version")
-        backup_path = app.session.container.backup_now()
-        app.session.container.settings.set("restore_ui_marker", "newer version")
+        browser.portal.call(app.session.container.settings.set, "restore_ui_marker", "saved version")
+        backup_path = browser.portal.call(app.session.container.backup_now)
+        browser.portal.call(app.session.container.settings.set, "restore_ui_marker", "newer version")
         csrf = token(browser.get("/profiles").text)
         browser.post("/profiles/lock", data={"csrf": csrf})
         page = browser.get("/profiles/restore", params={"db": str(live_path),
@@ -143,7 +143,7 @@ def test_restore_screen_replaces_only_after_confirmed_encrypted_backup(tmp_path)
             "csrf": token(restored.text), "db": str(live_path), "password": PASSWORD,
         })
         assert unlocked.status_code == 200, unlocked.text
-        assert app.session.container.settings.get("restore_ui_marker") == "saved version"
+        assert browser.portal.call(app.session.container.settings.get, "restore_ui_marker") == "saved version"
 
 
 def test_finance_routes_are_all_async():
