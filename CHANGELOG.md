@@ -16,6 +16,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - 2026-10-03 · Codex: Set the source version to 0.5.0b1 (display 0.5.0-beta.1) for the next beta. The Windows package workflow now runs from `main` and names the ZIP `Lightning-v0.5.0-beta.1-Windows-x64.zip`. This records the packaging setup only; Windows build verification and distribution are still pending.
 
 ## [Unreleased]
+- 2026-10-04 · Claude: Brand guideline 3.13, the same file as the website's `brand-guidelines.html`. Website only: the small-change calculator is a split card with its answer on the vivid gradient, the one card allowed there.
 - 2026-10-04 · Claude: Brand guideline 3.12, the same file as the website's `brand-guidelines.html`. Website words only: show what Lightning does well and never compare it with other apps.
 - 2026-10-04 · Claude: Brand guideline 3.11, the same file as the website's `brand-guidelines.html`. 3.10: the vivid gradient ends on the brand azure #0B6DD6, the logo's own blue, instead of #0066FF; the Investment planner button follows (`--vivid` in `style.css`). 3.11 changes the website only (the small-change calculator shows the capital that pays what you keep; no explanation notes).
 - 2026-10-04 · Claude: Guard tests for the figures layer: `tests/test_figures_layer.py` fails if the drawing code or a route reads the ledger directly, or if a money path stops using the one rule.
