@@ -23,3 +23,20 @@ def test_all_time_money_in_is_the_same_on_investments_and_the_overview(c, setup,
     overview = flat(client.get("/?period=all").text)
     assert re.search(r"Of ([\d,]+) money in", investments).group(1) == "120,000"
     assert re.search(r"Money in ([\d,]+)", overview).group(1) == "120,000"
+
+
+def test_all_time_money_in_is_the_same_on_budget_and_the_overview(c, setup, monkeypatch):
+    # Budget started its All time at the first spending, so income before it was left out.
+    from fastapi.testclient import TestClient
+    from lightning.ui.web import create_app
+    monkeypatch.setenv("LIGHTNING_TODAY", "2026-10-31")
+    accounts, cats = setup
+    c.transactions.record_inflow("2026-09-02", accounts["cib"].id, "30000", cats["EXP.WORK.SALARY"].id)
+    c.transactions.record_inflow("2026-10-01", accounts["cib"].id, "30000", cats["EXP.WORK.SALARY"].id)
+    c.transactions.record_outflow("2026-10-10", accounts["cib"].id, "500", cats["EXP.PERSONAL.FOOD"].id)
+    client = TestClient(create_app(c))
+    flat = lambda html: re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", html))
+    budget = flat(client.get("/budget?period=all").text)
+    overview = flat(client.get("/?period=all").text)
+    assert re.search(r"Money in ([\d,]+)", overview).group(1) == "60,000"
+    assert re.search(r"Of ([\d,]+) money in", budget).group(1) == "60,000"
