@@ -10,6 +10,8 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-05 · Codex: Reviewed Luna's P0–P5 promotion service and SQLite control store, fixed a P3 rollback retry, and added real encrypted-file, process-kill, corrupt-control and lost-reply tests. Windows CI and reboot drills remain.
+- 2026-10-05 · Codex: Rejected a delayed borrower cancellation after return reception or acceptance, including when activation acknowledgement was lost; regression tests keep the home read-only.
 - 2026-10-05 · Codex: Android source-wheel experiments reached native builds, then failed on missing cross-build Python headers (cryptography) and Conan Android API-level settings (SQLCipher). Recorded the build gates; no APK was produced.
 - 2026-10-05 · Codex: Added the first bounded, versioned checkout/return message contract and in-memory single-grant model, with replay, cancellation and receipt tests. It is a protocol foundation only; durable authority and real writer gates remain.
 - 2026-10-05 · Codex: Added Luna's Windows promotion file adapter, with fixed-drive and link checks, flushed copies, write-through sibling moves and post-publish hashes. Windows CI passed; journal integration remains.

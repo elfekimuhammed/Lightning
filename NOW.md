@@ -21,7 +21,7 @@ Last rewritten 2026-10-05 · Codex.
 ## Codex
 
 - **Last done (2026-10-05):** tasks 01 and 02a–02c: writer inventory, two-node fixture, promotion restart model and POSIX/Windows file adapters. GitHub run 37236091730 passed the full Linux suite, Windows adapter tests and packaged-app checks. The core checkout/return message and in-memory state contract is also tested; durable control records and real writer gates remain. Android has no pinned native wheels yet; no APK exists.
-- **In progress · claimed files:** Task 02d journal integration (Luna under Codex: `lightning/database/promotion.py`, `tests/test_database_promotion.py`); task 04a Android dependency/build feasibility (Codex: `android/`, `.github/workflows/android-feasibility.yml`, `.github/workflows/android-native-wheels.yml`); remaining task 05a message/status schemas (Codex: `lightning/sync/`, `tests/test_sync_domain.py`). Both Android source-wheel experiments failed at build configuration; see `android/README.md`. Codex owns `NOW.md` and `CHANGELOG.md` for this work.
+- **In progress · claimed files:** Task 02d journal integration (Luna's `lightning/database/promotion.py`, `tests/test_database_promotion.py` are under Codex review; Windows CI, reboot/fault evidence and runtime gating remain); task 04a Android dependency/build feasibility (Codex: `android/`, `.github/workflows/android-feasibility.yml`, `.github/workflows/android-native-wheels.yml`); remaining task 05a message/status schemas (Codex: `lightning/sync/`, `tests/test_sync_domain.py`). Both Android source-wheel experiments failed at build configuration; see `android/README.md`. Codex owns `NOW.md` and `CHANGELOG.md` for this work.
 
 ## Next (unclaimed; claim it in your lane before you start)
 

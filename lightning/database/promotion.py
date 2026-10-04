@@ -8,12 +8,15 @@ it does not decide when a caller may publish or clean up a referenced file.
 from __future__ import annotations
 
 import hashlib
+import json
 import os
+import sqlite3
 import stat
+from contextlib import AbstractContextManager, contextmanager
 from dataclasses import dataclass, replace
 from enum import IntEnum, StrEnum
 from pathlib import Path, PurePath
-from typing import Protocol, runtime_checkable
+from typing import Callable, Protocol, runtime_checkable
 
 
 class PromotionPhase(IntEnum):
@@ -442,6 +445,7 @@ class RestartAction(StrEnum):
     KEEP_CURRENT = "keep_current"
     PROTECT_PREVIOUS = "protect_previous"
     RETRY_PUBLISH = "retry_publish"
+    RECORD_PUBLISHED = "record_published"
     VERIFY_AND_COMMIT_AUTHORITY = "verify_and_commit_authority"
     ACTIVATE_NEW = "activate_new"
     BLOCK_REPAIR = "block_repair"
@@ -519,6 +523,11 @@ def decide_restart(
                     "P1 must durably establish the named previous checkpoint before P2",
                 )
             return _block("P1 files do not match the journal")
+        if live_new and previous_old and files.candidate.state is FileState.MISSING:
+            return RestartDecision(
+                RestartAction.RECORD_PUBLISHED,
+                "P2 candidate is live; record P3 after full verification",
+            )
         if live_old and candidate_new and previous_old:
             return RestartDecision(RestartAction.RETRY_PUBLISH, "Old authority intact; exact candidate and protection are present")
         return _block("Pre-publication files do not match the journal")
@@ -542,3 +551,446 @@ def _is_hash(observation: FileObservation, expected: str) -> bool:
 
 def _block(reason: str) -> RestartDecision:
     return RestartDecision(RestartAction.BLOCK_REPAIR, reason)
+
+
+@dataclass(frozen=True)
+class AcceptedCheckpoint:
+    checkpoint_id: str
+    sha256: str
+
+    def __post_init__(self) -> None:
+        if (not isinstance(self.checkpoint_id, str) or not self.checkpoint_id
+                or len(self.checkpoint_id) > 200):
+            raise ValueError("Invalid accepted checkpoint ID")
+        _validate_hash(self.sha256)
+
+
+@dataclass(frozen=True)
+class PromotionControlState:
+    accepted: AcceptedCheckpoint | None
+    journal: PromotionJournal | None
+
+
+class PromotionJournalStore(Protocol):
+    """Durable authority/journal contract used by the promotion service."""
+
+    def read_state(self) -> PromotionControlState: ...
+
+    def initialize_accepted(self, checkpoint_id: str, sha256: str) -> None: ...
+
+    def prepare(self, journal: PromotionJournal) -> PromotionJournal: ...
+
+    def advance(self, expected: PromotionJournal, updated: PromotionJournal) -> PromotionJournal: ...
+
+    def commit_authority(self, expected: PromotionJournal) -> PromotionJournal: ...
+
+    def mark_activated(self, expected: PromotionJournal) -> PromotionJournal: ...
+
+
+class SqlitePromotionJournalStore:
+    """Small FULL-synchronous control database for one profile's promotion.
+
+    The caller must place it in private device-local storage and hold the
+    profile operation/instance lock. It contains IDs and ciphertext hashes only.
+    Journal and accepted checkpoint update together in one SQLite transaction.
+    """
+
+    def __init__(self, path: str | Path):
+        self.path = Path(path)
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        existed = self.path.exists()
+        connection = self._connect()
+        try:
+            connection.execute(
+                "CREATE TABLE IF NOT EXISTS promotion_control ("
+                "singleton INTEGER PRIMARY KEY CHECK(singleton=1), "
+                "accepted_checkpoint_id TEXT, accepted_sha256 TEXT, journal_json TEXT, "
+                "CHECK ((accepted_checkpoint_id IS NULL) = (accepted_sha256 IS NULL)))"
+            )
+            connection.execute(
+                "INSERT OR IGNORE INTO promotion_control(singleton) VALUES (1)"
+            )
+        finally:
+            connection.close()
+        if not existed:
+            os.chmod(self.path, 0o600)
+
+    def _connect(self) -> sqlite3.Connection:
+        connection = sqlite3.connect(self.path, timeout=5, isolation_level=None)
+        try:
+            connection.execute("PRAGMA journal_mode=DELETE")
+            connection.execute("PRAGMA synchronous=FULL")
+            connection.execute("PRAGMA foreign_keys=ON")
+        except BaseException:
+            connection.close()
+            raise
+        return connection
+
+    @contextmanager
+    def _transaction(self):
+        connection = self._connect()
+        try:
+            connection.execute("BEGIN IMMEDIATE")
+            yield connection
+            connection.execute("COMMIT")
+        except BaseException:
+            if connection.in_transaction:
+                connection.execute("ROLLBACK")
+            raise
+        finally:
+            connection.close()
+
+    @staticmethod
+    def _row_state(row) -> PromotionControlState:
+        if row is None:
+            raise RuntimeError("Promotion control singleton is missing")
+        accepted_id, accepted_hash, journal_json = row
+        if (accepted_id is None) != (accepted_hash is None):
+            raise RuntimeError("Accepted checkpoint record is incomplete")
+        accepted = None if accepted_id is None else AcceptedCheckpoint(accepted_id, accepted_hash)
+        if journal_json is None:
+            journal = None
+        else:
+            try:
+                def no_duplicates(pairs):
+                    record = {}
+                    for key, value in pairs:
+                        if key in record:
+                            raise ValueError("Duplicate promotion journal key")
+                        record[key] = value
+                    return record
+
+                record = json.loads(journal_json, object_pairs_hook=no_duplicates)
+                journal = PromotionJournal.from_record(record)
+            except (TypeError, ValueError, json.JSONDecodeError) as exc:
+                raise RuntimeError("Promotion journal is corrupt; writes must remain blocked") from exc
+        return PromotionControlState(accepted, journal)
+
+    @classmethod
+    def _read_from(cls, connection: sqlite3.Connection) -> PromotionControlState:
+        row = connection.execute(
+            "SELECT accepted_checkpoint_id, accepted_sha256, journal_json "
+            "FROM promotion_control WHERE singleton=1"
+        ).fetchone()
+        return cls._row_state(row)
+
+    @staticmethod
+    def _encoded(journal: PromotionJournal) -> str:
+        return json.dumps(journal.to_record(), sort_keys=True, separators=(",", ":"))
+
+    def read_state(self) -> PromotionControlState:
+        connection = self._connect()
+        try:
+            return self._read_from(connection)
+        finally:
+            connection.close()
+
+    def initialize_accepted(self, checkpoint_id: str, sha256: str) -> None:
+        accepted = AcceptedCheckpoint(checkpoint_id, sha256)
+        with self._transaction() as connection:
+            state = self._read_from(connection)
+            if state.accepted == accepted and state.journal is None:
+                return
+            if state.accepted is not None or state.journal is not None:
+                raise RuntimeError("Initial accepted checkpoint is already established")
+            connection.execute(
+                "UPDATE promotion_control SET accepted_checkpoint_id=?, accepted_sha256=? "
+                "WHERE singleton=1",
+                (accepted.checkpoint_id, accepted.sha256),
+            )
+
+    def prepare(self, journal: PromotionJournal) -> PromotionJournal:
+        if journal.phase is not PromotionPhase.PREPARED:
+            raise ValueError("Prepared journal must start at P1")
+        with self._transaction() as connection:
+            state = self._read_from(connection)
+            if state.journal == journal:
+                return journal
+            if state.journal is not None and state.journal.phase is not PromotionPhase.ACTIVATED:
+                raise RuntimeError("Another promotion is still unresolved")
+            if state.accepted != AcceptedCheckpoint(journal.old_checkpoint_id, journal.old_sha256):
+                raise RuntimeError("Accepted checkpoint changed before promotion")
+            connection.execute(
+                "UPDATE promotion_control SET journal_json=? WHERE singleton=1",
+                (self._encoded(journal),),
+            )
+        return journal
+
+    def advance(self, expected: PromotionJournal, updated: PromotionJournal) -> PromotionJournal:
+        if updated != expected.advance(updated.phase):
+            raise ValueError("Journal update must be the next sequential phase")
+        with self._transaction() as connection:
+            state = self._read_from(connection)
+            if state.journal == updated:
+                return updated  # Idempotent retry after a lost commit response.
+            if state.journal != expected:
+                raise RuntimeError("Promotion journal changed concurrently")
+            connection.execute(
+                "UPDATE promotion_control SET journal_json=? WHERE singleton=1",
+                (self._encoded(updated),),
+            )
+        return updated
+
+    def commit_authority(self, expected: PromotionJournal) -> PromotionJournal:
+        if expected.phase is not PromotionPhase.FILE_PUBLISHED:
+            raise ValueError("Authority can be accepted only from P3")
+        accepted_new = AcceptedCheckpoint(expected.new_checkpoint_id, expected.new_sha256)
+        with self._transaction() as connection:
+            state = self._read_from(connection)
+            p4 = expected.advance(PromotionPhase.AUTHORITY_PUBLISHED)
+            if state.journal == p4 and state.accepted == accepted_new:
+                return p4
+            if state.journal != expected:
+                raise RuntimeError("Promotion journal changed before authority commit")
+            accepted_old = AcceptedCheckpoint(expected.old_checkpoint_id, expected.old_sha256)
+            if state.accepted != accepted_old:
+                raise RuntimeError("Accepted checkpoint changed before authority commit")
+            connection.execute(
+                "UPDATE promotion_control SET accepted_checkpoint_id=?, accepted_sha256=?, journal_json=? "
+                "WHERE singleton=1",
+                (accepted_new.checkpoint_id, accepted_new.sha256, self._encoded(p4)),
+            )
+        return p4
+
+    def mark_activated(self, expected: PromotionJournal) -> PromotionJournal:
+        if expected.phase is PromotionPhase.ACTIVATED:
+            return expected
+        if expected.phase is not PromotionPhase.AUTHORITY_PUBLISHED:
+            raise ValueError("Activation follows authority publication at P4")
+        with self._transaction() as connection:
+            state = self._read_from(connection)
+            p5 = expected.advance(PromotionPhase.ACTIVATED)
+            accepted_new = AcceptedCheckpoint(expected.new_checkpoint_id, expected.new_sha256)
+            if state.journal == p5 and state.accepted == accepted_new:
+                return p5
+            if state.journal != expected or state.accepted != accepted_new:
+                raise RuntimeError("Promotion authority changed before activation")
+            connection.execute(
+                "UPDATE promotion_control SET journal_json=? WHERE singleton=1",
+                (self._encoded(p5),),
+            )
+        return p5
+
+
+class PromotionBlocked(RuntimeError):
+    """Evidence is missing, damaged or ambiguous; keep the profile non-writable."""
+
+
+@dataclass(frozen=True)
+class PromotionResult:
+    operation_id: str | None
+    checkpoint_id: str
+    sha256: str
+    phase: PromotionPhase | None
+
+
+class CandidatePromotionService:
+    """Journal and publish one already-staged, verified database candidate.
+
+    `operation_gate` is mandatory and must quiesce the profile, drain active
+    transactions and keep all writes fenced for the entire context. The verifier
+    must validate SQLCipher/page integrity, schema/profile identity and the
+    application structure for a file name in the adapter's directory. The
+    activation callback prepares the new session only after P4 is durable; the
+    gate must not admit finance writes until this method exits successfully.
+    This layer never builds/restores/migrates candidate bytes itself.
+    """
+
+    def __init__(self, files: PromotionFileOps, store: PromotionJournalStore):
+        self.files = files
+        self.store = store
+
+    def promote(
+        self,
+        *,
+        operation_id: str,
+        old_checkpoint_id: str,
+        new_checkpoint_id: str,
+        live_name: str,
+        candidate_name: str,
+        previous_name: str,
+        operation_gate: AbstractContextManager,
+        verify_database: Callable[[str], None],
+        activate: Callable[[str, str], None],
+    ) -> PromotionResult:
+        """Begin or resume a promotion; callers must supply a drained gate."""
+        with operation_gate:
+            state = self.store.read_state()
+            if state.journal is not None and state.journal.operation_id == operation_id:
+                journal = state.journal
+                if (journal.old_checkpoint_id != old_checkpoint_id
+                        or journal.new_checkpoint_id != new_checkpoint_id
+                        or journal.live_name != live_name
+                        or journal.candidate_name != candidate_name
+                        or journal.previous_name != previous_name):
+                    raise PromotionBlocked("Operation ID was reused with different promotion details")
+                return self._resume_locked(live_name, verify_database, activate)
+            if state.journal is not None and state.journal.phase is not PromotionPhase.ACTIVATED:
+                if state.journal.operation_id != operation_id:
+                    raise PromotionBlocked("Resolve the existing promotion before starting another")
+
+            state = self.store.read_state()
+            if state.accepted is None:
+                raise PromotionBlocked("No accepted home checkpoint is established")
+            if state.accepted.checkpoint_id != old_checkpoint_id:
+                raise PromotionBlocked("Expected base checkpoint is no longer accepted")
+            old_hash = state.accepted.sha256
+            live_hash = self.files.sha256(live_name)
+            new_hash = self.files.sha256(candidate_name)
+            if live_hash != old_hash:
+                raise PromotionBlocked("Live database does not match accepted checkpoint")
+            if new_hash is None:
+                raise PromotionBlocked("Staged candidate is missing")
+            journal = PromotionJournal(
+                operation_id=operation_id,
+                old_checkpoint_id=old_checkpoint_id,
+                new_checkpoint_id=new_checkpoint_id,
+                old_sha256=old_hash,
+                new_sha256=new_hash,
+                live_name=live_name,
+                candidate_name=candidate_name,
+                previous_name=previous_name,
+                phase=PromotionPhase.STAGED,
+            )
+            self._verify_file(live_name, old_hash, verify_database)
+            self._verify_file(candidate_name, new_hash, verify_database)
+            prepared = journal.advance(PromotionPhase.PREPARED)
+            self.store.prepare(prepared)
+            return self._resume_locked(live_name, verify_database, activate)
+
+    def recover(
+        self,
+        *,
+        live_name: str,
+        operation_gate: AbstractContextManager,
+        verify_database: Callable[[str], None],
+        activate: Callable[[str, str], None],
+    ) -> PromotionResult:
+        """Resolve durable journal state before the caller exposes finance writes."""
+        with operation_gate:
+            state = self.store.read_state()
+            if state.accepted is None:
+                raise PromotionBlocked("Accepted authority is unavailable")
+            if state.journal is not None and state.journal.live_name != live_name:
+                raise PromotionBlocked("Journal names another live profile file")
+            return self._resume_locked(live_name, verify_database, activate)
+
+    def _resume_locked(
+        self,
+        live_name: str,
+        verify_database: Callable[[str], None],
+        activate: Callable[[str, str], None],
+    ) -> PromotionResult:
+        # Each durable step is idempotent. A bounded loop prevents corrupt
+        # journal implementations from keeping startup in an unbounded retry.
+        for _ in range(8):
+            state = self.store.read_state()
+            accepted = state.accepted
+            if accepted is None:
+                raise PromotionBlocked("Accepted authority is unavailable")
+            journal = state.journal
+            observations = self._observe(live_name, journal)
+            decision = decide_restart(
+                journal, observations, accepted_sha256=accepted.sha256,
+                authority_readable=True,
+            )
+            if decision.action is RestartAction.BLOCK_REPAIR:
+                raise PromotionBlocked(decision.reason)
+
+            if decision.action is RestartAction.KEEP_CURRENT:
+                if journal is not None:
+                    checkpoint_id = journal.old_checkpoint_id
+                else:
+                    checkpoint_id = accepted.checkpoint_id
+                self._verify_file(live_name, accepted.sha256, verify_database)
+                activate(checkpoint_id, live_name)
+                return PromotionResult(
+                    journal.operation_id if journal else None,
+                    checkpoint_id,
+                    accepted.sha256,
+                    journal.phase if journal else None,
+                )
+
+            if journal is None:
+                raise PromotionBlocked("A restart action requires a durable promotion journal")
+
+            if decision.action is RestartAction.PROTECT_PREVIOUS:
+                self._verify_file(journal.live_name, journal.old_sha256, verify_database)
+                self._verify_file(journal.candidate_name, journal.new_sha256, verify_database)
+                previous_hash = self.files.sha256(journal.previous_name)
+                if previous_hash is None:
+                    self.files.copy_exclusive(journal.live_name, journal.previous_name)
+                elif previous_hash != journal.old_sha256:
+                    raise PromotionBlocked("Named previous checkpoint conflicts with journal")
+                self._verify_file(journal.previous_name, journal.old_sha256, verify_database)
+                updated = journal.advance(PromotionPhase.PREVIOUS_PROTECTED)
+                self.store.advance(journal, updated)
+                continue
+
+            if decision.action is RestartAction.RETRY_PUBLISH:
+                if journal.phase not in (PromotionPhase.PREVIOUS_PROTECTED,
+                                         PromotionPhase.FILE_PUBLISHED):
+                    raise PromotionBlocked("Publication retry is allowed only after P2 or P3")
+                self._verify_file(journal.live_name, journal.old_sha256, verify_database)
+                self._verify_file(journal.candidate_name, journal.new_sha256, verify_database)
+                self._verify_file(journal.previous_name, journal.old_sha256, verify_database)
+                self.files.atomic_replace(journal.candidate_name, journal.live_name)
+                continue
+
+            if decision.action is RestartAction.RECORD_PUBLISHED:
+                self._verify_file(journal.live_name, journal.new_sha256, verify_database)
+                self._verify_file(journal.previous_name, journal.old_sha256, verify_database)
+                updated = journal.advance(PromotionPhase.FILE_PUBLISHED)
+                self.store.advance(journal, updated)
+                continue
+
+            if decision.action is RestartAction.VERIFY_AND_COMMIT_AUTHORITY:
+                self._verify_file(journal.live_name, journal.new_sha256, verify_database)
+                self._verify_file(journal.previous_name, journal.old_sha256, verify_database)
+                self.store.commit_authority(journal)
+                continue
+
+            if decision.action is RestartAction.ACTIVATE_NEW:
+                new_checkpoint = AcceptedCheckpoint(journal.new_checkpoint_id, journal.new_sha256)
+                if accepted != new_checkpoint:
+                    raise PromotionBlocked("New file is not accepted authority")
+                self._verify_file(journal.live_name, journal.new_sha256, verify_database)
+                self._verify_file(journal.previous_name, journal.old_sha256, verify_database)
+                activate(journal.new_checkpoint_id, journal.live_name)
+                if journal.phase is PromotionPhase.AUTHORITY_PUBLISHED:
+                    journal = self.store.mark_activated(journal)
+                return PromotionResult(journal.operation_id, journal.new_checkpoint_id,
+                                       journal.new_sha256, journal.phase)
+
+        raise PromotionBlocked("Promotion did not converge within its bounded restart steps")
+
+    def _observe(self, live_name: str, journal: PromotionJournal | None) -> FileObservations:
+        if journal is None:
+            # Only live matters without a journal; absent auxiliary names are
+            # placeholders and are never used as authority evidence.
+            return FileObservations(self._file_observation(live_name),
+                                    FileObservation.missing(), FileObservation.missing())
+        return FileObservations(
+            self._file_observation(journal.live_name),
+            self._file_observation(journal.candidate_name),
+            self._file_observation(journal.previous_name),
+        )
+
+    def _file_observation(self, name: str) -> FileObservation:
+        try:
+            value = self.files.sha256(name)
+            return FileObservation.missing() if value is None else FileObservation.hashed(value)
+        except (OSError, ValueError, RuntimeError):
+            return FileObservation.unknown()
+
+    def _verify_file(self, name: str, expected_hash: str, verifier: Callable[[str], None]) -> None:
+        try:
+            before = self.files.sha256(name)
+        except (OSError, ValueError, RuntimeError) as exc:
+            raise PromotionBlocked(f"Could not inspect promotion file {name}") from exc
+        if before != expected_hash:
+            raise PromotionBlocked(f"Promotion file hash does not match journal: {name}")
+        verifier(name)
+        after = self.files.sha256(name)
+        if after != expected_hash:
+            raise PromotionBlocked(f"Promotion file changed during verification: {name}")
