@@ -7,7 +7,7 @@ from __future__ import annotations
 from datetime import date
 from decimal import Decimal
 
-from lightning.core.dates import fmt_date, month_of, parse_month, today
+from lightning.core.dates import fmt_date, month_of, parse_date, parse_month, today
 from lightning.core.figures import label
 from lightning.core.money import ZERO, from_e6
 
@@ -161,17 +161,34 @@ class CashForecaster:
             next_date, next_estimated = fmt_date(parse_month(month_keys[1])[0]) if len(month_keys) > 1 else None, True
         else:
             next_date, next_estimated = None, False
-        safe, parts = self._safe_to_spend(free, upcoming, next_date, day, rows[0] if rows else None)
+        safe, parts = self._safe_to_spend(free, upcoming, next_date, day, rows)
         return CashForecast(fmt_date(day), free, average, average_months, next_date, next_estimated,
                             safe, parts, rows, [p for p in upcoming if p.due_date <= next_date] if next_date else upcoming[:10])
 
     def _safe_to_spend(self, free: Decimal, upcoming: list[Payment], until: str | None, day: date,
-                       first: ForecastMonth | None) -> tuple[Decimal, list[tuple[str, Decimal]]]:
-        """Free cash less what is already promised before the next income."""
+                       rows: list[ForecastMonth]) -> tuple[Decimal, list[tuple[str, Decimal]]]:
+        """Free cash less what is already promised before the next income.
+
+        Budget and goal needs count for every month until the next income, not just this one: between
+        jobs, next month's spending still comes out of today's cash. The month the income lands in
+        counts for the days before it."""
         before = [p for p in upcoming if not p.item.is_income and (until is None or p.due_date < until)]
         bills = sum((p.amount for p in before), ZERO)
-        this_month = first.budget_spending if first else ZERO
-        goals = first.goal_saving if first else ZERO
+        spending = goals = ZERO
+        for index, row in enumerate(rows):
+            share = Decimal(1)
+            if index:
+                if until is None:
+                    break
+                first_day, last_day = parse_month(row.month)
+                pay_day = parse_date(until)
+                if pay_day <= first_day:
+                    break
+                if pay_day <= last_day:
+                    share = Decimal((pay_day - first_day).days) / Decimal((last_day - first_day).days + 1)
+            spending += row.budget_spending * share
+            goals += row.goal_saving * share
+        spending, goals = spending.quantize(Decimal("0.01")), goals.quantize(Decimal("0.01"))
         parts = [(label("free_cash"), free), (label("payments_before_next_income"), -bills),
-                 (label("left_in_plan_after_bills"), -this_month), (label("saving_for_goals"), -goals)]
-        return free - bills - this_month - goals, [(name, value) for name, value in parts if value or name == label("free_cash")]
+                 (label("left_in_plan_after_bills"), -spending), (label("saving_for_goals"), -goals)]
+        return free - bills - spending - goals, [(name, value) for name, value in parts if value or name == label("free_cash")]

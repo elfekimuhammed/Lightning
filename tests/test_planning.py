@@ -291,3 +291,19 @@ def test_tiny_repeats_are_not_suggested(c, setup, monkeypatch):
                                       counterparty="WE")
     names = [s["name"] for s in c.planning.suggestions(date(2026, 10, 6))]
     assert "WE" in names and "Bank fee" not in names
+
+
+def test_safe_to_spend_counts_every_month_until_the_next_income(c, setup, monkeypatch):
+    # Between jobs the next pay is two months away: next month's budget still comes out of today's cash
+    # (bug found 2026-10-04: only this month's budget was taken off).
+    monkeypatch.setenv("LIGHTNING_TODAY", "2026-10-31")
+    food = c.categories.get_by_code("EXP.PERSONAL.FOOD")
+    for month in ("2026-10", "2026-11", "2026-12"):
+        c.budgets.set_budget(food.id, month, "3000")
+    c.planning.create(kind="INCOME", name="New job", amount="40000", frequency="MONTHLY", start_date="2026-12-16")
+    f = c.forecaster.forecast(date(2026, 10, 31))
+    parts = dict(f.safe_to_spend_parts)
+    # All of November (3,000) and the 15 days of December before the pay (3,000 × 15/31).
+    assert f.next_income_date == "2026-12-16"
+    assert parts["Budget left to spend"] == -(Decimal("3000") + Decimal("1451.61")) - f.months[0].budget_spending
+    assert f.safe_to_spend == f.free_cash + sum(v for k, v in parts.items() if k != "Free cash")

@@ -116,7 +116,7 @@ _TABLE = [
     ("period_growth", "Growth", "Net gain or loss as a share of what the portfolio started the period with, plus money added.",
      "Net gain or loss ÷ (Portfolio value at the start + Money added)"),
     # ------------------------------------------------------------ cash planning
-    ("safe_to_spend", "Safe to spend", "Free cash after what is promised before your next income. An estimate.",
+    ("safe_to_spend", "Safe to spend", "Free cash after what is promised before your next income. An estimate. Budget left to spend and Saving for goals count for every month until that income (only the days before it in the month it lands), so a long gap between pays is covered.",
      "Free cash − Bills and loan payments before next income − Budget left to spend − Saving for goals"),
     ("bills_inside_the_plan", "Bills inside the plan",
      "This month's scheduled bills, due or upcoming, in a category that has a budget. They are part of that budget."),
