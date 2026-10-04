@@ -9,6 +9,7 @@ Look up one term with `grep -n -i '<term>' docs/GLOSSARY.md`. Read a whole secti
 | Section | Holds |
 |---|---|
 | The basic model | Ledger, accounts, transactions, postings and the other core nouns |
+| Device authority | Home node, borrower, checkout, checkpoint and hand-back receipts |
 | Three layers: ledger, plan, report | What each layer may do |
 | Reported figures: one name, one calculation, one function | Every figure a screen shows, its formula and its function (generated) |
 | Category taxonomy (why the activity happened) | L1, L2 and L3 categories |
@@ -17,6 +18,19 @@ Look up one term with `grep -n -i '<term>' docs/GLOSSARY.md`. Read a whole secti
 | Transaction and posting types | Every transaction and posting type |
 
 This is Lightning's canonical language for product, database, code, and UI. Use these definitions consistently. The user's visible label is the **Name**; IDs and codes support data integrity and lookup and should not clutter ordinary screens.
+
+## Device authority
+
+| Term | Meaning |
+|---|---|
+| **Home node** | The device holding the centralized accepted database and deciding which device may write. The phone is the intended default. |
+| **Borrower** | A paired device holding temporary write authority for one checkout; initially a PC. |
+| **Checkout** | One grant of write authority, identified by a random checkout ID and increasing home epoch. |
+| **Checkpoint** | An immutable, verified encrypted database version with an ID and ciphertext hash. The live home file may later change. |
+| **Lend** | Home records a grant and becomes read-only before the borrower enables writes. |
+| **Hand back** | Borrower freezes its working copy and returns an encrypted candidate for home verification and publication. |
+| **Received** | Home durably holds a complete ciphertext candidate; the borrower remains read-only, and home has not resumed writing. |
+| **Accepted** | Home has verified and durably published the candidate and issued a durable receipt for its new checkpoint. |
 
 ## The basic model
 

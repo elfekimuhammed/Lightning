@@ -28,3 +28,11 @@ The next step is a reproducible arm64 build of the two pinned Android wheels,
 including their OpenSSL/SQLCipher link dependencies and 16 KB page support, then
 an APK install and import check on a real device. If that fails, evaluate the
 proposal's narrow native SQLCipher adapter without duplicating financial rules.
+
+Source-wheel experiment [run 37235463323](https://github.com/elfekimuhammed/Lightning/actions/runs/37235463323)
+also failed. `cryptography==50.0.2` reached Android Rust/C compilation but could
+not find `Python.h` in the cross-build include paths. `sqlcipher3==0.6.2`
+reached its Conan OpenSSL dependency graph and stopped because the Android
+`settings.os.api_level` was undefined. These are build-configuration failures,
+not evidence that compatible wheels are impossible. Fix and rerun both build
+configurations before deciding whether the native adapter is necessary.

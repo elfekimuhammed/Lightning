@@ -20,8 +20,8 @@ Last rewritten 2026-10-05 · Codex.
 
 ## Codex
 
-- **Last done (2026-10-05):** tasks 01, 02a–02b and Windows adapter code for 02c: writer inventory, two-node fixture, promotion restart model, POSIX and Windows file primitives. Focused tests pass; Windows-only adapter tests are awaiting GitHub CI. The Android probe found no pinned SQLCipher or cryptography Android wheels; no APK exists. The full local suite hung in a UI test under Python 3.14, so GitHub's Python 3.13 suite is the release check.
-- **In progress · claimed files:** Task 02c Windows CI validation (Codex: `.github/workflows/desktop-probe.yml`; Luna's `lightning/database/promotion_windows.py` and `tests/test_database_promotion_windows.py` have landed); task 04a Android dependency/build feasibility (Codex: `android/`, `.github/workflows/android-feasibility.yml`, `.github/workflows/android-native-wheels.yml`); task 05a in-memory authority/message contract (Codex: `lightning/sync/`, `tests/test_sync_domain.py`). Native wheel source builds are being probed. Codex owns `NOW.md` and `CHANGELOG.md` for this work.
+- **Last done (2026-10-05):** tasks 01 and 02a–02c: writer inventory, two-node fixture, promotion restart model and POSIX/Windows file adapters. GitHub run 37236091730 passed the full Linux suite, Windows adapter tests and packaged-app checks. The core checkout/return message and in-memory state contract is also tested; durable control records and real writer gates remain. Android has no pinned native wheels yet; no APK exists.
+- **In progress · claimed files:** Task 02d journal integration (Luna under Codex: `lightning/database/promotion.py`, `tests/test_database_promotion.py`); task 04a Android dependency/build feasibility (Codex: `android/`, `.github/workflows/android-feasibility.yml`, `.github/workflows/android-native-wheels.yml`); remaining task 05a message/status schemas (Codex: `lightning/sync/`, `tests/test_sync_domain.py`). Both Android source-wheel experiments failed at build configuration; see `android/README.md`. Codex owns `NOW.md` and `CHANGELOG.md` for this work.
 
 ## Next (unclaimed; claim it in your lane before you start)
 
@@ -30,7 +30,7 @@ Last rewritten 2026-10-05 · Codex.
 3. **Competition research:** App Store, Reddit and Facebook reviews were not reachable; see the last section of `docs/COMPETITION.md`. Owner questions are in *For the owner*.
 4. **Speed, if wanted:** a stable window origin, so the 290 KB stylesheet and 109 KB script stay cached across launches; trim unused CSS in `style.css`.
 
-5. **Multiple devices:** tasks 01 and 02a–02b are done; 02c and 04a are in progress. Next on the safe-restore track is 02d integration. Follow the [dependencies and Read column](docs/proposals/multiple_devices.md#15-implementation-work-packages).
+5. **Multiple devices:** tasks 01 and 02a–02c are done; 02d and 04a are in progress. Next on the safe-restore track is 03a encrypted restore after 02d. Follow the [dependencies and Read column](docs/proposals/multiple_devices.md#15-implementation-work-packages).
 
 ## For the owner
 
