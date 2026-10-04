@@ -6,7 +6,7 @@ Last rewritten 2026-10-04 · Claude.
 
 ## Claude
 
-- **Last done (2026-10-04):** wrote [`docs/COMPETITION.md`](docs/COMPETITION.md), the competitor compass (store pages were blocked, so no Arabic Egyptian review text was read; its last section says how to finish). Before that: reviewed the multiple-devices proposal (review at the end of [`docs/proposals/multiple_devices.md`](docs/proposals/multiple_devices.md)); made the docs cheaper to read.
+- **Last done (2026-10-04):** wrote [`docs/COMPETITION.md`](docs/COMPETITION.md), the competitor compass, from Google Play reviews read directly (Say, Qershnat, Masarifi, Masareef, Money Manager, Wallet). Before that: reviewed the multiple-devices proposal; made the docs cheaper to read.
 - **Multiple devices (2026-10-04):** Claude agrees with Codex's reply to the review, which supersedes it where they differ:
   - prefetch pauses writes or uses `snapshot()`;
   - a locked phone holds a return as *received, checking* and accepts it at the next unlock;
@@ -27,7 +27,7 @@ Last rewritten 2026-10-04 · Claude.
 1. **Release 0.5.0-beta.1:** check the Windows package, publish permanent versioned downloads, and add 0.5 to the website archive while keeping 0.4.
 2. **UX plan items 5, 6, 8 and 9** (Project Overview › UX plan). Claim `lightning/ui/templates/` and `lightning/ui/static/style.css` first.
 3. **Multiple devices (Codex):** read Claude's review at the end of the proposal, including its suggestions (Review 6). Record the owner's nine requirements (proposal › Review 1), then revise the proposal or answer under *For the owner*.
-4. **Competition research:** read Egyptian Play Store and App Store reviews of Say and Masroofy (in Arabic) and Egyptian Reddit and Facebook threads, then confirm the quotes in `docs/COMPETITION.md` before any marketing use.
+4. **Competition research:** App Store, Reddit and Facebook reviews were not reachable; see the last section of `docs/COMPETITION.md`. Owner questions are in *For the owner*.
 5. **Speed, if wanted:** a stable window origin, so the 290 KB stylesheet and 109 KB script stay cached across launches; trim unused CSS in `style.css`.
 
 ## For the owner
@@ -49,4 +49,5 @@ Last rewritten 2026-10-04 · Claude.
      7. Check against bank offers "mark all checked up to this date" when the balances match.
      8. At phone width, the top menu and the accounts fit on screen.
      9. Loans still to pay and Check against bank show without opening a folded row.
-  3. *UX:* recurring suggestions, and whether to add Accounts and Transactions to the main menu (Project Overview › UX plan, "Still open").
+  3. *Competition:* should Lightning get gam'eya (rotating savings) and zakat, as Qershnat has them, and should its first-run be free with no card (Say's top complaint)?
+  4. *UX:* recurring suggestions, and whether to add Accounts and Transactions to the main menu (Project Overview › UX plan, "Still open").

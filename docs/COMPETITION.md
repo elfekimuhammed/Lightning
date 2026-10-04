@@ -1,6 +1,6 @@
 # Competition: our compass
 
-Who else helps people with their money, what their users love and hate, and what that means for Lightning. When a product decision is unclear, read *The compass* first. Research of 2026-10-04 (Claude), from store listings, review sites and GitHub issues. **Evidence limits** at the end says what is solid and what is not.
+Who else helps people with their money, what their users love and hate, and what that means for Lightning. When a product decision is unclear, read *The compass* first. Research of 2026-10-04 (Claude). Google Play reviews were read directly (Egypt store, English and Arabic); the rest comes from review sites. **Evidence limits** at the end says what is solid and what is not.
 
 ## Contents
 
@@ -23,15 +23,19 @@ Who else helps people with their money, what their users love and hate, and what
 3. **Arabic and Egyptian money first.** Vodafone Cash, InstaPay, gold, certificates, CIB and NBE SMS. International apps do not know them; local apps know only the first few.
 4. **Never be the busy one.** YNAB's most common complaint is a busy interface; Actual's is setup. Mohab's test stands: fewest clicks, one name for one thing.
 5. **A wrong number is worse than a missing one.** Every bank-sync review complains of numbers that drift. Lightning shows what each figure includes (Architecture, financial rules).
-6. **Price must stay obvious.** Users leave over price rises without added value (YNAB), per-person pricing (Copilot) and ads in paid versions (Money Manager). Say so on the website before we decide on a price.
+6. **Price must stay obvious, and a free trial must not ask for a card.** Say's biggest complaint, in English and Arabic, is being asked to subscribe before trying it. Users also leave over price rises (YNAB), per-person pricing (Copilot) and ads in paid versions (Money Manager). Say the price on the website before we decide it.
+7. **Egyptian life is more than spending.** The fast-rising local app, Qershnat, adds the gam'eya (rotating savings circle), zakat, family assets and reminders, and users ask for more of the same. Lightning's wealth side is the right ground; gam'eya and zakat are open questions for the owner.
 
 ## The field in one table
 
 | App | Where | Price | Data lives | Capture | Bank link | Budget method | Wealth (investments, gold, loans) |
 |---|---|---|---|---|---|---|---|
-| **Say** (Egypt) | Android, iPhone | Free, Pro tier | Cloud, encrypted | Voice, bank SMS, calendar and email | SMS | Categories, insights | No |
-| **Masroofy / Masrofi** (Arab world) | Android, iPhone | Free with ads, remove ads | On the phone | Manual, SMS import, receipt scan | SMS | Categories, budgets, zakat | Debts only |
-| **Money Manager** (Realbyte) | Android, iPhone | Free with ads, EGP 99.99 once | On the phone | Manual, quick add | None | Category budgets | No |
+| **Say** (Egypt) | Android, iPhone | Free with limits; Pro about 100 EGP a month, 3-day trial | Cloud, encrypted | Voice, bank SMS, calendar and email | SMS | Categories, insights | No |
+| **Qershnat** (Egypt) | Android | Free so far (in-app items 80 to 800 EGP) | Offline-first, shareable | Manual, bank SMS | SMS | Budgets, goals, debts, gam'eya | Yes: gold, silver, property, vehicles, investments |
+| **Masarifi** (Egypt) | Android | Free with ads, paid removes them | On the phone | Manual | None | Categories, reports | No |
+| **Masareef** (Arab world) | Android | Free with heavy ads, paid | Phone, Google Drive backup | Manual, SMS reading | SMS | Categories, loans, goals, recurring | Loans only |
+| **Masroofy / Masrofi** (several unrelated apps share the name) | Android, iPhone | Free with ads, remove ads | On the phone | Manual, SMS import, receipt scan | SMS | Categories, budgets, zakat | Debts only |
+| **Money Manager** (Realbyte, 10M+ installs) | Android, iPhone | Free with ads, EGP 99.99 once | On the phone | Manual, quick add | None | Category budgets | No. No Arabic |
 | **Wallet** (BudgetBakers) | All | Free, Premium subscription | Cloud | Manual, bank sync (premium) | 15,000+ banks, not Egypt | Category budgets | Basic |
 | **Telda, BM app** (banks) | Phone | Free with the account | The bank | Automatic, own cards only | Own bank only | Spending insights, category budget | No |
 | **Actual Budget** | Web, desktop, self-host | Free, MIT | Your computer or server | Manual, import | SimpleFIN (US), GoCardless (EU) | Envelope, zero-based | No |
@@ -48,16 +52,19 @@ Each point names the apps where people say it and what Lightning does.
 
 | What they love | Said about | Lightning today |
 |---|---|---|
-| **Logging without effort:** voice, "track my 15 dollar lunch", SMS auto-logging. "Track expenses very easily without effort by the voice note feature" (Say, App Store) | Say, Copilot, MonAi | Missing. The biggest gap |
+| **Logging without effort:** voice, SMS auto-logging. "Hands down best budgeting app I ever dealt with and I tried a lot"; "I resorted to using my notes" before it (Say, Google Play) | Say, Copilot, MonAi | Missing. The biggest gap |
 | **Knowing where the month goes:** "helps me track how much I spend each month, so I can save more and see what I need to fix" (Say, App Store) | Say, Telda, Wallet | Have it, deeper (Expense analysis) |
 | **Simple, uncluttered:** "extremely simple", quick add and autocomplete (Money Manager) | Money Manager, Masrofi | Quick add is partial; menus are heavier |
 | **Pay once, no ads, no subscription** (Money Manager "Remove Ads") | Money Manager, Masrofi | Free today. Decide before release |
 | **No bank login, no cloud:** "data stays on your hardware, nobody else has access" (Actual) | Actual, Masroofy, Money Manager | Have it. Our strongest shared promise |
 | **Open source and free,** "YNAB without the subscription" (Actual, Reddit) | Actual, Firefly III | Free yes, open source not decided |
 | **A method that changes behaviour:** "transformed my finances", "saved so much money and paid off so much debt" (YNAB, Trustpilot) | YNAB, Actual | Rollover budgets and reserves; no "give every pound a job" yet |
+| **An Egyptian maker who listens and answers:** "proud the creator is Egyptian", "suggestions are added right away", "answers people on TikTok" (Say, Qershnat, Masarifi) | Say, Qershnat, Masarifi | A visible changelog, a feedback address and a human reply are marketing too |
 | **Beautiful design:** "best-designed budgeting app on iOS", 4.8 stars (Copilot) | Copilot, Monarch, MonAi | The brand guideline is our answer. Keep it strict |
 | **Arabic that works:** bilingual, mixed dialects, zakat, Arabic categories | Say, Masarifi, Masrofi | Check Arabic and right-to-left status before any Egypt launch |
-| **Couples and household** | Monarch | Missing |
+| **Couples and household,** shared wallets and debts | Monarch, Qershnat | Missing |
+| **Zakat and gam'eya built in** | Masroofy, Qershnat | Not in Lightning; ask the owner |
+| **Fast entry details:** home-screen widget, set the time and date of a spend, edit or delete a record | Say, Masarifi, Money Manager (all asked) | Check Lightning's quick add at phone width |
 | **Net worth in one place** | Monarch, Copilot | Have it, plus gold and local assets |
 | **Responsive maker, steady improvements** | Firefly III, Monarch | A website changelog and feedback loop help here |
 
@@ -75,20 +82,28 @@ Each point names the apps where people say it and what Lightning does.
 | **No bills, no "safe to spend"** | Money Manager | Upcoming bills and the forecast exist; keep them visible |
 | **Carry-over that does not work** | Money Manager | Rollover is a core figure; Mohab's test covers it |
 | **Budget missing on the web version** | Wallet | One set of pages everywhere |
+| **A paywall before any try:** "can't be used without a subscription even though it's advertised as freemium", "no free trial unless I add my card" | Say (the most repeated complaint), Masareef | No card, no account, the whole app on day one |
+| **SMS reading that misses or invents:** "sometimes they're tracked, most of the time they aren't"; a spend that was never made; Apple Pay and some banks missed | Say, Qershnat, Money Manager, Wallet | Show every parsed SMS for review before it posts; one tested rule per bank |
+| **Cannot edit or delete a record** ("I delete everything and start over") | Say, Masarifi | Every row editable, always |
+| **Data lost after a phone change or update, and no reply from support** | Masareef, Wallet (a "lifetime" plan cancelled, data gone), Masarifi | Backup and restore must be tested in Mohab's test |
+| **A feature removed:** Wallet dropped Arabic; a 1-star review marked by 44 people says "I will look for another app" | Wallet | Never take away a language or a feature people use |
+| **No Arabic, no Hijri date, mirrored numbers** | Money Manager, Wallet | Arabic and right-to-left are a launch condition |
+| **Heavy ads in the free version** | Masareef, Money Manager | None |
 | **Phone verification and SMS failures in Egyptian apps** | InstaPay | Do not depend on a one-time SMS to start |
 
 ## Local competitors
 
-**Say – Hands free budget app (Roberto Joseph, Cairo).** The one to watch.
-- Tap the mic and speak: it finds amount, date and category. Says it understands 99+ languages, including Arabic and mixed dialects.
-- Reads bank SMS and logs the spend. Can also read calendar and email for event-based spends and invoices.
-- Free plan: unlimited expenses, 3 custom categories, multi-currency, basic analytics. Pro: unlimited SMS and voice, full trends, multiple accounts, unlimited categories, custom billing cycles, CSV and PDF export. Price varies by region.
-- 4.63 stars on Google Play (top finance apps in Egypt); 4.8 on the App Store from 49 ratings. Small, early, loved.
-- Weak spots, as far as visible: no investments, gold, loans or net worth; a cloud service, so "private" is a claim not a design; reviews so far praise ease only. **We cannot beat it on speed of capture until Lightning has a phone app and SMS reading. We beat it on everything after capture.**
+**Say – Hands free budget app (Roberto Joseph, Cairo).** The one to watch. Read directly from Google Play (Egypt), 2026-10-04.
+- **Numbers:** 4.84 stars from 2,128 ratings, 50,000+ installs on Android; in-app items 49.99 to 999.99 EGP. Strong word of mouth: reviewers arrive "from TikTok" and the maker answers people there.
+- **What it does:** voice entry (finds amount, date, category), bank-SMS auto-logging (also InstaPay), goals, debts and instalments, subscriptions and bills, multi-currency, weekly report. Says it understands 99+ languages.
+- **What users love** (Arabic translated): "I used so many apps that were difficult, I resorted to my notes; this one is easy to track, understand and use"; "first time I've given an app 5 stars because it's genuinely useful"; "one source of truth for spending, debts, billing and subscriptions"; "no ads and no pro pop-ups"; "developers truly listen, suggestions are added right away"; "a clear competitor to foreign apps".
+- **What users hate:** the paywall before any try (the most repeated, in both languages); a 3-day trial "too short"; about 100 EGP a month "a bit high" (compared with Anghami); the free plan cut to 3 accounts and about 7 voice notes; SMS not detected for some banks and Apple Pay; a blank screen after the app sits in the background; no offline mode, dark mode, PIN or biometric lock, or widget; cannot set the time of a spend; cannot import from other apps (a 4-year Wallet user wants to switch but cannot move data); some wrong calculations; slow support for some.
+- **What users ask for that Lightning has or could have:** gold and other assets in one place ("property, silver, watches"), informal debts to people, a monthly budget per category, a spendable amount that leaves out goal money. Lightning's money held for others, reserves and category budgets answer several of these.
+- **Gaps in Say:** no investments or net worth beyond gold; a cloud service, so offline and privacy are what users ask for (our opening). **We cannot match its speed of capture until Lightning has a phone app and SMS. We beat it on everything after capture, on offline, and on the free trial.**
 
-**Masroofy / Masrofi.** Arabic-first. Offline, no account, expenses, budgets, salary, debts and a zakat calculator. Newer versions import bank messages (it names 190+ banks and wallets in 22 countries) and scan receipts. Several unrelated apps share these names, so check which one a user means. Free with ads. Zakat is a feature Lightning has not weighed.
+**Qershnat (قرشنات).** New and rising: 4.85 stars from 592 ratings, 10,000+ installs, released June 2026, Egyptian. A life organiser, not only a budget: multi-currency wallets, budgets, goals, debts and instalments, shared wallets, money held for another person, gold and silver prices, gam'eya (rotating savings) with turns and proof of payment, gift money, tasks, documents, a password vault, property, vehicles and investments with returns, a smart assistant, bank-SMS logging, widgets, offline. Reviews: "one of the best financial apps in the whole Arab world", fast support, "better because it's Egyptian". Complaints: SMS logging "not always right, sometimes a spend I didn't make" (users ask to review before posting), lag after an update, a disliked UI change, a gam'eya display bug, and "what will it cost when finished?". Users ask for zakat and voice entry through WhatsApp. **It covers the same wealth ground and the same Egyptian life as Lightning. Read it closely before every roadmap decision.**
 
-**Money Manager, Wallet, Masarifi, Masarif.** Wide-reach manual trackers. Money Manager (4.6 stars, about 470,000 reviews) is loved for being fast and simple. Wallet (4.5 stars on Play from 340,000 reviews) is loved for multi-currency and hated for bank sync.
+**Masarifi, Masareef (المصاريف) and Masroofy.** Simple Arabic expense trackers. Masarifi: 4.67 from 983 ratings, 10,000+ installs; loved for "simplicity and speed without extra philosophy"; asked to add debts, edits, percentages and the date of a spend. Masareef: 4.65 from 32,000 ratings, 1M+ installs; loved as the "easiest" app, hated for overwhelming ads, lost Google Drive backups after a phone change, a daily-average bug that ignores days without spending, and SMS reading that fails. Masroofy on Android (`com.masroofi.masroofi`) is tiny (23 ratings); the larger Masrofi on iPhone is a different app, so check which one a user means.**Money Manager and Wallet.** The global manual trackers Egyptians also install. Money Manager: 4.67 stars from 466,000 ratings, 10M+ installs; loved as simple and needing no bank; hated by Arabic readers for having **no Arabic** and no Hijri date, and for ads even in the paid version. Wallet: 4.78 from 387,000, 10M+; loved for multi-currency and a lifetime plan; hated for **removing Arabic**, no bank-SMS reading, a lifetime plan cancelled with data lost, and unanswered support. Both leave an opening for an Arabic-first app.
 
 **Bank apps (Telda, BM Online, CIB).** Free categorised insights and category budgets inside the bank. They see only their own accounts, so a person with two banks, a wallet and cash gets half a picture. That half-picture is Lightning's opening.
 
@@ -122,12 +137,14 @@ Each point names the apps where people say it and what Lightning does.
 - Windows only for now; most Egyptians budget on a phone.
 - No household sharing, receipts, reminders or multi-currency.
 - Arabic and right-to-left not confirmed.
-- No community, reviews or ratings yet. Say has 49 on one store.
+- No community, reviews or ratings yet. Say has 2,128 ratings; Qershnat 592 in four months.
+- No gam'eya, zakat or WhatsApp entry, which Egyptian users already ask Qershnat for.
 
 ## Watch list
 
 Check every few months and edit this file:
-- **Say:** its Pro price, new features, rating and review count, and whether it adds investments or an Arabic UI.
+- **Say:** its Pro price, trial rules (users hate the paywall), new features, rating and review count, and whether it adds investments.
+- **Qershnat:** its price once "finished", an SMS review step, gam'eya and zakat, and its rating.
 - **Masroofy:** the bank-message import and how many Egyptian banks work.
 - **Telda and bank apps:** whether any opens its data to other apps (open banking in Egypt would change our plan).
 - **Actual Budget:** a mobile app, or any Arabic and Egyptian bank import.
@@ -135,6 +152,10 @@ Check every few months and edit this file:
 
 ## Evidence limits and sources
 
-Store pages (Google Play, App Store), `sayapp.net`, Buxfer and several review sites were blocked in the research environment. The facts above come from search summaries of those pages, not from reading them whole, and **no individual Egyptian review text was read**. The quotes marked App Store, Trustpilot or Reddit are as the search result gave them. Before they go on the website or in marketing, open the source and confirm each quote and number. Next research step: read the Egyptian Play Store reviews of Say and Masroofy in Arabic, and Egyptian Facebook and Reddit threads, on a machine that can open them.
+**Read directly (2026-10-04):** Google Play, Egypt store, through the `google-play-scraper` library: app details and the most relevant reviews (60 per language for Say, 40 for Qershnat, Masarifi, Masareef, Money Manager and Wallet), English and Arabic. Most relevant is not a random sample: it favours reviews people marked helpful. Arabic quotes are my translation.
 
-Sources: [Say on Google Play](https://play.google.com/store/apps/details?id=com.moments.expenses&hl=en), [Say on the App Store](https://apps.apple.com/us/app/say-hands-free-budget-app/id6746735689), [Say site](https://www.sayapp.net/), [Masrofi on the App Store](https://apps.apple.com/ca/app/masrofi-budget-expenses/id1467616866), [Masroofy on Google Play](https://play.google.com/store/apps/details?id=com.masroofi.masroofi&hl=en_CA), [Money Manager on Google Play](https://play.google.com/store/apps/details?id=com.realbyteapps.moneymanagerfree&hl=en_US), [BudgetBakers on Trustpilot](https://www.trustpilot.com/review/budgetbakers.com), [YNAB on Trustpilot](https://www.trustpilot.com/review/ynab.com), [Monarch review roundup](https://marriagekidsandmoney.com/monarch-money-review/), [Copilot review roundup](https://www.thepennyhoarder.com/budgeting/budgeting-copilot-money-review/), [Actual Budget review](https://wealthypot.com/budgeting-apps/actual-budget/), [Actual Budget mobile issue](https://github.com/actualbudget/actual/issues/6279), [Firefly III review](https://www.expensesorted.com/blog/147_firefly_iii), [Telda](https://telda.app/), [Banque Misr BM Online](https://www.banquemisr.com/en/Pages/BM-Online---Internet-and-Mobile-banking).
+**Not read:** the App Store, Reddit, Facebook, Trustpilot, GitHub discussions and Say's own site (blocked or refused to a scripted visit). The Actual Budget, YNAB, Monarch, Copilot, Firefly III and Telda sections come from review-site summaries, not from users' own words. Earlier search summaries gave Say 4.63 stars; Google Play itself says 4.84, which this file uses. Check any number or quote at its source before it goes on the website.
+
+**Next:** Egyptian Facebook groups and TikTok comments (Say's maker and Qershnat both answer there), the App Store reviews of the same apps, and Actual Budget's own forum, from a browser that can open them.
+
+Sources: [Say](https://play.google.com/store/apps/details?id=com.moments.expenses&hl=en&gl=EG), [Qershnat](https://play.google.com/store/apps/details?id=com.qrshnat.app.gms), [Masarifi](https://play.google.com/store/apps/details?id=com.tm.my_expenses), [Masareef](https://play.google.com/store/apps/details?id=com.appsqueue.masareef), [Money Manager](https://play.google.com/store/apps/details?id=com.realbyteapps.moneymanagerfree), [Wallet](https://play.google.com/store/apps/details?id=com.droid4you.application.wallet), [Masroofy](https://play.google.com/store/apps/details?id=com.masroofi.masroofi), [YNAB on Trustpilot](https://www.trustpilot.com/review/ynab.com), [Monarch review roundup](https://marriagekidsandmoney.com/monarch-money-review/), [Copilot review roundup](https://www.thepennyhoarder.com/budgeting/budgeting-copilot-money-review/), [Actual Budget review](https://wealthypot.com/budgeting-apps/actual-budget/), [Actual Budget mobile issue](https://github.com/actualbudget/actual/issues/6279), [Firefly III review](https://www.expensesorted.com/blog/147_firefly_iii), [Telda](https://telda.app/), [Banque Misr BM Online](https://www.banquemisr.com/en/Pages/BM-Online---Internet-and-Mobile-banking).
