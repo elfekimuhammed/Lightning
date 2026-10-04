@@ -23,7 +23,11 @@ chaquopy {
     defaultConfig {
         version = "3.13"
         pip {
-            install("sqlcipher3==0.6.2")
+            // CI resolves cryptography alone too, so SQLCipher's missing wheel
+            // cannot conceal a second independent native-package failure.
+            if (providers.gradleProperty("probeMode").orElse("full").get() != "crypto-only") {
+                install("sqlcipher3==0.6.2")
+            }
             install("cryptography==50.0.2")
             install("fastapi==0.141.1")
             install("uvicorn==0.54.0")
