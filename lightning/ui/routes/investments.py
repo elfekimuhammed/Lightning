@@ -69,10 +69,9 @@ def _year_of_history(c, as_of) -> bool:
 async def portfolio(request: Request):
     c = container(request)
     today_date = today()
-    all_port = c.investments.portfolio(fmt_date(today_date))
     try:
-        period = parse_period(request.query_params, today_date,
-                              min((x.price_date for x in all_port.positions if x.price_date), default=None))
+        # All time starts at your first record, as on every other tab.
+        period = parse_period(request.query_params, today_date, c.reporting.first_activity_date())
         period_error = ""
     except LightningError as exc:
         period = parse_period({}, today_date)
