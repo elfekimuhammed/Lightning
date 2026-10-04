@@ -1108,7 +1108,8 @@ def test_a_figure_reads_the_same_on_every_tab(mohab, period):
     flat = lambda html: re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", html))
     money_out = {"Overview": _figure(overview, r"<summary><span>Money out</span><b>([^<]+)</b>"),
                  "Expense analysis": _figure(expenses, r'aria-label="Money out".*?stat-tile-value[^>]*>([^<]+)<'),
-                 "Budget": _figure(flat(budget), r"Spent ([\d,]+) ")}
+                 # Budget's Spent covers only months with a plan, so it matches Money out within one month.
+                 "Budget": _figure(flat(budget), r"Spent ([\d,]+) ") if "period=month" in period else None}
     assert len({money(v).copy_abs() for v in money_out.values() if v}) == 1, money_out
     money_in = {"Overview": _figure(overview, r"<summary><span>Money in</span><b>([^<]+)</b>"),
                 "Investments": _figure(flat(investments), r"Of ([\d,]+) money in")}

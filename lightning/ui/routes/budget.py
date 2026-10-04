@@ -8,7 +8,7 @@ import uuid
 
 from fastapi import APIRouter, Request, Response
 
-from lightning.core.dates import month_of, parse_month, today
+from lightning.core.dates import fmt_date, month_of, parse_month, today
 from lightning.core.errors import LightningError, ValidationError
 from lightning.categories.domain import CategoryFamily, Movement, Scope
 from lightning.core.money import ZERO, to_decimal
@@ -234,7 +234,13 @@ def _page(request: Request, month: str, values: dict | None = None, error: str =
                     period_base += estimate * factor
     period_budgeted = period_base + period_opening
     one_offs = c.budgets.one_off_ids()
-    period_spending = {cid: v for cid, v in c.budgets._owned_spending(period.start, period.end).items()
+    # Planned and Spent cover the same months: a long period (YTD, All time, custom) counts spending
+    # from the first month that has a plan, because months before it have nothing planned.
+    plan_months = [key for key, _ in month_views if c.budgets.has_plan(key)]
+    spending_start = period.start
+    if period.key != "month" and plan_months:
+        spending_start = max(period.start, parse_month(plan_months[0])[0])
+    period_spending = {cid: v for cid, v in c.budgets._owned_spending(spending_start, period.end).items()
                        if cid not in one_offs}  # one-off spending stays in cash flow, out of the budget
     period_actual = sum(period_spending.values(), ZERO)
     category_periods = {}
@@ -336,6 +342,7 @@ def _page(request: Request, month: str, values: dict | None = None, error: str =
                                        if cat.depth == 1 and cat.scope == Scope.PERSONAL), None),
                   free_cash=c.reserves.cash_summary(c.reporting.owned_liquid_cash(today()), c.planning.what_you_owe().bills_due)["free_cash"],
                   low_confidence=keynotes.low_confidence_note(c.budgets.plan_summary(month)["low_confidence"]) if period.key == "month" else "",
+                  plan_from=fmt_date(spending_start) if spending_start != period.start else "",
                   period=period, period_actual=period_actual, period_budgeted=period_budgeted,
                   period_left=period_left, period_carryover=period_carryover, group_totals=group_totals,
                   group_rows=group_rows,
