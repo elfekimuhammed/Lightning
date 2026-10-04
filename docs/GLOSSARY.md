@@ -96,7 +96,7 @@ Every figure a screen shows is listed here once. **From** says which layer its i
 | **Deposits** | Your certificates and time deposits, at their balance. | Read directly from the ledger | `planning.position.Position.deposits` |
 | **Holdings value** | Your stocks, funds, gold and other holdings at their latest price. | Read directly from the ledger | `planning.position.Position.holdings_value` |
 | **Other you own** | Anything you own that is not cash, a deposit or a holding. | What you own − Cash you own − Deposits − Holdings value | `planning.position.Position.other_you_own` |
-| **Portfolio value** | Your holdings and the cash waiting in your brokerage accounts. | Holdings value + Brokerage cash | `planning.position.Position.portfolio_value` |
+| **Portfolio value** | Your holdings at their latest price. Cash waiting in a brokerage account is not part of it: it counts in Cash you own (owner decision 2026-10-04). | Holdings value | `planning.position.Position.portfolio_value` |
 | **Money in** | Your posted income in the period. Transfers, trades and money held for others are left out. | Read directly from the ledger | `reporting.service.CashFlow.inflows` |
 | **Money out** | Your posted spending in the period, after refunds. Transfers, trades and money held for others are left out. | Read directly from the ledger | `reporting.service.CashFlow.outflows` |
 | **Net flow** | What was left of money in after money out. | Money in − Money out | `reporting.service.CashFlow.net` |

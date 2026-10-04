@@ -198,10 +198,7 @@ def build_investment_report(db, accounts, assets, reporting, start: str, end: st
                            "LEFT JOIN investment_dividend_assets da ON da.transaction_id=t.id "
                            "WHERE t.status='POSTED' AND t.type='DIV' AND le.owner_id IS NULL AND da.asset_id IS NULL "
                            "AND le.date BETWEEN ? AND ?", (start,end)) or 0
-    if cash and not cash_unavailable:
-        holdings.append({"account": "Investment accounts", "asset": "Uninvested cash", "units": cash,
-                         "cost": cash, "value": cash, "realized": ZERO, "unrealized": ZERO,
-                         "price_date": end, "price_source": "CASH"})
+    # Brokerage cash is reported on its own (investment_cash); it is cash you own, not a holding.
     return {"new_money": new_money, "withdrawn": withdrawn, "net_money": new_money-withdrawn,
             "dividends": dividends, "realized": period_realized, "holdings": holdings,
             "investment_cash": None if cash_unavailable else cash, "cost": total_cost,

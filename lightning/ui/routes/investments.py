@@ -110,8 +110,7 @@ async def portfolio(request: Request):
         snapshot_end = min(month_last, period.end)
         snapshot = build_investment_report(c.db, c.accounts, c.assets, c.reporting,
                                            fmt_date(trend_cursor), fmt_date(snapshot_end))
-        total = (snapshot["value"] + snapshot["investment_cash"]
-                 if snapshot["value"] is not None and snapshot["investment_cash"] is not None else None)
+        total = snapshot["value"]   # Portfolio value: holdings only; brokerage cash is cash you own
         investment_trend.append({"month": trend_cursor.strftime("%Y-%m"), "value": total,
                                   "date": fmt_date(snapshot_end)})
         trend_cursor = (trend_cursor.replace(day=28) + timedelta(days=4)).replace(day=1)
@@ -241,7 +240,7 @@ def _first_trade_dates(c, day: str) -> dict[tuple[int, int], str]:
 
 
 def _portfolio_value_spark(c, end: date) -> dict:
-    """Portfolio value (holdings and brokerage cash) at each of the last six month ends, up to ``end``.
+    """Portfolio value (holdings only; brokerage cash is cash you own) at each of the last six month ends, up to ``end``.
     Always six months back, whatever period the page shows."""
     values, cursor = [], end.replace(day=1)
     months = []
@@ -251,8 +250,7 @@ def _portfolio_value_spark(c, end: date) -> dict:
     for first in reversed(months):
         _, last = parse_month(first.strftime("%Y-%m"))
         snap = build_investment_report(c.db, c.accounts, c.assets, c.reporting, fmt_date(first), fmt_date(min(last, end)))
-        values.append(snap["value"] + snap["investment_cash"]
-                      if snap["value"] is not None and snap["investment_cash"] is not None else None)
+        values.append(snap["value"])
     return {"spark": charts.sparkline(values), "values": values, "latest": values[-1] if values else None,
             "first": next((v for v in values if v), None)}
 

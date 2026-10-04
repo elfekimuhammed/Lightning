@@ -65,8 +65,8 @@ _TABLE = [
     ("net_worth", "Net worth", "What you own after what you owe.", "What you own − What you owe"),
     ("free_cash", "Free cash", "Cash you can spend without touching reserves or leaving a bill unpaid.",
      "Cash you own − Reserves − Bills due"),
-    ("portfolio_value", "Portfolio value", "Your holdings and the cash waiting in your brokerage accounts.",
-     "Holdings value + Brokerage cash"),
+    ("portfolio_value", "Portfolio value", "Your holdings at their latest price. Cash waiting in a brokerage "
+     "account is not part of it: it counts in Cash you own (owner decision 2026-10-04).", "Holdings value"),
     ("holdings_after_sale", "Holdings after sale (estimate)",
      "What your holdings might fetch if sold, after each class's sale factor.",
      "Σ Holdings value of each class × its sale factor"),

@@ -127,7 +127,8 @@ class Position:
 
     @property
     def portfolio_value(self) -> Decimal:
-        return self.holdings_value + self.brokerage_cash
+        # Owner decision 2026-10-04: brokerage cash is cash you own, never part of the portfolio.
+        return self.holdings_value
 
     @property
     def holdings_after_sale(self) -> Decimal:

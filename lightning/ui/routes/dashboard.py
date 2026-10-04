@@ -219,8 +219,7 @@ async def dashboard(request: Request):
     period_result = closing_report["result"]
     holdings_value = closing_report["value"]
     investment_cash = closing_report["investment_cash"]
-    portfolio_value = (holdings_value + investment_cash
-                       if holdings_value is not None and investment_cash is not None else None)
+    portfolio_value = holdings_value   # owner decision 2026-10-04: brokerage cash is not portfolio
     investment_report = {
         "holdings_value": holdings_value, "brokerage_cash": investment_cash,
         "portfolio_value": portfolio_value, "new_money": closing_report["net_money"],

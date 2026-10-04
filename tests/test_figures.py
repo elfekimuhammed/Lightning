@@ -43,7 +43,7 @@ def test_derived_figures_are_formulas_of_base_figures(c, setup):
     assert p.bills_due == Decimal("650") and p.loans_still_to_pay == Decimal("10000")
     assert p.what_you_owe == Decimal("10650")
     assert p.net_worth == p.what_you_own - p.what_you_owe
-    assert p.portfolio_value == p.holdings_value + p.brokerage_cash
+    assert p.portfolio_value == p.holdings_value   # owner decision 2026-10-04: brokerage cash is not portfolio
     assert p.investments_after_sale == p.deposits_after_sale + p.holdings_after_sale
     assert p.if_you_sold_today == p.free_cash + p.investments_after_sale
     assert p.in_your_accounts == p.what_you_own + p.held_for_others
