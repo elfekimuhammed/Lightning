@@ -834,6 +834,8 @@ class CandidatePromotionService:
                 raise PromotionBlocked("No accepted home checkpoint is established")
             if state.accepted.checkpoint_id != old_checkpoint_id:
                 raise PromotionBlocked("Expected base checkpoint is no longer accepted")
+            for name in (live_name, candidate_name, previous_name):
+                self._require_no_sidecars(name)
             old_hash = state.accepted.sha256
             live_hash = self.files.sha256(live_name)
             new_hash = self.files.sha256(candidate_name)
@@ -889,6 +891,10 @@ class CandidatePromotionService:
             if accepted is None:
                 raise PromotionBlocked("Accepted authority is unavailable")
             journal = state.journal
+            self._require_no_sidecars(live_name)
+            if journal is not None:
+                self._require_no_sidecars(journal.candidate_name)
+                self._require_no_sidecars(journal.previous_name)
             observations = self._observe(live_name, journal)
             decision = decide_restart(
                 journal, observations, accepted_sha256=accepted.sha256,
@@ -963,6 +969,17 @@ class CandidatePromotionService:
                                        journal.new_sha256, journal.phase)
 
         raise PromotionBlocked("Promotion did not converge within its bounded restart steps")
+
+    def _require_no_sidecars(self, name: str) -> None:
+        # Replacing only the main SQLite file while a WAL or hot journal exists
+        # can omit committed rows or apply old pages to the new database.
+        for suffix in ("-wal", "-shm", "-journal"):
+            try:
+                found = self.files.sha256(name + suffix)
+            except (OSError, ValueError, RuntimeError) as exc:
+                raise PromotionBlocked(f"Could not inspect database sidecar: {name}{suffix}") from exc
+            if found is not None:
+                raise PromotionBlocked(f"Database sidecar blocks publication: {name}{suffix}")
 
     def _observe(self, live_name: str, journal: PromotionJournal | None) -> FileObservations:
         if journal is None:

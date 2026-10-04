@@ -341,6 +341,19 @@ def test_ambiguous_restart_blocks_and_preserves_evidence(harness):
     assert activated == []
 
 
+@pytest.mark.parametrize("suffix", ["-wal", "-shm", "-journal"])
+def test_sidecars_block_publication_without_touching_copies(harness, suffix):
+    files, store, service, gate, verified, activated, args, old, new = harness
+    files.files["profile.db" + suffix] = b"unresolved sqlite sidecar"
+    with pytest.raises(PromotionBlocked, match="sidecar"):
+        service.promote(**args)
+    assert files.files["profile.db"] == old
+    assert files.files["candidate.partial"] == new
+    assert store.read_state().accepted.sha256 == digest(old)
+    assert store.read_state().journal is None
+    assert activated == []
+
+
 def test_no_journal_recovery_activates_only_accepted_live_file(harness):
     files, store, service, gate, verified, activated, args, old, new = harness
     result = service.recover(
