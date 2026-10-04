@@ -19,8 +19,8 @@ Last rewritten 2026-10-04 · Claude.
 
 ## Codex
 
-- **Last done (2026-10-04):** revised [`docs/proposals/multiple_devices.md`](docs/proposals/multiple_devices.md) for the owner's phone-home, PC-borrowing workflow; kept Claude's review with the requested supersession note. Recorded the owner's decisions in the Project Overview. No sync code yet.
-- **In progress · claimed files:** rewriting `docs/proposals/multiple_devices.md` into one integrated implementation plan (owner request); coordinating its status in `NOW.md` and `docs/PROJECT_OVERVIEW.md`. No implementation work or app files claimed.
+- **Last done (2026-10-04):** replaced the proposal and review in [Multiple devices](docs/proposals/multiple_devices.md) with one complete cycle design and a 24-task sequential implementation roadmap. Covers durable authority/promotion, offline recovery, Android lifecycle, SMS/CSV deduplication, updates and acceptance gates. Planning only; no sync code.
+- **In progress · claimed files:** none.
 
 ## Next (unclaimed; claim it in your lane before you start)
 
@@ -28,6 +28,8 @@ Last rewritten 2026-10-04 · Claude.
 2. **UX plan items 5, 6, 8 and 9** (Project Overview › UX plan). Claim `lightning/ui/templates/` and `lightning/ui/static/style.css` first.
 3. **Competition research:** App Store, Reddit and Facebook reviews were not reachable; see the last section of `docs/COMPETITION.md`. Owner questions are in *For the owner*.
 4. **Speed, if wanted:** a stable window origin, so the 290 KB stylesheet and 109 KB script stay cached across launches; trim unused CSS in `style.css`.
+
+5. **Multiple devices:** implementation plan ready; start task 01 (writer/lifecycle map and deterministic harness), then task 02 (durable candidate promotion). Follow the gates in [the roadmap](docs/proposals/multiple_devices.md#15-implementation-work-packages); implementation has not started.
 
 ## For the owner
 
@@ -37,7 +39,7 @@ Last rewritten 2026-10-04 · Claude.
   3. Release with `git tag v0.5.0-beta.1 <commit on main>` and `git push origin v0.5.0-beta.1`.
 - **Retest:** on the PC whose window failed to start, try a ZIP downloaded in a browser. Builds from `f4e1603` on include the fix.
 - **Questions:**
-  1. *Multiple devices:* none open now. Bank SMS samples will be logged bank by bank later (proposal › Review 5).
+  1. *Multiple devices:* none open now. Bank SMS samples will be logged bank by bank during the plan's section 12. Android, storage and performance feasibility remain implementation gates.
   2. *Review of Mohab's year:* which of these suggestions should be built? None has been started.
      1. Say *to* or *from* on transfer rows.
      2. Needs you lists expected income not yet received.

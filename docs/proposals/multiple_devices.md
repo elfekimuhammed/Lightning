@@ -1,285 +1,588 @@
-# Multiple devices: the phone lends the ledger
+# Multiple devices: implementation plan
 
-**Status · proposed, not built · 2026-10-04.** This is the agreed version 1 design for one Lightning codebase on PC and Android. The owner's product decisions are in [Project Overview](../PROJECT_OVERVIEW.md); Claude's review and the decisions made during it remain below as history. Acceptance still requires working code, real-device measurements and fault tests.
+**Status: planned, not built · 2026-10-04 · Codex, integrating Claude's review and the owner's decisions.**
 
-## Scope and names
+One Android phone holds the accepted encrypted ledger. It can lend editing to one paired Windows PC or laptop, which works from its own local copy even when the phone leaves. Returning the copy brings editing home. There is no automatic merge and no cloud dependency.
 
-The **home node** is the phone. It stores the accepted encrypted ledger in private app storage and may edit while the ledger is **at home**. A paired PC or laptop is a **borrower** while it holds the **working copy** and is the sole **writer node**. During that lend, the phone is a **reader node** and shows its last accepted ledger read-only. One profile has one writer at a time; there is no merge. The PC may continue editing its local working copy when the phone is out of reach.
+This replaces the earlier proposal and separate review with one plan. The owner's product decisions live in [Project Overview](../PROJECT_OVERVIEW.md#product-decisions-that-must-hold); this file owns the proposed implementation, sequencing and acceptance gates. [NOW.md](../../NOW.md) owns claims and the next task. Existing financial and encryption contracts remain in [Architecture](../ARCHITECTURE.md). Nothing here means sync or Android support already exists.
 
-User actions are **Pair**, **Lend**, **Hand back**, and explicit **Take back** after a lost borrower. A **prefetch copy** is encrypted data downloaded before the PC password is entered. A **recovery copy** is an unaccepted snapshot sent by the borrower during a lend. A **sealed copy** is the borrower's final local copy when it closes away from the phone. An **accepted version** is one the phone has fully verified and durably committed; versions have a parent and a lineage. Use plain device names such as “Office PC” on screen.
+## Contents
 
-Version 1 has one phone home and paired PCs. It does not include general reader devices, a server home, cloud storage, a remote relay, continuous replication, a separate immutable version-store service, or automatic merging. The phone retains its current ledger and a few previous accepted encrypted copies. The same Python finance services, templates, CSS, SQLCipher format and financial rules run on PC and Android; only the shell and platform integration differ.
-
-## Safety contract
-
-1. **Only the recorded writer may change the ledger.** The home node durably records a lend before issuing its permit. While lent, it opens its ledger through `Database(read_only=True)` and disables migrations, startup catch-up, price refreshes, SMS posting and every other write path. The borrower allows writes only after durably recording the matching permit. Each device also keeps its local process lock.
-2. **Never decide by file time.** Profile ID, parent accepted-version hash, lineage, checkout epoch, checkout ID, device ID and return ID bind each handoff. The home node rejects a stale or duplicate return. A clock reading is display information, not authority.
-3. **Receive and accept are different.** A locked phone may receive and hash-check encrypted bytes. It calls them *received, checking*, keeps the old accepted ledger, and cannot edit the candidate. Only after unlock does it verify the SQLCipher pages, SQLite integrity, foreign keys, schema and contents, then durably accept the candidate. A transport receipt is not an acceptance receipt.
-4. **Ambiguity stops promotion or reassignment.** A lost grant, upload or receipt is retried with the same IDs. There is no automatic lend expiry or silent takeover. A new writer is allowed only after a completed hand-back or explicit Take back into a new lineage.
-5. **Unsent edits are at risk.** A successful local SQLite commit is durable on the borrower, but it is not yet accepted by the phone. If the borrower and its local backups disappear, only the last recovery copy actually received by the phone is recoverable. “Three minutes” is a target while transfers succeed, not an unconditional loss bound. Every screen must show where the newest known copy is.
-
-These guarantees apply to cooperating Lightning clients and functioning device storage. A compromised paired device already holds the data key and can copy the financial data. Revoking its network identity cannot erase an old copy. No protocol can prevent an offline device from modifying its own files; the home node can refuse to accept an old lineage.
-
-## Storage and service boundaries
-
-| Place | Files and state | Rule |
-|---|---|---|
-| Phone private app storage | `profile.db`, previous accepted copies, durable lend record, staged returns and recent recovery copies | Exclude from Android Auto Backup. Never expose the live file through network shares. Keep the previous accepted copy until the next one is verified and recoverable. |
-| Borrower `%LOCALAPPDATA%/Lightning` | Prefetch, working and sealed copies, durable lend record, local encrypted backups | Never put a live borrowed profile in Documents or OneDrive. A returned copy is retained as an encrypted backup. |
-| Transport | A narrow sync listener separate from the loopback FastAPI UI server | Pair once by QR plus explicit owner approval; pin device identities and use authenticated encrypted transport. Discovery only finds the phone; it grants no trust. |
-
-Each device has its own password-wrapped slot for the same SQLCipher data key. Pairing provisions that key only after unlock and approval over the authenticated channel; a password and recovery phrase are never sent. The phone can stage ciphertext while locked, but full verification waits for unlock. `lightning/database/snapshot.py` already creates verified encrypted snapshots; `staging.py` prepares candidates but does not promote them. The promotion, durable lend record, role gate and crash recovery still need to be built.
-
-The home phone's normal database may use a rollback journal. A raw byte copy is allowed only after Lightning stops new writes, drains transactions, closes or quiesces the SQLite connection, and confirms that no hot journal must be recovered. Otherwise use a consistent SQLCipher snapshot. A hash of an unsafe live-file copy would prove only that bad bytes arrived unchanged. The phone resumes home writes after a prefetch, because prefetch itself grants nothing.
-
-## Pair and prefetch
-
-1. On first pairing, the user opens Lightning on the phone, scans the PC's QR code and approves its displayed identity. The PC receives its own key slot and a pinned home-node identity. Pairing may be revoked for future connections; existing encrypted copies remain on that device.
-2. On later PC launches, the user opens Lightning on the phone with one tap. The phone starts a notification-backed Android service for the pending lend, subject to platform limits. The PC discovers the phone on local Wi-Fi, hotspot or a supported cable connection. If unreachable, it says so; it never invents a lend.
-3. **Before the PC password is entered**, the phone briefly pauses writes and creates or copies a consistent encrypted snapshot. It sends that snapshot and a manifest with profile, lineage, schema, size and hash. The PC stages it under `%LOCALAPPDATA%`, checks length/hash, and can retain it as a local encrypted backup. The phone resumes writing. This overlaps transfer with password entry; it does not promise a fixed speed.
-4. The PC unlocks the staged copy with its own password slot, verifies it, and checks app/schema compatibility. The staged copy is still read-only until the lend permit is durable on both sides.
-
-## Lend
-
-1. The PC asks to borrow the exact prefetched version. The phone serializes this with all finance requests and stops writes. The prefetch manifest carries both the transferred snapshot hash and the source-file hash measured while writes were paused. The phone rehashes the quiesced source file and compares it to that source hash; if it changed, it refreshes the prefetch and the PC verifies the replacement. A PC that cannot read the phone's schema must update before borrowing; only the home phone runs migrations.
-2. The phone durably records `LENT(device, epoch, checkout_id, base_hash)` before sending a grant bound to those fields. It opens the ledger read-only. The PC durably records `BORROWING` and the permit before opening its working copy for writes. A missing acknowledgement leaves the phone lent; it never assumes the PC did not receive the grant.
-3. If the PC cannot start using a grant, it first durably records `ABORTED` for that checkout ID and makes any delayed grant unusable. It sends an authenticated cancellation for that exact checkout ID. The phone durably records the cancellation before resuming writes. If cancellation cannot be proved, both remain blocked from a new lend until reconciliation or explicit Take back.
-
-The phone can display the last accepted ledger read-only during a lend, marked “Lent to Office PC · newer changes may exist.” A figure such as Safe to spend must not look current without that warning. Other reader nodes are deferred.
-
-## While lent, including an absent phone
-
-- The borrower uses its local SQLCipher working copy and ordinary SQLite transactions, including offline. The role gate checks the durable lend state on restart and before writes. Compare a consistent working-copy hash with the borrowed base to detect changes. `audit_log` covers only some edits; it is helpful for explanation but cannot be the complete dirty signal. A take-back inspection compares the relevant tables between copies instead of claiming an exhaustive audit trail.
-- After changes, send a verified encrypted recovery snapshot to the phone about every three minutes while reachable, and before closing. Retain the previous recovery copy until the new one is safely staged; recovery copies are **never accepted ledgers**. If the phone is unreachable, make a local encrypted snapshot and show the last copy known to be on the phone. Full-database uploads every three minutes may cost substantial battery and bandwidth on large profiles; measure this on a real phone.
-- Closing while the phone is away saves a **sealed copy** and keeps the lend. The PC says that changes are saved here and will be handed back when both devices meet. Reopening the same PC while the copy is still sealed restores `BORROWING` so editing can continue. It records `RETURNING` only when the phone is reachable and transfer actually begins; reopening after that remains read-only until reconciliation. A bounded background task may retry while the PC is on; it never grants another writer.
-- The phone's foreground service runs while preparing or servicing a lend, then stops when the ledger is home; if a borrower stays silent, it may stop after a bounded interval and schedule reminders. Start it from the user's foreground action and validate the service type, time limits and behavior on supported Android versions. After a long silence the phone reminds the owner which PC holds the ledger and when its last recovery copy arrived. A reminder never ends the lend automatically.
-
-## Hand back and acceptance
-
-1. The borrower quiesces writes, closes SQLite, creates and verifies a consistent encrypted candidate, and durably records `RETURNING(return_id, checkout_id, candidate_hash)`. It cannot resume editing this candidate after that point. It transfers bounded, resumable chunks with an authenticated manifest.
-2. The phone checks sender, profile, lineage, epoch, checkout ID, parent hash, size, candidate hash and return ID. While locked it stores the candidate under a new staging name and replies **received, checking**. It retains the prior accepted ledger, stays non-writing, and gives the borrower no acceptance receipt.
-3. At the next phone unlock, the phone opens the candidate using the SQLCipher key and runs `cipher_integrity_check`, SQLite `integrity_check`, `foreign_key_check`, schema checks and the existing snapshot inventory checks. A failure enters **Needs repair** with both old and new copies retained; it cannot silently roll back and post new transactions. If checks pass, it prepares a previous-version backup, promotes the candidate and durably records the new accepted version and consumed return ID. Recovery after a crash must finish or undo this promotion deterministically before any write is allowed.
-4. The phone sends an **accepted** receipt bound to the return ID and hash. A repeated return receives the same receipt, never a second promotion. The borrower durably records `HANDED_BACK`, becomes read-only, and retains an encrypted backup. If the receipt is lost, it retries status; the phone may write after its own durable acceptance because the borrower had already stopped writes in step 1.
-
-The user can close the PC after a locked-phone *received* receipt, but the UI must say the return is awaiting the phone's verification. If the phone remains locked, no node writes. The user opens the phone to complete acceptance. This is the cost of accepting encrypted bytes without keeping the SQLCipher key available in the background.
-
-## Take back, loss and repair
-
-**Take back is explicit owner recovery**, never a timeout. The phone shows the last accepted version and the time/hash of its latest verified recovery copy, states that newer PC edits may be missing, and asks the owner to choose that copy or the earlier accepted ledger. It begins a new lineage and rejects old checkout IDs. If the PC later returns, its later changes are quarantined for table-by-table inspection and manual re-entry; there is no automatic merge. The warning cannot claim a three-minute maximum if recovery uploads stopped earlier.
-
-If the phone is lost while a PC holds the lend, the PC's working copy may seed a replacement phone under an explicit new lineage. If the phone is lost at home, a PC's most recent prefetch or returned backup may be restored; phone edits after that backup may be lost. Keep profile data local, with no automatic cloud copy. A stolen paired device remains a confidentiality risk even after network revocation.
-
-At every ambiguous boundary, preserve both copies and show **Needs repair** rather than choosing the newest-looking file. Test wrong keys, schema mismatch, full disk, corrupt chunks, missing receipts, process kills, lost phone and lost PC. A return that has merely arrived on the phone cannot be used for finance reads or writes until full verification.
-
-## Bank SMS after a lend
-
-The phone does not ingest SMS while the PC holds the ledger. Once the phone has accepted the hand-back and is unlocked, it reads bank SMS since the last durable marker, routes known formats through the existing import-review and category rules, and stores message identity so a retry cannot post twice. Unclear messages wait for review; later CSV imports must recognize SMS-posted activity to avoid duplicates. Build and test parsers bank by bank from sanitized examples, including unknown formats. Messages deleted before the phone reads them may be missed, and the app must make that limitation clear. Android SMS access and Play distribution requirements require a separate platform acceptance check.
-
-## Speed and build gates
-
-Claude measured a 0.8 MB encrypted sample with 319 transactions in this container: copying plus SHA-256 took 5 ms, integrity checks 8 ms and a full re-encrypting snapshot with inventory checks 50 ms. These are **local sample measurements**, not phone or Wi-Fi handoff measurements. The product target is a handoff of seconds; prefetch hides transfer behind password entry when it can. Measure 1, 10, 50 and 100 MB encrypted profiles on ordinary PCs and a mid-range Android phone, reporting snapshot, network, verification and durable-commit time separately. No “few seconds at most” guarantee follows from the sample.
-
-Build in finished gates:
-
-1. Complete verified single-PC backup restore and candidate promotion, including crash, full-disk and old-version tests. This is already a release gap.
-2. Implement Pair, prefetch, Lend, local working copy, recovery copies, Hand back, idempotent receipts and Take back between two PCs. Keep the same profile format and a swappable transport. Inject failure at every durable write and network boundary; assert one accepted lineage and one cooperative writer.
-3. Prove the existing Python, `sqlcipher3`, `cryptography`, FastAPI and WebView stack on a real mid-range Android phone. Measure unlock, pages and large-profile handoff before committing to the Android shell.
-4. Make the phone home, use private storage with Android Auto Backup excluded, and adapt the shared pages under the brand guideline. Test phone sleep, process death, local-network changes and foreground-service limits.
-5. Add bank SMS ingestion only when the phone holds an accepted ledger, with deduplication, review and later CSV matching. Run a cross-device Mohab year, restore drills and a full fault matrix before real financial data.
-
-The major remaining technical bet is Android compatibility with the pinned Python, SQLCipher and compiled dependencies. The major protocol tradeoff is deliberate: offline PC editing preserves availability but any changes not yet received by the phone can be lost with that PC. Lightning must always show the last accepted and last recovery versions so the owner can see that risk.
-
-## Sources
-
-- SQLite documents safe live snapshots and warns against raw file copies during active transactions: <https://www.sqlite.org/backup.html>, <https://www.sqlite.org/howtocorrupt.html>.
-- SQLCipher documents page-integrity verification: <https://www.zetetic.net/sqlcipher/sqlcipher-api/>.
-- Android documents private app storage, default Auto Backup behavior and foreground-service restrictions: <https://developer.android.com/training/data-storage/app-specific>, <https://developer.android.com/identity/data/autobackup>, <https://developer.android.com/develop/background-work/services/fgs/restrictions-bg-start>.
-
-
----
-
-## Review by Claude (2026-10-04, revised the same day): not part of Codex's proposal
-
-Superseded where it differs from the proposal above. Prefetch pauses writes or uses `snapshot()`; a locked phone holds a return as *received, checking* until verified at unlock; a lend ends only by the borrower's durable, authenticated cancel for that checkout ID; speeds are targets until measured on a phone; `audit_log` is not a full change record.
-
-**This is a review, written by Claude at the owner's request. Everything above this line is Codex's proposal, unchanged apart from a one-line pointer under its status.** It records the owner's requirements (given on 2026-10-04, after the proposal was written), audits the proposal against the code, and recommends how to build it. Where the owner's requirements conflict with the proposal, the requirements win. No code was changed. Codex: revise the proposal, or answer under *For the owner* in `NOW.md`.
-
-*Revision note.* An earlier version of this review recommended that the PC only show pages served by the phone. The owner rejected it: a PC must keep working if the phone goes quiet. That version also guessed that a checkout would take about a minute; measured, the work takes milliseconds (Review 3). This version replaces it.
-
-### Review 1. The owner's requirements
-
-1. **The phone is home, and it is mobile.** It holds the database and lends it to whichever paired PC or laptop wants to edit, one at a time, at home, at work or travelling.
-2. **Connect once, then work alone.** One short exchange over Wi-Fi, then the PC edits its own temporary copy. If the phone goes quiet, the PC keeps working.
-3. **The phone writes too.** It edits when the ledger is at home. A planned feature records bank SMS automatically (see requirement 8).
-4. **A hand-off of seconds**, not a minute.
-5. **The easiest path to build, with the lowest downside.**
-6. **Fetch while the user types the password.** When the PC app opens and the phone is reachable and trusted, the transfer starts at once, so it is finished by the time the password is typed.
-7. **Save often while lent.** The PC saves before it closes. While lent, it also sends the phone a recovery copy at an interval (about every 3 minutes), because people record or import and then spend a long time just reading.
-8. **The phone reads SMS only when it holds the ledger.** It does not capture during a lend; when the ledger comes home, it reads the bank SMS that arrived since its last read.
-9. **Everything stays local.** No cloud copies; an opt-in may come later.
-
-### Review 2. Audit of the proposal
-
-**The core is right for these requirements:** one writer at a time with checkout and check-in. Keep its safety principles: never open a live SQLite file over a network; never merge databases or choose "the newest file"; record durably before granting or acknowledging; epochs, checkout IDs and return IDs; a receipt that is not acceptance; fail-closed repair; new-lineage recovery; Android Auto Backup excluded; per-device password slots; a fault-injection gate before real data. Its claims about current code are accurate: `snapshot.py` verifies inventory and fsyncs; `staging.py` stages but never promotes; `keys.py` wraps one data key per password slot.
-
-**Gaps:**
-
-1. **It is bigger than version 1 needs.** Reader nodes, published checkpoints, a separate version store with a pointer resolver, role permissions and a future server home are not required by Review 1. Cut them from version 1 (Review 3 lists what stays).
-2. **No plan for bank SMS.** Bank SMS keep arriving while a PC holds the ledger. The owner's answer: the phone reads them once it holds the ledger again (requirement 8, Review 3).
-3. **OneDrive.** Profiles live under Documents (`runtime/paths.py`), which Windows often redirects to OneDrive. A borrowed copy, its control record and its recovery copies must live outside synced folders (`%LOCALAPPDATA%`). Immutable encrypted backups may stay in Documents.
-4. **The foundation is unfinished single-PC work.** Promoting a verified copy and restoring a backup are not built, and both block the release anyway (`NOW.md`). Build them first.
-5. **Hidden writers need a database-level guarantee.** Legacy startup posts revaluations and refreshes prices (`lightning/main.py`, about lines 90–100), and unlock can migrate. Open the copy a device does not hold the pen for read-only at the database (`Database(read_only=True)` exists), not through a check at every call site. Page views are safe: the remembered period is a cookie.
-6. **Use `audit_log` as the change record.** It is written in the same transaction as every edit. It tells whether a borrowed copy has unreturned changes, and lists them if a lend is ever force-taken back.
-7. **Device authentication is about network access, not trust between devices.** Every paired device holds the data key, so pairing decides who may connect and borrow, nothing more.
-8. **Smaller:** schema lockstep means the Windows ZIP and the Android app update together; `os.fsync` cannot flush a folder on Windows, so the phone, not the PC, is the commit point that matters.
-
-### Review 3. Recommended structure: the phone lends, a PC borrows
-
-```
-PHONE: home, travels with you
-├─ ledger         profile.db (SQLCipher), private app storage, last few copies kept
-├─ lend record    durable: at home, or lent to <device> with checkout ID and epoch
-├─ recovery copy  the latest copy a borrowing PC sent (unaccepted; for take-back only)
-└─ SMS marker     in the ledger: the last bank SMS already read
-
-PC or laptop: borrows on demand
-├─ borrowed copy  %LOCALAPPDATA%\Lightning, never in OneDrive
-├─ lend record    durable: borrowing <checkout ID>, returning <return ID>, done
-└─ backups        every returned copy kept as an encrypted backup of the phone
-```
-
-**Measured speed (this container, Mohab's sample profile, 319 transactions, 0.8 MB encrypted):** copy plus SHA-256 5 ms; open plus `integrity_check`, `foreign_key_check` and `cipher_integrity_check` 8 ms; a full re-encrypting `snapshot()` with inventory checks 50 ms. A phone may be several times slower and a heavy profile tens of MB, which is still a few seconds at most. **The hand-off time is the Wi-Fi transfer.** The database uses the default rollback journal (no WAL), so with writes paused, the file on disk is complete and can be sent byte for byte.
-
-**Checkout: fetched while the password is typed (owner's requirement 6):**
-
-1. **On opening**, the PC app finds the phone on Wi-Fi (Android NSD/mDNS; convenience only) and connects with pinned mutual TLS. The devices were paired once by QR: the phone scans the PC's code and the owner approves.
-2. **Prefetch, before any password.** The phone sends its database file as it stands, with its hash and a small manifest (profile ID, lineage, schema version). This is still the phone's ledger: nothing is lent yet, so the phone keeps writing. The file is SQLCipher ciphertext, so sending it before anyone unlocks exposes nothing. The PC stores it in staging and checks the hash.
-3. **On unlock**, the PC opens the staged copy with its own password slot and runs the checks (about 8 ms), then asks to borrow *that hash*.
-4. **The lend itself is a few bytes.** If the phone's file still has that hash, the phone stops writing, durably records *lent to this PC* with a new checkout ID and epoch, and grants it. If the phone changed in the meantime (it read new SMS, say), it re-sends the file first: under a second for profiles of a few MB.
-5. The PC durably records the checkout and promotes the copy. **From here the PC needs nothing from the phone.** If the grant never arrives, the PC records *checkout aborted* before the phone may write again.
-
-Opening the PC app without unlocking costs nothing: the phone never stopped writing.
-
-**While lent:**
-
-- The PC edits normally, offline included.
-- **Recovery copies (owner's requirement 7):** when the borrowed copy has changed (`audit_log` grew), the PC sends it to the phone at most every 3 minutes, and always before closing. The phone keeps only the latest one, marked *unaccepted*: it is never the ledger, and is used only by an explicit take-back. If the phone is out of reach, the PC skips that send and keeps a local recovery snapshot (50 ms) instead.
-- The phone shows its last copy read-only: "Lent to Office PC since 14:05".
-
-**Return (the same few seconds):**
-
-1. The owner presses **Hand back**, or closes Lightning, which saves and hands back. The PC first checks that the phone is reachable. If it is not, the PC keeps the lend and hands back automatically next time they meet.
-2. Once reachable, the PC stops writes, durably records *returning* with a return ID, and sends the file.
-3. The phone checks the hash, manifest, epoch and checkout ID. **This needs no key**, so the phone does not have to be unlocked: a trusted PC already opened and checked the copy. It renames the file into place (an atomic rename in its private folder), keeps the previous copy, records *at home*, and replies with a receipt. A repeated return ID gets the same receipt. The next time the phone app is unlocked, it opens the copy and runs the full checks once. If they fail, it goes back to the previous copy and asks the PC for its backup.
-4. The PC records the receipt and keeps the returned file as a backup.
-5. **SMS (owner's requirement 8):** once the phone holds the ledger again and is unlocked, it reads the bank SMS that arrived since its marker. It posts them through the existing import review and category rules: confident ones post themselves, unclear ones wait. Each SMS is stored with its identity, so none posts twice, and each is matched against later statement CSVs (roadmap M7). An SMS deleted before the phone reads it is missed.
-
-**When things go wrong:**
-
-| Event | What happens |
+| Section | Use it for |
 |---|---|
-| The phone goes quiet during a lend | Nothing. The PC keeps working and hands back later. |
-| Wi-Fi drops mid-return | The PC stays read-only and retries the same return ID; the phone answers idempotently. |
-| A forgotten lend | The phone cannot edit, and SMS wait in the phone's inbox until the ledger comes home. Nothing is lost. The phone reminds the owner. |
-| The borrowing PC is lost or dead | **Take back** (explicit, owner only): the phone resumes from the PC's latest recovery copy as a new lineage. At most about 3 minutes of edits are lost, and the warning says so. If that PC comes back, Lightning lists its later edits from `audit_log` for re-entry. It never merges them. |
-| The phone is lost while lending | The PC holds the newest data. Pair a new phone and hand it home as a new lineage. |
-| The phone is lost while at home | Restore from the newest copy the PC holds. Edits made on the phone since then are lost; SMS can be read again from the bank's messages on the new phone. No cloud copy (owner's requirement 9). |
+| 1. Requirements and version 1 boundary | Owner requirements, deliverables and exclusions |
+| 2. User journeys and names | Everyday use and visible states |
+| 3. Existing foundation and implementation boundaries | Reuse, new modules and prerequisites |
+| 4. Storage, identities and durable records | Files, authority and wire contracts |
+| 5. Safety invariants and state machines | Who may write and why |
+| 6. Pairing and local transport | Trust, discovery and transfer |
+| 7. Prefetch and lend | Getting a consistent copy and editing permit |
+| 8. Editing, recovery copies and closing | Offline use and bounded background work |
+| 9. Hand-back and crash-safe promotion | Verification, publication and receipts |
+| 10. Take-back, restore and lost devices | Explicit recovery without merging |
+| 11. Android shell and lifecycle | Runtime feasibility, storage and background limits |
+| 12. Bank SMS and statement matching | Catch-up, parsing and duplicate prevention |
+| 13. Compatibility and updates | Schema ownership and release coordination |
+| 14. Performance and resource budgets | Measurements and provisional targets |
+| 15. Implementation work packages | Dependency order and completion gates |
+| 16. Verification and release acceptance | Fault matrix, CI and ordinary-device checks |
+| 17. Decisions, risks and next action | Settled tradeoffs and remaining evidence |
+| 18. References | Code anchors and primary platform sources |
 
-**Cut from version 1:** a capture queue and an always-on SMS receiver (owner's requirement 8), cloud backups (requirement 9), reader nodes and published checkpoints (the phone is the reader), a separate version store and pointer resolver (the phone keeps its live file plus a few previous copies), role permissions (every paired device may borrow), remote reachability and a server home. All can be added later without changing the lend protocol.
+## 1. Requirements and version 1 boundary
 
-**Remaining downsides:**
+The nine requirements from the owner's review are retained below as acceptance obligations, rather than a second competing design.
 
-- The PC must be near the phone to start or end a lend: the same Wi-Fi, the phone's hotspot, or a USB cable.
-- A forgotten lend blocks editing on the phone, and its SMS wait.
-- Starting a lend takes one tap on the phone. After that, a notification-backed background service carries it until the ledger is home (Review 5).
-- Python on Android is the biggest technical bet.
-- Every paired device can decrypt the profile.
-- App versions must match across devices.
-
-### Review 4. Build order, with gates
-
-1. **Single-PC restore and promotion** (release blocker anyway), with power-loss and disk-full tests on Windows.
-2. **Lend and return between two PCs**, one acting as home: pairing, prefetch, the lend records, transfer, 3-minute recovery copies, receipts, take-back, a crash test at every durable step. This proves the whole protocol on familiar ground, and it gives PC-to-laptop lending even if Android slips.
-3. **Android spike** on a real mid-range phone: Python runtime, `sqlcipher3`, `cryptography`, FastAPI in a WebView. Measure unlock time, page times and a lend of a large profile. **Gate:** an unreliable build, or pages over about a second, means a rethink before step 4.
-4. **Phone as home:** private storage, Auto Backup off, phone-width screens under the brand guideline.
-5. **Bank SMS:** read new SMS since the marker when the phone holds the ledger; parse each bank's format; post through the existing import review with category rules; match against later statement CSVs, so nothing counts twice (roadmap M7). Google Play requires a permissions declaration for SMS access; budgeting apps such as Say already read bank SMS, so prepare that declaration.
-6. **Fault gate on a PC and a phone**, then a full Mohab year driven across both, before any real financial data.
-
-### Review 5. The owner's answers, and what is still open
-
-Answered 2026-10-04 (now requirements 6–9 in Review 1):
-
-1. Accepting a return: prefetch when the app opens, so the hand-off is done by the time the password is typed. The phone accepts a return without being unlocked (hash and manifest), and checks it fully at its next unlock.
-2. Closing the PC saves and hands back; while lent, a recovery copy goes to the phone about every 3 minutes.
-3. A borrowing PC does not pull SMS; the phone reads them once it holds the ledger again.
-4. SMS through Google Play: apps such as Say do it, so plan for Play's SMS permissions declaration.
-5. Bank SMS formats: still open. Each bank words its messages differently, so the parser needs a few real examples from each bank the owner uses, with the numbers changed.
-6. Backups: local only; a cloud opt-in may come later.
-
-Answered later the same day:
-
-- **Being found by the PC:** the phone app runs in the background **only while something is happening**, never all the time. One tap starts it: the owner opens the phone app (Lightning says "Open Lightning on your phone"). From then until the ledger is home again, an Android foreground service keeps the phone reachable. It shows a notification ("Ready for your PC", then "Lent to Office PC") and stops by itself when the ledger is home, or after a few idle minutes if no lend starts. Recovery copies and the hand-back need no app open. Waking the phone with no tap would need a cloud push service, which requirement 9 rules out.
-- **Bank SMS formats:** no samples yet. Make time to log how each bank words its SMS, bank by bank, as examples are gathered.
-
-### Review 6. Further improvements (Claude's suggestions)
-
-1. **Background only during a lend** (owner agreed, Review 5). Without it, Android pauses the app once the phone is put down, and the 3-minute recovery copies and the hand-back on close stop reaching it.
-2. **Closing the PC with the phone out of range** (refined with the owner).
-   - **The PC** saves a final sealed copy, ready to send, in `%LOCALAPPDATA%` (never OneDrive). It says "Your phone isn't nearby. Your changes are saved here and will go back the next time both are on." It keeps the lend: reopened before it meets the phone, it simply carries on editing. That is safe, because the phone still records the ledger as lent to this PC. It records *returning* and stops editing only when it actually starts sending. A small background task hands back as soon as the phone is reachable while the PC is on.
-   - **The phone** cannot tell a closed PC from one editing out of range; it only sees silence, so it tracks the last contact. After about 15–30 minutes of silence, its background service stops (battery) and a scheduled reminder takes over, which needs nothing running. **Reminders:** after about 8 hours, "Your ledger is still on Office PC. Last copy here: 14:05. Turn on Lightning on that PC with your phone nearby." Then once a day, plus a banner in the app.
-   - After a few days, the reminder also offers **Take back** (Review 3, "When things go wrong"), naming the time of the latest recovery copy the phone holds. The owner sets the timings; the numbers here are starting points.
-3. **Each prefetch is a backup.** Every PC launch fetches the phone's file (Review 3, checkout step 2). Keep the last few as encrypted backups of the phone. With everything local, losing the phone at home then costs only what changed since the PC last opened.
-4. **Teach SMS formats bank by bank.** An SMS from a bank sender in a format Lightning does not know goes to review. The owner marks the amount, date and counterparty once, and Lightning saves that as the pattern for that bank. Each saved pattern, with its numbers changed, becomes a test fixture. This is how the owner's "log each bank over time" happens without collecting samples upfront.
-5. **One rule for app versions.** The phone updates from Google Play; the PC is updated by hand. Only the home phone ever migrates the database. A PC whose app cannot open the phone's schema does not borrow, and says "Update Lightning on this PC", with the download link.
-
-### Review 7. Names for every part
-
-One name per thing, in code, docs and tests. The words a person sees on screen are in the last column, under the brand guideline's plain-words rule. Codex's names are kept where they exist: home node, writer node, reader node, working copy, accepted version, lineage. When this is built, these move into the Glossary.
-
-**Devices** (permanent, set by pairing):
-
-| Name | What it is | On screen |
+| ID | Requirement | How this plan satisfies it |
 |---|---|---|
-| Home node | The phone. It holds the ledger, and is the only place a returned copy becomes an accepted version. | "your phone" |
-| Paired device | A PC or laptop paired once with the home node by QR. It has a name the owner picks. | "Office PC" |
+| R1 | The mobile phone is home and lends to different PCs, one at a time. | One authoritative home identity per profile; serialized grants; local Wi-Fi and hotspot first. |
+| R2 | Connect briefly, then the PC works alone. | A durable permit and local SQLCipher working copy; no heartbeat or online lease required for edits. |
+| R3 | The phone also writes, including planned bank SMS entry. | Home-only writable mode; SMS uses the same services as ordinary entries. |
+| R4 | Handoffs should take seconds. | Prefetch, a verified quiesced-file fast path, and explicit real-device latency gates. This is a target, not an existing measurement. |
+| R5 | Use the simplest practical approach with the lowest downside. | Reuse services, snapshot verification and profile lifecycle; whole encrypted files; no database merge or remote finance server. |
+| R6 | Fetch while the PC password is typed. | Trusted devices can transfer ciphertext before data-key unlock; the copy is never a writing permit. |
+| R7 | Save before closing and send recovery copies about every three minutes. | Normal local commits, periodic changed-copy snapshots, sealed offline close, and delivery status. A failed upload is never reported as protected on the phone. |
+| R8 | Read SMS only when the phone holds the ledger; catch up after return. | No SMS observer, receiver or capture queue during a lend; query the inbox after verified home acceptance and unlock. |
+| R9 | Everything stays local. | No cloud, relay, analytics upload or automatic OS backup of this profile. Local encrypted backup and recovery only. |
 
-**Roles** (who may edit right now; exactly one writer at a time):
+Owner refinements incorporated: open the phone app once to become reachable; keep a notification-backed service only while useful and permitted; close away from the phone into a resumable sealed copy; keep prefetch and returned copies as backups; learn bank formats over time; only the home migrates the database.
 
-| Name | What it is | On screen |
+**Version 1 delivers:** one Android home per profile, Windows borrowers, phone reads during a lend, pairing/revocation, prefetch, Lend, recovery copies, Hand back, explicit Take back, local backup/restore, compatibility checks, and optional bank SMS ingestion after its own platform and deduplication gates. Linux may run the protocol test harness; supporting a Linux borrower release is separate acceptance work.
+
+**Deferred:** general reader devices, a server home, remote internet access, cloud storage, simultaneous writers, automatic merges, incremental database replication, a separate version-store service, iOS, live files on shares, and automatic data-key rotation. USB is a later transport option until tested; do not promise that plugging in a cable works. Two PCs are a development harness, not a silent change to the phone-home product scope.
+
+## 2. User journeys and names
+
+Use the established names below in code and tests. Screens use plain actions and the owner's device name; hashes and epochs appear only in diagnostics.
+
+| Term | Meaning | User wording |
 |---|---|---|
-| Writer node | The one device that may edit now: the home node while the ledger is at home, or a borrower during a lend | — |
-| Borrower | A paired device while it is the writer node. **This is the PC with the temporary file.** | "Editing on this PC" |
-| Reader node | A device showing a copy it may not edit: the home node during a lend (later, other paired devices too) | "Lent to Office PC · read only" |
+| Home node | Phone authorized to accept hand-backs for this profile | Your phone |
+| Paired device | Trusted PC with its own device identity and password slot | Office PC |
+| Writer node | Device currently permitted to change the ledger | Editing here |
+| Borrower | Paired PC while it holds the writing permit | Editing on this PC |
+| Reader node | Phone displaying the last accepted copy during a lend | Lent to Office PC · read only |
+| Accepted version | Verified, durably published checkpoint, identified within a lineage | Saved on your phone |
+| Prefetch copy | Consistent encrypted checkpoint downloaded before borrowing | Getting your latest copy |
+| Working copy | Borrower's editable local database | Changes saved on this PC |
+| Recovery copy | Snapshot received during a lend, not accepted as the ledger | Last recovery copy on your phone |
+| Sealed copy | Final local snapshot after closing away from the phone | Saved here · hand-back pending |
+| Backup | Retained encrypted copy for explicit restore | Backup |
+| Lineage | Authority history; replaced explicitly after recovery | Recovery starts a new history |
 
-**Copies** (files):
+**First use:** install on phone and PC; create or explicitly move an existing profile home; save the recovery key; scan the PC's pairing QR and confirm both device identities. Choose the PC's own password. An existing standalone PC profile remains standalone until the move-home workflow completes; never silently copy it into two writable profiles.
 
-| Name | What it is | Where |
+**Normal borrow:** open Lightning on the phone, then on the PC. The PC downloads while its password is entered, verifies the copy, and requests Lend. The phone shows the borrowing device; the PC opens its local pages after storing the permit.
+
+**Offline work and close:** save normally without the phone. If the phone is absent at close, keep a sealed copy and the lend. On reopening, continue that same lend unless return has already begun. Never discard unsent edits to fetch a newer-looking phone copy.
+
+**Normal return:** Hand back or close while connected. The PC stops editing before transmission. If the phone is unlocked, verification and acceptance can finish immediately. A locked phone can receive bytes, but shows “Received · open Lightning on your phone to finish checking.” Until acceptance, neither device edits. This incorporates the corrected review: receiving without unlock is supported; accepting unverified data is not.
+
+**Phone during a lend:** show its last accepted copy with a persistent read-only notice, the borrower and the last recovery delivery time. Time-sensitive figures such as Safe to spend must carry the stale-copy context. Mutating actions are unavailable and direct POSTs are rejected. Exports of the accepted read-only copy remain possible if labelled with their version.
+
+**Repair:** explain the blocked action, which device/copy holds the latest known work, and the available next actions. Keep technical diagnostic codes separate from financial data. Implementation must use the existing brand rules; this planning change introduces no new visual style.
+
+## 3. Existing foundation and implementation boundaries
+
+Verified against GitHub source while preparing this plan:
+
+| Existing code | Reuse | Work still required |
 |---|---|---|
-| Ledger | The accepted database | Home node, private app storage |
-| Accepted version | Each ledger the home node accepted, numbered, with its lineage | Home node (current, plus the last few) |
-| Prefetch copy | The ledger fetched when the PC app opens, before the password is typed; becomes the working copy if a lend starts | Paired device, `%LOCALAPPDATA%` |
-| Working copy | The borrower's editable copy: **the temporary file** | Borrower, `%LOCALAPPDATA%` |
-| Recovery copy | The working copy sent to the home node about every 3 minutes; never accepted, used only by Take back | Home node (latest only) |
-| Sealed copy | The borrower's final working copy, saved on close while the phone is away, waiting to be handed back | Borrower |
-| Backup | An encrypted copy kept for restore: prefetch and returned copies on the PC, previous accepted versions on the phone | Both |
+| `lightning/database/connection.py` | SQLCipher keying, owning-thread checks, read-only open and transactions | Role-aware session creation; prevent any non-writer from obtaining a writable handle. |
+| `lightning/database/snapshot.py` | `snapshot()`, `export_snapshot()`, integrity checks and source/copy inventory comparison | Public verification report, safe fast-copy path, durable directory publication and failure instrumentation. |
+| `lightning/database/staging.py` | `stage_database()` creates verified encrypted candidates, including committed WAL data | It does not promote candidates; add promotion and restore separately. |
+| `lightning/runtime/session.py` | Profile locks, password slots, key recovery, activation/generation changes | Recover control state before unlock/build; drain requests; activate read-only without migration or startup writes. |
+| `lightning/runtime/paths.py` | Standalone profile paths and validation | Explicit borrowed-profile paths outside Documents; phone private-storage adapter. |
+| `lightning/security/keys.py` | Existing data key and per-password wrapping | Pairing provision, device identity storage and separate transport credential lifecycle. |
+| Current import, transaction and reporting services | Financial rules, review and postings | SMS source records, exact-once posting and conservative cross-source matching. |
 
-**Actions:**
+The existing `ProfileSession.unlock()` ultimately calls `build(..., backup_on_start=True)`. Reusing this unchanged for a reader would allow migration/startup behavior. Add an explicit session mode before wiring sync; a disabled button is not a write barrier. The current snapshot inventory is private and compares a source to its copy. A changed return cannot be required to equal the original borrowed ledger; verify its own source-to-snapshot inventory, then its contents and structural invariants on the phone.
 
-| Name | Codex's name | What happens | On screen |
+Proposed ownership, subject to normal implementation review:
+
+| Module/work area | Responsibility |
+|---|---|
+| `lightning/database/promotion.py` (new) | Candidate publication, file durability adapter and restart recovery; no network. |
+| `lightning/sync/domain.py`, `state.py` (new) | Typed manifests, permits, receipts, transitions and local control store. |
+| `lightning/sync/service.py` (new) | Serialize Lend/Hand back/Take back; call lifecycle and snapshot APIs. |
+| `lightning/sync/transport.py` (new) | Bounded authenticated messages and encrypted file transfer; no finance endpoints. |
+| Runtime/session and paths | One local process owner, role gate, generation invalidation, correct data location. |
+| `android/` shell (new, after feasibility gate) | WebView, Python host, private storage, foreground service, discovery, permissions and SMS query bridge. |
+| `lightning/import_sources/` or a bounded workflow module (new) | SMS identity, parsing, review and matching through existing services. Pick the final package before coding. |
+| Shared UI | Device status and actions; no financial calculation or authority decisions in JS. |
+
+All encrypted database access and lifecycle changes stay on the owning runtime thread. Network/Android workers submit bounded commands and return bytes or results; they do not open the active database. Keep sync below the UI and out of financial service dependencies. Build the shared protocol against an in-process fake transport before sockets or Android.
+
+## 4. Storage, identities and durable records
+
+### Files and authority
+
+| Location | Proposed contents | Retention and restrictions |
+|---|---|---|
+| Phone private, no-backup profile directory | Live `profile.db`, device-local control store, password slot, immutable checkpoint/backup files, receive staging | No network share, external-storage live file or OS restore of authority records. |
+| PC `%LOCALAPPDATA%/Lightning/borrowed/<profile_id>/` | Control store, password slot, working file, prefetch, recovery and sealed snapshots | Resolve the actual local app-data path; reject symlinks, hardlinks, unsafe redirection and user-selected sync folders for active borrowed data. |
+| Explicit local backup destination | Encrypted database, non-secret profile manifest and verification status | Recovery needs the saved recovery key or an appropriate local slot. Never bundle an unwrapped key. No automatic export to Documents/OneDrive for borrowed profiles. |
+| OS credential protection | Device transport key and local control authentication material | Android Keystore / Windows user-scoped protection; separate from the SQLCipher data key. |
+
+Start with the current checkpoint plus two prior accepted checkpoints on the phone, the latest two complete recovery copies for the active lend, and the latest three prefetch/returned backups per PC. These are proposed retention defaults, not permission to delete unresolved work. Protect every file referenced by an active lend, pending return, promotion journal, failed verification or unresolved recovery. Prune only after replacement files and their indexes are durable; on low space, fail the operation visibly rather than delete the last recoverable copy.
+
+The live home database changes during ordinary home use. An accepted-version hash identifies an immutable checkpoint, **not an eternally unchanged live file**. At prefetch, checkpoint the current home contents and assign a version ID; when Lend freezes the final contents, bind the permit to that checkpoint. Keep the base checkpoint throughout the lend for validation and take-back comparison. Local home edits after a completed hand-back do not change the previously issued acceptance receipt.
+
+### Control store and manifests
+
+Use a small **device-local SQLite control store**, separate from the finance database, with serialized transactions and full durability settings. It contains no ledger rows or SMS bodies. It must work while the finance key is locked. Authenticate network assertions with device identities; protect local files with OS permissions and credentials. Corrupt/missing control state blocks writes instead of recreating an “At home” default. Do not copy this store from phone to PC, include it in ordinary ledger restores, or let a financial rollback roll back writing authority.
+
+| Record | Required fields and constraints |
+|---|---|
+| Profile authority | Profile ID, home device ID, lineage ID, protocol version, control schema, monotonic checkout epoch, current state/revision, accepted checkpoint ID/hash/schema. |
+| Pairing | Device ID/public-key fingerprint, owner-chosen name, allowed profile IDs, pairing ID, active/revoked status; no password. |
+| Checkout | Random checkout ID chosen before request, requesting device, home/lineage, epoch, base checkpoint ID/hash, permit, prepared/granted/activated/cancelled status. Unique checkout ID, one active checkout per profile. |
+| Return | Random return ID, checkout ID/epoch, parent checkpoint, immutable candidate hash/size, received/verified/promoting/accepted status, durable receipt. Same ID with different content is an error. |
+| Recovery | Checkout identity, strictly increasing sequence, candidate hash/size, base parent, received time, verified status. Arrival time cannot replace sequence ordering. |
+| Promotion | Operation ID, old checkpoint/hash, new candidate/hash, target name, previous-copy name, phase, intended authority transition. |
+| Transfer | Transfer ID, object kind, authenticated manifest digest, expected length, received chunk map and completion status. |
+| SMS records | Inside the encrypted finance database: inbox-source epoch/cursor, source identities, review status, parser version and posting links. These travel with the ledger. |
+
+The file manifest includes profile/home/lineage IDs, key ID, checkpoint/parent IDs, schema and cipher format, size and SHA-256 ciphertext hash, operation kind, checkout/return or recovery identity, and sender device. The exact serialized manifest is bound to its authenticated transfer. Add an encrypted singleton profile-identity record through a new migration before first pairing; it binds the database to its stable profile ID but does not carry a live permit or replace device-local authority. Inventory reports and financial details stay encrypted; a ciphertext hash is for transfer integrity, not proof of financial correctness. Times support user messages only. Use random IDs and durable counters for correctness.
+
+Proposed protocol messages: `PairBegin/PairConfirm`, `Status`, `Prefetch`, `BorrowRequest`, `BorrowGrant`, `BorrowActivated`, `BorrowCancel`, `TransferBegin/Chunk/Complete`, `ReturnStatus`, `Received`, `Accepted`, `Revoke`. Define bounded schemas and error codes before implementing transport. All mutating requests carry an operation ID; replay returns the stored result. Retain grant/cancel tombstones and acceptance receipts for the current lineage even after backup pruning.
+
+## 5. Safety invariants and state machines
+
+1. At most one device has permission to commit new work to the current accepted lineage. A home transition closes its write gate and drains existing transactions before granting a borrower.
+2. Prefetch, discovery, a recovery upload, a heartbeat, closing a window and a timer never transfer writing authority.
+3. The home commits the grant before sending it. The borrower commits the permit before writing. Missing acknowledgement cannot release the grant.
+4. The borrower commits `RETURNING` before a final candidate can be delivered. That state never resumes edits automatically, even when the phone is unreachable.
+5. Only a fully verified, durably published candidate can produce an acceptance receipt. “Received” does not mean “Accepted.”
+6. File replacement and authority publication have a recovery journal. Restart resolves it before any financial connection becomes writable.
+7. A retry has the same operation ID and content. An ID reused with another hash, device, epoch or parent is rejected.
+8. Recovery, forced Take back and replacement-home setup create a new lineage. An old borrower can keep modifying its offline file but can never return it into the new lineage.
+9. Ambiguous or damaged authority stops writing and preserves evidence. A timeout never selects a winner.
+10. No migration, seed, SMS import, revaluation, setting update or maintenance path bypasses the role gate. Readers use actual read-only SQLCipher connections.
+
+“Exactly one writer” does not mean there is always a writer. Returning, verification and repair may intentionally leave none. After explicit Take back, an unreachable old PC may still write its stale copy; this is fenced from acceptance, not magically prevented offline.
+
+### Home state
+
+| State | Finance access | Allowed transition |
+|---|---|---|
+| `AT_HOME` | Writable only after unlock and ordinary session checks | Begin prefetch (no authority change), or durable `PREPARING_LEND`. |
+| `PREPARING_LEND` | Gate closed; transactions drained | Freeze/verify base, then `LENT`. Before any durable grant, abort back home after restart reconciliation. |
+| `LENT` | Last accepted copy read-only | Recovery upload stays here; final upload leads to `RETURN_RECEIVED`; valid pre-activation cancellation returns home; explicit Take back enters recovery. |
+| `RETURN_RECEIVED` | Old accepted copy read-only; candidate inaccessible | Unlock and verification lead to `PROMOTING`; validation failure leads to `NEEDS_REPAIR`. |
+| `PROMOTING` | No finance session | Finish durable publication into `AT_HOME`, or recover deterministically into blocked state. |
+| `NEEDS_REPAIR` | Verified old copy may be read-only | Explicit repair, retry exact return, or Take back; never timeout into writable mode. |
+
+### Borrower state
+
+| State | Finance access | Allowed transition |
+|---|---|---|
+| `PREFETCHED` | Verify/read only after unlock | Record `BORROW_PREPARED` before requesting the grant. |
+| `BORROW_PREPARED` | No edits | Persist matching grant into `BORROWING`, or durable `ABORTED` and authenticated cancel. |
+| `BORROWING` | Writable after unlock | Recovery snapshot; offline close to `SEALED`; final hand-back to `RETURNING`. |
+| `SEALED` | No open writer | Under the same local process lock, resume `BORROWING` or transfer immutable sealed bytes into `RETURNING`. |
+| `RETURNING` | Read-only; candidate immutable | Retry upload/status until `HANDED_BACK`; failure may require repair, never automatic resumption. |
+| `HANDED_BACK` / `ABORTED` | Backup/preview only | A fresh lend requires a new checkout ID. |
+| `NEEDS_REPAIR` | Preserve working/candidate files | Reconcile with the home or explicit recovery. |
+
+A cancellation is permitted only if the PC durably records that this checkout **never became writable**. If it activated, even with no user edits, it returns through normal Hand back. This removes the unsafe ambiguity between “grant arrived late” and “grant was already used.” If cancellation arrives before the original request, the home stores its tombstone so a reordered request cannot grant it later.
+
+## 6. Pairing and local transport
+
+1. With the phone profile unlocked, the PC creates a transport identity and displays a short-lived, single-use pairing QR containing an endpoint, public-key fingerprint, pairing ID and random challenge. No database key is in the QR.
+2. The phone scans it, pins that endpoint's identity and displays the PC name; the PC shows the phone identity for confirmation. Bind both confirmations to the pairing challenge to prevent a second device joining the same approval.
+3. Establish authenticated encryption using a maintained TLS implementation. Bootstrap trust from the scanned fingerprint and confirmed challenge; later use mutually authenticated, pinned device identities. Discovery must never approve certificates.
+4. Provision the existing data key over that channel only with the phone unlocked and the PC ready to wrap it under its own chosen password. Neither password nor recovery phrase crosses the network. Persist the PC slot and verify it before marking pairing complete.
+5. Pairing authorizes access to this profile, not every profile on the phone. Revocation prevents future connections/grants. Revoking an active borrower does **not** bring the ledger home; offer reconnect/return or explicit Take back. A copied data key remains usable for old encrypted copies.
+
+Transport identity must remain available for ciphertext-only prefetch and locked receipt, while the data key remains password protected. Verification reports that contain table metadata travel only over the authenticated channel and are encrypted at rest beside the candidate, never in the plaintext control store. Store the transport key with OS protection available in the normal logged-in device session; after reboot/credential lock it may be unavailable until the OS is unlocked. If this cannot be implemented safely, show “Open Lightning on your phone” rather than weaken data-key protection.
+
+Use Android NSD/mDNS as a discovery hint and a manually entered local endpoint as fallback. Require the pinned identity on either path. Bind only the intended local interface; do not use UPnP, port forwarding, a relay or the UI listener. Keep FastAPI finance pages on loopback with existing origin/cookie/session protections. A local subnet is not a trust boundary.
+
+Transfer whole encrypted snapshots with bounded chunks (initial proposal: 1 MiB), bounded concurrent staging (one per active operation), explicit object size/quota, resumable offsets and final SHA-256 verification. Reject invalid paths, unexpected object kinds, oversized metadata, extra bytes and mismatched manifests. Chunk acknowledgements support resumption; only a flushed complete file and durable receive record warrant “Received.” Never unpack arbitrary archives or execute transferred content.
+
+Use request deadlines and bounded exponential retry (initially 1–30 seconds, with jitter); stopping retries does not end a lend. Classify errors into retryable transport failure, unlock needed, update needed, revoked/stale authority, insufficient space and needs repair. Logs contain operation IDs/stages and sizes/timings, never ledger contents, SMS bodies, passwords or keys.
+
+## 7. Prefetch and lend
+
+### Consistent prefetch
+
+1. First read local control state. A PC already borrowing, sealed or returning resumes that state; it must not replace it with a prefetch.
+2. On an otherwise idle paired PC, connect and request the phone's current checkpoint while the user enters the password.
+3. On the phone, acquire the profile operation gate, stop new writes and drain active work. For a fast byte copy, close the database cleanly, prove there is no pending journal/WAL state, flush, and copy into a new staging file. If that proof fails, use the consistent snapshot API on the owning thread; never delete sidecars to make copying appear safe.
+4. Record the **source hash measured while quiesced** separately from the **snapshot ciphertext hash**. Re-encryption can produce different bytes for identical rows; do not compare a newly exported snapshot hash to the live source as a dirty test.
+5. Publish an immutable encrypted checkpoint with its manifest; resume home work once the consistent checkpoint is safe. Send from that file, not the live database. A locked phone can reuse a previously verified checkpoint; creating a new one from dirty or uncertain storage requires unlock and recovery.
+6. PC checks transport identity, profile/key/lineage, size/hash and schema compatibility. After password unlock, verify SQLCipher/SQLite and the expected Lightning schema read-only. Keep the copy as an encrypted backup, with verification status. No permit exists yet.
+
+### Grant sequence
+
+1. PC durably stores `BORROW_PREPARED(checkout_id, base_version, device_id)`, then asks to borrow that exact checkpoint.
+2. Home serializes the request against other borrowers and SMS/finance writes, records `PREPARING_LEND`, drains work and compares the quiesced source hash with the prefetch source hash. If changed, produce a replacement checkpoint, send it and require the PC to verify it. Keep home writes paused through this final validation or abort preparation before granting.
+3. Check protocol, schema, cipher format, key ID, pairing and the absence of another active checkout again. Freeze the chosen checkpoint as the base, increment the epoch, commit `LENT` and the full permit, then send the grant. Reopening the home uses read-only mode.
+4. PC checks the permit against its prepared request, makes its verified working file durable, stores `BORROWING`, invalidates old session generations, then opens writable. Send `BorrowActivated` as useful confirmation; it is not what makes the home lent.
+5. On lost replies, repeat `Status`/the same request. The home returns the stored permit. If the PC aborts before activation, persist `ABORTED` before sending cancel; reject every delayed grant for it. Only a durable matching cancellation lets the home resume. Otherwise remain lent until return or explicit recovery.
+
+A preparation timeout can release a gate only when durable state proves no grant was issued. Never expire an issued permit. Two simultaneous borrow requests must yield one grant and one clear “Lent to…” response.
+
+## 8. Editing, recovery copies and closing
+
+Ordinary SQLite transactions remain the first durable save. Recovery copies supplement them; no editor waits for network permission after activation. A profile lock and the persisted permit survive restarts. Missing control state is repair, not a fresh standalone profile.
+
+While unlocked and changed, schedule one consistent snapshot about every 180 seconds, measured with a monotonic timer. Do not overlap snapshots; coalesce changes during an upload into the next one. Compare a safely captured source-file hash to the last sent source hash, not `audit_log` growth and not hashes of separately re-encrypted exports. The audit log is incomplete for settings and other edits. A write counter may optimize scheduling later, but it cannot replace the correctness check until all writers are covered.
+
+Give each recovery snapshot a durable sequence within the checkout. The phone accepts bytes only for its current checkout and stores newer complete sequences without promoting them. Verify fully when the phone is unlocked; retain the last fully verified recovery copy if a newer one is only hash-checked. A late upload cannot overwrite a newer sequence or a final return. The PC displays the last **acknowledged** sequence/time, not the time an upload started.
+
+On PC lock, finish or safely defer the current operation, create a consistent encrypted snapshot while the key is available, then wipe the data key under existing lifecycle rules. A worker may send already sealed ciphertext without retaining the key. Sleep, suspension or an absent phone can prevent the three-minute target: show the delivery gap. No edits occur while the finance session is locked.
+
+At close:
+
+- If home is reachable, quiesce and create the final verified candidate, record `RETURNING`, then upload. Window closure can leave a bounded transfer worker running with visible tray/status indication.
+- If unreachable, create and flush a sealed snapshot, store `SEALED` and the queued hand-back intent, then close. If snapshotting fails, preserve the working database, report the failure and do not claim a successful seal.
+- The retry worker and reopened app acquire the **same process/profile lock**. If reopening wins while still sealed, it cancels that queued send before enabling edits and invalidates the old sealed candidate. If the worker already recorded returning, reopening stays read-only. This prevents an old sealed copy being returned while new edits are made.
+- Do not promise delivery after the PC shuts down or the phone stops listening. Resume on the next app launch or an explicitly supported bounded background run. No perpetual hidden service is required.
+
+Proposed reminder defaults: stop an unused ready session after five minutes; stop listening after roughly 20 minutes without authenticated borrower contact; remind after eight hours and then at most daily. Platform limits may stop it earlier. These timings are tuning proposals from the review, not writing-lease expiry. The app banner remains the source of status if notifications are disabled.
+
+## 9. Hand-back and crash-safe promotion
+
+### Return protocol
+
+1. Borrower obtains the local operation gate, invalidates writable forms, drains transactions, closes the working connection and creates a verified final candidate. Persist its hash, size, inventory report and return ID under `RETURNING` before sending any final bytes. Subsequent retries use the same candidate and IDs.
+2. Home authenticates the sender and validates profile/home/lineage, epoch, checkout, parent, cipher/schema and return identity. Previously accepted returns get their stored receipt; a different hash under the same return ID is rejected. Receive into an exclusive staging name.
+3. Flush the complete candidate, verify length/hash, durably store `RETURN_RECEIVED`, then reply **Received**. While locked, retain old accepted data and wait. Never open the candidate for ordinary screens or post SMS at this stage.
+4. On unlock, open the candidate read-only with the local data key. Check SQLCipher page integrity, SQLite integrity and foreign keys; expected migrations/application schema; profile/key binding; and candidate inventory against the borrower's authenticated verification report. Run bounded structural ledger checks (valid references, transaction/posting invariants). Existing incomplete valuations are not corruption and must remain distinguishable from structural failure.
+5. If checks fail, retain the candidate, base and working backups; enter repair. Offer retransfer of the exact bytes for transport failure, or explicit recovery/inspection for an invalid candidate. Never silently restore the old ledger and start spending.
+6. If checks pass, promote using the journal below. Only after publication commits may the home open writable, acknowledge **Accepted**, and begin SMS catch-up.
+7. Borrower stores the accepted receipt and `HANDED_BACK`, keeps the final encrypted backup and disables the old permit. A lost receipt is resolved by status, not by returning again under a new ID.
+
+Verification can show that the candidate is intact and follows supported structure. It cannot prove that a trusted device's transactions are truthful. Every paired device already has the data key; this is a cooperative single-user protocol, not protection against a malicious financial editor.
+
+### One publication algorithm reused by restore, move-home and return
+
+File rename alone is not a transaction with the control store. Implement one reusable promotion journal with platform-specific durable file operations:
+
+| Durable step | Persisted evidence | Restart rule |
+|---|---|---|
+| P0: stage | Complete immutable candidate and verification report; existing live file untouched | Unreferenced partials are not eligible for acceptance. |
+| P1: prepare | Control transaction records `PROMOTING`, operation identity, old/new hashes and names | No writer can open; locate only the named files. |
+| P2: protect previous | Flush a separate verified old checkpoint/backup; record readiness | Never unlink the only old copy. Disk-full leaves old data preserved and state blocked. |
+| P3: publish file | Atomically replace live path with candidate on the same filesystem; flush file and containing directory using the platform adapter | Check named live/old/new hashes. If new is present, finish verification/publication; if old remains, retry or abort to blocked repair. Ambiguity stays blocked. |
+| P4: publish authority | One control transaction commits accepted checkpoint, consumed return, exact receipt and `AT_HOME` (or target recovery state) | The new authority is committed; retries return the stored receipt. |
+| P5: activate | New session generation and writable connection; later prune unreferenced files | Cleanup failure cannot undo acceptance or invalidate its receipt. |
+
+Do not leave a writable session alive between P1 and P4. Before P4, a crash may finish promotion or restore the old path **while still blocking edits**; it may not quietly reopen the old ledger for writes after the borrower has returned. After P4, do not silently roll back accepted history, even if the acknowledgement was lost.
+
+The same directory/filesystem is required for publication. Flush failure is failure, not a warning to ignore. Windows needs a tested durability adapter rather than assuming POSIX directory `fsync` works there. Process-kill tests are necessary but do not alone prove power-loss behavior. Preserve immutable files plus the journal until ordinary-device power-loss/reboot tests pass.
+
+## 10. Take-back, restore and lost devices
+
+### Explicit Take back
+
+Only the unlocked home owner initiates it. Show the last accepted checkpoint, each available recovery copy with sequence and **received/verified** status, the last contact, and the possibility of newer edits on the PC. Do not describe a hash-checked recovery file as fully verified.
+
+1. Fence the old checkout locally by entering a recovery state; block all grant/return/finance operations.
+2. Let the owner choose a recovery copy or the accepted base. Fully verify the chosen candidate before it can become home.
+3. Create a new lineage and record the retired checkout/old lineage. Use the promotion journal even when the chosen data is the existing accepted file.
+4. Open writable only after the new authority and data commit. Old returns remain quarantined; send revocation/new-lineage status when that PC reconnects.
+5. Compare a returning stale PC's copy against the retained checkout base and chosen recovery copy, table by table. Show added/changed/deleted records and unmapped changes. A row diff is an inspection aid, not a replayable transaction log; never replay arbitrary SQL or merge balances. Re-entry uses normal services.
+
+State the actual last recovery timestamp. There is no fixed three-minute loss bound when transfers, power or background execution were interrupted.
+
+### Other recovery cases
+
+| Case | Recovery path | Important limit |
+|---|---|---|
+| Borrower lost/dead | Explicit Take back from a verified recovery copy or accepted base | PC-only edits and its backups may be gone. |
+| Phone lost while lent | Preserve PC working/sealed copy; explicitly initialize a replacement home, new identity and lineage; pair again | Old phone cannot be remotely erased or stopped offline. Do not reconnect it as an active home. |
+| Phone lost while at home | Select and verify a retained PC prefetch/return backup; restore to a replacement home/new lineage | Phone edits since that backup may be missing. SMS might not exist on the replacement phone. |
+| Lost acceptance receipt | Query original return ID and compare stored receipt fields | Do not issue a fresh lend or resume the old one while uncertain. |
+| Control store lost/restored from an old backup | Block writes; preserve ledger files; perform explicit recovery with a new lineage and re-pair | A database file alone cannot prove current writing authority. |
+| Wrong password or damaged slot | Existing recovery-key workflow, then verify candidate | A missing key is never permission to open plaintext or reinitialize. |
+| Revoked borrower returns | Quarantine and inspect; explicit owner recovery only | Revocation does not remove its knowledge of the data key. |
+| App uninstall/reinstall | Warn before removal where the app can; restore local backup explicitly | Private phone storage and transport keys may be deleted. |
+| No surviving usable copy/key | Report unavailable recovery; preserve evidence | Do not invent history from timestamps, balances or partial SMS. |
+
+### Moving an existing standalone profile home
+
+This is an explicit one-time workflow, separate from ordinary pairing. Finish the single-PC restore foundation first. Select the existing profile, unlock, acquire its process lock, quiesce and create a verified encrypted candidate. Record `MOVING_HOME` on the PC before sending. The phone initializes a new authority/lineage and accepts via the same promotion protocol. Until the PC confirms the phone's durable receipt, it remains blocked; lost replies use the same operation ID. After acceptance, turn the original PC file into a retained read-only backup and enter paired-device mode. Continuing to edit on that PC requires a normal lend.
+
+If the move is abandoned before acceptance, resume the PC only after a durable, authenticated cancellation proves the phone did not accept; otherwise use status/recovery. Preserve the source file and its backup. There is no silent conversion of plaintext legacy data: use the existing explicit staging route with a new encrypted destination and verify it before move-home.
+
+Ledger backups contain identity/lineage provenance for inspection, but never automatically restore a live permit, pairing list or home authority. Restoring an older backup to an existing home is explicit recovery into a new lineage. This rule prevents backups from resurrecting a second home or an old borrower.
+
+## 11. Android shell and lifecycle
+
+### Prove the runtime before building the product shell
+
+The first candidate is a small Kotlin Android shell embedding the shared Python runtime, with Chaquopy evaluated as the packaging route. Start with Python 3.13 to match current CI, then pin versions only after the dependency spike passes. Chaquopy supports Python on Android, but that does not establish availability of Lightning's native dependencies. Confirm SQLCipher/`sqlcipher3`, `cryptography`, Argon2, FastAPI's native dependencies and all pinned runtime packages on arm64, including devices with 16 KB memory pages. Record reproducible build commands, hashes, licences, APK/AAB size and startup results. [Chaquopy packaging and native-wheel guidance](https://chaquo.com/chaquopy/doc/current/android.html?highlight=test), [16 KB support caveats](https://chaquo.com/chaquopy/doc/current/changelog.html).
+
+Run the existing finance pages over loopback inside Android WebView; reuse the financial services and figures registry. Port the runtime owning-thread lifecycle and origin/session guards. Block foreign navigation, file access, unexpected intents and remote debugging in release builds. Expose only narrow native operations such as pairing scan, local discovery and SMS query. The WebView is not a network API for another device.
+
+Fail the spike if the encrypted database driver or critical crypto cannot be built reproducibly, reports disagree with Windows, or page/unlock behavior is unusable on an ordinary mid-range phone. Record a revised shell/packaging decision before continuing. Do not respond by creating a second financial implementation or a phone-hosted thin client for the PC.
+
+### Foreground/background behavior
+
+Open the phone app to start a reachable session. Use a notification-backed service during pairing, preparation, active recovery transfer and hand-back, subject to OS rules. Evaluate `connectedDevice` for actual local-device communication and meet its declared prerequisites; do not choose a service type merely to evade a timeout. If using `dataSync`, handle its background time budget and timeout callback. Android's documented limits make “runs forever until return” an invalid guarantee. [Foreground service types](https://developer.android.com/develop/background-work/services/fgs/service-types), [service timeouts](https://developer.android.com/develop/background-work/services/fgs/timeout?hl=en).
+
+Stop after inactivity, on the owner's stop action, on platform timeout, or when the ledger is home. Durable lend state survives all of these. A stopped listener means recovery and return wait until the phone app is opened again. Schedule approximate reminders through supported OS facilities; reminders do not need an always-running Python process and never unlock or reclaim the ledger. Test denied notifications, Doze, battery saver, forced stop, reboot, app update, Wi-Fi switching and an overnight lend.
+
+The finance key is available only during its unlocked session. When locked, the transport service may receive encrypted candidates and update device-local control metadata but may not inspect ledger rows, ingest SMS or accept a return. Do not keep the data key alive solely for convenience.
+
+### Storage and platform gates
+
+Use app-private **no-backup** storage for the profile, snapshots, slots and authority records. Disable cloud backup explicitly and exclude both cloud and device-transfer paths in the applicable Android backup rules; `allowBackup=false` alone is insufficient for all manufacturer transfer behavior. Test backup/restore and phone-to-phone transfer so neither can duplicate writing authority. [Android backup rules](https://developer.android.com/identity/data/autobackup).
+
+Choose minimum/target SDK and the supported-device matrix during the spike using current platform/distribution requirements. Validate local-network discovery permissions, hotspot client reachability, firewall behavior and manufacturer restrictions on actual devices. No bank SMS or plaintext financial data belongs in notifications, Android logs or crash reports. Shared phone-width screens and native back behavior get their own UI acceptance task.
+
+## 12. Bank SMS and statement matching
+
+SMS is an optional ingestion feature on the home phone. It is not part of the lending transport and must not block manual entry or CSV import when permission is denied.
+
+### Capture boundary and cursor
+
+Ingest only while the phone is both **unlocked and AT_HOME** with a writable session generation. On unlock, after verified return, on an explicit refresh and through bounded polling while the home app is active, query the SMS provider for configured bank senders since the last committed scan position, with an overlap window. While lent/returning/locked, do not query, subscribe to, receive into an app queue, or post SMS. The OS inbox holds messages until catch-up.
+
+Store source identity and processing state inside the encrypted ledger, so they travel with hand-backs. Proposed append-only migration tables:
+
+| Table | Purpose |
+|---|---|
+| `import_source_messages` | Unique inbox-installation/source epoch + provider message ID; sender, bank event reference where present, normalized payload fingerprint, received/event dates, parser version, review/posting status and linked transaction. Keep only necessary bank-message data. |
+| `import_source_cursors` | Source epoch and last durably handled provider position; explicit rescan range after recovery/provider reset. |
+| `bank_sms_patterns` | Deterministic, versioned bank parsing rules with activation/review state and sanitized fixtures. |
+| `transaction_source_links` or extension of existing source metadata | Link SMS, CSV and manual evidence to one posted transaction without deleting provenance. Inspect the existing schema before selecting the final table. |
+
+Process a bounded batch in one transaction: persist messages as posted/review/ignored, then advance the cursor. If a crash occurs before commit, repeat safely. An unclear message can be stored for review without blocking all later messages. Sender/date alone is not a unique identity. Provider IDs may reset on restore; use a new source epoch and conservative overlap/rescan with duplicate suggestions. A body hash alone must not suppress two legitimate equal-value purchases.
+
+Before lending, stop scanning, drain its current transaction, and freeze the cursor with the ledger. Messages arriving after that are caught up when home again. Deleted messages cannot be recovered by this feature. Device replacement must not assume the old SMS inbox is present.
+
+### Parse, teach and post
+
+Use local deterministic parsers, not AI. Explicitly parse direction, amount, currency, account suffix/reference, event time and transaction reference when available. Test Arabic/English messages and numerals, EGP formatting, dates, purchases, receipts, transfers, refunds/reversals, fees and pending/failed events. Exclude OTPs and unrelated personal SMS; a matching sender alone does not prove a posted financial event.
+
+Start unknown formats in review. The owner can mark fields and approve a proposed pattern; test it against saved sanitized examples and negative examples before activation. One annotated message is not sufficient evidence for broad automatic posting. Keep parser versions and allow disabling a pattern without deleting linked history. Record new bank formats incrementally; lack of samples for one bank does not justify guessing.
+
+Automatically post only when a tested rule identifies a completed event, one explicit account, direction/currency/amount and a safe category or approved default, with no duplicate ambiguity. Otherwise ask for review. Own-account transfers need a linked two-sided transaction; investment/certificate events must use their proper workflow or remain in review. Do not disguise them as ordinary spending. Posting, source-link assignment and status change commit together through `TransactionService`/existing workflows; repeated ingestion cannot post the same source event twice.
+
+### Match later CSVs and manual entries
+
+Build this before enabling automatic SMS posting. A strong shared bank reference plus account/currency and compatible amount/direction can identify the same event; preserve both sources on one transaction. Amount/date/merchant similarity alone is only a suggestion. Two purchases of the same amount on one day, delayed bank posting, fees, partial refunds and duplicate imported rows must remain distinguishable.
+
+The import review offers “Link to existing” or “Post as new” for ambiguous matches. A confirmed link must not move money again or silently change an existing transaction's date/category. Voided transactions and reversals require explicit handling; importing again must not silently resurrect a voided entry. Reconciliation against statements remains available even when SMS parsing is incomplete.
+
+Google Play lists SMS-based money management as a possible permission exception, subject to review and approval. Request only the permission actually needed for inbox catch-up (initial proposal: `READ_SMS`), supply the required disclosure/declaration, and handle denial/revocation. Do not infer approval from another finance app. A permissionless manual/CSV workflow remains usable if SMS distribution is not approved. [Google Play SMS policy](https://support.google.com/googleplay/android-developer/answer/10208820?hl=en).
+
+## 13. Compatibility and updates
+
+Compare protocol version, control-store schema, ledger schema/migration set, SQLCipher format, key ID and financial/write capability version at connection and grant time. Matching marketing version strings alone is insufficient. For the first release, require an explicitly tested phone/PC release pair; later compatible pairs may be allowlisted by evidence.
+
+Only the home migrates a multi-device ledger, while unlocked, AT_HOME and holding the operation gate. Take and verify the pre-upgrade encrypted backup first. A borrower never migrates its working copy; a phone never migrates while lent or awaiting return. An Android binary update during a lend must still understand its control state and accept the old-schema return before migrating. Retain a tested return/repair path across the previous supported release pair; otherwise defer the update.
+
+On mismatch, give a precise “Update Lightning on this PC” or “Finish handing back before updating” action. Do not delete, rewrite or auto-upgrade a sealed/returning candidate. A downgrade that cannot read current schema refuses it; recovering from a pre-upgrade backup creates a new lineage, not a rollback of authority.
+
+Publish coordinated, reproducible Windows and Android artifacts and a small compatibility matrix in release metadata. Keep existing immutable versioned downloads. Emergency repair builds must accept the outstanding operation IDs and preserve existing data. No sync release can require the user to disable OS protections.
+
+## 14. Performance and resource budgets
+
+The review reported 5 ms for copy/hash, 8 ms for integrity checks and 50 ms for a re-encrypting snapshot on a 0.8 MB, 319-transaction container sample. Keep these as historical observations only; they do not establish Android, Wi-Fi, full-inventory or durable-promotion performance.
+
+Measure encrypted 1, 10, 50 and 100 MB profiles with representative transactions, settings, assets and SMS-source records. Use an ordinary Windows laptop and a mid-range arm64 phone on normal Wi-Fi and a phone hotspot; record cold/warm runs, hardware, OS, versions, free space and at least 20 repeated handoffs. Report median and p95 separately for discovery, source quiescing, snapshot/hash, upload, verification, durable publication and total elapsed time.
+
+Proposed engineering targets to validate, not release promises:
+
+| Measure | Initial target / rule |
+|---|---|
+| Prepared lend, unchanged prefetched copy | p95 no more than 2 seconds after PC unlock/verification on the reference devices. |
+| Complete unlocked local handoff, 1–10 MB | p95 no more than 5 seconds, excluding human password entry; report misses and their cause. |
+| Larger profiles | Publish measured time/progress, peak memory and storage needs; no universal seconds guarantee. |
+| Ordinary phone pages | Aim for p95 under 1 second on representative populated screens; measure unlock separately. |
+| Recovery cadence | Start changed-copy work about every 180 seconds while runnable/reachable; report actual age of last acknowledged copy. |
+| Memory and transfer | Stream files/chunks; no whole-database buffering; one snapshot/transfer per profile at a time. |
+| Battery and network | Measure a four-hour active lend, an idle lend and overnight absence against an idle-app baseline. Set the release budget from those results before beta. |
+| Disk admission | Estimate candidate, retained old/base, recovery files and operation overhead before starting; require sufficient measured headroom, not an assumption of exactly one extra file. |
+
+Do not optimize away full return verification or durability to meet a target. First remove duplicate snapshot/verification work, cache an immutable prefetch safely and measure the quiesced-file path. If targets fail, record a bounded optimization task or revise the product expectation before release.
+
+## 15. Implementation work packages
+
+**Do these in order.** Each row is one bounded task, one finished change, and one handoff. Its exit check must pass before starting the dependent task. Claim the named area in NOW.md when starting; do not claim the entire roadmap at once. Use dummy data through task 24. Paths for new modules are proposals until their implementation task is claimed.
+
+### Phase A — make local data replacement safe; prove Android is possible
+
+| Order | Task and deliverable | Area | Exit check |
 |---|---|---|---|
-| Pair | pairing | Once per device, by QR | "Pair this PC" |
-| Lend | checkout | The home node grants the writer role to a paired device | "Lent to Office PC" |
-| Hand back | check-in, return | The borrower returns its working copy; the home node accepts it | "Hand back" |
-| Take back | explicit recovery | The owner ends a lend without a hand-back; the home node resumes from its recovery copy as a new lineage | "Take back" |
+| 01 | **Map every writer and lifecycle entry.** Trace unlock/build, migrations, seed, prices, revaluations, imports, settings, backups and shutdown. Define the shared operation gate and a deterministic two-node test fixture. | Runtime, bootstrap, database and test harness | Inventory names every write path; fixture captures current behavior and specifies the write-denial assertions task 06 must satisfy. Record baseline full-suite results. |
+| 02 | **Build durable candidate promotion.** Implement the P0–P5 local journal and Windows/POSIX storage adapters, using existing staging/snapshot verification; task 05 extends this journal with sync authority records. | New database promotion module, snapshot/staging tests | Restart after each phase; disk-full, wrong key, corrupt candidate and flush failure preserve old data and block ambiguous activation. |
+| 03 | **Finish standalone restore and legacy import.** Add explicit candidate selection, verification, preview/confirmation and promotion; preserve the source and pre-operation backup. | Profile lifecycle and existing data-management UI | Round-trip encrypted backup and explicit plaintext legacy import on ordinary Windows; failed operations never overwrite the live source. |
+| 04 | **Run the Android dependency spike.** Build one reproducible arm64 app that opens the same encrypted dummy ledger and renders the same finance page. Test crypto, 16 KB native loading and clean shutdown. | Isolated Android shell/build configuration | Windows/Android figures match; dependency, startup and page benchmarks recorded. Stop and redesign packaging if this fails. No product UI expansion yet. |
 
-**Lend states** (the durable lend record on each side):
+### Phase B — prove authority without networking
 
-- Home node: **At home** → **Lent** (to a borrower) → **Returning** → **At home**; or **Needs repair**.
-- Borrower: **Prefetched** → **Borrowing** → **Hand-back pending** (closed while the phone was away) → **Returning** → **Handed back**; or **Aborted** (the lend never started).
+| Order | Task and deliverable | Area | Exit check |
+|---|---|---|---|
+| 05 | **Define durable control records and protocol schemas.** Implement IDs, epochs, states, idempotency, receipt/cancel tombstones and version negotiation. | New sync domain/state modules | Duplicate/reordered events and restart tests preserve one active checkout; malformed/incompatible messages reject without state change. |
+| 06 | **Wire the role gate into sessions.** Add home/borrower/reader modes, generation invalidation, owning-thread command dispatch and borrowed paths. | Runtime/session, paths, bootstrap | Direct write attempts, migrations and hidden startup jobs fail in reader/returning states. Old forms cannot save after transition. |
+| 07 | **Implement Lend over the fake transport.** Add source freeze, prepared request, durable grant, activation and pre-activation cancel. | Sync service and model tests | Two racing borrowers yield one grant; lost grant/ack and cancel-before-request converge safely. |
+| 08 | **Implement Hand back over the fake transport.** Add immutable return candidate, Received versus Accepted, verification, promotion and receipt replay. | Sync service, promotion integration | Lock/unlock, lost receipt and every crash boundary converge to one accepted result without resuming borrower writes. |
 
-### Review 8. What Codex should do with this
+### Phase C — connect two ordinary PCs and cover offline use
 
-- Record the owner's requirements (Review 1) and answers (Review 5) in the Project Overview under *Product decisions that must hold*.
-- Revise the proposal above: the phone as the default home; checkout as the core; version 1 cut as listed in Review 3; bank SMS read on return; the measured, byte-for-byte transfer.
-- Use the names in Review 7 throughout the revised proposal.
-- Raise any disagreement under *For the owner* in `NOW.md`, not by editing around this review.
+| Order | Task and deliverable | Area | Exit check |
+|---|---|---|---|
+| 09 | **Add pairing and device credentials.** QR bootstrap, mutual identity confirmation, profile-scoped trust, key-slot provisioning and revocation. | Sync transport/security adapter | Wrong peer, replayed QR, denied pairing and revoked identity reject. Password/recovery key never crosses the channel or enters logs. |
+| 10 | **Add resumable local encrypted transfer and discovery.** Bounded staging, chunks, hash verification, status and manual local endpoint fallback. | Transport and local discovery | Packet loss, duplicate chunks, wrong offset/hash, oversized object and full disk never produce Received/Accepted prematurely. |
+| 11 | **Add prefetch and the measured fast-copy path.** Download before password entry; distinguish source hash from exported ciphertext hash; refresh stale prefetch before grant. | Snapshot + sync + launch flow | Concurrent home write invalidates the old prefetch; missing/wrong password never lends; WAL/journal cases use the safe path. |
+| 12 | **Add periodic recovery copies.** Durable sequence, complete-file acknowledgement, local fallback and visible delivery age. | Sync scheduler/storage | Reordered snapshots cannot replace newer ones; every committed kind of edit is detected; failed delivery is shown honestly. |
+| 13 | **Add offline close and restart.** Sealed copy, bounded retry worker and shared lock between worker and UI. | Desktop lifecycle + sync | Reopen-vs-worker race never returns an old snapshot while allowing new edits. Returning stays read-only after reboot. |
+| 14 | **Add Take back, comparison and replacement-home recovery.** New lineage, retired checkout quarantine and table-level inspection. | Recovery workflows | Lost PC/phone drills preserve evidence; stale return cannot alter new home; no automatic replay or merge. |
+| 15 | **Run the complete two-PC fault gate.** One PC simulates home; exercise pair → prefetch → lend → offline edit → recover → return → borrow again. | Integration/fault tests | All section 16 protocol rows pass with real files and dropped connections. This validates the protocol; it does not release a PC-home product. |
+
+### Phase D — make the phone the actual home
+
+| Order | Task and deliverable | Area | Exit check |
+|---|---|---|---|
+| 16 | **Integrate the Android home lifecycle.** Private no-backup storage, narrow WebView bridge, owning-thread runtime, discovery and bounded foreground service. | Android shell and runtime adapter | Sleep, OS kill, timeout, reboot and network changes preserve the lend; blocked Auto Backup/device transfer cannot clone authority. |
+| 17 | **Add new-home setup and move-existing-profile-home.** Keep standalone operation available; migrate only after explicit verified transfer. | Setup/profile workflows | Cancel/retry/crash at each move stage cannot leave two cooperative writable homes. Original PC copy remains recoverable. |
+| 18 | **Finish shared device UX and phone navigation.** Pair, Lend, Hand back, read-only/stale notices, delivery age, repair, reminders and native Back. | Shared templates/CSS and Android navigation | Owner can complete the cycle on phone and Windows without browser chrome; 390px and desktop checks, accessibility and A16 pass. |
+| 19 | **Test app-update compatibility and publish pair metadata.** Home-only migration, previous-version return path and immutable artifacts. | Packaging, migration/runtime tests | Android updates during a lend; PC old/new versions return safely or give actionable refusal; no sealed work is upgraded or lost. |
+
+### Phase E — add bank messages without duplicate money
+
+| Order | Task and deliverable | Area | Exit check |
+|---|---|---|---|
+| 20 | **Build generic source identity and CSV/manual matching.** Add source links and review choices before enabling SMS auto-post. | Import services/workflows and new migrations | Two identical legitimate payments remain distinct; repeat import links once; void/refund/transfer cases preserve ledger effects. |
+| 21 | **Add gated SMS catch-up and durable cursor.** Permission handling, bank-sender filtering, source epoch and atomic scan persistence; review only initially. | Android SMS adapter and source storage | No SMS provider read while lent/locked/returning; crashes, overlaps, provider reset and deleted messages handled without silent duplicates. |
+| 22 | **Add bank parsers, teach-format review and safe auto-post.** Start with the owner's first bank; grow from sanitized fixtures and explicit mapping. | Parser rules, review UI and transaction workflows | Positive/negative fixtures pass; uncertain events stay in review; SMS then CSV moves money once. Complete Play declaration/approval before distributing the permission-bearing feature there. |
+
+### Phase F — measure, rehearse loss and release
+
+| Order | Task and deliverable | Area | Exit check |
+|---|---|---|---|
+| 23 | **Run real-device benchmarks and the full cross-device Mohab year.** Include cash, imports, ownership, loans, deposits, gold, reserves and updates across repeated lends. | Acceptance/performance harness | Financial answers equal the single-device reference; fault matrix, restore drills, latency/battery/storage budgets and UI checks pass. |
+| 24 | **Ship a small versioned beta, then accept it.** Test downloaded Windows ZIP and Android artifact on ordinary devices, recovery key and local backups included. | Release pipeline and owner acceptance | Owner completes the full cycle and loss drills with dummy data; compatibility matrix and known limits published; only then allow ordinary financial data. |
+
+For every implementation task: focused tests first; the full suite, import contracts and whitespace checks before the finished commit; Mohab and relevant brand checks for visible changes; dated changelog entry; update only the owning canonical document and the worker's NOW lane. Remote-only work uses GitHub Actions for execution; report its result rather than claiming unrun local tests.
+
+If a gate fails, the next task is the specific repair to that gate. Do not mark a phase complete because its happy path worked. No calendar deadline is promised before the Android and durability spikes. Review task size at each handoff; split a row further if it cannot be finished and verified in one sitting.
+
+### The complete cycle to build and test
+
+```mermaid
+flowchart TD
+    A["Create profile on phone or explicitly move it home"] --> B["Pair PC once"]
+    B --> C["Phone at home: edit and catch up bank SMS"]
+    C --> D["Open phone app; PC prefetches while password is typed"]
+    D --> E["PC verifies; phone freezes final version"]
+    E --> F["Phone records grant; PC records permit"]
+    F --> G["PC edits locally, online or offline; phone reads old copy"]
+    G --> H["Changed recovery copies sent when reachable"]
+    H --> G
+    G --> I{"Hand back / close"}
+    I -->|Phone absent| J["Seal locally; keep lend"]
+    J -->|Reopen first| G
+    J -->|Phone reachable, worker wins lock| K["Record Returning; freeze final candidate"]
+    I -->|Phone reachable| K
+    K --> L["Phone receives durable encrypted candidate"]
+    L --> M{"Phone unlocked and candidate valid?"}
+    M -->|Locked| N["Received, checking; neither edits"]
+    N --> M
+    M -->|Invalid| O["Needs repair; preserve all copies"]
+    M -->|Valid| P["Journaled promotion and accepted receipt"]
+    P --> Q["PC keeps backup; phone edits and catches up SMS"]
+    Q --> C
+    G -->|Borrower lost; owner chooses Take back| R["Verify recovery copy; create new lineage"]
+    O -->|Explicit recovery| R
+    R --> C
+```
+
+Return/receipt retries reuse the same IDs along the existing edge; they never jump directly back to editing. Phone-loss replacement and updates use the same verification and authority rules described in sections 10 and 13.
+
+## 16. Verification and release acceptance
+
+### Model and fault tests
+
+Build deterministic transition tests first, then real process/filesystem/network tests. Inject a crash before and after each control transaction, file flush, rename, grant send, permit store, receive acknowledgement and acceptance receipt. Restart **both** nodes and assert state and data, not just return codes.
+
+| Scenario | Required result |
+|---|---|
+| Concurrent borrowers; repeated Lend | Exactly one active grant; same request gets its original outcome. |
+| Prefetch races with SMS/import/settings edit | The permit binds the final contents; stale prefetch never becomes writable. |
+| Lost grant/activation reply; cancel arrives early/late | Home stays lent unless valid never-activated cancellation is durable; delayed grant cannot revive ABORTED. |
+| Direct UI POST or startup job while home lent | No write, migration or price/revaluation side effect; reader still opens safely. |
+| Offline PC, sleep, lock, forced close and reboot | Durable local edits remain; phone does not reclaim authority on time. |
+| Sealed-copy worker versus reopened UI | One winner under the local lock; either edit current work or return immutable bytes. |
+| Reordered/partial/corrupt recovery uploads | Latest complete sequence retained; last verified recovery not pruned for an unchecked copy. |
+| Locked phone receives final return | Received only; no candidate finance access or SMS; unlock verifies before acceptance. |
+| Crash/disk full/flush error during P0–P5 | Previous data survives; journal deterministically completes or remains blocked. |
+| Acceptance committed, receipt lost | Phone may edit; PC remains read-only and receives the same receipt on retry. |
+| Stale lineage, wrong device/profile/key/schema | Reject without altering accepted data or deleting the sender's copy. |
+| Take back while old PC offline | New lineage fenced; old changes quarantined on return, never merged. |
+| Home loss, control loss or backup restored | Explicit new-home/new-lineage recovery; no old permit resurrected. |
+| Android kill, reboot, denied notification or service timeout | Authority survives; connection may wait for app open; no background guarantee fabricated. |
+| OS cloud/device backup and manufacturer migration | Profile/key/authority records not silently copied into another active home. |
+| SMS scan crash, overlapping queries and provider reset | Atomic cursor/status; no lost persisted review items or duplicate source posting. |
+| SMS + later CSV + manual transaction | Confirmed duplicate links once; ambiguous equal amounts remain reviewable. |
+| Upgrade mid-lend and downgrade attempt | Old checkout can complete through supported return path; no borrower migration. |
+
+Also test hostile lengths/path names, certificate substitution, replayed pairing, chunk quota exhaustion, stale session tokens and log redaction. Use supported platform tools to simulate power loss where possible, and clearly distinguish those results from process-kill tests.
+
+### Financial and user acceptance
+
+Run the existing full suite and import-boundary checks in CI, including `tests/test_mohab_year.py`. Add multi-device tests around shared services; do not replace financial assertions with mocks. At every accepted hand-back, compare account balances, custody, holdings, money in/out, budget/reserve/loan values and source-link counts with a single-device reference ledger. Missing valuations remain missing rather than being coerced to zero to pass.
+
+An ordinary-PC/phone acceptance script must cover:
+
+1. Create/move profile, save recovery key, pair Office PC and another laptop.
+2. Borrow on Office PC, record and import activity, carry the phone away, close, reopen and continue.
+3. Return to a locked phone, close the PC, unlock the phone and confirm the accepted figures.
+4. Catch up SMS from during the lend; later import the statement without duplicate money.
+5. Borrow on the second laptop; verify the latest changes and schema compatibility.
+6. Lose a receipt, force a crash during promotion, restore a backup and exercise explicit Take back with a stale PC returning.
+7. Update phone and PC in both orders; confirm any refusal preserves unsent work.
+8. Verify local backup recovery after simulated phone loss and identify the exact work that the backup cannot recover.
+
+**Release gate:** every safety invariant passes; no unresolved data-loss or dual-authority failure; ordinary device cycle and restore drills pass; performance is measured with any missed target documented; Android lifecycle and SMS distribution status are explicit. The app version, compatibility pair, tested commits and owner acceptance belong in release evidence. No beta tag or real-data claim follows merely from completing this document.
+
+## 17. Decisions, risks and next action
+
+### Review decisions now integrated
+
+| Earlier review issue | Decision carried forward |
+|---|---|
+| Unsafe live-file prefetch | Pause/drain/close and prove a clean file, or use a verified snapshot. Prefetch grants no writing right. |
+| Accept while phone is locked | Receive and hash-check while locked; accept only after unlocked verification and durable promotion. |
+| End lend because grant/ack was lost | Never infer cancellation. Require the exact checkout's durable, authenticated never-activated cancel. |
+| Use audit_log as complete dirty/change history | Use consistent source hashes; table-level comparison for recovery. Audit entries are supplementary. |
+| Promise at most three minutes of lost edits | Display actual acknowledged recovery age and offline gaps. |
+| Reopen after offline close | Allow it only from SEALED under the shared worker/UI lock; RETURNING never automatically resumes. |
+| Android service stays up indefinitely | User-started, bounded service; interruption affects reachability, not authority. |
+| Phone and PC versions simply “match” | Check protocol/schema/cipher/write compatibility and test a return path through an update. |
+| Teach one SMS then post all matches | Versioned deterministic rule, negative fixtures and explicit approval; unknown/ambiguous events stay in review. |
+| Add server/reader/merge infrastructure | Deferred; implement only the phone-home, single-borrower cycle. |
+
+### Evidence still needed
+
+- Reproducible Android builds of the pinned encrypted/crypto stack and acceptable performance.
+- Proven file durability and restart behavior on Windows and Android storage.
+- A compliant foreground-service lifecycle and local discovery on the chosen Android support matrix.
+- Bank-specific sanitized examples, SMS permission approval where required and measured matching quality.
+- Real handoff latency, battery, bandwidth and storage costs.
+- Ordinary-device recovery acceptance before personal data.
+
+These are engineering gates, not reasons to reopen the owner's settled phone-home/local-only decisions. Defaults for retention, reminder intervals and benchmark thresholds are marked as proposals and may be tuned after measurement. If a constraint forces a product tradeoff, record the concrete alternatives under For the owner in NOW.md before changing scope.
+
+**Next implementation task: 01, the writer/lifecycle map and deterministic test harness; then 02, durable candidate promotion.** Android feasibility (04) is deliberately early, before the full networking implementation. Current work completes the plan only; implementation remains unclaimed until explicitly started.
+
+## 18. References
+
+Code reviewed on GitHub for this plan: [database connection](../../lightning/database/connection.py), [snapshot verification](../../lightning/database/snapshot.py), [candidate staging](../../lightning/database/staging.py), [profile lifecycle](../../lightning/runtime/session.py), [paths](../../lightning/runtime/paths.py), [key wrapping](../../lightning/security/keys.py), [CI workflow](../../.github/workflows/desktop-probe.yml).
+
+Platform guidance checked 2026-10-04; verify again when pinning the Android release:
+
+- [SQLite snapshot/backup API](https://www.sqlite.org/backup.html): use consistent database snapshots; a copy taken across active writes is not a backup protocol.
+- [SQLCipher integrity and export APIs](https://www.zetetic.net/sqlcipher/sqlcipher-api/): encryption checks supplement SQLite integrity and application/schema validation.
+- [Android foreground-service types](https://developer.android.com/develop/background-work/services/fgs/service-types) and [timeouts](https://developer.android.com/develop/background-work/services/fgs/timeout?hl=en): validate the real service use case and lifecycle.
+- [Android backup and data-transfer exclusions](https://developer.android.com/identity/data/autobackup): prevent automated data/authority cloning as well as cloud copies.
+- [Chaquopy Android packaging](https://chaquo.com/chaquopy/doc/current/android.html?highlight=test) and [native compatibility notes](https://chaquo.com/chaquopy/doc/current/changelog.html): packaging candidate, not proof that every Lightning dependency works.
+- [Google Play SMS permissions](https://support.google.com/googleplay/android-developer/answer/10208820?hl=en): money-management exception is subject to review, disclosure and approval.
+
+The earlier review remains available in Git history. Its requirements and accepted corrections are incorporated above; there is no separate review section that can be mistaken for a second current specification.

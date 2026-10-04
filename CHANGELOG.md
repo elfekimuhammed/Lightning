@@ -10,6 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-04 · Codex: combined the multi-device proposal and Claude's review into one complete cycle design with 24 ordered implementation tasks, durable state/promotion rules, Android and SMS gates, recovery tests and release acceptance; updated its roadmap and handoff. Planning only, no sync implementation.
 - 2026-10-04 · Claude: recorded the owner's licence decision in the Project Overview: 7 days free, then a reminder, never a lock; Competition and NOW.md point to it.
 - 2026-10-04 · Codex: Revised the multi-device proposal for the owner's phone-home, PC-borrowing workflow, including safe prefetch, locked-phone return verification, offline close, recovery copies and SMS after hand-back. Added the requested supersession note above Claude's preserved review and recorded the product decisions in the Project Overview.
 - 2026-10-04 · Claude: added `docs/COMPETITION.md`, the compass: Say, Qershnat, Masarifi, Masareef, Money Manager, Wallet, bank apps, Actual Budget, YNAB, Monarch, Copilot and others, with what their users love and hate (Google Play reviews read directly). Listed in AGENTS.md; the docs-structure test allows it.
