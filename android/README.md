@@ -47,3 +47,10 @@ produced wheels still need dependency/link, 16 KB page and on-device import
 checks. [cibuildwheel environment syntax](https://cibuildwheel.pypa.io/en/stable/options/#environment)
 and [Conan Android API setting](https://docs.conan.io/2.14/examples/cross_build/android/ndk.html)
 are the build references.
+
+The first configuration rerun, [run 37240415999](https://github.com/elfekimuhammed/Lightning/actions/runs/37240415999),
+stopped before either compiler: cibuildwheel evaluates `CIBW_ENVIRONMENT_ANDROID`
+without shell glob expansion, so the inline `find /tmp/cibw-run-*/...` received
+the `*` literally. The next probe uses a small Python locator to expand the
+pattern and requires exactly one target `Python.h`. The Conan API setting has
+therefore not been tested yet; these were configuration errors, not wheel results.

@@ -58,6 +58,8 @@ jobs:
           patched = original.replace(needle, needle + "\n    settings.append('os.api_level=24')")
           source.write_text(patched, encoding='iso-8859-1')
           PY
+      - name: Install isolated target-header locator
+        run: cp android/find_target_python_include.py /tmp/lightning-find-target-python-include.py
       - name: Cross-build CPython 3.13 arm64 wheel
         env:
           CIBW_BUILD: 'cp313-*'
@@ -65,7 +67,7 @@ jobs:
           CIBW_TEST_SKIP: '*'
           # cibuildwheel accepts Bash command substitution in its per-build
           # environment. Locate the target Python headers, not host headers.
-          CIBW_ENVIRONMENT_ANDROID: 'CFLAGS="$CFLAGS -I$(dirname $(find /tmp/cibw-run-*/cp313-android_arm64_v8a/python -name Python.h -print -quit))"'
+          CIBW_ENVIRONMENT_ANDROID: 'CFLAGS="$CFLAGS -I$(python /tmp/lightning-find-target-python-include.py)"'
           ANDROID_API_LEVEL: '24'
           PROBE_PACKAGE: ${{ matrix.package }}
           PROBE_VERSION: ${{ matrix.version }}
