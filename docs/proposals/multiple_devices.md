@@ -1,169 +1,106 @@
-# Multiple devices: home node and checkout protocol
+# Multiple devices: the phone lends the ledger
 
-**Status:** architecture proposal, 2026-10-04. No synchronization code has been built. This document records the owner's direction and the safety design to test before implementation.
+**Status · proposed, not built · 2026-10-04.** This is the agreed version 1 design for one Lightning codebase on PC and Android. The owner's product decisions are in [Project Overview](../PROJECT_OVERVIEW.md); Claude's review and the decisions made during it remain below as history. Acceptance still requires working code, real-device measurements and fault tests.
 
-*Added by Claude, 2026-10-04:* a **review** of this proposal, with the owner's new requirements and a recommended structure, is appended at the end under "Review by Claude".
+## Scope and names
 
-## Decision and vocabulary
+The **home node** is the phone. It stores the accepted encrypted ledger in private app storage and may edit while the ledger is **at home**. A paired PC or laptop is a **borrower** while it holds the **working copy** and is the sole **writer node**. During that lend, the phone is a **reader node** and shows its last accepted ledger read-only. One profile has one writer at a time; there is no merge. The PC may continue editing its local working copy when the phone is out of reach.
 
-One Lightning codebase serves PC and Android. A user chooses one **home node** for each profile: initially a PC or laptop, later possibly a server. The home node coordinates access and holds the canonical database plus published encrypted checkpoints. A paired **reader node** may display a published checkpoint. At most one node is the **writer node**: the home node itself while the profile is at home, or a paired node holding an explicit checkout. The copy on a checked-out writer is its **working copy**. A returned copy becomes accepted only after the home node verifies and durably commits it.
+User actions are **Pair**, **Lend**, **Hand back**, and explicit **Take back** after a lost borrower. A **prefetch copy** is encrypted data downloaded before the PC password is entered. A **recovery copy** is an unaccepted snapshot sent by the borrower during a lend. A **sealed copy** is the borrower's final local copy when it closes away from the phone. An **accepted version** is one the phone has fully verified and durably committed; versions have a parent and a lineage. Use plain device names such as “Office PC” on screen.
 
-“Writer” is the name for the temporary role. The home node remains the permanent coordinator and home for accepted versions. During a checkout, however, unreturned edits exist only on the writer (and any separate recovery copies). The home node's database is then the last accepted version, not necessarily the newest data. Reader screens must say which version they show and whether a checkout is in progress.
+Version 1 has one phone home and paired PCs. It does not include general reader devices, a server home, cloud storage, a remote relay, continuous replication, a separate immutable version-store service, or automatic merging. The phone retains its current ledger and a few previous accepted encrypted copies. The same Python finance services, templates, CSS, SQLCipher format and financial rules run on PC and Android; only the shell and platform integration differ.
 
-The initial product is single-user and single-profile-at-a-time. A future server may host several independent profiles, each with its own state machine and encryption key. No device opens the SQLite file over a network filesystem or syncs a live profile folder through a cloud drive.
+## Safety contract
 
-## Guarantees and their limits
+1. **Only the recorded writer may change the ledger.** The home node durably records a lend before issuing its permit. While lent, it opens its ledger through `Database(read_only=True)` and disables migrations, startup catch-up, price refreshes, SMS posting and every other write path. The borrower allows writes only after durably recording the matching permit. Each device also keeps its local process lock.
+2. **Never decide by file time.** Profile ID, parent accepted-version hash, lineage, checkout epoch, checkout ID, device ID and return ID bind each handoff. The home node rejects a stale or duplicate return. A clock reading is display information, not authority.
+3. **Receive and accept are different.** A locked phone may receive and hash-check encrypted bytes. It calls them *received, checking*, keeps the old accepted ledger, and cannot edit the candidate. Only after unlock does it verify the SQLCipher pages, SQLite integrity, foreign keys, schema and contents, then durably accept the candidate. A transport receipt is not an acceptance receipt.
+4. **Ambiguity stops promotion or reassignment.** A lost grant, upload or receipt is retried with the same IDs. There is no automatic lend expiry or silent takeover. A new writer is allowed only after a completed hand-back or explicit Take back into a new lineage.
+5. **Unsent edits are at risk.** A successful local SQLite commit is durable on the borrower, but it is not yet accepted by the phone. If the borrower and its local backups disappear, only the last recovery copy actually received by the phone is recoverable. “Three minutes” is a target while transfers succeed, not an unconditional loss bound. Every screen must show where the newest known copy is.
 
-1. **One accepted history.** The home node accepts a returned snapshot only from the current writer, for the exact checkout and parent version it granted. Every accepted version has one predecessor. Stale or duplicate returns cannot overwrite a newer version.
-2. **One cooperative writer.** Lightning's own software allows writes only on the node named in its durable checkout record. The home node becomes read-only before it issues a permit. A reader never writes, migrates, runs startup catch-up, or restores a backup. A local OS file lock still prevents two Lightning processes on one machine.
-3. **No silent replacement.** Every handoff and check-in keeps the previous accepted version and the writer's working copy until the new version is verified, committed, and acknowledged. Ambiguous states stop writes and ask for repair; they never choose the newest-looking file.
-4. **Detectable integrity failure.** Transfer hashes detect missing or changed ciphertext. Opening with the profile key, SQLCipher page checks, SQLite integrity and foreign-key checks, schema/version checks, and an application inventory check reject an invalid candidate. A hash alone does not prove that a database is healthy.
-5. **Known durability boundary.** An edit is locally committed when SQLite commits on the writer. It is accepted by the home node only after check-in acknowledgement. Until then, loss of the writer and all of its recovery copies can lose that edit. The UI must always say when changes are only on the writer. No protocol can recover bytes that were never sent or backed up.
-6. **Availability is secondary to safety.** A checkout never expires automatically. Network loss, sleep, restart, clock changes, and a lost acknowledgement cannot silently give writing permission to another node. If the writer is lost, explicit recovery starts a new history branch and quarantines the old checkout. Old copies may contain edits the home node has never seen.
+These guarantees apply to cooperating Lightning clients and functioning device storage. A compromised paired device already holds the data key and can copy the financial data. Revoking its network identity cannot erase an old copy. No protocol can prevent an offline device from modifying its own files; the home node can refuse to accept an old lineage.
 
-These guarantees assume non-malicious, up-to-date Lightning clients and honest local storage/OS behavior. A compromised device or someone editing files outside Lightning can still copy data or create a divergent local database. The home node can reject its return, but cannot remotely prevent an offline device from changing its own files.
+## Storage and service boundaries
 
-## Components and storage
-
-```text
-                          authenticated snapshot protocol
-reader nodes  <-------------------------------------------->  home node
-   read-only                                            coordinator + version store
-                                                            | current writer at home
-                                                            |
-writer node  <---------------------------------------------> |
- working copy      checkout permit / encrypted return      |
-```
-
-- **Shared core:** existing Python finance services, FastAPI routes, Jinja templates, CSS, migrations, SQLCipher database format, and profile encryption. Platform shells differ: WebView2 on Windows; an Android shell/WebView and Python runtime on Android. Any Android-specific database adapter must implement the same database contract and pass cross-platform fixture tests; it must not create a second finance implementation.
-- **Home-node coordinator:** a new service outside the browser UI. It serializes profile transitions with the existing request/session gate. It has a durable per-profile control record. Its network listener is separate from the current loopback-only UI server; the current `Guard` cookie and localhost checks are not remote-device authentication.
-- **Version store and home working file:** immutable, encrypted accepted checkpoints plus manifests are separate from the home node's writable home database. While `AT_HOME`, that home database is canonical and readers may lag behind its most recently published checkpoint. Before checkout, freeze it and publish a checkpoint containing all committed home edits. At check-in, verify the candidate, retain it as an immutable checkpoint, and prepare a separate verified writable home copy. A control database identifies the active home file, last accepted checkpoint, and current checkout. Commit changes its durable pointers only after all newly referenced files and directory entries are flushed. Keep the prior accepted checkpoint and home recovery copy until retention/backup policy permits pruning. Implement and test the exact Windows and Android filesystem durability sequence; a multi-file rename is not itself a transaction.
-- **Local node record:** paired device identity, role, accepted version/hash, checkout ID and epoch, working-copy path, dirty state, and last acknowledged return. Persist it before enabling or disabling writes. Do not infer who holds the writer role from file timestamps, folder names, or a lock file copied from another machine.
-- **Profile identity:** immutable random profile ID; independent random home node ID and device IDs. A monotonically increasing checkout epoch and random checkout ID fence older permits. A version manifest binds profile ID, lineage ID, parent version/hash, version number, schema and protocol versions, key ID, snapshot byte length/hash, writer device, checkout ID, and creation time. Time is for display only, never ordering or expiry. The home node authenticates the manifest; the transport binds it to the paired sender.
-- **Keys:** the SQLCipher data key remains the same across copies. Pairing must provision it only after the user unlocks and authorizes that device, over an authenticated encrypted channel. Each device stores its own password-wrapped key slot; do not send a password or blindly copy `keys.json`. Keep the existing recovery-key meaning. A paired reader can decrypt the profile and therefore must be treated as trusted with its contents.
-
-**Current-code implications.** `lightning/database/snapshot.py` already creates and verifies encrypted snapshots, including committed journal/WAL data; use it as a starting primitive, not as the whole handoff. `lightning/database/staging.py` already stages candidates but does not promote them. `ProfileSession`, `SessionGate`, startup backups, migrations, and any automatic valuation/catch-up must consult the new role gate before touching the database. The current profile layout has a fixed live `.db` path; versioned promotion needs a resolver/pointer design and must preserve the existing profile/import/backup behavior.
-
-## State machine
-
-The authoritative control record is per profile. It is stored transactionally and re-read on every restart. The role gate also checks it before each write request, not only when a page is rendered.
-
-| State | Accepted data | Allowed writer | Allowed actions |
-|---|---|---|---|
-| `AT_HOME` | Home node's live home database; published reader snapshot may lag | Home node | Read, write, publish reader snapshot, or begin checkout |
-| `PREPARING` | Last accepted version | None | Drain writes, make/verify snapshot, stage transfer; abort before permit if safe |
-| `CHECKED_OUT` | Last accepted version; writer may have newer local edits | Named writer only | Home node/other nodes read accepted snapshot; writer writes working copy or returns it |
-| `RETURNING` | Last accepted version plus staged candidate | None | Writer has durably stopped writes; transfer, verify, retry, or repair |
-| `COMMITTED` | New accepted version | Home node | Idempotently acknowledge check-in; writer remains read-only |
-| `NEEDS_REPAIR` | Last known accepted version retained | None | Diagnose, compare recovery copies, explicit owner recovery |
-
-`COMMITTED` may immediately become `AT_HOME` once the writer's durable stop-write declaration and home node commit are established. An unreceived acknowledgement does not let the writer resume: it retries the same return ID and receives the same answer. No automatic lease timeout exists.
-
-**Invariant:** the home node never grants checkout B while checkout A is unresolved. A newer epoch fences old returns at the home node, but cannot force an offline old client to stop local writes. Recovery therefore creates a new lineage and warns that the old copy may diverge.
-
-## Checkout: home node to writer
-
-1. The paired requester authenticates and asks to check out a named profile. Both sides check protocol/schema compatibility, available storage, and whether the requester already has unreturned work. A device with an unresolved working copy cannot accept a fresh checkout.
-2. Under the profile gate, the home node stops new writes, drains active requests, closes write connections, and creates a verified encrypted snapshot. It retains a pre-checkout recovery copy and records the base version/hash. If snapshot or durable control write fails, it remains or returns to `AT_HOME`; no permit is issued.
-3. Transfer the snapshot to a new staging path on the requester in bounded, authenticated chunks. Resume is permitted only for the same snapshot hash and checkout attempt. The requester checks length/hash, unlocks it with the profile key, verifies database and schema, and persists its staged record. It is still read-only.
-4. The home node durably records `CHECKED_OUT` with the requester device, base version, new epoch and checkout ID **before** sending a signed/authenticated permit. From that point it refuses every finance write, including hidden background writes and migrations.
-5. The requester durably records the exact permit and promotes the staged snapshot to its working copy. Only then does its role gate permit writes. It acknowledges activation. A lost activation acknowledgement leaves the home node checked out; status/retry resolves it. The home node never assumes failure means it may write.
-
-The transfer can be cancelled safely before step 4. After step 4, cancellation requires a return or an explicit recovery procedure, even if the requester says it never received the permit: the home node cannot prove that assertion after a network failure.
-
-## While checked out
-
-- The writer uses a local SQLCipher database and ordinary SQLite transactions. It can keep working without network access. Mark its durable state dirty **before admitting a write**; a failed write may leave a conservative dirty flag, but a crash cannot leave committed edits falsely marked clean. The app shows **“Changes on this device; not yet returned to [home node]”** and the time of the latest local recovery copy.
-- Make verified encrypted local backups during a long checkout and before app shutdown. When connected, optionally upload **recovery checkpoints** to the home node. These are clearly marked *unaccepted* and never become reader-visible or grant anyone writing permission. This reduces possible loss if the writer device dies; it does not change the single-writer rule.
-- The home node and other nodes may read only the last published checkpoint while checkout is active. Their UI shows its version/time and **“[device] is editing; newer changes may exist.”** Readers can also lag while the home node is editing at home, until it publishes a new checkpoint. If current remote reads are later required, design a separate writer-served read path; do not pretend a stale snapshot is current.
-- A writer update that includes a schema migration is allowed only if the home node and every required node can understand the returned schema. Initially require the same compatible app/protocol release on home node and writer and block checkout/check-in across incompatible versions. Preserve the pre-migration snapshot.
-
-## Check-in: writer to home node
-
-1. Writer requests return. Its gate stops new writes, drains active requests, completes transactions, creates a verified encrypted snapshot, and retains the live working copy plus a recovery backup. It durably records `RETURNING`, including snapshot hash and a random return ID. From this point it cannot resume writes, even after restart or network loss.
-2. Writer sends an authenticated stop-write declaration bound to the return ID and snapshot hash. Home node durably records `RETURNING`, then accepts the snapshot and manifest in bounded chunks. It requires matching profile, lineage, epoch, checkout ID, parent version/hash, key ID, schema compatibility, and size limits. It stores bytes at a new staging path; a transfer failure leaves `RETURNING` and the old accepted version intact.
-3. An unlocked home node verifies ciphertext length/hash, opens the candidate with SQLCipher, runs page integrity, SQLite integrity and foreign-key checks, validates migration state and application inventory, and compares expected profile identity. It never tries a plaintext fallback. It retains a verified pre-check-in backup. If validation fails, it reports the reason category without secrets and keeps both copies for repair.
-4. Home node flushes the candidate and immutable manifest, prepares and verifies a separate home working copy, then transactionally moves its control pointers to the new accepted checkpoint and home file and records the consumed return ID. Only after durable commit does it send the receipt. The previous version and home recovery copy are retained. If the home node crashes between commit and receipt, the same return ID yields the same receipt; it never installs twice.
-5. Writer verifies the receipt matches its snapshot hash/version, durably marks its permit consumed, and remains read-only until a future checkout. It keeps its recovery copy under retention policy. Home node can resume its own writes after step 4 because the writer has already durably stopped writes in step 1.
-
-Do not acknowledge *receipt of bytes* as *accepted version*. If the home node is locked and cannot open SQLCipher, it may hold an encrypted pending upload but must say **“received, awaiting verification”**; the writer stays in `RETURNING`. Whether the home node may keep its database key available for unattended verification is a separate key-custody decision.
-
-## Network and security boundary
-
-- Use a dedicated authenticated transport, initially direct over the local network. Discovery is convenience only; it never establishes trust. Pair by explicit approval on the home node, with a one-time code/QR and displayed fingerprint. Pin device identities; support explicit revocation. No public internet listener by default.
-- Use a mature TLS 1.3 implementation with mutual device authentication, or an equivalently reviewed library; do not invent encryption or certificate validation. Separate permissions: reader, eligible writer, profile administrator. A reader cannot request checkout unless granted writer eligibility. Reauthenticate privileged transitions and protect against replay with checkout/return IDs and epochs.
-- SQLCipher protects database snapshots at rest; TLS protects transfer. The transport must also authenticate manifests and enforce body size, chunk size, free-space, rate, and connection limits. Never log keys, passwords, recovery phrases, financial rows, transfer URLs/tokens, or raw exception text.
-- Device private keys belong in OS-protected storage where available. The database and control files stay in private app storage with restrictive permissions. On Android, explicitly choose backup rules: default Auto Backup can include app-private files, so do not accidentally upload the home node record or an unreturned working copy to a cloud account.
-- A lost/stolen paired device is a confidentiality incident: revoking its future network access does not erase snapshots or keys already on it. The current SQLCipher data key is shared among authorized devices; key rotation and old-backup handling need their own planned migration.
-- The existing UI server remains loopback-only with its present Host/Origin/cookie/CSP protections. The sync listener does not expose finance routes or turn the WebView into a network API client. Pairing and transfer calls pass through a narrow typed service API and the session gate.
-
-## Failure and recovery rules
-
-| Event | Required behavior |
-|---|---|
-| Connection dies before permit | Discard/retry staged bytes; home node may resume writing only if it has not recorded the permit. |
-| Connection dies after permit | Home node stays read-only; requester checks durable status and retries activation or return. No timeout takeover. |
-| Writer crashes/restarts | Reopen only the recorded working copy with the same permit; do not take a fresh checkout. Keep local backups. |
-| Home node crashes/restarts | Recover control state and accepted pointer before opening finance routes; verify referenced files. If any state/file mismatch, enter `NEEDS_REPAIR` read-only. |
-| Check-in upload is partial, corrupt, or disk is full | Reject candidate, preserve previous accepted version and writer copy; retry the same return ID after repair. |
-| Receipt is lost after commit | Home node answers repeated return ID with the original receipt; writer remains read-only until it records that receipt. |
-| Wrong key, incompatible schema, or failed integrity check | Refuse promotion. Preserve both copies and show a specific repair state; never silently choose one. |
-| Home node is offline | Existing checked-out writer may continue locally; no new checkout, check-in, or fresh reader snapshot. |
-| Writer device is unavailable or destroyed | Home node remains checked out. Owner may recover a verified recovery checkpoint or last accepted version only through an explicit new-lineage procedure that states the possible lost edits. Old permits can never check in to the new lineage automatically. |
-| Home node device/storage is lost | Restore its control record and accepted versions from verified backups. Compare paired devices' remembered version/epoch before allowing writes. If the history cannot be proved, enter repair and choose a new lineage explicitly. |
-
-Never resolve a conflict by modification time, “latest file,” merging SQLite databases, or overwriting one copy. A manual branch recovery may need a human to inspect unreturned transactions and re-enter them; that is a separate repair workflow, not automatic merge.
-
-## Downside audit and design pressure
-
-This design deliberately buys simple financial history by making availability and some convenience worse. These are product costs, not edge cases to hide from the user.
-
-| Downside | Concrete consequence | Mitigation and remaining cost |
+| Place | Files and state | Rule |
 |---|---|---|
-| Home node unavailable | No new checkout or check-in; readers cannot refresh. A laptop asleep or a phone killed by Android is a weak always-on home node. | Existing writer keeps its valid working copy and backups; queue check-in. Show home node status. A later always-on server improves availability but adds hosting and key custody. |
-| Long or forgotten checkout | The home node and every other device are blocked from editing for the entire checkout, including while the writer is offline. | Make current writer and checkout age conspicuous; remind the owner to check in. Do not auto-expire, because expiry can create two writers. |
-| Stale reader data | Reports on readers can omit recent income, spending, balances and prices while another device or the home node edits. Acting on a stale Safe to spend figure could mislead the user. | Mark all reader pages as a published checkpoint with version/time and an editing warning. Consider restricting action-oriented figures while stale. Truly live reads require a separate writer read service. |
-| Unreturned data loss | If the writer and all its backups die, its changes cannot be recovered from the home node's accepted version. The home node may not know exactly which edits were lost. | Local backups and optional unaccepted recovery uploads; conspicuous dirty status; explicit recovery warning. This risk cannot be eliminated while fully offline writes are allowed. |
-| Manual recovery can fork history | If the owner breaks a stuck checkout, the old writer may later reappear with valid local edits. Its old permit cannot safely merge into the new accepted branch. | New lineage and quarantine; compare or re-enter edits manually. Never silently discard either copy. |
-| More copies mean more exposure | Every reader and writer with the shared SQLCipher key can decrypt the profile; a stolen paired device or its backup broadens the attack surface. | Per-device access control, secure storage, app lock, revocation for future transfer, and encrypted backup discipline. Revocation cannot erase a copy already taken; key rotation is expensive. |
-| Unattended home node conflicts with password-only unlock | The home node cannot fully verify a returned SQLCipher snapshot without the key. A headless/server home node must store or obtain a usable key. | First release requires unlock for handoff. Later unattended mode needs an explicit device-held-key threat-model decision and recovery plan. |
-| Whole-database transfer cost | Each checkout/check-in moves the whole encrypted profile, even for one edited row; version retention can multiply disk use. Phones may have limited space, data plans, battery and background time. | Measure real profile sizes; use Wi-Fi and resumable chunks; enforce free-space checks and bounded retention. Incremental transfer would be a later, much more complex protocol. |
-| Update coordination | A writer on a newer schema can return a database the home node or readers cannot open. | Compatibility handshake and staged app updates; block incompatible checkout/check-in and keep pre-migration versions. This may delay updates. |
-| Complex state for the user | “At home”, “checked out”, “returning”, “received but unverified”, and “needs repair” require clear wording and recovery actions. | Design status and failure screens before implementation; test with Mohab. This is more visible complexity than today's single-device app. |
-| New network surface | Pairing, certificates, transfer endpoints and device revocation create security work absent from the current loopback-only app. | Dedicated narrow listener, mutual authentication, strict limits, independent security review and adversarial tests. Do not expose the existing UI server. |
-| Home node failure becomes central | Loss of the home node's control record can obscure who has the write permit even when database snapshots survive. | Back up control state with accepted versions, retain paired devices' remembered epochs, and fail closed on disagreement. A database backup alone is insufficient. |
+| Phone private app storage | `profile.db`, previous accepted copies, durable lend record, staged returns and recent recovery copies | Exclude from Android Auto Backup. Never expose the live file through network shares. Keep the previous accepted copy until the next one is verified and recoverable. |
+| Borrower `%LOCALAPPDATA%/Lightning` | Prefetch, working and sealed copies, durable lend record, local encrypted backups | Never put a live borrowed profile in Documents or OneDrive. A returned copy is retained as an encrypted backup. |
+| Transport | A narrow sync listener separate from the loopback FastAPI UI server | Pair once by QR plus explicit owner approval; pin device identities and use authenticated encrypted transport. Discovery only finds the phone; it grants no trust. |
 
-**Architectural decision from this audit:** a phone should become the default home node only after real-device tests show it remains reachable enough for the intended workflow. The same protocol permits a PC or later server home node. The UX must never imply that a stale accepted snapshot includes unreturned edits.
+Each device has its own password-wrapped slot for the same SQLCipher data key. Pairing provisions that key only after unlock and approval over the authenticated channel; a password and recovery phrase are never sent. The phone can stage ciphertext while locked, but full verification waits for unlock. `lightning/database/snapshot.py` already creates verified encrypted snapshots; `staging.py` prepares candidates but does not promote them. The promotion, durable lend record, role gate and crash recovery still need to be built.
 
-## Build order and gates
+The home phone's normal database may use a rollback journal. A raw byte copy is allowed only after Lightning stops new writes, drains transactions, closes or quiesces the SQLite connection, and confirms that no hot journal must be recovered. Otherwise use a consistent SQLCipher snapshot. A hash of an unsafe live-file copy would prove only that bad bytes arrived unchanged. The phone resumes home writes after a prefetch, because prefetch itself grants nothing.
 
-0. **Android feasibility spike, before committing to the full mobile schedule.** On a real arm64 Android device, package the intended Python runtime, pinned `sqlcipher3` and `cryptography` dependencies, unlock a disposable existing Lightning profile, create/verify an encrypted snapshot, and run a minimal FastAPI page in WebView. If `sqlcipher3` cannot be built reliably, evaluate a narrow Android SQLCipher adapter. No second finance engine.
-1. **Storage foundations on PC.** Finish safe candidate promotion and restore, versioned immutable snapshots, transactional control pointer, profile identity and durable role gate. Preserve existing single-PC mode. Test Windows power-loss/disk-full behavior and backup restore before any network feature.
-2. **Protocol between two PCs.** Build pairing, authenticated transfer, checkout/check-in, idempotent retries, stale-reader labels, and explicit repair states. Start with one profile and one reader. Keep transport swappable so a future server can be the home node without changing database rules.
-3. **Fault-injection gate.** Kill either process or cut the connection at every durable write, file flush, permit send, chunk boundary, commit, and receipt. Assert one accepted history, at most one cooperative writer, no silent overwrite, and preserved recovery copies. Exercise concurrent checkout requests, stale tabs, bad hashes, wrong keys, version mismatch, insufficient space, and clock changes. Run real two-PC suspend/restart and corrupted-backup drills.
-4. **Android runtime and UI.** Bring the same Python services and pages to Android. Use private app storage and explicit backup behavior. Adapt shared templates/CSS to phone width under the brand guideline; run Mohab's year and real-device profile/restore checks.
-5. **Android as home node, then optional server.** Reuse the PC-proven protocol. Test Android process death, phone sleep, low storage, network changes and OS backup/restore. A phone may be a poor always-available home node; the product must show when it is unreachable. A later server changes hosting and key custody, not the single-writer state machine.
+## Pair and prefetch
 
-**Acceptance before real financial data:** the user can identify the current writer, last accepted version, dirty/unreturned state, last verified recovery copy, and whether a reader is stale; every failed handoff has a safe retry or named repair path; restored backups cannot accidentally grant writing rights; and a full crash matrix passes on two PCs and an Android device. Mohab's finance figures must match before checkout, on the writer, and after check-in.
+1. On first pairing, the user opens Lightning on the phone, scans the PC's QR code and approves its displayed identity. The PC receives its own key slot and a pinned home-node identity. Pairing may be revoked for future connections; existing encrypted copies remain on that device.
+2. On later PC launches, the user opens Lightning on the phone with one tap. The phone starts a notification-backed Android service for the pending lend, subject to platform limits. The PC discovers the phone on local Wi-Fi, hotspot or a supported cable connection. If unreachable, it says so; it never invents a lend.
+3. **Before the PC password is entered**, the phone briefly pauses writes and creates or copies a consistent encrypted snapshot. It sends that snapshot and a manifest with profile, lineage, schema, size and hash. The PC stages it under `%LOCALAPPDATA%`, checks length/hash, and can retain it as a local encrypted backup. The phone resumes writing. This overlaps transfer with password entry; it does not promise a fixed speed.
+4. The PC unlocks the staged copy with its own password slot, verifies it, and checks app/schema compatibility. The staged copy is still read-only until the lend permit is durable on both sides.
 
-## Decisions still needed
+## Lend
 
-1. **Unattended home node:** must the home node be unlocked and attended for checkout/check-in validation, or may it hold a device-protected key for background operation? The latter changes the current password-only threat model. First implementation can require unlock.
-2. **Recovery checkpoint frequency:** local encrypted backups are mandatory; optional encrypted uploads to the home node reduce risk during a long checkout. Choose a cadence and retention limit after measuring database size and transfer cost.
-3. **Reachability:** direct local-network pairing is the first transport. Remote access later needs a deliberate relay/VPN/server deployment and threat review; it is not achieved by exposing the current loopback UI.
-4. **Lost-writer recovery permission:** define who may start a new lineage and how the warning records the possibility of lost edits. The technical default is explicit owner action only, with no automatic expiry.
+1. The PC asks to borrow the exact prefetched version. The phone serializes this with all finance requests and stops writes. The prefetch manifest carries both the transferred snapshot hash and the source-file hash measured while writes were paused. The phone rehashes the quiesced source file and compares it to that source hash; if it changed, it refreshes the prefetch and the PC verifies the replacement. A PC that cannot read the phone's schema must update before borrowing; only the home phone runs migrations.
+2. The phone durably records `LENT(device, epoch, checkout_id, base_hash)` before sending a grant bound to those fields. It opens the ledger read-only. The PC durably records `BORROWING` and the permit before opening its working copy for writes. A missing acknowledgement leaves the phone lent; it never assumes the PC did not receive the grant.
+3. If the PC cannot start using a grant, it first durably records `ABORTED` for that checkout ID and makes any delayed grant unusable. It sends an authenticated cancellation for that exact checkout ID. The phone durably records the cancellation before resuming writes. If cancellation cannot be proved, both remain blocked from a new lend until reconciliation or explicit Take back.
 
-## Source notes
+The phone can display the last accepted ledger read-only during a lend, marked “Lent to Office PC · newer changes may exist.” A figure such as Safe to spend must not look current without that warning. Other reader nodes are deferred.
 
-- SQLite advises against directly opening a live database over a network filesystem because locking and sync semantics vary: <https://www.sqlite.org/useovernet.html>.
-- SQLite's online backup API provides a consistent snapshot, and SQLCipher documents `sqlcipher_export` and `cipher_integrity_check`: <https://www.sqlite.org/backup.html>, <https://www.zetetic.net/sqlcipher/sqlcipher-api/>.
-- Android private storage is suitable for sensitive app data, but its default Auto Backup behavior must be configured explicitly: <https://developer.android.com/training/data-storage/app-specific>, <https://developer.android.com/identity/data/autobackup>.
-- Android Python packaging needs platform-compatible native wheels or builds: <https://www.chaquo.com/chaquopy/doc/current/faq.html>. Zetetic provides an Android SQLCipher library if a platform adapter is required: <https://www.zetetic.net/sqlcipher/sqlcipher-for-android-community/>.
+## While lent, including an absent phone
+
+- The borrower uses its local SQLCipher working copy and ordinary SQLite transactions, including offline. The role gate checks the durable lend state on restart and before writes. Compare a consistent working-copy hash with the borrowed base to detect changes. `audit_log` covers only some edits; it is helpful for explanation but cannot be the complete dirty signal. A take-back inspection compares the relevant tables between copies instead of claiming an exhaustive audit trail.
+- After changes, send a verified encrypted recovery snapshot to the phone about every three minutes while reachable, and before closing. Retain the previous recovery copy until the new one is safely staged; recovery copies are **never accepted ledgers**. If the phone is unreachable, make a local encrypted snapshot and show the last copy known to be on the phone. Full-database uploads every three minutes may cost substantial battery and bandwidth on large profiles; measure this on a real phone.
+- Closing while the phone is away saves a **sealed copy** and keeps the lend. The PC says that changes are saved here and will be handed back when both devices meet. Reopening the same PC while the copy is still sealed restores `BORROWING` so editing can continue. It records `RETURNING` only when the phone is reachable and transfer actually begins; reopening after that remains read-only until reconciliation. A bounded background task may retry while the PC is on; it never grants another writer.
+- The phone's foreground service runs while preparing or servicing a lend, then stops when the ledger is home; if a borrower stays silent, it may stop after a bounded interval and schedule reminders. Start it from the user's foreground action and validate the service type, time limits and behavior on supported Android versions. After a long silence the phone reminds the owner which PC holds the ledger and when its last recovery copy arrived. A reminder never ends the lend automatically.
+
+## Hand back and acceptance
+
+1. The borrower quiesces writes, closes SQLite, creates and verifies a consistent encrypted candidate, and durably records `RETURNING(return_id, checkout_id, candidate_hash)`. It cannot resume editing this candidate after that point. It transfers bounded, resumable chunks with an authenticated manifest.
+2. The phone checks sender, profile, lineage, epoch, checkout ID, parent hash, size, candidate hash and return ID. While locked it stores the candidate under a new staging name and replies **received, checking**. It retains the prior accepted ledger, stays non-writing, and gives the borrower no acceptance receipt.
+3. At the next phone unlock, the phone opens the candidate using the SQLCipher key and runs `cipher_integrity_check`, SQLite `integrity_check`, `foreign_key_check`, schema checks and the existing snapshot inventory checks. A failure enters **Needs repair** with both old and new copies retained; it cannot silently roll back and post new transactions. If checks pass, it prepares a previous-version backup, promotes the candidate and durably records the new accepted version and consumed return ID. Recovery after a crash must finish or undo this promotion deterministically before any write is allowed.
+4. The phone sends an **accepted** receipt bound to the return ID and hash. A repeated return receives the same receipt, never a second promotion. The borrower durably records `HANDED_BACK`, becomes read-only, and retains an encrypted backup. If the receipt is lost, it retries status; the phone may write after its own durable acceptance because the borrower had already stopped writes in step 1.
+
+The user can close the PC after a locked-phone *received* receipt, but the UI must say the return is awaiting the phone's verification. If the phone remains locked, no node writes. The user opens the phone to complete acceptance. This is the cost of accepting encrypted bytes without keeping the SQLCipher key available in the background.
+
+## Take back, loss and repair
+
+**Take back is explicit owner recovery**, never a timeout. The phone shows the last accepted version and the time/hash of its latest verified recovery copy, states that newer PC edits may be missing, and asks the owner to choose that copy or the earlier accepted ledger. It begins a new lineage and rejects old checkout IDs. If the PC later returns, its later changes are quarantined for table-by-table inspection and manual re-entry; there is no automatic merge. The warning cannot claim a three-minute maximum if recovery uploads stopped earlier.
+
+If the phone is lost while a PC holds the lend, the PC's working copy may seed a replacement phone under an explicit new lineage. If the phone is lost at home, a PC's most recent prefetch or returned backup may be restored; phone edits after that backup may be lost. Keep profile data local, with no automatic cloud copy. A stolen paired device remains a confidentiality risk even after network revocation.
+
+At every ambiguous boundary, preserve both copies and show **Needs repair** rather than choosing the newest-looking file. Test wrong keys, schema mismatch, full disk, corrupt chunks, missing receipts, process kills, lost phone and lost PC. A return that has merely arrived on the phone cannot be used for finance reads or writes until full verification.
+
+## Bank SMS after a lend
+
+The phone does not ingest SMS while the PC holds the ledger. Once the phone has accepted the hand-back and is unlocked, it reads bank SMS since the last durable marker, routes known formats through the existing import-review and category rules, and stores message identity so a retry cannot post twice. Unclear messages wait for review; later CSV imports must recognize SMS-posted activity to avoid duplicates. Build and test parsers bank by bank from sanitized examples, including unknown formats. Messages deleted before the phone reads them may be missed, and the app must make that limitation clear. Android SMS access and Play distribution requirements require a separate platform acceptance check.
+
+## Speed and build gates
+
+Claude measured a 0.8 MB encrypted sample with 319 transactions in this container: copying plus SHA-256 took 5 ms, integrity checks 8 ms and a full re-encrypting snapshot with inventory checks 50 ms. These are **local sample measurements**, not phone or Wi-Fi handoff measurements. The product target is a handoff of seconds; prefetch hides transfer behind password entry when it can. Measure 1, 10, 50 and 100 MB encrypted profiles on ordinary PCs and a mid-range Android phone, reporting snapshot, network, verification and durable-commit time separately. No “few seconds at most” guarantee follows from the sample.
+
+Build in finished gates:
+
+1. Complete verified single-PC backup restore and candidate promotion, including crash, full-disk and old-version tests. This is already a release gap.
+2. Implement Pair, prefetch, Lend, local working copy, recovery copies, Hand back, idempotent receipts and Take back between two PCs. Keep the same profile format and a swappable transport. Inject failure at every durable write and network boundary; assert one accepted lineage and one cooperative writer.
+3. Prove the existing Python, `sqlcipher3`, `cryptography`, FastAPI and WebView stack on a real mid-range Android phone. Measure unlock, pages and large-profile handoff before committing to the Android shell.
+4. Make the phone home, use private storage with Android Auto Backup excluded, and adapt the shared pages under the brand guideline. Test phone sleep, process death, local-network changes and foreground-service limits.
+5. Add bank SMS ingestion only when the phone holds an accepted ledger, with deduplication, review and later CSV matching. Run a cross-device Mohab year, restore drills and a full fault matrix before real financial data.
+
+The major remaining technical bet is Android compatibility with the pinned Python, SQLCipher and compiled dependencies. The major protocol tradeoff is deliberate: offline PC editing preserves availability but any changes not yet received by the phone can be lost with that PC. Lightning must always show the last accepted and last recovery versions so the owner can see that risk.
+
+## Sources
+
+- SQLite documents safe live snapshots and warns against raw file copies during active transactions: <https://www.sqlite.org/backup.html>, <https://www.sqlite.org/howtocorrupt.html>.
+- SQLCipher documents page-integrity verification: <https://www.zetetic.net/sqlcipher/sqlcipher-api/>.
+- Android documents private app storage, default Auto Backup behavior and foreground-service restrictions: <https://developer.android.com/training/data-storage/app-specific>, <https://developer.android.com/identity/data/autobackup>, <https://developer.android.com/develop/background-work/services/fgs/restrictions-bg-start>.
 
 
 ---
 
 ## Review by Claude (2026-10-04, revised the same day): not part of Codex's proposal
+
+Superseded where it differs from the proposal above. Prefetch pauses writes or uses `snapshot()`; a locked phone holds a return as *received, checking* until verified at unlock; a lend ends only by the borrower's durable, authenticated cancel for that checkout ID; speeds are targets until measured on a phone; `audit_log` is not a full change record.
 
 **This is a review, written by Claude at the owner's request. Everything above this line is Codex's proposal, unchanged apart from a one-line pointer under its status.** It records the owner's requirements (given on 2026-10-04, after the proposal was written), audits the proposal against the code, and recommends how to build it. Where the owner's requirements conflict with the proposal, the requirements win. No code was changed. Codex: revise the proposal, or answer under *For the owner* in `NOW.md`.
 

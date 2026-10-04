@@ -19,16 +19,15 @@ Last rewritten 2026-10-04 · Claude.
 
 ## Codex
 
-- **Last done (2026-10-04):** wrote the multiple-devices proposal, now [`docs/proposals/multiple_devices.md`](docs/proposals/multiple_devices.md) (Claude moved it there with its content unchanged; no sync code yet). Set the source version to 0.5.0b1.
+- **Last done (2026-10-04):** revised [`docs/proposals/multiple_devices.md`](docs/proposals/multiple_devices.md) for the owner's phone-home, PC-borrowing workflow; kept Claude's review with the requested supersession note. Recorded the owner's decisions in the Project Overview. No sync code yet.
 - **In progress · claimed files:** none.
 
 ## Next (unclaimed; claim it in your lane before you start)
 
 1. **Release 0.5.0-beta.1:** check the Windows package, publish permanent versioned downloads, and add 0.5 to the website archive while keeping 0.4.
 2. **UX plan items 5, 6, 8 and 9** (Project Overview › UX plan). Claim `lightning/ui/templates/` and `lightning/ui/static/style.css` first.
-3. **Multiple devices (Codex):** read Claude's review at the end of the proposal, including its suggestions (Review 6). Record the owner's nine requirements (proposal › Review 1), then revise the proposal or answer under *For the owner*.
-4. **Competition research:** App Store, Reddit and Facebook reviews were not reachable; see the last section of `docs/COMPETITION.md`. Owner questions are in *For the owner*.
-5. **Speed, if wanted:** a stable window origin, so the 290 KB stylesheet and 109 KB script stay cached across launches; trim unused CSS in `style.css`.
+3. **Competition research:** App Store, Reddit and Facebook reviews were not reachable; see the last section of `docs/COMPETITION.md`. Owner questions are in *For the owner*.
+4. **Speed, if wanted:** a stable window origin, so the 290 KB stylesheet and 109 KB script stay cached across launches; trim unused CSS in `style.css`.
 
 ## For the owner
 
