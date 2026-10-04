@@ -14,6 +14,7 @@ Release, development and local builds are told apart by GitHub's environment var
 from __future__ import annotations
 
 import argparse
+import ast
 import hashlib
 import importlib.metadata
 import os
@@ -128,6 +129,21 @@ def runtime_distributions() -> tuple[list[importlib.metadata.Distribution], list
     return sorted(found.values(), key=lambda d: canonicalize_name(d.metadata["Name"])), sorted(set(missing))
 
 
+def bundled_distribution_names(folder: Path | None = None) -> set[str] | None:
+    """The distributions whose modules PyInstaller actually put in the app, read from its build tables
+    (packaging/desktop-app.spec builds into build/desktop-app). None when there is no build here."""
+    folder = folder or SOURCE / "build" / "desktop-app"
+    if not (folder / "PYZ-00.toc").is_file():
+        return None
+    _, modules = ast.literal_eval((folder / "PYZ-00.toc").read_text(encoding="utf-8"))
+    tops = {name.split(".")[0] for name, *_ in modules}
+    if (folder / "COLLECT-00.toc").is_file():  # extension modules and package data, e.g. cryptography/…
+        for destination, *_ in ast.literal_eval((folder / "COLLECT-00.toc").read_text(encoding="utf-8"))[0]:
+            tops.add(re.split(r"[\\/]", destination)[0].split(".")[0])
+    owners = importlib.metadata.packages_distributions()
+    return {name for top in tops for name in owners.get(top, ())}
+
+
 def python_licence() -> Path | None:
     """CPython's own LICENSE (on Windows it also carries the bundled OpenSSL, SQLite, libffi… notices)."""
     for folder in (Path(sys.base_prefix), Path(sysconfig.get_paths()["stdlib"])):
@@ -164,6 +180,17 @@ def write_notices(bundle: Path, strict: bool) -> list[str]:
     vendored = SOURCE / "packaging" / "notices"
     problems: list[str] = []
     dists, missing = runtime_distributions()
+    # Whatever PyInstaller bundled also needs its notice, declared or not.
+    bundled = bundled_distribution_names()
+    if bundled is None:
+        problems.append("PyInstaller's build tables (build/desktop-app/*.toc) were not found, "
+                        "so what the bundle holds could not be checked")
+    else:
+        declared = {canonicalize_name(dist.metadata["Name"]) for dist in dists}
+        for name in sorted(bundled):
+            if canonicalize_name(name) not in declared and canonicalize_name(name) != "pyinstaller":
+                dists.append(importlib.metadata.distribution(name))
+                declared.add(canonicalize_name(name))
     problems += [f"runtime requirement {name} is not installed" for name in missing]
     inventory = [f"Python=={platform.python_version()}"]
     for dist in dists:

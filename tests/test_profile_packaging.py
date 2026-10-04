@@ -206,6 +206,25 @@ def test_the_docs_only_skip_compares_with_the_last_successful_windows_build(monk
         assert scope.build_windows("push", "refs/heads/main", "5518572", docs)[0]  # code changed since
         assert scope.build_windows("push", "refs/heads/main", docs, docs)[0]  # a re-run builds again
 
+    # A file moved from the app into docs/ still builds (git would otherwise report only the new path).
+    import shutil
+    import tempfile
+    if shutil.which("git"):
+        with tempfile.TemporaryDirectory() as folder:
+            repo = Path(folder)
+            git = lambda *args: subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", *args],
+                                               cwd=repo, check=True, capture_output=True, text=True).stdout.strip()
+            git("init", "-q")
+            (repo / "lightning").mkdir()
+            (repo / "lightning" / "page.html").write_text("<p>app page</p>\n" * 20, encoding="utf-8")
+            git("add", "-A"); git("commit", "-qm", "app")
+            before = git("rev-parse", "HEAD")
+            (repo / "docs").mkdir()
+            git("mv", "lightning/page.html", "docs/page.html"); git("commit", "-qm", "move")
+            monkeypatch.setattr(scope, "ROOT", repo)
+            assert scope.build_windows("push", "refs/heads/main", before, git("rev-parse", "HEAD"))[0]
+            monkeypatch.setattr(scope, "ROOT", ROOT)
+
     runs = {"workflow_runs": [{"id": 3, "head_sha": "c" * 40}, {"id": 2, "head_sha": "b" * 40},
                               {"id": 1, "head_sha": "a" * 40}]}
     jobs = {3: [{"name": "Full test suite (Linux)", "conclusion": "success"},
@@ -279,3 +298,20 @@ def test_notices_cover_what_ships_and_strict_mode_stops_on_a_gap(tmp_path, monke
         assert "Python's LICENSE" in str(exc)
     else:
         raise AssertionError("strict packaging accepted a missing licence")
+
+
+def test_notices_follow_what_pyinstaller_actually_bundled(tmp_path):
+    """A package PyInstaller pulls in without the app declaring it still gets its licence listed."""
+    package_app = _packager()
+    (tmp_path / "PYZ-00.toc").write_text(repr(("PYZ-00.pyz", [
+        ("jinja2", "jinja2/__init__.py", "PYMODULE"), ("jinja2.ext", "jinja2/ext.py", "PYMODULE"),
+        ("no_such_module", "x.py", "PYMODULE"), ("json", "json/__init__.py", "PYMODULE")])), encoding="utf-8")
+    (tmp_path / "COLLECT-00.toc").write_text(repr(([
+        ("Lightning.exe", "build/Lightning.exe", "EXECUTABLE"),
+        ("cryptography\\hazmat\\bindings\\_rust.pyd", "_rust.pyd", "EXTENSION")],)), encoding="utf-8")
+    names = {name.lower() for name in package_app.bundled_distribution_names(tmp_path)}
+    assert {"jinja2", "cryptography"} <= names and "no_such_module" not in names
+    assert package_app.bundled_distribution_names(tmp_path / "missing") is None
+    spec = (ROOT / "packaging" / "desktop-app.spec").read_text(encoding="utf-8")
+    for tool in ('"pytest"', '"rich"', '"pygments"', '"httpx"'):  # test tools stay out of the app
+        assert tool in spec, tool

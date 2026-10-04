@@ -115,6 +115,15 @@ jobs:
           $target = Join-Path $env:RUNNER_TEMP 'shipped'
           if (Test-Path $target) { Remove-Item -Recurse -Force $target }
           Expand-Archive -LiteralPath $zip -DestinationPath $target
+          # Users download the ZIP in a browser and extract it in Explorer, which marks every file as
+          # coming from the internet. Mark the copy under test the same way, so the checks below run
+          # what users run (.NET is stricter about loading marked DLLs, e.g. for pythonnet).
+          $marked = 0
+          Get-ChildItem -LiteralPath $target -Recurse -File | ForEach-Object {
+            Set-Content -LiteralPath $_.FullName -Stream Zone.Identifier -Value "[ZoneTransfer]`r`nZoneId=3"
+            $marked++
+          }
+          Write-Host "Marked $marked extracted files as downloaded from the internet (ZoneId=3)."
           $exe = Join-Path $target 'Lightning/Lightning.exe'
           if (-not (Test-Path -LiteralPath $exe)) { throw "The ZIP has no Lightning/Lightning.exe" }
           foreach ($file in 'README.txt', 'BUILD_INFO.txt', 'licenses/dependency-versions.txt') {

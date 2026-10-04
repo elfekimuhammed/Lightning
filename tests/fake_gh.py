@@ -33,6 +33,8 @@ def notfound(): print('{"message":"Not Found"}', file=sys.stderr); print("gh: No
 
 if state.get("auth_fail"):
     print("gh: Bad credentials (HTTP 401)", file=sys.stderr); sys.exit(1)
+if state.get("server_error") and "/releases/tags/" in (endpoint or ""):
+    print("gh: Server Error (HTTP 502)", file=sys.stderr); sys.exit(1)
 if endpoint == f"repos/{repo}":
     out(repo); sys.exit(0)
 m = re.fullmatch(rf"repos/{re.escape(repo)}/releases/tags/(.+)", endpoint or "")
@@ -47,7 +49,7 @@ if m:
 if endpoint == f"repos/{repo}/releases" and method == "GET":
     tag = re.search(r'tag_name == \\?"([^"\\]+)', jq).group(1)
     for r in state["releases"]:
-        if r["draft"] and r["tag_name"] == tag: print(r["id"])
+        if r["draft"] and r["tag_name"] == tag: print(f'{r["id"]}\t{r.get("name", "")}')
     sys.exit(0)
 m = re.fullmatch(rf"repos/{re.escape(repo)}/releases/(\d+)", endpoint or "")
 if m and method == "DELETE":
@@ -80,6 +82,7 @@ m = re.fullmatch(rf"repos/{re.escape(repo)}/releases/(\d+)", endpoint or "")
 if m and method == "PATCH":
     rel = next(r for r in state["releases"] if r["id"] == int(m.group(1)))
     rel["draft"] = fields["draft"] != "false"
+    rel["name"] = fields.get("name", rel["name"])
     if not rel["draft"]: state["tags"].append(rel["tag_name"])
     save()
     out({**rel, "html_url": f"https://github.com/{repo}/releases/tag/{rel['tag_name']}",

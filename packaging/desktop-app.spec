@@ -30,8 +30,20 @@ analysis = Analysis(
         "qtpy",
         "gi",
         "cefpython3",
+        # Test and build tools installed beside the app's own packages; the app never imports them.
+        # The shipped app's self-check and window check prove it still runs without them.
         "pytest",
+        "_pytest",
+        "pluggy",
+        "iniconfig",
         "importlinter",
+        "grimp",
+        "httpx",
+        "httpcore",
+        "rich",
+        "pygments",
+        "markdown_it",
+        "mdurl",
     ],
 )
 archive = PYZ(analysis.pure)

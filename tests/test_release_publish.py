@@ -52,7 +52,7 @@ def test_a_tested_build_is_published_with_both_files_and_its_checksum(tmp_path):
     assert result.returncode == 0, result.stdout + result.stderr
     [release] = published(state)
     assert release["tag_name"] == TAG and release["prerelease"] and release["target_commitish"] == "main"
-    assert release["name"] == "Lightning 0.5.0 beta 1 for Windows"
+    assert release["name"] == "Lightning 0.5.0 beta 1 for Windows"  # renamed from the draft marker on publish
     assert [a["name"] for a in release["assets"]] == [ZIP, "APP_SHA256SUMS"]
     assert hashlib.sha256((tmp_path / "release" / ZIP).read_bytes()).hexdigest() in release["body"]
     assert "does not make releases immutable" in result.stdout  # a reminder until the setting is on
@@ -66,12 +66,17 @@ def test_a_tested_build_is_published_with_both_files_and_its_checksum(tmp_path):
     ({"releases": [], "tags": [TAG]}, {}, "already has a tag"),
     ({"releases": [], "tags": []}, {"ZIP": "Lightning-v0.5.0-beta.1-dev-r21-abcdef12-Windows-x64.zip"},
      "development build cannot be published"),
+    ({"releases": [], "tags": [], "server_error": True}, {}, "Could not check whether"),
+    # A published release whose tag was deleted turns back into a draft that keeps its real name.
+    ({"releases": [{"id": 8, "tag_name": TAG, "draft": True, "name": "Lightning 0.5.0 beta 1 for Windows",
+                    "assets": []}], "tags": []}, {}, "this job did not leave behind"),
 ])
 def test_nothing_is_published_or_replaced_when_a_release_cannot_be_trusted(tmp_path, state, env, message):
     before = json.loads(json.dumps(state))
     result, after = publish(tmp_path, state, **env)
     assert result.returncode != 0 and message in result.stdout, result.stdout + result.stderr
     assert published(after) == published(before)
+    assert [r["id"] for r in after["releases"]] == [r["id"] for r in before["releases"]]  # nothing deleted
 
 
 def test_an_upload_that_changed_in_transit_is_never_published(tmp_path):
@@ -81,7 +86,8 @@ def test_an_upload_that_changed_in_transit_is_never_published(tmp_path):
 
 
 def test_a_draft_left_by_a_failed_attempt_is_replaced_by_the_new_attempt(tmp_path):
-    state = {"releases": [{"id": 9, "tag_name": TAG, "draft": True, "assets": []}], "tags": [], "immutable": True}
+    state = {"releases": [{"id": 9, "tag_name": TAG, "draft": True, "assets": [],
+                           "name": "Lightning 0.5.0 beta 1 for Windows (unpublished draft)"}], "tags": [], "immutable": True}
     result, after = publish(tmp_path, state)
     assert result.returncode == 0, result.stdout + result.stderr
     assert [r["id"] for r in after["releases"]] != [9] and len(published(after)) == 1

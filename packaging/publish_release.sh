@@ -32,28 +32,37 @@ zip_sha=$(sha256sum "$ZIP" | cut -d' ' -f1)
 gh api "repos/${DOWNLOADS_REPO}" --jq .full_name >/dev/null \
   || fail "The token cannot read ${DOWNLOADS_REPO}. Check that LIGHTNING_DOWNLOADS_TOKEN has Contents: read and write on it."
 
-# exists | missing; anything else is an error and stops the job.
+# Prints exists or missing. Any other answer (a network error, rate limit, a token without access)
+# stops the job with gh's own message, never mistaken for "already exists".
 lookup() {
   local out
   if out=$(gh api "$1" 2>&1); then echo exists; return; fi
   if [[ "$out" == *"HTTP 404"* ]]; then echo missing; return; fi
   echo "$out" >&2
-  fail "Could not check $1."
+  echo error
 }
-[[ $(lookup "repos/${DOWNLOADS_REPO}/releases/tags/${TAG}") == missing ]] \
-  || fail "${DOWNLOADS_REPO} already has a release ${TAG}. Published versions are never replaced: bump the version for a new build."
-[[ $(lookup "repos/${DOWNLOADS_REPO}/git/ref/tags/${TAG}") == missing ]] \
-  || fail "${DOWNLOADS_REPO} already has a tag ${TAG}. Published versions are never replaced: bump the version for a new build."
-
-# A draft left by an earlier failed attempt of this same release was never published: remove it.
-for id in $(gh api --paginate "repos/${DOWNLOADS_REPO}/releases" \
-              --jq ".[] | select(.draft and .tag_name == \"${TAG}\") | .id"); do
-  echo "Removing unpublished draft ${id} left by an earlier attempt."
-  gh api -X DELETE "repos/${DOWNLOADS_REPO}/releases/${id}" >/dev/null
-done
+state=$(lookup "repos/${DOWNLOADS_REPO}/releases/tags/${TAG}")
+[[ "$state" == error ]] && fail "Could not check whether ${DOWNLOADS_REPO} has a release ${TAG} (see the message above). Nothing was published."
+[[ "$state" == missing ]] || fail "${DOWNLOADS_REPO} already has a release ${TAG}. Published versions are never replaced: bump the version for a new build."
+state=$(lookup "repos/${DOWNLOADS_REPO}/git/ref/tags/${TAG}")
+[[ "$state" == error ]] && fail "Could not check whether ${DOWNLOADS_REPO} has a tag ${TAG} (see the message above). Nothing was published."
+[[ "$state" == missing ]] || fail "${DOWNLOADS_REPO} already has a tag ${TAG}. Published versions are never replaced: bump the version for a new build."
 
 version="${TAG#v}"
 pretty=$(sed -E 's/-beta\.([0-9]+)$/ beta \1/; s/-rc\.([0-9]+)$/ release candidate \1/' <<<"$version")
+title="Lightning ${pretty} for Windows"
+# A draft is created under this name and renamed in the same call that publishes it, so a published
+# release never carries it. GitHub turns a published release whose tag was deleted back into a draft
+# with its real name: that draft is never removed here.
+draft_name="${title} (unpublished draft)"
+drafts=$(gh api --paginate "repos/${DOWNLOADS_REPO}/releases" \
+           --jq ".[] | select(.draft and .tag_name == \"${TAG}\") | [.id, .name] | @tsv")
+while IFS=$'\t' read -r id name; do
+  [[ -n "$id" ]] || continue
+  [[ "$name" == "$draft_name" ]] || fail "${DOWNLOADS_REPO} has a draft ${TAG} (\"${name}\") that this job did not leave behind: it may be a published release whose tag was deleted. Check it by hand; nothing was changed."
+  echo "Removing unpublished draft ${id} left by an earlier attempt."
+  gh api -X DELETE "repos/${DOWNLOADS_REPO}/releases/${id}" >/dev/null
+done <<<"$drafts"
 prerelease=false
 [[ "$version" == *-* ]] && prerelease=true
 commit=$(sed -n 's/^Commit: //p' BUILD_INFO.txt)
@@ -76,7 +85,7 @@ notes=$(mktemp)
 } >"$notes"
 
 release_json=$(gh api -X POST "repos/${DOWNLOADS_REPO}/releases" \
-  -f tag_name="$TAG" -f target_commitish=main -f name="Lightning ${pretty} for Windows" \
+  -f tag_name="$TAG" -f target_commitish=main -f name="$draft_name" \
   -F body=@"$notes" -F draft=true -F prerelease="$prerelease")
 release_id=$(jq -r .id <<<"$release_json")
 upload_url="https://uploads.github.com/repos/${DOWNLOADS_REPO}/releases/${release_id}/assets"
@@ -100,9 +109,10 @@ for entry in "${assets[@]}"; do
 done
 echo "Both files read back identical to the tested build."
 
-published=$(gh api -X PATCH "repos/${DOWNLOADS_REPO}/releases/${release_id}" -F draft=false)
+published=$(gh api -X PATCH "repos/${DOWNLOADS_REPO}/releases/${release_id}" -f name="$title" -F draft=false)
 [[ $(jq -r .draft <<<"$published") == false ]] || fail "The release did not publish."
 [[ $(jq -r .tag_name <<<"$published") == "$TAG" ]] || fail "The published release has the wrong tag."
+[[ $(jq -r .name <<<"$published") == "$title" ]] || fail "The published release kept its draft name."
 url=$(jq -r .html_url <<<"$published")
 echo "Published ${url}"
 if [[ $(jq -r '.immutable // false' <<<"$published") != true ]]; then

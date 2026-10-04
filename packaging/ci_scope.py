@@ -82,7 +82,8 @@ def build_windows(event: str, ref: str, baseline: str | None, sha: str) -> tuple
         return True, f"last built commit {baseline[:8]} is not in this history"
     if _git("merge-base", "--is-ancestor", baseline, sha).returncode != 0:
         return True, f"last built commit {baseline[:8]} is not an ancestor of this push"
-    diff = _git("diff", "--name-only", baseline, sha)
+    # --no-renames: a file moved out of the app (say into docs/) lists its old path too, so it builds.
+    diff = _git("diff", "--no-renames", "--name-only", baseline, sha)
     if diff.returncode != 0:
         return True, "could not list changed files"
     changed = [line for line in diff.stdout.splitlines() if line.strip()]
