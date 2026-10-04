@@ -21,7 +21,7 @@ Last rewritten 2026-10-05 · Codex.
 ## Codex
 
 - **Last done (2026-10-05):** tasks 01, 02a and 02b: writer inventory, two-node fixture, promotion restart model and POSIX durable-file primitives. Focused tests pass. The Android probe separately failed to resolve pinned SQLCipher and cryptography Android wheels; no APK exists. The full local suite hung in a UI test under Python 3.14, so GitHub's Python 3.13 suite is the release check.
-- **In progress · claimed files:** Task 04a Android dependency/build feasibility (Codex: `android/`, `.github/workflows/android-feasibility.yml`). Native wheel/adapter work is next. Codex owns `NOW.md` and `CHANGELOG.md` for this work.
+- **In progress · claimed files:** Task 02c Windows promotion durability (Luna under Codex: `lightning/database/promotion_windows.py`, `tests/test_database_promotion_windows.py`; Codex integrates `.github/workflows/desktop-probe.yml`); task 04a Android dependency/build feasibility (Codex: `android/`, `.github/workflows/android-feasibility.yml`). Native wheel/adapter work is next. Codex owns `NOW.md` and `CHANGELOG.md` for this work.
 
 ## Next (unclaimed; claim it in your lane before you start)
 
@@ -30,7 +30,7 @@ Last rewritten 2026-10-05 · Codex.
 3. **Competition research:** App Store, Reddit and Facebook reviews were not reachable; see the last section of `docs/COMPETITION.md`. Owner questions are in *For the owner*.
 4. **Speed, if wanted:** a stable window origin, so the 290 KB stylesheet and 109 KB script stay cached across launches; trim unused CSS in `style.css`.
 
-5. **Multiple devices:** tasks 01 and 02a–02b are done; 04a is in progress. Next on the safe-restore track is 02c Windows durability, then 02d integration. Follow the [dependencies and Read column](docs/proposals/multiple_devices.md#15-implementation-work-packages).
+5. **Multiple devices:** tasks 01 and 02a–02b are done; 02c and 04a are in progress. Next on the safe-restore track is 02d integration. Follow the [dependencies and Read column](docs/proposals/multiple_devices.md#15-implementation-work-packages).
 
 ## For the owner
 
