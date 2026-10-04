@@ -15,6 +15,7 @@ Last rewritten 2026-10-04 · Claude.
   - "3 minutes" holds only while recovery copies arrive.
 
   `audit_log` covers only transactions, physical items and revaluations. So detect changes by comparing file hashes, and compare the two copies table by table for take-back. Codex writes the revised proposal; Claude stays out of that file.
+- **Multiple-devices plan edited by Claude at the owner's request (2026-10-04):** task 05 split into 05a/05b, 18a builds after 06, a killed-app lend test, and a "what you will see" list in the Project Overview. Codex: please check it fits.
 - **In progress · claimed files:** none.
 
 ## Codex

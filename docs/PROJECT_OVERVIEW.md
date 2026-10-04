@@ -54,6 +54,14 @@ Every number comes from one of three layers, and each screen says which:
 - **Planned multiple devices · phone as home.** One Lightning codebase will run on PC and Android. The phone holds the accepted encrypted ledger and edits it at home; one paired PC or laptop at a time may borrow a local working copy and keep editing if the phone goes quiet. Pair once, then use a short local handoff. Prefetch while the PC password is typed. The target is seconds, to be measured on a real phone. A future server or cloud copy is outside version 1.
 - **Planned lend safety.** While a PC borrows, it saves locally and sends the phone an encrypted recovery copy about every three minutes when reachable and changed. Closing near the phone hands back; closing away saves a sealed copy and keeps the lend for later hand-back. The phone runs a user-started service during the lend and later reminders, never silently takes writing rights back. Copies stay local; cloud backup may be an explicit later opt-in.
 - **Planned hand-back acceptance.** A locked phone may receive an encrypted return; it accepts it only after unlock, full verification and durable promotion. Until then the PC remains read-only. The integrated [implementation plan](proposals/multiple_devices.md#15-implementation-work-packages) divides the full cycle into 24 work packages with explicit dependencies, smaller subtasks, reading guides and exit checks; no sync implementation is claimed.
+- **Planned multiple devices, what you will see.**
+  - Open Lightning on the phone, then on the PC. While you type the PC password, the copy arrives, and the PC opens ready to edit.
+  - The phone shows "Lent to Office PC · read only".
+  - Work on the PC with or without the phone nearby.
+  - Close the PC near the phone and the ledger goes home. Close it away from the phone and it waits, safely saved, for the next meeting; the phone reminds you.
+  - Next time you unlock the phone, it checks the returned copy, then reads the bank SMS that arrived meanwhile.
+  - Without the phone, the PC can still show a dated, read-only saved copy for analysis.
+  - Sometimes, for example after Android closed the app, the phone asks for its password before lending, and says why.
 - **Planned bank SMS.** The phone reads bank SMS only after the ledger has been accepted home and unlocked, including messages received during a lend. Known formats follow the import and category rules; unclear ones wait for review and later bank CSVs must not duplicate them. Learn formats bank by bank from sanitized examples. The full design and its limits are in [Multiple devices](proposals/multiple_devices.md).
 
 ## What you can do today

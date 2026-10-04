@@ -463,8 +463,8 @@ Do not optimize away full return verification or durability to meet a target. Fi
 | Safe local recovery | 01 → 02a → 02b/02c → 02d → 03a → 03b | Android 04; import matching 20 | **03a: encrypted backup restore** for the existing Windows app; legacy import follows separately. |
 | Android feasibility | 04a → 04b → 04c → 04d | All of 01–03 and 20, with an isolated shell/build area | Evidence to accept/reject the Android packaging route before building the phone product. |
 | Standalone import improvement | 20 | Recovery, Android and protocol work with separate file claims | **CSV/manual-entry matching**, independently releasable in the existing app. |
-| Authority and transfer | 05, then **06 → 07 → 08** beside **09 → 10**; join at 11 → 12 → 13 → 14 → 15 | 04, 20, then offline preview 18a | Tested complete two-node cycle, still a harness unless PC-home scope is approved. |
-| Offline analysis | 06 + 08 → 18a | Android home integration | **View saved copy without the phone** whenever a supported retained checkpoint is available. |
+| Authority and transfer | 05a (beside 02b–02d), then **06 → 07 → 08** beside **09 → 10**, with 05b before 08; join at 11 → 12 → 13 → 14 → 15 | 04, 20, then offline preview 18a | Tested complete two-node cycle, still a harness unless PC-home scope is approved. |
+| Offline analysis | 06 → 18a (fixture copies); ordinary-use acceptance after 08 or 11 | Android home integration | **View saved copy without the phone** whenever a supported retained checkpoint is available. |
 | Phone product | 16a–16d → 17 → 18b/18c; coordinate 19a–19c | Bank fixtures/parser work and 20 | Core phone-home beta after 23/24, with manual/CSV entry even if SMS approval is pending. |
 | SMS extension | 20 + phone prerequisites → 21 → 22a–22e (fixtures can start earlier) | Core UI/update acceptance | First supported bank; more banks follow one at a time. |
 
@@ -492,17 +492,17 @@ An Android spike can import shared Python code read-only while another AI fixes 
 
 | Task | Depends on | Deliverable | Area | Exit check | Read |
 |---|---|---|---|---|---|
-| 05 | 02d | **Define durable control records and protocol schemas.** Implement IDs, epochs, states, idempotency, receipt/cancel tombstones and version negotiation. | New sync domain/state modules | Duplicate/reordered events and restart tests preserve one active checkout; malformed/incompatible messages reject without state change. | 4–5, 9, 13 |
-| 06 | 01, 05 | **Wire the role gate into sessions.** Add home/borrower/reader modes, generation invalidation, owning-thread command dispatch and borrowed paths. | Runtime/session, paths, bootstrap | Direct write attempts, migrations and hidden startup jobs fail in reader/returning states. Old forms cannot save after transition. | 3–5, 11 |
+| 05 | 05a, then 05b | **Define durable control records and protocol schemas.** Implement IDs, epochs, states, idempotency, receipt/cancel tombstones and version negotiation. | New sync domain/state modules | Duplicate/reordered events and restart tests preserve one active checkout; malformed/incompatible messages reject without state change. | 4–5, 9, 13 |
+| 06 | 01, 05a | **Wire the role gate into sessions.** Add home/borrower/reader modes, generation invalidation, owning-thread command dispatch and borrowed paths. | Runtime/session, paths, bootstrap | Direct write attempts, migrations and hidden startup jobs fail in reader/returning states. Old forms cannot save after transition. | 3–5, 11 |
 | 07 | 06 | **Implement Lend over the fake transport.** Add source freeze, prepared request, durable grant, activation and pre-activation cancel. | Sync service and model tests | Two racing borrowers yield one grant; lost grant/ack and cancel-before-request converge safely. | 4–5, 7 |
-| 08 | 07, 02d | **Implement Hand back over the fake transport.** Add immutable return candidate, Received versus Accepted, verification, promotion and receipt replay. | Sync service, promotion integration | Lock/unlock, lost receipt and every crash boundary converge to one accepted result without resuming borrower writes. | 4–5, 9 |
+| 08 | 07, 05b | **Implement Hand back over the fake transport.** Add immutable return candidate, Received versus Accepted, verification, promotion and receipt replay. | Sync service, promotion integration | Lock/unlock, lost receipt and every crash boundary converge to one accepted result without resuming borrower writes. | 4–5, 9 |
 
 ### Phase C — connect two ordinary PCs and cover offline use
 
 | Task | Depends on | Deliverable | Area | Exit check | Read |
 |---|---|---|---|---|---|
-| 09 | 05 | **Add pairing and device credentials.** QR bootstrap, mutual identity confirmation, profile-scoped trust, key-slot provisioning and revocation. | Sync transport/security adapter | Wrong peer, replayed QR, denied pairing and revoked identity reject. Password/recovery key never crosses the channel or enters logs. | 4, 6 |
-| 10 | 05, 09 | **Add resumable local encrypted transfer and discovery.** Bounded staging, chunks, hash verification, status and manual local endpoint fallback. | Transport and local discovery | Packet loss, duplicate chunks, wrong offset/hash, oversized object and full disk never produce Received/Accepted prematurely. | 4, 6, 9 |
+| 09 | 05a | **Add pairing and device credentials.** QR bootstrap, mutual identity confirmation, profile-scoped trust, key-slot provisioning and revocation. | Sync transport/security adapter | Wrong peer, replayed QR, denied pairing and revoked identity reject. Password/recovery key never crosses the channel or enters logs. | 4, 6 |
+| 10 | 05a, 09 | **Add resumable local encrypted transfer and discovery.** Bounded staging, chunks, hash verification, status and manual local endpoint fallback. | Transport and local discovery | Packet loss, duplicate chunks, wrong offset/hash, oversized object and full disk never produce Received/Accepted prematurely. | 4, 6, 9 |
 | 11 | 08, 10 | **Add prefetch and the measured fast-copy path.** Download before password entry; distinguish source hash from exported ciphertext hash; refresh stale prefetch before grant. | Snapshot + sync + launch flow | Concurrent home write invalidates the old prefetch; missing/wrong PC password never activates a lend; locked-phone freshness and WAL/journal cases use the safe path. | 2, 6–7, 14 |
 | 12 | 11 | **Add periodic recovery copies.** Durable sequence, complete-file acknowledgement, local fallback and visible delivery age. | Sync scheduler/storage | Reordered snapshots cannot replace newer ones; every committed kind of edit is detected; failed delivery is shown honestly. | 4, 8 |
 | 13 | 12 | **Add offline close and restart.** Sealed copy, bounded retry worker and shared lock between worker and UI. | Desktop lifecycle + sync | Reopen-vs-worker race never returns an old snapshot while allowing new edits. Returning stays read-only after reboot. | 5, 8–9 |
@@ -515,7 +515,7 @@ An Android spike can import shared Python code read-only while another AI fixes 
 |---|---|---|---|---|---|
 | 16 | See 16a–16d; final gate needs 04d and 15 | **Integrate Android in four steps.** Storage/shell → thread/transport bridge → bounded service → real-device fault gate. | Android shell and runtime adapter | 16d passes sleep, kill, timeout, reboot, backup exclusion and network-change tests; authority survives reachability loss. | 3, 5–6, 8, 11 |
 | 17 | 03, 16d | **Add new-home setup and move-existing-profile-home.** Keep standalone operation available; migrate only after explicit verified transfer. | Setup/profile workflows | Cancel/retry/crash at each move stage cannot leave two cooperative writable homes. Original PC copy remains recoverable. | 2, 9–10 |
-| 18 | See 18a–18d; offline preview starts after 06, 08 | **Deliver offline PC analysis early, then finish phone UX.** 18a is a dated read-only saved-copy journey; 18b–18c finish device controls/navigation. 18d is optional biometric unlock only if approved. | Shared templates/CSS and Android navigation | Read-only browsing changes no file, requires no phone and preserves outstanding work. Full phone/Windows cycle, accessibility and brand checks pass in 18c; optional 18d cannot block password-based release. | 2, 5, 8, 11 |
+| 18 | See 18a–18d; offline preview starts after 06 | **Deliver offline PC analysis early, then finish phone UX.** 18a is a dated read-only saved-copy journey; 18b–18c finish device controls/navigation. 18d is optional biometric unlock only if approved. | Shared templates/CSS and Android navigation | Read-only browsing changes no file, requires no phone and preserves outstanding work. Full phone/Windows cycle, accessibility and brand checks pass in 18c; optional 18d cannot block password-based release. | 2, 5, 8, 11 |
 | 19 | See 19a–19d; updater integration is later | **Make updates usable and safe.** 19a compatibility contract → 19b manual-update journey → 19c phone/PC update rehearsal. 19d later integrates the owner-requested signed Windows updater. | Packaging, migration/runtime tests | The first beta has an actionable official-download path and deferred home migration; lost/old PCs cannot strand current work. Later updater integration gets separate acceptance. | 8–9, 13 |
 
 ### Phase E — add bank messages without duplicate money
@@ -549,15 +549,17 @@ Claim these subtask IDs instead of claiming a large package for several sessions
 | 04b | 04a | Open/write/close the same encrypted fixture on Android and Windows; compare figures, inventory and key recovery. | 3, 11 |
 | 04c | 04b | Render one representative shared page; exercise WebView isolation, owning-thread shutdown and 16 KB device/native loading. | 11 |
 | 04d | 04c | Measure startup, unlock, page and snapshot costs; record go/no-go with the supported-device/build matrix. | 11, 14 |
-| 16a | 04d, 05 | Add private no-backup paths, native shell and narrow bridge; test cloud/device-transfer exclusions and navigation restrictions. | 4, 11 |
+| 05a | 01, 02a | Define message schemas, IDs, epochs, states, idempotency and tombstones against an in-memory store; freeze the schemas and fixtures in main so protocol and transport can split. | 4–5, 13 |
+| 05b | 05a, 02d | Implement the durable device-local control store and join its authority records to the promotion journal; restart and reorder tests. | 4–5, 9 |
+| 16a | 04d, 05a | Add private no-backup paths, native shell and narrow bridge; test cloud/device-transfer exclusions and navigation restrictions. | 4, 11 |
 | 16b | 16a, 06 | Integrate session modes and owning-thread command dispatch; prove locked transport never opens the finance database. | 3, 5, 11 |
 | 16c | 16b, 10 | Add user-started discovery/foreground service and stop/reminder behavior; test connected and absent borrowers. | 6, 8, 11 |
 | 16d | 16c, 15 | Run the real-phone lifecycle/fault matrix: kill, reboot, sleep, timeout, denied notifications, Wi-Fi/hotspot changes. | 11, 16 |
-| 18a | 06, 08 | Add desktop “View saved copy,” date/source/status labels and read-only reports/exports. Test disconnected launch, unchanged database hash, unsupported schema and precedence of outstanding local work. | 2, 5 |
+| 18a | 06 (fixtures); accept after 08 or 11 | Add desktop “View saved copy,” date/source/status labels and read-only reports/exports. Build and test with fixture copies; accept in ordinary use once real prefetch (11) or handed-back (08) copies exist. Test disconnected launch, unchanged database hash, unsupported schema and precedence of outstanding local work. | 2, 5 |
 | 18b | 15, 16c | Add operational Pair/Lend/Hand back/status/repair controls as the protocol becomes available, with working back routes. | 2, 5, 8 |
 | 18c | 17, 18a, 18b | Complete phone-width navigation, accessibility and end-to-end UX acceptance; include 18a offline analysis. | 2, 11, 16 |
 | 18d | 16b, owner approval | Optional biometric key-slot prototype and tests; password/recovery still work after cancellation, invalidation or disabling biometrics. | 2, 11 |
-| 19a | 05 | Define/test release compatibility metadata and the old-schema return contract; firmware/app names alone confer no compatibility. | 13 |
+| 19a | 05a | Define/test release compatibility metadata and the old-schema return contract; version names alone confer no compatibility. | 13 |
 | 19b | 19a | Implement installed/required-version display and the official manual-download path; preserve paths and unsent files across ZIP replacement. | 2, 13 |
 | 19c | 15, 16d, 17, 19b | Rehearse phone auto-update, deferred migration, stale paired-PC readiness, old-schema hand-back and update ordering; gate the first beta. | 9, 13, 16 |
 | 19d | 19c, separate Windows updater work | Integrate the later owner-requested signed updater with active-operation refusal and binary rollback tests; not a prerequisite for the manual-update beta. | 13; Overview › Roadmap |
@@ -567,7 +569,7 @@ Claim these subtask IDs instead of claiming a large package for several sessions
 | 22d | 21, 22c | Enable safe auto-post for that bank after inbox/CSV/manual duplicate tests, refunds/transfers and crash recovery pass. | 12, 16 |
 | 22e | 22d | Complete disclosure/permission/distribution acceptance for the SMS-bearing build. If approval is pending, release the core cycle without this feature. Repeat 22a–22d for later banks. | 12, 16 |
 
-Tasks 01, 05–15, 17, 20–21 and 23–24 still use their parent ID unless implementation reveals a smaller verifiable split. Package 18 completes its core scope with 18a–18c; 18d is conditional. Package 19's beta gate is 19a–19c; 19d ships with the separate updater. A skipped optional subtask remains deferred, not marked done. Core task 23/24 acceptance does not claim the SMS extension passed until 22 and the SMS acceptance steps actually pass.
+Tasks 01, 06–15, 17, 20–21 and 23–24 still use their parent ID unless implementation reveals a smaller verifiable split. Package 18 completes its core scope with 18a–18c; 18d is conditional. Package 19's beta gate is 19a–19c; 19d ships with the separate updater. A skipped optional subtask remains deferred, not marked done. Core task 23/24 acceptance does not claim the SMS extension passed until 22 and the SMS acceptance steps actually pass.
 
 For every implementation task: focused tests first; full suite, import contracts and whitespace checks before the finished commit; Mohab and relevant brand checks for visible changes; dated changelog entry; update only the owning canonical document and the worker's NOW lane. Remote-only work uses GitHub Actions for execution; report its result rather than claiming unrun local tests.
 
@@ -626,6 +628,7 @@ Build deterministic transition tests first, then real process/filesystem/network
 | Stale lineage, wrong device/profile/key/schema | Reject without altering accepted data or deleting the sender's copy. |
 | Take back while old PC offline | New lineage fenced; old changes quarantined on return, never merged. |
 | Home loss, control loss or backup restored | Explicit new-home/new-lineage recovery; no old permit resurrected. |
+| Phone app killed by Android, then a PC asks to borrow | No verified checkpoint from an orderly close, so the phone asks for its password with the plain reason; no grant from an unverified file. Mohab's cross-device year includes this case. |
 | Android kill, reboot, denied notification or service timeout | Authority survives; connection may wait for app open; no background guarantee fabricated. |
 | OS cloud/device backup and manufacturer migration | Profile/key/authority records not silently copied into another active home. |
 | SMS scan crash, overlapping queries and provider reset | Atomic cursor/status; no lost persisted review items or duplicate source posting. |

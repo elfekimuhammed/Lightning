@@ -10,6 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-04 · Claude: Multiple-devices plan, at the owner's request: task 05 split into 05a/05b so the protocol starts before Windows durability finishes; "View saved copy" builds after task 06; a killed-app lend test; a "what you will see" summary in the Project Overview.
 - 2026-10-04 · Codex: applied the multi-device follow-up review: dependency-based parallel tracks, task reading guides and smaller steps, early restore/matching releases, offline PC analysis and explicit locked-lend checks. Linked the existing Windows updater decision; recorded fingerprint/interim-PC choices without changing the defaults.
 - 2026-10-04 · Claude: Roadmap: in-app updates for Windows (an Update button with signed downloads and rollback), planned for later, at the owner's request.
 - 2026-10-04 · Codex: combined the multi-device proposal and Claude's review into one complete cycle design with 24 ordered implementation tasks, durable state/promotion rules, Android and SMS gates, recovery tests and release acceptance; updated its roadmap and handoff. Planning only, no sync implementation.
