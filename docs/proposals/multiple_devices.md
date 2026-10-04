@@ -254,7 +254,7 @@ Opening the PC app without unlocking costs nothing: the phone never stopped writ
 
 - The PC must be near the phone to start or end a lend: the same Wi-Fi, the phone's hotspot, or a USB cable.
 - A forgotten lend blocks editing on the phone, and its SMS wait.
-- To be found by the PC, the phone app must be open (owner's choice, Review 5).
+- Starting a lend takes one tap on the phone. After that, a notification-backed background service carries it until the ledger is home (Review 5).
 - Python on Android is the biggest technical bet.
 - Every paired device can decrypt the profile.
 - App versions must match across devices.
@@ -281,11 +281,19 @@ Answered 2026-10-04 (now requirements 6–9 in Review 1):
 
 Answered later the same day:
 
-- **Being found by the PC:** the owner opens the phone app when using the PC. Lightning says so plainly ("Open Lightning on your phone") instead of running in the background.
+- **Being found by the PC:** the phone app runs in the background **only while something is happening**, never all the time. One tap starts it: the owner opens the phone app (Lightning says "Open Lightning on your phone"). From then until the ledger is home again, an Android foreground service keeps the phone reachable. It shows a notification ("Ready for your PC", then "Lent to Office PC") and stops by itself when the ledger is home, or after a few idle minutes if no lend starts. Recovery copies and the hand-back need no app open. Waking the phone with no tap would need a cloud push service, which requirement 9 rules out.
 - **Bank SMS formats:** no samples yet. Make time to log how each bank words its SMS, bank by bank, as examples are gathered.
 
-### Review 6. What Codex should do with this
+### Review 6. Further improvements (Claude's suggestions)
 
-- Record the owner's requirements (Review 1) in the Project Overview under *Product decisions that must hold*.
+1. **Background only during a lend** (owner agreed, Review 5). Without it, Android pauses the app once the phone is put down, and the 3-minute recovery copies and the hand-back on close stop reaching it.
+2. **The PC finishes a hand-back after it closes.** If the phone cannot be reached on close, the PC stops editing, durably records *returning*, and leaves a small background task waiting. The hand-back completes as soon as the phone's service is reachable while the PC is on. The ledger does not stay stranded on a PC because one tap was forgotten.
+3. **Each prefetch is a backup.** Every PC launch fetches the phone's file (Review 3, checkout step 2). Keep the last few as encrypted backups of the phone. With everything local, losing the phone at home then costs only what changed since the PC last opened.
+4. **Teach SMS formats bank by bank.** An SMS from a bank sender in a format Lightning does not know goes to review. The owner marks the amount, date and counterparty once, and Lightning saves that as the pattern for that bank. Each saved pattern, with its numbers changed, becomes a test fixture. This is how the owner's "log each bank over time" happens without collecting samples upfront.
+5. **One rule for app versions.** The phone updates from Google Play; the PC is updated by hand. Only the home phone ever migrates the database. A PC whose app cannot open the phone's schema does not borrow, and says "Update Lightning on this PC", with the download link.
+
+### Review 7. What Codex should do with this
+
+- Record the owner's requirements (Review 1) and answers (Review 5) in the Project Overview under *Product decisions that must hold*.
 - Revise the proposal above: the phone as the default home; checkout as the core; version 1 cut as listed in Review 3; bank SMS read on return; the measured, byte-for-byte transfer.
 - Raise any disagreement under *For the owner* in `NOW.md`, not by editing around this review.

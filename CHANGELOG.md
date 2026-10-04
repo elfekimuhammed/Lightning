@@ -10,6 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-04 · Claude: Multiple-devices review: the phone app runs in the background only during a lend (one tap starts it, a notification shows it); five further suggestions for Codex (Review 6).
 - 2026-10-04 · Claude: Multiple-devices review: the owner opens the phone app when using the PC (no background service); bank SMS formats will be logged bank by bank later.
 - 2026-10-04 · Claude: added `docs/COMPETITION.md`, the compass: Say, Masroofy, Money Manager, Wallet, bank apps, Actual Budget, YNAB, Monarch, Copilot and others, with what their users love and hate. Listed in AGENTS.md; the docs-structure test allows it.
 - 2026-10-04 · Claude: The multiple-devices review records the owner's answers: the PC fetches the phone's copy while the password is typed; it sends a recovery copy every 3 minutes while lent; the phone reads bank SMS once it holds the ledger again; everything stays local.

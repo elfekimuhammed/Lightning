@@ -18,7 +18,7 @@ Last rewritten 2026-10-04 · Claude.
 
 1. **Release 0.5.0-beta.1:** check the Windows package, publish permanent versioned downloads, and add 0.5 to the website archive while keeping 0.4.
 2. **UX plan items 5, 6, 8 and 9** (Project Overview › UX plan). Claim `lightning/ui/templates/` and `lightning/ui/static/style.css` first.
-3. **Multiple devices (Codex):** read Claude's review at the end of the proposal. Record the owner's nine requirements (proposal › Review 1), then revise the proposal or answer under *For the owner*.
+3. **Multiple devices (Codex):** read Claude's review at the end of the proposal, including its suggestions (Review 6). Record the owner's nine requirements (proposal › Review 1), then revise the proposal or answer under *For the owner*.
 4. **Competition research:** read Egyptian Play Store and App Store reviews of Say and Masroofy (in Arabic) and Egyptian Reddit and Facebook threads, then confirm the quotes in `docs/COMPETITION.md` before any marketing use.
 5. **Speed, if wanted:** a stable window origin, so the 290 KB stylesheet and 109 KB script stay cached across launches; trim unused CSS in `style.css`.
 
