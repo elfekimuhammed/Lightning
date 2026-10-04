@@ -21,7 +21,7 @@ Last rewritten 2026-10-04 · Claude.
 ## Codex
 
 - **Last done (2026-10-04):** integrated the follow-up review into [Multiple devices](docs/proposals/multiple_devices.md): dependency-based work tracks, per-task reading, smaller subtasks, early restore/matching releases and offline analysis. Clarified locked lending and connected the existing Windows updater roadmap. Two owner choices below; no sync code.
-- **In progress · claimed files:** none.
+- **In progress · claimed files:** Task 01 writer/lifecycle inventory and deterministic fixture (Luna under Codex: `tests/test_sync_write_inventory.py`, relevant writer paths read only); task 04a Android dependency/build feasibility (Codex: isolated `android/` build files). Codex owns `NOW.md` and `CHANGELOG.md` for this work.
 
 ## Next (unclaimed; claim it in your lane before you start)
 
@@ -30,7 +30,7 @@ Last rewritten 2026-10-04 · Claude.
 3. **Competition research:** App Store, Reddit and Facebook reviews were not reachable; see the last section of `docs/COMPETITION.md`. Owner questions are in *For the owner*.
 4. **Speed, if wanted:** a stable window origin, so the 290 KB stylesheet and 109 KB script stay cached across launches; trim unused CSS in `style.css`.
 
-5. **Multiple devices:** follow the [dependencies and Read column](docs/proposals/multiple_devices.md#15-implementation-work-packages). Start 01 → 02 → 03; 04 (Android trial) and 20 (matching) may run alongside with separate claims. Restore/matching can ship independently. Implementation has not started.
+5. **Multiple devices:** tasks 01 and 04a are in progress under Codex. Follow the [dependencies and Read column](docs/proposals/multiple_devices.md#15-implementation-work-packages) for later work. Restore/matching can ship independently.
 
 ## For the owner
 
