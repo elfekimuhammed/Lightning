@@ -354,6 +354,7 @@ Start with bounded local candidate lists and a small result limit. If size or me
 - **Before a pending migration,** the app writes a protected pre-upgrade encrypted backup, verifies it and keeps it outside pruning. If that backup fails, the migration is aborted.
 - **Backups** are encrypted snapshots, reopened to check integrity, foreign keys, schema, row contents and sequences.
 - **Not yet in the preview:** legacy import and backup restore. `database/staging.py` already builds verified candidate copies (including committed WAL data, and leaving the source untouched). Promoting one must wait for session quiescing and user confirmation, and must never copy bytes over a live file. The preview also doesn't fetch market prices or run reevaluation catch-up at startup.
+- **Promotion foundation (not wired to profiles yet):** `database/promotion_model.py` models P0–P5 and restart decisions. `promotion_posix.py` and `promotion_windows.py` provide same-directory file operations with no-follow checks, exclusive copies and post-publish hashes. POSIX flushes files and the parent directory. Windows flushes file handles and uses `MoveFileExW` with `MOVEFILE_WRITE_THROUGH`; Windows exposes no equivalent parent-directory `fsync`, and this does not establish survival of arbitrary power or storage failure. A journal-integrated restore and fault drills are still required before any real profile can use these adapters.
 
 **Local server security** (`lightning/runtime/http.py`).
 

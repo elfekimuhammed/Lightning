@@ -88,6 +88,7 @@ jobs:
           tests/test_profile_app.py tests/test_profile_session.py
           tests/test_runtime_paths.py tests/test_runtime_instance.py
           tests/test_encrypted_database.py tests/test_database_staging.py
+          tests/test_database_promotion_windows.py
           tests/test_migration_safety.py tests/test_database.py
           tests/test_figures.py tests/test_ui.py
       - name: Build the one-folder executables

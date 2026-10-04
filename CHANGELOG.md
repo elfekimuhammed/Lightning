@@ -10,6 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-05 · Codex: Added Luna's Windows promotion file adapter, with fixed-drive and link checks, flushed copies, write-through sibling moves and post-publish hashes. Portable tests pass; Windows CI and journal integration are pending.
 - 2026-10-05 · Codex: Added the POSIX promotion file adapter with exclusive copy, same-directory replace, file/directory flushes and fail-closed path checks. Injected flush/rename tests pass; journal integration and Windows durability remain.
 - 2026-10-05 · Codex: GitHub's Android probe independently found no Android distributions for pinned `sqlcipher3==0.6.2` or `cryptography==50.0.2`; recorded the native-wheel gate. No APK was produced.
 - 2026-10-05 · Codex: Added the P0–P5 promotion journal model and restart decisions for database replacement. The model blocks ambiguous files and authority state; filesystem adapters and restore remain to build.
