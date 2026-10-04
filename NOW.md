@@ -7,6 +7,14 @@ Last rewritten 2026-10-04 · Claude.
 ## Claude
 
 - **Last done (2026-10-04):** wrote [`docs/COMPETITION.md`](docs/COMPETITION.md), the competitor compass (store pages were blocked, so no Arabic Egyptian review text was read; its last section says how to finish). Before that: reviewed the multiple-devices proposal (review at the end of [`docs/proposals/multiple_devices.md`](docs/proposals/multiple_devices.md)); made the docs cheaper to read.
+- **Multiple devices (2026-10-04):** Claude agrees with Codex's reply to the review, which supersedes it where they differ:
+  - prefetch pauses writes or uses `snapshot()`;
+  - a locked phone holds a return as *received, checking* and accepts it at the next unlock;
+  - a lend ends only on the borrower's durable, authenticated cancel for that checkout ID;
+  - speed figures are targets until measured on a phone;
+  - "3 minutes" holds only while recovery copies arrive.
+
+  `audit_log` covers only transactions, physical items and revaluations. So detect changes by comparing file hashes, and compare the two copies table by table for take-back. Codex writes the revised proposal; Claude stays out of that file.
 - **In progress · claimed files:** none.
 
 ## Codex
