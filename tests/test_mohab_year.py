@@ -1085,3 +1085,40 @@ def test_settings_prepares_one_owned_ai_analysis_workbook(mohab):
                  if len(row.findall(f"{{{xml}}}c")) > 6}
         assert {"transfer", "refund", "investment contribution", "investment sale", "dividend",
                 "ownership change", "expense paid externally"} <= roles
+
+
+# ------------------------------------------------------------------ the same number on every tab, for every period
+# Owner request 2026-10-04: check time horizons, and that a figure shown on several tabs reads the same on each.
+
+def _figure(html: str, pattern: str):
+    found = re.search(pattern, html, re.S)
+    if not found:
+        return None
+    text = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", found.group(1)))
+    return text.strip()
+
+
+@pytest.mark.parametrize("period", ["period=month&month=2027-09", "period=month&month=2026-12", "period=ytd&month=2027-09",
+                                    "period=all&month=2027-09", "period=custom&date_from=2026-10-01&date_to=2027-09-30",
+                                    "period=custom&date_from=2027-02-01&date_to=2027-03-31"])
+def test_a_figure_reads_the_same_on_every_tab(mohab, period):
+    mohab.on("2027-09-30")
+    get = lambda path: mohab.b.client.get(f"{path}?{period}").text
+    overview, expenses, investments, budget = get("/"), get("/birdview/expenses"), get("/investments"), get("/budget")
+    flat = lambda html: re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", html))
+    money_out = {"Overview": _figure(overview, r"<summary><span>Money out</span><b>([^<]+)</b>"),
+                 "Expense analysis": _figure(expenses, r'aria-label="Money out".*?stat-tile-value[^>]*>([^<]+)<'),
+                 "Budget": _figure(flat(budget), r"Spent ([\d,]+) ")}
+    assert len({money(v).copy_abs() for v in money_out.values() if v}) == 1, money_out
+    money_in = {"Overview": _figure(overview, r"<summary><span>Money in</span><b>([^<]+)</b>"),
+                "Investments": _figure(flat(investments), r"Of ([\d,]+) money in")}
+    assert len({money(v) for v in money_in.values() if v}) == 1, money_in
+    savings = {"Overview": _figure(overview, r'aria-label="Savings rate".*?stat-tile-value[^>]*>(.*?)</span>'),
+               "Investments": _figure(flat(investments), r"Saved and invested.*? ([\d.,−—-]+ ?%?) Savings rate")}
+    assert len({v.replace(" ", "").rstrip("%") for v in savings.values() if v}) == 1, savings
+    gain = {"Overview": _figure(overview, r"<span>Net gain or loss</span><b[^>]*>([^<]+)</b>"),
+            "Investments": _figure(investments, r'inv-result-tile.*?stat-tile-value[^>]*>([^<]+)<')}
+    assert len({v.strip() for v in gain.values() if v}) == 1, gain
+    cash = {"Overview": _figure(flat(overview), r"Brokerage cash ([\d,]+)"),
+            "Investments": _figure(flat(investments), r"Brokerage cash ([\d,]+)")}
+    assert len({v for v in cash.values() if v}) == 1, cash

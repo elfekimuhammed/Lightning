@@ -229,7 +229,7 @@
 <span class="inv-saved-body">
   <span class="waffle inv-waffle" role="img" aria-label="Of {{ w.money_in|money }} money in: {{ bar.invested_amount|money }} invested, {{ (bar.kept - bar.invested_amount)|money }} kept, {{ bar.spent_amount|money }} spent; each square is 1%">{% for cell in bar.cells %}<i class="{{ cell }}"></i>{% endfor %}</span>
   <span class="inv-saved-side">
-    <span class="inv-saved-figures"><span><b>{{ '%.0f'|format(w.saved if w.saved > 0 else 0) }}<small>%</small></b><em>{{ fig.savings_rate.label }}</em></span><span class="is-invest"><b>{{ '%.0f'|format(w.invested or 0) }}<small>%</small></b><em>{{ fig.investing_rate.label }} · part of it</em></span></span>
+    <span class="inv-saved-figures"><span><b>{% if w.saved < -100 %}—{% else %}{{ rate(w.saved) }}<small>%</small>{% endif %}</b><em>{{ fig.savings_rate.label }}</em></span><span class="is-invest"><b>{{ rate(w.invested or 0) }}<small>%</small></b><em>{{ fig.investing_rate.label }} · part of it</em></span></span>
     <span class="saved-key"><span><i class="k invested"></i>Invested {{ bar.invested_amount|money }}</span><span><i class="k kept"></i>Kept {{ (bar.kept - bar.invested_amount)|money }}</span><span><i class="k spent"></i>Spent {{ bar.spent_amount|money }}</span></span>
   </span>
 </span>
