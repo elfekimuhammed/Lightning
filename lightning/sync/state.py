@@ -154,8 +154,11 @@ class HomeProtocolModel:
             known = self._grants.get(message.checkout_id)
             if known is not None and known.grant.borrower_id != message.borrower_id:
                 raise ProtocolError("UNAUTHORIZED", "Only the granted borrower can cancel")
-            if known is not None and known.activated:
-                raise ProtocolError("ACTIVE_CHECKOUT", "Activated checkout must be handed back")
+            if known is not None and (known.activated
+                                      or any(returned.checkout_id == message.checkout_id
+                                             for returned, _ in self._returns.values())
+                                      or (self.active is known and self.state is not HomeState.LENT)):
+                raise ProtocolError("ACTIVE_CHECKOUT", "Activated or returned checkout cannot cancel")
             receipt = Cancelled(message.checkout_id, message.borrower_id,
                                 known.grant.epoch if known is not None else 0)
             self._cancellations[message.checkout_id] = (message, receipt)

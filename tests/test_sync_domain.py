@@ -205,6 +205,10 @@ def test_received_keeps_authority_away_until_matching_publication():
     assert home.receive_return(message, authenticated_peer=grant.borrower_id) == acceptance
     assert home.state is HomeState.AT_HOME
     assert home.checkpoint_id == acceptance.checkpoint_id
+    with pytest.raises(ProtocolError) as caught:
+        home.cancel(BorrowCancel(ident(), grant.checkout_id, grant.borrower_id, True),
+                    authenticated_peer=grant.borrower_id)
+    assert caught.value.code == "ACTIVE_CHECKOUT"
 
 
 def test_return_succeeds_when_activation_ack_was_lost():
@@ -212,6 +216,11 @@ def test_return_succeeds_when_activation_ack_was_lost():
     grant = home.borrow(request, authenticated_peer=request.borrower_id)
     message = returning(request, grant)
     assert isinstance(home.receive_return(message, authenticated_peer=grant.borrower_id), Received)
+    assert home.state is HomeState.RETURN_RECEIVED
+    with pytest.raises(ProtocolError) as caught:
+        home.cancel(BorrowCancel(ident(), grant.checkout_id, grant.borrower_id, True),
+                    authenticated_peer=grant.borrower_id)
+    assert caught.value.code == "ACTIVE_CHECKOUT"
     assert home.state is HomeState.RETURN_RECEIVED
 
 
