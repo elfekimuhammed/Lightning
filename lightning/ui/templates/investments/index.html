@@ -9,7 +9,7 @@
 
 {% if not accounts %}<div class="card empty">Investments live in a brokerage account or a physical asset account. <a href="/accounts/new?type=BROKERAGE">Add a brokerage account</a></div>
 {% else %}
-{% if not owned_rows %}<section class="card empty"><h2>No holdings yet</h2><p>{% if investment_report.investment_cash %}{{ investment_report.investment_cash|money }} {{ base if base is defined else '' }} of brokerage cash is ready in your investment accounts. {% endif %}Record a holding to see portfolio value, performance, and allocation.</p><p class="muted small">Holdings are recorded from their account. <a href="/accounts">Open accounts</a></p></section>
+{% if not owned_rows and not period_activity %}<section class="card empty"><h2>No holdings yet</h2><p>{% if investment_report.investment_cash %}{{ investment_report.investment_cash|money }} {{ base if base is defined else '' }} of brokerage cash is ready in your investment accounts. {% endif %}Record a holding to see portfolio value, performance, and allocation.</p><p class="muted small">Holdings are recorded from their account. <a href="/accounts">Open accounts</a></p></section>
 {% else %}
 {% set result = investment_report.result %}
 <section class="stat-tiles inv-top" aria-label="This period">
@@ -29,7 +29,7 @@
     <span class="stat-tile-head">{{ tone_icon('hold') }}<span class="stat-tile-label">{{ fig.portfolio_value.label }}</span><span class="stat-chip">Last 6 months</span></span>
     {% if value_spark.spark.points %}<span class="stat-tile-visual" aria-hidden="true"><svg class="stat-tile-spark tone-hold" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="{{ value_spark.spark.area }}"/><polyline points="{{ value_spark.spark.points }}" vector-effect="non-scaling-stroke"/></svg><span class="stat-tile-dot tone-hold" style="left:{{ '%.2f'|format(value_spark.spark.last[0]) }}%;top:{{ '%.2f'|format(value_spark.spark.last[1]) }}%"></span></span>{% endif %}
     <span class="stat-tile-value">{% if value_spark.latest is not none %}{{ value_spark.latest|money }}<small>{{ base }}</small>{% else %}Unavailable{% endif %}</span>
-    <span class="stat-tile-sub">{% if value_spark.first is not none and value_spark.latest is not none %}<b class="{{ (value_spark.latest - value_spark.first)|tone }}">{{ (value_spark.latest - value_spark.first)|money(True) }}</b> since six months ago · today{% else %}Holdings and brokerage cash · today{% endif %}</span>
+    <span class="stat-tile-sub">{% if value_spark.first is not none and value_spark.latest is not none %}<b class="{{ (value_spark.latest - value_spark.first)|tone }}">{{ (value_spark.latest - value_spark.first)|money(True) }}</b> since six months ago · today{% else %}Holdings · today{% endif %}</span>
   </a>
 </section>
 

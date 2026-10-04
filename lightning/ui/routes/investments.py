@@ -211,6 +211,8 @@ async def portfolio(request: Request):
     notes = [n for n in (keynotes.best_class([{"label": k, "result": v} for k, v in class_results.items()]),
                          keynotes.at_cost(investment_report.get("at_cost", []))) if n]
     extras = _page_extras(c, period, p, prior, owned_rows, prior_custody, before_day, investment_report)
+    # Everything sold in the period: nothing is held, but the period still has a gain or loss to show.
+    period_activity = bool(investment_report.get("result") or p.realized - prior.realized or period_distributions)
     return render(request, "investments/index.html", p=p, asset_class_rows=asset_class_rows, **extras,
                   pos=position, notes=notes, investment_donut=visuals.holdings_donut(position),
                   portfolio_chart=visuals.portfolio_trend([(pt["month"], pt["value"]) for pt in investment_trend]),
@@ -219,7 +221,7 @@ async def portfolio(request: Request):
                   owned_cost=owned_cost, owned_unrealized=owned_unrealized, custody_units=custody,
                   own_by_holding=own_by_holding, period=period, period_realized=p.realized-prior.realized,
                   period_dividends=period_distributions, since_xirr=(p.xirr if not any(custody.values()) and _year_of_history(c, period.end) else None),
-                  owned_rows=owned_rows, horizons=horizons,
+                  owned_rows=owned_rows, period_activity=period_activity, horizons=horizons,
                   buckets=buckets, targets=targets, target_total=target_total,
                   owned_positions=owned_positions, max_class_result=max_class_result,
                   allocation_classes=allocation_classes, own_units_by_holding=own_units_by_holding,
