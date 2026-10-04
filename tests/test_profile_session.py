@@ -1,6 +1,8 @@
 import json
 import os
 import sqlite3
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -474,3 +476,95 @@ def test_resume_interrupted_restore_advances_durable_phases(tmp_path, monkeypatc
     session.unlock(str(live), PASSWORD)
     assert session.container.settings.get("restore_marker") == "current"
     session.close()
+
+
+@pytest.mark.skipif(os.name == "nt", reason="Process-kill phase injection uses the POSIX adapter")
+@pytest.mark.parametrize("boundary", ["P1", "P2", "P3", "P4"])
+def test_process_kill_restore_recovery_preserves_evidence(tmp_path, boundary):
+    """A fresh interpreter resumes each durable phase after abrupt process exit."""
+    import hashlib
+
+    session, _ = created(tmp_path)
+    live, paths = session.paths.db_path, session.paths
+    session.container.settings.set("restore_marker", "before restore")
+    selected = session.container.backup_now()
+    session.container.settings.set("restore_marker", "current live")
+    session.close()
+    old_live_hash = hashlib.sha256(live.read_bytes()).hexdigest()
+    root = str(session.root)
+    live_name, source_name = str(live), str(selected)
+
+    crash_code = r'''
+import os, sys
+from lightning.database.promotion import PromotionPhase, SqlitePromotionJournalStore
+from lightning.database.promotion import PosixPromotionFileOps
+from lightning.runtime.session import ProfileSession
+root, live, source, password, boundary = sys.argv[1:]
+if boundary == "P1":
+    original = SqlitePromotionJournalStore.prepare
+    def interrupt(self, *args, **kwargs):
+        result = original(self, *args, **kwargs)
+        os._exit(73)
+    SqlitePromotionJournalStore.prepare = interrupt
+elif boundary == "P2":
+    original = SqlitePromotionJournalStore.advance
+    def interrupt(self, old, new):
+        result = original(self, old, new)
+        if new.phase is PromotionPhase.PREVIOUS_PROTECTED:
+            os._exit(73)
+        return result
+    SqlitePromotionJournalStore.advance = interrupt
+elif boundary == "P3":
+    original = PosixPromotionFileOps.atomic_replace
+    def interrupt(self, source, destination):
+        result = original(self, source, destination)
+        os._exit(73)
+    PosixPromotionFileOps.atomic_replace = interrupt
+elif boundary == "P4":
+    original = SqlitePromotionJournalStore.commit_authority
+    def interrupt(self, journal):
+        result = original(self, journal)
+        os._exit(73)
+    SqlitePromotionJournalStore.commit_authority = interrupt
+else:
+    raise AssertionError(boundary)
+ProfileSession(root).restore_backup(live, source, password)
+'''
+    crashed = subprocess.run(
+        [sys.executable, "-c", crash_code, root, live_name, source_name, PASSWORD, boundary],
+        cwd=Path(__file__).resolve().parents[1], capture_output=True, text=True, timeout=45,
+    )
+    assert crashed.returncode == 73, crashed.stderr
+    marker = next(paths.data_dir.glob(".lightning-restore-*.state"))
+    from lightning.runtime.restore import RestoreManifest
+    manifest = RestoreManifest.from_bytes(marker.read_bytes())
+    assert manifest.state == "PENDING"
+    source_copy = paths.backups_dir / manifest.source_copy_name
+    pre_restore = paths.backups_dir / manifest.pre_restore_name
+    protected_hashes = {
+        source_copy: hashlib.sha256(source_copy.read_bytes()).hexdigest(),
+        pre_restore: hashlib.sha256(pre_restore.read_bytes()).hexdigest(),
+    }
+
+    resume_code = r'''
+import sys
+from lightning.runtime.session import ProfileSession
+session = ProfileSession(sys.argv[1])
+session.resume_interrupted_restore(sys.argv[2], sys.argv[3])
+assert session.container is None and session.lock is None
+'''
+    resumed = subprocess.run(
+        [sys.executable, "-c", resume_code, root, live_name, PASSWORD],
+        cwd=Path(__file__).resolve().parents[1], capture_output=True, text=True, timeout=45,
+    )
+    assert resumed.returncode == 0, resumed.stderr
+    assert RestoreManifest.from_bytes(marker.read_bytes()).state == "COMPLETE"
+    for path, expected in protected_hashes.items():
+        assert path.is_file()
+        assert hashlib.sha256(path.read_bytes()).hexdigest() == expected
+    previous = paths.data_dir / manifest.previous_name
+    assert hashlib.sha256(previous.read_bytes()).hexdigest() == old_live_hash
+    fresh = ProfileSession(session.root)
+    fresh.unlock(str(live), PASSWORD)
+    assert fresh.container.settings.get("restore_marker") == "before restore"
+    fresh.close()
