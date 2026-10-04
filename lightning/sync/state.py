@@ -84,11 +84,10 @@ class HomeProtocolModel:
         if claimed != authenticated_peer or claimed not in self.paired_devices:
             raise ProtocolError("UNAUTHORIZED", "Borrower identity is not paired and authenticated")
 
-    def _remember(self, operation_id: str, message: object) -> None:
+    def _check_operation(self, operation_id: str, message: object) -> None:
         previous = self._operations.get(operation_id)
         if previous is not None and previous != message:
             raise ProtocolError("REPLAY_CONFLICT", "Operation ID reused for different content")
-        self._operations[operation_id] = message
 
     def borrow(self, request: BorrowRequest, *, authenticated_peer: str) -> BorrowGrant:
         with self._lock:
@@ -101,7 +100,7 @@ class HomeProtocolModel:
                 self.compatibility.require_same(request.compatibility)
             except ValueError as exc:
                 raise ProtocolError("INCOMPATIBLE", str(exc)) from exc
-            self._remember(request.operation_id, request)
+            self._check_operation(request.operation_id, request)
             if request.checkout_id in self._cancellations:
                 raise ProtocolError("CANCELLED", "This checkout was durably cancelled by the borrower")
             prior = self._grants.get(request.checkout_id)
@@ -115,6 +114,7 @@ class HomeProtocolModel:
                 self.checkpoint_id, self.checkpoint_sha256
             ):
                 raise ProtocolError("STALE_BASE", "Prefetch does not match the accepted checkpoint")
+            self._operations[request.operation_id] = request
             self.epoch += 1
             grant = BorrowGrant(
                 request.checkout_id, request.borrower_id, self.lineage_id, self.epoch,
@@ -129,7 +129,7 @@ class HomeProtocolModel:
     def activate(self, message: BorrowActivated, *, authenticated_peer: str) -> BorrowGrant:
         with self._lock:
             self._peer(message.borrower_id, authenticated_peer)
-            self._remember(message.operation_id, message)
+            self._check_operation(message.operation_id, message)
             if message.checkout_id in self._cancellations:
                 raise ProtocolError("CANCELLED", "Cancelled checkout cannot be activated")
             active = self.active
@@ -138,6 +138,7 @@ class HomeProtocolModel:
                     or message.borrower_id != active.grant.borrower_id
                     or message.epoch != active.grant.epoch):
                 raise ProtocolError("STALE_AUTHORITY", "Activation does not match the active grant")
+            self._operations[message.operation_id] = message
             active.activated = True
             return active.grant
 
@@ -145,7 +146,7 @@ class HomeProtocolModel:
         """Caller asserts it durably recorded ABORTED before sending this."""
         with self._lock:
             self._peer(message.borrower_id, authenticated_peer)
-            self._remember(message.operation_id, message)
+            self._check_operation(message.operation_id, message)
             prior = self._cancellations.get(message.checkout_id)
             if prior is not None:
                 if prior[0] != message:
@@ -159,6 +160,7 @@ class HomeProtocolModel:
                                              for returned, _ in self._returns.values())
                                       or (self.active is known and self.state is not HomeState.LENT)):
                 raise ProtocolError("ACTIVE_CHECKOUT", "Activated or returned checkout cannot cancel")
+            self._operations[message.operation_id] = message
             receipt = Cancelled(message.checkout_id, message.borrower_id,
                                 known.grant.epoch if known is not None else 0)
             self._cancellations[message.checkout_id] = (message, receipt)
@@ -171,7 +173,7 @@ class HomeProtocolModel:
         """Record exact return identity after the complete ciphertext is flushed."""
         with self._lock:
             self._peer(message.borrower_id, authenticated_peer)
-            self._remember(message.operation_id, message)
+            self._check_operation(message.operation_id, message)
             prior = self._returns.get(message.return_id)
             if prior is not None:
                 if prior[0] != message:
@@ -188,6 +190,7 @@ class HomeProtocolModel:
                     or message.epoch != active.grant.epoch
                     or message.parent_checkpoint_id != active.grant.base_checkpoint_id):
                 raise ProtocolError("STALE_AUTHORITY", "Return does not match the active checkout")
+            self._operations[message.operation_id] = message
             receipt = Received(message.return_id, message.checkout_id, message.candidate_sha256)
             self._returns[message.return_id] = (message, receipt)
             self.state = HomeState.RETURN_RECEIVED

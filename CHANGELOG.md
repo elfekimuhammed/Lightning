@@ -10,6 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-05 · Codex: Rejected checkout/activation/cancel/return attempts no longer reserve an operation ID in the in-memory sync model; corrected retries can reuse it. Added focused protocol regressions.
 - 2026-10-05 · Codex: Claimed Luna's next 03a restore-safety slice after GitHub run 37239350883 passed Linux and Windows package gates: durable operation/source evidence, Windows marker durability, then explicit repair.
 - 2026-10-05 · Codex: Made the fake GitHub upload corruption deterministic by flipping a payload bit; the random ZIP's last byte could already be `X`, causing a false CI pass in the release guard test.
 - 2026-10-05 · Codex: Fixed restore screen tests to create backups and read encrypted settings on the profile's owning ASGI thread; the first GitHub Linux gate exposed the test-thread mistake.

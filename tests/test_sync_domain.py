@@ -142,6 +142,36 @@ def test_stale_base_compatibility_and_peer_are_rejected():
     assert home.state is HomeState.AT_HOME
 
 
+def test_rejected_checkout_and_return_messages_do_not_reserve_operation_ids():
+    home, request, _ = fixture()
+    stale_request = dataclasses.replace(request, base_sha256="f" * 64)
+    with pytest.raises(ProtocolError, match="Prefetch"):
+        home.borrow(stale_request, authenticated_peer=request.borrower_id)
+    grant = home.borrow(request, authenticated_peer=request.borrower_id)
+
+    activation = BorrowActivated(ident(), grant.checkout_id, grant.borrower_id, grant.epoch)
+    with pytest.raises(ProtocolError, match="active grant"):
+        home.activate(dataclasses.replace(activation, epoch=grant.epoch + 1),
+                      authenticated_peer=request.borrower_id)
+    assert home.activate(activation, authenticated_peer=request.borrower_id) == grant
+
+    returned = returning(request, grant)
+    with pytest.raises(ProtocolError, match="active checkout"):
+        home.receive_return(dataclasses.replace(returned, epoch=grant.epoch + 1),
+                            authenticated_peer=request.borrower_id)
+    assert isinstance(home.receive_return(returned, authenticated_peer=request.borrower_id), Received)
+
+
+def test_rejected_cancellation_does_not_reserve_its_operation_id():
+    home, request, _ = fixture()
+    grant = activated(home, request)
+    rejected = BorrowCancel(ident(), grant.checkout_id, grant.borrower_id, True)
+    with pytest.raises(ProtocolError, match="cannot cancel"):
+        home.cancel(rejected, authenticated_peer=request.borrower_id)
+    another = dataclasses.replace(rejected, checkout_id=ident())
+    assert home.cancel(another, authenticated_peer=request.borrower_id).epoch == 0
+
+
 def test_authenticated_durable_cancel_before_grant_tombstones_checkout():
     home, request, _ = fixture()
     cancel = BorrowCancel(ident(), request.checkout_id, request.borrower_id, True)
