@@ -43,11 +43,29 @@ jobs:
           python -m pip download --no-deps --no-binary=:all: \
             --dest /tmp/lightning-android-source "${PROBE_PACKAGE}==${PROBE_VERSION}"
           tar -xzf /tmp/lightning-android-source/*.tar.gz -C /tmp/lightning-android-source
+      - name: Supply SQLCipher Conan Android API setting for this experiment
+        if: matrix.package == 'sqlcipher3'
+        env:
+          PROBE_VERSION: ${{ matrix.version }}
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          source = Path('/tmp/lightning-android-source') / f"sqlcipher3-{os.environ['PROBE_VERSION']}" / 'setup.py'
+          original = source.read_text(encoding='iso-8859-1')
+          needle = "    settings.append('arch=%s' % arch)"
+          assert original.count(needle) == 1, 'upstream setup changed; review the Conan patch'
+          patched = original.replace(needle, needle + "\n    settings.append('os.api_level=24')")
+          source.write_text(patched, encoding='iso-8859-1')
+          PY
       - name: Cross-build CPython 3.13 arm64 wheel
         env:
           CIBW_BUILD: 'cp313-*'
           CIBW_ARCHS_ANDROID: arm64_v8a
           CIBW_TEST_SKIP: '*'
+          # cibuildwheel accepts Bash command substitution in its per-build
+          # environment. Locate the target Python headers, not host headers.
+          CIBW_ENVIRONMENT_ANDROID: 'CFLAGS="$CFLAGS -I$(dirname $(find /tmp/cibw-run-*/cp313-android_arm64_v8a/python -name Python.h -print -quit))"'
           ANDROID_API_LEVEL: '24'
           PROBE_PACKAGE: ${{ matrix.package }}
           PROBE_VERSION: ${{ matrix.version }}

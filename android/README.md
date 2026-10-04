@@ -36,3 +36,14 @@ reached its Conan OpenSSL dependency graph and stopped because the Android
 `settings.os.api_level` was undefined. These are build-configuration failures,
 not evidence that compatible wheels are impossible. Fix and rerun both build
 configurations before deciding whether the native adapter is necessary.
+
+The next manual source-wheel run tests those two configuration fixes. The
+cryptography job asks cibuildwheel to locate the target Python header and add
+its directory to `CFLAGS`. The SQLCipher job patches only the downloaded
+0.6.2 `setup.py` in its disposable build directory to pass
+`os.api_level=24` to Conan. Its exact expected source line is checked before
+patching. This is a feasibility probe, not a patched package for release;
+produced wheels still need dependency/link, 16 KB page and on-device import
+checks. [cibuildwheel environment syntax](https://cibuildwheel.pypa.io/en/stable/options/#environment)
+and [Conan Android API setting](https://docs.conan.io/2.14/examples/cross_build/android/ndk.html)
+are the build references.
