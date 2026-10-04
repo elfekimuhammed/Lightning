@@ -195,6 +195,13 @@ class PositionService:
                                        row.asset_class_code, quantity, value, asset.unit))
         return result, unvalued
 
+    def portfolio_value_at(self, as_of: date | str) -> Decimal:
+        """Portfolio value on a date, as Position.portfolio_value gives it, without the plan reads a whole
+        Position needs (for a trend of month ends)."""
+        classes, _ = self.class_values(fmt_date(parse_date(as_of)))
+        return sum((c.value for c in classes if not c.is_deposit), ZERO)
+
+    @request_cached
     def class_values(self, as_of: date | str) -> tuple[list[ClassValue], list[str]]:
         holdings, unvalued = self.owned_holdings(as_of)
         factors = self.investments.liquidation_factors()

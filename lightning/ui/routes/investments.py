@@ -13,7 +13,6 @@ from lightning.core.refs import DocType
 from lightning.core.money import ZERO, to_decimal
 
 from ..web import container, redirect, render
-from ..charts import line_chart
 from ...assets.catalog import instruments
 from ..periods import parse_period
 from ...investments.report import (PLANNER_MODES, build_investment_report, investing_rate, investment_period, saved_and_invested,
@@ -97,26 +96,6 @@ async def portfolio(request: Request):
         investment_report["net_money"] - investment_report["recon_result"] - opening_adjustments
         if investment_report["recon_opening"] is not None and investment_report["recon_closing"] is not None and
         investment_report["recon_result"] is not None else None)
-    # Month-end owned portfolio value, including brokerage cash, for the trend
-    # card beside the selected-period investment summary.
-    trend_start = period.end.replace(day=1)
-    for _ in range(5):
-        trend_start = (trend_start - timedelta(days=1)).replace(day=1)
-    investment_trend = []
-    trend_cursor = trend_start
-    while trend_cursor <= period.end.replace(day=1):
-        month_key = trend_cursor.strftime("%Y-%m")
-        _, month_last = parse_month(month_key)
-        snapshot_end = min(month_last, period.end)
-        snapshot = build_investment_report(c.db, c.accounts, c.assets, c.reporting,
-                                           fmt_date(trend_cursor), fmt_date(snapshot_end))
-        total = snapshot["value"]   # Portfolio value: holdings only; brokerage cash is cash you own
-        investment_trend.append({"month": trend_cursor.strftime("%Y-%m"), "value": total,
-                                  "date": fmt_date(snapshot_end)})
-        trend_cursor = (trend_cursor.replace(day=28) + timedelta(days=4)).replace(day=1)
-    investment_trend_max = max((point["value"] for point in investment_trend
-                                if point["value"] is not None), default=ZERO)
-    investment_trend_chart = line_chart([point["value"] for point in investment_trend])
     prior = c.investments.portfolio(before_day)
     prior_by_key={(x.account_id,x.asset_id):x for x in prior.positions}
     custody = defaultdict(lambda: ZERO)
@@ -215,7 +194,6 @@ async def portfolio(request: Request):
     period_activity = bool(investment_report.get("result") or p.realized - prior.realized or period_distributions)
     return render(request, "investments/index.html", p=p, asset_class_rows=asset_class_rows, **extras,
                   pos=position, notes=notes, investment_donut=visuals.holdings_donut(position),
-                  portfolio_chart=visuals.portfolio_trend([(pt["month"], pt["value"]) for pt in investment_trend]),
                   accounts=c.investments.investment_accounts(),
                   has_assets=bool(c.assets.investments(active_only=True)), owned_value=owned_value,
                   owned_cost=owned_cost, owned_unrealized=owned_unrealized, custody_units=custody,
@@ -226,9 +204,7 @@ async def portfolio(request: Request):
                   owned_positions=owned_positions, max_class_result=max_class_result,
                   allocation_classes=allocation_classes, own_units_by_holding=own_units_by_holding,
                   starting_owned_value=starting_owned_value, period_value_change=owned_value-starting_owned_value,
-                  investment_report=investment_report, investment_trend=investment_trend,
-                  investment_trend_max=investment_trend_max,
-                  investment_trend_chart=investment_trend_chart, base=c.reporting.base_currency)
+                  investment_report=investment_report, base=c.reporting.base_currency)
 
 
 def _first_trade_dates(c, day: str) -> dict[tuple[int, int], str]:
@@ -251,8 +227,8 @@ def _portfolio_value_spark(c, end: date) -> dict:
         cursor = (cursor - timedelta(days=1)).replace(day=1)
     for first in reversed(months):
         _, last = parse_month(first.strftime("%Y-%m"))
-        snap = build_investment_report(c.db, c.accounts, c.assets, c.reporting, fmt_date(first), fmt_date(min(last, end)))
-        values.append(snap["value"])
+        # The Position's figure, as on the Overview: deposits are their own figure, not portfolio.
+        values.append(c.position.portfolio_value_at(min(last, end)))
     return {"spark": charts.sparkline(values), "values": values, "latest": values[-1] if values else None,
             "first": next((v for v in values if v), None)}
 

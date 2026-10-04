@@ -1123,3 +1123,8 @@ def test_a_figure_reads_the_same_on_every_tab(mohab, period):
     cash = {"Overview": _figure(flat(overview), r"Brokerage cash ([\d,]+)"),
             "Investments": _figure(flat(investments), r"Brokerage cash ([\d,]+)")}
     assert len({v for v in cash.values() if v}) == 1, cash
+    if "2027-03-31" not in period and "2026-12" not in period:   # the Investments tile is as of today
+        # Deposits are their own figure: the CD used to count in Portfolio value on Investments only.
+        portfolio = {"Overview": _figure(flat(overview), r"Portfolio value ([\d,]+)"),
+                     "Investments": _figure(flat(investments), r"Portfolio value Last 6 months ([\d,]+)")}
+        assert None not in portfolio.values() and len(set(portfolio.values())) == 1, portfolio
