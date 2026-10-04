@@ -10,6 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-05 · Codex: GitHub run 37244657944 passed Linux tests, Windows profile and UI tests, packaged-app self-check and WebView2 smoke after the restore process-exit tests landed.
 - 2026-10-05 · Codex: Android wheel run 37244107860 reached the native toolchains but neither package built: cryptography still missed target Python headers; SQLCipher's Conan OpenSSL graph needs an explicit compiler profile. Recorded the next build checks.
 - 2026-10-05 · Codex: Added Luna's real process-exit restore tests at P1–P4; a fresh process resumes each journaled operation and verifies that all protected encrypted copies retain their hashes.
 - 2026-10-05 · Codex: Fixed the Android wheel probe's target-header lookup after GitHub run 37240415999 showed cibuildwheel passes shell globs literally in its environment command; both compiler jobs stopped before testing the native fixes.
