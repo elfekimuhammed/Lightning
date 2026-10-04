@@ -244,7 +244,8 @@ class PositionService:
 
     def change_in_what_you_own(self, start: date | str, end: date | str,
                                since_first_record: bool = False) -> tuple[Decimal | None, str]:
-        """Change in what you own = What you own at the end − What you own the day before the start.
+        """Change in what you own = What you own at the end − What you own the day before the start
+        − opening balances recorded in the period (recording what you already had is not a change).
 
         Returns (change, reason); change is None, with the reason, when a valuation is missing."""
         start_day, end_day = parse_date(start), parse_date(end)
@@ -257,7 +258,8 @@ class PositionService:
         if opening.unvalued:
             return None, ("The first recorded position is missing a required valuation." if since_first_record
                           else "The position immediately before this period is missing a required valuation.")
-        return closing.total - opening.total, ""
+        # Opening balances recorded inside the period were already yours: not a change.
+        return closing.total - opening.total - self.reporting.opening_balances_between(start_day, end_day), ""
 
     def change_in_net_worth(self, start: date | str, end: date | str,
                             since_first_record: bool = False) -> tuple[Decimal | None, str]:
@@ -275,7 +277,7 @@ class PositionService:
         if opening.unvalued:
             return None, ("The first recorded position is missing a required valuation." if since_first_record
                           else "The position immediately before this period is missing a required valuation.")
-        return closing.net_worth - opening.net_worth, ""
+        return closing.net_worth - opening.net_worth - self.reporting.opening_balances_between(start_day, end_day), ""
 
     def at(self, as_of: date | str | None = None) -> Position:
         return self._at(fmt_date(parse_date(as_of) if as_of is not None else today()))

@@ -245,6 +245,12 @@ class ReportQueries:
         )
         return dict(row) if row else None
 
+    def opening_total(self, start: str, end: str) -> int:
+        """Owned opening balances and existing holdings recorded between two dates, in base e6."""
+        return self.db.scalar(f"SELECT COALESCE(SUM(le.amount_base_e6),0) FROM ledger_entries le {POSTED} "
+                              "WHERE t.type='OPN' AND le.owner_id IS NULL AND le.date BETWEEN ? AND ?",
+                              (start, end)) or 0
+
     def first_entry_date(self) -> str | None:
         # Opening balances anchor an account; they are not activity for the All time view.
         return self.db.scalar(f"SELECT MIN(le.date) FROM ledger_entries le {POSTED} WHERE t.type<>'OPN'")

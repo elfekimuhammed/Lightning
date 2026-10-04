@@ -268,6 +268,12 @@ class ReportingService:
         return rows
 
     @request_cached
+    def opening_balances_between(self, start: date | str, end: date | str) -> Decimal:
+        """What you recorded as already owned (opening balances and existing holdings, at their recorded
+        value) between two dates. Recording something you had is not a change in what you own."""
+        return from_e6(self.q.opening_total(self._day(start), self._day(end)))
+
+    @request_cached
     def first_activity_date(self) -> str | None:
         return self.q.first_entry_date()
 
