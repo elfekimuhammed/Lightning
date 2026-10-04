@@ -48,5 +48,5 @@ Last rewritten 2026-10-04 · Claude.
      7. Check against bank offers "mark all checked up to this date" when the balances match.
      8. At phone width, the top menu and the accounts fit on screen.
      9. Loans still to pay and Check against bank show without opening a folded row.
-  3. *Competition:* should Lightning get gam'eya (rotating savings) and zakat, as Qershnat has them, and should its first-run be free with no card (Say's top complaint)?
+  3. *Competition:* should Lightning get gam'eya (rotating savings) and zakat, as Qershnat has them? (Trial decided: 7 days free, never a lock; Project Overview › Product decisions.)
   4. *UX:* recurring suggestions, and whether to add Accounts and Transactions to the main menu (Project Overview › UX plan, "Still open").

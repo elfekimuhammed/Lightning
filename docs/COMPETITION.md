@@ -23,7 +23,7 @@ Who else helps people with their money, what their users love and hate, and what
 3. **Arabic and Egyptian money first.** Vodafone Cash, InstaPay, gold, certificates, CIB and NBE SMS. International apps do not know them; local apps know only the first few.
 4. **Never be the busy one.** YNAB's most common complaint is a busy interface; Actual's is setup. Mohab's test stands: fewest clicks, one name for one thing.
 5. **A wrong number is worse than a missing one.** Every bank-sync review complains of numbers that drift. Lightning shows what each figure includes (Architecture, financial rules).
-6. **Price must stay obvious, and a free trial must not ask for a card.** Say's biggest complaint, in English and Arabic, is being asked to subscribe before trying it. Users also leave over price rises (YNAB), per-person pricing (Copilot) and ads in paid versions (Money Manager). Say the price on the website before we decide it.
+6. **Price must stay obvious, and a free trial must not ask for a card.** The owner's decision (2026-10-04): 7 days free, then a reminder, never a lock. Say's biggest complaint, in English and Arabic, is being asked to subscribe before trying it. Users also leave over price rises (YNAB), per-person pricing (Copilot) and ads in paid versions (Money Manager). Say the price on the website before we decide it.
 7. **Egyptian life is more than spending.** The fast-rising local app, Qershnat, adds the gam'eya (rotating savings circle), zakat, family assets and reminders, and users ask for more of the same. Lightning's wealth side is the right ground; gam'eya and zakat are open questions for the owner.
 
 ## The field in one table
