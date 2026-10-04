@@ -31,7 +31,7 @@ The hand-off between the AIs working here (Codex and Claude sessions). Read it f
 - **Owner decisions 2026-10-03 (both done):** Budget's low-confidence background estimates stay in Left in plan, marked with a small "!" that says why (Overview and Budget now show one figure, from `BudgetService.plan_summary`); the Overview's Investments section is one row of figures with a link to the Investments tab.
 - **Logo (done):** the app shows the two-leaf mark (sidebar, favicon, profile screen) and the Windows `lightning.ico` is rebuilt from the two-leaf app icon (Claude).
 - **Fixed 2026-10-04 (owner screenshot):** Budget's long periods compare Planned and Spent over the same months, from the first month with a plan (Claude).
-- **Guideline 3.11 (2026-10-04 · done):** `docs/BRAND_GUIDELINE.html` is the same file as the website's `brand-guidelines.html`; keep them identical. The Investment planner button uses the vivid gradient `linear-gradient(135deg,#00995C 0%,#0B6DD6 100%)` (`--vivid` in `style.css`, Claude).
+- **Guideline 3.12 (2026-10-04 · done):** `docs/BRAND_GUIDELINE.html` is the same file as the website's `brand-guidelines.html`; keep them identical. The Investment planner button uses the vivid gradient `linear-gradient(135deg,#00995C 0%,#0B6DD6 100%)` (`--vivid` in `style.css`, Claude).
 - **Questions for the owner:** UX: see the decisions at the end of **UX plan (guideline 3.6)**.
 
 ## What Lightning is
