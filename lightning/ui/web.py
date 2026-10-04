@@ -236,12 +236,17 @@ def create_app(c: Container | None = None) -> FastAPI:
         picked = {k: v for k, v in request.query_params.items() if k in PERIOD_KEYS}
         if not picked:
             saved = dict(parse_qsl(request.cookies.get(PERIOD_COOKIE, "")))
+            seen_in = saved.pop("seen_in", "")
+            now = month_of(today())
+            if saved.get("period", "month") == "month" and saved.get("month") == seen_in and seen_in != now:
+                saved["month"] = now   # "this month" moves on with the calendar; a month picked from the past stays
             if saved:  # same page, with the remembered period added to whatever else was asked for
                 return RedirectResponse(f"{request.url.path}?{urlencode({**dict(request.query_params), **saved})}", status_code=303)
             return await call_next(request)
         response = await call_next(request)
         if response.status_code == 200:  # only a period that worked is remembered
-            response.set_cookie(PERIOD_COOKIE, urlencode(picked), httponly=True, samesite="strict")
+            response.set_cookie(PERIOD_COOKIE, urlencode({**picked, "seen_in": month_of(today())}),
+                                httponly=True, samesite="strict")
         return response
 
     @app.get("/__health", include_in_schema=False)
