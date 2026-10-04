@@ -65,7 +65,7 @@ if m and method == "POST":
     rel = next(r for r in state["releases"] if r["id"] == int(m.group(1)))
     data = Path(input_file).read_bytes()
     if state.get("corrupt_upload") and m.group(2).endswith(".zip"):
-        data = data[:-1] + b"X"
+        data = data[:-1] + bytes([data[-1] ^ 0x01])
     aid = 5000 + sum(len(r["assets"]) for r in state["releases"])
     store = state_path.parent / f"asset-{aid}"
     store.write_bytes(data)

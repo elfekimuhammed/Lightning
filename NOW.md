@@ -20,7 +20,7 @@ Last rewritten 2026-10-05 · Codex.
 
 ## Codex
 
-- **Last done (2026-10-05):** tasks 01, 02a–02c and the first 03a restore preview: writer inventory, fixture, promotion, POSIX/Windows adapters and locked-profile encrypted restore. Focused checks pass. GitHub found two UI tests used SQLCipher from the wrong thread; the ASGI portal fix awaits CI. Restore still needs interrupted-operation repair and Windows acceptance. Checkout/return has an in-memory contract, not durable writer gates. Android has no pinned native wheels or APK.
+- **Last done (2026-10-05):** tasks 01, 02a–02c and first 03a restore preview: writer inventory, fixture, promotion, POSIX/Windows adapters and locked-profile encrypted restore. Focused checks pass. GitHub confirmed the ASGI portal test fix; one unrelated release test flaked because its random payload could already end in the corruption byte. The fake now flips a bit; CI rerun is pending. Restore needs repair and Windows acceptance. Checkout/return has an in-memory contract only. Android has no pinned native wheels or APK.
 - **In progress · claimed files:** Task 02d journal integration (`lightning/database/promotion.py`, `tests/test_database_promotion.py` landed; reboot/fault evidence and runtime gating remain); task 04a Android dependency/build feasibility (Codex: `android/`, `.github/workflows/android-feasibility.yml`, `.github/workflows/android-native-wheels.yml`); remaining task 05a message/status schemas (Codex: `lightning/sync/`, `tests/test_sync_domain.py`). Both Android source-wheel experiments failed at build configuration; see `android/README.md`. Codex owns `NOW.md` and `CHANGELOG.md` for this work.
 
 ## Next (unclaimed; claim it in your lane before you start)
