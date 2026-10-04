@@ -13,6 +13,7 @@ not know it.
 | [Project Overview](docs/PROJECT_OVERVIEW.md) | What Lightning is, the owner's decisions, the questions each screen answers, Mohab's test, the UX plan, known gaps, roadmap | The owner decides something, or what the product does or plans changes |
 | [Architecture](docs/ARCHITECTURE.md) | Module boundaries, financial rules, data model, UI contract, desktop app and encrypted profiles | You change how something is built or calculated |
 | [Glossary](docs/GLOSSARY.md) | One name and one meaning for every term and figure | You add or rename a term or figure |
+| [Competition](docs/COMPETITION.md) | The compass: every competitor, what their users love and hate, where Lightning wins and loses | You learn something new about a competitor, or before choosing between two designs |
 | [Brand guideline](docs/BRAND_GUIDELINE.html) | How every screen looks and reads. Part A is the app, Part B the website | The owner gives a new version. The website repo has the same file as `brand-guidelines.html`: change both together |
 | [Changelog](CHANGELOG.md) | Every change, newest first, under `Unreleased` at the top | Every change you push |
 | `docs/proposals/` | Designs not built yet (one file each) | You propose a design. When it is built, move what holds into Architecture and delete the proposal |

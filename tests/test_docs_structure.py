@@ -25,7 +25,7 @@ def test_the_hand_off_is_short_and_has_its_parts():
 
 
 def test_docs_holds_only_the_carrying_files_and_proposals():
-    allowed = {"PROJECT_OVERVIEW.md", "ARCHITECTURE.md", "GLOSSARY.md", "BRAND_GUIDELINE.html", "proposals"}
+    allowed = {"PROJECT_OVERVIEW.md", "ARCHITECTURE.md", "GLOSSARY.md", "COMPETITION.md", "BRAND_GUIDELINE.html", "proposals"}
     extra = {path.name for path in DOCS.iterdir()} - allowed
     assert not extra, f"new files under docs/ (AGENTS.md section 1): {sorted(extra)}"
     assert all(path.suffix == ".md" for path in (DOCS / "proposals").iterdir())

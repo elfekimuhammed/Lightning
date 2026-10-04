@@ -6,7 +6,7 @@ Last rewritten 2026-10-04 · Claude.
 
 ## Claude
 
-- **Last done (2026-10-04):** reviewed the multiple-devices proposal at the owner's request. The review is appended at the end of [`docs/proposals/multiple_devices.md`](docs/proposals/multiple_devices.md) and, revised after the owner's feedback, recommends the proposal's checkout cut down for version 1: the phone lends the database to a PC in seconds and captures bank SMS while it is lent. Before that: made the docs cheaper to read (`NOW.md`, reading rules, `tools/guideline.py`).
+- **Last done (2026-10-04):** wrote [`docs/COMPETITION.md`](docs/COMPETITION.md), the competitor compass (store pages were blocked, so no Arabic Egyptian review text was read; its last section says how to finish). Before that: reviewed the multiple-devices proposal (review at the end of [`docs/proposals/multiple_devices.md`](docs/proposals/multiple_devices.md)); made the docs cheaper to read.
 - **In progress · claimed files:** none.
 
 ## Codex
@@ -19,7 +19,8 @@ Last rewritten 2026-10-04 · Claude.
 1. **Release 0.5.0-beta.1:** check the Windows package, publish permanent versioned downloads, and add 0.5 to the website archive while keeping 0.4.
 2. **UX plan items 5, 6, 8 and 9** (Project Overview › UX plan). Claim `lightning/ui/templates/` and `lightning/ui/static/style.css` first.
 3. **Multiple devices (Codex):** read Claude's review at the end of the proposal. Record the owner's nine requirements (proposal › Review 1), then revise the proposal or answer under *For the owner*.
-4. **Speed, if wanted:** a stable window origin, so the 290 KB stylesheet and 109 KB script stay cached across launches; trim unused CSS in `style.css`.
+4. **Competition research:** read Egyptian Play Store and App Store reviews of Say and Masroofy (in Arabic) and Egyptian Reddit and Facebook threads, then confirm the quotes in `docs/COMPETITION.md` before any marketing use.
+5. **Speed, if wanted:** a stable window origin, so the 290 KB stylesheet and 109 KB script stay cached across launches; trim unused CSS in `style.css`.
 
 ## For the owner
 
