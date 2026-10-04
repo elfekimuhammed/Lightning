@@ -107,6 +107,8 @@ class HomeProtocolModel:
             if prior is not None:
                 if prior.request != request:
                     raise ProtocolError("REPLAY_CONFLICT", "Checkout ID reused for different content")
+                if self.active is not prior or self.state is not HomeState.LENT:
+                    raise ProtocolError("STALE_AUTHORITY", "Checkout has already started returning or finished")
                 return prior.grant
             if self.state is not HomeState.AT_HOME:
                 raise ProtocolError("ALREADY_LENT", "Another checkout or return holds authority")

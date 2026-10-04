@@ -218,6 +218,9 @@ def test_received_keeps_authority_away_until_matching_publication():
     assert home.state is HomeState.RETURN_RECEIVED
     assert home.receive_return(message, authenticated_peer=grant.borrower_id) == received
     with pytest.raises(ProtocolError) as caught:
+        home.borrow(request, authenticated_peer=grant.borrower_id)
+    assert caught.value.code == "STALE_AUTHORITY"
+    with pytest.raises(ProtocolError) as caught:
         home.borrow(dataclasses.replace(request, operation_id=ident(), checkout_id=ident()),
                     authenticated_peer=grant.borrower_id)
     assert caught.value.code == "ALREADY_LENT"
@@ -233,6 +236,9 @@ def test_received_keeps_authority_away_until_matching_publication():
     assert home.state is HomeState.RETURN_RECEIVED
     assert home.record_accepted(acceptance, published_sha256=message.candidate_sha256) == acceptance
     assert home.receive_return(message, authenticated_peer=grant.borrower_id) == acceptance
+    with pytest.raises(ProtocolError) as caught:
+        home.borrow(request, authenticated_peer=grant.borrower_id)
+    assert caught.value.code == "STALE_AUTHORITY"
     assert home.state is HomeState.AT_HOME
     assert home.checkpoint_id == acceptance.checkpoint_id
     with pytest.raises(ProtocolError) as caught:
