@@ -2,13 +2,17 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
+import re
 import secrets
 import sqlite3
 import shutil
 import stat
 from contextlib import contextmanager
+from dataclasses import dataclass, replace
 from pathlib import Path
+from pathlib import PurePath
 from uuid import uuid4
 
 from lightning.database.backup import backup, list_backups
@@ -25,6 +29,106 @@ from lightning.ownership_migration import migrate_legacy_ownership
 from lightning.runtime.paths import ProfilePaths
 from lightning.security.keys import unwrap_key
 from .session import ProfileError, read_slot
+
+
+_MANIFEST_FIELDS = {
+    "schema_version", "state", "operation_id", "profile_id", "live_name",
+    "old_checkpoint_id", "old_sha256", "candidate_name", "new_checkpoint_id",
+    "candidate_sha256", "previous_name", "source_backup_name", "source_sha256",
+    "source_copy_name", "source_copy_sha256", "pre_restore_name", "pre_restore_sha256",
+}
+_MAX_MANIFEST_BYTES = 16 * 1024
+
+
+def _manifest_hash(value: object) -> bool:
+    return (isinstance(value, str) and len(value) == 64 and
+            all(char in "0123456789abcdef" for char in value))
+
+
+def _manifest_name(value: object) -> bool:
+    return (isinstance(value, str) and bool(value) and len(value) <= 255 and
+            PurePath(value).name == value and value not in {".", ".."} and
+            "/" not in value and "\\" not in value and "\x00" not in value)
+
+
+@dataclass(frozen=True)
+class RestoreManifest:
+    """Durable P0 evidence that binds restore intent to every retained copy."""
+
+    state: str
+    operation_id: str
+    profile_id: str
+    live_name: str
+    old_checkpoint_id: str
+    old_sha256: str
+    candidate_name: str
+    new_checkpoint_id: str
+    candidate_sha256: str
+    previous_name: str
+    source_backup_name: str
+    source_sha256: str
+    source_copy_name: str
+    source_copy_sha256: str
+    pre_restore_name: str
+    pre_restore_sha256: str
+    schema_version: int = 1
+
+    def __post_init__(self) -> None:
+        if self.schema_version != 1 or self.state not in {"PENDING", "COMPLETE"}:
+            raise ValueError("Unsupported restore manifest version or state")
+        if not re.fullmatch(r"[0-9a-f]{32}", self.operation_id):
+            raise ValueError("Invalid restore operation ID")
+        if not isinstance(self.profile_id, str) or not self.profile_id or len(self.profile_id) > 200:
+            raise ValueError("Invalid restore profile ID")
+        if not isinstance(self.old_checkpoint_id, str) or not self.old_checkpoint_id:
+            raise ValueError("Invalid old checkpoint ID")
+        if not isinstance(self.new_checkpoint_id, str) or not self.new_checkpoint_id:
+            raise ValueError("Invalid new checkpoint ID")
+        if (self.old_checkpoint_id != "restore-base-" + self.old_sha256[:32] or
+                self.new_checkpoint_id == self.old_checkpoint_id):
+            raise ValueError("Restore checkpoint IDs do not bind to their operation")
+        if not re.fullmatch(r"restore-[0-9a-f]{32}", self.new_checkpoint_id):
+            raise ValueError("Invalid new restore checkpoint ID")
+        for name in (self.live_name, self.candidate_name, self.previous_name,
+                     self.source_backup_name, self.source_copy_name, self.pre_restore_name):
+            if not _manifest_name(name):
+                raise ValueError("Restore manifest names must be sibling basenames")
+        for digest in (self.old_sha256, self.candidate_sha256, self.source_sha256,
+                       self.source_copy_sha256, self.pre_restore_sha256):
+            if not _manifest_hash(digest):
+                raise ValueError("Restore manifest hashes must be lowercase SHA-256")
+        if self.source_sha256 != self.source_copy_sha256:
+            raise ValueError("Protected source copy hash differs from selected backup")
+        if self.source_copy_name != f".lightning-restore-source-{self.operation_id}.db":
+            raise ValueError("Protected source copy path does not match operation ID")
+        if self.previous_name != f".lightning-restore-{self.operation_id}.previous.db":
+            raise ValueError("Previous checkpoint path does not match operation ID")
+
+    def to_bytes(self) -> bytes:
+        record = {field: getattr(self, field) for field in _MANIFEST_FIELDS}
+        return (json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8")
+
+    @classmethod
+    def from_bytes(cls, raw: bytes) -> RestoreManifest:
+        if not isinstance(raw, bytes) or len(raw) > _MAX_MANIFEST_BYTES:
+            raise ValueError("Restore manifest is too large or not bytes")
+        def no_duplicates(pairs):
+            result = {}
+            for key, value in pairs:
+                if key in result:
+                    raise ValueError("Duplicate restore manifest field")
+                result[key] = value
+            return result
+
+        record = json.loads(raw, object_pairs_hook=no_duplicates)
+        if not isinstance(record, dict) or set(record) != _MANIFEST_FIELDS:
+            raise ValueError("Restore manifest fields do not match schema")
+        if type(record["schema_version"]) is not int:
+            raise ValueError("Restore manifest version must be an integer")
+        for name in _MANIFEST_FIELDS - {"schema_version"}:
+            if not isinstance(record[name], str):
+                raise ValueError("Restore manifest values must be text")
+        return cls(**record)
 
 
 @contextmanager
@@ -88,16 +192,36 @@ class EncryptedBackupRestorer:
         return tuple(paths.data_dir.glob(".lightning-restore-*.state"))
 
     @staticmethod
-    def _write_restore_marker(path: Path, value: bytes) -> None:
+    def _write_restore_manifest(path: Path, manifest: RestoreManifest, *, replace_existing: bool = False) -> None:
         temporary = path.with_name(f".{path.name}-{secrets.token_hex(12)}.partial")
         fd = os.open(temporary, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
         try:
             with os.fdopen(fd, "wb") as handle:
-                handle.write(value)
+                handle.write(manifest.to_bytes())
                 handle.flush()
                 os.fsync(handle.fileno())
-            os.replace(temporary, path)
-            if os.name != "nt":
+            if os.name == "nt":
+                from lightning.database.promotion_windows import WindowsPromotionFileOps
+                with WindowsPromotionFileOps(path.parent) as adapter:
+                    existing = adapter.sha256(path.name)
+                    if existing is None and not replace_existing:
+                        adapter.copy_exclusive(temporary.name, path.name)
+                    elif existing is not None and replace_existing:
+                        adapter.atomic_replace(temporary.name, path.name)
+                    else:
+                        raise FileExistsError(path) if existing is not None else FileNotFoundError(path)
+                    adapter.unlink(temporary.name)
+            else:
+                exists = path.exists() or path.is_symlink()
+                if exists and replace_existing:
+                    if path.is_symlink():
+                        raise OSError("Restore manifest path must not be a symlink")
+                    os.replace(temporary, path)
+                elif not exists and not replace_existing:
+                    os.link(temporary, path)
+                    temporary.unlink()
+                else:
+                    raise FileExistsError(path) if exists else FileNotFoundError(path)
                 directory_fd = os.open(path.parent, os.O_RDONLY)
                 try:
                     os.fsync(directory_fd)
@@ -135,7 +259,7 @@ class EncryptedBackupRestorer:
         return target
 
     @classmethod
-    def _check_restore_control(cls, paths: ProfilePaths) -> None:
+    def _check_restore_control(cls, paths: ProfilePaths, key: bytes | None = None) -> None:
         # Sync authority is deliberately not inferred from a missing store.
         # These reserved paths are the integration boundary for the future sync
         # control store; until its API exists, any such state blocks local restore.
@@ -143,22 +267,32 @@ class EncryptedBackupRestorer:
                     paths.data_dir / ".lightning-sync.sqlite")
         if any(path.exists() or path.is_symlink() for path in reserved):
             raise ProfileError("Restore is unavailable while sync authority state exists or cannot be verified.")
-        markers = {path.name.removesuffix(".state") for path in cls._restore_marker_paths(paths)}
+        manifests: dict[str, RestoreManifest] = {}
         for marker in cls._restore_marker_paths(paths):
             try:
                 info = marker.stat(follow_symlinks=False)
                 if marker.is_symlink() or not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
-                    raise OSError("unsafe restore marker")
-                state_bytes = marker.read_bytes()
+                    raise OSError("unsafe restore manifest")
+                with marker.open("rb") as handle:
+                    manifest = RestoreManifest.from_bytes(handle.read(_MAX_MANIFEST_BYTES + 1))
             except OSError as exc:
-                raise ProfileError("Restore operation marker cannot be read; this profile is locked for repair.") from exc
-            if state_bytes != b"COMPLETE\n":
+                raise ProfileError("Restore operation manifest cannot be read; this profile is locked for repair.") from exc
+            except (TypeError, ValueError, json.JSONDecodeError) as exc:
+                raise ProfileError("Restore operation manifest is malformed; this profile is locked for repair.") from exc
+            operation_id = marker.name.removeprefix(".lightning-restore-").removesuffix(".state")
+            if (manifest.operation_id != operation_id or paths.profile is None or
+                    manifest.profile_id != paths.profile.profile_id or
+                    manifest.live_name != paths.db_path.name):
+                raise ProfileError("Restore operation manifest belongs to another operation or profile.")
+            if manifest.state != "COMPLETE":
                 raise ProfileError("An interrupted restore needs repair before this profile can be unlocked.")
+            manifests[marker.name.removesuffix(".state")] = manifest
         journals: dict[str, object] = {}
         for control in cls._restore_journal_paths(paths):
             marker_id = control.name.removesuffix(".sqlite")
-            if marker_id not in markers:
-                raise ProfileError("A restore journal has no matching operation marker; this profile is locked for repair.")
+            manifest = manifests.get(marker_id)
+            if manifest is None:
+                raise ProfileError("A restore journal has no matching operation manifest; this profile is locked for repair.")
             try:
                 info = control.stat(follow_symlinks=False)
                 if control.is_symlink() or not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
@@ -177,10 +311,35 @@ class EncryptedBackupRestorer:
             journal = state.journal
             if (journal is None or state.accepted is None or
                     journal.phase is not PromotionPhase.ACTIVATED or
-                    journal.operation_id != marker_id.removeprefix(".lightning-restore-") or
+                    journal.operation_id != manifest.operation_id or
                     state.accepted.checkpoint_id != journal.new_checkpoint_id or
-                    state.accepted.sha256 != journal.new_sha256):
+                    state.accepted.sha256 != journal.new_sha256 or
+                    journal.live_name != manifest.live_name or
+                    journal.candidate_name != manifest.candidate_name or
+                    journal.previous_name != manifest.previous_name or
+                    journal.old_checkpoint_id != manifest.old_checkpoint_id or
+                    journal.old_sha256 != manifest.old_sha256 or
+                    journal.new_checkpoint_id != manifest.new_checkpoint_id or
+                    journal.new_sha256 != manifest.candidate_sha256):
                 raise ProfileError("An interrupted restore needs repair before this profile can be unlocked.")
+            source_copy = paths.backups_dir / manifest.source_copy_name
+            pre_restore = paths.backups_dir / manifest.pre_restore_name
+            original_source = paths.backups_dir / manifest.source_backup_name
+            try:
+                cls._require_clean_database_file(source_copy)
+                cls._require_clean_database_file(pre_restore)
+                if (cls._digest(source_copy) != manifest.source_copy_sha256 or
+                        cls._digest(pre_restore) != manifest.pre_restore_sha256):
+                    raise ProfileError("A retained restore backup does not match its manifest.")
+                if original_source.exists():
+                    cls._require_clean_database_file(original_source)
+                    if cls._digest(original_source) != manifest.source_sha256:
+                        raise ProfileError("The selected source backup no longer matches its manifest.")
+                if key is not None:
+                    cls._verify_file(source_copy, key)
+                    cls._verify_file(pre_restore, key)
+            except Exception as exc:
+                raise ProfileError("A retained restore backup is missing, unsafe, or corrupt.") from exc
             previous = paths.data_dir / journal.previous_name
             try:
                 cls._require_clean_database_file(previous)
@@ -189,9 +348,18 @@ class EncryptedBackupRestorer:
                 raise ProfileError("The retained pre-restore checkpoint is missing or unsafe.") from exc
             if previous_hash != journal.old_sha256:
                 raise ProfileError("The retained pre-restore checkpoint is missing or does not match its journal.")
+            if key is not None:
+                try:
+                    cls._verify_file(previous, key)
+                except Exception as exc:
+                    raise ProfileError("The retained pre-restore checkpoint cannot be verified.") from exc
             journals[marker_id] = journal
-        if set(journals) != markers:
-            raise ProfileError("A restore operation marker has no complete matching journal; this profile is locked for repair.")
+        if set(journals) != set(manifests):
+            raise ProfileError("A restore operation manifest has no complete matching journal; this profile is locked for repair.")
+        expected_source_copies = {manifest.source_copy_name for manifest in manifests.values()}
+        actual_source_copies = {path.name for path in paths.backups_dir.glob(".lightning-restore-source-*.db")}
+        if actual_source_copies != expected_source_copies:
+            raise ProfileError("A protected source copy is missing or has no matching restore manifest.")
         for previous in paths.data_dir.glob(".lightning-restore-*.previous.db"):
             operation_marker = previous.name.removesuffix(".previous.db") + ".state"
             if operation_marker not in {path.name for path in cls._restore_marker_paths(paths)}:
@@ -211,11 +379,11 @@ class EncryptedBackupRestorer:
         lock = self.session._acquire(paths)
         staged = None
         try:
-            self._check_restore_control(paths)
             try:
                 key = unwrap_key(read_slot(paths.keys_path), password)
             except (ProfileError, ValueError) as exc:
                 raise ProfileError("The profile password could not unlock its encrypted database.") from exc
+            self._check_restore_control(paths, key)
             self._require_clean_database_file(paths.db_path)
             entries = list_backups(paths.backups_dir, paths.db_path)
             selected_backup = Path(backup_path)
@@ -230,9 +398,14 @@ class EncryptedBackupRestorer:
             self._require_clean_database_file(source)
             source_hash = self._digest(source)
             operation_id = uuid4().hex
-            preserved_source = self._preserve_source_backup(source, paths.backups_dir, operation_id)
-            if self._digest(preserved_source) != source_hash:
-                raise ProfileError("Could not preserve the selected backup bytes; restore was cancelled.")
+            possible_collision = (
+                paths.data_dir / f".lightning-restore-{operation_id}.sqlite",
+                paths.data_dir / f".lightning-restore-{operation_id}.state",
+                paths.data_dir / f".lightning-restore-{operation_id}.previous.db",
+                paths.backups_dir / f".lightning-restore-source-{operation_id}.db",
+            )
+            if any(path.exists() or path.is_symlink() for path in possible_collision):
+                raise ProfileError("Restore operation ID collision; no files were replaced.")
             try:
                 self._verify_file(source, key)
             except Exception as exc:
@@ -249,6 +422,8 @@ class EncryptedBackupRestorer:
                 current.close()
             if saved is None:
                 raise ProfileError("Could not create a verified pre-restore backup; restore was cancelled.")
+            saved_hash = self._digest(saved)
+            self._verify_file(saved, key)
 
             staged = stage_database(source, paths.data_dir, destination_key=key, source_key=key)
             candidate = staged.path
@@ -257,29 +432,44 @@ class EncryptedBackupRestorer:
             self._require_clean_database_file(paths.db_path)
             if self._digest(source) != source_hash:
                 raise ProfileError("The selected backup changed during staging; restore was cancelled.")
+            preserved_source = self._preserve_source_backup(source, paths.backups_dir, operation_id)
+            if self._digest(preserved_source) != source_hash:
+                raise ProfileError("Could not preserve the selected backup bytes; restore was cancelled.")
 
             live_hash = self._digest(paths.db_path)
             store_path = paths.data_dir / f".lightning-restore-{operation_id}.sqlite"
             marker_path = paths.data_dir / f".lightning-restore-{operation_id}.state"
-            self._write_restore_marker(marker_path, b"PENDING\n")
-            existed = store_path.exists()
-            store = SqlitePromotionJournalStore(store_path)
-            state = store.read_state()
-            if state.accepted is None:
-                if existed or state.journal is not None:
-                    raise ProfileError("Restore control state is incomplete. This profile is locked for repair.")
-                old_checkpoint = "restore-base-" + live_hash[:32]
-                store.initialize_accepted(old_checkpoint, live_hash)
-            else:
-                old_checkpoint = state.accepted.checkpoint_id
-                if state.accepted.sha256 != live_hash:
-                    raise ProfileError("The live database changed before restore publication; restore was cancelled.")
-            if state.journal is not None and state.journal.phase is not PromotionPhase.ACTIVATED:
-                raise ProfileError("An earlier restore is unresolved. This profile is locked for repair.")
+            old_checkpoint = "restore-base-" + live_hash[:32]
             self._require_clean_database_file(paths.db_path)
             self._require_clean_database_file(candidate)
             previous_name = f".lightning-restore-{operation_id}.previous.db"
             new_checkpoint = "restore-" + uuid4().hex
+            manifest = RestoreManifest(
+                state="PENDING",
+                operation_id=operation_id,
+                profile_id=paths.profile.profile_id,
+                live_name=paths.db_path.name,
+                old_checkpoint_id=old_checkpoint,
+                old_sha256=live_hash,
+                candidate_name=candidate.name,
+                new_checkpoint_id=new_checkpoint,
+                candidate_sha256=self._digest(candidate),
+                previous_name=previous_name,
+                source_backup_name=source.name,
+                source_sha256=source_hash,
+                source_copy_name=preserved_source.name,
+                source_copy_sha256=self._digest(preserved_source),
+                pre_restore_name=saved.name,
+                pre_restore_sha256=saved_hash,
+            )
+            if store_path.exists() or marker_path.exists() or marker_path.is_symlink():
+                raise ProfileError("Restore operation ID collision; no files were replaced.")
+            self._write_restore_manifest(marker_path, manifest)
+            store = SqlitePromotionJournalStore(store_path)
+            state = store.read_state()
+            if state.accepted is not None or state.journal is not None:
+                raise ProfileError("Restore control state is not empty; this profile is locked for repair.")
+            store.initialize_accepted(old_checkpoint, live_hash)
             if os.name == "nt":
                 from lightning.database.promotion_windows import WindowsPromotionFileOps
                 file_ops = WindowsPromotionFileOps(paths.data_dir)
@@ -311,7 +501,8 @@ class EncryptedBackupRestorer:
                     raise ProfileError("Restore did not reach durable activation; this profile remains locked.")
                 if self._digest(source) != source_hash:
                     raise ProfileError("The selected backup changed during publication; this profile remains locked for repair.")
-                self._write_restore_marker(marker_path, b"COMPLETE\n")
+                self._write_restore_manifest(marker_path, replace(manifest, state="COMPLETE"),
+                                             replace_existing=True)
                 self.session.retry_at = 0.0
             finally:
                 file_ops.close()

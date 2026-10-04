@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from dataclasses import replace
 
 import pytest
 
@@ -132,3 +133,40 @@ def test_reparse_root_is_rejected(tmp_path):
         pytest.skip("Windows symlink creation is unavailable in this environment")
     with pytest.raises(ValueError, match="reparse points"):
         WindowsPromotionFileOps(alias)
+
+
+@windows_only
+def test_restore_manifest_create_and_update_use_write_through_moves(tmp_path, monkeypatch):
+    from lightning.database.promotion_windows import MOVEFILE_WRITE_THROUGH
+    from lightning.runtime.restore import EncryptedBackupRestorer, RestoreManifest
+
+    digest = "a" * 64
+    manifest = RestoreManifest(
+        state="PENDING", operation_id="1" * 32, profile_id="profile-1",
+        live_name="profile.db", old_checkpoint_id="restore-base-" + digest[:32],
+        old_sha256=digest, candidate_name="candidate.partial",
+        new_checkpoint_id="restore-" + "2" * 32, candidate_sha256="b" * 64,
+        previous_name=f".lightning-restore-{'1' * 32}.previous.db",
+        source_backup_name="profile_backup_2030-01-01_001_1234abcd.db",
+        source_sha256="c" * 64,
+        source_copy_name=f".lightning-restore-source-{'1' * 32}.db",
+        source_copy_sha256="c" * 64,
+        pre_restore_name="profile_upgrade_2030-01-01_001_1234abcd.db",
+        pre_restore_sha256="d" * 64,
+    )
+    moves = []
+    original_move = WindowsPromotionFileOps._move_file
+
+    def record_move(self, source, destination, flags):
+        moves.append(flags)
+        return original_move(self, source, destination, flags)
+
+    monkeypatch.setattr(WindowsPromotionFileOps, "_move_file", record_move)
+    path = tmp_path / f".lightning-restore-{'1' * 32}.state"
+    EncryptedBackupRestorer._write_restore_manifest(path, manifest)
+    EncryptedBackupRestorer._write_restore_manifest(
+        path, replace(manifest, state="COMPLETE"), replace_existing=True,
+    )
+    assert RestoreManifest.from_bytes(path.read_bytes()).state == "COMPLETE"
+    assert len(moves) >= 2
+    assert all(flags & MOVEFILE_WRITE_THROUGH for flags in moves)

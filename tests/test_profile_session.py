@@ -170,6 +170,10 @@ def test_restore_backup_keeps_source_and_pre_restore_copy_and_reopens(tmp_path):
     assert not selected.exists()
     assert preserved[0].read_bytes() == source_before
     session.close()
+    fresh = ProfileSession(session.root)
+    fresh.unlock(str(live), PASSWORD)
+    assert fresh.container.settings.get("restore_marker") == "old checkpoint"
+    fresh.close()
 
 
 def test_completed_restore_blocks_if_previous_checkpoint_is_missing(tmp_path):
@@ -202,6 +206,98 @@ def test_completed_restore_blocks_if_previous_checkpoint_is_corrupt(tmp_path):
         fresh.unlock(str(live), PASSWORD)
 
 
+@pytest.mark.parametrize("evidence", [
+    "source_copy_missing", "source_copy_corrupt", "pre_restore_missing",
+    "pre_restore_corrupt", "source_backup_corrupt", "malformed_manifest",
+])
+def test_completed_restore_blocks_when_manifest_evidence_is_missing_or_corrupt(tmp_path, evidence):
+    session, _ = created(tmp_path)
+    live, paths = session.paths.db_path, session.paths
+    selected = session.container.backup_now()
+    session.close()
+    session.restore_backup(str(live), str(selected), PASSWORD)
+    manifest = next(paths.data_dir.glob(".lightning-restore-*.state"))
+    if evidence.startswith("source_copy"):
+        protected = next(paths.backups_dir.glob(".lightning-restore-source-*.db"))
+        if evidence.endswith("missing"):
+            protected.unlink()
+        else:
+            with protected.open("r+b") as handle:
+                handle.seek(128)
+                byte = handle.read(1)
+                handle.seek(128)
+                handle.write(bytes([byte[0] ^ 0x20]))
+    elif evidence.startswith("pre_restore"):
+        pre_restore = next(paths.backups_dir.glob("*_upgrade_*.db"))
+        if evidence.endswith("missing"):
+            pre_restore.unlink()
+        else:
+            with pre_restore.open("r+b") as handle:
+                handle.seek(128)
+                byte = handle.read(1)
+                handle.seek(128)
+                handle.write(bytes([byte[0] ^ 0x20]))
+    elif evidence == "source_backup_corrupt":
+        with selected.open("r+b") as handle:
+            handle.seek(128)
+            byte = handle.read(1)
+            handle.seek(128)
+            handle.write(bytes([byte[0] ^ 0x20]))
+    else:
+        manifest.write_bytes(b'{"schema_version":1,"state":"COMPLETE"}')
+    fresh = ProfileSession(session.root)
+    with pytest.raises(ProfileError, match="manifest|source copy|retained restore backup"):
+        fresh.unlock(str(live), PASSWORD)
+
+
+def test_restore_manifest_rejects_unknown_schema_and_noncanonical_names():
+    from dataclasses import replace
+    from lightning.runtime.restore import RestoreManifest
+
+    digest = "a" * 64
+    manifest = RestoreManifest(
+        state="PENDING", operation_id="1" * 32, profile_id="profile-1",
+        live_name="profile.db", old_checkpoint_id="restore-base-" + digest[:32],
+        old_sha256=digest, candidate_name="candidate.partial",
+        new_checkpoint_id="restore-" + "2" * 32, candidate_sha256="b" * 64,
+        previous_name=f".lightning-restore-{'1' * 32}.previous.db",
+        source_backup_name="profile_backup_2030-01-01_001_1234abcd.db",
+        source_sha256="c" * 64,
+        source_copy_name=f".lightning-restore-source-{'1' * 32}.db",
+        source_copy_sha256="c" * 64,
+        pre_restore_name="profile_upgrade_2030-01-01_001_1234abcd.db",
+        pre_restore_sha256="d" * 64,
+    )
+    record = json.loads(manifest.to_bytes())
+    record["schema_version"] = 2
+    with pytest.raises(ValueError, match="Unsupported"):
+        RestoreManifest.from_bytes(json.dumps(record).encode())
+    with pytest.raises(ValueError, match="sibling basenames"):
+        replace(manifest, candidate_name="../candidate.partial")
+
+
+def test_unlock_verifies_retained_encrypted_copies_with_profile_key(tmp_path, monkeypatch):
+    from lightning.runtime.restore import EncryptedBackupRestorer
+
+    session, _ = created(tmp_path)
+    live = session.paths.db_path
+    selected = session.container.backup_now()
+    session.close()
+    session.restore_backup(str(live), str(selected), PASSWORD)
+
+    original_verify = EncryptedBackupRestorer._verify_file
+
+    def refuse_protected_source(cls, path, key):
+        if path.name.startswith(".lightning-restore-source-"):
+            raise ValueError("injected encrypted-copy verification failure")
+        return original_verify(path, key)
+
+    monkeypatch.setattr(EncryptedBackupRestorer, "_verify_file",
+                        classmethod(refuse_protected_source))
+    with pytest.raises(ProfileError, match="retained restore backup"):
+        ProfileSession(session.root).unlock(str(live), PASSWORD)
+
+
 def test_restore_completed_marker_without_journal_blocks_unlock(tmp_path):
     session, _ = created(tmp_path)
     live, paths = session.paths.db_path, session.paths
@@ -213,7 +309,7 @@ def test_restore_completed_marker_without_journal_blocks_unlock(tmp_path):
     for journal in paths.data_dir.glob(".lightning-restore-*.sqlite"):
         journal.unlink()
     fresh = ProfileSession(session.root)
-    with pytest.raises(ProfileError, match="marker has no complete matching journal"):
+    with pytest.raises(ProfileError, match="manifest has no complete matching journal"):
         fresh.unlock(str(live), PASSWORD)
 
 

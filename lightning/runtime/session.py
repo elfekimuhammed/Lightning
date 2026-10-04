@@ -209,7 +209,7 @@ class ProfileSession:
             except ValueError as exc:
                 raise ProfileError("The password is incorrect or the password file is damaged.") from exc
             from lightning.runtime.restore import EncryptedBackupRestorer
-            EncryptedBackupRestorer._check_restore_control(paths)
+            EncryptedBackupRestorer._check_restore_control(paths, key)
             self._verify(paths, key)
             container = build(paths.db_path, key=key, backup_dir=paths.backups_dir, backup_on_start=True)
             self._activate(paths, lock, container)

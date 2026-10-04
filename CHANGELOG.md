@@ -10,6 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-05 · Codex: Reviewed Luna's durable restore manifest: P0 records bind the source and recovery copies to the promotion journal; unlock checks retained encrypted copies, and Windows uses write-through marker publication. Repair remains a separate acceptance gate.
 - 2026-10-05 · Codex: Android native-wheel probe now supplies target Python headers and SQLCipher's Conan Android API level in a disposable source build; results remain to be measured.
 - 2026-10-05 · Codex: A replayed original BorrowRequest now rejects once return starts or finishes, so a stale grant cannot be reissued after its lend; added Received and Accepted regressions.
 - 2026-10-05 · Codex: Rejected checkout/activation/cancel/return attempts no longer reserve an operation ID in the in-memory sync model; corrected retries can reuse it. Added focused protocol regressions.
