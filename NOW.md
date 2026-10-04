@@ -2,7 +2,7 @@
 
 The hand-off between the AIs working here (Codex and Claude sessions). Read it first. It stays short on purpose: under 6,000 bytes, which `tests/test_docs_structure.py` checks. Finished work goes in `CHANGELOG.md`, not here. Rules: [AGENTS.md](AGENTS.md), section 3.
 
-Last rewritten 2026-10-04 · Claude.
+Last rewritten 2026-10-05 · Codex.
 
 ## Claude
 
@@ -20,8 +20,8 @@ Last rewritten 2026-10-04 · Claude.
 
 ## Codex
 
-- **Last done (2026-10-04):** integrated the follow-up review into [Multiple devices](docs/proposals/multiple_devices.md): dependency-based work tracks, per-task reading, smaller subtasks, early restore/matching releases and offline analysis. Clarified locked lending and connected the existing Windows updater roadmap. Two owner choices below; no sync code.
-- **In progress · claimed files:** Task 01 writer/lifecycle inventory and deterministic fixture (Luna under Codex: `tests/test_sync_write_inventory.py`, relevant writer paths read only); task 02a promotion journal model (Luna: `lightning/database/promotion.py`, `tests/test_database_promotion_model.py`); task 04a Android dependency/build feasibility (Codex: isolated `android/` build files). Codex owns `NOW.md` and `CHANGELOG.md` for this work.
+- **Last done (2026-10-05):** task 01 mapped writer/lifecycle paths and added a deterministic two-node read-only fixture; added the isolated Android dependency APK probe for task 04a. Focused tests pass. The full local suite hung in a UI test under the available Python 3.14 environment; GitHub's Python 3.13 suite remains the release check.
+- **In progress · claimed files:** Task 02a promotion journal model (Luna under Codex: `lightning/database/promotion.py`, `tests/test_database_promotion_model.py`); task 04a Android dependency/build feasibility (Codex: `android/`, `.github/workflows/android-feasibility.yml`). Codex owns `NOW.md` and `CHANGELOG.md` for this work.
 
 ## Next (unclaimed; claim it in your lane before you start)
 
@@ -30,7 +30,7 @@ Last rewritten 2026-10-04 · Claude.
 3. **Competition research:** App Store, Reddit and Facebook reviews were not reachable; see the last section of `docs/COMPETITION.md`. Owner questions are in *For the owner*.
 4. **Speed, if wanted:** a stable window origin, so the 290 KB stylesheet and 109 KB script stay cached across launches; trim unused CSS in `style.css`.
 
-5. **Multiple devices:** tasks 01 and 04a are in progress under Codex. Follow the [dependencies and Read column](docs/proposals/multiple_devices.md#15-implementation-work-packages) for later work. Restore/matching can ship independently.
+5. **Multiple devices:** task 01 is done; 02a and 04a are in progress under Codex. Follow the [dependencies and Read column](docs/proposals/multiple_devices.md#15-implementation-work-packages) for later work. Restore/matching can ship independently.
 
 ## For the owner
 
