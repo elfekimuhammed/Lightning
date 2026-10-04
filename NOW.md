@@ -19,7 +19,7 @@ Last rewritten 2026-10-04 · Claude.
 
 ## Codex
 
-- **Last done (2026-10-04):** replaced the proposal and review in [Multiple devices](docs/proposals/multiple_devices.md) with one complete cycle design and a 24-task sequential implementation roadmap. Covers durable authority/promotion, offline recovery, Android lifecycle, SMS/CSV deduplication, updates and acceptance gates. Planning only; no sync code.
+- **Last done (2026-10-04):** integrated the follow-up review into [Multiple devices](docs/proposals/multiple_devices.md): dependency-based work tracks, per-task reading, smaller subtasks, early restore/matching releases and offline analysis. Clarified locked lending and connected the existing Windows updater roadmap. Two owner choices below; no sync code.
 - **In progress · claimed files:** none.
 
 ## Next (unclaimed; claim it in your lane before you start)
@@ -29,7 +29,7 @@ Last rewritten 2026-10-04 · Claude.
 3. **Competition research:** App Store, Reddit and Facebook reviews were not reachable; see the last section of `docs/COMPETITION.md`. Owner questions are in *For the owner*.
 4. **Speed, if wanted:** a stable window origin, so the 290 KB stylesheet and 109 KB script stay cached across launches; trim unused CSS in `style.css`.
 
-5. **Multiple devices:** implementation plan ready; start task 01 (writer/lifecycle map and deterministic harness), then task 02 (durable candidate promotion). Follow the gates in [the roadmap](docs/proposals/multiple_devices.md#15-implementation-work-packages); implementation has not started.
+5. **Multiple devices:** follow the [dependencies and Read column](docs/proposals/multiple_devices.md#15-implementation-work-packages). Start 01 → 02 → 03; 04 (Android trial) and 20 (matching) may run alongside with separate claims. Restore/matching can ship independently. Implementation has not started.
 
 ## For the owner
 
@@ -39,7 +39,7 @@ Last rewritten 2026-10-04 · Claude.
   3. Release with `git tag v0.5.0-beta.1 <commit on main>` and `git push origin v0.5.0-beta.1`.
 - **Retest:** on the PC whose window failed to start, try a ZIP downloaded in a browser. Builds from `f4e1603` on include the fix.
 - **Questions:**
-  1. *Multiple devices:* none open now. Bank SMS samples will be logged bank by bank during the plan's section 12. Android, storage and performance feasibility remain implementation gates.
+  1. *Multiple devices — two choices:* offer optional fingerprint unlock on Android, or retain password-only? Keep two-PC lending as a test harness (recommended), or authorize a separately accepted PC-home interim product? Defaults remain password-only and phone-home. Windows in-app updates are already requested in the Overview; the first beta uses a manual-update path. Bank samples and platform evidence are engineering gates in the plan.
   2. *Review of Mohab's year:* which of these suggestions should be built? None has been started.
      1. Say *to* or *from* on transfer rows.
      2. Needs you lists expected income not yet received.

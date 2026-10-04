@@ -6,6 +6,8 @@ One Android phone holds the accepted encrypted ledger. It can lend editing to on
 
 This replaces the earlier proposal and separate review with one plan. The owner's product decisions live in [Project Overview](../PROJECT_OVERVIEW.md#product-decisions-that-must-hold); this file owns the proposed implementation, sequencing and acceptance gates. [NOW.md](../../NOW.md) owns claims and the next task. Existing financial and encryption contracts remain in [Architecture](../ARCHITECTURE.md). Nothing here means sync or Android support already exists.
 
+**Start here for implementation:** read NOW.md, the row for your task in section 15, and that row's **Read** sections. Read section 5 once when joining the project. Task numbers identify work packages, not a requirement to wait for every lower number. Section 15 names dependencies, independent work and the smaller commits within large packages; do not load the whole plan for every task.
+
 ## Contents
 
 | Section | Use it for |
@@ -72,11 +74,32 @@ Use the established names below in code and tests. Screens use plain actions and
 
 **First use:** install on phone and PC; create or explicitly move an existing profile home; save the recovery key; scan the PC's pairing QR and confirm both device identities. Choose the PC's own password. An existing standalone PC profile remains standalone until the move-home workflow completes; never silently copy it into two writable profiles.
 
-**Normal borrow:** open Lightning on the phone, then on the PC. The PC downloads while its password is entered, verifies the copy, and requests Lend. The phone shows the borrowing device; the PC opens its local pages after storing the permit.
+**Normal borrow:** open Lightning on the phone to make it reachable; this alone does not request the Lightning profile password. Then open the PC, whose password unlocks its local data-key slot while ciphertext downloads. The phone may grant without its profile password only through the verified-checkpoint path in section 7. Otherwise it asks for unlock and explains why (for example, recovering an interrupted save). The PC opens editable pages only after verification and durable permit storage.
+
+### Unlocks in the everyday cycle
+
+“Phone unlocked” below means the Lightning finance session, not merely the Android lock screen.
+
+| Action | Phone profile unlock | PC profile unlock |
+|---|---|---|
+| Become reachable, discover, transfer an existing encrypted checkpoint or receive a return | No; OS access to the transport identity may still require device unlock after reboot. | No for ciphertext transfer. |
+| Lend an unchanged, previously verified checkpoint with clean storage and intact control state | No, provided all section 7 checks pass. | Yes, to verify the copy and activate editing. |
+| Recover storage, create a fresh verified checkpoint, pair a new PC or migrate | Yes. | Yes when provisioning/verifying its local slot. |
+| Read financial pages, post SMS or accept a returned ledger | Yes. | Yes to view its local copy. |
+
+Do not add a phone-password prompt to ordinary discovery or ciphertext receipt. Do not promise password-free lending from an arbitrary live file. On orderly home lock/close, prepare and durably index the latest verified checkpoint before dropping the key when possible; if preparation fails, preserve data and require unlock before a future lend.
+
+**Fingerprint unlock is a proposal, pending the owner's choice**, not an approved replacement for passwords. If approved, make it an opt-in Android key slot bound to a strong biometric through BiometricPrompt and Android Keystore; a successful UI callback alone must not unlock an unprotected key. Enrol it only after password unlock, retain password/recovery fallback, and test cancellation, lockout, biometric/key invalidation and disabling the option. Never keep the SQLCipher key in the background to avoid a prompt. [Android biometric cryptographic authentication](https://developer.android.com/identity/sign-in/biometric-auth?hl=en). Implementation is conditional subtask 18d; pending approval does not block the password-based cycle.
 
 **Offline work and close:** save normally without the phone. If the phone is absent at close, keep a sealed copy and the lend. On reopening, continue that same lend unless return has already begun. Never discard unsent edits to fetch a newer-looking phone copy.
 
 **Normal return:** Hand back or close while connected. The PC stops editing before transmission. If the phone is unlocked, verification and acceptance can finish immediately. A locked phone can receive bytes, but shows “Received · open Lightning on your phone to finish checking.” Until acceptance, neither device edits. This incorporates the corrected review: receiving without unlock is supported; accepting unverified data is not.
+
+**PC without the phone — analyse the last saved copy:** if no lend is active, offer “View saved copy” immediately, even when discovery fails. After the PC password, open a retained, verified prefetch or handed-back copy through the reader session. Show its capture date, source device, acceptance status and “Read only · your phone may have newer changes.” A prefetch is labelled as a saved checkpoint, never as proof the phone is still unchanged. Let the user choose another retained copy if more than one exists; do not mix figures across copies.
+
+All analysis reads that immutable snapshot. Position-dependent plans use its recorded checkpoint date by default; label fixed-horizon/today-based estimates so they cannot be mistaken for current available cash. Navigation, period filtering and explicitly requested exports work, but posting, editing plans/settings, fetching prices into the database, migration and startup writes do not. Keep the file hash unchanged after a browsing session. A newer incompatible schema gives an update message, never an in-place migration. No retained usable copy means an honest empty state with “Connect to your phone.”
+
+If this PC is BORROWING or SEALED, continue its newer working copy under the existing rules; if RETURNING, show that work read-only and preserve the pending return. Never hide outstanding edits behind an older handed-back backup. Reconnecting refreshes or lends only through the normal protocol; preview never becomes writable by itself. Build this journey in task 18a, independently of the final phone UI.
 
 **Phone during a lend:** show its last accepted copy with a persistent read-only notice, the borrower and the last recovery delivery time. Time-sensitive figures such as Safe to spend must carry the stale-copy context. Mutating actions are unavailable and direct POSTs are rejected. Exports of the accepted read-only copy remain possible if labelled with their version.
 
@@ -213,6 +236,12 @@ Use request deadlines and bounded exponential retry (initially 1–30 seconds, w
 4. Record the **source hash measured while quiesced** separately from the **snapshot ciphertext hash**. Re-encryption can produce different bytes for identical rows; do not compare a newly exported snapshot hash to the live source as a dirty test.
 5. Publish an immutable encrypted checkpoint with its manifest; resume home work once the consistent checkpoint is safe. Send from that file, not the live database. A locked phone can reuse a previously verified checkpoint; creating a new one from dirty or uncertain storage requires unlock and recovery.
 6. PC checks transport identity, profile/key/lineage, size/hash and schema compatibility. After password unlock, verify SQLCipher/SQLite and the expected Lightning schema read-only. Keep the copy as an encrypted backup, with verification status. No permit exists yet.
+
+### Locked-phone lending gate
+
+A transport-only lend is allowed only when the phone's local operation gate proves there is no active writer, journal recovery or promotion; its AT_HOME control record is intact; and its latest fully verified checkpoint still represents the current home database. Rehash the clean, closed source and match the stored source hash, verify checkpoint bytes and manifest, and check schema/cipher compatibility, active pairing and the prepared PC request. Do not open the finance database or run validation/migration without its key. The PC must unlock and fully verify the exact checkpoint before requesting its permit.
+
+If any proof is missing or the source changed since verification, answer “Unlock Lightning on your phone to prepare the latest copy,” keep authority at home, and use the ordinary unlocked snapshot path. A hash alone cannot establish database validity. Restarts with uncertain file/control state require repair, not an optimistic grant. Test clean locked lends, changed sources, missing checkpoints, hot journals, pending promotions and OS-credential unavailability.
 
 ### Grant sequence
 
@@ -373,13 +402,32 @@ Google Play lists SMS-based money management as a possible permission exception,
 
 ## 13. Compatibility and updates
 
+### Compatible software before database migration
+
+
 Compare protocol version, control-store schema, ledger schema/migration set, SQLCipher format, key ID and financial/write capability version at connection and grant time. Matching marketing version strings alone is insufficient. For the first release, require an explicitly tested phone/PC release pair; later compatible pairs may be allowlisted by evidence.
 
-Only the home migrates a multi-device ledger, while unlocked, AT_HOME and holding the operation gate. Take and verify the pre-upgrade encrypted backup first. A borrower never migrates its working copy; a phone never migrates while lent or awaiting return. An Android binary update during a lend must still understand its control state and accept the old-schema return before migrating. Retain a tested return/repair path across the previous supported release pair; otherwise defer the update.
+Only the home migrates a multi-device ledger, while unlocked, AT_HOME and holding the operation gate. Take and verify the pre-upgrade encrypted backup first. A borrower never migrates its working copy; a phone never migrates while lent or awaiting return. An Android binary update during a lend must still understand its control state and accept the old-schema return before migrating. Retain a tested return/repair path across the previous supported release pair; otherwise defer that release's rollout. Do not assume the app can prevent Google Play from installing a published update.
 
 On mismatch, give a precise “Update Lightning on this PC” or “Finish handing back before updating” action. Do not delete, rewrite or auto-upgrade a sealed/returning candidate. A downgrade that cannot read current schema refuses it; recovering from a pre-upgrade backup creates a new lineage, not a rollback of authority.
 
 Publish coordinated, reproducible Windows and Android artifacts and a small compatibility matrix in release metadata. Keep existing immutable versioned downloads. Emergency repair builds must accept the outstanding operation IDs and preserve existing data. No sync release can require the user to disable OS protections.
+
+### How the PC gets the compatible version
+
+The owner has already requested **in-app Windows updates, planned for later**, in [Project Overview, Roadmap](../PROJECT_OVERVIEW.md#roadmap), recorded by commit [18d7af4](https://github.com/elfekimuhammed/Lightning/commit/18d7af4da92d666b5cbbd2f8276f96d8aa43c7ed). This resolves the review's open product question about update direction; it does not mean the updater is implemented or required before all early deliverables.
+
+Task 19 is divided into a compatibility contract (19a), a usable manual-update path for the first multi-device beta (19b), update/migration rehearsals (19c), and a later signed-updater integration (19d). A generic “Update this PC” error alone is insufficient.
+
+For the first beta, the phone advertises the minimum compatible PC release and supported schema/protocol in authenticated status. The PC shows installed/required versions, why editing is unavailable and an action to the official versioned download archive. The owner downloads/extracts the ZIP into a new folder, closes the old process and reopens; paths, key slots, checkpoints and authority records remain intact. Keep read-only analysis available when its saved copy is supported. No financial data is sent for an update check.
+
+The later Update button follows the existing roadmap: user-requested checks or opt-in automatic checks, authenticated release metadata and independently verified artifact signatures, staged installation, helper-based binary replacement and retained previous binaries. Installing is blocked while a lend, move-home or return is unresolved. Application rollback never rolls back finance data or control authority; an older binary must refuse incompatible schema. The updater's package/tool choice and signing implementation belong to its own work, not a second design copied here.
+
+### Prevent routine phone updates from stranding a PC
+
+Treat app installation and ledger migration as separate events. A released Android update must continue opening the previous supported ledger and reconciling existing lends; do not rely on the user disabling Google Play auto-update. While lent/returning, all migration remains blocked. Once home, show affected paired PCs and the compatible Windows release before a schema-changing upgrade. Defer that migration until those PCs report readiness, or the owner explicitly chooses to proceed knowing which PC must update before another lend. Keep a tested old-schema mode while deferring; if the release cannot do that, it is not ready for rollout.
+
+Cached PC capability information can explain the upgrade screen but cannot replace live version checks on a new grant. An offline retired PC must not block upgrades forever: the owner may remove it from the readiness set without erasing its retained copies. If the home has already migrated, no unsafe downgrade is offered; update that PC through the normal path. Test a weeks-offline PC, phone auto-update while lent, deferred migration at home, manual ZIP replacement, and updater rollback. These checks belong to 19c. Installed version drift alone is not a reason to forbid compatible pairs that the release matrix explicitly tests.
 
 ## 14. Performance and resource budgets
 
@@ -404,65 +452,126 @@ Do not optimize away full return verification or durability to meet a target. Fi
 
 ## 15. Implementation work packages
 
-**Do these in order.** Each row is one bounded task, one finished change, and one handoff. Its exit check must pass before starting the dependent task. Claim the named area in NOW.md when starting; do not claim the entire roadmap at once. Use dummy data through task 24. Paths for new modules are proposals until their implementation task is claimed.
+**Follow dependencies, not a single queue.** The 24 IDs remain stable work packages; the smaller IDs below are the units to claim, finish and verify. A package completes only when its required subtasks pass. A dependent task waits for its listed inputs, but unrelated work can run alongside it. Each commit still needs its own tests and handoff. Use dummy data for the multi-device cycle through task 24; independently released desktop improvements must pass their own existing acceptance gates.
+
+**Read only what the task needs.** Begin with NOW.md and your row. Read section 5 once when joining; the **Read** column names additional sections (numbers refer to this document). Load linked existing code/contracts only when touching them. For a subtask, read its parent row and the relevant subsection, not every section in its range. The 18-section document remains a reference architecture, not a compulsory per-task briefing.
+
+### Work tracks and early deliverables
+
+| Track | Order | Can run beside it | First useful result |
+|---|---|---|---|
+| Safe local recovery | 01 → 02a → 02b/02c → 02d → 03a → 03b | Android 04; import matching 20 | **03a: encrypted backup restore** for the existing Windows app; legacy import follows separately. |
+| Android feasibility | 04a → 04b → 04c → 04d | All of 01–03 and 20, with an isolated shell/build area | Evidence to accept/reject the Android packaging route before building the phone product. |
+| Standalone import improvement | 20 | Recovery, Android and protocol work with separate file claims | **CSV/manual-entry matching**, independently releasable in the existing app. |
+| Authority and transfer | 05, then **06 → 07 → 08** beside **09 → 10**; join at 11 → 12 → 13 → 14 → 15 | 04, 20, then offline preview 18a | Tested complete two-node cycle, still a harness unless PC-home scope is approved. |
+| Offline analysis | 06 + 08 → 18a | Android home integration | **View saved copy without the phone** whenever a supported retained checkpoint is available. |
+| Phone product | 16a–16d → 17 → 18b/18c; coordinate 19a–19c | Bank fixtures/parser work and 20 | Core phone-home beta after 23/24, with manual/CSV entry even if SMS approval is pending. |
+| SMS extension | 20 + phone prerequisites → 21 → 22a–22e (fixtures can start earlier) | Core UI/update acceptance | First supported bank; more banks follow one at a time. |
+
+Parallel work is a coordination option, not permission to edit the same files. Agree the task 05 message schemas/fixtures and freeze them in main before splitting protocol from transport. Changes to that contract require both tracks to update their tests. Each AI claims exact files in its own NOW lane. If two tasks touch runtime/session, shared templates, packaging or the same tests, serialize those edits or split their file ownership first. Allocate append-only migration filenames against current main before committing; do not reserve conflicting numbers or rewrite an applied migration.
+
+An Android spike can import shared Python code read-only while another AI fixes restore. If it needs shared-runtime changes, record the interface request and coordinate that edit rather than bundling it into the isolated spike. Task 20 likewise owns its import files and migrations, not the Android shell or sync control store.
+
+### Scope checkpoints
+
+- Release restore and matching when their standalone checks pass; neither waits for the multi-device feature.
+- A prototype is available at 15; **shipping PC-as-home is an owner decision**, not an automatic consequence of the harness. Keep phone-home as the current scope.
+- A core phone-home beta needs 23/24 and the required core tasks. SMS, biometric unlock and the later Windows updater each have explicit extension gates; do not hide incomplete features or imply they shipped.
+- Task numbers preserve the original design references. They are not dates, effort estimates or instructions to keep a second AI idle.
 
 ### Phase A — make local data replacement safe; prove Android is possible
 
-| Order | Task and deliverable | Area | Exit check |
-|---|---|---|---|
-| 01 | **Map every writer and lifecycle entry.** Trace unlock/build, migrations, seed, prices, revaluations, imports, settings, backups and shutdown. Define the shared operation gate and a deterministic two-node test fixture. | Runtime, bootstrap, database and test harness | Inventory names every write path; fixture captures current behavior and specifies the write-denial assertions task 06 must satisfy. Record baseline full-suite results. |
-| 02 | **Build durable candidate promotion.** Implement the P0–P5 local journal and Windows/POSIX storage adapters, using existing staging/snapshot verification; task 05 extends this journal with sync authority records. | New database promotion module, snapshot/staging tests | Restart after each phase; disk-full, wrong key, corrupt candidate and flush failure preserve old data and block ambiguous activation. |
-| 03 | **Finish standalone restore and legacy import.** Add explicit candidate selection, verification, preview/confirmation and promotion; preserve the source and pre-operation backup. | Profile lifecycle and existing data-management UI | Round-trip encrypted backup and explicit plaintext legacy import on ordinary Windows; failed operations never overwrite the live source. |
-| 04 | **Run the Android dependency spike.** Build one reproducible arm64 app that opens the same encrypted dummy ledger and renders the same finance page. Test crypto, 16 KB native loading and clean shutdown. | Isolated Android shell/build configuration | Windows/Android figures match; dependency, startup and page benchmarks recorded. Stop and redesign packaging if this fails. No product UI expansion yet. |
+| Task | Depends on | Deliverable | Area | Exit check | Read |
+|---|---|---|---|---|---|
+| 01 | None | **Map every writer and lifecycle entry.** Trace unlock/build, migrations, seed, prices, revaluations, imports, settings, backups and shutdown. Define the shared operation gate and a deterministic two-node test fixture. | Runtime, bootstrap, database and test harness | Inventory names every write path; fixture captures current behavior and specifies the write-denial assertions task 06 must satisfy. Record baseline full-suite results. | 3, 5 |
+| 02 | 01; finish 02a–02d | **Build durable candidate promotion.** Implement the P0–P5 local journal and Windows/POSIX storage adapters, using existing staging/snapshot verification; task 05 extends this journal with sync authority records. | New database promotion module, snapshot/staging tests | Restart after each phase; disk-full, wrong key, corrupt candidate and flush failure preserve old data and block ambiguous activation. | 3–5, 9, 16 |
+| 03 | 02d; 03a can ship before 03b | **Restore first, then legacy import.** 03a exposes verified encrypted restore; 03b adds explicit plaintext legacy conversion. Each preserves its source and pre-operation backup. | Profile lifecycle and existing data-management UI | Ship 03a independently after ordinary Windows restore acceptance; 03b separately verifies legacy conversion without overwriting the source. | 3, 9–10, 16 |
+| 04 | None; finish 04a–04d | **Prove Android in four small steps.** Dependency build → encrypted round-trip → shared page/lifecycle → measurement decision. This independent trial runs alongside 01–03. | Isolated Android shell/build configuration | 04a–04d pass with reproducible native builds and matching Windows/Android figures; failure stops Android expansion, not useful standalone work. | 3, 11, 14 |
 
 ### Phase B — prove authority without networking
 
-| Order | Task and deliverable | Area | Exit check |
-|---|---|---|---|
-| 05 | **Define durable control records and protocol schemas.** Implement IDs, epochs, states, idempotency, receipt/cancel tombstones and version negotiation. | New sync domain/state modules | Duplicate/reordered events and restart tests preserve one active checkout; malformed/incompatible messages reject without state change. |
-| 06 | **Wire the role gate into sessions.** Add home/borrower/reader modes, generation invalidation, owning-thread command dispatch and borrowed paths. | Runtime/session, paths, bootstrap | Direct write attempts, migrations and hidden startup jobs fail in reader/returning states. Old forms cannot save after transition. |
-| 07 | **Implement Lend over the fake transport.** Add source freeze, prepared request, durable grant, activation and pre-activation cancel. | Sync service and model tests | Two racing borrowers yield one grant; lost grant/ack and cancel-before-request converge safely. |
-| 08 | **Implement Hand back over the fake transport.** Add immutable return candidate, Received versus Accepted, verification, promotion and receipt replay. | Sync service, promotion integration | Lock/unlock, lost receipt and every crash boundary converge to one accepted result without resuming borrower writes. |
+| Task | Depends on | Deliverable | Area | Exit check | Read |
+|---|---|---|---|---|---|
+| 05 | 02d | **Define durable control records and protocol schemas.** Implement IDs, epochs, states, idempotency, receipt/cancel tombstones and version negotiation. | New sync domain/state modules | Duplicate/reordered events and restart tests preserve one active checkout; malformed/incompatible messages reject without state change. | 4–5, 9, 13 |
+| 06 | 01, 05 | **Wire the role gate into sessions.** Add home/borrower/reader modes, generation invalidation, owning-thread command dispatch and borrowed paths. | Runtime/session, paths, bootstrap | Direct write attempts, migrations and hidden startup jobs fail in reader/returning states. Old forms cannot save after transition. | 3–5, 11 |
+| 07 | 06 | **Implement Lend over the fake transport.** Add source freeze, prepared request, durable grant, activation and pre-activation cancel. | Sync service and model tests | Two racing borrowers yield one grant; lost grant/ack and cancel-before-request converge safely. | 4–5, 7 |
+| 08 | 07, 02d | **Implement Hand back over the fake transport.** Add immutable return candidate, Received versus Accepted, verification, promotion and receipt replay. | Sync service, promotion integration | Lock/unlock, lost receipt and every crash boundary converge to one accepted result without resuming borrower writes. | 4–5, 9 |
 
 ### Phase C — connect two ordinary PCs and cover offline use
 
-| Order | Task and deliverable | Area | Exit check |
-|---|---|---|---|
-| 09 | **Add pairing and device credentials.** QR bootstrap, mutual identity confirmation, profile-scoped trust, key-slot provisioning and revocation. | Sync transport/security adapter | Wrong peer, replayed QR, denied pairing and revoked identity reject. Password/recovery key never crosses the channel or enters logs. |
-| 10 | **Add resumable local encrypted transfer and discovery.** Bounded staging, chunks, hash verification, status and manual local endpoint fallback. | Transport and local discovery | Packet loss, duplicate chunks, wrong offset/hash, oversized object and full disk never produce Received/Accepted prematurely. |
-| 11 | **Add prefetch and the measured fast-copy path.** Download before password entry; distinguish source hash from exported ciphertext hash; refresh stale prefetch before grant. | Snapshot + sync + launch flow | Concurrent home write invalidates the old prefetch; missing/wrong password never lends; WAL/journal cases use the safe path. |
-| 12 | **Add periodic recovery copies.** Durable sequence, complete-file acknowledgement, local fallback and visible delivery age. | Sync scheduler/storage | Reordered snapshots cannot replace newer ones; every committed kind of edit is detected; failed delivery is shown honestly. |
-| 13 | **Add offline close and restart.** Sealed copy, bounded retry worker and shared lock between worker and UI. | Desktop lifecycle + sync | Reopen-vs-worker race never returns an old snapshot while allowing new edits. Returning stays read-only after reboot. |
-| 14 | **Add Take back, comparison and replacement-home recovery.** New lineage, retired checkout quarantine and table-level inspection. | Recovery workflows | Lost PC/phone drills preserve evidence; stale return cannot alter new home; no automatic replay or merge. |
-| 15 | **Run the complete two-PC fault gate.** One PC simulates home; exercise pair → prefetch → lend → offline edit → recover → return → borrow again. | Integration/fault tests | All section 16 protocol rows pass with real files and dropped connections. This validates the protocol; it does not release a PC-home product. |
+| Task | Depends on | Deliverable | Area | Exit check | Read |
+|---|---|---|---|---|---|
+| 09 | 05 | **Add pairing and device credentials.** QR bootstrap, mutual identity confirmation, profile-scoped trust, key-slot provisioning and revocation. | Sync transport/security adapter | Wrong peer, replayed QR, denied pairing and revoked identity reject. Password/recovery key never crosses the channel or enters logs. | 4, 6 |
+| 10 | 05, 09 | **Add resumable local encrypted transfer and discovery.** Bounded staging, chunks, hash verification, status and manual local endpoint fallback. | Transport and local discovery | Packet loss, duplicate chunks, wrong offset/hash, oversized object and full disk never produce Received/Accepted prematurely. | 4, 6, 9 |
+| 11 | 08, 10 | **Add prefetch and the measured fast-copy path.** Download before password entry; distinguish source hash from exported ciphertext hash; refresh stale prefetch before grant. | Snapshot + sync + launch flow | Concurrent home write invalidates the old prefetch; missing/wrong PC password never activates a lend; locked-phone freshness and WAL/journal cases use the safe path. | 2, 6–7, 14 |
+| 12 | 11 | **Add periodic recovery copies.** Durable sequence, complete-file acknowledgement, local fallback and visible delivery age. | Sync scheduler/storage | Reordered snapshots cannot replace newer ones; every committed kind of edit is detected; failed delivery is shown honestly. | 4, 8 |
+| 13 | 12 | **Add offline close and restart.** Sealed copy, bounded retry worker and shared lock between worker and UI. | Desktop lifecycle + sync | Reopen-vs-worker race never returns an old snapshot while allowing new edits. Returning stays read-only after reboot. | 5, 8–9 |
+| 14 | 08, 10, 13 | **Add Take back, comparison and replacement-home recovery.** New lineage, retired checkout quarantine and table-level inspection. | Recovery workflows | Lost PC/phone drills preserve evidence; stale return cannot alter new home; no automatic replay or merge. | 4–5, 10 |
+| 15 | 11–14 | **Run the complete two-PC fault gate.** One PC simulates home; exercise pair → prefetch → lend → offline edit → recover → return → borrow again. | Integration/fault tests | All section 16 protocol rows pass with real files and dropped connections. This validates the protocol; it does not release a PC-home product. | 5, 16 |
 
 ### Phase D — make the phone the actual home
 
-| Order | Task and deliverable | Area | Exit check |
-|---|---|---|---|
-| 16 | **Integrate the Android home lifecycle.** Private no-backup storage, narrow WebView bridge, owning-thread runtime, discovery and bounded foreground service. | Android shell and runtime adapter | Sleep, OS kill, timeout, reboot and network changes preserve the lend; blocked Auto Backup/device transfer cannot clone authority. |
-| 17 | **Add new-home setup and move-existing-profile-home.** Keep standalone operation available; migrate only after explicit verified transfer. | Setup/profile workflows | Cancel/retry/crash at each move stage cannot leave two cooperative writable homes. Original PC copy remains recoverable. |
-| 18 | **Finish shared device UX and phone navigation.** Pair, Lend, Hand back, read-only/stale notices, delivery age, repair, reminders and native Back. | Shared templates/CSS and Android navigation | Owner can complete the cycle on phone and Windows without browser chrome; 390px and desktop checks, accessibility and A16 pass. |
-| 19 | **Test app-update compatibility and publish pair metadata.** Home-only migration, previous-version return path and immutable artifacts. | Packaging, migration/runtime tests | Android updates during a lend; PC old/new versions return safely or give actionable refusal; no sealed work is upgraded or lost. |
+| Task | Depends on | Deliverable | Area | Exit check | Read |
+|---|---|---|---|---|---|
+| 16 | See 16a–16d; final gate needs 04d and 15 | **Integrate Android in four steps.** Storage/shell → thread/transport bridge → bounded service → real-device fault gate. | Android shell and runtime adapter | 16d passes sleep, kill, timeout, reboot, backup exclusion and network-change tests; authority survives reachability loss. | 3, 5–6, 8, 11 |
+| 17 | 03, 16d | **Add new-home setup and move-existing-profile-home.** Keep standalone operation available; migrate only after explicit verified transfer. | Setup/profile workflows | Cancel/retry/crash at each move stage cannot leave two cooperative writable homes. Original PC copy remains recoverable. | 2, 9–10 |
+| 18 | See 18a–18d; offline preview starts after 06, 08 | **Deliver offline PC analysis early, then finish phone UX.** 18a is a dated read-only saved-copy journey; 18b–18c finish device controls/navigation. 18d is optional biometric unlock only if approved. | Shared templates/CSS and Android navigation | Read-only browsing changes no file, requires no phone and preserves outstanding work. Full phone/Windows cycle, accessibility and brand checks pass in 18c; optional 18d cannot block password-based release. | 2, 5, 8, 11 |
+| 19 | See 19a–19d; updater integration is later | **Make updates usable and safe.** 19a compatibility contract → 19b manual-update journey → 19c phone/PC update rehearsal. 19d later integrates the owner-requested signed Windows updater. | Packaging, migration/runtime tests | The first beta has an actionable official-download path and deferred home migration; lost/old PCs cannot strand current work. Later updater integration gets separate acceptance. | 8–9, 13 |
 
 ### Phase E — add bank messages without duplicate money
 
-| Order | Task and deliverable | Area | Exit check |
-|---|---|---|---|
-| 20 | **Build generic source identity and CSV/manual matching.** Add source links and review choices before enabling SMS auto-post. | Import services/workflows and new migrations | Two identical legitimate payments remain distinct; repeat import links once; void/refund/transfer cases preserve ledger effects. |
-| 21 | **Add gated SMS catch-up and durable cursor.** Permission handling, bank-sender filtering, source epoch and atomic scan persistence; review only initially. | Android SMS adapter and source storage | No SMS provider read while lent/locked/returning; crashes, overlaps, provider reset and deleted messages handled without silent duplicates. |
-| 22 | **Add bank parsers, teach-format review and safe auto-post.** Start with the owner's first bank; grow from sanitized fixtures and explicit mapping. | Parser rules, review UI and transaction workflows | Positive/negative fixtures pass; uncertain events stay in review; SMS then CSV moves money once. Complete Play declaration/approval before distributing the permission-bearing feature there. |
+| Task | Depends on | Deliverable | Area | Exit check | Read |
+|---|---|---|---|---|---|
+| 20 | None; current import baseline | **Ship CSV/manual matching independently.** Add source links and review choices to today's desktop import flow, without waiting for Android or SMS. | Import services/workflows and new migrations | Equal legitimate purchases stay distinct; linking a duplicate posts no second money movement; repeated import, void, refund and transfer tests plus ordinary desktop acceptance pass. | 12 (matching and source identity) |
+| 21 | 20, 16d, 17 | **Add gated SMS catch-up and durable cursor.** Permission handling, bank-sender filtering, source epoch and atomic scan persistence; review only initially. | Android SMS adapter and source storage | No SMS provider read while lent/locked/returning; crashes, overlaps, provider reset and deleted messages handled without silent duplicates. | 5, 12 (capture/cursor) |
+| 22 | See 22a–22e; first-bank release only | **Enable one bank through five bounded steps.** Sanitized examples → parser → teaching/review → gated auto-post → distribution acceptance; add other banks as later repeats. | Parser rules, review UI and transaction workflows | Unknown/ambiguous events remain in review; SMS then CSV counts once; the permission-bearing build meets its distribution gate. One missing bank never blocks the others. | 12 (parse, teach, match and permissions) |
 
 ### Phase F — measure, rehearse loss and release
 
-| Order | Task and deliverable | Area | Exit check |
+| Task | Depends on | Deliverable | Area | Exit check | Read |
+|---|---|---|---|---|---|
+| 23 | 15, 16d, 17, 18c, 19c; SMS checks need 22 | **Run real-device and financial acceptance.** Benchmark and run the cross-device Mohab year for the core cycle; run the SMS extension when task 22 is ready. | Acceptance/performance harness | Core financial/fault/restore and device budgets pass. SMS is released only after its own matching, permission and extension checks; pending optional features remain visibly unavailable. | 14, 16 |
+| 24 | 23 for the features being released | **Ship a small versioned beta, then accept it.** Test downloaded Windows ZIP and Android artifact on ordinary devices, recovery key and local backups included. | Release pipeline and owner acceptance | Owner completes the full cycle and loss drills with dummy data; compatibility matrix and known limits published; only then allow ordinary financial data. | 13, 16–17 |
+
+### Smaller tasks within large work packages
+
+Claim these subtask IDs instead of claiming a large package for several sessions. A subtask is a bounded deliverable, not a promise that platform investigation fits a fixed number of hours; split again when the next verifiable change is smaller.
+
+| ID | Depends on | Finished step and acceptance evidence | Read |
 |---|---|---|---|
-| 23 | **Run real-device benchmarks and the full cross-device Mohab year.** Include cash, imports, ownership, loans, deposits, gold, reserves and updates across repeated lends. | Acceptance/performance harness | Financial answers equal the single-device reference; fault matrix, restore drills, latency/battery/storage budgets and UI checks pass. |
-| 24 | **Ship a small versioned beta, then accept it.** Test downloaded Windows ZIP and Android artifact on ordinary devices, recovery key and local backups included. | Release pipeline and owner acceptance | Owner completes the full cycle and loss drills with dummy data; compatibility matrix and known limits published; only then allow ordinary financial data. |
+| 02a | 01 | Define P0–P5 journal schema, file-operation adapter and restart decision table; model every interrupted transition. | 4, 9 |
+| 02b | 02a | Implement/test the POSIX adapter and disposable-file publication path; verify flush/rename failure handling. | 9, 16 |
+| 02c | 02a | Implement/test the Windows adapter in Windows CI; document and test its actual durability guarantees rather than assuming POSIX directory flushing. | 9, 16 |
+| 02d | 02b, 02c | Integrate staging/verification with publication; run process-kill, disk-full and reboot/fault drills. Record separately what power-loss behavior was verified. | 3, 9, 16 |
+| 03a | 02d | Ship encrypted backup restore through existing profile UI; verify source preservation and ordinary Windows recovery. | 9–10 |
+| 03b | 03a | Add explicit plaintext legacy import to a new encrypted destination; verify round-trip contents and recovery. | 3, 10 |
+| 04a | None | Pin candidate SDK/Python/native build matrix; produce a reproducible arm64 app with critical dependencies loaded. | 3, 11 |
+| 04b | 04a | Open/write/close the same encrypted fixture on Android and Windows; compare figures, inventory and key recovery. | 3, 11 |
+| 04c | 04b | Render one representative shared page; exercise WebView isolation, owning-thread shutdown and 16 KB device/native loading. | 11 |
+| 04d | 04c | Measure startup, unlock, page and snapshot costs; record go/no-go with the supported-device/build matrix. | 11, 14 |
+| 16a | 04d, 05 | Add private no-backup paths, native shell and narrow bridge; test cloud/device-transfer exclusions and navigation restrictions. | 4, 11 |
+| 16b | 16a, 06 | Integrate session modes and owning-thread command dispatch; prove locked transport never opens the finance database. | 3, 5, 11 |
+| 16c | 16b, 10 | Add user-started discovery/foreground service and stop/reminder behavior; test connected and absent borrowers. | 6, 8, 11 |
+| 16d | 16c, 15 | Run the real-phone lifecycle/fault matrix: kill, reboot, sleep, timeout, denied notifications, Wi-Fi/hotspot changes. | 11, 16 |
+| 18a | 06, 08 | Add desktop “View saved copy,” date/source/status labels and read-only reports/exports. Test disconnected launch, unchanged database hash, unsupported schema and precedence of outstanding local work. | 2, 5 |
+| 18b | 15, 16c | Add operational Pair/Lend/Hand back/status/repair controls as the protocol becomes available, with working back routes. | 2, 5, 8 |
+| 18c | 17, 18a, 18b | Complete phone-width navigation, accessibility and end-to-end UX acceptance; include 18a offline analysis. | 2, 11, 16 |
+| 18d | 16b, owner approval | Optional biometric key-slot prototype and tests; password/recovery still work after cancellation, invalidation or disabling biometrics. | 2, 11 |
+| 19a | 05 | Define/test release compatibility metadata and the old-schema return contract; firmware/app names alone confer no compatibility. | 13 |
+| 19b | 19a | Implement installed/required-version display and the official manual-download path; preserve paths and unsent files across ZIP replacement. | 2, 13 |
+| 19c | 15, 16d, 17, 19b | Rehearse phone auto-update, deferred migration, stale paired-PC readiness, old-schema hand-back and update ordering; gate the first beta. | 9, 13, 16 |
+| 19d | 19c, separate Windows updater work | Integrate the later owner-requested signed updater with active-operation refusal and binary rollback tests; not a prerequisite for the manual-update beta. | 13; Overview › Roadmap |
+| 22a | Bank samples available | Collect sanitized positive/negative fixtures for one bank and explicit supported event types; no production messages in Git. May start before the phone integration. | 12 (parse/teach) |
+| 22b | 22a, 20 | Implement the deterministic parser and source-linked review for that bank; uncertain/ambiguous cases remain unposted. | 12 |
+| 22c | 22b | Add field-marking, pattern versioning, negative-fixture checks and explicit activation; verify disabling a pattern preserves history. | 12 |
+| 22d | 21, 22c | Enable safe auto-post for that bank after inbox/CSV/manual duplicate tests, refunds/transfers and crash recovery pass. | 12, 16 |
+| 22e | 22d | Complete disclosure/permission/distribution acceptance for the SMS-bearing build. If approval is pending, release the core cycle without this feature. Repeat 22a–22d for later banks. | 12, 16 |
 
-For every implementation task: focused tests first; the full suite, import contracts and whitespace checks before the finished commit; Mohab and relevant brand checks for visible changes; dated changelog entry; update only the owning canonical document and the worker's NOW lane. Remote-only work uses GitHub Actions for execution; report its result rather than claiming unrun local tests.
+Tasks 01, 05–15, 17, 20–21 and 23–24 still use their parent ID unless implementation reveals a smaller verifiable split. Package 18 completes its core scope with 18a–18c; 18d is conditional. Package 19's beta gate is 19a–19c; 19d ships with the separate updater. A skipped optional subtask remains deferred, not marked done. Core task 23/24 acceptance does not claim the SMS extension passed until 22 and the SMS acceptance steps actually pass.
 
-If a gate fails, the next task is the specific repair to that gate. Do not mark a phase complete because its happy path worked. No calendar deadline is promised before the Android and durability spikes. Review task size at each handoff; split a row further if it cannot be finished and verified in one sitting.
+For every implementation task: focused tests first; full suite, import contracts and whitespace checks before the finished commit; Mohab and relevant brand checks for visible changes; dated changelog entry; update only the owning canonical document and the worker's NOW lane. Remote-only work uses GitHub Actions for execution; report its result rather than claiming unrun local tests.
+
+If a gate fails, repair that dependency before proceeding on its track; unrelated tracks may continue. Never mark a task complete from a happy path alone. Keep unfinished subtask state and exact file claims in NOW.md so the next AI can continue without rereading the entire plan.
 
 ### The complete cycle to build and test
 
@@ -522,6 +631,10 @@ Build deterministic transition tests first, then real process/filesystem/network
 | SMS scan crash, overlapping queries and provider reset | Atomic cursor/status; no lost persisted review items or duplicate source posting. |
 | SMS + later CSV + manual transaction | Confirmed duplicate links once; ambiguous equal amounts remain reviewable. |
 | Upgrade mid-lend and downgrade attempt | Old checkout can complete through supported return path; no borrower migration. |
+| Phone absent, no active lend | Supported saved-copy analysis works offline, has date/source/read-only labels, and changes no database bytes. Outstanding local work takes precedence. |
+| Locked phone receives a new borrow request | Grant only against the unchanged verified clean checkpoint; dirty/journal/promotion cases require unlock or repair. |
+| Phone auto-updates while PCs are old/offline | Old ledger/return mode stays usable; schema change is deferred or explicitly chosen with affected-PC guidance. |
+| Optional biometric key slot (if approved) | Key use requires cryptographic biometric authorization; cancellation/invalidation never bypasses password/recovery or acceptance verification. |
 
 Also test hostile lengths/path names, certificate substitution, replayed pairing, chunk quota exhaustion, stale session tokens and log redaction. Use supported platform tools to simulate power loss where possible, and clearly distinguish those results from process-kill tests.
 
@@ -534,13 +647,13 @@ An ordinary-PC/phone acceptance script must cover:
 1. Create/move profile, save recovery key, pair Office PC and another laptop.
 2. Borrow on Office PC, record and import activity, carry the phone away, close, reopen and continue.
 3. Return to a locked phone, close the PC, unlock the phone and confirm the accepted figures.
-4. Catch up SMS from during the lend; later import the statement without duplicate money.
+4. For the SMS extension, catch up messages from during the lend; later import the statement without duplicate money. The core-only beta uses manual/CSV entry and clearly leaves SMS unavailable.
 5. Borrow on the second laptop; verify the latest changes and schema compatibility.
 6. Lose a receipt, force a crash during promotion, restore a backup and exercise explicit Take back with a stale PC returning.
 7. Update phone and PC in both orders; confirm any refusal preserves unsent work.
 8. Verify local backup recovery after simulated phone loss and identify the exact work that the backup cannot recover.
 
-**Release gate:** every safety invariant passes; no unresolved data-loss or dual-authority failure; ordinary device cycle and restore drills pass; performance is measured with any missed target documented; Android lifecycle and SMS distribution status are explicit. The app version, compatibility pair, tested commits and owner acceptance belong in release evidence. No beta tag or real-data claim follows merely from completing this document.
+**Release gate:** every safety invariant for the released scope passes; no unresolved data-loss or dual-authority failure; ordinary device cycle and restore drills pass; performance is measured with any missed target documented; Android lifecycle and SMS distribution status are explicit. Core-only acceptance must not claim SMS or biometric acceptance, and an extension release reruns its affected cycle/financial tests. The app version, compatibility pair, tested commits and owner acceptance belong in release evidence. No beta tag or real-data claim follows merely from completing this document.
 
 ## 17. Decisions, risks and next action
 
@@ -559,6 +672,23 @@ An ordinary-PC/phone acceptance script must cover:
 | Teach one SMS then post all matches | Versioned deterministic rule, negative fixtures and explicit approval; unknown/ambiguous events stay in review. |
 | Add server/reader/merge infrastructure | Deferred; implement only the phone-home, single-borrower cycle. |
 
+### Practical review incorporated
+
+The follow-up review is valid on everyday friction, early value and task size. Two qualifications matter: locked lending is conditional on an unchanged verified checkpoint (section 7), and the Windows updater is already an owner-requested roadmap item added after the first rewrite (section 13). The changes are integrated into the actual journeys and roadmap: offline PC analysis, early restore/matching releases, independent tracks after explicit dependencies, a Read column and smaller platform/parser tasks.
+
+### Product choices still pending
+
+The questions live in NOW.md under For the owner; this plan keeps safe defaults while work unrelated to them proceeds.
+
+| Choice | Recommendation and alternative | Until the owner decides |
+|---|---|---|
+| Android fingerprint unlock | Offer optional strong biometric key access with password/recovery fallback, or keep password-only unlock. | Password-only finance unlock. Subtask 18d is conditional; reachability/receipt and the clean-checkpoint lend do not require adding biometric access. |
+| Interim PC-as-home release | Keep the two-PC implementation as a harness and deliver restore/matching early; alternatively authorize a supported PC-home/laptop product. | Phone remains the only shipping home in this plan. Task 15 is not release authorization. |
+
+A PC-home release would need its own home setup and move-home UI, Windows home durability/restart and long-lived listener acceptance, update/support matrix, documentation and release gate. Protocol reuse reduces work but does not make that product free. If approved, add those bounded tasks before advertising it; do not relabel the harness as shipped.
+
+The update-direction question is **resolved** by the existing owner-requested Windows updater roadmap. Scheduling its later implementation and selecting the package/helper remain work to plan there; the multi-device beta already has the manual-update/compatibility path in 19a–19c.
+
 ### Evidence still needed
 
 - Reproducible Android builds of the pinned encrypted/crypto stack and acceptable performance.
@@ -570,7 +700,7 @@ An ordinary-PC/phone acceptance script must cover:
 
 These are engineering gates, not reasons to reopen the owner's settled phone-home/local-only decisions. Defaults for retention, reminder intervals and benchmark thresholds are marked as proposals and may be tuned after measurement. If a constraint forces a product tradeoff, record the concrete alternatives under For the owner in NOW.md before changing scope.
 
-**Next implementation task: 01, the writer/lifecycle map and deterministic test harness; then 02, durable candidate promotion.** Android feasibility (04) is deliberately early, before the full networking implementation. Current work completes the plan only; implementation remains unclaimed until explicitly started.
+**Start with 01 → 02 → 03 for safe restore.** Android feasibility (04) can run alongside that track in its isolated shell, and source matching (20) can run independently with its own import/migration claims. After the message/control contract (05), progress the role/Lend/return track (06 → 07 → 08) alongside pairing/transport (09 → 10). Join those tracks at 11 and the integration gate 15. Section 15 is the authoritative dependency map; work remains unclaimed until started.
 
 ## 18. References
 
@@ -583,6 +713,7 @@ Platform guidance checked 2026-10-04; verify again when pinning the Android rele
 - [Android foreground-service types](https://developer.android.com/develop/background-work/services/fgs/service-types) and [timeouts](https://developer.android.com/develop/background-work/services/fgs/timeout?hl=en): validate the real service use case and lifecycle.
 - [Android backup and data-transfer exclusions](https://developer.android.com/identity/data/autobackup): prevent automated data/authority cloning as well as cloud copies.
 - [Chaquopy Android packaging](https://chaquo.com/chaquopy/doc/current/android.html?highlight=test) and [native compatibility notes](https://chaquo.com/chaquopy/doc/current/changelog.html): packaging candidate, not proof that every Lightning dependency works.
+- [Android biometric cryptographic authentication](https://developer.android.com/identity/sign-in/biometric-auth?hl=en): design reference for optional biometric unlock only; owner approval remains pending.
 - [Google Play SMS permissions](https://support.google.com/googleplay/android-developer/answer/10208820?hl=en): money-management exception is subject to review, disclosure and approval.
 
 The earlier review remains available in Git history. Its requirements and accepted corrections are incorporated above; there is no separate review section that can be mistaken for a second current specification.
