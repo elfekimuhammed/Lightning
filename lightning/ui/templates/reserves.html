@@ -30,7 +30,7 @@
   </div>
   {% if not income.amount %}<p class="muted small">Choose your income categories in <a href="/settings?section=budget">Settings</a> to measure months covered.</p>{% endif %}
   <form method="post" action="/reserves/emergency" class="emergency-form" data-autosave-form>
-    <label>Amount set aside<input class="money-input" type="text" name="allocated" value="{{ emergency.allocated|money(False, 2) if emergency else '0.00' }}" inputmode="decimal" required></label>
+    <label>Amount set aside<input class="money-input" type="text" name="allocated" value="{{ emergency.effective_allocated|money(False, 2) if emergency else '0.00' }}" inputmode="decimal" required>{% if emergency and emergency.spent %}<small class="muted">After {{ emergency.spent|money }} paid from the fund</small>{% endif %}</label>
     <span class="inline-save-status" aria-live="polite"></span>
   <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
 </section>
@@ -49,7 +49,7 @@
         <span class="inline-save-status" aria-live="polite"></span>
       <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form></td>
       <td>{% if reserve.due_date %}{{ reserve.due_date }}{% else %}<span class="muted">—</span>{% endif %}{% if reserve.recurrence != 'NONE' %}<div class="muted small">{{ reserve.recurrence|lower }}</div>{% endif %}</td>
-      <td><div class="reserve-row-progress"><div class="bartrack"><div class="bar" style="width:{{ reserve.progress }}%"></div></div><span class="small">{% if reserve.allocated >= reserve.target %}Fully funded{% else %}{{ (reserve.target - reserve.allocated)|money }} to fund{% endif %}</span><small class="muted">{{ reserve.spent|money }} paid · {{ [reserve.target - reserve.spent, 0]|max|money }} unpaid remainder</small><b class="small">{{ 'Paid/reconciled' if reserve.spent >= reserve.target else ('Partly paid/reconciled' if reserve.spent > 0 else 'Unpaid') }}</b>{% for payment in reserve.payments %}<a class="small" href="/transactions/{{ payment.id }}">{{ payment.ref }} · {{ payment.date }} · {{ payment.amount|money }}</a>{% endfor %}<a class="small" href="/reserves/{{ reserve.id }}/payments">Link / review payment</a></div></td>
+      <td><div class="reserve-row-progress"><div class="bartrack"><div class="bar" style="width:{{ reserve.progress }}%"></div></div><span class="small">{% if reserve.allocated >= reserve.target %}Fully funded{% else %}{{ (reserve.target - reserve.allocated)|money }} to fund{% endif %}</span><small class="muted">{{ reserve.spent|money }} spent · {{ reserve.effective_allocated|money }} still set aside</small><b class="small">{{ 'Spent in full' if reserve.spent >= reserve.target else ('Partly spent' if reserve.spent > 0 else 'Not spent yet') }}</b>{% for payment in reserve.payments %}<a class="small" href="/transactions/{{ payment.id }}">{{ payment.ref }} · {{ payment.date }} · {{ payment.amount|money }}</a>{% endfor %}<a class="small" href="/reserves/{{ reserve.id }}/payments">Link / review payment</a></div></td>
       <td><details class="reserve-edit"><summary>Edit</summary>
         <form method="post" action="/reserves/{{ reserve.id }}/edit" class="stack" data-reserve-autosave>
           <label>Name<input type="text" name="name" value="{{ reserve.name }}" required></label>

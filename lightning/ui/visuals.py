@@ -429,7 +429,7 @@ def expense_analysis(c, first: date, last: date, code_filter: str = "", history:
     flow_heat = [{"name": "Money in", "cells": steps(flow_rows["Money in"], "in")},
                  {"name": "Money out", "cells": steps(flow_rows["Money out"], "out")},
                  {"name": "Net flow", "cells": net_cells, "net": True}]
-    return {"rows": rows, "total": profile["total"], "small": profile["small"], "months_in": months_in,
+    return {"rows": rows, "refunds": profile["refunds"], "total": profile["total"], "small": profile["small"], "months_in": months_in,
             "tiles": tiles, "clusters": clusters, "multiples": multiples, "heat": heat, "heat_keys": heat_keys,
             "heat_now": now_from, "flow_heat": flow_heat, "history_months": len(keys),
             "usual_total": profile["usual_total"], "usual_out": profile["usual_out"], "per_month": profile["per_month"],

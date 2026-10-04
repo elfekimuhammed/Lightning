@@ -36,16 +36,16 @@
       {% if request.state.secure_profiles|default(false) %}<a href="/profiles">Profiles &amp; lock</a>{% endif %}
     </nav>
     <details class="side-accounts" id="sidebar-accounts">
-      <summary class="mobile-accounts-summary"><span>Accounts</span><b>{{ sidebar_total|money }} {{ base }}</b></summary>
+      <summary class="mobile-accounts-summary"><span>Accounts</span><b>{{ sidebar_total|money(False, 2) }} {{ base }}</b></summary>
       <div class="sidebar-heading">Accounts <span>· Balances in {{ base }}</span></div>
       <a class="side-row side-total {{ 'active' if path == '/transactions' }}" href="/transactions" {% if path == '/transactions' %}aria-current="page"{% endif %}>
-        <span>{{ fig.in_your_accounts.label }}</span><span class="num" title="{{ fig.in_your_accounts.equation }}">{{ sidebar_total|money }}</span></a>
+        <span>{{ fig.in_your_accounts.label }}</span><span class="num" title="{{ fig.in_your_accounts.equation }}">{{ sidebar_total|money(False, 2) }}</span></a>
       {% for g in sidebar_groups %}
         <div class="side-row side-group"><span>{{ g.label }}</span></div>
         {% for a in g.children %}
         <a class="side-row side-account {{ 'active' if path == '/accounts/' ~ a.id or path.startswith('/accounts/' ~ a.id ~ '/') }}" href="/accounts/{{ a.id }}" title="{{ a.label }}">
           <span class="side-name">{{ a.label }}</span>
-          <span class="num {{ 'neg' if a.value < 0 }}">{{ a.value|money }}</span></a>
+          <span class="num {{ 'neg' if a.value < 0 }}">{{ a.value|money(False, 2) }}</span></a>
         {% endfor %}
       {% endfor %}
       <a class="side-add" data-popup-open href="/accounts/new">+ Add account</a>

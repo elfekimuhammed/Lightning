@@ -260,6 +260,9 @@ class ReportQueries:
                               "WHERE t.type='OPN' AND le.owner_id IS NULL AND le.date BETWEEN ? AND ?",
                               (start, end)) or 0
 
+    def has_income_or_spending(self) -> bool:
+        return bool(self.db.scalar("SELECT 1 FROM transactions WHERE status='POSTED' AND type IN ('IN','OUT') LIMIT 1"))
+
     def first_entry_date(self) -> str | None:
         # Opening balances anchor an account; they are not activity for the All time view.
         return self.db.scalar(f"SELECT MIN(le.date) FROM ledger_entries le {POSTED} WHERE t.type<>'OPN'")

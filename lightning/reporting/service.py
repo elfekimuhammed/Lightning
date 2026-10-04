@@ -286,6 +286,12 @@ class ReportingService:
         return from_e6(self.q.opening_total(self._day(start), self._day(end)))
 
     @request_cached
+    def has_income_or_spending(self) -> bool:
+        """True once any income, spending or refund is posted (opening balances and moves between your
+        own accounts are not history)."""
+        return self.q.has_income_or_spending()
+
+    @request_cached
     def first_activity_date(self) -> str | None:
         return self.q.first_entry_date()
 

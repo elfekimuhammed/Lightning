@@ -94,7 +94,8 @@ class CashReserveService:
         )
 
     def set_emergency_fund(self, amount, salary_target=ZERO):
-        """Set the reserved cash for the fixed Emergency Fund section."""
+        """Set what the Emergency Fund holds now. Payments already taken from the fund are added back,
+        so typing the figure every screen shows (set aside less what was used) changes nothing."""
         value = to_decimal(amount, "allocated")
         if value < ZERO:
             raise ValidationError("Reserved cash cannot be negative.", "allocated")
@@ -104,9 +105,12 @@ class CashReserveService:
             raise ValidationError("Enter the amount you have reserved for emergencies.", "allocated")
         with self.db.transaction():
             if active:
+                used = from_e6(int(self.db.scalar(
+                    "SELECT COALESCE(SUM(l.amount_e6),0) FROM reserve_transaction_links l JOIN transactions t "
+                    "ON t.id=l.transaction_id WHERE l.reserve_id=? AND t.status='POSTED'", (active["id"],)) or 0))
                 self.db.execute("UPDATE cash_reserves SET target_e6=?,updated_at=? WHERE id=?",
-                                (to_e6(target), now_iso(), active["id"]))
-                return self.allocate(int(active["id"]), value)
+                                (to_e6(max(target, value + used)), now_iso(), active["id"]))
+                return self.allocate(int(active["id"]), value + used)
             reserve = self.create("Emergency Fund", target, "EMERGENCY")
             return self.allocate(reserve["id"], value)
 

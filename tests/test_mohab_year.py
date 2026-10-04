@@ -650,9 +650,13 @@ def test_six_accounts_with_their_balances(mohab):
 def test_the_overview_says_what_to_set_up_next_and_then_gets_out_of_the_way(mohab):
     setup = mohab.answers["setup"]
     assert route(mohab, "setup") == ["/"]
-    # Accounts and history are in (the NBE certificate purchase is his first record); salary, the
-    # emergency fund and the budget are next, each one click away.
-    assert setup.shows("Get set up", "2 of 5 done", "Add your salary and bills", "Set an emergency fund", "Make a budget")
+    # Accounts are in; moving money into the NBE certificate is not history yet (review 2026-10-04: the
+    # step ticked on the CD purchase alone). History, salary, the emergency fund and the budget are next.
+    assert setup.shows("Get set up", "1 of 5 done", "Bring in your history", "Add your salary and bills",
+                       "Set an emergency fund", "Make a budget")
+    # With the CIB statement half reviewed, the step points back to it instead of ticking.
+    assert mohab.answers["import_waiting"].shows("Bring in your history", "cib-jul-sep.csv is waiting for your review",
+                                                 "Finish the import")
     assert not mohab.answers["needs_you"].shows("Get set up")  # all five done by October
 
 
@@ -751,11 +755,15 @@ def test_a_refund_lowers_money_out(mohab):
     assert mohab.answers["refund"].shows("Money out 32,701 EGP Against 2026-09 +9,311")
 
 
-@known_gap("Where did it go? leaves out a category whose only activity is a refund: 34,000 against Money out 32,701")
 def test_where_it_went_adds_up_to_money_out(mohab):
+    # Fixed 2026-10-04: the refund-only category is its own row, and shares are of Money out.
     text = mohab.answers["refund"].screen.text
     table = text[text.find("Show the numbers Category Money out Share"):text.find("Is this period unusual?")]
-    assert sum(money(m) for m in re.findall(r"([\d,]+(?:\.\d\d)?) [\d.]+%", table)) == D("32701")
+    body, footer = table[:table.rfind(" Money out ")], table[table.rfind(" Money out "):]
+    rows = re.findall(r"([−+]?[\d,]+(?:\.\d\d)?) [−]?[\d.]+%", body)
+    assert sum(money(m) for m in rows) == D("32701") == money(footer)
+    assert "Refunds took 1,299 off money out: Shopping" in text
+    assert "Housing & Rent 12,000 · 37%" in text      # 12,000 of 32,701, not of 34,000
 
 
 def test_a_repair_paid_from_the_emergency_fund(mohab):
@@ -837,7 +845,7 @@ def test_a_sale_shows_its_gain_after_fees(mohab):
 
 
 def test_the_insurance_is_paid_from_its_goal(mohab):
-    assert mohab.answers["insurance"].shows("Car insurance", "9,000.00 paid · 0.00 unpaid remainder")
+    assert mohab.answers["insurance"].shows("Car insurance", "9,000.00 spent · 0.00 still set aside")
 
 
 def test_the_rent_rise_is_offered_and_taken(mohab):
@@ -872,7 +880,7 @@ def test_the_year_on_the_overview(mohab):
 
 
 def test_the_years_spending(mohab):
-    assert mohab.answers["year_spending"].shows("Money out 333,266 EGP", "Housing & Rent 148,800 · 44%")
+    assert mohab.answers["year_spending"].shows("Money out 333,266 EGP", "Housing & Rent 148,800 · 45%")
 
 
 def test_the_years_investments(mohab):

@@ -197,7 +197,7 @@
   <div class="chips">
     {% for h in holdings %}
     <span class="holding-chip" title="{{ h.asset_code }} · cost {{ h.cost_basis|money }}">
-      <b>{{ h.asset_name }}</b> {{ h.quantity|money(False, 3 if h.unit == 'gram' else (0 if h.unit == 'share' else 4)) }} {{ h.unit }}s ·
+      <b>{{ h.asset_name }}</b> {{ h.quantity|units_of(h.unit) }} ·
       {{ h.value|money if h.value is not none else '—' }}
       {% if h.unrealized is not none %}<span class="{{ h.unrealized|tone }}">{{ h.unrealized|money(True) }}</span>{% endif %}
     </span>

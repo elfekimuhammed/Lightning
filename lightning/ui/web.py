@@ -82,6 +82,18 @@ def _units(value) -> str:
 templates.env.filters["units"] = _units
 
 
+def _units_of(value, unit: str) -> str:
+    """A quantity with its unit, singular for exactly one: 75 shares, 1 piece, 12.5 grams."""
+    if value is None:
+        return ""
+    unit = (unit or "").strip()
+    plural = unit and Decimal(value) != 1 and not unit.endswith("s") and unit.upper() != unit
+    return f"{_units(value)} {unit}{'s' if plural else ''}".strip()
+
+
+templates.env.filters["units_of"] = _units_of
+
+
 def _compact(value) -> str:
     """A short whole number for tight cells: 950, 9.7k, 12k, 1.2M (signed values keep a −)."""
     if value is None:

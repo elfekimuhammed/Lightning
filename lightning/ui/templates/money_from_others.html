@@ -14,7 +14,7 @@
   <div class="section-head"><div><h2>Investments</h2></div></div>
   {% if investments %}<table><thead><tr><th>Held for</th><th>Account</th><th>Investment</th><th class="num">Units</th><th class="num">Value</th></tr></thead><tbody>
   {% for row in investments %}<tr><td>{{ row.owner }}</td><td>{{ row.account_name }}</td><td>{{ row.asset_name }}</td>
-    <td class="num">{{ row.units|units }} {{ row.unit }}</td><td class="num">{{ row.value|money if row.value is not none else '—' }}</td>
+    <td class="num">{{ row.units|units_of(row.unit) }}</td><td class="num">{{ row.value|money if row.value is not none else '—' }}</td>
   {% endfor %}
   </tbody></table>{% else %}<p class="muted">No investments are held for others.</p>{% endif %}
 </section>

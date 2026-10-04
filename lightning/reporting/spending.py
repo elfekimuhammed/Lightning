@@ -47,12 +47,19 @@ def spending_profile(reporting, first: date, last: date, code_filter: str = "", 
         return rows
 
     now = by_cat(first, last)
-    total = sum((v for _, v in now.values()), ZERO)
+    spent = sum((v for _, v in now.values()), ZERO)
+    # A category whose refunds outweigh its spending (August's purchase returned in October) takes
+    # money off: it is its own row, so the rows add up to Money out and every share is of Money out.
+    refunds = [{"code": g.code, "name": g.label.split(" › ")[-1], "value": g.value}
+               for g in reporting.spending_by_category(first, last, depth=2)
+               if g.value < 0 and (not code_filter or g.code.startswith(code_filter))]
+    money_out = spent + sum((r["value"] for r in refunds), ZERO)
+    total = money_out if money_out > 0 else spent
     months_in = max(1, (last.year - first.year) * 12 + last.month - first.month + 1)
     ranked = sorted(now.items(), key=lambda kv: -kv[1][1])
     big = [(code, name, value) for code, (name, value) in ranked[:top]
            if total and value / total * 100 >= floor_share]
-    small = total - sum((v for _, _, v in big), ZERO)
+    small = spent - sum((v for _, _, v in big), ZERO)
     # Whole months before the period, oldest first, never before the first record.
     keys = months_back(first.replace(day=1) - timedelta(days=1), history, reporting.first_activity_date())
     hist = [by_cat(*parse_month(k)) for k in keys]
@@ -76,7 +83,9 @@ def spending_profile(reporting, first: date, last: date, code_filter: str = "", 
                               if r.get("others") else period_months[k].get(r["code"], ("", ZERO))[1]
                               for k in period_keys]
     recent_all = [sum((v for _, v in h.values()), ZERO) for h in hist[-6:]]
-    return {"rows": rows, "total": total, "small": small, "months_in": months_in, "history_keys": keys,
+    for r in refunds:
+        r["share"] = r["value"] / total * 100 if total else ZERO
+    return {"rows": rows, "refunds": refunds, "total": total, "small": small, "months_in": months_in, "history_keys": keys,
             "period_keys": period_keys, "per_month": total / months_in,
             "usual_total": sum((r["usual"] or ZERO for r in rows), ZERO),
             "usual_out": sum(recent_all, ZERO) / len(recent_all) if recent_all else None}

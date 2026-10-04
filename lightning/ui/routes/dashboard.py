@@ -274,12 +274,17 @@ def _setup_steps(c, accounts) -> list[dict] | None:
     Shown until every step is done; each step is read from the data, so it ticks itself."""
     from lightning.planning.domain import PlanKind
     bank = next((a for a in accounts if a.account_type.value == "BANK" and a.active), None)
+    waiting = c.bank_imports.first_pending_review()
+    history = {"label": "Bring in your history", "detail": "Import your bank's statement, or add rows by hand",
+               "done": c.reporting.has_income_or_spending() and waiting is None,
+               "href": f"/accounts/{bank.id}/import" if bank else "/accounts", "action": "Import a statement"}
+    if waiting is not None:   # a statement is half-reviewed: the step is not done until it is posted
+        history |= {"detail": f"{waiting['file_name']} is waiting for your review",
+                    "href": f"/accounts/{waiting['account_id']}/import/{waiting['batch_id']}", "action": "Finish the import"}
     steps = [
         {"label": "Add where you keep your money", "detail": "Your bank, cash, certificates, THNDR and gold",
          "done": bool(accounts), "href": "/accounts/new", "action": "Add an account"},
-        {"label": "Bring in your history", "detail": "Import your bank's statement, or add rows by hand",
-         "done": c.reporting.first_activity_date() is not None,
-         "href": f"/accounts/{bank.id}/import" if bank else "/accounts", "action": "Import a statement"},
+        history,
         {"label": "Add your salary and bills", "detail": "So Cash planning knows what comes in and what is due",
          "done": bool(c.planning.items((PlanKind.INCOME, PlanKind.BILL))), "href": "/plan/recurring",
          "action": "Add salary and bills"},

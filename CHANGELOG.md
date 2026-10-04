@@ -16,6 +16,13 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - 2026-10-03 · Codex: Set the source version to 0.5.0b1 (display 0.5.0-beta.1) for the next beta. The Windows package workflow now runs from `main` and names the ZIP `Lightning-v0.5.0-beta.1-Windows-x64.zip`. This records the packaging setup only; Windows build verification and distribution are still pending.
 
 ## [Unreleased]
+- 2026-10-04 · Claude: Fixes from an AI review of Mohab's year:
+  - *Get set up › Bring in your history* ticked on the CD purchase alone and while the CIB statement still waited for review. It now needs posted income or spending and no statement in review; while one waits, the step says so and links to it.
+  - Expense analysis: shares are of Money out (Housing 12,000 of October's 32,701 is 37%, not 35%). A category whose refunds outweigh its spending is its own row in "Show the numbers", with a Money out total, and a line names the refunds, so the rows add up. This closes the known gap.
+  - The sidebar's account rows always keep two decimals (guideline A06.1, "rows keep two decimals"). They showed whole pounds on reporting pages and cents elsewhere.
+  - Reserves: leftover goal money reads "spent · still set aside" (800.00 for the Sahel trip), not "unpaid remainder"; the status words are Spent in full, Partly spent and Not spent yet.
+  - The emergency fund's "Amount set aside" box shows what the fund holds now (13,500 after the 6,500 repair, with a note). Saving it adds back what payments used, so re-saving changes nothing.
+  - Units read as written: "75 shares", "1 piece" (new `units_of` filter; the register no longer writes "1 pieces").
 - 2026-10-05 · Claude: Brand guideline 3.15, the same file as the website's `brand-guidelines.html`. Website only: phones first (one-line hero sentences, full-width buttons, one-column screens, 54px fields).
 - 2026-10-04 · Claude: Brand guideline 3.14, the same file as the website's `brand-guidelines.html`. Website only: white fields (never grey), a dark Take the survey button, a sign-off at the end of each page, and one calculator chip. The app's soft field wells (A10) are unchanged.
 - 2026-10-04 · Claude: Brand guideline 3.13, the same file as the website's `brand-guidelines.html`. Website only: the small-change calculator is a split card with its answer on the vivid gradient, the one card allowed there.
