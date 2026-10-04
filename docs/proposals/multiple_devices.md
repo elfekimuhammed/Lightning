@@ -295,8 +295,54 @@ Answered later the same day:
 4. **Teach SMS formats bank by bank.** An SMS from a bank sender in a format Lightning does not know goes to review. The owner marks the amount, date and counterparty once, and Lightning saves that as the pattern for that bank. Each saved pattern, with its numbers changed, becomes a test fixture. This is how the owner's "log each bank over time" happens without collecting samples upfront.
 5. **One rule for app versions.** The phone updates from Google Play; the PC is updated by hand. Only the home phone ever migrates the database. A PC whose app cannot open the phone's schema does not borrow, and says "Update Lightning on this PC", with the download link.
 
-### Review 7. What Codex should do with this
+### Review 7. Names for every part
+
+One name per thing, in code, docs and tests. The words a person sees on screen are in the last column, under the brand guideline's plain-words rule. Codex's names are kept where they exist: home node, writer node, reader node, working copy, accepted version, lineage. When this is built, these move into the Glossary.
+
+**Devices** (permanent, set by pairing):
+
+| Name | What it is | On screen |
+|---|---|---|
+| Home node | The phone. It holds the ledger, and is the only place a returned copy becomes an accepted version. | "your phone" |
+| Paired device | A PC or laptop paired once with the home node by QR. It has a name the owner picks. | "Office PC" |
+
+**Roles** (who may edit right now; exactly one writer at a time):
+
+| Name | What it is | On screen |
+|---|---|---|
+| Writer node | The one device that may edit now: the home node while the ledger is at home, or a borrower during a lend | — |
+| Borrower | A paired device while it is the writer node. **This is the PC with the temporary file.** | "Editing on this PC" |
+| Reader node | A device showing a copy it may not edit: the home node during a lend (later, other paired devices too) | "Lent to Office PC · read only" |
+
+**Copies** (files):
+
+| Name | What it is | Where |
+|---|---|---|
+| Ledger | The accepted database | Home node, private app storage |
+| Accepted version | Each ledger the home node accepted, numbered, with its lineage | Home node (current, plus the last few) |
+| Prefetch copy | The ledger fetched when the PC app opens, before the password is typed; becomes the working copy if a lend starts | Paired device, `%LOCALAPPDATA%` |
+| Working copy | The borrower's editable copy: **the temporary file** | Borrower, `%LOCALAPPDATA%` |
+| Recovery copy | The working copy sent to the home node about every 3 minutes; never accepted, used only by Take back | Home node (latest only) |
+| Sealed copy | The borrower's final working copy, saved on close while the phone is away, waiting to be handed back | Borrower |
+| Backup | An encrypted copy kept for restore: prefetch and returned copies on the PC, previous accepted versions on the phone | Both |
+
+**Actions:**
+
+| Name | Codex's name | What happens | On screen |
+|---|---|---|---|
+| Pair | pairing | Once per device, by QR | "Pair this PC" |
+| Lend | checkout | The home node grants the writer role to a paired device | "Lent to Office PC" |
+| Hand back | check-in, return | The borrower returns its working copy; the home node accepts it | "Hand back" |
+| Take back | explicit recovery | The owner ends a lend without a hand-back; the home node resumes from its recovery copy as a new lineage | "Take back" |
+
+**Lend states** (the durable lend record on each side):
+
+- Home node: **At home** → **Lent** (to a borrower) → **Returning** → **At home**; or **Needs repair**.
+- Borrower: **Prefetched** → **Borrowing** → **Hand-back pending** (closed while the phone was away) → **Returning** → **Handed back**; or **Aborted** (the lend never started).
+
+### Review 8. What Codex should do with this
 
 - Record the owner's requirements (Review 1) and answers (Review 5) in the Project Overview under *Product decisions that must hold*.
 - Revise the proposal above: the phone as the default home; checkout as the core; version 1 cut as listed in Review 3; bank SMS read on return; the measured, byte-for-byte transfer.
+- Use the names in Review 7 throughout the revised proposal.
 - Raise any disagreement under *For the owner* in `NOW.md`, not by editing around this review.

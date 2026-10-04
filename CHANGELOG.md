@@ -10,6 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-04 · Claude: Multiple-devices review: one name for every device, role, copy, action and state (Review 7), keeping Codex's terms; a PC holding the temporary file is the *borrower*, and the file is its *working copy*.
 - 2026-10-04 · Claude: Multiple-devices review: closing the PC with the phone away keeps a sealed copy on the PC; the phone reminds the owner after about 8 hours, then daily, and offers Take back after a few days.
 - 2026-10-04 · Claude: Multiple-devices review: the phone app runs in the background only during a lend (one tap starts it, a notification shows it); five further suggestions for Codex (Review 6).
 - 2026-10-04 · Claude: Multiple-devices review: the owner opens the phone app when using the PC (no background service); bank SMS formats will be logged bank by bank later.
