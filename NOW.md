@@ -20,7 +20,7 @@ Last rewritten 2026-10-04 · Claude.
 ## Codex
 
 - **Last done (2026-10-04):** revised [`docs/proposals/multiple_devices.md`](docs/proposals/multiple_devices.md) for the owner's phone-home, PC-borrowing workflow; kept Claude's review with the requested supersession note. Recorded the owner's decisions in the Project Overview. No sync code yet.
-- **In progress · claimed files:** none.
+- **In progress · claimed files:** rewriting `docs/proposals/multiple_devices.md` into one integrated implementation plan (owner request); coordinating its status in `NOW.md` and `docs/PROJECT_OVERVIEW.md`. No implementation work or app files claimed.
 
 ## Next (unclaimed; claim it in your lane before you start)
 
