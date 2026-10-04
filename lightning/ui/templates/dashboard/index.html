@@ -108,8 +108,9 @@
     {# Owner decision 2026-10-03: one row of figures here; the detail lives on the Investments tab. #}
     <article class="overview-block wide-card overview-investment-row" aria-label="Investments in this period">
       <div class="overview-figure-row">
-        <div><span>{{ fig.portfolio_value.label }}</span><b>{{ investment_report.portfolio_value|money if investment_report.portfolio_value is not none else 'Unavailable' }}</b></div>
-        <div><span>{{ fig.holdings_value.label }}</span><b>{{ investment_report.holdings_value|money if investment_report.holdings_value is not none else 'Unavailable' }}</b></div>
+        {# Position figures come from the one Position (Architecture › Data ownership): the same Holdings value as "Your position" above. #}
+        <div><span>{{ fig.portfolio_value.label }}</span><b>{{ pos.portfolio_value|money }}</b></div>
+        <div><span>{{ fig.holdings_value.label }}</span><b>{{ pos.holdings_value|money }}</b></div>
         <div><span>{{ fig.new_money_in.label }}</span><b>{{ investment_report.new_money|money }}</b></div>
         <div><span>{{ fig.result.label }}</span><b class="{{ investment_report.period_result|tone if investment_report.period_result_available else '' }}">{% if investment_report.period_result_available %}{{ investment_report.period_result|money(True) }}{% else %}Unavailable{% endif %}</b></div>
         <a class="quiet-link" href="/investments?{{ period_query }}">See investments</a>

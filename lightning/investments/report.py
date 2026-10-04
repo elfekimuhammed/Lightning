@@ -2,7 +2,7 @@
 from collections import defaultdict
 from decimal import Decimal
 
-from lightning.accounts.domain import INVESTMENT_ACCOUNT_TYPES
+from lightning.accounts.domain import INVESTMENT_ACCOUNT_TYPES, AccountType
 from lightning.core.memo import request_cached
 from lightning.core.money import ZERO, from_e6
 
@@ -74,6 +74,9 @@ def build_investment_report(db, accounts, assets, reporting, start: str, end: st
     account_rows = accounts.list(active_only=False)
     account_by_id = {a.id: a for a in account_rows}
     investment_account_ids = {a.id for a in account_rows if a.account_type in INVESTMENT_ACCOUNT_TYPES}
+    # Only a brokerage holds uninvested cash. A balance kept in a physical-asset or "Other" account
+    # (a share of a flat, a car) is the value of that asset: a holding, never brokerage cash.
+    brokerage_ids = {a.id for a in account_rows if a.account_type == AccountType.BROKERAGE}
     placeholders = ",".join("?" for _ in investment_account_ids)
     if not placeholders:
         return {"new_money": ZERO, "withdrawn": ZERO, "net_money": ZERO,
@@ -97,14 +100,17 @@ def build_investment_report(db, accounts, assets, reporting, start: str, end: st
     movements = defaultdict(Decimal)
     dividends = ZERO
     cash_quantities = defaultdict(Decimal)
+    asset_balances = defaultdict(Decimal)   # (account, cash asset) -> balance held as an asset's value
     # Use asset metadata by id; account boundaries are determined by account type.
     for row in rows:
         key = (row["owner_id"], row["account_id"], row["asset_id"])
         asset = asset_by_id[row["asset_id"]]
         q, amount = from_e6(row["quantity_e6"]), from_e6(row["amount_base_e6"])
         if asset.is_cash:
-            if row["account_id"] in investment_account_ids:
+            if row["account_id"] in brokerage_ids:
                 cash_quantities[row["asset_id"]] += q
+            elif row["account_id"] in investment_account_ids:
+                asset_balances[(row["account_id"], row["asset_id"])] += q
             if (row["account_id"] in investment_account_ids and
                     (row["type"] == "DIV" or row["category_code"] in
                      ("EXP.INVEST.DIVIDEND", "EXP.INVEST.INTEREST")) and row["date"] >= start):
@@ -164,6 +170,20 @@ def build_investment_report(db, accounts, assets, reporting, start: str, end: st
                          "units": b["units"], "cost": b["cost"], "value": value,
                          "realized": b["realized"], "unrealized": None if value is None else value-b["cost"],
                          "price_date": valuation.price_date, "price_source": valuation.source})
+    for (account_id, cash_asset_id), quantity in asset_balances.items():
+        if quantity == ZERO:
+            continue
+        valuation = reporting.value_of(cash_asset_id, quantity, end)
+        account = account_by_id[account_id]
+        if valuation.value is None:
+            missing.append({"asset": account.name, "reason": valuation.reason or "Missing dated exchange rate"})
+            holdings_unavailable = True
+            continue
+        total_value += valuation.value
+        total_cost += valuation.value
+        holdings.append({"account": account.label, "asset": account.name, "units": quantity, "cost": valuation.value,
+                         "value": valuation.value, "realized": ZERO, "unrealized": ZERO,
+                         "price_date": end, "price_source": "BALANCE"})
     cash = ZERO
     cash_unavailable = False
     for cash_asset_id, quantity in cash_quantities.items():
