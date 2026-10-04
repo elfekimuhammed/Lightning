@@ -145,6 +145,8 @@ def test_packaged_readme_displays_current_version(tmp_path, monkeypatch):
 
     assert (bundle / "README.txt").read_text(encoding="utf-8") == f"Lightning v{DISPLAY_VERSION}\n"
     assert (tmp_path / "dist" / f"Lightning-v{DISPLAY_VERSION}-Windows-x64.zip").is_file()
+    config = (bundle / "Lightning.exe.config").read_text(encoding="utf-8")  # .NET loads marked downloads
+    assert '<loadFromRemoteSources enabled="true"/>' in config
     # Read by the release job's Linux tools: "\n" line endings even when packaged on Windows.
     for name in ("APP_SHA256SUMS", "BUILD_INFO.txt"):
         assert b"\r" not in (tmp_path / "dist" / name).read_bytes(), name

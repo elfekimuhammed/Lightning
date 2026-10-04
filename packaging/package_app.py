@@ -247,6 +247,8 @@ def package(strict: bool = False, env=os.environ) -> Path:
     (bundle / "README.txt").write_text(readme.replace("@VERSION@", DISPLAY_VERSION), encoding="utf-8")
     info = build_info_text(identity)
     (bundle / "BUILD_INFO.txt").write_text(info, encoding="utf-8", newline="\n")
+    # Lets .NET Framework load the app's own assemblies when Windows marks them as downloaded.
+    shutil.copyfile(SOURCE / "packaging" / "Lightning.exe.config", bundle / "Lightning.exe.config")
     for problem in write_notices(bundle, strict):
         print(f"warning: {problem}", file=sys.stderr)
 

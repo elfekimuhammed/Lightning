@@ -126,7 +126,7 @@ jobs:
           Write-Host "Marked $marked extracted files as downloaded from the internet (ZoneId=3)."
           $exe = Join-Path $target 'Lightning/Lightning.exe'
           if (-not (Test-Path -LiteralPath $exe)) { throw "The ZIP has no Lightning/Lightning.exe" }
-          foreach ($file in 'README.txt', 'BUILD_INFO.txt', 'licenses/dependency-versions.txt') {
+          foreach ($file in 'README.txt', 'BUILD_INFO.txt', 'Lightning.exe.config', 'licenses/dependency-versions.txt') {
             if (-not (Test-Path -LiteralPath (Join-Path $target "Lightning/$file"))) { throw "The ZIP has no Lightning/$file" }
           }
           "exe=$exe" >> $env:GITHUB_OUTPUT

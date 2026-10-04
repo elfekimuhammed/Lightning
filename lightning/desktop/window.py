@@ -267,7 +267,9 @@ def run_window(url: str, origin: str, *, smoke: bool = False, diagnostics: dict 
         return int(result["code"])
     except Exception as exc:
         diagnostics["error_type"] = type(exc).__name__
-        # Do not surface exception text: framework errors can contain the launch URL.
+        # Where it failed (file, function, line), never the text: framework errors can contain the launch URL.
+        diagnostics["error_frames"] = [f"{frame.filename.replace(chr(92), '/').rsplit('/', 1)[-1]}:{frame.name}:{frame.lineno}"
+                                       for frame in __import__("traceback").extract_tb(exc.__traceback__)][-12:]
         if not smoke:
             try:
                 _show_error("Lightning window failed to start. Check the local URL and WebView2 runtime.")
