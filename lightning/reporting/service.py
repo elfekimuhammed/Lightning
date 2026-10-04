@@ -147,6 +147,18 @@ class Statement:
 
 
 # ---------------------------------------------------------------------------- service
+def flow_of(effect: str, amount: Decimal, category) -> tuple[Decimal, Decimal]:
+    """The one rule for Money in and Money out (every report, chart and budget uses it).
+
+    ``amount`` is a ledger line's signed base amount. A line with the income effect in a category with
+    an income class is Money in. Every other categorised line is spending: a payment (negative amount)
+    adds to Money out, and a refund (positive amount, whichever effect it was recorded with) takes
+    from it. Returns (money_in, money_out); one of them is zero."""
+    if effect == "INFLOW" and category.income_class is not None:
+        return amount, ZERO
+    return ZERO, -amount
+
+
 class ReportingService:
     def __init__(self, db: Database, accounts: AccountService, assets: AssetService,
                  categories: CategoryService, base_currency: str, money_from_others: MoneyFromOthersService):
@@ -404,18 +416,15 @@ class ReportingService:
         start, end = self._day(date_from), self._day(date_to)
         inflow = household = investment = outflow = personal = work = investment_out = ZERO
         for row in self.q.category_totals(start, end):
-            amount = from_e6(row["total"])
             cat = self.categories.get(row["category_id"])
-            if row["effect"] == "INFLOW" and cat.income_class is not None:
-                inflow += amount
+            money_in, signed_outflow = flow_of(row["effect"], from_e6(row["total"]), cat)
+            if money_in:
+                inflow += money_in
                 if cat.family == CategoryFamily.INVESTMENT or cat.income_class == IncomeClass.INVESTMENT:
-                    investment += amount
+                    investment += money_in
                 else:
-                    household += amount
+                    household += money_in
             else:
-                # A refund uses the expense category and effect, but a positive
-                # amount base: subtract it from spending rather than show income.
-                signed_outflow = -amount if row["effect"] == "OUTFLOW" else amount
                 outflow += signed_outflow
                 if cat.family == CategoryFamily.INVESTMENT:
                     investment_out += signed_outflow
@@ -433,13 +442,12 @@ class ReportingService:
         start, end = self._day(date_from), self._day(date_to)
         out: dict[str, dict] = {}
         for row in self.q.category_totals_by_date(start, end, 10 if by == "day" else 7):
-            amount = from_e6(row["total"])
             cat = self.categories.get(row["category_id"])
             item = out.setdefault(row["key"], {"inflows": ZERO, "outflows": ZERO, "spending": ZERO})
-            if row["effect"] == "INFLOW" and cat.income_class is not None:
-                item["inflows"] += amount
+            money_in, signed_outflow = flow_of(row["effect"], from_e6(row["total"]), cat)
+            if money_in:
+                item["inflows"] += money_in
                 continue
-            signed_outflow = -amount if row["effect"] == "OUTFLOW" else amount  # a refund reduces it
             item["outflows"] += signed_outflow
             if not code_prefix or cat.code.startswith(code_prefix):
                 item["spending"] += signed_outflow
@@ -455,9 +463,9 @@ class ReportingService:
     def _money_out_by_category(self, start: str, end: str) -> dict[int, Decimal]:
         totals: dict[int, Decimal] = {}
         for row in self.q.category_totals(start, end):
-            if row["effect"] != "OUTFLOW":
-                continue
-            totals[row["category_id"]] = totals.get(row["category_id"], ZERO) - from_e6(row["total"])
+            money_in, money_out = flow_of(row["effect"], from_e6(row["total"]), self.categories.get(row["category_id"]))
+            if not money_in:
+                totals[row["category_id"]] = totals.get(row["category_id"], ZERO) + money_out
         return totals
 
     def money_in_by_category(self, date_from: date | str, date_to: date | str) -> list[Group]:
@@ -465,11 +473,10 @@ class ReportingService:
         start, end = self._day(date_from), self._day(date_to)
         totals: dict[int, Decimal] = {}
         for row in self.q.category_totals(start, end):
-            if row["effect"] != "INFLOW":
-                continue
             category = self.categories.get(row["category_id"])
-            if category.income_class is not None:
-                totals[category.id] = totals.get(category.id, ZERO) + from_e6(row["total"])
+            money_in, _ = flow_of(row["effect"], from_e6(row["total"]), category)
+            if money_in:
+                totals[category.id] = totals.get(category.id, ZERO) + money_in
         groups = []
         for category_id, value in sorted(totals.items(), key=lambda item: -item[1]):
             category = self.categories.get(category_id)
@@ -489,14 +496,10 @@ class ReportingService:
             if cursor.year == 9999 and cursor.month == 12:
                 break
             cursor = (cursor.replace(day=28) + timedelta(days=4)).replace(day=1)
-        for row in self.q.monthly_effects(first, last):
-            if row["month"] not in data:
-                continue
-            amount = from_e6(row["total"])
-            if row["effect"] == "INFLOW":
-                data[row["month"]]["inflows"] += amount
-            elif row["effect"] == "OUTFLOW":
-                data[row["month"]]["outflows"] -= amount
+        # The same rows and rule as cash_flow, so a chart's month always equals the card for that month.
+        for key, flow in self.flows_by_date(first, last, "month").items():
+            if key in data:
+                data[key]["inflows"], data[key]["outflows"] = flow["inflows"], flow["outflows"]
         for item in data.values():
             item["net"] = item["inflows"] - item["outflows"]
         return list(data.values())
@@ -507,15 +510,14 @@ class ReportingService:
         groups: dict[str, Group] = {}
         for row in self.q.category_totals(start, end):
             cat = self.categories.get(row["category_id"])
-            # Income categories are not spending. Expense-category inflows are
-            # refunds and must remain in the calculation so they reduce spend.
-            if row["effect"] == "INFLOW" and cat.income_class is not None:
+            money_in, money_out = flow_of(row["effect"], from_e6(row["total"]), cat)
+            if money_in:
                 continue
             parts = cat.code.split(".")
             code = ".".join(parts[: depth + 1])
             label_cat = self.categories.get_by_code(code)
             group = groups.setdefault(code, Group(code, self.categories.display_name(label_cat.id), ZERO))
-            group.value -= from_e6(row["total"])
+            group.value += money_out
         return sorted((g for g in groups.values() if g.value != ZERO), key=lambda g: g.value, reverse=True)
 
     def _spending(self, date_from, date_to) -> list[dict]:
@@ -524,10 +526,9 @@ class ReportingService:
         start, end = self._day(date_from), self._day(date_to)
         out = []
         for row in self.q.spending_lines(start, end):
-            cat = self.categories.get(row["category_id"])
-            if row["effect"] == "INFLOW" and cat.income_class is not None:
-                continue
-            out.append(row | {"value": -from_e6(row["amount"])})
+            money_in, money_out = flow_of(row["effect"], from_e6(row["amount"]), self.categories.get(row["category_id"]))
+            if not money_in:
+                out.append(row | {"value": money_out})
         return out
 
     def spending_by_counterparty(self, date_from, date_to) -> list[tuple[str, Decimal]]:
@@ -600,13 +601,9 @@ class ReportingService:
             if cursor.year == 9999 and cursor.month == 12:
                 break
             cursor = (cursor.replace(day=28) + timedelta(days=4)).replace(day=1)
-        for row in self.q.monthly_effects(fmt_date(first), fmt_date(last)):
-            if row["month"] not in data:
-                continue
-            if row["effect"] == "INFLOW":
-                data[row["month"]]["inflows"] += from_e6(row["total"])
-            elif row["effect"] == "OUTFLOW":
-                data[row["month"]]["outflows"] -= from_e6(row["total"])
+        for key, flow in self.flows_by_date(first, last, "month").items():
+            if key in data:
+                data[key]["inflows"], data[key]["outflows"] = flow["inflows"], flow["outflows"]
         for item in data.values():
             item["net"] = item["inflows"] - item["outflows"]
         return list(data.values())

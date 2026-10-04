@@ -55,7 +55,12 @@ class TransactionService:
     def record_inflow(self, date: str, account_id: int, amount, category_id: int, description: str = "",
                       counterparty: str = "", notes: str = "", source: TxnSource = TxnSource.MANUAL,
                       allow_system_category: bool = False, owner_id: int | None = None) -> Transaction:
-        """Money in: salary, interest, a gift."""
+        """Money in: salary, interest, a gift. Money back in an expense category is a refund."""
+        category = self.categories.get(category_id) if category_id is not None else None
+        if category is not None and category.movement == Movement.OUTFLOW and not category.is_system:
+            # The register and import already record it this way; the account form now does too.
+            return self.record_refund(date, account_id, amount, category_id, description=description,
+                                      counterparty=counterparty, notes=notes, source=source, owner_id=owner_id)
         day, lines = self._money_lines(Movement.INFLOW, date, account_id, amount, category_id, allow_system_category)
         lines = [replace(line, owner_id=owner_id) for line in lines]
         return self._create(DocType.IN, day, lines, description, counterparty, notes, source)

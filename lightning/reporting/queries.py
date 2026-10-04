@@ -117,17 +117,6 @@ class ReportQueries:
             "AND le.owner_id IS NULL AND le.category_id IS NOT NULL", (date_from,date_to))}
         return int(row["transactions"] or 0), int(row["lines"] or 0), category_ids
 
-    def monthly_effects(self, date_from: str, date_to: str) -> list[dict]:
-        rows = self.db.all(
-            f"SELECT substr(le.date, 1, 7) AS month, le.effect, SUM(le.amount_base_e6) AS total"
-            f" FROM ledger_entries le {POSTED} WHERE le.date BETWEEN ? AND ?"
-            " AND COALESCE(le.category_id,0) NOT IN (SELECT id FROM categories WHERE code='EXP.SYSTEM.CUSTODY')"
-            " AND le.owner_id IS NULL"
-            f" GROUP BY month, le.effect ORDER BY month",
-            (date_from, date_to),
-        )
-        return [dict(r) for r in rows]
-
     def account_quantity(self, account_id: int, as_of: str | None = None, before: str | None = None) -> int:
         sql = f"SELECT SUM(le.quantity_e6) FROM ledger_entries le {POSTED} WHERE le.account_id = ? AND {CASH_ONLY}"
         params: list = [account_id]
