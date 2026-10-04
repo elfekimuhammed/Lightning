@@ -250,7 +250,7 @@ async def dashboard(request: Request):
         money_in_rows=visuals.money_in_groups(c, first, as_of),
         money_out_rows=visuals.money_out_groups(c, first, as_of),
         money_sankey=visuals.money_sankey(c, first, as_of, cash_flow),
-        wealth_donut=visuals.holdings_donut(position, include_deposits=True, include_cash=True),
+        wealth_donut=visuals.holdings_donut(position, include_cash=True),
         networth_trend=networth_trend, free_cash_steps=visuals.free_cash_steps(position),
         month_calendar=visuals.month_calendar(c, today()),
         month=month, this_month=month_of(today()), period=period, period_error=period_error,
@@ -415,7 +415,6 @@ async def explain_overview_figure(request: Request, kind: str):
         figure = "what_you_own"
         explanation = FIGURES["what_you_own"].meaning + " Money and units held for others are left out."
         rows = [{"label": label("cash_you_own"), "value": position.cash_you_own},
-                {"label": label("deposits"), "value": position.deposits},
                 {"label": label("holdings_value"), "value": position.holdings_value}]
         if position.other_you_own:
             rows.append({"label": label("other_you_own"), "value": position.other_you_own})

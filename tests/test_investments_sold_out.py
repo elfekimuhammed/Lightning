@@ -18,4 +18,4 @@ def test_a_period_where_everything_was_sold_still_shows_its_result(c, setup, mon
     page = client.get("/investments?period=month&month=2026-12").text
     assert "No holdings yet" not in page
     assert "+1,000" in page                      # the period's gain from the sale
-    assert "No owned holdings to show." in page  # and the table says nothing is held now
+    assert "/investments/holding/" not in page   # the sold share is gone from the table (the CD stays)

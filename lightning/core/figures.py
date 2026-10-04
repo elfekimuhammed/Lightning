@@ -47,15 +47,17 @@ _TABLE = [
      "What you own + Held for others"),
     ("held_for_others", "Held for others", "Money and units in your accounts that belong to other people."),
     ("what_you_own", "What you own", "The value of everything in your accounts that is yours.",
-     "Cash you own + Deposits + Holdings value + Other you own"),
+     "Cash you own + Holdings value + Other you own"),
     ("bank_and_wallet_cash", "Bank and wallet cash", "Your cash in bank accounts and wallets."),
     ("brokerage_cash", "Brokerage cash", "Your uninvested cash inside brokerage accounts."),
     ("cash_you_own", "Cash you own", "Your cash in banks, wallets and brokerage accounts.",
      "Bank and wallet cash + Brokerage cash"),
-    ("deposits", "Deposits", "Your certificates and time deposits, at their balance."),
-    ("holdings_value", "Holdings value", "Your stocks, funds, gold and other holdings at their latest price."),
-    ("other_you_own", "Other you own", "Anything you own that is not cash, a deposit or a holding.",
-     "What you own − Cash you own − Deposits − Holdings value"),
+    ("deposits", "Deposits", "Your certificates and time deposits, at their balance. They are part of Holdings value."),
+    ("holdings_value", "Holdings value", "Everything you own that is not cash, at its latest value: certificates and "
+     "deposits, stocks, funds, gold and other assets. Assets that are not cash sit under one roof (owner decision "
+     "2026-10-04)."),
+    ("other_you_own", "Other you own", "Anything you own that is neither cash nor a holding.",
+     "What you own − Cash you own − Holdings value"),
     ("reserves", "Reserves", "Cash you set aside for emergencies and dated goals, less what linked payments "
      "already used. It stays in your accounts and in what you own."),
     ("bills_due", "Bills due", "Bills, subscriptions and loan payments dated today or earlier that nothing has paid yet."),
@@ -65,18 +67,17 @@ _TABLE = [
     ("net_worth", "Net worth", "What you own after what you owe.", "What you own − What you owe"),
     ("free_cash", "Free cash", "Cash you can spend without touching reserves or leaving a bill unpaid.",
      "Cash you own − Reserves − Bills due"),
-    ("portfolio_value", "Portfolio value", "Your holdings at their latest price. Cash waiting in a brokerage "
-     "account is not part of it: it counts in Cash you own (owner decision 2026-10-04).", "Holdings value"),
+    ("portfolio_value", "Portfolio value", "Holdings value under the name the Investments tab uses: everything "
+     "you own that is not cash. Cash waiting in a brokerage account counts in Cash you own (owner decisions "
+     "2026-10-04).", "Holdings value"),
     ("holdings_after_sale", "Holdings after sale (estimate)",
-     "What your holdings might fetch if sold, after each class's sale factor.",
+     "What your holdings, deposits included, might fetch if sold or cashed in today, after each class's sale "
+     "factor. CDs before their earliest withdrawal count 0; early-redeemable CDs count their balance × the CD "
+     "sale factor; matured CDs count their balance.",
      "Σ Holdings value of each class × its sale factor"),
-    ("investments_after_sale", "Investments if sold (estimate)",
-     "What redeemable deposits and holdings might fetch if cashed in today. CDs before earliest withdrawal "
-     "contribute 0; early-redeemable CDs use ledger balance × CD sale factor; matured CDs use ledger balance.",
-     "Deposits × sale factor + Holdings after sale (estimate)"),
     ("if_you_sold_today", "If you sold today (estimate)",
-     "Free cash plus what your deposits and holdings might fetch.",
-     "Free cash + Investments if sold (estimate)"),
+     "Free cash plus what your holdings might fetch.",
+     "Free cash + Holdings after sale (estimate)"),
     # ------------------------------------------------------------ activity (a period)
     ("money_in", "Money in", "Your posted income in the period. Transfers, trades and money held for others are left out."),
     ("money_out", "Money out", "Your posted spending in the period, after refunds. Transfers, trades and money held for others are left out."),
@@ -149,7 +150,6 @@ _SOURCES = {
     "free_cash": (BOTH, f"{P}.free_cash"),
     "portfolio_value": (LEDGER, f"{P}.portfolio_value"),
     "holdings_after_sale": (BOTH, f"{P}.holdings_after_sale"),
-    "investments_after_sale": (BOTH, f"{P}.investments_after_sale"),
     "if_you_sold_today": (BOTH, f"{P}.if_you_sold_today"),
     "money_in": (LEDGER, f"{CF}.inflows"),
     "money_out": (LEDGER, f"{CF}.outflows"),
@@ -193,7 +193,7 @@ RETIRED_NAMES = {
     "Investments and deposits": "deposits", "Investment holdings": "holdings_value",
     "Current owned value": "holdings_value", "Other owned assets": "other_you_own",
     "Assigned reserves": "reserves", "Assigned to reserves": "reserves", "Cash reserved": "reserves",
-    "Estimated liquid investments": "investments_after_sale", "Estimated cash after sale": "holdings_after_sale",
+    "Estimated liquid investments": "holdings_after_sale", "Estimated cash after sale": "holdings_after_sale",
     "Estimated available value": "if_you_sold_today",
     "Yours": "what_you_own",
     "Total spending": "money_out", "Net income less spending": "net_flow", "Cashflow": "net_flow",
@@ -204,7 +204,8 @@ RETIRED_NAMES = {
     "Investment result": "result", "Period result": "result", "Period gain/loss": "result", "Result": "result",
     "Realized gain": "realized_gain", "Change in unrealized gain": "change_in_unrealized_gain",
     "New money in": "new_money_in", "Left in plan after bills": "left_in_plan_after_bills",
-    "Deposits and holdings after sale (estimate)": "investments_after_sale",
+    "Deposits and holdings after sale (estimate)": "holdings_after_sale",
+    "Investments if sold (estimate)": "holdings_after_sale",
     "New money added this period": "new_money_in", "Cash added and withdrawn": "new_money_in",
 }
 

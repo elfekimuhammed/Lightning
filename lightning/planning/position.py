@@ -90,7 +90,8 @@ class Position:
 
     @property
     def holdings_value(self) -> Decimal:
-        return sum((c.value for c in self.classes if not c.is_deposit), ZERO)
+        # Owner decision 2026-10-04: everything that is not cash sits under one roof, deposits included.
+        return sum((c.value for c in self.classes), ZERO)
 
     @property
     def bills_due(self) -> Decimal:
@@ -111,7 +112,7 @@ class Position:
 
     @property
     def other_you_own(self) -> Decimal:
-        return self.what_you_own - self.cash_you_own - self.deposits - self.holdings_value
+        return self.what_you_own - self.cash_you_own - self.holdings_value
 
     @property
     def what_you_owe(self) -> Decimal:
@@ -132,21 +133,17 @@ class Position:
 
     @property
     def holdings_after_sale(self) -> Decimal:
-        return sum((c.after_sale for c in self.classes if not c.is_deposit), ZERO)
+        return sum((c.after_sale for c in self.classes), ZERO)
 
     @property
     def deposits_after_sale(self) -> Decimal:
         return sum((c.after_sale for c in self.classes if c.is_deposit), ZERO)
 
     @property
-    def investments_after_sale(self) -> Decimal:
-        return self.deposits_after_sale + self.holdings_after_sale
-
-    @property
     def if_you_sold_today(self) -> Decimal | None:
         if self.free_cash is None or self.unvalued:
             return None
-        return self.free_cash + self.investments_after_sale
+        return self.free_cash + self.holdings_after_sale
 
     @property
     def unavailable_reason(self) -> str:
@@ -199,7 +196,7 @@ class PositionService:
         """Portfolio value on a date, as Position.portfolio_value gives it, without the plan reads a whole
         Position needs (for a trend of month ends)."""
         classes, _ = self.class_values(fmt_date(parse_date(as_of)))
-        return sum((c.value for c in classes if not c.is_deposit), ZERO)
+        return sum((c.value for c in classes), ZERO)
 
     @request_cached
     def class_values(self, as_of: date | str) -> tuple[list[ClassValue], list[str]]:

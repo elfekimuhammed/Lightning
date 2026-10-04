@@ -77,6 +77,10 @@ def build_investment_report(db, accounts, assets, reporting, start: str, end: st
     # Only a brokerage holds uninvested cash. A balance kept in a physical-asset or "Other" account
     # (a share of a flat, a car) is the value of that asset: a holding, never brokerage cash.
     brokerage_ids = {a.id for a in account_rows if a.account_type == AccountType.BROKERAGE}
+    # Cash left in a deposit account (older profiles kept CD money as cash there) is a deposit, and
+    # deposits are holdings (owner decision 2026-10-04: everything that is not cash under one roof).
+    balance_ids = (investment_account_ids - brokerage_ids) | {a.id for a in account_rows
+                                                              if a.account_type == AccountType.DEPOSIT}
     placeholders = ",".join("?" for _ in investment_account_ids)
     if not placeholders:
         return {"new_money": ZERO, "withdrawn": ZERO, "net_money": ZERO,
@@ -109,7 +113,7 @@ def build_investment_report(db, accounts, assets, reporting, start: str, end: st
         if asset.is_cash:
             if row["account_id"] in brokerage_ids:
                 cash_quantities[row["asset_id"]] += q
-            elif row["account_id"] in investment_account_ids:
+            elif row["account_id"] in balance_ids:
                 asset_balances[(row["account_id"], row["asset_id"])] += q
             if (row["account_id"] in investment_account_ids and
                     (row["type"] == "DIV" or row["category_code"] in

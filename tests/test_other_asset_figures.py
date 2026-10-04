@@ -1,5 +1,6 @@
 """An asset you only know the worth of (an "Other" account, such as a share of a flat) is a holding,
-never brokerage cash, and every screen shows the same Holdings value (bug found 2026-10-03)."""
+never brokerage cash, and every screen shows the same Holdings value (bug found 2026-10-03). The
+household's legacy 5,000 CD is a holding too (owner decision 2026-10-04)."""
 from decimal import Decimal
 
 from lightning.investments.report import build_investment_report
@@ -15,7 +16,7 @@ def test_an_other_account_is_a_holding_not_brokerage_cash(c, setup, monkeypatch)
     assert report["investment_cash"] == D("0")            # THNDR holds no cash; the flat is not cash
     assert any(row["asset"] == "Family flat" and row["value"] == D("400000") for row in report["holdings"])
     position = c.position.at("2026-09-30")
-    assert position.brokerage_cash == D("0") and position.holdings_value == D("400000")
+    assert position.brokerage_cash == D("0") and position.holdings_value == D("405000")
     assert report["value"] == position.holdings_value      # the same figure on the Investments tab and the Overview
     assert flat.id
 
@@ -27,4 +28,4 @@ def test_the_overview_investments_row_reads_the_position(c, setup, monkeypatch):
     c.account_flows.open_account("Family flat", "OTHER_ASSET", "2026-09-15", "400,000")
     page = TestClient(create_app(c)).get("/?period=month&month=2026-09").text
     row = page[page.index('aria-label="Investments in this period"'):page.index("See investments")]
-    assert "400,000" in row and "Brokerage cash" not in row
+    assert "405,000" in row and "Brokerage cash" not in row

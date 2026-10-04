@@ -244,7 +244,13 @@ def _page_extras(c, period, p, prior, owned_rows, prior_custody, before_day, rep
     opening = report.get("recon_opening")
     growth = period_growth(report["result"], opening, report["net_money"])
     spark = _portfolio_value_spark(c, today())
-    holdings_total = sum((yours or ZERO for _, yours, *_ in owned_rows), ZERO)
+    # Assets known only by their balance (a share of a flat, cash left in an older deposit account) are
+    # holdings too (owner decision 2026-10-04): the table lists every part of Holdings value.
+    traded = {(h.account_id, h.asset_id) for h, *_ in owned_rows}
+    balances = [(cls.name, item) for cls in c.position.at(day).classes for item in cls.items
+                if (item.account_id, item.asset_id) not in traded and item.value]
+    holdings_total = (sum((yours or ZERO for _, yours, *_ in owned_rows), ZERO)
+                      + sum((item.value for _, item in balances), ZERO))
     first_dates = _first_trade_dates(c, day)
     end_day = parse_date(day)
     groups: dict[str, dict] = {}
@@ -260,12 +266,21 @@ def _page_extras(c, period, p, prior, owned_rows, prior_custody, before_day, rep
                           "gain_pct": unrealized / capital * 100 if unrealized is not None and capital else None,
                           "xirr": h.xirr * 100 if h.xirr is not None and held_a_year and units == h.quantity else None,
                           "horizon": horizon, "weight": (yours or ZERO) / holdings_total * 100 if holdings_total else ZERO})
+    for name, item in balances:
+        g = groups.setdefault(name, {"name": name, "value": ZERO, "cost": ZERO, "rows": []})
+        g["value"] += item.value
+        g["cost"] += item.value
+        g["rows"].append({"h": None, "balance": True, "name": item.account, "account_id": item.account_id,
+                          "value": item.value, "cost": item.value, "gain": ZERO,
+                          "weight": item.value / holdings_total * 100 if holdings_total else ZERO})
     for g in groups.values():
-        g["rows"].sort(key=lambda r: (-(r["value"] or ZERO), r["h"].asset_name.casefold()))
+        g["rows"].sort(key=lambda r: (-(r["value"] or ZERO), (r["h"].asset_name if r["h"] else r["name"]).casefold()))
         g["weight"] = g["value"] / holdings_total * 100 if holdings_total else ZERO
         g["gain"] = g["value"] - g["cost"]
     holding_groups = sorted(groups.values(), key=lambda g: (-g["value"], g["name"].casefold()))
-    biggest = charts.bars([{"label": r["h"].asset_name, "value": r["value"], "note": f"{r['weight']:.1f}% · {r['h'].asset_class.split(' › ')[-1]}",
+    biggest = charts.bars([{"label": r["name"], "value": r["value"], "note": f"{r['weight']:.1f}% · {g['name']}",
+                            "href": f"/accounts/{r['account_id']}"} if r["h"] is None else
+                           {"label": r["h"].asset_name, "value": r["value"], "note": f"{r['weight']:.1f}% · {r['h'].asset_class.split(' › ')[-1]}",
                             "href": f"/investments/holding/{r['h'].asset_id}?account={r['h'].account_id}&date={day}&start={period.start_text}"}
                            for g in holding_groups for r in g["rows"] if r["value"]], 6)
     # Dividends collected this year, per holding (fixed: 1 January to today).
@@ -283,6 +298,11 @@ def _page_extras(c, period, p, prior, owned_rows, prior_custody, before_day, rep
         others = prior_custody.get((old.account_id, old.asset_id), ZERO)
         held = c.reporting.value_of(old.asset_id, others, before_day).value if others else ZERO
         start_values[old.asset_class.split(" › ")[-1]] += old.value - (held or ZERO)
+    traded_before = {(x.account_id, x.asset_id) for x in prior.positions if x.quantity}
+    for cls in c.position.at(before_day).classes:   # balance-only assets, as in the table
+        for item in cls.items:
+            if (item.account_id, item.asset_id) not in traded_before and item.value:
+                start_values[cls.name] += item.value
     end_values = {g["name"]: g["value"] for g in holding_groups}
     class_changes = sorted(((name, end_values.get(name, ZERO) - start_values.get(name, ZERO))
                             for name in set(start_values) | set(end_values)), key=lambda item: -abs(item[1]))

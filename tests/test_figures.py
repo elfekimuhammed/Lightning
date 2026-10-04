@@ -35,7 +35,7 @@ def _household(c, setup):
 def test_derived_figures_are_formulas_of_base_figures(c, setup):
     _household(c, setup)
     p = c.position.at(date(2026, 12, 31))
-    assert p.what_you_own == p.cash_you_own + p.deposits + p.holdings_value + p.other_you_own
+    assert p.what_you_own == p.cash_you_own + p.holdings_value + p.other_you_own   # deposits are holdings
     assert p.what_you_own == c.reporting.net_worth("2026-12-31").total
     assert p.cash_you_own == c.reporting.owned_liquid_cash("2026-12-31") == p.bank_and_wallet_cash + p.brokerage_cash
     assert p.deposits == Decimal("5000") and p.brokerage_cash == Decimal("3000")
@@ -44,8 +44,8 @@ def test_derived_figures_are_formulas_of_base_figures(c, setup):
     assert p.what_you_owe == Decimal("10650")
     assert p.net_worth == p.what_you_own - p.what_you_owe
     assert p.portfolio_value == p.holdings_value   # owner decision 2026-10-04: brokerage cash is not portfolio
-    assert p.investments_after_sale == p.deposits_after_sale + p.holdings_after_sale
-    assert p.if_you_sold_today == p.free_cash + p.investments_after_sale
+    assert p.holdings_value >= p.deposits and p.holdings_after_sale >= p.deposits_after_sale
+    assert p.if_you_sold_today == p.free_cash + p.holdings_after_sale
     assert p.in_your_accounts == p.what_you_own + p.held_for_others
 
 

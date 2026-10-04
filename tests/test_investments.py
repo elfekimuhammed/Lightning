@@ -197,7 +197,8 @@ class TestTrades:
         assert owned["units"] == D("6")
         assert owned["cost"] == D("570")
         # No price yet: counted at what was paid (no gain), flagged, and the result stays available.
-        assert report["value"] == D("570") and report["unrealized"] == ZERO
+        # The 5,000 left as cash in the legacy CD account is a deposit, and deposits are holdings.
+        assert report["value"] == D("5570") and report["unrealized"] == ZERO
         assert [item["asset"] for item in report["at_cost"]] == [stock.name] and not report["missing"]
 
     def test_traceable_report_counts_direct_physical_purchase_as_new_money(self, inv):

@@ -189,10 +189,10 @@ def largest_part(donut: dict, what: str, href: str = "") -> dict | None:
 
 
 def sale_cost(position) -> dict | None:
-    held = position.deposits + position.holdings_value
+    held = position.holdings_value
     if not held or position.unvalued:
         return None
-    cost = held - position.investments_after_sale
+    cost = held - position.holdings_after_sale
     return note("info", f"Selling everything would cost about {fmt(cost)}",
                 "What your sale factors expect to lose against today's value.",
                 label="Cost of selling everything (estimate)", figure=fmt(cost))

@@ -97,7 +97,7 @@ def test_investment_report_does_not_fetch_asset_metadata_per_ledger_row(c, setup
     _add_synthetic_transfers(c, accounts, 307, sequence_start=12)
     after, after_queries, after_ms = measure("2026-09-30")
     assert after["investment_cash"] == Decimal("3190")
-    assert count - count_before_load <= 2  # bounded by distinct assets resolved for the final report
+    assert count - count_before_load <= 3  # bounded by distinct holdings resolved for the final report
     assert after_queries == small_queries  # not proportional to ledger row count
 
     rows = c.db.all(

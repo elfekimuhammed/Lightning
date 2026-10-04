@@ -147,14 +147,12 @@ def savings_rate_spark(c, end: date, count: int = 6) -> dict:
     return charts.sparkline(values)
 
 
-def holdings_donut(position, include_deposits: bool = False, include_cash: bool = False) -> dict:
-    """What you hold by asset class, in class colours (cash, deposits, gold, equity, other)."""
+def holdings_donut(position, include_cash: bool = False) -> dict:
+    """What you hold by asset class, deposits included, in class colours (cash, deposits, gold, equity, other)."""
     slices = []
     if include_cash and position.cash_you_own:
         slices.append({"label": "Cash you own", "value": position.cash_you_own, "tone": "cash"})
     for cls in position.classes:
-        if cls.is_deposit and not include_deposits:
-            continue
         slices.append({"label": cls.name, "value": cls.value, "tone": charts.class_tone(cls.code)})
     if include_cash and position.other_you_own > 0:
         slices.append({"label": "Other you own", "value": position.other_you_own, "tone": "other"})

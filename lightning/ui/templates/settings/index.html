@@ -6,7 +6,7 @@
 {% block content %}
 {% set settings_section = 'valuations' if section in ('valuations', 'assets-valuations') else section %}
 {% include 'partials/settings_nav.html' %}
-{% if section in ('valuations','assets-valuations') %}<section id="assets-valuations" class="card data-panel"><div class="section-head"><div><h2>Sale factors</h2><p class="muted small">The share of each class's value you would expect to get if you sold today. Used for {{ fig.investments_after_sale.label|lower }} and {{ fig.if_you_sold_today.label|lower }}.</p></div></div><table class="factor-table"><colgroup><col><col class="c-num"><col class="c-factor"><col class="c-num"></colgroup>
+{% if section in ('valuations','assets-valuations') %}<section id="assets-valuations" class="card data-panel"><div class="section-head"><div><h2>Sale factors</h2><p class="muted small">The share of each class's value you would expect to get if you sold today. Used for {{ fig.holdings_after_sale.label|lower }} and {{ fig.if_you_sold_today.label|lower }}.</p></div></div><table class="factor-table"><colgroup><col><col class="c-num"><col class="c-factor"><col class="c-num"></colgroup>
 <thead><tr><th>Class</th><th class="num">Value you own</th><th>Sale factor</th><th class="num">After sale (estimate)</th></tr></thead>
 {% for g in factor_groups %}{% set r = g.root %}<tbody class="factor-group">
 <tr class="factor-head"><th>{{ r.name }}</th><td class="num">{{ g.value|money }}</td>

@@ -23,7 +23,7 @@ def test_full_sample_household_balances_survive_encrypted_backup(tmp_path, monke
     day = date(2026, 9, 30)
     assert build_demo(c, as_of=day)["accounts"] == 6
     expected = c.position.at(day)
-    assert expected.holdings_value == Decimal("77902.50")
+    assert expected.holdings_value == Decimal("177902.50")   # CD included
     assert expected.held_for_others == 10000
     assert expected.loans_still_to_pay == 52500
     assert expected.net_worth == expected.what_you_own - expected.what_you_owe

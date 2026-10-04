@@ -140,7 +140,7 @@ def test_the_demo_household_adds_up(demo):
     c, summary = demo
     assert summary == {"accounts": 6, "from": "2026-07-01", "to": "2026-09-30"}
     position = c.position.at(date(2026, 9, 30))
-    assert position.holdings_value == D("77902.50")
+    assert position.holdings_value == D("177902.50")   # the 100,000 CD is a holding (owner decision 2026-10-04)
     assert position.held_for_others == D(10000)
     assert position.loans_still_to_pay == D(52500)  # 21 car-loan payments left
     assert position.net_worth == position.what_you_own - position.what_you_owe

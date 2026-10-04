@@ -89,14 +89,14 @@ Every figure a screen shows is listed here once. **From** says which layer its i
 |---|---|---|---|
 | **In your accounts** | Everything in your accounts, including what you hold for other people. | What you own + Held for others | `planning.position.Position.in_your_accounts` |
 | **Held for others** | Money and units in your accounts that belong to other people. | Read directly from the ledger | `reporting.service.ReportingService.money_from_others_total` |
-| **What you own** | The value of everything in your accounts that is yours. | Cash you own + Deposits + Holdings value + Other you own | `reporting.service.ReportingService.net_worth` |
+| **What you own** | The value of everything in your accounts that is yours. | Cash you own + Holdings value + Other you own | `reporting.service.ReportingService.net_worth` |
 | **Bank and wallet cash** | Your cash in bank accounts and wallets. | Read directly from the ledger | `planning.position.Position.bank_and_wallet_cash` |
 | **Brokerage cash** | Your uninvested cash inside brokerage accounts. | Read directly from the ledger | `reporting.service.ReportingService.owned_brokerage_cash` |
 | **Cash you own** | Your cash in banks, wallets and brokerage accounts. | Bank and wallet cash + Brokerage cash | `planning.position.Position.cash_you_own` |
-| **Deposits** | Your certificates and time deposits, at their balance. | Read directly from the ledger | `planning.position.Position.deposits` |
-| **Holdings value** | Your stocks, funds, gold and other holdings at their latest price. | Read directly from the ledger | `planning.position.Position.holdings_value` |
-| **Other you own** | Anything you own that is not cash, a deposit or a holding. | What you own − Cash you own − Deposits − Holdings value | `planning.position.Position.other_you_own` |
-| **Portfolio value** | Your holdings at their latest price. Cash waiting in a brokerage account is not part of it: it counts in Cash you own (owner decision 2026-10-04). | Holdings value | `planning.position.Position.portfolio_value` |
+| **Deposits** | Your certificates and time deposits, at their balance. They are part of Holdings value. | Read directly from the ledger | `planning.position.Position.deposits` |
+| **Holdings value** | Everything you own that is not cash, at its latest value: certificates and deposits, stocks, funds, gold and other assets. Assets that are not cash sit under one roof (owner decision 2026-10-04). | Read directly from the ledger | `planning.position.Position.holdings_value` |
+| **Other you own** | Anything you own that is neither cash nor a holding. | What you own − Cash you own − Holdings value | `planning.position.Position.other_you_own` |
+| **Portfolio value** | Holdings value under the name the Investments tab uses: everything you own that is not cash. Cash waiting in a brokerage account counts in Cash you own (owner decisions 2026-10-04). | Holdings value | `planning.position.Position.portfolio_value` |
 | **Money in** | Your posted income in the period. Transfers, trades and money held for others are left out. | Read directly from the ledger | `reporting.service.CashFlow.inflows` |
 | **Money out** | Your posted spending in the period, after refunds. Transfers, trades and money held for others are left out. | Read directly from the ledger | `reporting.service.CashFlow.outflows` |
 | **Net flow** | What was left of money in after money out. | Money in − Money out | `reporting.service.CashFlow.net` |
@@ -135,9 +135,8 @@ Every figure a screen shows is listed here once. **From** says which layer its i
 |---|---|---|---|
 | **Net worth** | What you own after what you owe. | What you own − What you owe | `planning.position.Position.net_worth` |
 | **Free cash** | Cash you can spend without touching reserves or leaving a bill unpaid. | Cash you own − Reserves − Bills due | `planning.position.Position.free_cash` |
-| **Holdings after sale (estimate)** | What your holdings might fetch if sold, after each class's sale factor. | Σ Holdings value of each class × its sale factor | `planning.position.Position.holdings_after_sale` |
-| **Investments if sold (estimate)** | What redeemable deposits and holdings might fetch if cashed in today. CDs before earliest withdrawal contribute 0; early-redeemable CDs use ledger balance × CD sale factor; matured CDs use ledger balance. | Deposits × sale factor + Holdings after sale (estimate) | `planning.position.Position.investments_after_sale` |
-| **If you sold today (estimate)** | Free cash plus what your deposits and holdings might fetch. | Free cash + Investments if sold (estimate) | `planning.position.Position.if_you_sold_today` |
+| **Holdings after sale (estimate)** | What your holdings, deposits included, might fetch if sold or cashed in today, after each class's sale factor. CDs before their earliest withdrawal count 0; early-redeemable CDs count their balance × the CD sale factor; matured CDs count their balance. | Σ Holdings value of each class × its sale factor | `planning.position.Position.holdings_after_sale` |
+| **If you sold today (estimate)** | Free cash plus what your holdings might fetch. | Free cash + Holdings after sale (estimate) | `planning.position.Position.if_you_sold_today` |
 | **Change in net worth** | How much net worth grew or shrank in the period. | Net worth at the end − Net worth the day before the start − Opening balances in the period | `planning.position.PositionService.change_in_net_worth` |
 | **Carryover** | Unused plan from last month, added to this month when carryover is on. | Left in plan last month | `budgeting.domain.BudgetLine.opening_carryover` |
 | **Planned** | What you plan to spend this month. The month's total also counts background estimates for untracked categories; one from a single month of spending is low confidence and shows a "!" that says why. | Base budget + Carryover | `budgeting.domain.BudgetLine.available` |
@@ -197,7 +196,7 @@ These names no longer appear on screens. Each is now called:
 | Assigned reserves | Reserves |
 | Assigned to reserves | Reserves |
 | Cash reserved | Reserves |
-| Estimated liquid investments | Investments if sold (estimate) |
+| Estimated liquid investments | Holdings after sale (estimate) |
 | Estimated cash after sale | Holdings after sale (estimate) |
 | Estimated available value | If you sold today (estimate) |
 | Yours | What you own |
@@ -221,7 +220,8 @@ These names no longer appear on screens. Each is now called:
 | Change in unrealized gain | Price change on what you hold |
 | New money in | Money added |
 | Left in plan after bills | Budget left to spend |
-| Deposits and holdings after sale (estimate) | Investments if sold (estimate) |
+| Deposits and holdings after sale (estimate) | Holdings after sale (estimate) |
+| Investments if sold (estimate) | Holdings after sale (estimate) |
 | New money added this period | Money added |
 | Cash added and withdrawn | Money added |
 <!-- figures:end -->
