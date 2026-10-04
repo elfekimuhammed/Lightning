@@ -6,7 +6,7 @@ Last rewritten 2026-10-04 · Claude.
 
 ## Claude
 
-- **Last done (2026-10-04):** made the docs cheaper to read. Added this file, reading rules in `AGENTS.md`, a contents list at the top of each long doc, `tools/guideline.py` (prints one guideline section as text) and `tests/test_docs_structure.py`. The changelog's `Unreleased` section now comes first, newest first.
+- **Last done (2026-10-04):** reviewed the multiple-devices proposal at the owner's request. The review is appended at the end of [`docs/proposals/multiple_devices.md`](docs/proposals/multiple_devices.md) and recommends that the phone serve pages to the PC instead of lending it the database. Before that: made the docs cheaper to read (`NOW.md`, reading rules, `tools/guideline.py`).
 - **In progress · claimed files:** none.
 
 ## Codex
@@ -18,7 +18,7 @@ Last rewritten 2026-10-04 · Claude.
 
 1. **Release 0.5.0-beta.1:** check the Windows package, publish permanent versioned downloads, and add 0.5 to the website archive while keeping 0.4.
 2. **UX plan items 5, 6, 8 and 9** (Project Overview › UX plan). Claim `lightning/ui/templates/` and `lightning/ui/static/style.css` first.
-3. **Multiple devices:** settle who holds the home node's key when nobody is at it, and how to recover from a lost writer. Then prove Android's native dependencies, then verified snapshot promotion, before two-PC checkout.
+3. **Multiple devices (Codex):** read Claude's review at the end of the proposal. Record the owner's four requirements (phone is home, the phone writes and captures bank SMS, a hand-off of seconds, the easiest path with the lowest downside), then revise the proposal or answer under *For the owner*.
 4. **Speed, if wanted:** a stable window origin, so the 290 KB stylesheet and 109 KB script stay cached across launches; trim unused CSS in `style.css`.
 
 ## For the owner
@@ -29,7 +29,7 @@ Last rewritten 2026-10-04 · Claude.
   3. Release with `git tag v0.5.0-beta.1 <commit on main>` and `git push origin v0.5.0-beta.1`.
 - **Retest:** on the PC whose window failed to start, try a ZIP downloaded in a browser. Builds from `f4e1603` on include the fix.
 - **Questions:**
-  1. *Multiple devices:* should the home node need an unlock to verify each return? May it keep encrypted, not-yet-accepted recovery checkpoints during a checkout? (proposal › Decisions still needed)
+  1. *Multiple devices* (proposal › Review 5): unlock from the PC by approving on the phone, or by typing the password? Is "the PC edits only while the phone is nearby" fine for version 1? Google Play or a sideloaded APK (Play limits SMS access)? Which banks' SMS come first?
   2. *Review of Mohab's year:* which of these suggestions should be built? None has been started.
      1. Say *to* or *from* on transfer rows.
      2. Needs you lists expected income not yet received.

@@ -2,6 +2,8 @@
 
 **Status:** architecture proposal, 2026-10-04. No synchronization code has been built. This document records the owner's direction and the safety design to test before implementation.
 
+*Added by Claude, 2026-10-04:* a **review** of this proposal, with the owner's new requirements and a recommended structure, is appended at the end under "Review by Claude".
+
 ## Decision and vocabulary
 
 One Lightning codebase serves PC and Android. A user chooses one **home node** for each profile: initially a PC or laptop, later possibly a server. The home node coordinates access and holds the canonical database plus published encrypted checkpoints. A paired **reader node** may display a published checkpoint. At most one node is the **writer node**: the home node itself while the profile is at home, or a paired node holding an explicit checkout. The copy on a checked-out writer is its **working copy**. A returned copy becomes accepted only after the home node verifies and durably commits it.
@@ -157,3 +159,111 @@ This design deliberately buys simple financial history by making availability an
 - SQLite's online backup API provides a consistent snapshot, and SQLCipher documents `sqlcipher_export` and `cipher_integrity_check`: <https://www.sqlite.org/backup.html>, <https://www.zetetic.net/sqlcipher/sqlcipher-api/>.
 - Android private storage is suitable for sensitive app data, but its default Auto Backup behavior must be configured explicitly: <https://developer.android.com/training/data-storage/app-specific>, <https://developer.android.com/identity/data/autobackup>.
 - Android Python packaging needs platform-compatible native wheels or builds: <https://www.chaquo.com/chaquopy/doc/current/faq.html>. Zetetic provides an Android SQLCipher library if a platform adapter is required: <https://www.zetetic.net/sqlcipher/sqlcipher-for-android-community/>.
+
+
+---
+
+## Review by Claude (2026-10-04): not part of Codex's proposal
+
+**This is a review, written by Claude at the owner's request. Everything above this line is Codex's proposal, unchanged apart from a one-line pointer under its status.** It audits the proposal against the code, records the owner's new requirements (given 2026-10-04, after the proposal was written), and recommends a different structure. Where the owner's requirements conflict with the proposal, the requirements win. No code was changed. Codex: revise the proposal or answer under *For the owner* in `NOW.md`.
+
+### Review 1. The owner's requirements (new, 2026-10-04)
+
+1. **The phone is home.** It holds the database and serves it on demand to whichever device wants to edit. The owner chose the phone because it is almost always with them and switched on.
+2. **The phone writes too, sometimes automatically.** A planned feature captures bank SMS (CIB, NBE and others) and records them. SMS arrive at any hour, including while another device is editing.
+3. **No long handshake.** Starting to edit on the PC must take seconds, not a minute.
+4. **Prefer the plan with the lowest downside and the easiest path to build.**
+
+### Review 2. Audit of the current proposal
+
+**What holds and should be kept:** never opening a live SQLite file over a network; never merging databases or choosing "the newest file"; fail-closed recovery; epochs and return IDs; receipt is not acceptance; verified encrypted snapshots; Android Auto Backup excluded; each device with its own password slot; a fault-injection gate before real data. The claims about current code are accurate: `snapshot.py` verifies inventory and fsyncs the file; `staging.py` stages but does not promote; `keys.py` already supports per-device password slots for one data key.
+
+**Gaps:**
+
+1. **No user scenario.** The proposal never states what a second device is for. The owner has now answered it (review section 1).
+2. **Device authentication guards a line the shared key erases.** Every paired device holds the data key (derived from the recovery secret in `keys.py`), so any paired device can decrypt and forge a manifest. Reader and writer roles are cooperative only. Authentication still matters for *network access*, but it is not a security boundary between paired devices.
+3. **OneDrive.** Profiles live under Documents (`runtime/paths.py`), which Windows often redirects to OneDrive; Architecture already says so. The proposal forbids syncing a live profile folder but does not say where the home node's live database, control record and version store live. OneDrive's Files On-Demand can move "immutable" checkpoints to the cloud only, and its conflict copies would break "one accepted history". Live and control state must sit outside synced folders (`%LOCALAPPDATA%`), or Lightning must detect the sync and refuse.
+4. **The foundation is unfinished single-PC work.** Candidate promotion and backup restore are not built and are release blockers anyway (`NOW.md`). Do them first, framed as single-PC value.
+5. **Hidden writers need a database-level guarantee.** Legacy startup posts revaluations and refreshes prices (`lightning/main.py`, about lines 90–100); unlock can migrate. Open every non-writer copy read-only at the database (`Database(read_only=True)` exists) rather than relying on every call site to check a gate. The remembered period is a cookie, not a write, so page views are safe.
+6. **The dirty flag can be atomic for free.** `audit_log` already records every edit inside the same transaction. Use it, or a counter updated in the same transaction, as the "has unreturned changes" signal. It also lists exactly which edits a lost writer had.
+7. **Smaller:** no measured profile size or transfer time; schema lockstep means the Windows ZIP and an Android release must update together; `os.fsync` cannot flush a directory on Windows, so the control database must be the only commit point.
+
+**The main problem under the new requirements:** checkout/check-in moves and verifies the whole database twice per editing session. Each side snapshots and transfers it, runs `integrity_check`, `cipher_integrity_check` and `foreign_key_check`, and computes a full row inventory, on phone hardware. That is the "minute-long handshake" the owner does not want. It also carries the heaviest build in the plan: the state machine, lost-writer recovery, new lineages and a large crash matrix. And SMS arriving during a PC checkout have nowhere to go without a second mechanism.
+
+### Review 3. Recommended structure: the phone serves, the PC is a screen
+
+Lightning is already a server-rendered web app shown in a window. So the PC does not need its own copy of the database to edit: **its window shows pages served by the phone.**
+
+```
+PHONE (home, the only writer, always)
+├─ profile.db      the one ledger (SQLCipher), private app storage
+├─ Lightning server   the same FastAPI app; loopback for the phone's own WebView
+├─ PC access listener TLS, paired devices only, open only while "PC access" is on
+└─ SMS capture     small native Android receiver → capture queue (append-only file)
+
+PC (a screen)
+├─ Lightning.exe   WebView2 window → local loopback proxy → TLS → phone
+├─ static files    served locally from the PC's own bundle (same app version)
+└─ backups         encrypted snapshots pulled from the phone in the background
+```
+
+**Why this fits the requirements:**
+
+- **Handshake in about a second:** discover the phone, open a TLS connection to a pinned identity, check the app version, start. Nothing is copied or verified before editing starts.
+- **One database, one writer, always.** No checkout state machine, no epochs, no lost writer, no forked history, no merge, no "changes not yet returned". Most of the proposal's downside table disappears rather than being mitigated.
+- **SMS just works.** The phone is always the writer, so captures post to the one ledger whoever is looking at it.
+- **Smaller exposure.** The PC never holds the data key or a live database, only encrypted backups. A stolen PC exposes nothing without the password or recovery key.
+- **OneDrive stops mattering on the PC.** Backups are immutable encrypted files, which are safe in a synced folder.
+- **Easiest to build.** It reuses the existing pages, routes, services, request gate and snapshot code. The new parts are a listener, pairing, a PC proxy mode and the SMS capture.
+
+**Key design points:**
+
+1. **PC proxy, not a remote WebView.** `Lightning.exe` keeps loading `127.0.0.1` exactly as today, so the current Host/Origin/cookie/CSP protections and the WebView2 setup stay intact. A loopback proxy in the PC process forwards requests over TLS to the phone. Static files (290 KB CSS, 109 KB JS, fonts) are served from the PC's own bundle, so only HTML and form posts cross Wi-Fi.
+2. **Pairing once, by QR.** The PC shows a QR code holding its certificate fingerprint and a one-time code. The phone scans it and the user approves. After that, both sides pin each other's certificate (mutual TLS, a standard library, no custom crypto). Discovery (Android NSD/mDNS) is convenience only; trust comes from the pinned identity.
+3. **Listener on only when wanted.** "PC access" runs as an Android foreground service with a visible notification ("Your PC is connected · Disconnect"). It closes after idle time, and never listens on the internet.
+4. **Unlocking.** The profile must be unlocked on the phone, or its password entered on the PC and sent over the pinned TLS connection. Owner to choose (review section 5).
+5. **Captures.** A native `BroadcastReceiver` writes each SMS to an append-only capture queue: a unique ID, sender, raw text and received time. It must not depend on Python running, because Android stops background apps. The Python app reads the queue into an *Inbox* (captured, not yet posted) on start and on each request. Parsing and posting go through the existing import review and category rules: confident items post themselves, unclear ones wait. Captures must match later bank-statement CSV rows so nothing counts twice (this is roadmap M7, "matching manual entries with imports").
+6. **Backups.** When connected, the PC pulls a verified encrypted snapshot (`snapshot.py`) in the background. This never blocks editing, and it can run only when the phone is charging. The phone also keeps local snapshots. A lost phone restores from the PC's latest copy; only captures made since that copy are lost.
+7. **Two screens at once.** The phone and PC may both have pages open, like two browser tabs today. Requests are serialized by the existing gate. Edit forms should carry a row version, so a stale form is refused rather than silently overwriting.
+
+**Downsides that remain (state them in the UI, do not hide them):**
+
+| Downside | Cost | Mitigation |
+|---|---|---|
+| The PC can edit only while the phone is reachable | No PC work when the phone is away or off | Same Wi-Fi, the phone's hotspot, or a USB cable all work. Later, a relay or server reaches it remotely with the same design |
+| Page speed depends on the phone's CPU and the Wi-Fi | Heavy pages (Budget, All time) may be slower than on the PC today | Measure first (review section 4). The request cache already helps. Keep long periods summarised |
+| Battery while serving | Drain during long PC sessions | Foreground service only while connected; idle timeout |
+| Python on Android | The biggest technical bet (shared with the current proposal) | Spike first (review section 4) |
+| A finance UI reachable on the LAN | New attack surface | Off by default, paired devices only, pinned mutual TLS, idle timeout, a security review before real data |
+| Google Play SMS policy | Play restricts SMS permissions to approved uses | Confirm that money-tracking capture qualifies. A sideloaded APK is not bound by it. Fallbacks: reading notifications, or share-to-Lightning |
+
+**If offline PC editing is ever needed**, add the current proposal's checkout as a later "Take it offline" mode on top. Nothing here is wasted: the snapshot, verification and pairing all carry over.
+
+### Review 4. Build order, with gates
+
+1. **Single-PC restore and promotion** (release blocker anyway): verified candidate → backup live → promote, with power-loss and disk-full tests on Windows.
+2. **Measure on a real mid-range Android phone** before committing:
+   - Python runtime, `sqlcipher3`, `cryptography` and FastAPI running.
+   - Time to unlock (Argon2 at 64 MiB).
+   - Page render times for the Overview, Budget › All time and the registers, on an encrypted profile with Mohab's year (about 2,239 transactions).
+   - Wi-Fi round trip.
+   - Snapshot size and time.
+   - **Gate:** pages over about 1 s or an unreliable `sqlcipher3` build trigger a rethink, before the next steps.
+3. **Inbox and capture queue on the PC first:** a quick add plus review, using the queue format the phone will write. Useful at once, and it fixes the format.
+4. **Phone app:** the profile on the phone, the phone's own WebView screens at phone width (under the brand guideline), Auto Backup excluded, and the native SMS receiver writing the queue.
+5. **PC access:** listener, QR pairing, pinned mutual TLS, PC loopback proxy with local static files, version check, row versions on edit forms.
+6. **Backups to the PC** in the background, and restore from them onto a new phone.
+7. **Fault and security gate:** cut Wi-Fi mid-post, kill the phone app mid-request, stale forms, wrong versions, unpaired devices, replayed requests, a full Mohab year driven from the PC through the phone.
+
+### Review 5. Questions for the owner
+
+1. Unlocking from the PC: approve on the phone, or type the password on the PC?
+2. Is "the PC edits only while the phone is nearby" acceptable for version 1? (This review assumes yes.)
+3. Distribution: Google Play or a sideloaded APK? This decides whether the SMS permission is available.
+4. Which banks' SMS come first? Real sample messages are needed for the parser and tests.
+
+### Review 6. What Codex should do with this
+
+- Record the owner's four requirements in the Project Overview under *Product decisions that must hold* (or *Roadmap*), and in your lane in `NOW.md`.
+- Revise the proposal above toward review section 3. Keep your safety principles and the parts listed as holding in review section 2. Move checkout to "later, if offline PC editing is needed".
+- Raise any disagreement under *For the owner* in `NOW.md`, not by editing around it.
