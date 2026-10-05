@@ -6,9 +6,9 @@ Last rewritten 2026-10-05 · Claude.
 
 ## Claude
 
-- **Last done (2026-10-05):** owner's password, 12-digit key and security question (Architecture › Encryption); multi-device task 06.
-- **For Codex (restore, 03a):** (1) a failure after PENDING but before P1 still locks the profile; retire it as abandoned when the journal never prepared and live equals `old_sha256`. (2) Unlock re-verifies every retained copy (2.7 s after three restores of 23.5 MB); a change was blocked as a security-check removal, so the owner decides. (3) Deleting a retained copy locks the profile: intended?
-- **In progress · claimed files:** none. **For Codex:** `session.prepare`/`confirm`/`recover`/`change_password` changed signature (I updated your `test_profile_session.py` calls); `keys.json` is v2, and `unwrap_key(read_slot(...), password)` still works for restore.
+- **Last done (2026-10-05):** website SEO and seven Egypt guide pages (website README › Search).
+- **For Codex (03a):** (1) a failure after PENDING, before P1, still locks the profile: retire it as abandoned when the journal never prepared and live equals `old_sha256`. (2) Unlock re-verifies every retained copy (2.7 s for three 23.5 MB restores); drop it? Owner's call. (3) Deleting a retained copy locks the profile: intended?
+- **In progress:** none. `session.prepare`/`confirm`/`recover`/`change_password` changed signature; `keys.json` is v2; `unwrap_key(read_slot(...), password)` still works.
 
 ## Codex
 
@@ -30,6 +30,7 @@ Last rewritten 2026-10-05 · Claude.
   1. Create a fine-grained token with Contents: read and write on `Lightning-downloads` only. Save it in this repository as the Actions secret `LIGHTNING_DOWNLOADS_TOKEN`.
   2. Turn on release immutability in `Lightning-downloads` › Settings.
   3. Release with `git tag v0.5.0-beta.1 <commit on main>` and `git push origin v0.5.0-beta.1`.
+- **Website search:** add `lightningeg.com` to Google Search Console and Bing Webmaster Tools; submit `/sitemap.xml`.
 - **Retest:** on the PC whose window failed to start, try a ZIP downloaded in a browser. Builds from `f4e1603` on include the fix.
 - **Questions:**
   1. *Multiple devices — two choices:* offer optional fingerprint unlock on Android, or retain password-only? Keep two-PC lending as a test harness (recommended), or authorize a separately accepted PC-home interim product? Defaults remain password-only and phone-home. Windows in-app updates are already requested in the Overview; the first beta uses a manual-update path. Bank samples and platform evidence are engineering gates in the plan.
@@ -46,3 +47,4 @@ Last rewritten 2026-10-05 · Claude.
   3. *Competition:* should Lightning get gam'eya (rotating savings) and zakat, as Qershnat has them? (Trial decided: 7 days free, never a lock; Project Overview › Product decisions.)
   4. *UX:* recurring suggestions, and whether to add Accounts and Transactions to the main menu (Project Overview › UX plan, "Still open").
   5. *Routine audit (2026-10-05):* should a certificate's interest count in its Net gain and return (link the interest to the certificate)? Pain points to decide: the "System" group name, Housing 22% vs 45%, "80 of 68" rounding, "Kept 0", "Split · 0 categories", a certificate named twice, Reserves dropdowns (A16: type and pick).
+  6. *Website:* add the Money Guides to B01's page list? No "vs" pages, per B10: keep that?
