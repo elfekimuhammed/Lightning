@@ -125,6 +125,17 @@ _TABLE = [
     ("spent", "Spent", "Money out in the category this month."),
     ("left_in_plan", "Left in plan", "What is left of the plan; the Overview and Budget show the same month "
      "figure, and a negative one reads \"Over plan\". One-off categories are left out of Spent.", "Planned − Spent"),
+    ("plan_leaves_to_save", "Plan leaves to save", "What this month's plan leaves of average monthly income.",
+     "Average monthly income − Planned"),
+    ("planned_savings_rate", "Planned savings rate", "The share of average monthly income this month's plan "
+     "leaves unspent. Financial health compares it with your Savings rate limit; the budget and Needs you warn "
+     "when it falls short.", "Plan leaves to save ÷ Average monthly income"),
+    ("savings_target", "Savings target", "What your Savings rate limit (Financial health) asks you to keep each "
+     "month: Average monthly income times that limit."),
+    ("saving_needed", "Saving needed", "What this month's plan must leave: the Savings target, or Saving for goals "
+     "when dated goals need more."),
+    ("spending_room", "Most you can plan", "The largest plan that still leaves what you need to save. It replaced the "
+     "budget's separate spending ceiling (2026-10-05).", "Average monthly income − Saving needed"),
     # ------------------------------------------------------------ investments (a period)
     ("cost", "Cost", "What you paid for the units you still hold."),
     ("unrealized_gain", "Unrealized gain", "Gain or loss on units you still hold.", "Holdings value − Cost"),
@@ -203,6 +214,11 @@ _SOURCES = {
     "planned": (BOTH, f"{BL}.available"),
     "spent": (LEDGER, f"{BL}.actual"),
     "left_in_plan": (BOTH, f"{BL}.remaining"),
+    "plan_leaves_to_save": (PLAN, "lightning.planning.health.PlanCheck.plan_saves"),
+    "planned_savings_rate": (PLAN, "lightning.planning.health.PlanCheck.planned_savings_rate"),
+    "savings_target": (PLAN, "lightning.planning.health.PlanCheck.savings_target"),
+    "spending_room": (PLAN, "lightning.planning.health.PlanCheck.spending_room"),
+    "saving_needed": (PLAN, "lightning.planning.health.PlanCheck.to_save"),
     "cost": (LEDGER, f"{INV}.build_investment_report"),
     "unrealized_gain": (LEDGER, f"{INV}.build_investment_report"),
     "change_in_unrealized_gain": (LEDGER, f"{INV}.investment_period"),

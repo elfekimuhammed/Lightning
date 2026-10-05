@@ -123,7 +123,8 @@ class CashForecaster:
             months_left = max((due.year - day.year) * 12 + due.month - day.month + 1, 1)
             amount = (missing / months_left).quantize(Decimal("0.01"))
             if amount:
-                result.append({"name": reserve["name"], "amount": amount, "due_date": reserve["due_date"]})
+                result.append({"id": reserve["id"], "name": reserve["name"], "amount": amount,
+                               "due_date": reserve["due_date"]})
         return result
 
     # -------------------------------------------------------------- forecast

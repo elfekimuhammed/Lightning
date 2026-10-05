@@ -1,0 +1,92 @@
+"""The parts of the plan talk to each other (owner request 2026-10-05): the savings target set in
+Financial health limits the budget, dated goals count in what a month must leave, and the budget,
+Needs you, Financial health and Reserves read one check (HealthService.plan_check)."""
+import shutil
+from decimal import Decimal
+
+from lightning.core.dates import today
+from lightning.database import migrator
+from lightning.database.connection import Database
+from lightning.ui.web import create_app
+from lightning.workflows.review import ReviewInbox
+from tests.screens import _ScreenClient, visible_text
+
+MONTH = "2026-12"  # conftest pins today to 2026-12-31
+
+
+def _plan(c, spend: str):
+    c.settings.set("budget_manual_monthly_income", "10000")
+    food = c.categories.get_by_code("EXP.PERSONAL.FOOD").id
+    c.budgets.set_budget(food, MONTH, spend)
+
+
+def test_a_plan_that_leaves_the_savings_target_passes(c):
+    _plan(c, "8000")
+    check = c.health.plan_check(MONTH)
+    assert (check.income, check.planned, check.target_percent) == (Decimal("10000"), Decimal("8000"), Decimal("20"))
+    assert check.savings_target == Decimal("2000.00") and check.spending_room == Decimal("8000.00")
+    assert check.plan_saves == Decimal("2000") and check.planned_savings_rate == Decimal("20")
+    assert check.over_by == 0
+
+
+def test_a_plan_that_spends_into_the_savings_target_says_how_much_to_cut(c):
+    _plan(c, "9000")
+    check = c.health.plan_check(MONTH)
+    assert check.planned_savings_rate == Decimal("10") and check.over_by == Decimal("1000.00")
+    assert check.short_for == "target"
+    c.health.set_limit("savings_rate", "5")  # a lower target makes the same plan fine
+    assert c.health.plan_check(MONTH).over_by == 0
+
+
+def test_dated_goals_raise_what_the_month_must_leave(c):
+    _plan(c, "8000")
+    c.reserves.create("New laptop", "3000", due_date="2026-12-31")  # 3,000 still needed this month
+    check = c.health.plan_check(MONTH)
+    assert check.goals == Decimal("3000.00") and check.short_for == "goals"
+    assert check.to_save == Decimal("3000.00") and check.over_by == Decimal("1000.00")
+
+
+def test_no_income_or_no_plan_means_no_check(c):
+    check = c.health.plan_check(MONTH)
+    assert check.planned is None and check.over_by == 0
+    assert c.health.plan_check(MONTH).planned_savings_rate is None
+
+
+def test_screens_share_the_one_check(c):
+    _plan(c, "9000")
+    c.reserves.create("New laptop", "1200", due_date="2027-11-30")  # 100 a month over 12 months
+    browser = _ScreenClient(create_app(c), "http://testserver")
+    budget = visible_text(browser.get(f"/budget?period=month&month={MONTH}").text)
+    assert "Below your savings target 10%" in budget
+    assert "Plan 1,000 less to keep 2,000 a month." in budget
+    assert "Plan leaves to save 1,000 (10%); your target is 20%." in budget
+    inbox = {item["label"]: item for item in ReviewInbox(c).items(today())}
+    item = inbox["This month's plan is below your savings target"]
+    assert item["href"] == f"/budget?month={MONTH}" and "Plan 1,000 EGP less" in item["detail"]
+    health = visible_text(browser.get("/financial-health").text)
+    assert "Planned savings rate" in health and "10.0%" in health
+    reserves = visible_text(browser.get("/reserves").text)
+    assert "About 100 EGP a month" in reserves
+
+
+def test_budget_settings_point_to_the_savings_target_instead_of_a_ceiling(c):
+    browser = _ScreenClient(create_app(c), "http://testserver")
+    page = browser.get("/settings?section=budget").text
+    assert "ceiling_percent" not in page
+    assert "follows your savings target" in visible_text(page)
+
+
+def test_migration_0042_keeps_a_custom_ceiling_as_the_savings_target(monkeypatch, tmp_path):
+    before = tmp_path / "migrations"
+    before.mkdir()
+    for path in sorted(migrator._BUNDLED_MIGRATIONS_DIR.glob("*.sql")):
+        if int(path.name[:4]) <= 41:
+            shutil.copy(path, before / path.name)
+    db = Database(":memory:")
+    monkeypatch.setattr(migrator, "MIGRATIONS_DIR", before)
+    migrator.migrate(db)
+    db.execute("INSERT INTO settings(key,value,updated_at) VALUES ('budget_monthly_ceiling_percent','72.5','2026-10-01')")
+    monkeypatch.setattr(migrator, "MIGRATIONS_DIR", migrator._BUNDLED_MIGRATIONS_DIR)
+    assert migrator.migrate(db) == ["0042_savings_target_from_ceiling (APPLIED)"]
+    assert db.scalar("SELECT value FROM settings WHERE key='financial_health_limit_savings_rate'") == "27.5"
+    assert db.scalar("SELECT COUNT(*) FROM settings WHERE key='budget_monthly_ceiling_percent'") == 0

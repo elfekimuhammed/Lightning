@@ -89,7 +89,6 @@ async def settings_page(request: Request):
                   manual_income=c.settings.get("budget_manual_monthly_income") or "",
                   suggestion_percent=c.settings.get("budget_track_suggestion_percent") or "20",
                   suggestion_fixed=c.settings.get("budget_track_suggestion_fixed") or "",
-                  ceiling_percent=c.settings.get("budget_monthly_ceiling_percent") or "100",
                   ai_period=ai_period, ai_preview=ai_preview, ai_prompt=ai_prompt,
                   ai_month=month_of(ai_period.end) if ai_period else month_of(today()),
                   current_month=month_of(today()), health_limits=health_limits,

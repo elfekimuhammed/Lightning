@@ -35,7 +35,10 @@ def _context(request: Request, error: str = ""):
     # Months of Average monthly income or of Average monthly spending, as Settings › Budget says.
     fund = c.budgets.emergency_fund(month_of(today()), emergency["effective_allocated"] if emergency else None)
     listed = [item for item in reserves if item["kind"] != "EMERGENCY"]
+    # Saving for goals, goal by goal: the same need the budget and the cash forecast count.
+    needs = {row["id"]: row["amount"] for row in c.forecaster.goal_needs(month_of(today()))}
     for item in listed:
+        item["a_month"] = needs.get(item["id"])
         item["payments"] = [dict(row) | {"amount": from_e6(row["amount_e6"])}
                             for row in c.reserves.links_for_reserve(item["id"])]
     # Completed dated rows are payment occurrences; undated project goals remain

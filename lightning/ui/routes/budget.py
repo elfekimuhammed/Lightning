@@ -14,6 +14,7 @@ from lightning.categories.domain import CategoryFamily, Movement, Scope
 from lightning.core.money import ZERO, to_decimal
 
 from lightning.investments.report import build_investment_report, saved_and_invested
+from lightning.planning.health import PlanCheck
 
 from .. import charts, keynotes
 from ..web import container, redirect, render
@@ -283,11 +284,14 @@ def _page(request: Request, month: str, values: dict | None = None, error: str =
                   Decimal((overlap_end-overlap_start).days+1) / Decimal((m_last-m_first).days+1)
                   if overlap_end >= overlap_start else ZERO)
         period_income += basis * factor
-    ceiling_percent = to_decimal(c.settings.get("budget_monthly_ceiling_percent") or "100")
-    ceiling = period_income * ceiling_percent / Decimal(100)
-    ceiling_warning = ("" if period_income <= ZERO else
-                       "Planned amounts exceed 100% of average monthly income" if period_base > period_income else
-                       f"Base plan exceeds the {ceiling_percent}% monthly spending ceiling" if period_base > ceiling else "")
+    # One savings target for every screen (Financial health › Savings rate limit). A month is checked
+    # with its goals below, in the key notes; a longer period against the target alone.
+    check = c.health.plan_check(month) if period.key == "month" else None
+    period_check = PlanCheck(period.label, period_income, period_base, c.health.limit_values()["savings_rate"], ZERO)
+    ceiling_warning = ("" if period_income <= ZERO or check is not None else
+                       "Planned amounts exceed average monthly income" if period_base > period_income else
+                       f"This plan saves less than your {period_check.target_percent.normalize():f}% savings target: "
+                       f"plan {keynotes.fmt(period_check.over_by)} less" if period_check.over_by else "")
     period_left = period_budgeted-period_actual
     group_rows = sorted(group_totals.items(),
                         key=lambda item: (item[1]["left"] >= ZERO, -item[1]["spent"], item[1]["name"].casefold()))
@@ -324,9 +328,11 @@ def _page(request: Request, month: str, values: dict | None = None, error: str =
     month_left = c.budgets.plan_summary(month)["left"] if c.budgets.has_plan(month) else ZERO
     notes = keynotes.budget_left(month_left, days_left,
                                  [r["label"] for r in meter_lines if r["m"]["over"]], "#budget-meters") if c.budgets.has_plan(month) else []
+    if check is not None and check.planned is not None:
+        notes = keynotes.plan_check(check) + notes
     left_note = keynotes.per_day(month_left, days_left) if c.budgets.has_plan(month) else ""
     flow = c.reporting.cash_flow(period.start, period.end)
-    return render(request, "budget.html", notes=notes, meter_lines=meter_lines, left_note=left_note,
+    return render(request, "budget.html", notes=notes, meter_lines=meter_lines, left_note=left_note, check=check,
                   savings=flow, saved_split_data=saved_and_invested(flow, build_investment_report(
                       c.db, c.accounts, c.assets, c.reporting, period.start_text, period.end_text)["net_money"]),
                   plan_bar=charts.plan_bar(period_budgeted, period_actual),
@@ -473,7 +479,6 @@ async def budget_settings_page(request: Request):
                   suggestion_percent=(c.settings.get("budget_track_suggestion_percent")
                                       if c.settings.get("budget_track_suggestion_percent") is not None else "20"),
                   suggestion_fixed=c.settings.get("budget_track_suggestion_fixed") or "",
-                  ceiling_percent=c.settings.get("budget_monthly_ceiling_percent") or "100",
                   exclusions=c.settings.get("budget_one_off_exclusions") or "")
 
 
@@ -485,10 +490,6 @@ async def save_budget_settings(request: Request):
         income_months = str(form.get("income_months", "3"))
         if income_months not in {"3", "6"}:
             raise ValidationError("Average monthly income must use three or six completed months.")
-        for key, label, upper in (("ceiling_percent", "Monthly spending ceiling", 10000),):
-            number = to_decimal(str(form.get(key, "")), key)
-            if number < ZERO or number > upper:
-                raise ValidationError(f"{label} must be between 0 and {upper}.")
         suggestion_percent = str(form.get("suggestion_percent", "")).strip()
         if suggestion_percent:
             value = to_decimal(suggestion_percent, "suggestion_percent")
@@ -512,7 +513,6 @@ async def save_budget_settings(request: Request):
         c.settings.set("budget_manual_monthly_income", manual)
         c.settings.set("budget_track_suggestion_percent", suggestion_percent)
         c.settings.set("budget_track_suggestion_fixed", fixed)
-        c.settings.set("budget_monthly_ceiling_percent", str(to_decimal(form.get("ceiling_percent"), "ceiling_percent")))
         c.settings.set("budget_one_off_exclusions", json.dumps(sorted(set(exclusions))))
         c.settings.set("budget_carryover_global", "1" if enabled else "0")
         c.settings.set("budget_carryover_month", carry_month)
@@ -535,8 +535,7 @@ async def save_budget_settings(request: Request):
                       carryover=form.get("carryover")=="1", carryover_month=str(form.get("carryover_month", "")),
                       income_months=str(form.get("income_months", "3")), manual_income=str(form.get("manual_income", "")),
                       suggestion_percent=str(form.get("suggestion_percent", "20")),
-                      suggestion_fixed=str(form.get("suggestion_fixed", "")),
-                      ceiling_percent=str(form.get("ceiling_percent", "100")))
+                      suggestion_fixed=str(form.get("suggestion_fixed", "")))
     return redirect(return_to, "Budget settings updated.")
 
 

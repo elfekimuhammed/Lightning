@@ -13,9 +13,9 @@
 </section>
 {% if error %}<p class="flash error" role="alert">{{ error }}</p>{% endif %}
 {% set ns = namespace(cushion=[], commitments=[]) %}
-{% for item in figures %}{% if item.key in ('net_worth','emergency_fund','savings_rate','debt_to_cash','debt_to_net_worth') %}{% set ns.cushion = ns.cushion + [item] %}{% else %}{% set ns.commitments = ns.commitments + [item] %}{% endif %}{% endfor %}
+{% for item in figures %}{% if item.key in ('net_worth','emergency_fund','savings_rate','planned_savings_rate','debt_to_cash','debt_to_net_worth') %}{% set ns.cushion = ns.cushion + [item] %}{% else %}{% set ns.commitments = ns.commitments + [item] %}{% endif %}{% endfor %}
 <section class="health-group" aria-labelledby="health-cushion-heading">
-  <div class="section-head"><div><h2 id="health-cushion-heading">Your cushion</h2><p>Balances use {{ as_of }}. Savings rate uses the last completed month, {{ savings_month }}.</p></div></div>
+  <div class="section-head"><div><h2 id="health-cushion-heading">Your cushion</h2><p>Balances use {{ as_of }}. Savings rate uses the last completed month, {{ savings_month }}; Planned savings rate uses this month's budget.</p></div></div>
   <div class="health-grid">
   {% for item in ns.cushion %}
     {% set label = 'Emergency fund' if item.key == 'emergency_fund' else fig[item.key].label %}

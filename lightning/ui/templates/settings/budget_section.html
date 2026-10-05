@@ -12,9 +12,9 @@
     </fieldset>
     {% include 'settings/_emergency_basis.html' %}
     <fieldset class="sc-group sc-wide"><legend>Suggestions</legend>
-      <div class="sc-row three"><label>Tracking threshold<span class="sc-unit"><input name="suggestion_percent" type="number" min="0" max="100" step="0.1" value="{{ suggestion_percent }}"><i>%</i></span></label>
-        <label>Fixed monthly suggestion<span class="sc-unit"><input name="suggestion_fixed" inputmode="decimal" value="{{ suggestion_fixed }}"><i>{{ base }}</i></span></label>
-        <label>Monthly spending ceiling<span class="sc-unit"><input name="ceiling_percent" type="number" min="0" max="300" step="1" value="{{ ceiling_percent }}"><i>%</i></span></label></div>
+      <div class="sc-row"><label>Tracking threshold<span class="sc-unit"><input name="suggestion_percent" type="number" min="0" max="100" step="0.1" value="{{ suggestion_percent }}"><i>%</i></span></label>
+        <label>Fixed monthly suggestion<span class="sc-unit"><input name="suggestion_fixed" inputmode="decimal" value="{{ suggestion_fixed }}"><i>{{ base }}</i></span></label></div>
+      <span class="sc-chips-label">The most you can plan each month follows your savings target in <a href="/settings?section=financial-health">Financial health</a>.</span>
       <span class="sc-chips-label sc-groups-label">One-off categories, left out of the budget and estimates · the same as <a href="/categories">One-off</a> on Categories</span>
       <div class="sc-cat-groups">{% for category in expense_categories if category.active %}{% if category.depth == 1 %}{% if not loop.first %}</div></div>{% endif %}<div class="sc-cat-group"><label class="sc-cat-head"><input type="checkbox" name="exclusion_category" value="{{ category.id }}" {{ 'checked' if category.id in excluded_categories }}> {{ category.name }}</label><div class="sc-chips">{% else %}<label class="sc-chip"><input type="checkbox" name="exclusion_category" value="{{ category.id }}" {{ 'checked' if category.id in excluded_categories }}> {{ category.name }}</label>{% endif %}{% if loop.last %}</div></div>{% endif %}{% endfor %}</div>
     </fieldset>

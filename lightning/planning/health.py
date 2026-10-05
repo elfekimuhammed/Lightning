@@ -54,6 +54,54 @@ class HealthFigure:
     href: str
 
 
+@dataclass(frozen=True)
+class PlanCheck:
+    """A month's spending plan against the savings target and dated goals (owner request 2026-10-05:
+    a budget must leave the savings rate you set). Plan only: it moves no money."""
+    month: str
+    income: Decimal | None        # Average monthly income for the month
+    planned: Decimal | None       # Planned: the month's plan as every screen shows it; None without a plan
+    target_percent: Decimal       # the Savings rate limit in Financial health
+    goals: Decimal                # Saving for goals: what dated goals need this month
+
+    @property
+    def savings_target(self) -> Decimal | None:
+        """Average monthly income × Savings rate limit."""
+        return None if self.income is None else (self.income * self.target_percent / 100).quantize(Decimal("0.01"))
+
+    @property
+    def to_save(self) -> Decimal | None:
+        """What the plan must leave: the savings target, or the goals' need when that is larger."""
+        return None if self.savings_target is None else max(self.savings_target, self.goals)
+
+    @property
+    def spending_room(self) -> Decimal | None:
+        """The most the month's plan can be and still leave what you want to save."""
+        return None if self.to_save is None else self.income - self.to_save
+
+    @property
+    def plan_saves(self) -> Decimal | None:
+        """Average monthly income − Planned."""
+        return None if self.income is None or self.planned is None else self.income - self.planned
+
+    @property
+    def planned_savings_rate(self) -> Decimal | None:
+        return (self.plan_saves / self.income * 100
+                if self.plan_saves is not None and self.income and self.income > 0 else None)
+
+    @property
+    def over_by(self) -> Decimal:
+        """How much to take out of the plan to leave what you want to save; zero when it already does."""
+        if self.plan_saves is None or self.to_save is None:
+            return ZERO
+        return max(self.to_save - self.plan_saves, ZERO)
+
+    @property
+    def short_for(self) -> str:
+        """Which need the plan misses: the goals when they need more than the target, else the target."""
+        return "goals" if self.goals > (self.savings_target or ZERO) else "target"
+
+
 LIMIT_DEFAULTS: dict[str, Decimal | None] = {
     "savings_rate": Decimal("20"),
     "fixed_costs_to_income": Decimal("50"),
@@ -161,6 +209,14 @@ class HealthService:
         self.settings.set(LIMIT_PREFIX + key, "none" if value is None else format(value, "f"))
         return value
 
+    def plan_check(self, month: str) -> PlanCheck:
+        """The month's plan against the Savings rate limit and Saving for goals. The budget, Needs you
+        and Financial health all read this one check."""
+        planned = self.budgets.plan_summary(month)["planned"] if self.budgets.has_plan(month) else None
+        goals = sum((row["amount"] for row in self.budgets.reserve_goal_needs(month)), ZERO)
+        return PlanCheck(month, self.budgets.income_average(month).amount, planned,
+                         self.limit_values()["savings_rate"], goals)
+
     def emergency_fund(self, day: date):
         """Use the Reserves page's single target and selected income-or-spending basis."""
         position = self.position.at(day, match_payments=False)
@@ -179,6 +235,7 @@ class HealthService:
         savings_start, _ = parse_month(savings_month)
         savings = self.reporting.cash_flow(savings_start, savings_end)
         income_average = self.budgets.income_average(month_of(day))
+        check = self.plan_check(month_of(day))
         limits = self.limit_values()
 
         def figure(key, value, unit, period, limit, direction, support, href):
@@ -195,6 +252,10 @@ class HealthService:
                          (("Reserves for emergencies", fund.set_aside), (avg_label, fund.monthly)), "/plan/reserves"),
             figure("savings_rate", savings.savings_rate, "%", savings_month, limits["savings_rate"], "minimum",
                    (("Net flow", savings.net), ("Money in", savings.inflows)), "/"),
+            figure("planned_savings_rate", check.planned_savings_rate, "%", f"{month_of(day)} plan",
+                   limits["savings_rate"], "minimum",
+                   (("Plan leaves to save", check.plan_saves), ("Saving for goals", check.goals),
+                    ("Average monthly income", check.income)), f"/budget?month={month_of(day)}"),
             figure("debt_to_cash", health.debt_to_cash.percent, "%", fmt_date(day), limits["debt_to_cash"], "maximum",
                    (("What you owe", health.debt_to_cash.part), ("Cash you own", health.debt_to_cash.whole)), "/plan/loans"),
             figure("debt_to_net_worth", health.debt_to_net_worth.percent, "%", fmt_date(day), limits["debt_to_net_worth"], "maximum",

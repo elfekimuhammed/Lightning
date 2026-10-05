@@ -30,7 +30,7 @@
       <div class="plan-figures">
         <div><span><i class="k spent"></i>{{ fig.spent.label }}</span><b>{{ period_actual|money }}</b><small>{% if period_income %}{{ (period_actual/period_income*100)|round(1) }}% of {{ fig.average_monthly_income.label|lower }}{% endif %}</small></div>
         <div><span><i class="k {{ 'over' if period_left < 0 else 'left' }}"></i>{{ fig.left_in_plan.label if period_left >= 0 else 'Over plan by' }}</span><b class="{{ 'neg' if period_left < 0 else 'pos' }}">{{ period_left|abs|money }}</b><small>{{ left_note or '' }}</small></div>
-        <div><span><i class="k plan"></i>{{ fig.planned.label }}</span><b>{{ period_budgeted|money }}</b><small>{% if period_carryover %}Includes {{ period_carryover|money(True) }} carryover. {% endif %}{% if loan_planned %}Includes {{ loan_planned|money }} of loan payments scheduled this month.{% endif %}</small></div>
+        <div><span><i class="k plan"></i>{{ fig.planned.label }}</span><b>{{ period_budgeted|money }}</b><small>{% if period_carryover %}Includes {{ period_carryover|money(True) }} carryover. {% endif %}{% if loan_planned %}Includes {{ loan_planned|money }} of loan payments scheduled this month. {% endif %}{% if check and check.plan_saves is not none and check.planned_savings_rate is not none %}{{ fig.plan_leaves_to_save.label }} {{ check.plan_saves|money }} ({{ '%.0f'|format(check.planned_savings_rate) }}%); your target is {{ '%.0f'|format(check.target_percent) }}%.{% endif %}</small></div>
       </div>
     </div>
   </div>

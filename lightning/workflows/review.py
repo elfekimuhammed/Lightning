@@ -64,6 +64,19 @@ class ReviewInbox:
                 items.append({"label": f"{section.name} over plan",
                               "detail": f"{fmt(section.planned_actual - section.available)} {c.base_currency} over this month's plan.",
                               "href": "/budget", "priority": 2})
+        # The month's plan against the savings target and dated goals (one check: HealthService.plan_check).
+        check = c.health.plan_check(month_of(on))
+        if check.planned is not None and check.over_by and check.planned_savings_rate is not None:
+            if check.short_for == "goals":
+                items.append({"label": "This month's plan is short for your goals",
+                              "detail": f"It leaves {fmt(check.plan_saves)} {c.base_currency}; dated goals need "
+                                        f"{fmt(check.goals)}. Plan {fmt(check.over_by)} less or give a goal a later date.",
+                              "href": f"/budget?month={check.month}", "priority": 2})
+            else:
+                items.append({"label": "This month's plan is below your savings target",
+                              "detail": f"It saves {fmt(check.planned_savings_rate)}% of income; your target is "
+                                        f"{fmt(check.target_percent)}%. Plan {fmt(check.over_by)} {c.base_currency} less.",
+                              "href": f"/budget?month={check.month}", "priority": 2})
         return sorted(items, key=lambda item: item["priority"])
 
     def _statements(self) -> list[dict]:

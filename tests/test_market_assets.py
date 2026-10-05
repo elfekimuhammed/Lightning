@@ -30,7 +30,7 @@ def test_migration_0041_marks_existing_stocks_as_egx_listings(monkeypatch, tmp_p
                    "liquidity,price_source,active,notes,created_at,updated_at) VALUES (?,?,?,'EGP','unit',4,0,'EQUITY',"
                    "'DAYS','MANUAL',1,'','2026-10-01','2026-10-01')", (code, code, class_id))
     monkeypatch.setattr(migrator, "MIGRATIONS_DIR", migrator._BUNDLED_MIGRATIONS_DIR)
-    assert migrator.migrate(db) == ["0041_asset_venue (APPLIED)"]
+    assert migrator.migrate(db)[0] == "0041_asset_venue (APPLIED)"  # later migrations follow
     rows = {r["code"]: (r["mic"], r["country"], r["market_key"]) for r in db.all("SELECT * FROM financial_assets")}
     assert rows == {"STK:COMI": ("XCAI", "EG", "EG:COMI"), "FND:AZS": (None, "EG", None)}
 

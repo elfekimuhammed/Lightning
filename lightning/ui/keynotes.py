@@ -117,6 +117,25 @@ def budget_left(left: Decimal, days_left: int, over: list[str], href: str) -> li
     return []
 
 
+def _percent(value: Decimal) -> str:
+    return f"{value.quantize(Decimal('1'))}%"
+
+
+def plan_check(check) -> list[dict]:
+    """A plan that leaves less than the savings target, or less than dated goals need (health.PlanCheck)."""
+    if not check.over_by or check.planned_savings_rate is None:
+        return []
+    if check.short_for == "goals":
+        return [note("attention", f"This plan leaves {fmt(check.plan_saves)}; your goals need {fmt(check.goals)}",
+                     f"Plan {fmt(check.over_by)} less, or give a goal a later date.", "/plan/reserves", "See goals",
+                     label="Short for your goals", figure=fmt(check.over_by))]
+    return [note("attention", f"This plan saves {_percent(check.planned_savings_rate)}; your target is "
+                 f"{_percent(check.target_percent)}",
+                 f"Plan {fmt(check.over_by)} less to keep {fmt(check.to_save)} a month.",
+                 "/settings?section=financial-health", "Savings target",
+                 label="Below your savings target", figure=_percent(check.planned_savings_rate))]
+
+
 def per_day(left: Decimal, days_left: int) -> str:
     """Under Left in plan: what it means for the rest of the month."""
     if left < 0:
