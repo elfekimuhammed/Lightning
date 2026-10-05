@@ -27,6 +27,7 @@
   {% set avg = fund.average %}{% set what = 'income' if fund.basis == 'income' else 'spending' %}
   {% if emergency_meter %}<div class="emergency-meter">{{ meter('Towards six months of ' ~ what, emergency_set_aside, fund.target, emergency_meter, '', '', 'target') }}</div>{% endif %}
   <div class="emergency-stats">
+    {% if fund.top_up %}<div><span class="muted small">{{ fig.emergency_top_up.label }}</span><b>{{ fund.top_up|money(False, 0) }}</b><small class="muted">a month to reach six months within two years; the budget leaves room for it</small></div>{% endif %}
     <div><span class="muted small">{{ fig[fund.figure].label }}</span><b>{{ (avg.amount or 0)|money }}</b><small class="muted">{% if avg.manual %}Set by hand in Settings{% else %}{{ avg.window }} · {{ avg.months_counted }} month{{ '' if avg.months_counted == 1 else 's' }} with {{ what }}{% endif %}</small></div>
   </div>
   {% if not fund.monthly %}<p class="muted small">{% if fund.basis == 'income' %}Choose your income categories in <a href="/settings?section=budget">Settings</a> to measure months covered.{% else %}Months covered are measured once a month of spending is recorded.{% endif %}</p>{% endif %}

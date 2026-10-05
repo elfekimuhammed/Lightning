@@ -132,8 +132,10 @@ _TABLE = [
      "when it falls short.", "Plan leaves to save ÷ Average monthly income"),
     ("savings_target", "Savings target", "What your Savings rate limit (Financial health) asks you to keep each "
      "month: Average monthly income times that limit."),
-    ("saving_needed", "Saving needed", "What this month's plan must leave: the Savings target, or Saving for goals "
-     "when dated goals need more."),
+    ("emergency_top_up", "Emergency fund top-up", "What the emergency fund lacks to reach six months, spread over "
+     "two years (owner request 2026-10-05). Nothing once the fund is full."),
+    ("saving_needed", "Saving needed", "What this month's plan must leave: the Savings target, or Saving for goals plus "
+     "Emergency fund top-up when they need more."),
     ("spending_room", "Most you can plan", "The largest plan that still leaves what you need to save. It replaced the "
      "budget's separate spending ceiling (2026-10-05).", "Average monthly income − Saving needed"),
     # ------------------------------------------------------------ investments (a period)
@@ -219,6 +221,7 @@ _SOURCES = {
     "savings_target": (PLAN, "lightning.planning.health.PlanCheck.savings_target"),
     "spending_room": (PLAN, "lightning.planning.health.PlanCheck.spending_room"),
     "saving_needed": (PLAN, "lightning.planning.health.PlanCheck.to_save"),
+    "emergency_top_up": (PLAN, "lightning.budgeting.domain.EmergencyFund.top_up"),
     "cost": (LEDGER, f"{INV}.build_investment_report"),
     "unrealized_gain": (LEDGER, f"{INV}.build_investment_report"),
     "change_in_unrealized_gain": (LEDGER, f"{INV}.investment_period"),

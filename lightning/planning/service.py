@@ -7,6 +7,7 @@ from decimal import Decimal
 
 from lightning.core.dates import fmt_date, parse_date, parse_month, today
 from lightning.core.errors import NotFoundError, ValidationError
+from lightning.core.memo import request_cached
 from lightning.core.money import ZERO, from_e6, to_decimal
 from lightning.database.connection import Database
 
@@ -286,6 +287,7 @@ class PlanningService:
         return WhatYouOwe(bills_due=sum((p.amount for p in due), ZERO), loans_still_to_pay=loans_left,
                           bills_due_items=due)
 
+    @request_cached  # read by every budget line since bills plan their category too (2026-10-05)
     def loan_payments_by_category(self, month: str) -> dict[int, Decimal]:
         """Loan payments scheduled in a month (paid, due or upcoming; not skipped), by category."""
         first, last = parse_month(month)
@@ -298,6 +300,7 @@ class PlanningService:
                     out[item.category_id] = out.get(item.category_id, ZERO) + p.amount
         return out
 
+    @request_cached(deep=True)  # rows hold lists of item names
     def budget_fill_schedule(self, month: str) -> dict[int, dict]:
         """Bill and subscription amounts due in a month, grouped by spending category.
 

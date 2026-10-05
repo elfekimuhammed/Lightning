@@ -336,7 +336,7 @@ def _page(request: Request, month: str, values: dict | None = None, error: str =
                   savings=flow, saved_split_data=saved_and_invested(flow, build_investment_report(
                       c.db, c.accounts, c.assets, c.reporting, period.start_text, period.end_text)["net_money"]),
                   plan_bar=charts.plan_bar(period_budgeted, period_actual),
-                  loan_planned=sum(c.budgets.loan_lines(month).values(), ZERO), status_code=status_code, view=view, month=month,
+                  loan_planned=sum(c.budgets.loan_lines(month).values(), ZERO), bill_planned=sum(c.budgets.bill_lines(month).values(), ZERO), status_code=status_code, view=view, month=month,
                   prev_month=prev_month, next_month=next_month, values=values or {}, error=error,
                   has_plan=has_plan, suggestions=suggestions_view, suggestion_groups=suggestion_groups,
                   tracked=tracked, averages=averages,
@@ -747,7 +747,9 @@ async def budget_fill_page(request: Request):
     except LightningError as exc:
         return render(request, "budget_fill.html", month=month, source="last_month", proposal=None,
                       error=exc.message, status_code=400)
-    return render(request, "budget_fill.html", month=month, source=source, proposal=proposal, error="")
+    proposal, room_left = c.health.fit_fill(proposal)
+    return render(request, "budget_fill.html", month=month, source=source, proposal=proposal, error="",
+                  check=c.health.plan_check(month), room_left=room_left)
 
 
 @router.post("/fill")

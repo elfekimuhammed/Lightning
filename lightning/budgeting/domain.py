@@ -47,6 +47,7 @@ class BudgetLine:
     carryover_enabled: bool = False
     income_percent: Decimal | None = None
     from_loans: bool = False  # planned amount = loan payments scheduled this month (no rule set)
+    from_bills: bool = False  # planned amount includes bills and subscriptions scheduled this month
 
     @property
     def remaining(self) -> Decimal | None:
@@ -166,6 +167,9 @@ class SpendingAverage:
 EMERGENCY_BASES = {"income": "average_monthly_income", "spending": "average_monthly_spending"}
 
 
+EMERGENCY_TOP_UP_MONTHS = 24  # owner request 2026-10-05: reach six months within two years
+
+
 @dataclass(frozen=True)
 class EmergencyFund:
     """How long the emergency fund lasts, in months of Average monthly income or of Average monthly
@@ -192,6 +196,15 @@ class EmergencyFund:
     def target(self) -> Decimal | None:
         """Six months of the chosen average."""
         return self.monthly * 6 if self.monthly else None
+
+    @property
+    def top_up(self) -> Decimal:
+        """Emergency fund top-up: what the fund lacks to reach its target, spread over
+        EMERGENCY_TOP_UP_MONTHS (two years), so a month's plan leaves room to rebuild it."""
+        if self.target is None:
+            return ZERO
+        gap = self.target - (self.set_aside or ZERO)
+        return (gap / EMERGENCY_TOP_UP_MONTHS).quantize(Decimal("0.01")) if gap > 0 else ZERO
 
 
 @dataclass(frozen=True)

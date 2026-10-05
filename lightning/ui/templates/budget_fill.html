@@ -15,6 +15,7 @@
   <button class="btn" type="submit">Show proposal</button>
 </form>
 {% if proposal %}
+  {% if check and check.spending_room is not none and source != 'goal' %}<p class="muted small">{{ fig.spending_room.label }} {{ check.spending_room|money(False, 0) }} {{ base }}, to leave {{ check.to_save|money(False, 0) }} to save. Rows that would go past it start unticked{% if room_left is not none %}; {{ [room_left, 0]|max|money(False, 0) }} {{ base }} of room is left after the ticked rows{% endif %}.</p>{% endif %}
   {% if proposal.rows %}
     {% if source == 'goal' %}
       <section class="card wide-card">

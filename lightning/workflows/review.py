@@ -68,9 +68,10 @@ class ReviewInbox:
         check = c.health.plan_check(month_of(on))
         if check.planned is not None and check.over_by and check.planned_savings_rate is not None:
             if check.short_for == "goals":
-                items.append({"label": "This month's plan is short for your goals",
-                              "detail": f"It leaves {fmt(check.plan_saves)} {c.base_currency}; dated goals need "
-                                        f"{fmt(check.goals)}. Plan {fmt(check.over_by)} less or give a goal a later date.",
+                items.append({"label": "This month's plan is short for your goals" if check.goals else
+                                       "This month's plan is short for your emergency fund",
+                              "detail": f"It leaves {fmt(check.plan_saves)} {c.base_currency}; {check.needs_label} "
+                                        f"{fmt(check.needs)}. Plan {fmt(check.over_by)} less.",
                               "href": f"/budget?month={check.month}", "priority": 2})
             else:
                 items.append({"label": "This month's plan is below your savings target",

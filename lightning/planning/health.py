@@ -1,13 +1,13 @@
 """Named financial-health figures and profile-owned comparison limits."""
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, timedelta
 from decimal import Decimal
 
 from lightning.core.dates import fmt_date, month_of, parse_month, today
 from lightning.core.errors import ValidationError
-from lightning.core.money import ZERO, check_places, to_decimal
+from lightning.core.money import ZERO, check_places, fmt, to_decimal
 from lightning.database.settings import SettingsStore
 
 from .domain import PlanKind, per_year
@@ -63,6 +63,12 @@ class PlanCheck:
     planned: Decimal | None       # Planned: the month's plan as every screen shows it; None without a plan
     target_percent: Decimal       # the Savings rate limit in Financial health
     goals: Decimal                # Saving for goals: what dated goals need this month
+    emergency: Decimal = ZERO     # Emergency fund top-up: the fund's gap to six months over two years
+
+    @property
+    def needs(self) -> Decimal:
+        """Saving for goals + Emergency fund top-up."""
+        return self.goals + self.emergency
 
     @property
     def savings_target(self) -> Decimal | None:
@@ -71,8 +77,8 @@ class PlanCheck:
 
     @property
     def to_save(self) -> Decimal | None:
-        """What the plan must leave: the savings target, or the goals' need when that is larger."""
-        return None if self.savings_target is None else max(self.savings_target, self.goals)
+        """What the plan must leave: the savings target, or goals and the emergency top-up when they need more."""
+        return None if self.savings_target is None else max(self.savings_target, self.needs)
 
     @property
     def spending_room(self) -> Decimal | None:
@@ -98,8 +104,15 @@ class PlanCheck:
 
     @property
     def short_for(self) -> str:
-        """Which need the plan misses: the goals when they need more than the target, else the target."""
-        return "goals" if self.goals > (self.savings_target or ZERO) else "target"
+        """Which need the plan misses: goals and the emergency fund when they need more than the target, else the target."""
+        return "goals" if self.needs > (self.savings_target or ZERO) else "target"
+
+    @property
+    def needs_label(self) -> str:
+        """What "goals" means in a sentence: dated goals, the emergency fund, or both."""
+        if self.goals and self.emergency:
+            return "your goals and emergency fund need"
+        return "your emergency fund needs" if self.emergency else "your goals need"
 
 
 LIMIT_DEFAULTS: dict[str, Decimal | None] = {
@@ -214,8 +227,51 @@ class HealthService:
         and Financial health all read this one check."""
         planned = self.budgets.plan_summary(month)["planned"] if self.budgets.has_plan(month) else None
         goals = sum((row["amount"] for row in self.budgets.reserve_goal_needs(month)), ZERO)
+        # What is set aside, straight from Reserves: building a whole position here doubled the budget page's queries.
+        reserve = next((row for row in self.reserves.list_active() if row["kind"] == "EMERGENCY"), None)
+        fund = self.budgets.emergency_fund(month, reserve["effective_allocated"] if reserve else None)
         return PlanCheck(month, self.budgets.income_average(month).amount, planned,
-                         self.limit_values()["savings_rate"], goals)
+                         self.limit_values()["savings_rate"], goals, fund.top_up)
+
+    def commitments_note(self, kind: str, day: date | None = None) -> str:
+        """After a bill, subscription or loan is saved: where Fixed costs to income (and, for a loan, Loan
+        payments to income) now stand against your limits. Empty for income or without average income."""
+        if kind == PlanKind.INCOME.value:
+            return ""
+        health, limits = self.at(day or today()), self.limit_values()
+        keys = ("fixed_costs_to_income",) + (("loan_payments_to_income",) if kind == PlanKind.LOAN.value else ())
+        parts = []
+        for key in keys:
+            percent, limit = getattr(health, key).percent, limits[key]
+            if percent is None:
+                continue
+            text = f"{LIMIT_LABELS[key]} is now {percent:.0f}%"
+            if compare_to_limit(percent, limit, "maximum") == "outside your limit":
+                text += f", above your {limit:.0f}% limit"
+            elif limit is not None:
+                text += f", within your {limit:.0f}% limit"
+            parts.append(text)
+        return "; ".join(parts) + "." if parts else ""
+
+    def fit_fill(self, proposal):
+        """Fill this month stops at Most you can plan: rows stay ticked only while they fit in the room the
+        plan has left; the rest are unticked with the reason, and you may still tick them yourself.
+        Returns the proposal and the room left after the ticked rows (None without income)."""
+        check = self.plan_check(proposal.month)
+        if check.spending_room is None:
+            return proposal, None
+        left = check.spending_room - (check.planned or ZERO)
+        rows = []
+        for row in proposal.rows:
+            if row.selected and row.amount is not None:
+                change = row.amount - (row.current_amount or ZERO)
+                if change > left:
+                    reason = f"Past Most you can plan: {fmt(max(left, ZERO), 0)} of room left."
+                    row = replace(row, selected=False, conflict=" ".join(x for x in (row.conflict, reason) if x))
+                else:
+                    left -= change
+            rows.append(row)
+        return replace(proposal, rows=tuple(rows)), left
 
     def emergency_fund(self, day: date):
         """Use the Reserves page's single target and selected income-or-spending basis."""
@@ -255,6 +311,7 @@ class HealthService:
             figure("planned_savings_rate", check.planned_savings_rate, "%", f"{month_of(day)} plan",
                    limits["savings_rate"], "minimum",
                    (("Plan leaves to save", check.plan_saves), ("Saving for goals", check.goals),
+                    ("Emergency fund top-up", check.emergency),
                     ("Average monthly income", check.income)), f"/budget?month={month_of(day)}"),
             figure("debt_to_cash", health.debt_to_cash.percent, "%", fmt_date(day), limits["debt_to_cash"], "maximum",
                    (("What you owe", health.debt_to_cash.part), ("Cash you own", health.debt_to_cash.whole)), "/plan/loans"),

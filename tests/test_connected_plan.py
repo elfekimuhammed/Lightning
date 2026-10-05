@@ -14,8 +14,11 @@ from tests.screens import _ScreenClient, visible_text
 MONTH = "2026-12"  # conftest pins today to 2026-12-31
 
 
-def _plan(c, spend: str):
+def _plan(c, spend: str, fund: str = "60000"):
+    """Income 10,000 a month; the emergency fund full (six months) unless the test says otherwise."""
     c.settings.set("budget_manual_monthly_income", "10000")
+    if fund:
+        c.reserves.set_emergency_fund(fund)
     food = c.categories.get_by_code("EXP.PERSONAL.FOOD").id
     c.budgets.set_budget(food, MONTH, spend)
 
@@ -90,3 +93,54 @@ def test_migration_0042_keeps_a_custom_ceiling_as_the_savings_target(monkeypatch
     assert migrator.migrate(db) == ["0042_savings_target_from_ceiling (APPLIED)"]
     assert db.scalar("SELECT value FROM settings WHERE key='financial_health_limit_savings_rate'") == "27.5"
     assert db.scalar("SELECT COUNT(*) FROM settings WHERE key='budget_monthly_ceiling_percent'") == 0
+
+
+def test_bills_and_subscriptions_are_planned_like_loans_until_you_set_your_own(c):
+    food = c.categories.get_by_code("EXP.PERSONAL.FOOD").id
+    c.planning.create(kind="SUBSCRIPTION", name="Gym", amount="120", frequency="MONTHLY",
+                      start_date="2026-12-20", category_id=food)
+    line = next(l for s in c.budgets.month_view(MONTH).sections for l in s.lines if l.category_id == food)
+    assert line.budget == Decimal("120") and line.from_bills and not line.from_loans
+    assert c.budgets.bill_lines(MONTH) == {food: Decimal("120")}
+    c.budgets.set_budget(food, MONTH, "3000")  # your own amount replaces the automatic line
+    assert c.budgets.bill_lines(MONTH) == {}
+
+
+def test_an_emergency_fund_below_six_months_adds_its_top_up(c):
+    _plan(c, "8000", fund="12000")  # 12,000 of a 60,000 target: 48,000 over 24 months
+    check = c.health.plan_check(MONTH)
+    assert check.emergency == Decimal("2000.00") and check.needs == Decimal("2000.00")
+    assert check.over_by == 0  # the 20% target already leaves 2,000
+    c.reserves.create("New laptop", "500", due_date="2026-12-31")
+    check = c.health.plan_check(MONTH)
+    assert check.short_for == "goals" and check.over_by == Decimal("500.00")
+    assert check.needs_label == "your goals and emergency fund need"
+
+
+def test_fill_this_month_stops_at_most_you_can_plan(c):
+    c.settings.set("budget_manual_monthly_income", "10000")
+    c.reserves.set_emergency_fund("60000")
+    food = c.categories.get_by_code("EXP.PERSONAL.FOOD").id
+    transport = c.categories.get_by_code("EXP.PERSONAL.TRANSPORT").id
+    c.budgets.set_budget(food, "2026-11", "9000", only_this_month=True)
+    c.budgets.set_budget(transport, "2026-11", "1000", only_this_month=True)
+    proposal, left = c.health.fit_fill(c.budgets.fill_proposal(MONTH, "last_month"))
+    rows = {row.category_id: row for row in proposal.rows}
+    assert not rows[food].selected and "Past Most you can plan: 8,000 of room left." in rows[food].conflict
+    assert rows[transport].selected and left == Decimal("7000.00")
+    page = visible_text(_ScreenClient(create_app(c), "http://testserver").get(f"/budget/fill?month={MONTH}").text)
+    assert "Most you can plan 8,000 EGP, to leave 2,000 to save." in page
+
+
+def test_saving_a_bill_or_loan_says_where_your_limits_stand(c):
+    c.settings.set("budget_manual_monthly_income", "10000")
+    c.planning.create(kind="BILL", name="Rent", amount="4500", frequency="MONTHLY", start_date="2027-01-01")
+    assert c.health.commitments_note("BILL") == "Fixed costs to income is now 45%, within your 50% limit."
+    c.planning.create(kind="LOAN", name="Car loan", amount="2500", frequency="MONTHLY",
+                      start_date="2027-01-01", payment_count="12")
+    assert c.health.commitments_note("LOAN") == ("Fixed costs to income is now 70%, above your 50% limit; "
+                                                 "Loan payments to income is now 25%, above your 20% limit.")
+    assert c.health.commitments_note("INCOME") == ""
+    browser = _ScreenClient(create_app(c), "http://testserver")
+    form = browser.get("/plan/items/new?kind=SUBSCRIPTION")
+    assert form.status_code == 200

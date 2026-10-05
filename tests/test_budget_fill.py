@@ -59,7 +59,7 @@ def test_schedule_sums_bills_and_subscriptions_but_excludes_skips_and_loans(c, s
 
     assert row.amount == Decimal("120")
     assert "Car loan" not in row.note and "Electricity" not in row.note
-    assert "2,500" in row.conflict
+    assert "2,620" in row.conflict  # the loan and the gym are both planned automatically (2026-10-05)
     assert not row.selected
 
 

@@ -11,6 +11,7 @@ from lightning.categories.domain import Category, CategoryFamily, Movement, Scop
 from lightning.categories.service import CategoryService
 from lightning.core.dates import month_of, parse_month
 from lightning.core.errors import ValidationError
+from lightning.core.memo import request_cached
 from lightning.core.money import ZERO, check_places, fmt, from_e6, to_decimal
 from lightning.database.connection import Database
 from lightning.reporting.service import ReportingService
@@ -28,8 +29,9 @@ class BudgetService:
         self.repo = BudgetRepository(db)
         self.categories = categories
         self.reporting = reporting
-        # Set by the composition root: month -> {category_id: loan payments scheduled that month}.
-        # A category with no budget rule is planned at exactly that amount.
+        # Set by the composition root: month -> {category_id: loan payments scheduled that month}, and
+        # month -> {category_id: {"amount", "items"}} for bills and subscriptions. A category with no
+        # budget rule is planned at exactly what is scheduled (owner decision 2026-10-05: bills as loans).
         self.scheduled_loans = lambda month: {}
         self.scheduled_bills = lambda month: {}
         self.reserve_goal_needs = lambda month: []
@@ -66,17 +68,32 @@ class BudgetService:
                                 tuple(row.get(key) for key in columns))
 
     # ------------------------------------------------------------------ reading
+    def scheduled_payments(self, month: str) -> dict[int, Decimal]:
+        """Loan payments, bills and subscriptions scheduled in a month, by spending category."""
+        out = {cid: amount for cid, amount in self.scheduled_loans(month).items() if amount}
+        for cid, data in self.scheduled_bills(month).items():
+            if data["amount"]:
+                out[cid] = out.get(cid, ZERO) + data["amount"]
+        return out
+
+    def bill_lines(self, month: str) -> dict[int, Decimal]:
+        """Categories planned from scheduled bills and subscriptions because no budget rule is set for them."""
+        explicit = self.amounts_for(month, loans=False)
+        return {cid: data["amount"] for cid, data in self.scheduled_bills(month).items()
+                if data["amount"] and cid not in explicit}
+
     def loan_lines(self, month: str) -> dict[int, Decimal]:
         """Categories planned from scheduled loan payments because no budget rule is set for them."""
         explicit = self.amounts_for(month, loans=False)
         return {cid: amount for cid, amount in self.scheduled_loans(month).items()
                 if amount and cid not in explicit}
 
+    @request_cached  # has_plan, loan_lines, bill_lines and month_view all ask for it
     def amounts_for(self, month: str, loans: bool = True) -> dict[int, tuple[Decimal | None, bool, int | None, Decimal | None]]:
         """Effective amount, one-off flag, average window, and income percentage.
 
-        With ``loans``, a category that has scheduled loan payments and no rule of its own is
-        planned at the payments due that month (Planned = scheduled loan payments)."""
+        With ``loans``, a category that has scheduled loan payments, bills or subscriptions and no rule
+        of its own is planned at what is due that month (Planned = scheduled payments)."""
         parse_month(month)
         repeating: dict[int, tuple[Decimal | None, int | None, Decimal | None]] = {}
         one_off: dict[int, tuple[Decimal | None, int | None, Decimal | None]] = {}
@@ -101,7 +118,7 @@ class BudgetService:
                 amount = self._rolling_average(cid, month, period, children, {})
             result[cid] = (amount, oneoff, period, percent)
         if loans:
-            for cid, amount in self.scheduled_loans(month).items():
+            for cid, amount in self.scheduled_payments(month).items():
                 if amount and cid not in result:
                     result[cid] = (amount, False, None, None)
         return result
@@ -244,6 +261,7 @@ class BudgetService:
         first, last = parse_month(month)
         direct = self.amounts_for(month)
         from_loans = self.loan_lines(month)
+        from_bills = self.bill_lines(month)
         spent = self._owned_spending(first, last)
         cats = [c for c in self.categories.tree(Movement.OUTFLOW) if not c.is_root
                 and c.family != CategoryFamily.INVESTMENT]  # investments are never budget spending
@@ -314,7 +332,7 @@ class BudgetService:
                 planned_actual=planned_actual[c.id], covered=covered,
                 opening_carryover=opening_carryovers.get(c.id, ZERO),
                 carryover_enabled=carryover_settings.get(c.id, False),
-                income_percent=income_percent, from_loans=c.id in from_loans,
+                income_percent=income_percent, from_loans=c.id in from_loans, from_bills=c.id in from_bills,
             ))
             kids_total = sum(((budget[k] or ZERO) + opening_carryovers.get(k, ZERO)
                               for k in children.get(c.id, []) if budget[k] is not None), ZERO)
@@ -380,7 +398,7 @@ class BudgetService:
             ) for item in self.reserve_goal_needs(month))
             return BudgetFillProposal(month, source, rows)
 
-        loans = self.scheduled_loans(month)
+        loans = self.scheduled_payments(month)
         rows = []
         for category_id, (amount, note) in candidates.items():
             rule = current_rules.get(category_id)
@@ -395,7 +413,7 @@ class BudgetService:
             elif rule is not None:
                 conflict = f"Current limit: {current_rule}. Applying replaces it for {month} only."
             elif auto_loan:
-                conflict = (f"{fmt(auto_loan)} of loan payments are already planned automatically. "
+                conflict = (f"{fmt(auto_loan)} of scheduled payments are already planned automatically. "
                             "Applying this amount would replace that automatic line.")
             rows.append(BudgetFillRow(
                 category_id=category_id,

@@ -126,9 +126,11 @@ def plan_check(check) -> list[dict]:
     if not check.over_by or check.planned_savings_rate is None:
         return []
     if check.short_for == "goals":
-        return [note("attention", f"This plan leaves {fmt(check.plan_saves)}; your goals need {fmt(check.goals)}",
-                     f"Plan {fmt(check.over_by)} less, or give a goal a later date.", "/plan/reserves", "See goals",
-                     label="Short for your goals", figure=fmt(check.over_by))]
+        return [note("attention", f"This plan leaves {fmt(check.plan_saves)}; {check.needs_label} {fmt(check.needs)}",
+                     f"Plan {fmt(check.over_by)} less, or give a goal a later date." if check.goals else
+                     f"Plan {fmt(check.over_by)} less to rebuild it within two years.", "/plan/reserves", "See reserves",
+                     label="Short for your goals" if check.goals else "Short for your emergency fund",
+                     figure=fmt(check.over_by))]
     return [note("attention", f"This plan saves {_percent(check.planned_savings_rate)}; your target is "
                  f"{_percent(check.target_percent)}",
                  f"Plan {fmt(check.over_by)} less to keep {fmt(check.to_save)} a month.",

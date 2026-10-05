@@ -262,7 +262,7 @@ async def create_item(request: Request):
         moved = c.planning.start_after_paid(item_id)
         if moved:
             message = f"{values['name']} added. Already paid, so the next one is due {moved}."
-    return redirect(back, message)
+    return redirect(back, " ".join(x for x in (message, c.health.commitments_note(values["kind"])) if x))
 
 
 @router.get("/items/{item_id:int}/edit")
@@ -292,7 +292,7 @@ async def update_item(request: Request, item_id: int):
     except LightningError as exc:
         return _item_form(request, c, values, item=item, error=exc.message, error_field=exc.field or "",
                           status_code=400, back=back)
-    return redirect(back, f"{values['name']} saved.")
+    return redirect(back, " ".join(x for x in (f"{values['name']} saved.", c.health.commitments_note(item.kind.value)) if x))
 
 
 @router.post("/items/{item_id:int}/amount")
@@ -304,7 +304,9 @@ async def set_item_amount(request: Request, item_id: int):
         c.planning.set_amount(item_id, str(form.get("amount", "")))
     except LightningError as exc:
         return redirect(_back(form, "/plan/recurring"), exc.message)
-    return redirect(_back(form, "/plan/recurring"), f"{item.name} is now planned at {fmt(to_decimal(str(form.get('amount')), 'amount'))}.")
+    return redirect(_back(form, "/plan/recurring"), " ".join(x for x in (
+        f"{item.name} is now planned at {fmt(to_decimal(str(form.get('amount')), 'amount'))}.",
+        c.health.commitments_note(item.kind.value)) if x))
 
 
 @router.post("/items/{item_id:int}/delete")
