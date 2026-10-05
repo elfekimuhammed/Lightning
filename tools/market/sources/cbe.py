@@ -109,5 +109,24 @@ def parse(html: str, today: str) -> SourceResult:
     return result
 
 
+def _describe(html: str) -> str:
+    """What the page held, for the run's log when it could not be read: its size, table rows, and the text
+    around the first mention of the dollar (no full page, which may be large)."""
+    page = _Rows()
+    page.feed(html)
+    lowered = html.casefold()
+    at = next((lowered.find(word) for word in ("us dollar", "usd", "دولار") if lowered.find(word) >= 0), -1)
+    near = " ".join(html[max(0, at - 300):at + 500].split()) if at >= 0 else "no dollar mentioned"
+    title = re.search(r"<title[^>]*>(.*?)</title>", html, re.S | re.I)
+    return (f"{len(html)} characters, {len(page.rows)} table rows, title {(title.group(1).strip() if title else '')!r}; "
+            f"near the dollar: {near[:800]}")
+
+
 def fetch(session, today: str) -> SourceResult:
-    return parse(session.get_text(URL), today)
+    html = session.get_text(URL)
+    try:
+        return parse(html, today)
+    except SourceError:
+        import sys
+        print(f"cbe: {_describe(html)}", file=sys.stderr)  # the run's log shows what the page holds now
+        raise
