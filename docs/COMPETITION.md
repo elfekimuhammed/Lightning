@@ -14,6 +14,7 @@ Who else helps people with their money, what their users love and hate, and what
 | International competitors | You are comparing a feature with the best apps |
 | Where Lightning wins and loses | You write the website or plan the roadmap |
 | Watch list | Every few months, or before a release |
+| Actual Budget code analysis | You plan a feature Actual already has, or want to know what to borrow and what to leave |
 | Evidence limits and sources | You doubt a claim here |
 
 ## The compass
@@ -150,12 +151,65 @@ Check every few months and edit this file:
 - **Actual Budget:** a mobile app, or any Arabic and Egyptian bank import.
 - **Egyptian aggregators:** a provider that offers bank feeds would change the SMS plan.
 
+## Actual Budget code analysis
+
+**What was read:** a shallow clone of `actualbudget/actual` at commit `9732a44` (2026-10-04, "Auto bank sync"). Read in the code: the rules engine, budget templates, spreadsheet (calculation) engine, sync and CRDT, bank-sync pipeline, importers, schedules, forecast, undo, reports, i18n, tests, CI and the repo's AI-agent files. Not run: the app itself, so speed and look are not judged. Actual is TypeScript (about 14 packages; 1,010 files in the web client, 346 in the core, 133 in the sync server) and Lightning is Python, so this is a list of **ideas to borrow, not code to copy**. File paths below are inside `packages/`.
+
+### What Actual does better, most valuable first
+
+| # | Actual has | Where in its code | Lightning today | Take |
+|---|---|---|---|---|
+| 1 | **A real rules engine.** Conditions joined by and/or (contains, matches a pattern, one of a list, between two amounts, about an amount, has tag); actions set any field, split a transaction by fixed amount, percent or remainder, link a schedule, append notes; three stages (pre, default, post); runs on import and on edit; an index by field keeps it fast | `loot-core/src/server/rules/` (1,824 lines): `condition.ts`, `action.ts`, `rule.ts`, `rule-indexer.ts` | One default category per counterparty, a bulk apply with one undo. No conditions, no amounts, no splits by rule | A small rule table: if counterparty or notes contain X, and amount in a range, then category (and optional split). Plain code, no AI, fits the product rule. Actual keeps `learnCategories` **off** by default (`transactions/index.ts`), so learn only by suggesting |
+| 2 | **Undo and redo everywhere.** A history of 20 steps over every change, restoring the old data and the view | `loot-core/src/server/undo.ts` | Undo only for bulk rules and a skipped payment | Undo for the last edit, delete or import. Fits "a wrong or silent result is worse than an extra click"; Say's reviewers also ask for edit and delete |
+| 3 | **A layered import match.** Exact imported id first, then fuzzy by amount and nearest date; on a tie it prefers the row without an id; **reconciled rows are locked** and never overwritten; payee names optionally normalised | `loot-core/src/server/accounts/sync.ts` (`matchTransactions`, `reconcileTransactions`, `compareFuzzyMatchCandidates`) | Duplicate flag by bank reference or similarity warning; reconciliation by balance check | Reuse the layers for SMS against CSV (the multi-device plan) and lock a checked month. Also a **merge two transactions** action that keeps a transfer linked (`transactions/merge.ts`) |
+| 4 | **Schedules that know weekends and ranges.** An iCal-style recurrence engine, "skip weekend" with move before or after, skip next date, approximate or between-amount matching, and automatic detection of recurring payments from three occurrences | `loot-core/src/server/schedules/` (`app.ts`, `find-schedules.ts`), `shared/schedules.ts` | Recurring items with review of changed amounts and suggestions; **no weekend or holiday handling** | Weekend-aware due dates matter in Egypt (Friday and Saturday, salary dates that move). Add an amount tolerance to payment matching |
+| 5 | **Budget templates.** One line per category (fixed monthly, by a date, repeat yearly, from a schedule, percent of income, remainder with weights, average of N months, cleanup rules) and one click fills the month. A real grammar, tests, and priorities | `loot-core/src/server/budget/goal-template.pegjs`, `goal-template.ts`, `cleanup-template.ts`, `schedule-template.ts` | Rollover budgets and reserves; every month is set by hand | The same types, but through a form, not text typed into notes (the brand guideline forbids help-text features). "Fill this month" from last month, a schedule or a goal is the first step |
+| 6 | **Translations and number formats built in.** i18next, locale files, a CI job that extracts strings, a review rule that every visible string is translated, about 50 currencies with CLDR number formats | `desktop-client/src/i18n.ts`, `languages.ts`, `loot-core/src/shared/currencies.ts`, `.github/workflows/i18n-string-extract-master.yml` | English only. Arabic-Indic digits are read on input, but no Arabic screens and no right-to-left layout | Add the scaffolding before more screens are written. Money Manager and Wallet lose Egyptian users for exactly this |
+| 7 | **Small entry helpers.** Arithmetic in amount fields (`120+35*2`, a real parser, no `eval`); tags written as `#tag` in notes; a command bar (Ctrl-K); a privacy filter that blurs amounts; keyboard navigation | `loot-core/src/shared/arithmetic.ts`, `shared/tags.ts`, `desktop-client/src/components/CommandBar.tsx`, `PrivacyFilter.tsx` | None of the four | Cheap wins for a daily user. Privacy mode suits cafés and offices; arithmetic suits splitting a bill |
+| 8 | **Reports as a dashboard.** 14 report types you arrange as cards and save (Age of Money, Calendar, Cash flow, Net worth, Spending, Sankey, Balance forecast, Crossover, Budget analysis, Summary, Formula, Markdown, Monte Carlo); saved custom reports share one filter model with rules and schedules | `desktop-client/src/components/reports/reports/`, `loot-core/src/server/dashboard/`, `aql/` (2,467 lines) | Four fixed reports plus the Overview, with a Sankey | **Age of Money** (how long money rests before it is spent) suits people who live salary to salary; a **spending calendar**; and one saved-filter object shared by search, reports and rules. Leave Monte Carlo |
+| 9 | **A change note per change.** Each pull request adds a file in `upcoming-release-notes/` (32 waiting) instead of editing one shared changelog | `upcoming-release-notes/`, `.github/workflows/release-notes.yml` | One `CHANGELOG.md`; two AIs conflicted in it three times in this session | One small file per change, joined at release, or at least a merge rule for the changelog |
+| 10 | **Test depth.** 247 test files, end-to-end tests with a mobile variant of each flow, **visual regression snapshots** for pages, a bundle-size check per pull request, dead-code check (knip), security scans (CodeQL, dependency review), a warning on pull requests that touch migrations | `desktop-client/e2e/`, `.github/workflows/` (35 workflows), `knip.json` | 551 test functions; the full suite on every push; Mohab's year (a deeper check than Actual has for correctness) | Visual snapshots of key screens would guard the brand guideline; the migration warning is cheap to copy |
+
+### What not to copy
+
+- **The sync design.** Actual syncs many writers with a CRDT (hybrid logical clock in `crdt/src/crdt/timestamp.ts`, a merkle trie to find where two copies differ in `merkle.ts`) and end-to-end encrypted files. It works, but its own issue list shows the cost: open reports of "can't open budget on mobile" and "can't sync changes" ([#6279](https://github.com/actualbudget/actual/issues/6279), [#7542](https://github.com/actualbudget/actual/issues/7542), [#6223](https://github.com/actualbudget/actual/issues/6223)). Lightning's choice (the phone lends the file, one writer at a time) avoids merging on purpose. Keep it. One thing is worth borrowing: the merkle idea for finding which tables differ at take-back.
+- **The calculation engine.** Actual recomputes budget cells through a dependency graph with a dirty-cell queue (`spreadsheet/spreadsheet.ts`, `graph-data-structure.ts`) so editing a cell updates only what depends on it. It is fast, but it is a second place where figures live. Lightning's figures come from services, one name and one calculation, and a test that lives a year. Revisit only if the Budget page is measurably slow.
+- **Multi-user, sign-in with OpenID, a public API, a command-line tool and plugins** (`sync-server/src/app-openid.ts`, `packages/api`, `packages/cli`, `plugins-service`). They serve self-hosting households and developers, not a salaried user on one Windows PC.
+- **Text typed into notes as a language.** It works for Actual's technical users and fails Lightning's "won't read help text" user.
+
+### Bank sync, for the record
+
+Actual has **five** providers behind one pipeline: GoCardless, SimpleFIN, Pluggy.ai (Brazil), Akahu (New Zealand), Enable Banking (`sync-server/src/app-*`, `accounts/sync.ts`). Adding a regional provider is routine for them, and none covers Egypt. If an Egyptian aggregator appears, the same shape applies: one normaliser, then the layered match in #3. Until then, bank SMS and statements stay Lightning's route.
+
+### Where Lightning is already ahead of Actual
+
+- **Wealth.** Actual has on-budget and off-budget accounts and no holdings. Lightning has gold by piece, shares and funds with real returns, certificates, loans, and money held for others.
+- **Numbers.** Both are exact. Actual stores integers with at most two decimals in every listed currency; Lightning stores scaled integers to six places, which gold grams and fund units need.
+- **Privacy on the PC.** Lightning's profile is encrypted at rest (SQLCipher with an Argon2id password slot and a recovery key). In Actual's code, encryption is applied to files sent to the sync server (`server/encryption/`, `cloud-storage.ts`); its docs describe end-to-end encryption as protecting data that leaves the device, and the code has no SQLCipher or local-file encryption.
+- **Install.** A Windows app and a password. Actual's easy path is a hosted or Docker server.
+- **Acceptance.** Mohab's test checks right answers, clarity and the brand guideline through the screens; Actual's tests check code and screenshots.
+- **Dark mode.** Both have it; Actual adds a midnight theme and a custom-theme catalog.
+
+### Worth copying from how Actual runs AI agents
+
+Actual's repo has `AGENTS.md` (about 20 KB), `CODE_REVIEW_GUIDELINES.md` and five repo skills (`committing-actual-changes`, `review-actual-pr`, `running-vrts`, `writing-actual-docs`, `writing-release-notes`) under `.claude/skills/`. Pull requests by an AI must start with `[AI]`, and a workflow labels them "AI generated". Its review rules include **"do not add a setting for every UI tweak"** and "every standalone figure uses tabular numerals". Lightning already has the same rules in `AGENTS.md` and the brand guideline (111 tabular-number rules in `style.css`). Two additions fit: repo skills for the repeated tasks (push, changelog, hand-off) and a short review checklist for an AI that reviews another AI's push.
+
+### Suggested order
+
+1. **Undo for the last edit or import** (#2): the most trust per line of work.
+2. **Rules with conditions** (#1), then the **layered match and a locked checked month** (#3): they also serve the SMS plan.
+3. **Weekend-aware schedules** (#4) and **a month fill from last month or a schedule** (#5).
+4. **i18n scaffolding and Arabic** (#6) before the screens multiply.
+5. **Small helpers** (#7) as time allows; **one change note per change** (#9) to end changelog conflicts.
+
+None of this is decided: the owner chooses what enters *Next* in `NOW.md`.
+
 ## Evidence limits and sources
 
 **Read directly (2026-10-04):** Google Play, Egypt store, through the `google-play-scraper` library: app details and the most relevant reviews (60 per language for Say, 40 for Qershnat, Masarifi, Masareef, Money Manager and Wallet), English and Arabic. Most relevant is not a random sample: it favours reviews people marked helpful. Arabic quotes are my translation.
 
 **Not read:** the App Store, Reddit, Facebook, Trustpilot, GitHub discussions and Say's own site (blocked or refused to a scripted visit). The Actual Budget, YNAB, Monarch, Copilot, Firefly III and Telda sections come from review-site summaries, not from users' own words. Earlier search summaries gave Say 4.63 stars; Google Play itself says 4.84, which this file uses. Check any number or quote at its source before it goes on the website.
 
-**Next:** Egyptian Facebook groups and TikTok comments (Say's maker and Qershnat both answer there), the App Store reviews of the same apps, and Actual Budget's own forum, from a browser that can open them.
+**The Actual Budget code analysis** is from the code only (the app was not run); user feedback on Actual comes from the sections above. **Next:** Egyptian Facebook groups and TikTok comments (Say's maker and Qershnat both answer there), the App Store reviews of the same apps, and Actual Budget's own forum, from a browser that can open them.
 
 Sources: [Say](https://play.google.com/store/apps/details?id=com.moments.expenses&hl=en&gl=EG), [Qershnat](https://play.google.com/store/apps/details?id=com.qrshnat.app.gms), [Masarifi](https://play.google.com/store/apps/details?id=com.tm.my_expenses), [Masareef](https://play.google.com/store/apps/details?id=com.appsqueue.masareef), [Money Manager](https://play.google.com/store/apps/details?id=com.realbyteapps.moneymanagerfree), [Wallet](https://play.google.com/store/apps/details?id=com.droid4you.application.wallet), [Masroofy](https://play.google.com/store/apps/details?id=com.masroofi.masroofi), [YNAB on Trustpilot](https://www.trustpilot.com/review/ynab.com), [Monarch review roundup](https://marriagekidsandmoney.com/monarch-money-review/), [Copilot review roundup](https://www.thepennyhoarder.com/budgeting/budgeting-copilot-money-review/), [Actual Budget review](https://wealthypot.com/budgeting-apps/actual-budget/), [Actual Budget mobile issue](https://github.com/actualbudget/actual/issues/6279), [Firefly III review](https://www.expensesorted.com/blog/147_firefly_iii), [Telda](https://telda.app/), [Banque Misr BM Online](https://www.banquemisr.com/en/Pages/BM-Online---Internet-and-Mobile-banking).

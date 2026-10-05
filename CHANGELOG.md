@@ -10,6 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-05 · Claude: added the *Actual Budget code analysis* section to `docs/COMPETITION.md`: ten things Actual's code does better (rules, undo, import match, weekend schedules, budget templates, i18n and more), what not to copy, and where Lightning is ahead.
 - 2026-10-05 · Claude: New passwords and recovery (owner decision): any-length password with a suggested four-word one; a 12-digit recovery key typed back at setup; a security question. Key + answer reset the password; an open profile plus the answer or key changes it; wrong tries wait 1 min to 1 hour, never lock. `keys.json` v2 with a copy in `backups/` (`tests/test_profile_keys.py`).
 - 2026-10-05 · Claude: Multiple devices, task 06 done: `SessionGate.change_role` switches an open profile between home and reader after the request in flight finishes, with no password and no old form able to save; borrowed profiles get their own folder in local app data, refusing Documents, synced folders, links and hard links (`tests/test_session_roles.py`).
 - 2026-10-05 · Claude: Multiple devices, task 06a: a profile can open as a **reader**: a real read-only connection with no backup, migration, seed or payment matching, a refused upgrade, and every finance form answered "read-only copy". Every linked page of the demo opens and leaves the file byte-identical (`tests/test_session_roles.py`).
