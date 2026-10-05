@@ -263,6 +263,14 @@ class MarketFile:
             self._series = {key: (sorted(days), [days[d] for d in sorted(days)]) for key, days in points.items()}
         return self._series
 
+    def daily_closes(self) -> list[Close]:
+        """Every close in the daily files: what the collector merges into (monthly files derive from them)."""
+        closes = []
+        for name in sorted(n for n in self._files if n.startswith("daily/")):
+            for row in self._rows(name):
+                closes.append(Close(row["date"], row["key"], Decimal(row["close"])))
+        return closes
+
     def last_date(self) -> str:
         """The newest close in the file."""
         return max((entry.get("last_date", "") for entry in self.manifest["files"].values()), default="")

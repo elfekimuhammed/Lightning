@@ -1,0 +1,5 @@
+{"numberOfPages": 1, "rows": [
+ {"fundId": 4104, "name": "AZ  Savings Fund", "price": "31.254321", "date": "24 September 2026", "managers": ["Azimut Egypt"], "profitYearStart": "14.60%"},
+ {"fundId": 2207, "name": "Beltone Fixed Income Fund Issuance 1 USD", "price": 1.0412, "date": "20 September 2026"},
+ {"fundId": 9999, "name": "No price yet", "price": 0, "date": ""}
+]}

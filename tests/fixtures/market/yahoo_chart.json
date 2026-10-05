@@ -1,0 +1,4 @@
+{"chart": {"result": [{"meta": {"symbol": "COMI.CA", "currency": "EGP"},
+  "timestamp": [1758700800, 1758787200, 1758873600, 1759046400],
+  "events": {"splits": {"1758873600": {"date": 1758873600, "numerator": 2, "denominator": 1, "splitRatio": "2:1"}}},
+  "indicators": {"quote": [{"close": [40.0, 41.0, 42.5, null]}]}}], "error": null}}

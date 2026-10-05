@@ -1,0 +1,6 @@
+{"totalCount": 4, "data": [
+ {"s": "EGX:COMI", "d": ["COMI", "Commercial International Bank-Egypt (CIB)", 85.25, "EGP", "stock", "common", "EGX"]},
+ {"s": "EGX:ETEL", "d": ["ETEL", "Telecom Egypt", 41.9, "EGP", "stock", "common", "EGX"]},
+ {"s": "EGX:BADX", "d": ["BADX", "No close today", null, "EGP", "stock", "common", "EGX"]},
+ {"s": "NASDAQ:AAPL", "d": ["AAPL", "Not an EGX row", 230.1, "USD", "stock", "common", "NASDAQ"]}
+]}
