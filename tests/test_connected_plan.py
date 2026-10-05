@@ -90,7 +90,7 @@ def test_migration_0042_keeps_a_custom_ceiling_as_the_savings_target(monkeypatch
     migrator.migrate(db)
     db.execute("INSERT INTO settings(key,value,updated_at) VALUES ('budget_monthly_ceiling_percent','72.5','2026-10-01')")
     monkeypatch.setattr(migrator, "MIGRATIONS_DIR", migrator._BUNDLED_MIGRATIONS_DIR)
-    assert migrator.migrate(db) == ["0042_savings_target_from_ceiling (APPLIED)"]
+    assert migrator.migrate(db)[0] == "0042_savings_target_from_ceiling (APPLIED)"  # later migrations follow it
     assert db.scalar("SELECT value FROM settings WHERE key='financial_health_limit_savings_rate'") == "27.5"
     assert db.scalar("SELECT COUNT(*) FROM settings WHERE key='budget_monthly_ceiling_percent'") == 0
 
