@@ -5,13 +5,38 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
+from json import loads
+from decimal import InvalidOperation
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode, urlsplit
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from lightning.core.dates import now_iso, parse_date
+from lightning.core.errors import ValidationError
 from lightning.currencies import CURRENCIES, currency
 from lightning.database.connection import Database
+from lightning.database.settings import SettingsStore
 
 _SCALE = Decimal(10**12)
 _MAX_AGE_DAYS = 7
+_FRANKFURTER_HOST = "api.frankfurter.dev"
+_MAX_RESPONSE_BYTES = 256 * 1024
+
+
+class RateFetchError(RuntimeError):
+    """A configured rate source failed or returned an invalid response."""
+
+
+class _AllowlistedRedirects(HTTPRedirectHandler):
+    def __init__(self, host: str):
+        self.host = host
+        super().__init__()
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        parsed = urlsplit(newurl)
+        if parsed.scheme != "https" or parsed.hostname != self.host or parsed.port not in (None, 443):
+            raise RateFetchError("The rate source tried to redirect to an unapproved host.")
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
 @dataclass(frozen=True)
@@ -40,12 +65,20 @@ def _decimal(value: int | None) -> Decimal | None:
 class FxRateRepository:
     def __init__(self, db: Database):
         self.db = db
+        self.settings = SettingsStore(db)
+
+    def ensure_enabled_pair(self, base: str, quote: str) -> tuple[str, str]:
+        base, quote = currency(base).code, currency(quote).code
+        enabled = set(self.settings.enabled_currencies)
+        if base not in enabled or quote not in enabled:
+            raise ValidationError("Enable both currencies before saving or fetching their rate.", "currency")
+        return base, quote
 
     def save(self, *, effective_date: str, base: str, quote: str, rate: Decimal,
              source: str, source_id: str = "", original_quote: str = "",
              fetched_at: str | None = None, bid: Decimal | None = None,
              ask: Decimal | None = None) -> None:
-        base, quote = currency(base).code, currency(quote).code
+        base, quote = self.ensure_enabled_pair(base, quote)
         day = parse_date(effective_date).isoformat()
         if isinstance(rate, float):
             raise TypeError("FX rates must be Decimal values, not floats.")
@@ -133,3 +166,49 @@ class FxRateRepository:
         age = (day - parse_date(effective)).days
         return RateQuote(base, quote, effective, value, source, fetched, source_id,
                          stale=age > _MAX_AGE_DAYS)
+
+
+class FrankfurterAdapter:
+    """Fixed-host, ECB-provider historical adapter; it sends only pair and date."""
+
+    def __init__(self, repository: FxRateRepository, opener=None, timeout: float = 8.0):
+        self.repository = repository
+        self.opener = opener or build_opener(_AllowlistedRedirects(_FRANKFURTER_HOST))
+        self.timeout = timeout
+
+    def fetch(self, base: str, quote: str, effective_date: str) -> RateQuote | None:
+        base, quote = self.repository.ensure_enabled_pair(base, quote)
+        day = parse_date(effective_date).isoformat()
+        if base == quote:
+            raise ValueError("An external rate is unnecessary for the same currency.")
+        path = f"/v2/providers/ecb/rate/{base.lower()}/{quote.lower()}"
+        query = urlencode({"date": day})
+        url = f"https://{_FRANKFURTER_HOST}{path}?{query}"
+        request = Request(url, headers={"Accept": "application/json", "User-Agent": "Lightning/0.5"})
+        try:
+            with self.opener.open(request, timeout=self.timeout) as response:
+                length = response.headers.get("Content-Length")
+                if length and int(length) > _MAX_RESPONSE_BYTES:
+                    raise RateFetchError("The rate source response exceeded the size limit.")
+                payload = response.read(_MAX_RESPONSE_BYTES + 1)
+        except HTTPError as exc:
+            if exc.code == 404:
+                return None
+            raise RateFetchError(f"Frankfurter returned HTTP {exc.code}.") from None
+        except (URLError, TimeoutError, OSError) as exc:
+            raise RateFetchError("Could not reach the configured Frankfurter rate source.") from exc
+        if len(payload) > _MAX_RESPONSE_BYTES:
+            raise RateFetchError("The rate source response exceeded the size limit.")
+        try:
+            document = loads(payload, parse_float=Decimal, parse_int=Decimal)
+            observed_date = parse_date(document["date"]).isoformat()
+            returned_base, returned_quote = currency(document["base"]).code, currency(document["quote"]).code
+            raw_rate = document["rate"]
+            rate = raw_rate if isinstance(raw_rate, Decimal) else Decimal(str(raw_rate))
+        except (ValueError, TypeError, KeyError, ValidationError, InvalidOperation):
+            raise RateFetchError("Frankfurter returned an invalid rate response.") from None
+        if (returned_base, returned_quote) != (base, quote) or rate <= 0 or not rate.is_finite():
+            raise RateFetchError("Frankfurter returned a mismatched or invalid currency pair.")
+        self.repository.save(effective_date=observed_date, base=base, quote=quote, rate=rate,
+                             source="FRANKFURTER", source_id="ECB", original_quote=str(raw_rate))
+        return self.repository.get(base, quote, day)

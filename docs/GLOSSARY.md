@@ -43,6 +43,7 @@ Each term belongs to one layer: **Ledger** (real money that actually moved), **P
 | **Asset class** | Ledger | A grouping for financial assets; describes what kind of wealth it is, not where held or why a payment happened. | Funds → Money Market |
 | **LCY** | Report | The profile's reporting currency (local currency); aggregate report values are expressed in it. | EGP for an existing profile |
 | **FCY** | Ledger + Report | Any enabled currency other than the profile's LCY. Native values remain visible beside their LCY valuation. | USD cash valued in EGP |
+| **FX rate observation** | Report | A dated, sourced exchange-rate record in a stated base-to-quote direction; it may include bid and ask as well as the normalized rate. | USD→EGP at 50.5 on 1 October |
 | **Exposure** | Ledger | What economic value an asset tracks, separately from its wrapper/class. | Gold fund → Gold exposure |
 | **Holding / position** | Ledger | Calculated quantity of one financial asset in one account at a date. | 100 COMI shares in THNDR |
 | **Physical item** | Ledger | Individually named tangible asset tracked by piece count, per-piece net gold-bearing weight, karat, cost, and valuation reference. Its item record is not a tickered security. | One Gold ring, 1 piece, 4.2 g of 18K alloy |
