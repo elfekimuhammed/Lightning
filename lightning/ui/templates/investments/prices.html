@@ -1,7 +1,27 @@
 {% extends "base.html" %}
 {% block title %}Investment prices{% endblock %}
-{% block heading %}<h1>Investment prices</h1><div class="muted">Monthly checkpoints are fetched automatically where available. Enter a missing historical price to complete the return log.</div>{% endblock %}
+{% block heading %}<h1>Investment prices</h1><div class="muted">Fill them from the price file, or type them. A price you type for a day wins over the file.</div>{% endblock %}
 {% block content %}
+<section class="card" style="max-width:860px;margin-bottom:16px" aria-labelledby="price-file">
+  <h2 id="price-file">Price file</h2>
+  {% if market %}
+  <p class="muted">Closing prices of {{ market.instruments }} stocks, funds and currencies up to {{ market.last_date }}. File of {{ market.created_at }}, {{ market.origin }}. Filling gives each investment you hold its price at every month-end and its latest close.</p>
+  {% else %}
+  <p class="muted">No price file yet. Update prices downloads it: about 2.5 MB the first time, about 1 MB a month after.</p>
+  {% endif %}
+  <form method="post" class="actions" action="/investments/prices/market/fill">
+    {% if market %}<button class="btn primary">Fill my prices</button>{% endif %}
+    <button class="btn {{ '' if market else 'primary' }}" formaction="/investments/prices/market/update">Update prices</button>
+  <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
+  <details style="margin-top:12px">
+    <summary>Import a file</summary>
+    <form method="post" enctype="multipart/form-data" action="/investments/prices/market/import" style="margin-top:10px">
+      <div class="field"><label for="market-zip">market.zip</label><input id="market-zip" type="file" name="file" accept=".zip,application/zip" required>
+        <div class="help">From a newer Lightning or another computer. An older file than yours is refused.</div></div>
+      <div class="actions"><button class="btn">Import and fill</button></div>
+    <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
+  </details>
+</section>
 {% if pending %}
 <form method="post" class="card" style="max-width:1000px;margin-bottom:16px" autocomplete="off">
   <h2>Prices needed to complete reevaluations</h2>
@@ -25,7 +45,7 @@
       <td>{{ r.asset.name }} <span class="code muted small">{{ r.asset.code }}</span>
         <a class="small" href="/investments/assets/{{ r.asset.id }}/edit" style="margin-left:6px">edit</a></td>
       <td class="num small">{% if r.held %}{{ r.held.quantity|money(False, 3 if r.asset.unit == 'gram' else (0 if r.asset.unit == 'share' else 4)) }} {{ r.asset.unit }}s{% else %}<span class="muted">—</span>{% endif %}</td>
-      <td class="num small">{% if r.price is not none %}{{ r.price|money(False, 4) }}<div class="muted">{{ r.price_date }}{{ ' · last trade' if r.source == 'TRADE' else (' · at cost' if r.source == 'COST' else '') }}</div>{% else %}<span class="muted">none</span>{% endif %}</td>
+      <td class="num small">{% if r.price is not none %}{{ r.price|money(False, 4) }}<div class="muted">{{ r.price_date }}{{ ' · last trade' if r.source == 'TRADE' else (' · at cost' if r.source == 'COST' else (' · price file' if r.source == 'MARKET' else '')) }}</div>{% else %}<span class="muted">none</span>{% endif %}</td>
       <td><input type="text" name="p_{{ r.asset.id }}" inputmode="decimal" class="num" placeholder="{{ r.price|money(False, 4) if r.price is not none else '' }}"></td>
     </tr>
     {% else %}
@@ -33,6 +53,6 @@
     {% endfor %}
   </table>
   <div class="actions" style="margin-top:14px"><button class="btn primary">Save prices</button><a class="btn" href="/investments">Cancel</a></div>
-  <p class="muted small">A price you type wins over the last trade price for the same day. Automatic daily prices (EGX, gold) come in M4.</p>
+  <p class="muted small">A price you type wins over the price file and the last trade price for the same day.</p>
 <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
 {% endblock %}

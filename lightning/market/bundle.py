@@ -41,6 +41,9 @@ _KEY = re.compile(r"[A-Z]{2}:FUND:[A-Za-z0-9-]+"       # EG:FUND:4104
                   r"|[A-Z]{3}/[A-Z]{3}"                  # USD/EGP: the price of one US dollar in pounds
                   r"|XAU:(?:24|22|21|18|14|12)K")        # XAU:21K: pounds per gram of 21K gold
 MAX_GAP_DAYS = 10  # a close older than this before the asked day is not used for it
+# The only files a market file may hold, so a manifest can never name a path outside its folder.
+FILE_NAME = re.compile(r"instruments\.csv|health\.json|daily/\d{4}-\d{2}\.csv|monthly/\d{4}\.csv")
+MAX_UNPACKED = 200_000_000  # bytes; the whole history is about 15 MB unpacked
 
 
 class MarketFileError(ValidationError):
@@ -177,17 +180,9 @@ def write(folder: Path, instruments: list[Instrument], closes: list[Close], crea
         elif name == "instruments.csv":
             entry["rows"] = len(instruments)
         manifest["files"][name] = entry
-    # Old partitions that no longer exist are removed so the folder matches its manifest exactly.
-    if folder.exists():
-        for old in list(folder.glob("daily/*.csv")) + list(folder.glob("monthly/*.csv")):
-            if old.relative_to(folder).as_posix() not in files:
-                old.unlink()
-    for name, data in files.items():
-        target = folder / name
-        target.parent.mkdir(parents=True, exist_ok=True)
-        if not target.exists() or target.read_bytes() != data:
-            target.write_bytes(data)
-    (folder / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    # Only changed files are rewritten; partitions that no longer exist are removed (install).
+    install(folder, {name: data for name, data in files.items()
+                     if not (folder / name).exists() or (folder / name).read_bytes() != data}, manifest)
     return manifest
 
 
@@ -206,6 +201,29 @@ def pack(folder: Path, zip_path: Path, daily_months: int = 13) -> Path:
     return zip_path
 
 
+def install(folder: Path, changed: dict[str, bytes], manifest: dict) -> None:
+    """Write already-checked files into a market folder: each through a .part file, then the files the
+    manifest no longer lists are removed and the manifest is written last, so a folder interrupted
+    half-way still fails its checks instead of mixing two versions unnoticed."""
+    folder = Path(folder)
+    for name in changed:
+        if not FILE_NAME.fullmatch(name):
+            raise MarketFileError(f"The market file lists a file it may not hold ({name[:40]}).")
+    folder.mkdir(parents=True, exist_ok=True)
+    for name, data in sorted(changed.items()):
+        target = folder / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        part = target.with_name(target.name + ".part")
+        part.write_bytes(data)
+        part.replace(target)
+    listed = set(manifest.get("files", {}))
+    for old in [*folder.glob("*.csv"), *folder.glob("*.json"), *folder.glob("daily/*.csv"), *folder.glob("monthly/*.csv")]:
+        name = old.relative_to(folder).as_posix()
+        if name != "manifest.json" and name not in listed:
+            old.unlink()
+    (folder / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
 class MarketFile:
     """Read a market folder or zip. Every file is checked against the manifest before it is used."""
 
@@ -219,19 +237,41 @@ class MarketFile:
     @classmethod
     def open(cls, path: Path) -> MarketFile:
         path = Path(path)
+        if not path.is_dir():
+            try:
+                return cls.from_zip(path.read_bytes())
+            except OSError as exc:
+                raise MarketFileError(f"This is not a Lightning market file ({exc.__class__.__name__}).") from None
         try:
-            if path.is_dir():
-                raw = {p.relative_to(path).as_posix(): p.read_bytes() for p in path.rglob("*") if p.is_file()}
-            else:
-                with zipfile.ZipFile(path) as archive:
-                    raw = {name: archive.read(name) for name in archive.namelist() if not name.endswith("/")}
+            raw = {p.relative_to(path).as_posix(): p.read_bytes() for p in path.rglob("*")
+                   if p.is_file() and not p.name.endswith(".part")}
+        except OSError as exc:
+            raise MarketFileError(f"This is not a Lightning market file ({exc.__class__.__name__}).") from None
+        return cls._checked(raw)
+
+    @classmethod
+    def from_zip(cls, data: bytes) -> MarketFile:
+        try:
+            with zipfile.ZipFile(io.BytesIO(data)) as archive:
+                if sum(info.file_size for info in archive.infolist()) > MAX_UNPACKED:
+                    raise MarketFileError("This file is far larger than a Lightning market file.")
+                raw = {name: archive.read(name) for name in archive.namelist() if not name.endswith("/")}
+        except (OSError, ValueError, zipfile.BadZipFile) as exc:
+            raise MarketFileError(f"This is not a Lightning market file ({exc.__class__.__name__}).") from None
+        return cls._checked(raw)
+
+    @classmethod
+    def _checked(cls, raw: dict[str, bytes]) -> MarketFile:
+        try:
             manifest = json.loads(raw.pop("manifest.json"))
-        except (OSError, KeyError, ValueError, zipfile.BadZipFile) as exc:
+        except (KeyError, ValueError) as exc:
             raise MarketFileError(f"This is not a Lightning market file ({exc.__class__.__name__}).") from None
         if not isinstance(manifest, dict) or manifest.get("schema") != SCHEMA:
             raise MarketFileError("This market file is from a different version of Lightning.")
         files = {}
         for name, entry in manifest.get("files", {}).items():
+            if not FILE_NAME.fullmatch(name):
+                raise MarketFileError(f"The market file lists a file it may not hold ({name[:40]}).")
             data = raw.get(name)
             if data is None:
                 raise MarketFileError(f"The market file is missing {name}.")
@@ -241,6 +281,10 @@ class MarketFile:
         if "instruments.csv" not in files:
             raise MarketFileError("The market file has no instrument list.")
         return cls(files, manifest)
+
+    def save(self, folder: Path) -> None:
+        """Put this whole file into `folder` (an imported market.zip), replacing what was there."""
+        install(folder, self._files, self.manifest)
 
     def _rows(self, name: str) -> list[dict[str, str]]:
         return list(csv.DictReader(io.StringIO(self._files[name].decode("utf-8"))))

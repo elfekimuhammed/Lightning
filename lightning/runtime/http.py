@@ -31,6 +31,9 @@ MAX_IMPORT_UPLOAD_BODY = MAX_CSV_UPLOAD_REQUEST_BYTES
 MAX_IMPORT_MAP_BODY = MAX_CSV_MAPPING_REQUEST_BYTES
 MAX_IMPORT_CONFIRM_BODY = MAX_IMPORT_REVIEW_REQUEST_BYTES
 MAX_IMPORT_CONFIRM_FIELDS = MAX_IMPORT_REVIEW_FIELDS
+# A market price file (prices only, nothing personal) imported by hand: one zip, bounded.
+MARKET_IMPORT_PATH = "/investments/prices/market/import"
+MAX_MARKET_IMPORT_BODY = 40 * 1024 * 1024
 
 
 def request_body_limit(path: str, method: str = "POST") -> int:
@@ -43,6 +46,8 @@ def request_body_limit(path: str, method: str = "POST") -> int:
         return MAX_IMPORT_MAP_BODY
     if re.fullmatch(r"/accounts/\d+/import/\d+/confirm", path):
         return MAX_IMPORT_CONFIRM_BODY
+    if path == MARKET_IMPORT_PATH:
+        return MAX_MARKET_IMPORT_BODY
     return MAX_BODY
 
 
@@ -57,10 +62,12 @@ def request_too_large_message(path: str) -> str:
 def configure_memory_only_import_uploads() -> None:
     """Keep Starlette's spooled upload below disk-rollover size for guarded CSVs.
 
-    The profile Guard bounds the only route accepting file parts to 5 MiB plus
-    a small multipart envelope, and rejects files on all other routes. Raising
-    this threshold above that route's complete body size keeps imported bytes
-    in memory instead of allowing SpooledTemporaryFile to roll them to disk.
+    The profile Guard bounds the statement upload route to 5 MiB plus a small
+    multipart envelope, and rejects files on all other routes but the market
+    price file's. Raising this threshold above the statement route's complete
+    body size keeps statement bytes in memory instead of allowing
+    SpooledTemporaryFile to roll them to disk. A market file larger than that
+    may roll to disk: it holds public prices, nothing personal.
     """
     MultiPartParser.spool_max_size = MAX_IMPORT_UPLOAD_BODY + 1
 

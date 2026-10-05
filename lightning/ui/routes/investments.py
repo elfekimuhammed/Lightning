@@ -6,6 +6,7 @@ from collections import defaultdict
 from datetime import date, timedelta
 
 from fastapi import APIRouter, Request, Response
+from starlette.concurrency import run_in_threadpool
 
 from lightning.accounts.domain import AccountType
 from lightning.core.dates import fmt_date, parse_date, parse_month, today
@@ -20,6 +21,9 @@ from ...investments.report import (PLANNER_MODES, build_investment_report, inves
                                     period_growth, results_by_asset, suggest_contributions)
 from .. import charts
 from lightning.core.figures import label
+from lightning.market.bundle import MarketFile
+from lightning.market.update import DEFAULT_URL, update_folder
+from lightning.workflows.market_prices import MarketPrices, current_file, file_info, local_folder
 
 from .. import keynotes, visuals
 
@@ -678,7 +682,56 @@ async def prices(request: Request, error: str = ""):
                      "price_date": valuation.price_date, "source": valuation.source})
     rows.sort(key=lambda r: (r["held"] is None, r["asset"].name))
     return render(request, "investments/prices.html", rows=rows, day=day, error=error,
-                  pending=c.reevaluations.pending_prices())
+                  pending=c.reevaluations.pending_prices(), market=file_info(c.data_dir))
+
+
+def _fill_from(c, market: MarketFile | None, done: str = ""):
+    """Fill every held investment's prices from the market file, then post the month-end returns they allow."""
+    if market is None:
+        return redirect("/investments/prices", "No price file yet. Update prices downloads it, or import a market.zip.")
+    try:
+        report = MarketPrices(c.assets, c.reporting).fill(market, today())
+        c.reevaluations.process_due()
+    except LightningError as exc:
+        return redirect("/investments/prices", exc.message)
+    return redirect("/investments/prices", f"{done} {report.summary()}".strip())
+
+
+@router.post("/prices/market/fill")
+async def market_fill(request: Request):
+    c = container(request)
+    return _fill_from(c, current_file(c.data_dir))
+
+
+@router.post("/prices/market/update")
+async def market_update(request: Request):
+    """Download what changed in the published price file (about 1 MB a month after the first time), then fill."""
+    c = container(request)
+    try:
+        changed = await run_in_threadpool(update_folder, local_folder(c.data_dir), c.settings.get("market_url") or DEFAULT_URL)
+    except LightningError as exc:
+        return redirect("/investments/prices", exc.message)
+    return _fill_from(c, current_file(c.data_dir), "Price file updated." if changed else "The price file was already up to date.")
+
+
+@router.post("/prices/market/import")
+async def market_import(request: Request):
+    """Import a market.zip by hand (from a newer Lightning, or a friend's download)."""
+    c = container(request)
+    form = await request.form()
+    upload = form.get("file")
+    if not upload or not getattr(upload, "filename", ""):
+        return redirect("/investments/prices", "Choose a market.zip file.")
+    try:
+        market = MarketFile.from_zip(await upload.read())
+        have = file_info(c.data_dir)
+        if have and have["origin"] == "downloaded" and have["created_at"] > market.created_at[:10]:
+            return redirect("/investments/prices", f"That file is from {market.created_at[:10]}, older than the one "
+                                                   f"you have ({have['created_at']}). Nothing was changed.")
+        market.save(local_folder(c.data_dir))
+    except LightningError as exc:
+        return redirect("/investments/prices", exc.message)
+    return _fill_from(c, market, "Price file imported.")
 
 
 @router.post("/prices")

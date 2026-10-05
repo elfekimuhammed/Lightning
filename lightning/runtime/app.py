@@ -15,7 +15,7 @@ from lightning.database.backup import list_backups
 from lightning.security.keys import SUGGESTED_QUESTIONS, suggest_password
 from lightning.ui.web import create_app, templates
 
-from .http import (MAX_IMPORT_CONFIRM_BODY, MAX_IMPORT_CONFIRM_FIELDS,
+from .http import (MARKET_IMPORT_PATH, MAX_IMPORT_CONFIRM_BODY, MAX_IMPORT_CONFIRM_FIELDS, MAX_MARKET_IMPORT_BODY,
                    MAX_IMPORT_MAP_BODY, Credentials, Guard,
                    body_receiver, configure_memory_only_import_uploads, equal)
 from .paths import choose_data_root, discover_profiles, resolve_profile
@@ -39,13 +39,15 @@ def _form_part_limit(path: str) -> int:
     # A large CSV can include a correspondingly long notes cell in one review row.
     if re.fullmatch(r"/accounts/\d+/import/\d+/confirm", path):
         return MAX_IMPORT_CONFIRM_BODY
+    if path == MARKET_IMPORT_PATH:
+        return MAX_MARKET_IMPORT_BODY
     return 512 * 1024
 
 
 def _form_file_limit(path: str) -> int:
-    # Only the initial CSV upload route accepts a file part. Rejecting files on
-    # every other form avoids creating spooled temporary files on those routes.
-    return 1 if re.fullmatch(r"/accounts/\d+/import", path) else 0
+    # Only the initial CSV upload and the market price file accept a file part. Rejecting
+    # files on every other form avoids creating spooled temporary files on those routes.
+    return 1 if re.fullmatch(r"/accounts/\d+/import", path) or path == MARKET_IMPORT_PATH else 0
 
 
 class SessionGate:

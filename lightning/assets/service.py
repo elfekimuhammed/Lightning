@@ -285,6 +285,13 @@ class AssetService:
             self.repo.update_asset(updated)
         return self.get_asset(asset_id)
 
+    def link_market(self, asset_id: int, key: str) -> None:
+        """Remember which market-file instrument an asset is (EG:COMI, EG:FUND:4104)."""
+        asset = self.get_asset(asset_id)
+        if asset.market_key != key:
+            with self.db.transaction():
+                self.repo.update_asset(replace(asset, market_key=key))
+
     # -- prices -------------------------------------------------------------
     def set_price(self, asset_id: int, date: str, price: object, source: str = "MANUAL") -> Price:
         """Record the price of one unit on a date (a manual price wins over automatic ones)."""
