@@ -10,7 +10,7 @@ from pathlib import Path
 from urllib.parse import parse_qsl, quote, urlencode, urlsplit
 
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from markupsafe import Markup, escape
@@ -19,10 +19,10 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from lightning import DISPLAY_VERSION
 from lightning.bootstrap import Container
 from lightning.core.dates import fmt_date, month_of, today
-from lightning.core.errors import NotFoundError
+from lightning.core.errors import NotFoundError, ValidationError
 from lightning.core.figures import FIGURES
 from lightning.core.memo import request_cache
-from lightning.core.money import ZERO, fmt
+from lightning.core.money import ZERO, fmt, to_decimal
 
 UI_DIR = Path(__file__).parent
 templates = Jinja2Templates(directory=str(UI_DIR / "templates"))
@@ -262,6 +262,15 @@ def create_app(c: Container | None = None) -> FastAPI:
     @app.get("/__health", include_in_schema=False)
     async def health():
         return PlainTextResponse("lightning-ok")
+
+    @app.get("/amount-sum", include_in_schema=False)
+    async def amount_sum(text: str = ""):
+        """A sum typed in an amount field (120+35*2), worked out so the field shows 190 before saving."""
+        try:
+            value = to_decimal(text)
+        except ValidationError as error:
+            return JSONResponse({"error": error.message})
+        return JSONResponse({"value": format(value.normalize(), "f")})
 
     app.mount("/static", StaticFiles(directory=str(UI_DIR / "static")), name="static")
     for module in (dashboard, accounts, deposits, bank_imports, birdview, transactions, budget, investments, physical_items, planning, reserves, integrity, counterparties, categories, settings, search, exports):

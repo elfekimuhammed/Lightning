@@ -707,12 +707,59 @@ document.addEventListener("keydown", (e) => {
   const cancel = document.querySelector("[data-cancel]");
   if (cancel && e.target.closest("tr.editing")) location.href = cancel.href;
 });
+// Sums in amount fields: 120+35*2 becomes 190 when you leave the field or press Enter, so the
+// saved amount is always one you saw. The server works the sum out (lightning/core/money.py:
+// brackets, then ^, then * /, then + -; 2(3+5) is 2*(3+5)) and explains anything it refuses; the
+// browser does no arithmetic.
+const isSum = (value) => {
+  const text = asciiDigits(value).trim();
+  return /[-+*\/×÷xX^()=²³%[\]{}−–]/.test(/^[-+−–]/.test(text) ? text.slice(1) : text);  // as _SUM_MARKS in money.py
+};
+const pendingSum = (field) => isSum(field.value) && field.dataset.sumUnchecked !== field.value;
+const workOutSum = async (input) => {
+  const typed = input.value;
+  if (!pendingSum(input)) return true;
+  let answer;
+  try {
+    answer = await (await fetch(`/amount-sum?text=${encodeURIComponent(typed)}`)).json();
+  } catch {
+    input.dataset.sumUnchecked = typed;  // Save then sends it as typed; the server checks it again
+    return false;
+  }
+  if (input.value !== typed) return false;  // typed on meanwhile
+  if (answer.error) {
+    input.setCustomValidity(answer.error);  // blocks Save and says why
+    input.setAttribute("aria-invalid", "true");
+    return false;
+  }
+  input.value = answer.value;
+  input.dispatchEvent(new Event("input", { bubbles: true }));  // regroups 1,250.5 and clears any error
+  return true;
+};
+// Save with a sum still in a field works it out first; the next Save sends the result.
+document.addEventListener("submit", (event) => {
+  const pending = [...(event.target.elements || [])].filter((field) => field.matches?.(moneySelector) && !field.disabled && pendingSum(field));
+  if (!pending.length) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  Promise.all(pending.map(workOutSum)).then(() => pending.find((field) => field.validationMessage)?.reportValidity());
+}, true);
 // Format money as the user types (1,000.50) while retaining a plain numeric value on submit.
 const setupMoneyInput = (input) => {
   if (input.dataset.moneyFormatReady) return;
   input.dataset.moneyFormatReady = "true";
   input.setAttribute("autocomplete", "off");
+  input.addEventListener("change", () => workOutSum(input));
+  input.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" || !pendingSum(input)) return;
+    event.preventDefault();  // the first Enter works the sum out; the next one saves
+    event.stopImmediatePropagation();
+    workOutSum(input).then(() => { if (input.validationMessage) input.reportValidity(); });
+  });
   input.addEventListener("input", () => {
+    input.setCustomValidity("");
+    input.removeAttribute("aria-invalid");
+    if (isSum(input.value)) return;  // a sum stays exactly as typed until it is worked out
     const before = asciiDigits(input.value);
     const caret = input.selectionStart ?? before.length;
     const clean = (value) => {

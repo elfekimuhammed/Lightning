@@ -280,6 +280,7 @@ Categories are selected from an explicit list, not silently created by typing. N
 | **Transaction reference (ref)** | Fixed human-readable ID assigned to a transaction. It does not change if its date is edited and has no account prefix because transfers can touch two accounts. | `OUT-2026-09-25-003` |
 | **Ledger-line reference** | A transaction ref plus its line number. | `TRF-2026-09-26-001/2` |
 | **Date input** | Accepts ISO (`2026-01-31`), day/month/year (`31/1/2026`), or day/month (`31/1`, current year); stored canonically as ISO. Ambiguous numeric dates are interpreted day-first. | `31/1` → `2026-01-31` in 2026 |
+| **Amount input** | Accepts a number (`1,250.50`, Arabic-Indic digits) or a sum with + - * / ^ and round brackets. Order: brackets, then ^, then * and /, then + and -, left to right; a bracket after a number or a bracket multiplies. Anything unclear is refused with the reason (`-2^2`, `2^3^2`, `8/2(2+2)`, a sign too many or too few, an uneven division, %, a date). The window shows the result before saving. | `3+5*8` → 43; `2(3+5)` → 16 |
 
 ## Asset and account taxonomy (what vs where)
 
