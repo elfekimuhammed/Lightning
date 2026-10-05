@@ -8,7 +8,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-from lightning.bootstrap import Container, build
+from lightning.bootstrap import Container, ReadOnlyCopyError, build
 from lightning.database.connection import Database
 from lightning.database.migrator import inspect_schema
 from lightning.database.snapshot import verify_connection
@@ -16,6 +16,7 @@ from lightning.security.keys import generate_recovery, recover_key, unwrap_key, 
 
 from .instance import InstanceAlreadyRunning, InstanceLock
 from .paths import ProfilePaths, choose_data_root, create_profile, resolve_profile
+from .roles import SessionRole
 
 
 class ProfileError(ValueError):
@@ -87,6 +88,7 @@ class ProfileSession:
     def __init__(self, root: str | Path | None = None):
         self.root = choose_data_root(root)
         self.container: Container | None = None
+        self.role = SessionRole.HOME
         self.paths: ProfilePaths | None = None
         self.lock: InstanceLock | None = None
         self.pending: PendingProfile | None = None
@@ -159,8 +161,11 @@ class ProfileSession:
             # Failed directories remain as recognizable recovery evidence.
             self.pending = None
 
-    def _activate(self, paths: ProfilePaths, lock: InstanceLock, container: Container) -> None:
-        self.paths, self.lock, self.container = paths, lock, container
+    def _activate(self, paths: ProfilePaths, lock: InstanceLock, container: Container,
+                  role: SessionRole = SessionRole.HOME) -> None:
+        if container.db.read_only == role.writable:
+            raise ProfileError("The profile opened with the wrong kind of connection for its role.")
+        self.paths, self.lock, self.container, self.role = paths, lock, container, role
         self.token = secrets.token_urlsafe(32)
         self.csrf = secrets.token_urlsafe(32)
         self.pending = None
@@ -197,7 +202,9 @@ class ProfileSession:
             raise ProfileError("Please wait a moment before trying again.")
         self.retry_at = time.monotonic() + 2
 
-    def unlock(self, selected: str, password: str) -> None:
+    def unlock(self, selected: str, password: str, *, role: SessionRole = SessionRole.HOME) -> None:
+        """Open a profile. A reader opens a real read-only connection with no startup writes (no backup,
+        migration or seed), and refuses a copy that would need an upgrade."""
         self._attempt()
         paths = self._select(selected)
         lock = self._acquire(paths)
@@ -211,8 +218,14 @@ class ProfileSession:
             from lightning.runtime.restore import EncryptedBackupRestorer
             EncryptedBackupRestorer._check_restore_control(paths, key)
             self._verify(paths, key)
-            container = build(paths.db_path, key=key, backup_dir=paths.backups_dir, backup_on_start=True)
-            self._activate(paths, lock, container)
+            if role.writable:
+                container = build(paths.db_path, key=key, backup_dir=paths.backups_dir, backup_on_start=True)
+            else:
+                try:
+                    container = build(paths.db_path, key=key, read_only=True)
+                except ReadOnlyCopyError as exc:
+                    raise ProfileError(str(exc)) from exc
+            self._activate(paths, lock, container, role)
         except BaseException:
             lock.close()
             raise
@@ -272,6 +285,7 @@ class ProfileSession:
         if self.container is not None:
             self.container.db.close()
         self.container = None
+        self.role = SessionRole.HOME
         self.paths = None
         if self.lock is not None:
             self.lock.close()

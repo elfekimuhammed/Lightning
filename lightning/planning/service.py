@@ -134,6 +134,8 @@ class PlanningService:
 
     def match_payments(self, as_of: date | None = None) -> int:
         """Link each due or near-due payment to the one posted transaction that clearly settles it."""
+        if self.db.read_only:
+            return 0  # a read-only copy shows payments as its home last settled them
         day = as_of or today()
         linked = self.repo.linked_transaction_ids()
         count = 0

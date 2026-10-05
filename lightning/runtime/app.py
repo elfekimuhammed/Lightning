@@ -18,6 +18,7 @@ from .http import (MAX_IMPORT_CONFIRM_BODY, MAX_IMPORT_CONFIRM_FIELDS,
                    MAX_IMPORT_MAP_BODY, Credentials, Guard,
                    body_receiver, configure_memory_only_import_uploads, equal)
 from .paths import choose_data_root, discover_profiles, resolve_profile
+from .roles import READ_ONLY_REFUSAL
 from .session import ProfileError, ProfileSession
 
 _DEFAULT_FORM_FIELDS = 2_000
@@ -67,6 +68,8 @@ class SessionGate:
             if not public and self.session.container is None:
                 return await RedirectResponse("/profiles", 303)(scope, receive, send)
             if scope["method"] not in ("GET", "HEAD"):
+                if not profile_route and not self.session.role.writable:
+                    return await PlainTextResponse(READ_ONLY_REFUSAL, 403)(scope, receive, send)
                 if generation != self.session.token:
                     return await PlainTextResponse("Profile changed. Reload before submitting.", 409)(scope, receive, send)
                 body = scope["state"]["request_body"]
@@ -83,7 +86,8 @@ class SessionGate:
                 if not valid:
                     return await PlainTextResponse("This form expired. Reload the page and try again.", 403)(scope, receive, send)
             scope.setdefault("state", {}).update(secure_profiles=True, csrf=self.session.csrf,
-                                                  session_token=self.session.token)
+                                                  session_token=self.session.token,
+                                                  read_only=not self.session.role.writable)
             self.app.state.container = self.session.container
             if self.session.container is not None and request.url.path != "/profiles/health" and not request.url.path.startswith("/static/"):
                 self.session.last_activity = time.monotonic()

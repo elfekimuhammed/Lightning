@@ -87,22 +87,38 @@ class Container:
         return current + sorted(legacy, key=lambda p: p.name, reverse=True)
 
 
+class ReadOnlyCopyError(RuntimeError):
+    """A copy opened for reading cannot be used as it is (missing, or it needs an upgrade first)."""
+
+
 def build(db_path: str | Path | None = None, backup_on_start: bool = False, *,
-          key: bytes | None = None, backup_dir: Path | None = None) -> Container:
+          key: bytes | None = None, backup_dir: Path | None = None, read_only: bool = False) -> Container:
+    """Open a ledger and wire its services.
+
+    `read_only` opens an actual SQLite read-only connection and skips every startup write: no backup,
+    migration, seed or ownership repair. A copy that needs any of them is refused, never upgraded
+    (multiple devices plan, section 5, rule 10)."""
     db_path = Path(db_path) if db_path else DEFAULT_DATA_DIR / "lightning.db"
     data_dir = db_path.parent
     existed = db_path.is_file() and db_path.stat().st_size > 0
-    db = Database(db_path, key=key)
+    if read_only and not existed:
+        raise ReadOnlyCopyError("The saved copy is missing or empty.")
+    db = Database(db_path, key=key, read_only=read_only)
     try:
         inspection = inspect_schema(db)  # Refuse newer schemas before any write.
-        if existed and (inspection.needs_backup or backup_on_start):
+        if read_only:
+            if inspection.pending:
+                raise ReadOnlyCopyError("This saved copy was made by an older Lightning and needs an upgrade "
+                                        "that a read-only copy cannot make.")
+        elif existed and (inspection.needs_backup or backup_on_start):
             saved = backup(db, backup_dir or data_dir / "backups",
                            pre_upgrade=inspection.needs_backup)
             if saved is None:
                 raise RuntimeError("A verified backup is required before upgrading")
-        migrate(db)
-        seed(db)
-        migrate_legacy_ownership(db)
+        if not read_only:
+            migrate(db)
+            seed(db)
+            migrate_legacy_ownership(db)
     except BaseException:
         db.close()
         raise

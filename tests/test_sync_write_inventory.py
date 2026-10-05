@@ -12,7 +12,6 @@ import shutil
 import pytest
 
 from lightning.bootstrap import build
-from lightning.database.connection import Database
 
 
 # Keep this inventory tied to the existing entry points. Anything adding a
@@ -81,9 +80,10 @@ def two_nodes(tmp_path):
     borrower_path.parent.mkdir()
     shutil.copyfile(home_path, borrower_path)
 
-    # Reopen home writable and borrower with SQLite's actual read-only mode.
+    # Reopen home writable and the borrower through the reader build (task 06a): SQLite's actual
+    # read-only mode, with no backup, migration or seed on open.
     home = build(home_path)
-    borrower = Database(borrower_path, read_only=True)
+    borrower = build(borrower_path, read_only=True).db
     try:
         yield home, borrower
     finally:
