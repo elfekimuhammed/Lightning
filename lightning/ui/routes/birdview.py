@@ -202,7 +202,9 @@ def _expense_stats(a, total, prior, prior_label, largest, selected, first, last,
               "href": f"/transactions?{query}"}]
     now_rows = payments(first, last)
     count = len(now_rows)
-    average = total / count if count else None
+    # The average of the payments themselves: refunds are not payments, so they are not divided in
+    # (audit 2026-10-05 #12).
+    average = sum((r["value"] for r in now_rows), ZERO) / count if count else None
     before = payments(prior_from, prior_to) if prior_from and prior_to else None
     stats.append({"key": "payments", "surface": "out", "label": "Average payment", "value": average, "kind": "money",
                   "empty": "—", "spark": charts.sparkline(counts), "spark_tone": "hold",

@@ -354,6 +354,9 @@ class BudgetService:
             kids = children.get(pending.pop(), [])
             descendants.update(kids)
             pending.extend(kids)
+        # One-off spending is left out of each month's budget, so it is left out of what carries over
+        # too (audit 2026-10-05 #11).
+        descendants -= self.one_off_ids()
         while cursor < first:
             current_month = month_of(cursor)
             if reset_month == current_month:

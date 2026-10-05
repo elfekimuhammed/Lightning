@@ -260,6 +260,12 @@ class ReportQueries:
                               "WHERE t.type='OPN' AND le.owner_id IS NULL AND le.date BETWEEN ? AND ?",
                               (start, end)) or 0
 
+    def opening_by_holding(self, start: str, end: str) -> list[dict]:
+        """Owned opening balances recorded between two dates, per account and asset, in base e6."""
+        return self.db.all(f"SELECT le.account_id, le.asset_id, SUM(le.amount_base_e6) AS amount_e6 "
+                           f"FROM ledger_entries le {POSTED} WHERE t.type='OPN' AND le.owner_id IS NULL "
+                           "AND le.date BETWEEN ? AND ? GROUP BY le.account_id, le.asset_id", (start, end))
+
     def has_income_or_spending(self) -> bool:
         return bool(self.db.scalar("SELECT 1 FROM transactions WHERE status='POSTED' AND type IN ('IN','OUT') LIMIT 1"))
 

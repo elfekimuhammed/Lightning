@@ -270,11 +270,15 @@ class ReportingService:
     @request_cached
     def _owned_brokerage_cash_by_account(self, day: str) -> list[dict]:
         rows = []
-        for account in self.accounts.list(active_only=True):
+        # A deactivated brokerage still held its cash on earlier dates (audit 2026-10-05 #15); it is
+        # listed only while it holds some.
+        for account in self.accounts.list(active_only=False):
             if account.account_type != AccountType.BROKERAGE:
                 continue
             amount = max(ZERO, self.account_balance(account.id, day)
                          - self.money_from_others.cash_total_for_account(account.id, day))
+            if not account.active and not amount:
+                continue
             valuation = self.valuer.value(self.assets.cash_asset(account.currency), amount, day)
             rows.append({"id": account.id, "label": account.label, "value": valuation.value})
         return rows
@@ -284,6 +288,12 @@ class ReportingService:
         """What you recorded as already owned (opening balances and existing holdings, at their recorded
         value) between two dates. Recording something you had is not a change in what you own."""
         return from_e6(self.q.opening_total(self._day(start), self._day(end)))
+
+    def opening_by_holding(self, start: date | str, end: date | str) -> dict[tuple[int, int], Decimal]:
+        """Opening balances recorded between two dates, per (account, asset): what you already had,
+        so not a change in value when it is first recorded inside a period."""
+        return {(row["account_id"], row["asset_id"]): from_e6(row["amount_e6"])
+                for row in self.q.opening_by_holding(self._day(start), self._day(end))}
 
     @request_cached
     def has_income_or_spending(self) -> bool:

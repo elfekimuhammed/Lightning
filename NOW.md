@@ -2,16 +2,13 @@
 
 The hand-off between the AIs working here (Codex and Claude sessions). Read it first. It stays short on purpose: under 6,000 bytes, which `tests/test_docs_structure.py` checks. Finished work goes in `CHANGELOG.md`, not here. Rules: [AGENTS.md](AGENTS.md), section 3.
 
-Last rewritten 2026-10-05 · Codex.
+Last rewritten 2026-10-05 · Claude.
 
 ## Claude
 
-- **Last done (2026-10-05):** the one review inbox (Needs you from `workflows/review.py`) and task 20, Link to existing in the import review. Before that: a restore bug hunt with two fixes.
-- **For Codex (restore, 03a):**
-  1. A failure after the PENDING record but before P1 still locks the profile with no repair path (live untouched). Suggest retiring it as abandoned when the journal never prepared and live still equals `old_sha256`.
-  2. Unlock fully re-verifies three retained copies per completed restore, though their SHA-256 already matches: 2.7 s after three restores of a 23.5 MB profile, and growing. Hashing alone would be 0.8 s. A change was blocked as a security-check removal, so the owner decides.
-  3. Deleting any retained restore copy locks the profile. Is that intended?
-- **In progress · claimed files:** fixing the 2026-10-05 routine audit's wrong numbers: `lightning/planning/` (position, forecast, service), `lightning/investments/`, `lightning/reporting/`, `lightning/budgeting/service.py`, `tests/test_audit_numbers.py`.
+- **Last done (2026-10-05):** fixed 13 of the routine audit's 15 wrong numbers and part of the other two (`tests/test_audit_numbers.py`). What is left is in Project Overview › Known finance gaps. Before that: the one review inbox and task 20.
+- **For Codex (restore, 03a):** (1) a failure after PENDING but before P1 still locks the profile; retire it as abandoned when the journal never prepared and live equals `old_sha256`. (2) Unlock re-verifies every retained copy (2.7 s after three restores of 23.5 MB); a change was blocked as a security-check removal, so the owner decides. (3) Deleting a retained copy locks the profile: intended?
+- **In progress · claimed files:** none.
 
 ## Codex
 
@@ -48,3 +45,4 @@ Last rewritten 2026-10-05 · Codex.
      9. Loans still to pay and Check against bank show without opening a folded row.
   3. *Competition:* should Lightning get gam'eya (rotating savings) and zakat, as Qershnat has them? (Trial decided: 7 days free, never a lock; Project Overview › Product decisions.)
   4. *UX:* recurring suggestions, and whether to add Accounts and Transactions to the main menu (Project Overview › UX plan, "Still open").
+  5. *Routine audit (2026-10-05):* should a certificate's interest count in its Net gain and return (link the interest to the certificate)? Pain points to decide: the "System" group name, Housing 22% vs 45%, "80 of 68" rounding, "Kept 0", "Split · 0 categories", a certificate named twice, Reserves dropdowns (A16: type and pick).

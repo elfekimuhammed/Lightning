@@ -19,7 +19,7 @@
       <td><span class="target-name">{{ r.name }}{% if class_help.get(r.name) %}<button type="button" class="info-tip" data-tip="{{ class_help[r.name] }}" aria-label="What is {{ r.name }}?">?</button>{% endif %}</span></td>
       <td class="num">{{ '%.1f'|format(r.current) }}%</td>
       <td class="num"><form method="post" action="/investments/targets" data-target-save><input type="hidden" name="bucket" value="{{ r.name }}"><span class="row-field-unit"><input class="row-field" name="target_weight" inputmode="decimal" autocomplete="off" value="{{ r.target|units if r.target is not none else '' }}" placeholder="—" aria-label="Required % for {{ r.name }}"><i aria-hidden="true">%</i></span><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form></td>
-      <td class="num {{ r.difference|tone if r.difference is not none }}">{{ '%+.1f'|format(r.difference)|replace('-', '−') ~ '%' if r.difference is not none else '—' }}</td>
+      <td class="num {{ r.difference|tone if r.difference is not none }}">{{ (r.difference)|signed_pct ~ '%' if r.difference is not none else '—' }}</td>
       <td class="num {{ r.adjust|tone if r.adjust is not none }}">{% if r.adjust is not none %}{{ ('Invest ' if r.adjust > 0 else ('Take out ' if r.adjust < 0 else '')) }}{{ r.adjust|abs|money }}{% else %}—{% endif %}</td>
     </tr>{% else %}<tr><td colspan="5" class="empty">No investment classes yet.</td></tr>{% endfor %}
     </tbody>

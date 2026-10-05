@@ -7,6 +7,7 @@ from datetime import date, timedelta
 
 from fastapi import APIRouter, Request, Response
 
+from lightning.accounts.domain import AccountType
 from lightning.core.dates import fmt_date, parse_date, parse_month, today
 from lightning.core.errors import LightningError, NotFoundError
 from lightning.core.refs import DocType
@@ -82,7 +83,8 @@ async def portfolio(request: Request):
     opening_report = investment_report["opening"]
     p = c.investments.portfolio(day)
     before_day = fmt_date(period.start.fromordinal(period.start.toordinal()-1))
-    invest_ids = [a.id for a in c.investments.investment_accounts()]
+    invest_ids = [a.id for a in c.investments.investment_accounts()] + [
+        a.id for a in c.accounts.list(active_only=True) if a.account_type == AccountType.DEPOSIT]
     opening_adjustments = c.investments.opening_adjustments(invest_ids, period.start_text, period.end_text)
     investment_report["recon_opening"] = (opening_report["investment_cash"] + opening_report["value"]
                                            if opening_report["value"] is not None and
@@ -162,7 +164,7 @@ async def portfolio(request: Request):
     asset_class_rows = sorted(((name, row) for name, row in class_totals.items() if row["yours"] > ZERO),
                               key=lambda item: (-item[1]["yours"], item[0].casefold()))
     assets = c.assets.all_investment_preferences()
-    buckets = defaultdict(lambda: ZERO); horizons = defaultdict(lambda: ZERO)
+    buckets = defaultdict(lambda: ZERO)
     owned_rows=[]
     for h in p.open:
         key=f"{h.account_id}:{h.asset_id}"
@@ -174,7 +176,7 @@ async def portfolio(request: Request):
         class_text=h.asset_class.casefold()
         horizon=(asset["investment_horizon"] if asset else None) or "Unassigned"
         if yours is not None:
-            buckets[bucket]+=yours; horizons[horizon]+=yours
+            buckets[bucket]+=yours
         capital=own_cost_by_holding.get(key,h.cost_basis)
         owned_rows.append((h,yours,bucket,horizon,capital,yours-capital if yours is not None else None,
                            owned_units))
@@ -200,7 +202,7 @@ async def portfolio(request: Request):
                   owned_cost=owned_cost, owned_unrealized=owned_unrealized, custody_units=custody,
                   own_by_holding=own_by_holding, period=period, period_realized=p.realized-prior.realized,
                   period_dividends=period_distributions, since_xirr=(p.xirr if not any(custody.values()) and _year_of_history(c, period.end) else None),
-                  owned_rows=owned_rows, period_activity=period_activity, period_error=period_error, horizons=horizons,
+                  owned_rows=owned_rows, period_activity=period_activity, period_error=period_error,
                   buckets=buckets, targets=targets, target_total=target_total,
                   owned_positions=owned_positions, max_class_result=max_class_result,
                   allocation_classes=allocation_classes, own_units_by_holding=own_units_by_holding,
@@ -251,6 +253,13 @@ def _page_extras(c, period, p, prior, owned_rows, prior_custody, before_day, rep
                 if (item.account_id, item.asset_id) not in traded and item.value]
     holdings_total = (sum((yours or ZERO for _, yours, *_ in owned_rows), ZERO)
                       + sum((item.value for _, item in balances), ZERO))
+    # A balance-only asset has no horizon of its own yet: it is Unassigned, so the horizon split adds up
+    # to Holdings value (audit 2026-10-05 #13: the flat was left out).
+    horizons = defaultdict(lambda: ZERO)
+    for _, yours, _, horizon, *_ in owned_rows:
+        horizons[horizon] += yours or ZERO
+    for _, item in balances:
+        horizons["Unassigned"] += item.value
     first_dates = _first_trade_dates(c, day)
     end_day = parse_date(day)
     groups: dict[str, dict] = {}
@@ -303,6 +312,13 @@ def _page_extras(c, period, p, prior, owned_rows, prior_custody, before_day, rep
         for item in cls.items:
             if (item.account_id, item.asset_id) not in traded_before and item.value:
                 start_values[cls.name] += item.value
+    # Recording what you already had (an opening balance dated inside the period) is not a change in
+    # its value: count it as part of where the period started (audit 2026-10-05 #14).
+    openings = c.reporting.opening_by_holding(period.start_text, period.end_text)
+    for h, *_ in owned_rows:
+        start_values[h.asset_class.split(" › ")[-1]] += openings.get((h.account_id, h.asset_id), ZERO)
+    for name, item in balances:
+        start_values[name] += openings.get((item.account_id, item.asset_id), ZERO)
     end_values = {g["name"]: g["value"] for g in holding_groups}
     class_changes = sorted(((name, end_values.get(name, ZERO) - start_values.get(name, ZERO))
                             for name in set(start_values) | set(end_values)), key=lambda item: -abs(item[1]))
@@ -312,6 +328,7 @@ def _page_extras(c, period, p, prior, owned_rows, prior_custody, before_day, rep
     return {"waffle": waffle,
             "growth": growth, "value_spark": spark, "holding_groups": holding_groups, "biggest": biggest,
             "holdings_total": holdings_total, "ytd_dividends": dividends, "ytd_year": now.year,
+            "horizons": horizons,
             "flows": charts.diverging(flow_rows)}
 
 

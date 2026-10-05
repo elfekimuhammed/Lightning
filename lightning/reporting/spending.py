@@ -82,7 +82,12 @@ def spending_profile(reporting, first: date, last: date, code_filter: str = "", 
         r["period_values"] = [sum((v for code, (_, v) in period_months[k].items() if code not in big_codes), ZERO)
                               if r.get("others") else period_months[k].get(r["code"], ("", ZERO))[1]
                               for k in period_keys]
-    recent_all = [sum((v for _, v in h.values()), ZERO) for h in hist[-6:]]
+    # The usual month is each month's Money out, refunds included, so it compares like with like with
+    # this period's Money out (audit 2026-10-05 #12: a category refunded in full was left out).
+    def money_out(start, end) -> Decimal:
+        return sum((g.value for g in reporting.spending_by_category(start, end, depth=2)
+                    if not code_filter or g.code.startswith(code_filter)), ZERO)
+    recent_all = [money_out(*parse_month(k)) for k in keys[-6:]]
     for r in refunds:
         r["share"] = r["value"] / total * 100 if total else ZERO
     return {"rows": rows, "refunds": refunds, "total": total, "small": small, "months_in": months_in, "history_keys": keys,

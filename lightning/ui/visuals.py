@@ -115,15 +115,22 @@ def money_sankey(c, first: date, last: date, cash_flow, sources_shown: int = 3, 
         sources.append({"label": "Other income", "value": rest_in, "tone": "in"})
     if cash_flow.net < 0:
         sources.append({"label": "From what you had", "value": -cash_flow.net, "tone": "over"})
-    spending = []
+    spending, refunded = [], ZERO
     for g in c.reporting.spending_by_category(first, last, depth=2):
-        if g.value <= 0:
+        if g.value < 0:
+            refunded -= g.value  # a category whose refunds outweigh its spending: money that came back
+            continue
+        if g.value == 0:
             continue
         category = c.categories.get_by_code(g.code)
         query = urlencode({"category_id": category.id, "date_from": fmt_date(first), "date_to": fmt_date(last)})
         spending.append({"label": _leaf(g.label), "value": g.value, "tone": "spend", "href": f"/transactions?{query}"})
+    if refunded > 0:
+        # Money out already takes these refunds off; show them coming back in, so both sides of the
+        # chart add up to the same total (audit 2026-10-05 #12).
+        sources.append({"label": "Refunds", "value": refunded, "tone": "in"})
     targets = spending[:targets_shown]
-    rest_out = cash_flow.outflows - sum((t["value"] for t in targets), ZERO)
+    rest_out = cash_flow.outflows + refunded - sum((t["value"] for t in targets), ZERO)
     if rest_out > 0:
         targets.append({"label": "Other", "value": rest_out, "tone": "spend"})
     if cash_flow.net > 0:

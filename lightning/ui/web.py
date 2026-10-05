@@ -67,6 +67,16 @@ def _keep_dates(text) -> Markup:
 
 
 templates.env.filters["money"] = _money
+
+
+def _signed_pct(value) -> str:
+    """A signed percentage to one decimal ("+6.2", "−1.5"); a value that rounds to zero reads "0.0",
+    never "−0.0" or "+0.0" (audit 2026-10-05: a certificate's XIRR showed −0.0%)."""
+    text = "%+.1f" % value
+    return "0.0" if text in ("+0.0", "-0.0") else text.replace("-", "\u2212")
+
+
+templates.env.filters["signed_pct"] = _signed_pct
 templates.env.filters["tone"] = _tone
 templates.env.filters["keep_dates"] = _keep_dates
 

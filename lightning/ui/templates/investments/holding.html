@@ -11,14 +11,14 @@
     {% if j.spark and j.spark.points %}<span class="stat-tile-visual" aria-hidden="true"><svg class="stat-tile-spark tone-hold" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="{{ j.spark.area }}"/><polyline points="{{ j.spark.points }}" vector-effect="non-scaling-stroke"/></svg><span class="stat-tile-dot tone-hold" style="left:{{ '%.2f'|format(j.spark.last[0]) }}%;top:{{ '%.2f'|format(j.spark.last[1]) }}%"></span></span>{% endif %}
     <span class="stat-tile-value">{{ h.value|money if h.value is not none else '—' }}<small>{{ base }}</small></span>
     <span class="stat-tile-sub">Price {{ h.price|money(False,2 if h.price is not none and h.price < 10 else 0) if h.price is not none else '—' }} · {{ h.price_date or 'no price date' }}{% if h.price_source=='COST' %} · at cost{% endif %}{% if stale_price %} · <a href="/investments/prices">out of date, update it</a>{% endif %}</span></div>
-  <div class="stat-tile surface-in"><span class="stat-tile-head">{{ tone_icon('in') }}<span class="stat-tile-label">{{ fig.unrealized_gain.label }}</span><span class="stat-chip is-{{ 'up' if (h.unrealized or 0) > 0 else ('down' if (h.unrealized or 0) < 0 else 'flat') }}">{% if gain_pct is not none %}{{ '%+.1f'|format(gain_pct)|replace('-', '−') }}%{% else %}—{% endif %}</span></span>
+  <div class="stat-tile surface-in"><span class="stat-tile-head">{{ tone_icon('in') }}<span class="stat-tile-label">{{ fig.unrealized_gain.label }}</span><span class="stat-chip is-{{ 'up' if (h.unrealized or 0) > 0 else ('down' if (h.unrealized or 0) < 0 else 'flat') }}">{% if gain_pct is not none %}{{ (gain_pct)|signed_pct }}%{% else %}—{% endif %}</span></span>
     <span class="stat-tile-value{{ ' is-negative' if h.unrealized is not none and h.unrealized < 0 }}">{{ h.unrealized|money(True) if h.unrealized is not none else '—' }}<small>{{ base }}</small></span>
     <span class="stat-tile-sub">{{ fig.cost.label }} {{ h.cost_basis|money }} · {{ fig.average_cost.label }} {{ h.average_cost|money(False,2 if h.average_cost is not none and h.average_cost < 10 else 0) if h.average_cost is not none else '—' }}</span></div>
   <div class="stat-tile surface-in"><span class="stat-tile-head">{{ tone_icon('in') }}<span class="stat-tile-label">Total return</span></span>
     <span class="stat-tile-value{{ ' is-negative' if total_return < 0 }}">{{ total_return|money(True) }}<small>{{ base }}</small></span>
     <span class="stat-tile-sub">Price change, sales and payouts since you bought it</span></div>
   <div class="stat-tile surface-in"><span class="stat-tile-head">{{ tone_icon('in') }}<span class="stat-tile-label">XIRR</span><button type="button" class="info-tip" aria-label="What is XIRR?" data-tip="Average yearly return, counting when you bought, sold and were paid. Shown once you have held it for a full year.">?</button></span>
-    <span class="stat-tile-value{{ ' is-negative' if xirr_pct is not none and xirr_pct < 0 }}">{% if xirr_pct is not none %}{{ '%+.1f'|format(xirr_pct)|replace('-', '−') }}<small>% a year</small>{% else %}—{% endif %}</span>
+    <span class="stat-tile-value{{ ' is-negative' if xirr_pct is not none and xirr_pct < 0 }}">{% if xirr_pct is not none %}{{ (xirr_pct)|signed_pct }}<small>% a year</small>{% else %}—{% endif %}</span>
     <span class="stat-tile-sub">{{ 'Since ' ~ j.first if xirr_pct is not none else 'After a full year of holding' }}</span></div>
 </section>
 
@@ -35,8 +35,8 @@
   <section><div class="overview-block-head"><div><h3>Monthly price change</h3><p>Each month against the one before</p></div></div>
     {{ diverging(j.returns, 'Monthly price change', 'pct', 'growth') if j.returns else '' }}
     <div class="vol-stats">
-      <div><span>Best month</span><b class="pos">{% if j.best %}{{ '%+.1f'|format(j.best[1]) }}%{% else %}—{% endif %}</b><small>{{ j.best[0] if j.best }}</small></div>
-      <div><span>Worst month</span><b class="neg">{% if j.worst %}{{ '%+.1f'|format(j.worst[1])|replace('-', '−') }}%{% else %}—{% endif %}</b><small>{{ j.worst[0] if j.worst }}</small></div>
+      <div><span>Best month</span><b class="pos">{% if j.best %}{{ (j.best[1])|signed_pct }}%{% else %}—{% endif %}</b><small>{{ j.best[0] if j.best }}</small></div>
+      <div><span>Worst month</span><b class="neg">{% if j.worst %}{{ (j.worst[1])|signed_pct }}%{% else %}—{% endif %}</b><small>{{ j.worst[0] if j.worst }}</small></div>
       <div><span>Typical move</span><b>{% if j.typical is not none %}±{{ '%.1f'|format(j.typical) }}%{% else %}—{% endif %}</b><small>{{ 'a month' if j.typical is not none else 'after three months' }}</small></div>
       <div><span>Months up · down</span><b>{{ j.up or 0 }} · {{ j.down or 0 }}</b><small>of {{ (j.up or 0) + (j.down or 0) }}</small></div>
     </div></section>

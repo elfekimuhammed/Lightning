@@ -128,3 +128,136 @@ def test_10_already_paid_keeps_the_number_of_payments(c, setup, monkeypatch):
     assert c.planning.start_after_paid(item, date(2026, 10, 6)) == "2026-10-20"
     remaining = payment_dates(c.planning.get(item), "2099-12-31")
     assert [d for _, d in remaining] == ["2026-10-20", "2026-11-20", "2026-12-20", "2027-01-20"]
+
+
+def test_6_buying_a_certificate_is_money_added_to_investments(c, setup):
+    """#6: certificates are investments (owner decision 2026-10-04), so buying one adds money."""
+    from lightning.investments.report import investment_period
+    accounts, _ = setup
+    c.deposits.purchase(accounts["cd"].id, name="CIB 1-year certificate", start_date="2026-09-01",
+                        lockup_end_date="2027-03-01", maturity_date="2027-09-01", principal="5000",
+                        annual_rate="12.5", interest_method="SIMPLE", payout_frequency="MONTHLY",
+                        compounding_frequency="MONTHLY", destination_account_id=accounts["cib"].id,
+                        funding_account_id=accounts["cib"].id)
+    report = investment_period(c.db, c.accounts, c.assets, c.reporting, "2026-09-01", "2026-09-30")
+    assert report["new_money"] == D("5000")
+
+
+def test_5_a_return_that_rounds_to_zero_never_reads_minus_zero():
+    """#5 (display): a certificate's XIRR showed "−0.0%"."""
+    from lightning.ui.web import _signed_pct
+    assert _signed_pct(D("-0.04")) == "0.0" and _signed_pct(D("0.04")) == "0.0"
+    assert _signed_pct(D("6.2")) == "+6.2" and _signed_pct(D("-1.5")) == "−1.5"
+
+
+def test_13_14_a_flat_recorded_this_month_is_a_holding_not_growth(c, monkeypatch):
+    """#13: the horizon split leaves out the flat. #14: its opening balance shows as +400,000 in value."""
+    import re
+
+    from fastapi.testclient import TestClient
+
+    from lightning.ui.web import create_app
+    monkeypatch.setenv("LIGHTNING_TODAY", "2026-10-20")
+    broker = c.account_flows.open_account("THNDR", "BROKERAGE", "2026-09-01", "20000")
+    share = c.assets.create_investment("A share", "STOCK", "ASHR")
+    c.investments.buy("2026-09-05", broker.id, share.id, "100", "100")
+    c.assets.set_price(share.id, "2026-10-15", "100")
+    c.account_flows.open_account("Flat", "OTHER_ASSET", "2026-10-10", "400000")
+
+    html = TestClient(create_app(c)).get("/investments?period=month&month=2026-10").text
+    legend = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ",
+                    re.search(r'class="horizon-legend">(.*?)</div></section>', html, re.S).group(1)))
+    assert "Unassigned 100.0% · 410,000" in legend
+    marker = "Money in and out, and change in value by asset class"
+    flows = html[html.index(marker):html.index(marker) + 3000]
+    assert "400,000" not in flows  # the flat's opening balance is not a change in its value
+
+
+def test_15_a_closed_brokerage_keeps_its_past_cash(c, setup):
+    """#15: a brokerage deactivated after its cash moved out still had that cash on earlier dates."""
+    accounts, _ = setup
+    broker = c.account_flows.open_account("Old broker", "BROKERAGE", "2026-09-01", "5000")
+    c.transactions.record_transfer("2026-10-01", broker.id, accounts["cib"].id, "5000")
+    c.account_flows.deactivate(broker.id)
+    assert c.reporting.owned_brokerage_cash("2026-09-15") == D("5000")
+    assert c.reporting.owned_brokerage_cash("2026-10-15") == 0
+    assert all(row["id"] != broker.id for row in c.reporting.owned_brokerage_cash_by_account("2026-10-15"))
+
+
+def test_11_carryover_leaves_out_one_off_spending_like_the_month_does(c, setup):
+    """#11: one-off spending is left out of a month's budget, so it is left out of what carries over too."""
+    accounts, cats = setup
+    cib, food = accounts["cib"].id, cats["EXP.PERSONAL.FOOD"]
+    party = c.categories.create(food.id, "Wedding party")
+    c.budgets.set_one_off(party.id, True)
+    c.budgets.set_budget(food.id, "2026-09", "8000")
+    c.transactions.record_outflow("2026-09-10", cib, "5000", food.id)
+    c.transactions.record_outflow("2026-09-20", cib, "5000", party.id)
+    c.budgets.set_carryover("2026-10", {food.id: True})
+
+    def line(month):
+        view = c.budgets.month_view(month)
+        return next(l for s in view.sections for l in s.lines if l.category_id == food.id)
+
+    september = line("2026-09")
+    assert september.available - september.actual == D("3000")  # the one-off party is left out
+    assert line("2026-10").opening_carryover == D("3000")
+
+
+def _refunded_october(c, setup):
+    """August: a 400 jacket. October: 1,000 of food, the jacket refunded (400 back), 2,000 salary."""
+    accounts, cats = setup
+    cib, food = accounts["cib"].id, cats["EXP.PERSONAL.FOOD"]
+    clothes = c.categories.get_by_code("EXP.PERSONAL.ENTERTAINMENT")
+    c.transactions.record_outflow("2026-08-10", cib, "400", clothes.id, counterparty="Shop")
+    c.transactions.record_outflow("2026-09-10", cib, "1000", food.id)
+    c.transactions.record_outflow("2026-10-10", cib, "1000", food.id)
+    c.transactions.record_refund("2026-10-12", cib, "400", clothes.id, counterparty="Shop")
+    c.transactions.record_inflow("2026-10-01", cib, "2000", cats["EXP.WORK.SALARY"].id)
+    return cib
+
+
+def test_12_the_usual_month_counts_refunds_like_money_out(c, setup):
+    """#12: a refund in a past month left that month's usual Money out too high: September is 1,000 of
+    food less a 400 refund, so the usual month is (1,400 + 600) / 2 = 1,000, not 1,200."""
+    from datetime import date
+
+    from lightning.reporting.spending import spending_profile
+    accounts, cats = setup
+    cib, food = accounts["cib"].id, cats["EXP.PERSONAL.FOOD"]
+    fun = c.categories.get_by_code("EXP.PERSONAL.ENTERTAINMENT")
+    c.transactions.record_outflow("2026-08-10", cib, "400", fun.id, counterparty="Shop")
+    for month in ("08", "09", "10"):
+        c.transactions.record_outflow(f"2026-{month}-11", cib, "1000", food.id)
+    c.transactions.record_refund("2026-09-12", cib, "400", fun.id, counterparty="Shop")
+    profile = spending_profile(c.reporting, date(2026, 10, 1), date(2026, 10, 31))
+    assert profile["usual_out"] == D("1000")
+
+
+def test_12_average_payment_is_the_average_of_the_payments(c, setup, monkeypatch):
+    """#12: one 1,000 payment and a 400 refund: the average payment is 1,000, not Money out 600 ÷ 1."""
+    import re
+
+    from fastapi.testclient import TestClient
+
+    from lightning.ui.web import create_app
+    monkeypatch.setenv("LIGHTNING_TODAY", "2026-10-31")
+    _refunded_october(c, setup)
+    html = TestClient(create_app(c)).get("/birdview/expenses?period=month&month=2026-10").text
+    card = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", html[html.index("Average payment"):][:400]))
+    assert "1,000" in card and "600" not in card.split("payment")[1][:40]
+
+
+def test_12_the_money_flow_chart_balances_when_a_refund_outweighs_spending(c, setup, monkeypatch):
+    """#12: the Overview's money-flow chart put more on the right (spending + kept) than on the left."""
+    from datetime import date
+
+    from lightning.ui import charts, visuals
+    _refunded_october(c, setup)
+    seen = {}
+    monkeypatch.setattr(charts, "sankey", lambda sources, targets, hub: seen.update(s=sources, t=targets) or {})
+    first, last = date(2026, 10, 1), date(2026, 10, 31)
+    visuals.money_sankey(c, first, last, c.reporting.cash_flow(first, last))
+    left = sum(s["value"] for s in seen["s"] if s["value"] > 0)
+    right = sum(t["value"] for t in seen["t"] if t["value"] > 0)
+    assert left == right and any(s["label"] == "Refunds" for s in seen["s"])

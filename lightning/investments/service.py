@@ -145,7 +145,10 @@ class InvestmentService:
         The same rule as the figure (lightning/investments/report.py): per transaction, sum only its
         lines in investment accounts; a transfer between two of them nets to zero and is left out, and
         dividends, interest, opening balances and revaluations (VAL) are not money added."""
-        ids = [a.id for a in self.accounts.list(active_only=False) if a.account_type in INVESTMENT_ACCOUNT_TYPES]
+        # Deposit accounts are inside the portfolio too: buying a certificate from the bank is money
+        # added (owner decision 2026-10-04; the same boundary as the figure).
+        ids = [a.id for a in self.accounts.list(active_only=False)
+               if a.account_type in INVESTMENT_ACCOUNT_TYPES or a.account_type == AccountType.DEPOSIT]
         if not ids:
             return []
         marks = ",".join("?" for _ in ids)

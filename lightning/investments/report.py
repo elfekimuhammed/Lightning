@@ -135,13 +135,15 @@ def build_investment_report(db, accounts, assets, reporting, start: str, end: st
             b["units"] += q
             if not b["units"]:
                 b["cost"] = ZERO
-    # Portfolio boundary movement per source transaction: inside-to-inside lines cancel.
+    # Portfolio boundary movement per source transaction: inside-to-inside lines cancel. Deposit
+    # accounts are inside: buying a certificate from the bank is money added (owner decision 2026-10-04).
+    portfolio_ids = investment_account_ids | balance_ids
     for row in rows:
         if (row["date"] < start or row["type"] in ("DIV", "OPN") or row["category_code"] in
                 ("EXP.INVEST.DIVIDEND", "EXP.INVEST.INTEREST")):
             continue
         acc = row["account_id"]
-        if acc in investment_account_ids:
+        if acc in portfolio_ids:
             movements[row["transaction_id"]] += from_e6(row["amount_base_e6"])
     # Normalize transaction deltas: positive means cash/value entered the portfolio.
     new_money = withdrawn = ZERO
