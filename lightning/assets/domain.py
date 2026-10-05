@@ -70,10 +70,24 @@ class FinancialAsset:
     external_symbol: str | None
     active: bool
     notes: str
+    mic: str | None = None         # ISO 10383 venue, e.g. XCAI (the Egyptian Exchange)
+    country: str | None = None     # ISO 3166 alpha-2, e.g. EG
+    market_key: str | None = None  # its instrument in the market file, e.g. EG:COMI
 
     @property
     def label(self) -> str:
         return f"{self.code} · {self.name}"
+
+    @property
+    def ticker(self) -> str:
+        """The symbol after the class prefix: STK:COMI -> COMI."""
+        return self.code.split(":", 1)[-1]
+
+    @property
+    def exchange(self) -> str:
+        """The venue's common name: XCAI -> EGX; '' when it does not trade on an exchange."""
+        from lightning.market.iso import venue_name
+        return venue_name(self.mic)
 
 
 @dataclass(frozen=True)

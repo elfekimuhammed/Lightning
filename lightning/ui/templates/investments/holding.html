@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% from "partials/charts.html" import tone_icon %}
 {% block title %}{{ h.asset_name }}{% endblock %}
-{% block heading %}<div><h1>{{ h.asset_name }}</h1><div class="muted page-subtitle">{{ h.account_label }} · {{ h.asset_class.split(' › ')[-1] }} · {{ h.quantity|units_of(h.unit) }} · as of {{ day }}</div></div>{% endblock %}
+{% block heading %}<div><h1>{{ h.asset_name }}</h1><div class="muted page-subtitle">{{ h.account_label }} · {{ h.asset_class.split(' › ')[-1] }}{% if asset %}{% if asset.exchange %} · {{ asset.ticker }} on {{ asset.exchange }}{% endif %}{% if asset.isin %} · ISIN {{ asset.isin }}{% endif %}{% endif %} · {{ h.quantity|units_of(h.unit) }} · as of {{ day }}</div></div>{% endblock %}
 {% block top_actions %}<a class="btn small" href="/investments">Investments</a>{% endblock %}
 {% block content %}
 {% from "partials/charts.html" import trend, diverging, waterfall %}

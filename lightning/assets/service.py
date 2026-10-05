@@ -15,6 +15,34 @@ from lightning.database.connection import Database
 from .domain import INVESTMENT_KINDS, AssetClass, Exposure, FinancialAsset, Liquidity, Price, PriceSource
 from .repository import AssetRepository
 
+_US_VENUES = {"XNAS", "XNYS", "ARCX", "XASE", "BATS"}
+
+
+def _venue(class_code: str, mic: str, isin: str) -> tuple[str | None, str | None, str | None]:
+    """(mic, country, isin) for an investment, checked against ISO 10383, 3166 and 6166.
+
+    A stock with no exchange given is an EGX listing (XCAI); a fund is Egyptian unless its ISIN says not."""
+    from lightning.market.iso import VENUES, is_isin, is_mic
+    mic = (mic or "").strip().upper()
+    isin = (isin or "").strip().upper().replace(" ", "")
+    if isin and not is_isin(isin):
+        raise ValidationError("That ISIN does not pass its check digit. It has 12 characters, like EGS60121C018.", "isin")
+    if mic and not is_mic(mic):
+        raise ValidationError("An exchange code (MIC) has four letters or digits, like XCAI for EGX.", "mic")
+    if class_code == "STOCK" and not mic:
+        mic = "XCAI"
+    country = VENUES.get(mic, ("", ""))[1] or (isin[:2] if isin else "") or ("EG" if class_code.startswith("FUND") else "")
+    return mic or None, country or None, isin or None
+
+
+def _market_key(ticker: str, mic: str | None, country: str | None) -> str | None:
+    """The asset's instrument in the market file, when it is a listed security: EG:COMI, US:AAPL."""
+    if mic == "XCAI":
+        return f"EG:{ticker}"
+    if mic in _US_VENUES:
+        return f"US:{ticker}"
+    return None
+
 
 class AssetService:
     def __init__(self, db: Database, base_currency: str = "EGP"):
@@ -136,7 +164,7 @@ class AssetService:
 
     # -- creating investments (M3) ----------------------------------------
     def create_investment(self, name: str, class_code: str, symbol: str = "", karat: object = None,
-                          isin: str = "", notes: str = "") -> FinancialAsset:
+                          isin: str = "", notes: str = "", mic: str = "") -> FinancialAsset:
         """A stock, fund, gold or other investment you can hold in an account.
 
         Code = <prefix>:<symbol>, e.g. STK:COMI, FND:AZ-GOLD, GLD:21K. Units and decimals follow the class.
@@ -160,11 +188,13 @@ class AssetService:
         code = validate_asset_code(f"{kind.prefix}:{symbol}")
         if self.repo.get_asset_by_code(code):
             raise ConflictError(f"{code} already exists.", "symbol")
+        venue, country, isin = _venue(class_code, mic, isin) if class_code != "GOLD" else (None, None, None)
         asset = FinancialAsset(
             id=0, code=code, name=name, asset_class_id=self.get_class_by_code(class_code).id,
             currency=self.base_currency, unit=kind.unit, quantity_decimals=kind.quantity_decimals, is_cash=False,
-            exposure=kind.exposure, liquidity=kind.liquidity, purity=purity, isin=(isin or "").strip() or None,
+            exposure=kind.exposure, liquidity=kind.liquidity, purity=purity, isin=isin,
             price_source=PriceSource.MANUAL, external_symbol=None, active=True, notes=(notes or "").strip(),
+            mic=venue, country=country, market_key=_market_key(code.split(":", 1)[1], venue, country),
         )
         with self.db.transaction():
             new_id = self.repo.insert_asset(asset)
@@ -216,7 +246,10 @@ class AssetService:
         return self.get_asset(new_id)
 
     def update_investment(self, asset_id: int, name: str, class_code: str | None = None, isin: str = "",
-                          notes: str = "", active: bool = True) -> FinancialAsset:
+                          notes: str = "", active: bool = True, ticker: str | None = None,
+                          mic: str | None = None) -> FinancialAsset:
+        """Edit an investment: name, class, ISIN, exchange, ticker, notes and whether it is still active.
+        A new ticker renames its code (STK:OLD -> STK:NEW); history stays with the asset, which keeps its id."""
         asset = self.get_asset(asset_id)
         if asset.is_cash:
             raise ValidationError("Currencies cannot be edited here.")
@@ -230,8 +263,24 @@ class AssetService:
             if kind is None:
                 raise ValidationError("Choose what kind of investment this is.", "class_code")
             class_id, exposure = self.get_class_by_code(class_code).id, kind.exposure
-        updated = replace(asset, name=name, asset_class_id=class_id, exposure=exposure,
-                          isin=(isin or "").strip() or None, notes=(notes or "").strip(), active=active)
+        code_class = class_code or self.get_class(class_id).code
+        if code_class == "GOLD":
+            venue, country, clean_isin = asset.mic, asset.country, (isin or "").strip() or None
+        else:
+            venue, country, clean_isin = _venue(code_class, asset.mic or "" if mic is None else mic, isin)
+        code = asset.code
+        if ticker is not None and ticker.strip() and ticker.strip().upper() != asset.ticker:
+            symbol = slug(ticker, 20) or ""
+            if not symbol:
+                raise ValidationError("Enter a short ticker in Latin letters, e.g. COMI.", "ticker")
+            code = validate_asset_code(f"{asset.code.split(':', 1)[0]}:{symbol}")
+            if self.repo.get_asset_by_code(code):
+                raise ConflictError(f"{code} already exists.", "ticker")
+        # A match to the market file stays unless the ticker or exchange changed under it.
+        unchanged = code == asset.code and venue == asset.mic
+        market_key = asset.market_key if unchanged and asset.market_key else _market_key(code.split(":", 1)[1], venue, country)
+        updated = replace(asset, code=code, name=name, asset_class_id=class_id, exposure=exposure, isin=clean_isin,
+                          notes=(notes or "").strip(), active=active, mic=venue, country=country, market_key=market_key)
         with self.db.transaction():
             self.repo.update_asset(updated)
         return self.get_asset(asset_id)

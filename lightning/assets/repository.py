@@ -40,6 +40,9 @@ def _asset(row: sqlite3.Row) -> FinancialAsset:
         external_symbol=row["external_symbol"],
         active=bool(row["active"]),
         notes=row["notes"],
+        mic=row["mic"] if "mic" in row.keys() else None,
+        country=row["country"] if "country" in row.keys() else None,
+        market_key=row["market_key"] if "market_key" in row.keys() else None,
     )
 
 
@@ -82,19 +85,19 @@ class AssetRepository:
         cur = self.db.execute(
             "INSERT INTO financial_assets(code, name, asset_class_id, currency, unit, quantity_decimals, is_cash,"
             " exposure, liquidity, purity_e6, isin, price_source, external_symbol, active, notes, created_at,"
-            " updated_at) VALUES (?,?,?,?,?,?,0,?,?,?,?,?,?,1,?,?,?)",
+            " updated_at, mic, country, market_key) VALUES (?,?,?,?,?,?,0,?,?,?,?,?,?,1,?,?,?,?,?,?)",
             (a.code, a.name, a.asset_class_id, a.currency, a.unit, a.quantity_decimals, a.exposure.value,
              a.liquidity.value, None if a.purity is None else to_e6(a.purity), a.isin, a.price_source.value,
-             a.external_symbol, a.notes, now, now),
+             a.external_symbol, a.notes, now, now, a.mic, a.country, a.market_key),
         )
         return int(cur.lastrowid)
 
     def update_asset(self, a: FinancialAsset) -> None:
         self.db.execute(
-            "UPDATE financial_assets SET name=?, asset_class_id=?, exposure=?, isin=?, external_symbol=?, active=?,"
-            " notes=?, updated_at=? WHERE id=?",
-            (a.name, a.asset_class_id, a.exposure.value, a.isin, a.external_symbol, int(a.active), a.notes,
-             now_iso(), a.id),
+            "UPDATE financial_assets SET code=?, name=?, asset_class_id=?, exposure=?, isin=?, external_symbol=?, active=?,"
+            " notes=?, mic=?, country=?, market_key=?, updated_at=? WHERE id=?",
+            (a.code, a.name, a.asset_class_id, a.exposure.value, a.isin, a.external_symbol, int(a.active), a.notes,
+             a.mic, a.country, a.market_key, now_iso(), a.id),
         )
 
     # prices

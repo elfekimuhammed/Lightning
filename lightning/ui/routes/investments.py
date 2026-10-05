@@ -595,8 +595,9 @@ async def update_trade(request: Request, txn_id: int):
 # -- investments (what you can hold) -------------------------------------------
 def _asset_form(request: Request, values: dict, asset=None, error: LightningError | None = None, status=200):
     c = container(request)
+    from lightning.market.iso import VENUES
     return render(request, "investments/asset_form.html", status_code=status, values=values, asset=asset,
-                  classes=c.assets.investment_classes(), error=error.message if error else "",
+                  classes=c.assets.investment_classes(), venues=VENUES, error=error.message if error else "",
                   error_field=(error.field or "") if error else "",
                   catalogue=instruments() if asset is None else [])
 
@@ -604,17 +605,17 @@ def _asset_form(request: Request, values: dict, asset=None, error: LightningErro
 @router.get("/assets/new")
 async def new_asset(request: Request):
     return _asset_form(request, {"class_code": request.query_params.get("class", "STOCK"), "karat": "21",
-                                 "name": "", "symbol": "", "isin": "", "notes": ""})
+                                 "name": "", "symbol": "", "isin": "", "mic": "", "notes": ""})
 
 
 @router.post("/assets/new")
 async def create_asset(request: Request):
     c = container(request)
     form = await request.form()
-    values = {k: str(form.get(k, "")) for k in ("name", "class_code", "symbol", "karat", "isin", "notes")}
+    values = {k: str(form.get(k, "")) for k in ("name", "class_code", "symbol", "karat", "isin", "mic", "notes")}
     try:
         asset = c.assets.create_investment(values["name"], values["class_code"], values["symbol"], values["karat"],
-                                           values["isin"], values["notes"])
+                                           values["isin"], values["notes"], mic=values["mic"])
     except LightningError as exc:
         return _asset_form(request, values, error=exc, status=400)
     back = request.query_params.get("then", "")
@@ -628,8 +629,8 @@ async def edit_asset(request: Request, asset_id: int):
     asset = c.assets.get_asset(asset_id)
     if asset.is_cash:
         raise NotFoundError("That is a currency, not an investment.")
-    values = {"name": asset.name, "class_code": c.assets.get_class(asset.asset_class_id).code,
-              "notes": asset.notes, "active": "1" if asset.active else ""}
+    values = {"name": asset.name, "class_code": c.assets.get_class(asset.asset_class_id).code, "symbol": asset.ticker,
+              "isin": asset.isin or "", "mic": asset.mic or "", "notes": asset.notes, "active": "1" if asset.active else ""}
     return _asset_form(request, values, asset=asset)
 
 
@@ -638,13 +639,25 @@ async def update_asset(request: Request, asset_id: int):
     c = container(request)
     asset = c.assets.get_asset(asset_id)
     form = await request.form()
-    values = {k: str(form.get(k, "")) for k in ("name", "class_code", "notes", "active")}
+    values = {k: str(form.get(k, "")) for k in ("name", "class_code", "symbol", "isin", "mic", "notes", "active")}
     try:
-        asset = c.assets.update_investment(asset_id, values["name"], values["class_code"], asset.isin or "",
-                                           values["notes"], active=bool(values["active"]))
+        asset = c.assets.update_investment(asset_id, values["name"], values["class_code"], values["isin"],
+                                           values["notes"], active=bool(values["active"]), ticker=values["symbol"],
+                                           mic=values["mic"])
     except LightningError as exc:
         return _asset_form(request, values, asset=asset, error=exc, status=400)
-    return redirect("/investments", f"Saved {asset.name}.")
+    return redirect("/investments/assets", f"Saved {asset.name}.")
+
+
+@router.get("/assets")
+async def list_assets(request: Request):
+    """Financial assets: everything you can hold, with its exchange and ISIN, each one editable."""
+    c = container(request)
+    classes = {k.id: k for k in c.assets.list_classes()}
+    rows = [{"asset": a, "class": classes.get(a.asset_class_id)} for a in c.assets.list_assets()
+            if not a.is_cash and not a.code.startswith(("OTH:ITEM-", "REF:"))]  # not physical items or price references
+    rows.sort(key=lambda r: (not r["asset"].active, r["class"].sort_order if r["class"] else 99, r["asset"].name.casefold()))
+    return render(request, "investments/assets.html", rows=rows)
 
 
 # -- prices ---------------------------------------------------------------------

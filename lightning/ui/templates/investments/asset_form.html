@@ -22,9 +22,18 @@
         {% for c in classes %}<option value="{{ c.code }}" {{ 'selected' if values.class_code == c.code }}>{{ c.name if c.depth == 0 else 'Fund · ' ~ c.name }}</option>{% endfor %}
       </select>
     </div>
-    {% if not asset %}
-    {{ field('symbol', 'Symbol', values, error_field, help='The ticker, e.g. COMI. For gold leave empty.', placeholder='e.g. COMI') }}
-    {% endif %}
+    {{ field('symbol', 'Ticker', values, error_field if error_field != 'ticker' else 'symbol', help='e.g. COMI. For gold leave empty.' if not asset else 'Changing it renames the code; the history stays.', placeholder='e.g. COMI') }}
+  </div>
+  <div class="row">
+    <div class="field {{ 'has-error' if error_field == 'mic' }}">
+      <label for="mic">Exchange</label>
+      <select id="mic" name="mic">
+        <option value="" {{ 'selected' if not values.mic }}>—</option>
+        {% for code, venue in venues.items() %}<option value="{{ code }}" {{ 'selected' if values.mic == code }}>{{ venue[0] }} · {{ code }}</option>{% endfor %}
+      </select>
+      <div class="help">A stock is on EGX unless you choose another. Funds and gold are not listed.</div>
+    </div>
+    {{ field('isin', 'ISIN', values, error_field, help='Optional, 12 characters from your statement, e.g. EGS60121C018.', placeholder='e.g. EGS60121C018') }}
   </div>
   {% if not asset %}
   <div id="karat-field" class="field" {% if values.class_code != 'GOLD' %}hidden{% endif %}>
