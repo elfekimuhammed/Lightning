@@ -12,7 +12,7 @@ Work longer than one sitting, and its files. Stay out of claimed files; remove y
 | Luna, for Codex | 03a restore safety: durable intent and source-copy manifest, Windows marker publication, then explicit deterministic repair. Codex reviews it and owns the restore UI and docs | `lightning/runtime/restore.py`, `lightning/database/promotion_windows.py`, `tests/test_profile_session.py`, `tests/test_database_promotion_windows.py` | 2026-10-05 |
 | Codex | 04a Android build feasibility; blockers in `android/README.md` | `android/`, the Android workflows | 2026-10-04 |
 | Codex | 05a, the remaining sync schemas | `lightning/sync/`, `tests/test_sync_domain.py` | 2026-10-05 |
-| Codex | Financial health limits and read-only page: preferences, reserve target, evaluation, cards and trends | `lightning/planning/health.py`, `lightning/ui/routes/{settings,financial_health}.py`, `lightning/ui/web.py`, `lightning/ui/templates/{base,settings,financial_health}.html`, `lightning/ui/static/style.css`, `tests/test_health_limits.py`, `tests/test_financial_health.py`, `docs/{GLOSSARY,ARCHITECTURE,PROJECT_OVERVIEW}.md`, `CHANGELOG.md`, `NOW.md` | 2026-10-05 |
+| Codex | Financial health limits and read-only page: preferences, shared reserve target, evaluation, cards and trends | `lightning/planning/health.py`, `lightning/budgeting/{domain.py,service.py}`, `lightning/reserves.py`, `lightning/bootstrap.py`, `lightning/ui/{web.py,routes/{settings,reserves,financial_health}.py,templates/{base,reserves,settings/*,financial_health.html},static/style.css}`, `tests/test_health_limits.py`, `tests/test_financial_health.py`, `docs/{GLOSSARY,ARCHITECTURE,PROJECT_OVERVIEW}.md`, `CHANGELOG.md`, `NOW.md` | 2026-10-05 |
 
 ## Messages
 
