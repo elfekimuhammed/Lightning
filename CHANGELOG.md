@@ -10,6 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-05 · Claude: brand guideline 3.23 (from the website): a Features link in the top bar and a features.html page, with a new B06 Feature list block. Part A is unchanged. Website: ten groups, 79 features, one bullet each, no screens.
 - 2026-10-05 · Claude: Investment prices has a Price file card: Fill my prices (every month-end held and the latest close, typed prices still win), Update prices (downloads only changed files, checked before any is kept) and Import a market.zip; a 40 MB upload limit for it in the desktop window (`workflows/market_prices.py`, `market/update.py`, `tests/test_market_prices.py`).
 - 2026-10-05 · Codex: Transferred promotion/recovery to Luna first; Android feasibility and sync protocol are queued in order in `NOW.md`, with package exit evidence and closeout checks.
 - 2026-10-05 · Claude: financial assets say where they trade: exchange as an ISO 10383 MIC (shown as EGX, Nasdaq, NYSE), ISO 3166 country and a checked ISIN (migration `0041_asset_venue.sql`); a Financial assets page lists them and the form edits name, ticker, ISIN, exchange, type and shown (`tests/test_market_assets.py`).
