@@ -6,6 +6,7 @@ This is the only place that knows how modules connect. The UI receives a ready C
 from __future__ import annotations
 
 from dataclasses import dataclass
+from decimal import Decimal
 from pathlib import Path
 
 from lightning.accounts.service import AccountService
@@ -148,6 +149,8 @@ def build(db_path: str | Path | None = None, backup_on_start: bool = False, *,
     position = PositionService(reporting, assets, investments, money_from_others, reserves, planning, deposits)
     forecaster = CashForecaster(planning, reporting, reserves, budgets, categories, position, deposits)
     budgets.reserve_goal_needs = forecaster.goal_needs
+    health = HealthService(planning, position, budgets)
+    forecaster.savings_rate = lambda: health.limit_values()["savings_rate"] or Decimal(0)
     return Container(
         db=db,
         data_dir=data_dir,
@@ -173,6 +176,6 @@ def build(db_path: str | Path | None = None, backup_on_start: bool = False, *,
         planning=planning,
         forecaster=forecaster,
         position=position,
-        health=HealthService(planning, position, budgets),
+        health=health,
         backup_dir=backup_dir,
     )

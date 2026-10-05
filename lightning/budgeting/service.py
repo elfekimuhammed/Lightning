@@ -16,7 +16,7 @@ from lightning.core.money import ZERO, check_places, fmt, from_e6, to_decimal
 from lightning.database.connection import Database
 from lightning.reporting.service import ReportingService
 
-from .domain import (EMERGENCY_BASES, BudgetFillProposal, BudgetFillRow, BudgetLine, BudgetMonth,
+from .domain import (EMERGENCY_BASES, INCOME_FROM_RECURRING, BudgetFillProposal, BudgetFillRow, BudgetLine, BudgetMonth,
                      BudgetSection, EmergencyFund, IncomeAverage, SpendingAverage)
 from .repository import BudgetRepository
 
@@ -100,6 +100,54 @@ class BudgetService:
             if planned is not None and planned < scheduled:
                 rows.append({"category_id": cid, "name": names.get(cid, ""), "planned": planned, "scheduled": scheduled})
         return rows
+
+    def over_twice(self, month: str) -> list[dict]:
+        """Categories over their own plan in both of the two completed months before `month`, with how much
+        more a month they needed (the larger overspend, rounded up to 50) and, when one exists, a category
+        whose plan was left with at least that much in both months to move it from."""
+        start = parse_month(month)[0]
+        earlier = month_of(start - timedelta(days=1))
+        months = (month_of(parse_month(earlier)[0] - timedelta(days=1)), earlier)
+        views = [{line.category_id: line for section in self.month_view(key).sections for line in section.lines}
+                 for key in months]
+        now = {line.category_id: line for section in self.month_view(month).sections for line in section.lines}
+
+        def own(line) -> bool:  # a rule you set, not a line planned from loans or bills
+            return line is not None and line.depth >= 2 and line.direct is not None and line.remaining is not None
+
+        rows = []
+        for cid, line in views[1].items():
+            before = views[0].get(cid)
+            if not (own(line) and own(before) and line.remaining < 0 and before.remaining < 0 and own(now.get(cid))):
+                continue
+            short = max(-line.remaining, -before.remaining)
+            amount = (-(-short // 50) * 50).quantize(Decimal("1"))
+            related = lambda other: other.code.startswith(line.code + ".") or line.code.startswith(other.code + ".")
+            donors = [(min(views[0][d].remaining, other.remaining), other) for d, other in views[1].items()
+                      if d != cid and own(other) and own(views[0].get(d)) and own(now.get(d)) and not related(other)
+                      and min(views[0][d].remaining, other.remaining) >= amount and now[d].direct >= amount]
+            donor = max(donors, key=lambda pair: pair[0])[1] if donors else None
+            rows.append({"category_id": cid, "name": line.name, "months": months, "amount": amount,
+                         "plan": now[cid].direct, "from_id": donor.category_id if donor else None,
+                         "from_name": donor.name if donor else None,
+                         "from_plan": now[donor.category_id].direct if donor else None})
+        return rows
+
+    def move_room(self, month: str, to_id: int, from_id: int, amount: object) -> None:
+        """Move plan from one category to another from `month` on: both keep fixed amounts, the total is unchanged."""
+        value = to_decimal(amount, "amount")
+        if value <= 0:
+            raise ValidationError("Move an amount above zero.", "amount")
+        if to_id == from_id:
+            raise ValidationError("Choose two different categories.", "category")
+        current = self.amounts_for(month, loans=False)
+        give, take = current.get(from_id, (None,))[0], current.get(to_id, (None,))[0]
+        if give is None or take is None:
+            raise ValidationError("Both categories need a plan of their own this month.", "category")
+        if give < value:
+            raise ValidationError(f"{self.categories.get(from_id).name} plans only {fmt(give, 0)} this month.", "amount")
+        with self.db.transaction():
+            self.save_month(month, {to_id: take + value, from_id: give - value})
 
     @request_cached  # has_plan, loan_lines, bill_lines and month_view all ask for it
     def amounts_for(self, month: str, loans: bool = True) -> dict[int, tuple[Decimal | None, bool, int | None, Decimal | None]]:
@@ -199,6 +247,10 @@ class BudgetService:
         manual = self.db.scalar("SELECT value FROM settings WHERE key='budget_manual_monthly_income'")
         if manual:
             return IncomeAverage(to_decimal(manual, "manual_income"), 0, lookback, "", "", True)
+        if self.db.scalar("SELECT value FROM settings WHERE key=?", (INCOME_FROM_RECURRING,)) == "1":
+            scheduled = self.scheduled_income()  # chosen after a raise: plan with what Recurring expects
+            if scheduled is not None:
+                return IncomeAverage(scheduled, 0, lookback, "", "", False, scheduled=True)
         end = parse_month(month)[0] - timedelta(days=1)
         last_month = month_of(end)
         observed = []

@@ -10,7 +10,6 @@ Work longer than one sitting, and its files. Stay out of claimed files; remove y
 |---|---|---|---|
 | Codex | 02d — Code/fault tests pass; ordinary Windows reboot drill remains. Abrupt power-loss behavior is unverified; see Architecture › Promotion durability risk and [OWNER.md](OWNER.md). | `tests/test_database_promotion.py` | 2026-10-06 |
 | Luna, for Codex | 03a restore safety: durable intent and source-copy manifest, Windows marker publication, then explicit deterministic repair. Codex reviews it and owns the restore UI and docs | `lightning/runtime/restore.py`, `lightning/database/promotion_windows.py`, `tests/test_profile_session.py`, `tests/test_database_promotion_windows.py` | 2026-10-05 |
-| Claude (smarter plan) | OWNER.md item 11, all of it | `lightning/planning/health.py`, `lightning/planning/forecast.py`, `lightning/workflows/review.py`, `tests/test_connected_plan.py` | 2026-10-05 |
 
 ## Messages
 

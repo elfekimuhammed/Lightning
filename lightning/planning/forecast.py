@@ -82,6 +82,7 @@ class CashForecaster:
         self.budgets = budgets
         self.categories = categories
         self.deposits = deposits
+        self.savings_rate = lambda: ZERO  # the Savings rate limit (Financial health); bootstrap wires it
 
     # -------------------------------------------------------------- inputs
     def average_income(self, as_of: date) -> tuple[Decimal | None, int]:
@@ -131,7 +132,7 @@ class CashForecaster:
             amount = (missing / months_left).quantize(Decimal("0.01"))
             if amount:
                 result.append({"id": reserve["id"], "name": reserve["name"], "amount": amount,
-                               "due_date": reserve["due_date"]})
+                               "due_date": reserve["due_date"], "missing": missing})
         return result
 
     # -------------------------------------------------------------- forecast
@@ -153,6 +154,8 @@ class CashForecaster:
         # The emergency fund's top-up, as the plan check counts it: what each month must leave for it until full.
         fund = emergency_fund(self.reserves, self.budgets, month_keys[0])
         emergency_gap = max((fund.target or ZERO) - (fund.set_aside or ZERO), ZERO)
+        # Saving needed, as the plan check counts it: the savings target, or goals and the top-up when larger.
+        target = (average * self.savings_rate() / 100).quantize(Decimal("0.01")) if average else ZERO
         for index, key in enumerate(month_keys):
             current = index == 0
             in_month = [p for p in upcoming if p.due_date[:7] == key]
@@ -178,10 +181,11 @@ class CashForecaster:
             goals = self._goal_need(key, day)
             emergency = min(fund.top_up, emergency_gap)
             emergency_gap -= emergency
+            rest = max(target - goals - emergency, ZERO)
             deposit_cash = sum((event.amount for event in deposit_events if event.date[:7] == key), ZERO)
-            closing = opening + income + deposit_cash - commitments - budget_spending - goals - emergency
+            closing = opening + income + deposit_cash - commitments - budget_spending - goals - emergency - rest
             rows.append(ForecastMonth(key, opening, income, estimated, commitments, budget_spending, goals, closing,
-                                      deposit_cash, emergency))
+                                      deposit_cash, emergency, rest))
             opening = closing
 
         next_income = next((p for p in upcoming if p.item.is_income), None)
@@ -201,11 +205,11 @@ class CashForecaster:
                        rows: list[ForecastMonth]) -> tuple[Decimal, list[tuple[str, Decimal]]]:
         """Free cash less what is already promised before the next income.
 
-        Budget and goal needs count for every month until the next income, not just this one: between
+        Budget, goal and savings needs count for every month until the next income, not just this one: between
         jobs, next month's spending still comes out of today's cash. The month the income lands in
         counts for the days before it."""
         bills = sum((p.amount for p in before), ZERO)
-        spending = goals = emergency = ZERO
+        spending = goals = emergency = rest = ZERO
         for index, row in enumerate(rows):
             share = Decimal(1)
             if index:
@@ -220,9 +224,10 @@ class CashForecaster:
             spending += row.budget_spending * share
             goals += row.goal_saving * share
             emergency += row.emergency_saving * share
+            rest += row.target_saving * share
         spending, goals = spending.quantize(Decimal("0.01")), goals.quantize(Decimal("0.01"))
-        emergency = emergency.quantize(Decimal("0.01"))
+        emergency, rest = emergency.quantize(Decimal("0.01")), rest.quantize(Decimal("0.01"))
         parts = [(label("free_cash"), free), (label("payments_before_next_income"), -bills),
                  (label("left_in_plan_after_bills"), -spending), (label("saving_for_goals"), -goals),
-                 (label("emergency_top_up"), -emergency)]
-        return free - bills - spending - goals - emergency, [(name, value) for name, value in parts if value or name == label("free_cash")]
+                 (label("emergency_top_up"), -emergency), (label("savings_target_rest"), -rest)]
+        return free - bills - spending - goals - emergency - rest, [(name, value) for name, value in parts if value or name == label("free_cash")]

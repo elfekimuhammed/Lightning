@@ -20,6 +20,11 @@ def fmt(value, places: int = 0, signed: bool = False) -> str:
     return _fmt(value, places, signed)
 
 
+def _month_name(month: str) -> str:
+    """yyyy-mm as "September 2026"."""
+    return date.fromisoformat(month + "-01").strftime("%B %Y")
+
+
 def _plural(count: int, one: str, many: str) -> str:
     return f"{count} {one if count == 1 else many}"
 
@@ -97,7 +102,47 @@ class ReviewInbox:
                               "detail": f"It saves {fmt(check.planned_savings_rate)}% of income; your target is "
                                         f"{fmt(check.target_percent)}%. Plan {fmt(check.over_by)} {c.base_currency} less.",
                               "href": f"/budget?month={check.month}", "priority": 2})
+        items.extend(self._smarter_plan(on))
         return sorted(items, key=lambda item: item["priority"])
+
+    def _smarter_plan(self, on: date) -> list[dict]:
+        """Where the plan's parts disagree: a goal it cannot reach in time, income above the average, a month
+        that saved less than the target, a category over its plan two months running (owner decision 2026-10-05)."""
+        c, month, cur = self.c, month_of(on), self.c.base_currency
+        found = []
+        for goal in c.health.goal_reach(month):
+            pace = (f"At that pace it is ready in {_month_name(goal['reached'])}." if goal["reached"]
+                    else "Your plan leaves nothing for it.")
+            found.append({"label": f"{goal['name']} will not be ready by its date",
+                          "detail": f"Due {goal['due_date']} · it needs {fmt(goal['need'])} {cur} a month and your plan "
+                                    f"leaves {fmt(goal['can'])} for it. {pace} Give it a later date, or plan less.",
+                          "href": "/plan/reserves", "action": "See reserves", "priority": 2})
+        offer = c.health.raise_offer(month)
+        if offer:
+            found.append({"label": "Your income went up",
+                          "detail": f"Recurring expects {fmt(offer['recurring'])} {cur} a month, {fmt(offer['raise'])} "
+                                    f"more than your average of {fmt(offer['average'])}. Plan with it, or save the difference.",
+                          "href": f"/budget/raise?month={month}", "popup": True, "action": "Choose", "priority": 2})
+        short = c.health.short_month(on)
+        if short:
+            found.append({"label": f"{_month_name(short['month'])} saved less than your target",
+                          "detail": f"It saved {fmt(short['rate'])}% of money in; your target is {fmt(short['limit'])}%, "
+                                    f"{fmt(short['short'])} {cur} more.",
+                          "href": "/financial-health", "action": "See financial health", "priority": 2})
+        for row in c.budgets.over_twice(month):
+            first, second = (_month_name(key).split()[0] for key in row["months"])
+            detail = f"Over its plan in {first} and {second}, by up to {fmt(row['amount'])} {cur}."
+            if row["from_id"]:
+                found.append({"label": f"{row['name']} over plan two months running",
+                              "detail": f"{detail} Move {fmt(row['amount'])} from {row['from_name']}, "
+                                        "which had that left both months.",
+                              "href": f"/budget/move?month={month}&to={row['category_id']}&from={row['from_id']}"
+                                      f"&amount={row['amount']}", "popup": True, "action": "Move it", "priority": 2})
+            else:
+                found.append({"label": f"{row['name']} over plan two months running",
+                              "detail": f"{detail} Raise its plan, or plan less elsewhere.",
+                              "href": f"/budget?month={month}", "action": "Change the plan", "priority": 2})
+        return found
 
     def _statements(self) -> list[dict]:
         """One item per statement left half reviewed, opening at its first waiting row."""

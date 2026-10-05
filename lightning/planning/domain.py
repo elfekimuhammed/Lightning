@@ -130,6 +130,7 @@ class ForecastMonth:
     closing: Decimal
     deposit_cash: Decimal = ZERO
     emergency_saving: Decimal = ZERO  # Emergency fund top-up: what the plan check asks the month to leave for it
+    target_saving: Decimal = ZERO     # Rest of savings target: what the target asks beyond goals and the top-up
 
     @property
     def money_in(self) -> Decimal:
@@ -137,7 +138,7 @@ class ForecastMonth:
 
     @property
     def money_out(self) -> Decimal:
-        return self.commitments + self.budget_spending + self.goal_saving + self.emergency_saving
+        return self.commitments + self.budget_spending + self.goal_saving + self.emergency_saving + self.target_saving
 
     @property
     def net(self) -> Decimal:

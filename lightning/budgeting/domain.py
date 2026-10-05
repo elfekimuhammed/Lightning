@@ -170,6 +170,7 @@ class SpendingAverage:
 EMERGENCY_BASES = {"income": "average_monthly_income", "spending": "average_monthly_spending"}
 
 
+INCOME_FROM_RECURRING = "budget_income_from_recurring"  # setting: "1" plans with Recurring income, not the average
 EMERGENCY_TOP_UP_MONTHS = 24  # owner request 2026-10-05: reach six months within two years
 
 

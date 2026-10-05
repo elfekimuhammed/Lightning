@@ -14,6 +14,7 @@ from lightning.categories.domain import CategoryFamily, Movement, Scope
 from lightning.core.money import ZERO, to_decimal
 
 from lightning.investments.report import build_investment_report, saved_and_invested
+from lightning.budgeting.domain import INCOME_FROM_RECURRING
 from lightning.planning.health import PlanCheck
 
 from .. import charts, keynotes
@@ -506,6 +507,8 @@ async def save_budget_settings(request: Request):
         parse_month(carry_month)
         categories = [int(x) for x in form.getlist("income_category") if str(x).isdigit()]
         exclusions = [int(x) for x in form.getlist("exclusion_category") if str(x).isdigit()]
+        if "income_from_recurring_shown" in form:  # nor this one (it is offered after a raise)
+            c.settings.set(INCOME_FROM_RECURRING, "1" if form.get("income_from_recurring") == "1" else "0")
         if "emergency_basis" in form:  # the older budget settings page has no such choice
             c.budgets.set_emergency_basis(str(form.get("emergency_basis")))
         c.settings.set("budget_income_categories", json.dumps(sorted(set(categories))))
@@ -867,3 +870,63 @@ async def update_global_carryover(request: Request):
     if request.headers.get("X-Requested-With") == "fetch":
         return Response("Saved", status_code=204)
     return redirect(f"/budget?month={month}", "Carryover setting updated.")
+
+
+@router.get("/raise")
+async def raise_offer(request: Request):
+    """Income above the average: plan with it, save the difference, or keep the average (Needs you)."""
+    c = container(request)
+    offer = c.health.raise_offer(str(request.query_params.get("month", month_of(today()))))
+    if offer is None:
+        return redirect("/budget", "Your plan already counts your income.")
+    return render(request, "budget_raise.html", offer=offer)
+
+
+@router.post("/raise")
+async def take_raise(request: Request):
+    c = container(request)
+    form = await request.form()
+    month = str(form.get("month", month_of(today())))
+    try:
+        parse_month(month)
+        message = c.health.take_raise(str(form.get("choice", "")), month)
+    except LightningError as exc:
+        return redirect(f"/budget?month={month}", exc.message)
+    return redirect(f"/budget?month={month}", " ".join(x for x in (message, c.health.plan_note(month)) if x))
+
+
+@router.get("/move")
+async def move_room_popup(request: Request):
+    """A category over plan two months running: move room to it from one that had room (Needs you)."""
+    c = container(request)
+    query = request.query_params
+    month = str(query.get("month", month_of(today())))
+    try:
+        parse_month(month)
+        to, source = c.categories.get(int(query.get("to", ""))), c.categories.get(int(query.get("from", "")))
+        amount = to_decimal(str(query.get("amount", "")), "amount")
+    except (LightningError, ValueError):
+        return redirect(f"/budget?month={month}", "Choose two categories and an amount.")
+    plans = c.budgets.amounts_for(month, loans=False)
+    to_plan, from_plan = plans.get(to.id, (None,))[0], plans.get(source.id, (None,))[0]
+    if to_plan is None or from_plan is None:
+        return redirect(f"/budget?month={month}", "Both categories need a plan of their own this month.")
+    return render(request, "budget_move.html", month=month, to=to, source=source, amount=amount,
+                  to_plan=to_plan, from_plan=from_plan)
+
+
+@router.post("/move")
+async def move_room(request: Request):
+    c = container(request)
+    form = await request.form()
+    month = str(form.get("month", month_of(today())))
+    try:
+        parse_month(month)
+        to_id, from_id = int(str(form.get("to", ""))), int(str(form.get("from", "")))
+        c.budgets.move_room(month, to_id, from_id, str(form.get("amount", "")))
+    except ValueError:
+        return redirect(f"/budget?month={month}", "Choose two categories.")
+    except LightningError as exc:
+        return redirect(f"/budget?month={month}", exc.message)
+    names = c.categories.get(to_id).name, c.categories.get(from_id).name
+    return redirect(f"/budget?month={month}", f"Moved plan from {names[1]} to {names[0]} from {month} on.")

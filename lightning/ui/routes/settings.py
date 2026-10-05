@@ -7,6 +7,7 @@ from decimal import Decimal
 from lightning.core.errors import LightningError
 from lightning.investments.domain import DEFAULT_SALE_FACTOR
 from lightning.core.money import ZERO
+from lightning.budgeting.domain import INCOME_FROM_RECURRING
 from lightning.core.dates import fmt_date, today
 
 from ..web import container, redirect, render
@@ -87,6 +88,7 @@ async def settings_page(request: Request):
                   income_months=c.settings.get("budget_income_months") or "3",
                   emergency_basis=c.budgets.emergency_basis(),
                   manual_income=c.settings.get("budget_manual_monthly_income") or "",
+                  income_from_recurring=c.settings.get(INCOME_FROM_RECURRING) == "1",
                   suggestion_percent=c.settings.get("budget_track_suggestion_percent") or "20",
                   suggestion_fixed=c.settings.get("budget_track_suggestion_fixed") or "",
                   ai_period=ai_period, ai_preview=ai_preview, ai_prompt=ai_prompt,

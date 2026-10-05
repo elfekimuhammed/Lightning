@@ -10,6 +10,8 @@ from lightning.core.errors import ValidationError
 from lightning.core.money import ZERO, check_places, fmt, to_decimal
 from lightning.database.settings import SettingsStore
 
+from lightning.budgeting.domain import INCOME_FROM_RECURRING
+
 from .domain import PlanKind, per_year
 from .forecast import emergency_fund
 
@@ -139,6 +141,9 @@ LIMIT_LABELS = {
 }
 LIMIT_PREFIX = "financial_health_limit_"
 EMERGENCY_FUND_MONTHS = Decimal("6")
+RAISE_SHARE = Decimal("1.05")  # recurring income at least 5% above the average is a raise worth planning with
+RAISE_DECLINED = "income_raise_declined"         # the recurring amount whose offer was declined
+
 NO_LIMIT_SUPPORTED = frozenset({"debt_to_cash", "debt_to_net_worth"})
 
 
@@ -271,6 +276,77 @@ class HealthService:
         if fixed > room:
             text += f". Bills and loan payments alone come to {fmt(fixed, 0)} a month, more than that"
         return text + "."
+
+    def goal_reach(self, month: str | None = None) -> list[dict]:
+        """Dated goals the month's plan cannot reach by their date. What the plan leaves to save (or, without
+        a plan, income less bills and loan payments) goes to goals first, earliest date first; a goal that
+        gets less than it needs says when it is reached at that pace (None: the plan leaves nothing for it)."""
+        month = month or month_of(today())
+        check = self.plan_check(month)
+        if check.income is None:
+            return []
+        start = parse_month(month)[0]
+        left = (check.plan_saves if check.plan_saves is not None
+                else check.income - self.bills_a_month() - self.loans_a_month(start))
+        late = []
+        for goal in sorted(self.budgets.reserve_goal_needs(month), key=lambda row: row["due_date"]):
+            share = max(min(goal["amount"], left), ZERO)
+            left -= share
+            if share >= goal["amount"]:
+                continue
+            reached = None
+            if share > 0:
+                months = int(-(-goal["missing"] // share))  # whole months, rounded up
+                index = start.year * 12 + start.month - 1 + months - 1
+                reached = f"{index // 12}-{index % 12 + 1:02d}"
+            late.append({"id": goal["id"], "name": goal["name"], "due_date": goal["due_date"], "need": goal["amount"],
+                         "can": share, "reached": reached})
+        return late
+
+    def raise_offer(self, month: str | None = None) -> dict | None:
+        """Recurring income above Average monthly income (a raise not in the average yet): what planning with
+        it would give, and the savings target that keeps today's plan and saves the difference. None when the
+        average is set by hand, already is the recurring income, or the offer was declined at this amount."""
+        month = month or month_of(today())
+        average = self.budgets.income_average(month)
+        recurring = self.planning.income_a_month()
+        if average.manual or average.scheduled or not average.amount or recurring is None:
+            return None
+        if recurring < average.amount * RAISE_SHARE or self.settings.get(RAISE_DECLINED) == format(recurring, "f"):
+            return None
+        check = self.plan_check(month)
+        rate = check.target_percent
+        keep = ((average.amount * rate / 100 + recurring - average.amount) / recurring * 100).quantize(Decimal("0.1"))
+        return {"month": month, "recurring": recurring, "average": average.amount, "raise": recurring - average.amount,
+                "room": recurring - max(recurring * rate / 100, check.needs), "rate": rate, "keep_rate": keep}
+
+    def take_raise(self, choice: str, month: str | None = None) -> str:
+        """Act on the raise offer: plan with the recurring income, save the difference, or keep the average."""
+        offer = self.raise_offer(month)
+        if offer is None:
+            raise ValidationError("There is no new income to plan with.", "choice")
+        if choice == "plan":
+            self.settings.set(INCOME_FROM_RECURRING, "1")
+            return f"The plan now counts your recurring income, {fmt(offer['recurring'], 0)} a month."
+        if choice == "save":
+            self.set_limit("savings_rate", format(offer["keep_rate"], "f"))
+            return f"Savings target raised to {fmt(offer['keep_rate'], 1)}%: the plan stays and saves the difference."
+        if choice == "keep":
+            self.settings.set(RAISE_DECLINED, format(offer["recurring"], "f"))
+            return "The plan keeps counting your average income."
+        raise ValidationError("Choose what to do with the new income.", "choice")
+
+    def short_month(self, day: date | None = None) -> dict | None:
+        """The last completed month, when it saved less than the Savings rate limit (Financial health's own
+        Savings rate). None without money in that month or when it met the target."""
+        day = day or today()
+        end = parse_month(month_of(day))[0] - timedelta(days=1)
+        flow = self.reporting.cash_flow(parse_month(month_of(end))[0], end)
+        limit = self.limit_values()["savings_rate"]
+        if flow.savings_rate is None or not flow.inflows or limit is None or flow.savings_rate >= limit:
+            return None
+        return {"month": month_of(end), "rate": flow.savings_rate, "limit": limit,
+                "short": (flow.inflows * limit / 100 - flow.net).quantize(Decimal("0.01"))}
 
     def fit_fill(self, proposal):
         """Fill this month stops at Most you can plan: rows stay ticked only while they fit in the room the

@@ -157,8 +157,8 @@ _TABLE = [
     ("period_growth", "Growth", "Net gain or loss as a share of what the portfolio started the period with, plus money added.",
      "Net gain or loss ÷ (Portfolio value at the start + Money added)"),
     # ------------------------------------------------------------ cash planning
-    ("safe_to_spend", "Safe to spend", "Free cash after what is promised before your next income. An estimate. Budget left to spend, Saving for goals and Emergency fund top-up count for every month until that income (only the days before it in the month it lands), so a long gap between pays is covered.",
-     "Free cash − Bills and loan payments before next income − Budget left to spend − Saving for goals − Emergency fund top-up"),
+    ("safe_to_spend", "Safe to spend", "Free cash after what is promised before your next income. An estimate. Budget left to spend, Saving for goals, Emergency fund top-up and Rest of savings target count for every month until that income (only the days before it in the month it lands), so a long gap between pays is covered.",
+     "Free cash − Bills and loan payments before next income − Budget left to spend − Saving for goals − Emergency fund top-up − Rest of savings target"),
     ("bills_inside_the_plan", "Bills inside the plan",
      "This month's scheduled bills, due or upcoming, in a category that has a budget. They are part of that budget."),
     ("left_in_plan_after_bills", "Budget left to spend",
@@ -167,6 +167,9 @@ _TABLE = [
     ("payments_before_next_income", "Bills and loan payments before next income",
      "Scheduled bills, subscriptions and loan payments that are not due yet, up to your next income."),
     ("saving_for_goals", "Saving for goals", "What dated reserve goals still need this month, spread over the months left."),
+    ("savings_target_rest", "Rest of savings target", "What the Savings target asks a month beyond Saving for goals and "
+     "Emergency fund top-up (never below zero), so Safe to spend never counts what you mean to save (owner "
+     "decision 2026-10-05).", "Savings target − Saving for goals − Emergency fund top-up"),
 ]
 
 P, WYO, CF, BL = ("lightning.planning.position.Position", "lightning.planning.domain.WhatYouOwe",
@@ -237,6 +240,7 @@ _SOURCES = {
     "left_in_plan_after_bills": (BOTH, "lightning.planning.domain.ForecastMonth.budget_spending"),
     "payments_before_next_income": (PLAN, f"{FC}._safe_to_spend"),
     "saving_for_goals": (PLAN, f"{FC}._goal_need"),
+    "savings_target_rest": (PLAN, f"{FC}.forecast"),
 }
 FIGURES: dict[str, Figure] = {
     row[0]: Figure(*row, layer=_SOURCES[row[0]][0], function=_SOURCES[row[0]][1]) for row in _TABLE}
