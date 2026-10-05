@@ -1,6 +1,6 @@
 # Architecture
 
-**Last updated 2026-10-04 · app 0.5.0b1** (`lightning/__init__.py`, matched by `pyproject.toml`).
+**Last updated 2026-10-05 · app 0.5.0b1** (`lightning/__init__.py`, matched by `pyproject.toml`).
 
 This file holds the technical side: stack, module boundaries, data model and every calculation contract. The product story is in [Project Overview](PROJECT_OVERVIEW.md), the visual system in the [Brand guideline](BRAND_GUIDELINE.html), and term definitions in the [Glossary](GLOSSARY.md).
 
@@ -79,6 +79,7 @@ core/                 dates, money, identifiers, posting rules; no app dependenc
 |---|---|
 | `lightning/core` | Money/date parsing, refs/codes, errors, posting rules; `figures.py` names every figure with its formula, layer and function |
 | `lightning/database` | Connection, migrations, seed, backups, audit, settings |
+| `lightning/fx.py` | Precise FX observation storage and dated rate lookup with source compatibility and stale-rate metadata |
 | `lightning/accounts` + `workflows/accounts.py` | Account rules and atomic account/opening-balance workflows |
 | `lightning/assets` | Asset classes, financial assets, local EGX catalogue, prices and quote adapters |
 | `lightning/categories` | Activity taxonomy and archived/pickable category rules |
@@ -142,6 +143,8 @@ CD purchases use a different boundary: a `DEPOSIT` account is a bank-specific ce
 - **Balances and analytics:** holdings, cash balances, budget actuals, ownership shares, gains, and net worth are calculated from posted ledger effects, owner IDs, and dated prices.
 
 The read-only Integrity checks compare gross account values with asset-class reports, verify `owned net worth + money held for others = gross account values` overall and per account, compare categorized outflows with reported spending and budget actuals, verify reserves against owned liquid cash, and close the month-to-date net-worth bridge. Missing valuations mark affected comparisons incomplete rather than green. These checks diagnose report/subledger mismatches; they never adjust posted entries.
+
+FX observations are stored separately from ledger entries with pair direction, effective date, fetch time, source, source identifier, original quote, normalized rate and optional bid/ask at 12-decimal rate precision. Manual rates win for the same pair and date. Cross rates use observations from one source identifier on one effective date. An observation more than seven days old is flagged stale; a current valuation must remain unavailable until a fresh rate exists.
 
 IDs are internal relational keys. Stable refs identify transactions; readable codes identify master records internally and for imports/search. Ordinary screens show names, not account codes. Source CSV spellings are retained during review; possible Counterparty matches are suggestions, never silent merges. Users can correct fields inline and post rows with safe incomplete metadata.
 

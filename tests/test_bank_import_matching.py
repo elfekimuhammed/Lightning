@@ -173,7 +173,7 @@ def test_upgrading_an_older_profile_keeps_its_import_rows(tmp_path, monkeypatch)
     db.conn.commit()
 
     monkeypatch.setattr(migrator, "MIGRATIONS_DIR", migrator._BUNDLED_MIGRATIONS_DIR)
-    assert migrator.migrate(db) == ["0040_import_links (APPLIED)"]
+    assert migrator.migrate(db) == ["0040_import_links (APPLIED)", "0041_fx_rate_observations (APPLIED)"]
     row = db.one("SELECT batch_id,account_id,bank_reference,status FROM bank_import_rows WHERE id=11")
     assert dict(row) == {"batch_id": 3, "account_id": 7, "bank_reference": "R-1", "status": "REVIEW"}
     db.close()

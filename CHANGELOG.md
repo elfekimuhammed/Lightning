@@ -10,6 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-05 · Codex: Added precise FX observation storage and dated inverse/cross-rate lookup with provenance, manual-rate priority, and stale-rate detection.
 - 2026-10-05 · Codex: Added the bundled 17-currency catalog, currency-specific minor-unit helpers, and profile settings rules for LCY and enabled currencies; documented LCY/FCY and precision.
 - 2026-10-05 · Codex: Defined Budget fill proposal rules in Architecture: month-only base limits, scheduled Bills/Subscriptions, separate reserve goals, and explicit existing-limit/parent-ceiling conflicts.
 - 2026-10-05 · Claude: Project Overview › *Compared with the best budgeting apps* now names the Egyptian apps and links Competition; rows 1, 2, 3, 6 and 11 point to the Upcoming projects that answer them.
