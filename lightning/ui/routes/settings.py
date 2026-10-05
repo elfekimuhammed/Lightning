@@ -63,6 +63,8 @@ async def settings_page(request: Request):
     if section == "targets":
         from .investments import target_plan
         plan = target_plan(c)
+    health_limits = c.health.limit_settings() if section == "financial-health" else []
+    health_fund = c.health.emergency_fund(today()) if section == "financial-health" else None
     ai_period = ai_preview = ai_prompt = None
     if section == "general":
         try:
@@ -90,7 +92,29 @@ async def settings_page(request: Request):
                   ceiling_percent=c.settings.get("budget_monthly_ceiling_percent") or "100",
                   ai_period=ai_period, ai_preview=ai_preview, ai_prompt=ai_prompt,
                   ai_month=month_of(ai_period.end) if ai_period else month_of(today()),
-                  current_month=month_of(today()))
+                  current_month=month_of(today()), health_limits=health_limits,
+                  health_fund=health_fund)
+
+
+@router.post("/financial-health-limit")
+async def save_financial_health_limit(request: Request):
+    c = container(request)
+    form = await request.form()
+    key = str(form.get("key", ""))
+    try:
+        if form.get("action") == "reset":
+            c.health.restore_limit(key)
+            message = "Restored the default limit."
+        else:
+            c.health.set_limit(key, str(form.get("value", "")), form.get("no_limit") == "1")
+            message = "Financial health limit saved."
+    except LightningError as exc:
+        if request.headers.get("X-Requested-With") == "fetch":
+            return Response(exc.message, status_code=400, media_type="text/plain; charset=utf-8")
+        return redirect("/settings?section=financial-health", exc.message)
+    if request.headers.get("X-Requested-With") == "fetch":
+        return Response(status_code=204)
+    return redirect("/settings?section=financial-health", message)
 
 
 @router.post("/privacy")

@@ -281,13 +281,14 @@ class PositionService:
                           else "The position immediately before this period is missing a required valuation.")
         return closing.net_worth - opening.net_worth - self.reporting.opening_balances_between(start_day, end_day), ""
 
-    def at(self, as_of: date | str | None = None) -> Position:
-        return self._at(fmt_date(parse_date(as_of) if as_of is not None else today()))
+    def at(self, as_of: date | str | None = None, *, match_payments: bool = True) -> Position:
+        """Read a position; read-only profiles can skip today's automatic payment matching."""
+        return self._at(fmt_date(parse_date(as_of) if as_of is not None else today()), match_payments)
 
     @request_cached
-    def _at(self, text: str) -> Position:
+    def _at(self, text: str, match_payments: bool = True) -> Position:
         day = parse_date(text)
-        if day == today():
+        if match_payments and day == today():
             # Settle bills that a posted transaction already paid before counting what is due.
             self.planning.match_payments(day)
         wealth = self.reporting.net_worth(text)

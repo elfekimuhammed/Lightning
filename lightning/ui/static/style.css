@@ -664,6 +664,47 @@ body.popup-open { overflow: hidden; }
 @media(max-width:760px){.budget-summary-grid>div:last-child{padding:0 0 12px;border-right:0;border-bottom:1px solid var(--border)}.action-menu>div{right:auto;left:0}}
 @media(max-width:760px){.account-list-summary .budget-summary-grid{grid-template-columns:1fr}}
 @media(max-width:1100px){.birdview-detail{grid-template-columns:1fr}}
+.health-intro{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin:0 0 18px;color:var(--muted)}
+.health-intro p{margin:0}
+.health-as-of{display:flex;align-items:center;gap:8px;flex-wrap:wrap;color:var(--text);font-size:13px}
+.health-as-of input{min-height:var(--control-h,40px);padding:7px 10px;border:1px solid var(--border);border-radius:var(--control-radius,8px);background:var(--surface);color:var(--text)}
+.health-group{margin:22px 0}
+.health-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.health-grid-two{grid-template-columns:repeat(2,minmax(0,1fr))}
+.health-card{min-height:190px}
+.health-status{font-size:12px;font-weight:650;color:var(--pos)}
+.health-status.muted{color:var(--muted)}
+.health-outside .health-status{color:var(--neg)}
+.health-outside{border-inline-start:3px solid var(--neg)}
+.health-within{border-inline-start:3px solid var(--pos)}
+.health-numbers{margin:5px 0;color:var(--muted);font-size:12px}
+.health-numbers summary{cursor:pointer;color:var(--accent);font-weight:600}
+.health-numbers dl{margin:8px 0 0}
+.health-numbers dl>div{display:flex;justify-content:space-between;gap:12px;padding:5px 0;border-bottom:1px solid var(--border)}
+.health-numbers dt{color:var(--muted)}
+.health-numbers dd{margin:0;text-align:right;color:var(--text);font-variant-numeric:tabular-nums}
+.health-link{margin-top:auto;font-size:12px;font-weight:650}
+.health-trend-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.health-trend{min-width:0}
+.health-trend-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.health-trend-head h3{margin:0;font-size:16px}
+.health-trend-head a{font-size:12px}
+.health-trend .chart-spark{height:86px;width:100%;margin:10px 0}
+.health-limit-note{margin:22px 0}
+.health-limit-list{display:grid;gap:8px}
+.health-limit-row{display:grid;grid-template-columns:minmax(180px,1fr) minmax(130px,180px) auto minmax(200px,auto);align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
+.health-limit-name{display:grid;gap:3px;font-weight:650}
+.health-limit-name small{color:var(--muted);font-size:11px;font-weight:400}
+.health-limit-input{display:flex;align-items:center;gap:8px}
+.health-limit-input input{width:100%;min-width:0}
+.health-limit-input i{font-size:12px;color:var(--muted);font-style:normal}
+.health-limit-none{display:flex;align-items:center;gap:6px;white-space:nowrap;font-size:12px}
+.health-limit-actions{display:flex;gap:6px;flex-wrap:wrap}
+.health-target-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.health-target-summary>div{display:grid;gap:4px}
+.health-target-summary b{font-variant-numeric:tabular-nums}
+@media(max-width:1050px){.health-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.health-limit-row{grid-template-columns:minmax(0,1fr) minmax(120px,180px) auto}.health-limit-actions{grid-column:1/-1}}
+@media(max-width:760px){.health-grid,.health-grid-two,.health-trend-grid{grid-template-columns:1fr}.health-limit-row{grid-template-columns:1fr 1fr;gap:8px}.health-limit-name{grid-column:1/-1}.health-limit-actions{grid-column:1/-1}.health-target-summary{grid-template-columns:1fr}.health-card{min-height:0}}
 /* Shared product workspace: compact, comparable facts and clear next steps. */
 body { background: var(--surface-2); }
 .side { background: var(--surface); border-right-color: var(--border); backdrop-filter: none; padding: 22px 16px; }

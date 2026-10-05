@@ -36,7 +36,7 @@ def _minus(text: str) -> str:
 # Reporting pages show money rounded to the nearest unit; stored values, entry fields and registers
 # keep their decimals. A template that asks for places explicitly (an input's value) gets them.
 _ROUND_MONEY: contextvars.ContextVar[bool] = contextvars.ContextVar("round_money", default=False)
-REPORTING_TEMPLATES = ("dashboard/", "budget.html", "birdview/", "investments/index.html", "investments/holding.html",
+REPORTING_TEMPLATES = ("dashboard/", "budget.html", "birdview/", "investments/index.html", "investments/holding.html", "financial_health.html",
                        "investments/_targets.html", "investments/targets.html", "investments/report_detail.html",
                        "planning/plan.html", "settings/index.html")
 
@@ -248,7 +248,7 @@ class RequestCache:
 
 
 def create_app(c: Container | None = None) -> FastAPI:
-    from .routes import accounts, bank_imports, birdview, budget, categories, counterparties, dashboard, deposits, exports, integrity, investments, physical_items, planning, reserves, search, settings, transactions
+    from .routes import accounts, bank_imports, birdview, budget, categories, counterparties, dashboard, deposits, exports, financial_health, integrity, investments, physical_items, planning, reserves, search, settings, transactions
 
     app = FastAPI(title="Lightning", docs_url=None, redoc_url=None, openapi_url=None)
     app.state.container = c
@@ -300,7 +300,7 @@ def create_app(c: Container | None = None) -> FastAPI:
         return JSONResponse({"value": format(value.normalize(), "f")})
 
     app.mount("/static", StaticFiles(directory=str(UI_DIR / "static")), name="static")
-    for module in (dashboard, accounts, deposits, bank_imports, birdview, transactions, budget, investments, physical_items, planning, reserves, integrity, counterparties, categories, settings, search, exports):
+    for module in (dashboard, financial_health, accounts, deposits, bank_imports, birdview, transactions, budget, investments, physical_items, planning, reserves, integrity, counterparties, categories, settings, search, exports):
         app.include_router(module.router)
 
     @app.exception_handler(NotFoundError)

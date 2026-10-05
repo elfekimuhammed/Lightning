@@ -8,7 +8,7 @@
   <link rel="icon" type="image/svg+xml" href="/static/lightning-mark.svg">
   <link rel="stylesheet" href="/static/fonts/fonts.css">
   {# Bricolage Grotesque and Manrope (guideline A06) are bundled in fonts.css: no outside request, in every mode. #}
-  <link rel="stylesheet" href="/static/style.css?v=72">
+  <link rel="stylesheet" href="/static/style.css?v=73">
 </head>
 <body data-base-currency="{{ base }}">
 <div class="shell">
@@ -22,7 +22,7 @@
       {% set hidden = privacy_on(request) %}<button type="button" class="side-privacy" data-privacy-toggle aria-pressed="{{ 'true' if hidden else 'false' }}" aria-label="{{ 'Show amounts' if hidden else 'Hide amounts' }}" title="{{ 'Show amounts' if hidden else 'Hide amounts' }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path class="side-privacy-off" d="M4 4l16 16"/></svg></button>
     </div>
     <nav class="nav" aria-label="Main navigation">
-      {% for href, label, icon in [('/', 'Overview', 'overview'), ('/budget', 'Budget', 'budget'), ('/investments', 'Investments', 'investments'), ('/birdview/expenses', 'Expense analysis', 'expenses'), ('/plan', 'Cash planning', 'reserves'), ('/money-from-others', 'Held for others', 'people'), ('/settings', 'Settings', 'settings')] %}
+      {% for href, label, icon in [('/', 'Overview', 'overview'), ('/financial-health', 'Financial health', 'health'), ('/budget', 'Budget', 'budget'), ('/investments', 'Investments', 'investments'), ('/birdview/expenses', 'Expense analysis', 'expenses'), ('/plan', 'Cash planning', 'reserves'), ('/money-from-others', 'Held for others', 'people'), ('/settings', 'Settings', 'settings')] %}
         {% set active = (path == '/' if href == '/' else (path == '/birdview' if href == '/birdview' else path.startswith(href))) or (href == '/settings' and (path.startswith('/counterparties') or path.startswith('/categories') or path.startswith('/checks'))) %}
         <a href="{{ href }}" class="{{ 'active' if active }}" {% if active %}aria-current="page"{% endif %}>
           <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24">
@@ -31,7 +31,7 @@
             {% elif icon == 'birdview' %}<path d="m12 3 9 5-9 5-9-5zM3 12l9 5 9-5M3 16l9 5 9-5"/>
             {% elif icon == 'investments' %}<path d="M3 20V4M3 20h18M6 16l5-5 4 3 5-8"/><path d="M16 6h4v4"/>
             {% elif icon == 'expenses' %}<path d="M5 3h14v18l-3-2-4 2-4-2-3 2zM8 8h8M8 12h8M8 16h5"/>
-            {% elif icon == 'reserves' %}<path d="M12 2 4 6v6c0 5 3.5 8 8 10 4.5-2 8-5 8-10V6z"/><path d="m9 12 2 2 4-4"/>
+            {% elif icon in ('reserves', 'health') %}<path d="M12 2 4 6v6c0 5 3.5 8 8 10 4.5-2 8-5 8-10V6z"/><path d="m9 12 2 2 4-4"/>
             {% elif icon == 'people' %}<circle cx="9" cy="8" r="3"/><path d="M3 20c0-3 2.5-5 6-5s6 2 6 5M17 5a3 3 0 0 1 0 6M18 15c2 .4 3 2 3 5"/>
             {% else %}<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1"/>{% endif %}
           </svg></span><span>{{ label }}</span>

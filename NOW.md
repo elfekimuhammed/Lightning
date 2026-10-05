@@ -13,7 +13,6 @@ Work longer than one sitting, and its files. Stay out of claimed files; remove y
 | Codex | 04a Android build feasibility; blockers in `android/README.md` | `android/`, the Android workflows | 2026-10-04 |
 | Codex | 05a, the remaining sync schemas | `lightning/sync/`, `tests/test_sync_domain.py` | 2026-10-05 |
 | Claude (market data) | Price updating: cloud collector, source whitelist, one market file; financial assets get an exchange (ISO MIC) and a Financial assets page to edit them | `docs/proposals/market_data.md`, `lightning/market/`, `tools/market/`, `lightning/workflows/market_prices.py`, `lightning/assets/`, a new migration, the asset and prices routes in `lightning/ui/routes/investments.py`, `lightning/ui/templates/investments/{prices,asset_form,assets}.html`, `.github/workflows/market-data.yml`, `tests/test_market_*.py` | 2026-10-05 |
-| Codex | Financial health limits and read-only page: preferences, shared reserve target, evaluation, cards and trends | `lightning/planning/health.py`, `lightning/budgeting/{domain.py,service.py}`, `lightning/reserves.py`, `lightning/bootstrap.py`, `lightning/ui/{web.py,routes/{settings,reserves,financial_health}.py,templates/{base,reserves,settings/*,financial_health.html},static/style.css}`, `tests/test_health_limits.py`, `tests/test_financial_health.py`, `docs/{GLOSSARY,ARCHITECTURE,PROJECT_OVERVIEW}.md`, `CHANGELOG.md`, `NOW.md` | 2026-10-05 |
 
 ## Messages
 
