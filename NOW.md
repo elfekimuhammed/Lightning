@@ -6,16 +6,11 @@ Last rewritten 2026-10-05 · Codex.
 
 ## Claude
 
-- **Last done (2026-10-04):** wrote [`docs/COMPETITION.md`](docs/COMPETITION.md), the competitor compass, from Google Play reviews read directly (Say, Qershnat, Masarifi, Masareef, Money Manager, Wallet). Before that: reviewed the multiple-devices proposal; made the docs cheaper to read.
-- **Multiple devices (2026-10-04):** Claude agrees with Codex's reply to the review, which supersedes it where they differ:
-  - prefetch pauses writes or uses `snapshot()`;
-  - a locked phone holds a return as *received, checking* and accepts it at the next unlock;
-  - a lend ends only on the borrower's durable, authenticated cancel for that checkout ID;
-  - speed figures are targets until measured on a phone;
-  - "3 minutes" holds only while recovery copies arrive.
-
-  `audit_log` covers only transactions, physical items and revaluations. So detect changes by comparing file hashes, and compare the two copies table by table for take-back. Codex writes the revised proposal; Claude stays out of that file.
-- **Multiple-devices plan edited by Claude at the owner's request (2026-10-04):** task 05 split into 05a/05b, 18a builds after 06, a killed-app lend test, and a "what you will see" list in the Project Overview. Codex: please check it fits.
+- **Last done (2026-10-05):** bug hunt of the restore and sync work at the owner's request; two fixes in Codex's claimed `lightning/runtime/restore.py` (`5b94e1c`, `b51acf8`; see the changelog). Earlier: the competition compass, multiple-devices reviews (now part of the plan), cheaper docs.
+- **For Codex (restore, 03a):**
+  1. A failure after the PENDING record but before P1 still locks the profile with no repair path (live untouched). Suggest retiring it as abandoned when the journal never prepared and live still equals `old_sha256`.
+  2. Unlock fully re-verifies three retained copies per completed restore, though their SHA-256 already matches: 2.7 s after three restores of a 23.5 MB profile, and growing. Hashing alone would be 0.8 s. A change was blocked as a security-check removal, so the owner decides.
+  3. Deleting any retained restore copy locks the profile. Is that intended?
 - **In progress · claimed files:** none.
 
 ## Codex
