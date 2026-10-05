@@ -6,13 +6,14 @@ from lightning.accounts.domain import DEFAULT_CASH_CLASS, OFFERED_TYPES, TYPE_LA
 from lightning.core.dates import fmt_date, parse_date, today
 from lightning.core.errors import LightningError, ValidationError
 from lightning.core.money import to_decimal
+from lightning.currencies import CURRENCIES
 
 from . import register
 from ..web import container, redirect, render
 
 router = APIRouter(prefix="/accounts")
 
-FIELDS = ("name", "account_type", "institution", "last4", "notes", "opening_balance", "opening_balance_date", "owner_id")
+FIELDS = ("name", "account_type", "institution", "currency", "last4", "notes", "opening_balance", "opening_balance_date", "owner_id")
 
 
 def _form_context(request: Request, values: dict, account=None, error: LightningError | None = None):
@@ -25,6 +26,8 @@ def _form_context(request: Request, values: dict, account=None, error: Lightning
         groups={t.value: c.assets.display_name(c.assets.get_class_by_code(DEFAULT_CASH_CLASS[t]).id)
                 for t in OFFERED_TYPES},
         counterparties=c.counterparties.list_active(),
+        enabled_currencies=c.settings.enabled_currencies,
+        currency_catalog=tuple(item for item in CURRENCIES if item.code in c.settings.enabled_currencies),
         error=error.message if error else "",
         error_field=(error.field or "") if error else "",
     )
@@ -46,7 +49,8 @@ async def list_accounts(request: Request):
 @router.get("/new")
 async def new_account(request: Request):
     values = {"account_type": request.query_params.get("type", "BANK"), "opening_balance": "",
-              "opening_balance_date": today().isoformat(), "institution": "", "owner_id": ""}
+              "opening_balance_date": today().isoformat(), "institution": "", "owner_id": "",
+              "currency": container(request).base_currency}
     return render(request, "accounts/form.html", **_form_context(request, values))
 
 
@@ -62,7 +66,8 @@ async def create_account(request: Request):
             name=values["name"], account_type=values["account_type"],
             opening_date="1900-01-01", opening_balance=values["opening_balance"],
             opening_balance_date=values["opening_balance_date"],
-            institution=values["institution"], last4=values["last4"], notes=values["notes"],
+            institution=values["institution"], currency=values["currency"],
+            last4=values["last4"], notes=values["notes"],
             owner_id=int(values["owner_id"]) if values["owner_id"].isdigit() else None,
         )
     except LightningError as exc:
@@ -319,6 +324,7 @@ async def edit_account(request: Request, account_id: int):
         "opening_date": a.opening_date, "opening_balance": str(c.account_flows.opening_of(a)),
         "opening_balance_date": opening_txn.date if opening_txn else (first_activity or today().isoformat()),
         "institution": a.institution or "",
+        "currency": a.currency,
         "last4": a.last4 or "",
         "notes": a.notes,
         "owner_id": str(next((line.owner_id for line in opening_txn.lines if line.owner_id is not None), ""))

@@ -6,8 +6,10 @@ Only POSTED transactions count. All sums are over exact integer (_e6) columns.
 
 from __future__ import annotations
 
+from lightning.core.dates import parse_date
 from lightning.core.memo import request_cached
 from lightning.database.connection import Database
+from lightning.fx import FxRateRepository
 
 POSTED = "JOIN transactions t ON t.id = le.transaction_id AND t.status = 'POSTED'"
 CASH_ONLY = "le.asset_id IN (SELECT id FROM financial_assets WHERE is_cash = 1)"
@@ -95,7 +97,7 @@ class ReportQueries:
             "a.currency AS account_currency,le.asset_id,f.code AS asset_code,f.name AS asset_name,f.currency AS currency,"
             "t.ref,t.type,t.description,t.counterparty,t.notes,le.category_id,c.code AS category_code,"
             "c.name AS category_name,c.direction,c.income_class,c.family,le.effect,le.quantity_e6,"
-            "le.unit_price_e6,le.amount_e6,le.amount_base_e6,le.fx_rate_e6,le.memo,le.owner_id,"
+            "le.unit_price_e6,le.amount_e6,le.amount_base_e6,le.fx_rate_e6,le.fx_rate_e12,le.memo,le.owner_id,"
             "EXISTS(SELECT 1 FROM ledger_entries custody JOIN categories cc ON cc.id=custody.category_id "
             "WHERE custody.transaction_id=t.id AND cc.code='EXP.SYSTEM.CUSTODY' AND custody.effect='INFLOW') "
             "AS has_custody_entry "
@@ -252,7 +254,19 @@ class ReportQueries:
             " ORDER BY date DESC, CASE source WHEN 'MANUAL' THEN 0 ELSE 1 END LIMIT 1",
             (base, quote, as_of),
         )
-        return dict(row) if row else None
+        choices = []
+        if row:
+            age = (parse_date(as_of) - parse_date(row["date"])).days
+            choices.append({"rate_e12": row["rate_e6"] * 1_000_000, "date": row["date"],
+                            "source": row["source"], "stale": age > 7})
+        observation = FxRateRepository(self.db).get(base, quote, as_of)
+        if observation:
+            choices.append({"rate_e12": int(observation.rate * 1_000_000_000_000),
+                            "date": observation.effective_date, "source": observation.source,
+                            "stale": observation.stale})
+        if not choices:
+            return None
+        return max(choices, key=lambda item: (item["date"], item["source"] == "MANUAL"))
 
     def opening_total(self, start: str, end: str) -> int:
         """Owned opening balances and existing holdings recorded between two dates, in base e6."""

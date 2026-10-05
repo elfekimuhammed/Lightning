@@ -18,17 +18,20 @@
       <div class="help">Shown under <b id="group_name">{{ groups.get(values.account_type, '') }}</b>.</div>
     </div>
     <div class="field">
-      <label>Currency</label>
-      <input type="text" value="{{ account.currency if account else base }}" disabled>
-      <div class="help">Accounts are kept in your base currency for now.</div>
+      <label for="account-currency">Currency</label>
+      {% if account %}<input id="account-currency" type="text" value="{{ account.currency }}" disabled>
+      <div class="help">An account keeps its currency.</div>
+      {% else %}<input id="account-currency" name="currency" type="text" list="enabled-currency-list" value="{{ values.currency or base }}" autocomplete="off" required>
+      <datalist id="enabled-currency-list">{% for item in currency_catalog %}<option value="{{ item.code }}" label="{{ item.name }}">{% endfor %}</datalist>
+      <div class="help">Type and pick an enabled currency.</div>{% endif %}
     </div>
   </div>
-  <section class="card" id="opening-balance-section" {% if values.account_type == 'DEPOSIT' %}hidden style="display:none;background:var(--surface-2);box-shadow:none;margin:14px 0"{% else %}style="background:var(--surface-2);box-shadow:none;margin:14px 0"{% endif %}>
+  <section id="opening-balance-section" {% if values.account_type == 'DEPOSIT' %}hidden{% endif %}>
     <h2>Starting balance</h2>
     <p class="muted small">Enter what this account held when you started tracking it. This sets the opening balance; it is not counted as income. Leave it blank if you’ll import or enter the opening activity separately.</p>
     <div class="row">
       <div class="field {{ 'has-error' if error_field == 'opening_balance' }}">
-        <label for="opening_balance">Balance ({{ account.currency if account else base }})</label>
+        <label for="opening_balance">Balance (<span data-account-currency>{{ account.currency if account else values.currency or base }}</span>)</label>
         <input id="opening_balance" name="opening_balance" type="text" inputmode="decimal" value="{{ values.opening_balance or '' }}" placeholder="0.00">
       </div>
       <div class="field {{ 'has-error' if error_field == 'opening_balance_date' }}">
@@ -71,6 +74,11 @@
   const type = document.getElementById('account_type');
   const help = document.getElementById('account-type-help');
   if (!type || !help) return;
+  const currency = document.getElementById('account-currency');
+  const currencyLabels = document.querySelectorAll('[data-account-currency]');
+  currency?.addEventListener('input', () => currencyLabels.forEach(node => {
+    node.textContent = currency.value.toUpperCase() || '{{ base }}';
+  }));
   const update = () => {
     if (type.value === 'DEPOSIT') help.textContent = 'A bank-specific CD portfolio holds certificates, not cash. Enter the bank under Institution, then record each CD purchase from a bank or cash account.';
     else if (type.value === 'PHYSICAL_ASSET') help.textContent = 'Gold purity belongs to the gold holding itself, so choose its karat when you add the gold investment. This account can hold physical assets.';

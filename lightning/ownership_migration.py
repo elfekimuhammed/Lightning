@@ -21,8 +21,8 @@ def post_cash_owner_adjustment(db, day: str, owner: str, owner_id: int, account_
     txn_id = int(cursor.lastrowid)
     for line_no, owner_line, quantity in ((1, owner_id, amount_e6), (2, None, -amount_e6)):
         db.execute("""INSERT INTO ledger_entries(transaction_id,line_no,date,account_id,asset_id,quantity_e6,
-                     unit_price_e6,amount_e6,fx_rate_e6,amount_base_e6,effect,category_id,memo,cleared,owner_id)
-                     VALUES(?,?,?,?,?,?,1000000,?,1000000,?,'INTERNAL',NULL,'Ownership attribution',0,?)""",
+                     unit_price_e6,amount_e6,fx_rate_e6,fx_rate_e12,amount_base_e6,effect,category_id,memo,cleared,owner_id)
+                     VALUES(?,?,?,?,?,?,1000000,?,1000000,1000000000000,?,'INTERNAL',NULL,'Ownership attribution',0,?)""",
                    (txn_id, line_no, date, account_id, cash_asset_id, quantity, quantity, quantity, owner_line))
     return txn_id
 
@@ -71,11 +71,12 @@ def migrate_legacy_ownership(db):
                                (line["quantity_e6"] - sign*take, line["amount_e6"] - owned_amount,
                                 line["amount_base_e6"] - owned_base, line["id"]))
                     db.execute("""INSERT INTO ledger_entries(transaction_id,line_no,date,account_id,asset_id,
-                                 quantity_e6,unit_price_e6,amount_e6,fx_rate_e6,amount_base_e6,effect,
+                                 quantity_e6,unit_price_e6,amount_e6,fx_rate_e6,fx_rate_e12,amount_base_e6,effect,
                                  category_id,memo,cleared,owner_id)
-                                 VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                                 VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                                (line["transaction_id"], line["line_no"]+10000, line["date"], line["account_id"],
                                 line["asset_id"], sign*take, line["unit_price_e6"], owned_amount, line["fx_rate_e6"],
+                                line["fx_rate_e12"],
                                 owned_base, line["effect"], line["category_id"], line["memo"], line["cleared"],
                                 party["id"]))
                 remaining -= take

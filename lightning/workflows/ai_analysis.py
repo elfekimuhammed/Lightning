@@ -173,7 +173,7 @@ class AIAnalysisService:
                     row["category_code"] or "", category_paths.get(category_id, "") if category_id else "",
                     row["effect"], from_e6(row["quantity_e6"]), from_e6(row["unit_price_e6"]),
                     from_e6(row["amount_e6"]), from_e6(row["amount_base_e6"]), c.base_currency,
-                    from_e6(row["fx_rate_e6"]), row["memo"]))
+                    Decimal(row["fx_rate_e12"]) / Decimal(1_000_000_000_000), row["memo"]))
         investment_headers = ["Checkpoint ID", "Scope", "Date", "Checkpoint reason", "Status", "Asset ID",
             "Asset", "Account ID", "Account", "Units", "Price", "Currency", "EGP value" if c.base_currency == "EGP" else f"Value ({c.base_currency})",
             "EGP return" if c.base_currency == "EGP" else f"Return ({c.base_currency})", "Price source",

@@ -21,8 +21,10 @@ from lightning.core.errors import NotFoundError, ValidationError
 from lightning.core.ledger import Effect, PostingLine, validate_posting
 from lightning.core.money import ONE, ZERO, check_places, fmt, to_decimal
 from lightning.core.refs import DOC_LABELS, DocType, format_ref, ref_prefix
+from lightning.currencies import minor_units, round_amount
 from lightning.database.audit import AuditLog
 from lightning.database.connection import Database
+from lightning.fx import FxRateRepository
 
 from .domain import Transaction, TxnFilter, TxnSource, TxnStatus, TxnSummary
 from .repository import TransactionRepository
@@ -48,6 +50,7 @@ class TransactionService:
         self.counterparties = CounterpartyService(db)
         self.audit = audit
         self.base_currency = base_currency
+        self.fx_rates = FxRateRepository(db)
 
     # ======================================================================
     # Recording
@@ -88,7 +91,7 @@ class TransactionService:
         if category.code == "EXP.SYSTEM.CUSTODY":
             raise ValidationError("Money held for others cannot be recorded as an expense refund.", "category")
         line = PostingLine.cash(account.id, asset.id, value, Effect.OUTFLOW, category.id,
-                                memo="Refund", fx_rate=self._fx(account), owner_id=owner_id)
+                                memo="Refund", fx_rate=self._fx(account, day), owner_id=owner_id)
         return self._create(DocType.IN, day, [line], description or "Refund", counterparty, notes, source)
 
     def record_transfer(self, date: str, from_account_id: int, to_account_id: int, amount,
@@ -131,9 +134,9 @@ class TransactionService:
         custody = self.categories.get_by_code("EXP.SYSTEM.CUSTODY")
         lines = [
             PostingLine.cash(account.id, cash.id, -value, Effect.OUTFLOW, category.id,
-                             memo="Paid externally", fx_rate=self._fx(account)),
+                             memo="Paid externally", fx_rate=self._fx(account, day)),
             PostingLine.cash(account.id, cash.id, value, Effect.INFLOW, custody.id,
-                             memo=f"Held for {person['name']}", fx_rate=self._fx(account), owner_id=person["id"]),
+                             memo=f"Held for {person['name']}", fx_rate=self._fx(account, day), owner_id=person["id"]),
         ]
         return self._save_ownership_document(day, account, lines, value,
                                              f"Ownership: expense paid by {person['name']}",
@@ -154,10 +157,10 @@ class TransactionService:
         cash = self.assets.cash_asset(account.currency)
         value = self._positive_amount(amount, cash.quantity_decimals)
         lines = [
-            PostingLine.cash(account.id, cash.id, -value, Effect.INTERNAL, fx_rate=self._fx(account),
+            PostingLine.cash(account.id, cash.id, -value, Effect.INTERNAL, fx_rate=self._fx(account, day),
                              memo=f"Ownership from {from_owner['name'] if from_owner else 'you'}",
                              owner_id=from_owner["id"] if from_owner else None),
-            PostingLine.cash(account.id, cash.id, value, Effect.INTERNAL, fx_rate=self._fx(account),
+            PostingLine.cash(account.id, cash.id, value, Effect.INTERNAL, fx_rate=self._fx(account, day),
                              memo=f"Ownership to {to_owner['name'] if to_owner else 'you'}",
                              owner_id=to_owner["id"] if to_owner else None),
         ]
@@ -167,6 +170,7 @@ class TransactionService:
 
     def _save_ownership_document(self, day, account, lines, amount, description, counterparty,
                                  notes, txn_id=None):
+        lines = self._normalize_base_amounts(lines)
         validate_posting(lines)
         for line in lines:
             self.accounts.require_usable(line.account_id)
@@ -281,7 +285,7 @@ class TransactionService:
         if category.code == "EXP.SYSTEM.CUSTODY":
             raise ValidationError("Money held for others cannot be recorded as an expense refund.", "category")
         line = PostingLine.cash(account.id, asset.id, value, Effect.OUTFLOW, category.id,
-                                memo="Refund", fx_rate=self._fx(account), owner_id=owner_id)
+                                memo="Refund", fx_rate=self._fx(account, day), owner_id=owner_id)
         return self._update(current, day, [line], description or "Refund", counterparty, notes)
 
     def _register_kind(self, amount: object, category_id: int | None, other_account_id: int | None):
@@ -351,6 +355,7 @@ class TransactionService:
             self.accounts.require_usable(account_id)
         self._validate_deposit_lines(lines, doc_type)
         day = self._check_date(date)
+        lines = self._normalize_base_amounts(lines)
         validate_posting(lines)
         self._validate_owner_balances(lines, day, force_brokerage_cash=doc_type == DocType.BUY)
         return self._create(doc_type, day, lines, description, counterparty, notes, source)
@@ -365,6 +370,7 @@ class TransactionService:
             self.accounts.require_usable(account_id)
         self._validate_deposit_lines(lines, current.type)
         day = self._check_date(date)
+        lines = self._normalize_base_amounts(lines)
         validate_posting(lines)
         self._validate_owner_balances(lines, day, exclude_txn_id=txn_id,
                                      force_brokerage_cash=current.type == DocType.BUY)
@@ -455,7 +461,8 @@ class TransactionService:
                     self.void(existing_id, "Opening balance set to zero")
                 return None
             lines = [PostingLine.cash(account.id, asset.id, amount, Effect.OPENING,
-                                      fx_rate=self._fx(account), memo="Opening balance", owner_id=owner_id)]
+                                      fx_rate=self._fx(account, day), memo="Opening balance", owner_id=owner_id)]
+            lines = self._normalize_base_amounts(lines)
             validate_posting(lines)
             self._validate_owner_balances(lines, day, exclude_txn_id=existing_id)
             if existing_id:
@@ -558,7 +565,7 @@ class TransactionService:
         account = self.accounts.require_usable(account_id)
         asset = self.assets.cash_asset(account.currency)
         lines = [PostingLine.cash(account_id, asset.id, -amount, Effect.OUTFLOW, category_id,
-                                 fx_rate=self._fx(account)) for category_id, amount in parsed]
+                                 fx_rate=self._fx(account, parse_date(current.date))) for category_id, amount in parsed]
         return self._update(current, parse_date(current.date), lines, current.description, current.counterparty,
                             current.notes)
 
@@ -777,7 +784,8 @@ class TransactionService:
                                            allow_inactive=allow_inactive_category)
         signed = value if movement == Movement.INFLOW else -value
         effect = Effect.INFLOW if movement == Movement.INFLOW else Effect.OUTFLOW
-        lines = [PostingLine.cash(account.id, asset.id, signed, effect, category.id, fx_rate=self._fx(account))]
+        lines = [PostingLine.cash(account.id, asset.id, signed, effect, category.id, fx_rate=self._fx(account, day))]
+        lines = self._normalize_base_amounts(lines)
         validate_posting(lines)
         return day, lines
 
@@ -799,9 +807,10 @@ class TransactionService:
         asset = self.assets.cash_asset(src.currency)
         value = self._positive_amount(amount, asset.quantity_decimals)
         lines = [
-            PostingLine.cash(src.id, asset.id, -value, Effect.INTERNAL, fx_rate=self._fx(src), memo="Transfer out"),
-            PostingLine.cash(dst.id, asset.id, value, Effect.INTERNAL, fx_rate=self._fx(dst), memo="Transfer in"),
+            PostingLine.cash(src.id, asset.id, -value, Effect.INTERNAL, fx_rate=self._fx(src, day), memo="Transfer out"),
+            PostingLine.cash(dst.id, asset.id, value, Effect.INTERNAL, fx_rate=self._fx(dst, day), memo="Transfer in"),
         ]
+        lines = self._normalize_base_amounts(lines)
         validate_posting(lines)
         return day, lines
 
@@ -911,10 +920,29 @@ class TransactionService:
             raise ValidationError("Enter an amount greater than zero.", "amount")
         return value
 
-    def _fx(self, account: Account) -> Decimal:
+    def _fx(self, account: Account, day) -> Decimal:
         if account.currency == self.base_currency:
             return ONE
-        raise ValidationError(f"Exchange rates for {account.currency} arrive in M4.", "currency")
+        observation = self.fx_rates.get(account.currency, self.base_currency, day.isoformat())
+        if observation is None:
+            raise ValidationError(f"No dated {account.currency} to {self.base_currency} exchange rate is saved for this entry.", "currency")
+        if observation.stale:
+            raise ValidationError(f"The {observation.source} exchange rate for {account.currency} is stale. Save a rate no more than seven days before this entry.", "currency")
+        return observation.rate
+
+    def _normalize_base_amounts(self, lines: list[PostingLine]) -> list[PostingLine]:
+        base_places = minor_units(self.base_currency)
+        normalized = []
+        for line in lines:
+            asset = self.assets.get_asset(line.asset_id)
+            amount_places = asset.quantity_decimals if asset.is_cash else minor_units(asset.currency)
+            normalized.append(replace(
+                line,
+                amount_base=round_amount(line.amount * line.fx_rate, self.base_currency),
+                base_places=base_places,
+                amount_places=amount_places,
+            ))
+        return normalized
 
     @staticmethod
     def _snapshot(t: Transaction) -> dict:

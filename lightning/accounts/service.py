@@ -14,6 +14,7 @@ from lightning.core.dates import fmt_date, parse_date, today
 from lightning.core.errors import ConflictError, NotFoundError, ValidationError
 from lightning.core.memo import in_request, request_cached
 from lightning.database.connection import Database
+from lightning.database.settings import SettingsStore
 
 from .domain import DEFAULT_CASH_CLASS, OFFERED_TYPES, TYPE_LABELS, Account, AccountType, suggest_code
 from .repository import AccountRepository
@@ -97,12 +98,12 @@ class AccountService:
         self._ensure_unique_name(name)
         account_type = self._type(account_type)
         currency = (currency or self.base_currency).strip().upper()
-        self.assets.cash_asset(currency)  # currency must exist
-        if currency != self.base_currency and not self.allow_foreign:
+        if currency not in SettingsStore(self.db).enabled_currencies:
             raise ValidationError(
-                f"For now accounts must be in {self.base_currency}. Other currencies arrive with FX rates (M4).",
+                f"Enable {currency} in Settings before creating an account. Foreign-currency posting requires a dated FX rate (M4).",
                 "currency",
             )
+        self.assets.cash_asset(currency)  # currency must exist
         institution = (institution or "").strip()
         code = validate_account_code(code) if code and code.strip() else self.unique_code(
             institution, name, account_type, currency

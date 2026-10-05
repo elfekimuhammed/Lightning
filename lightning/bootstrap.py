@@ -74,6 +74,16 @@ class Container:
     def base_currency(self) -> str:
         return self.settings.base_currency
 
+    def set_base_currency(self, code: str) -> None:
+        """Change the reporting currency before the first transaction and refresh wired services."""
+        self.settings.set_base_currency(code)
+        base = self.settings.base_currency
+        self.assets.base_currency = base
+        self.accounts.base_currency = base
+        self.transactions.base_currency = base
+        self.reporting.base_currency = base
+        self.reporting.valuer.base = base
+
     def backup_now(self) -> Path | None:
         return backup(self.db, self.backup_dir or self.data_dir / "backups")
 

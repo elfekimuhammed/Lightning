@@ -46,11 +46,11 @@ class MoneyFromOthersService:
                         (line["quantity_e6"]-sign*take, line["amount_e6"]-owned_amount,
                          line["amount_base_e6"]-owned_base, line["id"]))
         self.db.execute("""INSERT INTO ledger_entries(transaction_id,line_no,date,account_id,asset_id,
-                     quantity_e6,unit_price_e6,amount_e6,fx_rate_e6,amount_base_e6,effect,category_id,memo,
-                     cleared,owner_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                     quantity_e6,unit_price_e6,amount_e6,fx_rate_e6,fx_rate_e12,amount_base_e6,effect,category_id,memo,
+                     cleared,owner_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                         (line["transaction_id"], line["line_no"]+10000, line["date"], line["account_id"],
                          line["asset_id"], sign*take, line["unit_price_e6"], owned_amount,
-                         line["fx_rate_e6"], owned_base, line["effect"], line["category_id"], line["memo"],
+                         line["fx_rate_e6"], line["fx_rate_e12"], owned_base, line["effect"], line["category_id"], line["memo"],
                          line["cleared"], party["id"]))
         self._validate_owner_partition(account_id, asset_id, party["id"])
 

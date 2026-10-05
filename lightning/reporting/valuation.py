@@ -13,6 +13,7 @@ from decimal import Decimal
 
 from lightning.assets.domain import FinancialAsset
 from lightning.core.money import ONE, from_e6
+from lightning.currencies import round_amount
 
 from .queries import ReportQueries
 
@@ -50,7 +51,7 @@ class Valuer:
                 reference_date = reference["date"] if reference else None
                 if manual and (reference_date is None or manual["date"] >= reference_date):
                     unit = (Decimal(manual["total_value_e6"]) / Decimal(manual["quantity_e6"]))
-                    value = (quantity * unit).quantize(Decimal("0.000001"))
+                    value = round_amount(quantity * unit, self.base)
                     return Valuation(value, unit, manual["date"], "", "MANUAL")
                 if reference:
                     grams = Decimal(item["net_gold_grams_e6"]) / Decimal(1_000_000)
@@ -63,7 +64,7 @@ class Valuer:
                     if fx is None:
                         return Valuation(None, price, reference_date,
                                          f"No {asset.currency}/{self.base} rate on or before {day}")
-                    value = (quantity * price * fx).quantize(Decimal("0.000001"))
+                    value = round_amount(quantity * price * fx, self.base)
                     return Valuation(value, price, reference_date, "", f"{asset.unit} · {reference['source']} reference")
                 held_qty = Decimal(0)
                 held_cost = Decimal(0)
@@ -83,7 +84,7 @@ class Valuer:
                         held_qty += line_qty
                 if held_qty > 0 and held_cost >= 0:
                     unit_cost = held_cost / held_qty
-                    return Valuation((quantity * unit_cost).quantize(Decimal("0.000001")), unit_cost,
+                    return Valuation(round_amount(quantity * unit_cost, self.base), unit_cost,
                                      cost_date, "", "COST")
                 return Valuation(None, None, None, f"No gold reference or recorded cost for {asset.name}")
             found = self._price(asset, day)
@@ -93,7 +94,7 @@ class Valuer:
         fx = self._fx(asset.currency, day)
         if fx is None:
             return Valuation(None, price, price_date, f"No {asset.currency}/{self.base} rate on or before {day}")
-        return Valuation((quantity * price * fx).quantize(Decimal("0.000001")), price, price_date, "", source)
+        return Valuation(round_amount(quantity * price * fx, self.base), price, price_date, "", source)
 
     def _price(self, asset: FinancialAsset, day: str) -> tuple[Decimal, str, str] | None:
         """Newest of: a price you entered, the last buy/sell price. A typed price wins on the same day.
@@ -114,4 +115,6 @@ class Valuer:
         if currency == self.base:
             return ONE
         row = self.q.latest_fx(currency, self.base, day)
-        return from_e6(row["rate_e6"]) if row else None
+        if not row or row["stale"]:
+            return None
+        return Decimal(row["rate_e12"]) / Decimal(1_000_000_000_000)

@@ -7,6 +7,7 @@ user-renamed or deleted categories are not recreated on each application start.
 from __future__ import annotations
 
 from lightning.core.dates import now_iso
+from lightning.currencies import CURRENCIES, minor_units
 
 from .connection import Database
 from .settings import DEFAULTS, SettingsStore
@@ -33,14 +34,7 @@ ASSET_CLASSES: list[tuple[str, str]] = [
 ]
 
 # (code, name, unit) — one cash asset per currency
-CASH_ASSETS: list[tuple[str, str]] = [
-    ("EGP", "Egyptian Pound"),
-    ("USD", "US Dollar"),
-    ("EUR", "Euro"),
-    ("GBP", "British Pound"),
-    ("SAR", "Saudi Riyal"),
-    ("AED", "UAE Dirham"),
-]
+CASH_ASSETS: list[tuple[str, str]] = [(item.code, item.name) for item in CURRENCIES]
 
 # (code, name, extra) — activity family and reimbursement rules inherit from the parent
 CATEGORIES: list[tuple[str, str, dict]] = [
@@ -118,8 +112,8 @@ def seed(db: Database) -> None:
             db.execute(
                 "INSERT INTO financial_assets(code, name, asset_class_id, currency, unit, quantity_decimals,"
                 " is_cash, exposure, liquidity, price_source, created_at, updated_at)"
-                " VALUES (?,?,?,?,?,2,1,'CASH','IMMEDIATE','NONE',?,?)",
-                (code, name, cash_class, currency, currency, now, now),
+                " VALUES (?,?,?,?,?,?,1,'CASH','IMMEDIATE','NONE',?,?)",
+                (code, name, cash_class, currency, currency, minor_units(currency), now, now),
             )
 
         gold_class = db.scalar("SELECT id FROM asset_classes WHERE code = 'GOLD'")

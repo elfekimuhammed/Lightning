@@ -5,6 +5,10 @@ from fastapi import Response
 from decimal import Decimal
 
 from lightning.core.errors import LightningError
+from lightning.core.dates import parse_date
+from lightning.core.money import to_decimal
+from lightning.currencies import CURRENCIES, currency
+from lightning.fx import FxRateRepository
 from lightning.investments.domain import DEFAULT_SALE_FACTOR
 from lightning.core.money import ZERO
 from lightning.core.dates import fmt_date, today
@@ -90,7 +94,43 @@ async def settings_page(request: Request):
                   ceiling_percent=c.settings.get("budget_monthly_ceiling_percent") or "100",
                   ai_period=ai_period, ai_preview=ai_preview, ai_prompt=ai_prompt,
                   ai_month=month_of(ai_period.end) if ai_period else month_of(today()),
-                  current_month=month_of(today()))
+                  current_month=month_of(today()), base=c.base_currency,
+                  currency_catalog=CURRENCIES, enabled_currencies=c.settings.enabled_currencies,
+                  has_financial_entries=bool(c.db.scalar("SELECT 1 FROM transactions LIMIT 1")))
+
+
+@router.post("/currencies")
+async def save_currency_settings(request: Request):
+    c = container(request)
+    try:
+        form = await request.form()
+        action = str(form.get("action") or "")
+        if action == "manual-rate":
+            base = currency(str(form.get("base") or "")).code
+            quote = currency(str(form.get("quote") or "")).code
+            day = parse_date(str(form.get("effective_date") or ""), "effective_date")
+            if day > today():
+                raise LightningError("A rate date cannot be in the future.", "effective_date")
+            rate = to_decimal(str(form.get("rate") or ""), "rate")
+            FxRateRepository(c.db).save(effective_date=day.isoformat(), base=base, quote=quote,
+                                        rate=rate, source="MANUAL", original_quote=str(form.get("rate") or ""))
+            return redirect("/settings", f"Saved {base} to {quote} rate for {fmt_date(day)}.")
+        code = currency(str(form.get("currency") or "")).code
+        enabled = set(c.settings.enabled_currencies)
+        if action == "base":
+            c.set_base_currency(code)
+            message = f"Reporting currency set to {code}."
+        elif action == "enable":
+            c.settings.set_enabled_currencies(enabled | {code})
+            message = f"{code} enabled."
+        elif action == "disable":
+            c.settings.set_enabled_currencies(enabled - {code})
+            message = f"{code} disabled."
+        else:
+            raise LightningError("Choose a currency action.")
+    except LightningError as exc:
+        return redirect("/settings", exc.message)
+    return redirect("/settings", message)
 
 
 @router.post("/ai-analysis")

@@ -13,6 +13,7 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from lightning.core.dates import now_iso, parse_date
 from lightning.core.errors import ValidationError
+from lightning.core.money import decimal_places
 from lightning.currencies import CURRENCIES, currency
 from lightning.database.connection import Database
 from lightning.database.settings import SettingsStore
@@ -84,14 +85,16 @@ class FxRateRepository:
             raise TypeError("FX rates must be Decimal values, not floats.")
         value = Decimal(rate)
         if base == quote or not value.is_finite() or value <= 0:
-            raise ValueError("An FX observation needs distinct currencies and a positive finite rate.")
+            raise ValidationError("Choose two different currencies and enter a positive rate.", "rate")
+        if decimal_places(value) > 12:
+            raise ValidationError("Enter an exchange rate to at most 12 decimal places.", "rate")
         if source not in {"CBE", "FRANKFURTER", "WISE", "MANUAL"}:
-            raise ValueError("FX source is not in the adapter allowlist.")
+            raise ValidationError("The exchange-rate source is not supported.", "source")
         if any(value is not None and (isinstance(value, float) or not value.is_finite() or value <= 0)
                for value in (bid, ask)):
             raise ValueError("FX bid and ask must be positive Decimal values.")
         if bid is not None and ask is not None and ask < bid:
-            raise ValueError("FX bid and ask must be positive and ordered.")
+            raise ValidationError("Enter positive bid and ask values, with ask no lower than bid.", "rate")
         self.db.execute(
             "INSERT INTO fx_rate_observations(effective_date,base,quote,rate_e12,fetched_at,source,source_id,"
             "original_quote,bid_e12,ask_e12) VALUES (?,?,?,?,?,?,?,?,?,?) "

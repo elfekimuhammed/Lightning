@@ -79,6 +79,7 @@ core/                 dates, money, identifiers, posting rules; no app dependenc
 |---|---|
 | `lightning/core` | Money/date parsing, refs/codes, errors, posting rules; `figures.py` names every figure with its formula, layer and function |
 | `lightning/database` | Connection, migrations, seed, backups, audit, settings |
+| `lightning/currencies.py` | Bundled supported-currency catalog, minor-unit rules and final-value rounding |
 | `lightning/fx.py` | Precise FX observation storage and dated rate lookup with source compatibility and stale-rate metadata |
 | `lightning/accounts` + `workflows/accounts.py` | Account rules and atomic account/opening-balance workflows |
 | `lightning/assets` | Asset classes, financial assets, local EGX catalogue, prices and quote adapters |
@@ -144,7 +145,9 @@ CD purchases use a different boundary: a `DEPOSIT` account is a bank-specific ce
 
 The read-only Integrity checks compare gross account values with asset-class reports, verify `owned net worth + money held for others = gross account values` overall and per account, compare categorized outflows with reported spending and budget actuals, verify reserves against owned liquid cash, and close the month-to-date net-worth bridge. Missing valuations mark affected comparisons incomplete rather than green. These checks diagnose report/subledger mismatches; they never adjust posted entries.
 
-FX observations are stored separately from ledger entries with pair direction, effective date, fetch time, source, source identifier, original quote, normalized rate and optional bid/ask at 12-decimal rate precision. The Frankfurter adapter requests a single historical pair from its fixed ECB-provider route. CBE is not fetched until a fixed endpoint can request only the enabled pair and required date; its public page exposes a broad currency table. Manual rates win for the same pair and date. Cross rates use observations from one source identifier on one effective date. An observation more than seven days old is flagged stale; a current valuation must remain unavailable until a fresh rate exists. Wise is not enabled until authorized API access is available.
+FX observations are stored separately from ledger entries with pair direction, effective date, fetch time, source, source identifier, original quote, normalized rate and optional bid/ask at 12-decimal rate precision. Settings lets users enter a manual rate for an enabled pair and date; the Frankfurter adapter requests a single historical pair from its fixed ECB-provider route. CBE is not fetched until a fixed endpoint can request only the enabled pair and required date; its public page exposes a broad currency table. Manual rates win for the same pair and date. Cross rates use observations from one source identifier on one effective date. An observation more than seven days old is flagged stale; a current valuation must remain unavailable until a fresh rate exists. Wise is not enabled until authorized API access is available.
+
+Every posted cash line keeps its entered native amount, transaction-date FX rate at 12-decimal precision, and LCY amount rounded to the profile currency's minor unit. Later rate corrections affect current valuation lookup only; they do not rewrite posted transaction rates or LCY amounts.
 
 IDs are internal relational keys. Stable refs identify transactions; readable codes identify master records internally and for imports/search. Ordinary screens show names, not account codes. Source CSV spellings are retained during review; possible Counterparty matches are suggestions, never silent merges. Users can correct fields inline and post rows with safe incomplete metadata.
 
@@ -275,7 +278,7 @@ Budget's ordinary view is a compact plan summary and Personal/Work/Investment ro
 - SQLite with ordered, append-only migrations; never edit a migration already applied.
 - Dates are stored as ISO `yyyy-mm-dd`. User entry accepts ISO, `dd/mm/yyyy`, and `dd/m` (current year); UI normalizes accepted input to ISO. CSV dates use the same parser.
 - An account's legacy opening/tracking date is not a transaction-date boundary. Historical activity may predate the account metadata or opening-balance entry; balances remain chronological sums of their dated ledger lines.
-- Money, prices, and quantities use `Decimal` in Python and integer `_e6` storage; new money inputs are validated to two decimal places. Display summaries round to whole currency units; entry controls retain cents.
+- Money, prices, and quantities use `Decimal` in Python and integer `_e6` storage. Cash amounts follow their currency's minor unit; summaries round to whole units and entry controls retain the currency's minor digits.
 - Currency amount precision follows the currency's minor unit: JPY has zero decimal places, BHD/KWD/OMR have three, and the other bundled currencies have two. Convert and aggregate with `Decimal`; round only final reported values to the profile currency's minor unit. The bundled currency catalog is offline and contains EGP, AED, BHD, KWD, OMR, QAR, SAR, USD, EUR, JPY, GBP, CNY, CHF, AUD, CAD, HKD, and SGD.
 - A profile's reporting currency is always enabled and may be changed only before its first transaction. Other currencies are enabled explicitly; disabling one is refused while an account, holding, or plan uses it. Currency rate history is retained when a currency is disabled.
 - Important query paths are indexed by ledger account/date, asset/date, category/date, transaction id, transaction date/type/status, and price history asset/date.

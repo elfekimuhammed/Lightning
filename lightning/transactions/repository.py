@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import sqlite3
+from decimal import Decimal, ROUND_HALF_UP
 
 from lightning.core.dates import now_iso
 from lightning.core.ledger import Effect, PostingLine
@@ -25,7 +26,7 @@ def _line(row: sqlite3.Row) -> LedgerLine:
         quantity=from_e6(row["quantity_e6"]),
         unit_price=from_e6(row["unit_price_e6"]),
         amount=from_e6(row["amount_e6"]),
-        fx_rate=from_e6(row["fx_rate_e6"]),
+        fx_rate=Decimal(row["fx_rate_e12"]) / Decimal(1_000_000_000_000),
         amount_base=from_e6(row["amount_base_e6"]),
         effect=Effect(row["effect"]),
         category_id=row["category_id"],
@@ -132,8 +133,8 @@ class TransactionRepository:
         for n, line in enumerate(lines, start=1):
             self.db.execute(
                 "INSERT INTO ledger_entries(transaction_id, line_no, date, account_id, asset_id,"
-                " quantity_e6, unit_price_e6, amount_e6, fx_rate_e6, amount_base_e6, effect,"
-                " category_id, memo, owner_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                " quantity_e6, unit_price_e6, amount_e6, fx_rate_e6, fx_rate_e12, amount_base_e6, effect,"
+                " category_id, memo, owner_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     txn_id,
                     n,
@@ -143,7 +144,8 @@ class TransactionRepository:
                     to_e6(line.quantity),
                     to_e6(line.unit_price),
                     to_e6(line.amount),
-                    to_e6(line.fx_rate),
+                    int((line.fx_rate * Decimal(1_000_000)).quantize(Decimal("1"), rounding=ROUND_HALF_UP)),
+                    int((line.fx_rate * Decimal(1_000_000_000_000)).quantize(Decimal("1"), rounding=ROUND_HALF_UP)),
                     to_e6(line.amount_base),
                     line.effect.value,
                     line.category_id,

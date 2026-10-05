@@ -3,6 +3,7 @@ from decimal import Decimal
 import pytest
 
 from lightning.core.errors import ValidationError
+from lightning.currencies import round_amount
 from lightning.fx import FrankfurterAdapter, FxRateRepository, RateFetchError
 
 
@@ -71,6 +72,39 @@ def test_disabled_currency_never_triggers_a_network_request(c):
     with pytest.raises(ValidationError, match="Enable both currencies"):
         FrankfurterAdapter(FxRateRepository(c.db), opener=opener).fetch("USD", "EGP", "2026-10-01")
     assert not opener.called
+
+
+def test_foreign_opening_uses_fixed_transaction_rate_and_current_valuation_rate(c):
+    from lightning.fx import FxRateRepository
+
+    _enable(c, "USD")
+    rates = FxRateRepository(c.db)
+    rates.save(effective_date="2026-09-01", base="USD", quote="EGP",
+               rate=Decimal("50"), source="MANUAL")
+    account = c.account_flows.open_account("USD bank", "BANK", "2026-09-01", "10", currency="USD")
+    line = c.transactions.get(c.db.scalar("SELECT id FROM transactions WHERE type='OPN'")).lines[0]
+    assert line.amount_base == Decimal("500")
+    assert line.fx_rate == Decimal("50")
+    assert c.reporting.value_of(c.assets.cash_asset("USD").id, Decimal("10"), "2026-09-01").value == Decimal("500")
+    rates.save(effective_date="2026-09-01", base="USD", quote="EGP",
+               rate=Decimal("60"), source="MANUAL")
+    assert c.transactions.get(line.transaction_id).lines[0].amount_base == Decimal("500")
+    assert c.reporting.value_of(c.assets.cash_asset("USD").id, Decimal("10"), "2026-09-01").value == Decimal("600")
+
+
+def test_base_currency_amounts_round_to_zero_and_three_minor_units(c):
+    c.set_base_currency("JPY")
+    c.settings.set_enabled_currencies(["JPY", "USD"])
+    rates = FxRateRepository(c.db)
+    rates.save(effective_date="2026-09-01", base="USD", quote="JPY",
+               rate=Decimal("149.123456789123"), source="MANUAL")
+    account = c.account_flows.open_account("USD bank", "BANK", "2026-09-01", "1", currency="USD")
+    assert account.currency == "USD"
+    txn = c.transactions.get(c.db.scalar("SELECT id FROM transactions WHERE type='OPN'"))
+    assert txn.lines[0].amount_base == Decimal("149")
+    assert c.reporting.value_of(c.assets.cash_asset("USD").id, Decimal("1"), "2026-09-01").value == Decimal("149")
+
+    assert round_amount(Decimal("1.2345"), "KWD") == Decimal("1.235")
 
 
 def test_frankfurter_uses_fixed_host_and_validates_pair(c):

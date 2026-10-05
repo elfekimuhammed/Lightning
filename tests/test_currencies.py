@@ -30,3 +30,10 @@ def test_final_rounding_is_currency_specific_and_half_up():
 def test_unknown_currency_is_rejected():
     with pytest.raises(ValidationError):
         currency("XXX")
+
+
+def test_cash_assets_are_seeded_offline_with_each_currency_minor_unit(c):
+    cash = {asset.currency: asset for asset in c.assets.list_assets() if asset.is_cash}
+    assert set(cash) == {item.code for item in CURRENCIES}
+    assert cash["JPY"].quantity_decimals == 0
+    assert cash["BHD"].quantity_decimals == 3

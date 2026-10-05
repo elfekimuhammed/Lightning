@@ -52,7 +52,8 @@ class SettingsStore:
         if self.db.scalar("SELECT 1 FROM transactions LIMIT 1"):
             raise ValidationError("The reporting currency is fixed after the first financial entry.", "base_currency")
         self.set("base_currency", code)
-        self.set_enabled_currencies(set(self.enabled_currencies) | {code})
+        used = {row[0] for row in self.db.all("SELECT DISTINCT currency FROM accounts")}
+        self.set_enabled_currencies(set(self.enabled_currencies) | used | {code})
 
     def set_enabled_currencies(self, codes) -> None:
         selected = {currency(code).code for code in codes}

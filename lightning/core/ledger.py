@@ -23,7 +23,7 @@ Cash lines vs investment lines:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from enum import StrEnum
 
 from .errors import ValidationError
@@ -52,6 +52,8 @@ class PostingLine:
     amount_base: Decimal = field(default=ZERO)  # amount x fx_rate (base currency, EGP)
     is_cash: bool = True  # not stored; tells the rules which kind of line this is
     owner_id: int | None = None
+    base_places: int = 2
+    amount_places: int = 2
 
     @staticmethod
     def cash(
@@ -115,7 +117,11 @@ class PostingLine:
                            owner_id=owner_id)
 
 def _round2(value: Decimal) -> Decimal:
-    return value.quantize(Decimal("0.01"))
+    return value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+
+def _round(value: Decimal, places: int) -> Decimal:
+    return value.quantize(Decimal(1).scaleb(-places), rounding=ROUND_HALF_UP)
 
 
 def validate_posting(lines: list[PostingLine]) -> None:
@@ -127,7 +133,8 @@ def validate_posting(lines: list[PostingLine]) -> None:
         if line.quantity == ZERO and line.effect != Effect.REVALUATION:
             raise ValidationError(f"Line {i}: amount cannot be zero.", "amount")
         for name in ("quantity", "unit_price", "fx_rate", "amount", "amount_base"):
-            places = 2 if name in {"amount", "amount_base"} else 6
+            places = (line.base_places if name == "amount_base" else line.amount_places if name == "amount"
+                      else 12 if name == "fx_rate" else 6)
             if decimal_places(getattr(line, name)) > places:
                 raise ValidationError(f"Line {i}: {name} has more than {places} decimal places.")
         if line.unit_price < ZERO or line.fx_rate <= ZERO:
@@ -136,7 +143,7 @@ def validate_posting(lines: list[PostingLine]) -> None:
             raise ValidationError(f"Line {i}: a cash line's amount must equal its quantity.")
         if not line.is_cash and line.amount != ZERO and (line.amount > ZERO) != (line.quantity > ZERO):
             raise ValidationError(f"Line {i}: units in must cost money; units out must return money.")
-        if line.amount_base != _round2(line.amount * line.fx_rate):
+        if line.amount_base != _round(line.amount * line.fx_rate, line.base_places):
             raise ValidationError(f"Line {i}: base amount must equal amount x exchange rate.")
         if line.effect in (Effect.INFLOW, Effect.OUTFLOW) and line.category_id is None:
             raise ValidationError(f"Line {i}: money in and money out need a category.", "category")
