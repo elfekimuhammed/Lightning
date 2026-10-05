@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import hashlib
+import errno
 import os
 import sqlite3
+import stat
 from contextlib import contextmanager
 
 import pytest
@@ -500,3 +502,182 @@ def test_process_kill_after_p3_recovers_real_files(tmp_path):
     assert result.phase is PromotionPhase.ACTIVATED
     assert (tmp_path / "live.db").read_bytes() == new
     assert (tmp_path / "previous.db").read_bytes() == old
+
+
+@pytest.mark.skipif(not hasattr(os, "fork"), reason="POSIX process-kill drill")
+@pytest.mark.parametrize("phase", [
+    PromotionPhase.PREPARED,
+    PromotionPhase.PREVIOUS_PROTECTED,
+    PromotionPhase.FILE_PUBLISHED,
+    PromotionPhase.AUTHORITY_PUBLISHED,
+    PromotionPhase.ACTIVATED,
+])
+def test_process_kill_at_each_durable_phase_recovers_real_files(tmp_path, phase):
+    """os._exit models process termination only; it is not a power-loss test."""
+    old, new = b"old encrypted fixture", b"new encrypted fixture"
+    (tmp_path / "live.db").write_bytes(old)
+    (tmp_path / "candidate.db").write_bytes(new)
+    store_path = tmp_path / "control.sqlite"
+    store = SqlitePromotionJournalStore(store_path)
+    store.initialize_accepted("old", digest(old))
+
+    child = os.fork()
+    if child == 0:
+        try:
+            child_store = SqlitePromotionJournalStore(store_path)
+            if phase is PromotionPhase.PREPARED:
+                original = child_store.prepare
+
+                def stop_after_prepare(journal):
+                    original(journal)
+                    os._exit(50)
+
+                child_store.prepare = stop_after_prepare
+            elif phase in (PromotionPhase.PREVIOUS_PROTECTED, PromotionPhase.FILE_PUBLISHED):
+                original = child_store.advance
+
+                def stop_after_advance(expected, updated):
+                    result = original(expected, updated)
+                    if updated.phase is phase:
+                        os._exit(50 + int(phase))
+                    return result
+
+                child_store.advance = stop_after_advance
+            elif phase is PromotionPhase.AUTHORITY_PUBLISHED:
+                original = child_store.commit_authority
+
+                def stop_after_authority(expected):
+                    original(expected)
+                    os._exit(50 + int(phase))
+
+                child_store.commit_authority = stop_after_authority
+            else:
+                original = child_store.mark_activated
+
+                def stop_after_activation(expected):
+                    original(expected)
+                    os._exit(50 + int(phase))
+
+                child_store.mark_activated = stop_after_activation
+            with PosixPromotionFileOps(tmp_path) as files:
+                CandidatePromotionService(files, child_store).promote(
+                    operation_id="kill-phase", old_checkpoint_id="old",
+                    new_checkpoint_id="new", live_name="live.db",
+                    candidate_name="candidate.db", previous_name="previous.db",
+                    operation_gate=Gate(), verify_database=lambda name: None,
+                    activate=lambda checkpoint, name: None,
+                )
+        except BaseException:
+            os._exit(90)
+        os._exit(91)
+
+    _, status = os.waitpid(child, 0)
+    expected_exit = 50 if phase is PromotionPhase.PREPARED else 50 + int(phase)
+    assert os.WIFEXITED(status) and os.WEXITSTATUS(status) == expected_exit
+
+    reopened = SqlitePromotionJournalStore(store_path)
+    state = reopened.read_state()
+    assert state.journal.phase is phase
+    activated = []
+    with PosixPromotionFileOps(tmp_path) as files:
+        result = CandidatePromotionService(files, reopened).recover(
+            live_name="live.db", operation_gate=Gate(), verify_database=lambda name: None,
+            activate=lambda checkpoint, name: activated.append((checkpoint, name)),
+        )
+    assert result.phase is PromotionPhase.ACTIVATED
+    assert activated == [("new", "live.db")]
+    assert (tmp_path / "live.db").read_bytes() == new
+    assert (tmp_path / "previous.db").read_bytes() == old
+    final = reopened.read_state()
+    assert final.accepted.checkpoint_id == "new"
+    assert final.journal.phase is PromotionPhase.ACTIVATED
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX file-operation fault injection")
+def test_posix_full_disk_during_previous_copy_removes_partial_and_restart_recovers(tmp_path, monkeypatch):
+    old, new = b"old encrypted fixture" * 4096, b"new encrypted fixture"
+    (tmp_path / "live.db").write_bytes(old)
+    (tmp_path / "candidate.db").write_bytes(new)
+    store = SqlitePromotionJournalStore(tmp_path / "control.sqlite")
+    store.initialize_accepted("old", digest(old))
+    real_write = os.write
+    wrote_partial = False
+
+    def partial_then_full(fd, data):
+        nonlocal wrote_partial
+        if not wrote_partial and len(data) > 1:
+            wrote_partial = True
+            return real_write(fd, data[:1])
+        if wrote_partial:
+            raise OSError(errno.ENOSPC, "injected full disk")
+        return real_write(fd, data)
+
+    with PosixPromotionFileOps(tmp_path) as files:
+        service = CandidatePromotionService(files, store)
+        args = dict(
+            operation_id="full-disk", old_checkpoint_id="old", new_checkpoint_id="new",
+            live_name="live.db", candidate_name="candidate.db", previous_name="previous.db",
+            operation_gate=Gate(), verify_database=lambda name: None,
+            activate=lambda checkpoint, name: None,
+        )
+        monkeypatch.setattr(os, "write", partial_then_full)
+        with pytest.raises(OSError) as error:
+            service.promote(**args)
+        assert error.value.errno == errno.ENOSPC
+        assert store.read_state().journal.phase is PromotionPhase.PREPARED
+        assert (tmp_path / "live.db").read_bytes() == old
+        assert (tmp_path / "candidate.db").read_bytes() == new
+        assert not (tmp_path / "previous.db").exists()
+        monkeypatch.setattr(os, "write", real_write)
+        result = service.recover(
+            live_name="live.db", operation_gate=Gate(), verify_database=lambda name: None,
+            activate=lambda checkpoint, name: None,
+        )
+    assert result.phase is PromotionPhase.ACTIVATED
+    assert (tmp_path / "previous.db").read_bytes() == old
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX file-operation fault injection")
+def test_posix_directory_flush_failure_after_rename_recovers_without_activation(tmp_path, monkeypatch):
+    old, new = b"old encrypted fixture", b"new encrypted fixture"
+    (tmp_path / "live.db").write_bytes(old)
+    (tmp_path / "candidate.db").write_bytes(new)
+    store = SqlitePromotionJournalStore(tmp_path / "control.sqlite")
+    store.initialize_accepted("old", digest(old))
+    real_fsync = os.fsync
+    directory_flushes = 0
+
+    def fail_directory_flush(fd):
+        nonlocal directory_flushes
+        if stat.S_ISDIR(os.fstat(fd).st_mode):
+            directory_flushes += 1
+            # P2 copy flushes the directory first; atomic_replace flushes it
+            # again after rename. Fail the second to model uncertain rename durability.
+            if directory_flushes == 2:
+                raise OSError(errno.EIO, "injected directory flush failure")
+        return real_fsync(fd)
+
+    with PosixPromotionFileOps(tmp_path) as files:
+        service = CandidatePromotionService(files, store)
+        args = dict(
+            operation_id="flush-failure", old_checkpoint_id="old", new_checkpoint_id="new",
+            live_name="live.db", candidate_name="candidate.db", previous_name="previous.db",
+            operation_gate=Gate(), verify_database=lambda name: None,
+            activate=lambda checkpoint, name: pytest.fail("activation must wait for recovery"),
+        )
+        monkeypatch.setattr(os, "fsync", fail_directory_flush)
+        with pytest.raises(OSError) as error:
+            service.promote(**args)
+        assert error.value.errno == errno.EIO
+        assert store.read_state().journal.phase is PromotionPhase.PREVIOUS_PROTECTED
+        assert store.read_state().accepted.checkpoint_id == "old"
+        assert (tmp_path / "live.db").read_bytes() == new
+        assert (tmp_path / "previous.db").read_bytes() == old
+        assert not (tmp_path / "candidate.db").exists()
+        monkeypatch.setattr(os, "fsync", real_fsync)
+        result = service.recover(
+            live_name="live.db", operation_gate=Gate(), verify_database=lambda name: None,
+            activate=lambda checkpoint, name: None,
+        )
+    assert result.phase is PromotionPhase.ACTIVATED
+    assert store.read_state().accepted.checkpoint_id == "new"

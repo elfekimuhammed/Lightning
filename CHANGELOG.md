@@ -10,6 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-06 · Codex: Added 02d process-kill drills at every durable promotion phase and POSIX full-disk/flush fault tests; recorded the remaining physical reboot evidence separately.
 - 2026-10-06 · Codex: Fixed nine Mohab checks: dividend amounts, emergency-target warning, today position snapshot, long-period monthly spending, category sign key, persistent investing goal, total fund valuation, dated Other asset values, and multiple CSV selection.
 - 2026-10-05 · Claude: The price data repository is `Lightning_Market_Data` (the owner's name): the collector publishes there and the app downloads from it.
 - 2026-10-05 · Claude: Price data rights (owner decision): only packs whose source allows republishing are published and shipped (today CBE exchange rates); every pack cites its source in its files and on the price pages; the others are collected only to check sources (`tests/test_market_prices.py`).

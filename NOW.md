@@ -8,7 +8,7 @@ Work longer than one sitting, and its files. Stay out of claimed files; remove y
 
 | Who | Work | Files | Since |
 |---|---|---|---|
-| Luna, for Codex | 02d — Promotion/recovery (first): connect stage+verify to live promotion; gate writes while unresolved; test interruptions, full disk, failed flush and restart; record tested reboot/power-loss behavior. Read: [proposal §15](docs/proposals/multiple_devices.md#15-implementation-work-packages) and its Read column. | `lightning/database/promotion.py`, `tests/test_database_promotion.py` | 2026-10-05 |
+| Codex | 02d — Stage/verify and journalled promotion are wired through locked restore. Process-kill at P1–P5 and injected ENOSPC/flush faults pass. Ordinary-device reboot/power-loss evidence remains; do not claim it was simulated. Read: [proposal §9, §15](docs/proposals/multiple_devices.md). | `tests/test_database_promotion.py` | 2026-10-06 |
 | Luna, for Codex | 03a restore safety: durable intent and source-copy manifest, Windows marker publication, then explicit deterministic repair. Codex reviews it and owns the restore UI and docs | `lightning/runtime/restore.py`, `lightning/database/promotion_windows.py`, `tests/test_profile_session.py`, `tests/test_database_promotion_windows.py` | 2026-10-05 |
 
 ## Messages
