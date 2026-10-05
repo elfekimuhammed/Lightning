@@ -14,6 +14,7 @@ Who else helps people with their money, what their users love and hate, and what
 | International competitors | You are comparing a feature with the best apps |
 | Where Lightning wins and loses | You write the website or plan the roadmap |
 | Watch list | Every few months, or before a release |
+| Open source | You want source code to inspect before designing a finance feature |
 | Actual Budget code analysis | You plan a feature Actual already has, or want to know what to borrow and what to leave |
 | Evidence limits and sources | You doubt a claim here |
 
@@ -163,6 +164,25 @@ Check every few months and edit this file:
 - **Telda and bank apps:** whether any opens its data to other apps (open banking in Egypt would change our plan).
 - **Actual Budget:** a mobile app, or any Arabic and Egyptian bank import.
 - **Egyptian aggregators:** a provider that offers bank feeds would change the SMS plan.
+
+## Open source
+
+Open-source finance apps are especially useful to Lightning because they let us inspect the financial rules and implementation, not just the finished interface. Use them as design and correctness references; do not copy code across incompatible licences without checking the licence first.
+
+| Project | Repository | What it is | Why it matters for Lightning |
+|---|---|---|---|
+| **Actual Budget** | [actualbudget/actual](https://github.com/actualbudget/actual) | Local-first envelope budgeting with sync, imports, schedules, rules, reports and a large TypeScript codebase. | **Best budgeting/workflow benchmark.** Study rules, undo, import matching, recurring schedules, sync, i18n and testing. It is already analysed in detail below. |
+| **Sure** | [we-promise/sure](https://github.com/we-promise/sure) | Community-maintained continuation of Maybe Finance: self-hosted personal finance and wealth management with accounts, transactions, investments, budgets and multiple clients. | **Closest broad product-shape reference.** It combines everyday money and wealth in one product, so inspect its account/holding model, portfolio UX, net-worth flows and web/mobile architecture. |
+| **Paisa** | [ananthakumaran/paisa](https://github.com/ananthakumaran/paisa) | Personal-finance manager with budgeting plus stocks, mutual funds, allocation targets, goals, recurring entries, capital gains and tax-harvesting tools. | **High-priority investment reference.** Its mix of budgeting and investments is unusually close to Lightning; inspect allocation, capital-gain and portfolio-analysis logic without importing its tax assumptions blindly. |
+| **GnuCash** | [Gnucash/gnucash](https://github.com/Gnucash/gnucash) | Mature double-entry accounting application with security lots, cost basis, realized/unrealized gains, ROI/CAGR and stock-split handling. | **Investment-accounting correctness benchmark.** Its lot engine and portfolio reports show how mature software handles basis, FIFO/LIFO/average cost, gains and validation. Copy the accounting discipline, not the accountant-facing UX. |
+| **KMyMoney** | [KDE/kmymoney](https://github.com/KDE/kmymoney) (official GitHub mirror; canonical repo is [KDE GitLab](https://invent.kde.org/office/kmymoney)) | Long-running KDE personal-finance suite with budgets, banking, investments and forecasting across desktop platforms. | **Mature domain-model benchmark.** Useful for investment accounts, scheduled transactions, forecasting, imports and the edge cases accumulated by a long-running finance application. |
+| **Money Manager Ex** | [moneymanagerex/moneymanagerex](https://github.com/moneymanagerex/moneymanagerex) | Cross-platform personal-finance app with banking, stock-investment accounts, assets, budgets, scheduled bills, cash-flow forecasts, splits and reports. | **Strong simplicity + breadth benchmark.** Especially relevant to Lightning's desktop direction, SQLite/encryption choices, stock accounts, forecasting, portable installs and current work on local-first multi-device clients. |
+| **Firefly III** | [firefly-iii/firefly-iii](https://github.com/firefly-iii/firefly-iii) | Self-hosted personal-finance manager built around double-entry bookkeeping, budgets, rules, recurring transactions, imports and a broad API. | **Rules/API/import benchmark.** Less useful for Lightning's investment engine, but valuable for automation, transaction rules, recurring workflows, import architecture and API design. |
+| **OpenBudgeteer** | [TheAxelander/OpenBudgeteer](https://github.com/TheAxelander/OpenBudgeteer) | Focused bucket-budgeting app inspired by YNAB and Buckets, built with .NET and Blazor. | **Small, readable budgeting reference.** Useful when we want to study bucket/envelope behaviour without the size and complexity of Actual Budget. |
+| **Cashew** | [jameskokoska/Cashew](https://github.com/jameskokoska/Cashew) | Flutter budgeting and expense-tracking app with flexible budgets, goals, repeating/upcoming transactions, multi-currency, sync, imports and a mobile-first interface. | **Best UX/mobile reference in this group.** Study transaction entry, flexible budget periods, goals, responsive layouts, charts, mobile navigation and automation links rather than investment accounting. |
+| **Ivy Wallet** | [Ivy-Apps/ivy-wallet](https://github.com/Ivy-Apps/ivy-wallet) — **archived/read-only** | Former Android-first open-source money manager written in Kotlin/Jetpack Compose, known for a simple mobile experience. | **Historical Android UX/architecture reference only.** Useful for Compose patterns, mobile transaction entry and simplicity, but not a current product/roadmap benchmark because maintenance stopped and the repo is archived. |
+
+**Research priority for Lightning:** Sure and Paisa for product/investment overlap; GnuCash for investment-accounting correctness; Actual for budgeting/workflow machinery; Money Manager Ex for desktop/local-first breadth; Cashew for mobile UX. The others are secondary references for specific problems.
 
 ## Actual Budget code analysis
 
