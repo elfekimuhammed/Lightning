@@ -80,3 +80,6 @@ def test_the_financial_assets_page_lists_and_edits_everything(c, setup):
         "name": "CIB", "class_code": "STOCK", "symbol": "COMI", "isin": "EGS60121C019", "mic": "XCAI", "active": "1"})
     assert refused.status_code == 400 and "check digit" in refused.text
     assert "/investments/assets?return_to=/investments" in client.get("/investments").text
+    assert '<a class="selected" href="/investments/assets" aria-current="page">Financial assets</a>' in page  # a Settings page
+    settings = client.get("/settings?section=budget").text
+    assert 'href="/investments/assets"' in settings and ">Financial assets</a>" in settings

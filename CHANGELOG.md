@@ -10,7 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
-- 2026-10-05 · Claude: financial assets say where they trade: exchange as an ISO 10383 MIC (shown as EGX, Nasdaq, NYSE), ISO 3166 country and a checked ISIN (migration 0041); a Financial assets page lists them and the form edits name, ticker, ISIN, exchange, type and shown (`tests/test_market_assets.py`).
+- 2026-10-05 · Claude: financial assets say where they trade: exchange as an ISO 10383 MIC (shown as EGX, Nasdaq, NYSE), ISO 3166 country and a checked ISIN (migration `0041_asset_venue.sql`); a Financial assets page lists them and the form edits name, ticker, ISIN, exchange, type and shown (`tests/test_market_assets.py`).
 - 2026-10-05 · Claude: price collector (`tools/market/`, runs in CI, never in the app): adapters for TradingView (EGX, US), Mubasher funds and fund history, CBE rates and Yahoo history (put back to traded prices after splits); checks for size, jumps and source agreement; append-only merge and `health.json` (`tests/test_market_collector.py`, recorded-format samples).
 - 2026-10-05 · Claude: the market file format (`lightning/market/`): instruments with ISO names (ISIN, MIC, ISO 4217, ISO 3166), daily and month-end closes, a manifest of checksums that reading enforces, and a packed zip for releases (`tests/test_market_file.py`; design in `docs/proposals/market_data.md`).
 - 2026-10-05 · Codex: Added read-only Financial health with profile limits, the shared Reserves target, dated figures and six completed-month trends; added its Settings controls, architecture and glossary contract.

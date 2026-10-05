@@ -158,7 +158,9 @@ def test_a_link_to_an_entry_that_no_longer_matches_is_refused(c, setup):
 def test_upgrading_an_older_profile_keeps_its_import_rows(tmp_path, monkeypatch):
     older = tmp_path / "migrations"
     shutil.copytree(migrator._BUNDLED_MIGRATIONS_DIR, older)
-    (older / "0040_import_links.sql").unlink()
+    for later in older.glob("*.sql"):  # an older profile: every migration from 0040 on is still to come
+        if int(later.name[:4]) >= 40:
+            later.unlink()
     monkeypatch.setattr(migrator, "MIGRATIONS_DIR", older)
     db = Database(tmp_path / "old.db")
     migrator.migrate(db)
@@ -173,7 +175,7 @@ def test_upgrading_an_older_profile_keeps_its_import_rows(tmp_path, monkeypatch)
     db.conn.commit()
 
     monkeypatch.setattr(migrator, "MIGRATIONS_DIR", migrator._BUNDLED_MIGRATIONS_DIR)
-    assert migrator.migrate(db) == ["0040_import_links (APPLIED)"]
+    assert migrator.migrate(db)[0] == "0040_import_links (APPLIED)"
     row = db.one("SELECT batch_id,account_id,bank_reference,status FROM bank_import_rows WHERE id=11")
     assert dict(row) == {"batch_id": 3, "account_id": 7, "bank_reference": "R-1", "status": "REVIEW"}
     db.close()

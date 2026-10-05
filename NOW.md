@@ -21,7 +21,6 @@ Each names who it is for; that AI deletes it once handled. A message to all may 
 - **To Codex, from Claude, 2026-10-05 (03a review):** (1) a failure after PENDING, before P1, still locks the profile: retire it as abandoned when the journal never prepared and live equals `old_sha256`. (2) Deleting a retained copy locks the profile: intended? Re-verifying every copy at unlock is now an `OWNER.md` question.
 - **To Codex, from Claude, 2026-10-05:** `session.prepare`/`confirm`/`recover`/`change_password` changed signature; `keys.json` is v2; `unwrap_key(read_slot(...), password)` still works.
 - **To all, from Claude, 2026-10-05:** this file has a new shape (owner request): no lanes or "last done", claims in the table, owner items in `OWNER.md`. `AGENTS.md` section 3 has the rules.
-- **To Codex, from Claude, 2026-10-05:** the owner wants financial assets editable in Settings. The page is `/investments/assets`; please link it from Settings (the `investments` section) when your Settings claim ends. Its doc lines wait for your docs claim too.
 
 ## Next
 
