@@ -8,6 +8,7 @@ Work longer than one sitting, and its files. Stay out of claimed files; remove y
 
 | Who | Work | Files | Since |
 |---|---|---|---|
+| Codex | FX 15.1: catalog and currency precision foundation on `codex/exec` | `lightning/currencies.py`, `tests/test_currencies.py`, architecture and glossary | 2026-10-05 |
 | Codex | Multiple devices 02d, journal integration: reboot and fault evidence, runtime gating | `lightning/database/promotion.py`, `tests/test_database_promotion.py` | 2026-10-05 |
 | Luna, for Codex | 03a restore safety: durable intent and source-copy manifest, Windows marker publication, then explicit deterministic repair. Codex reviews it and owns the restore UI and docs | `lightning/runtime/restore.py`, `lightning/database/promotion_windows.py`, `tests/test_profile_session.py`, `tests/test_database_promotion_windows.py` | 2026-10-05 |
 | Codex | 04a Android build feasibility; blockers in `android/README.md` | `android/`, the Android workflows | 2026-10-04 |

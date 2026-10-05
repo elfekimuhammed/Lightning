@@ -10,6 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-05 · Codex: Added the bundled 17-currency catalog and currency-specific minor-unit validation/rounding helpers; documented precision and LCY/FCY terms.
 - 2026-10-05 · Codex: Defined Budget fill proposal rules in Architecture: month-only base limits, scheduled Bills/Subscriptions, separate reserve goals, and explicit existing-limit/parent-ceiling conflicts.
 - 2026-10-05 · Claude: Project Overview › *Compared with the best budgeting apps* now names the Egyptian apps and links Competition; rows 1, 2, 3, 6 and 11 point to the Upcoming projects that answer them.
 - 2026-10-05 · Claude: added to *Upcoming projects* at the owner's ask: #15 multi-currency and FX revaluation, #16 US stocks, #17 reading PDF and Excel files; the M4 and M7 roadmap rows name them.
