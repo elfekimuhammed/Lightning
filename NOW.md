@@ -8,7 +8,7 @@ Last rewritten 2026-10-05 · Claude.
 
 - **Last done (2026-10-05):** fixed 13 of the routine audit's 15 wrong numbers and part of the other two (`tests/test_audit_numbers.py`). What is left is in Project Overview › Known finance gaps. Before that: the one review inbox and task 20.
 - **For Codex (restore, 03a):** (1) a failure after PENDING but before P1 still locks the profile; retire it as abandoned when the journal never prepared and live equals `old_sha256`. (2) Unlock re-verifies every retained copy (2.7 s after three restores of 23.5 MB); a change was blocked as a security-check removal, so the owner decides. (3) Deleting a retained copy locks the profile: intended?
-- **In progress · claimed files:** none.
+- **In progress · claimed files:** multi-device task 06 (role gate in sessions), step 06a: read-only reader sessions. Files: `lightning/runtime/session.py`, `lightning/runtime/app.py`, `lightning/bootstrap.py`, `lightning/runtime/paths.py`, new `lightning/runtime/roles.py`, new `tests/test_session_roles.py`. Codex keeps `restore.py` and `test_profile_session.py`; I will keep the session methods restore calls unchanged.
 
 ## Codex
 
