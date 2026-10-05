@@ -149,6 +149,8 @@ Other asset accounts can keep dated whole-asset estimates (for example a home sh
 
 IDs are internal relational keys. Stable refs identify transactions; readable codes identify master records internally and for imports/search. Ordinary screens show names, not account codes. Source CSV spellings are retained during review; possible Counterparty matches are suggestions, never silent merges. Users can correct fields inline and post rows with safe incomplete metadata.
 
+**Default category for a counterparty** (register and CSV import): the category set on the counterparty, else its *usual category* (`TransactionService.usual_categories`). Usual means a habit, as in Actual Budget: the same category in at least 3 of its last 5 categorised transactions, or in every one while it has 2 to 4, counting only the 180 days before its newest. One odd filing never becomes the default; with no habit the field stays empty for the user to pick.
+
 ## Position and reporting contract
 
 ### Investment report contract (2026-09-28)

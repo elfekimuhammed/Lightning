@@ -306,7 +306,7 @@ def _learn_alias(c, party, typed: str) -> None:
 
 
 def _category_for_party(party, usual: dict, pickable: set) -> int | None:
-    """The category set on the counterparty, else the one it is usually filed under (last 20)."""
+    """The category set on the counterparty, else the one it is usually filed under, if it has one."""
     if not party:
         return None
     chosen = party["default_category_id"] or (usual.get(party["name"]) or {}).get("category_id")

@@ -68,22 +68,40 @@ def test_delete_unused_counterparty_removes_aliases_but_used_one_archives(c, set
     assert c.counterparties.get(used)["active"] == 1
 
 
-def test_usual_category_is_the_most_picked_in_the_last_20(c, setup):
+def test_usual_category_is_a_habit_not_one_odd_filing(c, setup):
     accounts, cats = setup
-    food, soft = cats["EXP.PERSONAL.FOOD"].id, cats["EXP.WORK.SOFTWARE"].id
+    cib = accounts["cib"].id
+    food, software = cats["EXP.PERSONAL.FOOD"].id, cats["EXP.WORK.SOFTWARE"].id
     c.counterparties.create("Talabat", alias="Talabaat")
-    for day, cat, name in [("2026-09-01", food, "Talabat"), ("2026-09-02", food, "Talabaat"),
-                           ("2026-09-03", soft, "Talabat")]:
-        c.transactions.record_outflow(day, accounts["cib"].id, "10", cat, counterparty=name)
-    usual = c.transactions.usual_categories()["Talabat"]
-    assert usual == {"category_id": food, "count": 2, "total": 3}  # the alias counts with its counterparty
-    # A tie goes to the most recent pick.
-    c.transactions.record_outflow("2026-09-04", accounts["cib"].id, "10", soft, counterparty="Talabat")
-    assert c.transactions.usual_categories()["Talabat"]["category_id"] == soft
-    # Only the last 20 count: 20 newer software payments outweigh the older food ones.
-    for day in range(5, 25):
-        c.transactions.record_outflow(f"2026-09-{day:02d}", accounts["cib"].id, "10", soft, counterparty="Talabat")
-    assert c.transactions.usual_categories()["Talabat"] == {"category_id": soft, "count": 20, "total": 20}
+    # One filing is not a habit yet; two the same way are, and the alias counts with its counterparty.
+    c.transactions.record_outflow("2026-09-01", cib, "10", food, counterparty="Talabat")
+    assert "Talabat" not in c.transactions.usual_categories()
+    c.transactions.record_outflow("2026-09-02", cib, "10", food, counterparty="Talabaat")
+    assert c.transactions.usual_categories()["Talabat"] == {"category_id": food, "count": 2, "total": 2}
+    # While it has under five, one odd filing leaves no usual category rather than a wrong one.
+    c.transactions.record_outflow("2026-09-03", cib, "10", software, counterparty="Talabat")
+    assert "Talabat" not in c.transactions.usual_categories()
+    # Three of the last five make the habit, and that odd filing does not change it.
+    for day in ("2026-09-04", "2026-09-05"):
+        c.transactions.record_outflow(day, cib, "10", food, counterparty="Talabat")
+    assert c.transactions.usual_categories()["Talabat"] == {"category_id": food, "count": 4, "total": 5}
+    # Only the last five count: three newer filings elsewhere make a new habit.
+    for day in ("2026-09-06", "2026-09-07", "2026-09-08"):
+        c.transactions.record_outflow(day, cib, "10", software, counterparty="Talabat")
+    assert c.transactions.usual_categories()["Talabat"] == {"category_id": software, "count": 3, "total": 5}
+
+
+def test_usual_category_forgets_filings_older_than_180_days(c, setup):
+    accounts, cats = setup
+    cib = accounts["cib"].id
+    food, software = cats["EXP.PERSONAL.FOOD"].id, cats["EXP.WORK.SOFTWARE"].id
+    for day in ("2026-01-05", "2026-01-12", "2026-01-19"):
+        c.transactions.record_outflow(day, cib, "10", food, counterparty="Cafe")
+    assert c.transactions.usual_categories()["Cafe"]["category_id"] == food
+    # Months later, two filings the same new way are the whole recent history.
+    for day in ("2026-09-01", "2026-09-08"):
+        c.transactions.record_outflow(day, cib, "10", software, counterparty="Cafe")
+    assert c.transactions.usual_categories()["Cafe"] == {"category_id": software, "count": 2, "total": 2}
 
 
 def test_a_counterparty_holds_up_to_20_aliases(c):

@@ -12,14 +12,14 @@
 
 | § | Section | From | Size | Needs |
 |---|---|---|---|---|
-| 1.1 | Category pre-filling | Actual | Small | — |
-| 1.2 | Rules with conditions and splits | Actual | Large | 1.1 |
+| 1.1 | Category pre-filling | Actual | **Built** 2026-10-05: [Architecture › Default category for a counterparty](../ARCHITECTURE.md) | — |
+| 1.2 | Rules with conditions and splits | Actual | Large | — |
 | 1.3 | Undo for edits, deletes and imports | Actual | Medium | — |
-| 1.4 | Finding the same transaction on import | Actual | Small | — |
+| 1.4 | Finding the same transaction on import | Actual | **Owner decision** (one constant) | — |
 | 1.5 | Locking a month checked against the bank | Actual | Small | — |
-| 1.6 | Merging two transactions | Actual | Small | 1.4 |
+| 1.6 | Merging two transactions | Actual | Small | — |
 | 1.7 | Due dates that know the Egyptian weekend | Actual | Small | — |
-| 1.8 | Sums in amount fields | Actual | Small | — |
+| 1.8 | Sums in amount fields | Actual | **Already built** (`core/money.py`, `tests/test_amount_sums.py`) | — |
 | 2.1 | Cost per purchase (lots) | GnuCash | Medium | — |
 | 2.2 | Bonus shares and stock splits | GnuCash | Medium | 2.1, 2.3 |
 | 2.3 | One table of investment events | GnuCash | Medium | — |
@@ -27,39 +27,11 @@
 | 2.5 | One order of price sources | GnuCash | Small | — |
 | 2.6 | Return per purchase (ROI and CAGR) | GnuCash | Small | 2.1 |
 
-**Suggested order:** 1.4 and 1.5 (double imports are a trust bug today), 1.1, 2.3 → 2.1 → 2.2 (bonus shares are common on the EGX and cannot be recorded honestly today), 1.3, 2.4, 1.2, then the rest.
+**Suggested order:** 2.3 → 2.1 → 2.2 (bonus shares are common on the EGX and cannot be recorded honestly today), 1.5, 1.3, 2.4, 1.2, then the rest.
 
 ---
 
 ## 1. Actual Budget
-
-### 1.1 Category pre-filling
-
-**They do better:** a single odd filing does not change what is pre-filled next time; a habit does.
-
-**How they do it** (`loot-core/src/server/transactions/transaction-rules.ts`, `transactions/index.ts`):
-1. **Bank name to payee first.** A "pre" stage rule `imported_payee is one of [...] → set payee` turns each raw bank name into one payee (`updatePayeeRenameRule`, line 896).
-2. **Then category by rule.** On import and on entry, `runRules` applies `payee is X → set category`.
-3. **Learning, when the user changes a category** (`updateCategoryRules`, line 952):
-   1. Take that payee's transactions from **180 days** before the edited one, newest first, leaving out closed accounts and payees with learning turned off (`learn_categories = 0`).
-   2. Keep the **last 5**. Act only if the edited transaction is among them.
-   3. The category used **at least 3 times** in those 5 wins (`getProbableCategory`, line 933); otherwise nothing changes.
-   4. Create the `payee is X → category` rule, or update it if one exists.
-4. The screens turn learning on; the API leaves it off (`learnCategories = false` by default in `transactions/index.ts`).
-
-**Lightning today:**
-- Manual entry (`ui/routes/register.py` line 312) and import (`bank_imports.py` `_category_for`, line 430) use: the category in the CSV, else the counterparty's saved default, else the **usual category**.
-- Usual category (`transactions/service.py` `usual_categories`, line 344): the most used category in the counterparty's **last 20** transactions, any age, the most recent on a tie. **One use is enough**: file Talabat once under Gifts and every new Talabat row is pre-filled Gifts.
-- Bank names to one counterparty: already done by counterparty aliases (step 1 above). Nothing to add.
-
-**What to change:**
-1. `TransactionRepository.recent_categories`: add a 180-day limit before the newest transaction of each counterparty (a `date >=` filter in the window query).
-2. `TransactionService.usual_categories`: window 5 instead of 20 (`USUAL_WINDOW = 5`). A category counts as usual only when it has **3 or more of the last 5**, or, while a counterparty has fewer than 5 transactions, **every one of at least 2**. Otherwise no entry, and the field stays empty.
-3. Return `count` and `of` (already partly there) so the pre-filled field can say "4 of last 5" if guideline A10 allows a field hint; skip it otherwise.
-4. The saved default always wins over the usual category (as today). When the usual category disagrees with a saved default (3 of the last 5 filed elsewhere), the counterparty page suggests "Change the default to Transport?". It is a suggestion, never a silent change, because a wrong silent result is worse than one click.
-5. No per-counterparty "learning off" switch yet. Add it only if a user asks.
-
-**Done when:** tests in `tests/test_counterparties.py` (or the register tests) show: one odd filing does not change the pre-fill; 3 of the last 5 does; a filing older than 180 days does not count; import and manual entry give the same answer. Mohab files one café visit under Gifts and his next café visit still pre-fills Eating out.
 
 ### 1.2 Rules with conditions and splits
 
@@ -86,7 +58,7 @@
    ```
    and `RuleIndex = dict[str, set[Rule]]` on the lowercased counterparty, with `"*"` for the rest.
 3. `lightning/rules/service.py`: create, edit, reorder, delete, and `preview(rule)` returning the past transactions it would change.
-4. Hook points: `bank_imports._category_for` and the register's `_category_for_party` call `rules.run` first, then the order from 1.1. A counterparty's saved default is shown and stored as a generated `is` rule, so there is one mechanism, not two.
+4. Hook points: `bank_imports._category_for` and the register's `_category_for_party` call `rules.run` first, then today's order ([Architecture › Default category for a counterparty](../ARCHITECTURE.md)). A counterparty's saved default is shown and stored as a generated `is` rule, so there is one mechanism, not two.
 5. Screen: Settings › Rules, a list (header, then list, A16) and a form built from fields, never text typed into notes. Saving shows "This would change N past transactions" with apply-to-past, using one undo (1.3).
 
 **Done when:** engine unit tests per op, ranking and split rounding (parts always add to the amount); an import test where a rule beats the usual category; Mohab adds a Vodafone rule with an amount range and his next import files both bills right.
@@ -115,22 +87,18 @@
 
 ### 1.4 Finding the same transaction on import
 
-**They do better:** a card payment the bank posts two days after the user typed it is recognised, not imported twice.
+**They do better:** a payment the bank posts up to a week after the user typed it is still offered as the same transaction.
 
 **How they do it** (`loot-core/src/server/accounts/sync.ts`, `matchTransactions`, line 826):
 1. A row with the same bank id matches first.
-2. Otherwise, candidates are rows in the same account with the **same amount within 7 days either side** of the bank date (line 895).
-3. Candidates are ranked by **date distance**, then rows **without** a bank id first, because those were typed by hand and are waiting for their bank twin (`compareFuzzyMatchCandidates`, line 804).
-4. Each existing row can be matched once per import.
+2. Otherwise, candidates are rows in the same account with the **same amount within 7 days either side** (line 895).
+3. Ranked by date distance, then rows **without** a bank id first, because those were typed by hand (`compareFuzzyMatchCandidates`, line 804).
 
-**Lightning today:** `bank_imports.py` `_similarity_warning` (line 442) flags a possible duplicate only on the **same date and same amount**. A row one day off is imported as new.
+**Lightning today:** already the same shape, with a narrower window: `bank_imports.py` `_link_candidates` offers entries with the same amount within `LINK_WINDOW_DAYS = 3`, closest first, never one already backed by an imported row, and never one entry to two rows ([Architecture › CSV import and export contract](../ARCHITECTURE.md)).
 
-**What to change:**
-1. Replace `_similarity_warning` with `_match_candidates(account_id, parsed, taken)`: same account, same amount, `date` within ±7 days, not already taken by an earlier row in the batch; order by date distance, then rows without `bank_reference` first.
-2. In `preview`, the top candidate sets `_possible_duplicate` and the review screen pre-selects "link to existing" (the existing link flow in `_link_import_row`), showing the existing row's date.
-3. Keep the own-account transfer check as it is.
+**What to change:** only `LINK_WINDOW_DAYS`, from 3 to 7, and the window test (`tests/test_bank_import_matching.py`, "within three days"). **The owner decides:** 7 catches slow card postings; but a weekly payment of the same amount (a café, a class) would then be offered last week's entry when this week's was not typed, and a row with a candidate defaults to *Link*. 3 avoids that.
 
-**Done when:** tests: a row 2 days off is offered as a match; 8 days off is not; two identical bank rows match two different hand-typed rows, not the same one twice. Mohab types a café payment on Thursday, imports the statement where it is dated Saturday, and it is linked, not doubled.
+**Done when:** the window test moves to the new number, and a test shows a weekly equal payment still posts as new when its own entry was not typed.
 
 ### 1.5 Locking a month checked against the bank
 
@@ -178,18 +146,6 @@
 4. Later, optional: a dated public-holiday list shipped in the market data pack and applied the same way.
 
 **Done when:** tests: a salary due Friday falls on Thursday; a bill set to `after` due Friday falls on Sunday; `none` does not move.
-
-### 1.8 Sums in amount fields
-
-**They do better:** typing `120+35*2` in an amount field gives 190.
-
-**How they do it** (`loot-core/src/shared/arithmetic.ts`): a small recursive-descent parser for numbers, `+ - * / ( )`, with no `eval`.
-
-**Lightning today:** `to_decimal` (in `lightning/core/money.py`) accepts one number, with Arabic-Indic digits.
-
-**What to change:** `lightning/core/arithmetic.py` with the same grammar over `Decimal`, using the existing digit mapping; `to_decimal` calls it only when the text contains an operator, so every amount field gains it at once and `check_places` still checks the result. The field shows the result after the user leaves it.
-
-**Done when:** tests for precedence, brackets, Arabic-Indic digits, division by zero and junk input (each a clear error).
 
 ---
 

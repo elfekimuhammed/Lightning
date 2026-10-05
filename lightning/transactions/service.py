@@ -339,15 +339,26 @@ class TransactionService:
         """Previously used counterparties and their most recent category."""
         return self.repo.counterparty_categories()
 
-    USUAL_WINDOW = 20
+    # A counterparty's usual category is a habit, not one odd filing (as in Actual Budget): the same
+    # category in at least 3 of its last 5 transactions, or in every one while it has 2 to 4. Only the
+    # 180 days before its newest transaction count, so an old habit fades.
+    USUAL_WINDOW = 5
+    USUAL_MIN = 3
+    USUAL_DAYS = 180
 
     def usual_categories(self) -> dict[str, dict]:
-        """The category each counterparty is usually filed under: the one picked most often in its
-        last 20 transactions, the most recent one on a tie. {name: {category_id, count, total}}."""
+        """The category each counterparty is usually filed under, when it has one: picked in at least
+        3 of its last 5 transactions in the 180 days before its newest, or in all of them while it has
+        2 to 4. {name: {category_id, count, total}}."""
         tally: dict[str, dict[int, list]] = {}
         totals: dict[str, set] = {}
+        newest: dict = {}
         for row in self.repo.recent_categories(self.USUAL_WINDOW):
             name = row["counterparty"]
+            day = parse_date(row["date"])
+            newest.setdefault(name, day)  # rows come newest first
+            if (newest[name] - day).days > self.USUAL_DAYS:
+                continue
             seen = tally.setdefault(name, {})
             totals.setdefault(name, set()).add(row["id"])
             entry = seen.setdefault(row["category_id"], [0, (row["date"], row["id"])])
@@ -356,7 +367,9 @@ class TransactionService:
         usual = {}
         for name, seen in tally.items():
             category_id, (count, _) = max(seen.items(), key=lambda kv: (kv[1][0], kv[1][1]))
-            usual[name] = {"category_id": category_id, "count": count, "total": len(totals[name])}
+            total = len(totals[name])
+            if count >= self.USUAL_MIN or (2 <= total < self.USUAL_WINDOW and count == total):
+                usual[name] = {"category_id": category_id, "count": count, "total": total}
         return usual
 
     def post(self, doc_type: DocType, date: str, lines: list[PostingLine], description: str = "",
