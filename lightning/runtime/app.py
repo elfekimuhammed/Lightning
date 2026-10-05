@@ -12,6 +12,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, PlainTextResponse, RedirectResponse, Response
 
 from lightning.database.backup import list_backups
+from lightning.security.keys import SUGGESTED_QUESTIONS, suggest_password
 from lightning.ui.web import create_app, templates
 
 from .http import (MAX_IMPORT_CONFIRM_BODY, MAX_IMPORT_CONFIRM_FIELDS,
@@ -146,7 +147,12 @@ def profile_app(credentials: Credentials, root: Path | str | None = None):
     def page(request: Request, mode: str, *, error="", status=200, **context):
         values = dict(mode=mode, csrf=session.csrf, error=error, root=str(session.root),
                       profiles=[], backups=[], selected="", backup="", name="", recovery="",
-                      active_name=session.name, notice="")
+                      active_name=session.name, notice="", suggestion="", chosen_password="",
+                      questions=SUGGESTED_QUESTIONS, question="", new_recovery="")
+        if mode == "setup" and not context.get("suggestion"):
+            values["suggestion"] = suggest_password()
+        if mode == "manage":
+            values["question"] = session.current_question()
         values.update(context)
         return templates.TemplateResponse(request, "profiles.html", values, status_code=status)
 
@@ -189,16 +195,27 @@ def profile_app(credentials: Credentials, root: Path | str | None = None):
     @app.post("/profiles/new")
     async def prepare(request: Request):
         form = await request.form()
+        suggestion = str(form.get("suggestion", ""))
+        # "Use this password" takes the suggested words as the password, typed by nobody.
+        chosen = suggestion if form.get("use_suggestion") == "yes" else ""
+        password = chosen or str(form.get("password", ""))
+        confirm = chosen or str(form.get("confirm", ""))
         def operation():
-            pending = session.prepare(str(form.get("name", "")), str(form.get("password", "")), str(form.get("confirm", "")))
+            pending = session.prepare(str(form.get("name", "")), password, confirm,
+                                      str(form.get("question", "")), str(form.get("answer", "")))
             return page(request, "recovery-key", recovery=pending.recovery, name=pending.paths.profile.name,
-                        notice="Will create: " + str(pending.paths.db_path))
-        return await action(request, "setup", operation)
+                        chosen_password=chosen, notice="Will create: " + str(pending.paths.db_path))
+        return await action(request, "setup", operation, name=str(form.get("name", "")), suggestion=suggestion,
+                            question=str(form.get("question", "")))
 
     @app.post("/profiles/confirm")
     async def confirm(request: Request):
         form = await request.form()
-        return await action(request, "setup", lambda: session.confirm(form.get("saved") == "yes"))
+        if session.pending is None:
+            return page(request, "setup", error="Setup expired. Create the profile again.", status=400)
+        pending = session.pending
+        return await action(request, "recovery-key", lambda: session.confirm(str(form.get("recovery", ""))),
+                            recovery=pending.recovery, name=pending.paths.profile.name if pending.paths.profile else "")
 
     @app.post("/profiles/cancel")
     async def cancel(request: Request):
@@ -217,20 +234,30 @@ def profile_app(credentials: Credentials, root: Path | str | None = None):
         selected = str(form.get("db", ""))
         return await action(request, "unlock", lambda: session.unlock(selected, str(form.get("password", ""))), selected=selected)
 
+    def known_question(selected: str) -> str:
+        try:
+            return session.question(selected)
+        except (ProfileError, OSError, ValueError):
+            return ""
+
     @app.get("/profiles/recover")
     async def recover_page(request: Request):
         if session.container:
             return RedirectResponse("/profiles", 303)
-        return page(request, "recover", selected=request.query_params.get("db", ""))
+        selected = request.query_params.get("db", "")
+        question = known_question(selected)
+        return page(request, "recover", selected=selected, question=question,
+                    error="" if question else "This profile's key file is missing or damaged, so it cannot be recovered here.")
 
     @app.post("/profiles/recover")
     async def recover(request: Request):
         form = await request.form()
         selected = str(form.get("db", ""))
         def operation():
-            session.recover(selected, str(form.get("recovery", "")), str(form.get("password", "")), str(form.get("confirm", "")))
+            session.recover(selected, str(form.get("recovery", "")), str(form.get("answer", "")),
+                            str(form.get("password", "")), str(form.get("confirm", "")))
             return page(request, "unlock", selected=selected, notice="Password reset. Unlock with your new password.")
-        return await action(request, "recover", operation, selected=selected)
+        return await action(request, "recover", operation, selected=selected, question=known_question(selected))
 
     @app.get("/profiles/restore")
     async def restore_page(request: Request):
@@ -287,9 +314,34 @@ def profile_app(credentials: Credentials, root: Path | str | None = None):
     async def password(request: Request):
         form = await request.form()
         def operation():
-            session.change_password(str(form.get("current_password", "")), str(form.get("password", "")), str(form.get("confirm", "")))
-            return page(request, "manage", notice="Password changed. Your recovery key is unchanged.")
+            session.change_password(str(form.get("proof", "")), str(form.get("password", "")), str(form.get("confirm", "")))
+            return page(request, "manage", notice="Password changed. Your recovery key and security question are unchanged.")
         return await action(request, "manage", operation)
+
+    @app.post("/profiles/question")
+    async def question(request: Request):
+        form = await request.form()
+        def operation():
+            session.change_question(str(form.get("recovery", "")), str(form.get("question", "")), str(form.get("answer", "")))
+            return page(request, "manage", notice="Security question changed. Your password and recovery key are unchanged.")
+        return await action(request, "manage", operation)
+
+    @app.post("/profiles/recovery-key")
+    async def recovery_key(request: Request):
+        form = await request.form()
+        def operation():
+            pending = session.prepare_recovery_key(str(form.get("answer", "")))
+            return page(request, "manage", new_recovery=pending.recovery)
+        return await action(request, "manage", operation)
+
+    @app.post("/profiles/recovery-key/confirm")
+    async def confirm_recovery_key(request: Request):
+        form = await request.form()
+        pending = session.pending_recovery
+        def operation():
+            session.confirm_recovery_key(str(form.get("recovery", "")))
+            return page(request, "manage", notice="New recovery key saved. The old one no longer works.")
+        return await action(request, "manage", operation, new_recovery=pending.recovery if pending else "")
 
     @app.post("/profiles/lock")
     async def lock(request: Request):

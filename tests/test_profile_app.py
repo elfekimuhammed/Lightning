@@ -6,6 +6,7 @@ from lightning.runtime.app import profile_app
 from lightning.runtime.http import Credentials, MAX_BODY
 
 PASSWORD = "a correct long passphrase"
+SECRET = {"question": "What was the name of your first school?", "answer": "El Orman"}
 
 
 def token(text, name="csrf"):
@@ -20,14 +21,18 @@ def start(tmp_path):
     return TestClient(app, base_url=cfg.origin, headers={"Origin": cfg.origin}), app, cfg
 
 
+def recovery_shown(text):
+    return re.search(r'aria-label="Recovery key">([0-9-]+)<', text).group(1)
+
+
 def create(browser, name="Home"):
     page = browser.get("/profiles/new")
     csrf = token(page.text)
-    page = browser.post("/profiles/new", data={"csrf": csrf, "name": name, "password": PASSWORD, "confirm": PASSWORD})
+    page = browser.post("/profiles/new", data={"csrf": csrf, "name": name, "password": PASSWORD, "confirm": PASSWORD, **SECRET})
     assert page.status_code == 200, page.text
     assert "Save your recovery key" in page.text
     csrf = token(page.text)
-    response = browser.post("/profiles/confirm", data={"csrf": csrf, "saved": "yes"})
+    response = browser.post("/profiles/confirm", data={"csrf": csrf, "recovery": recovery_shown(page.text)})
     assert response.status_code == 200, response.text
     return response
 
@@ -90,7 +95,7 @@ def test_escaped_paths_and_failed_passwords_do_not_leak(tmp_path):
         page = browser.get("/profiles/unlock", params={"db": '<script>alert("x")</script>'})
         assert '<script>alert("x")</script>' not in page.text
         csrf = token(page.text)
-        page = browser.post("/profiles/new", data={"csrf": csrf, "name": "Home", "password": "never echo this password", "confirm": "mismatch"})
+        page = browser.post("/profiles/new", data={"csrf": csrf, "name": "Home", "password": "never echo this password", "confirm": "mismatch", **SECRET})
         assert page.status_code == 400
         assert "never echo this password" not in page.text
 
@@ -233,11 +238,11 @@ def test_setup_confirmation_cannot_acknowledge_another_tabs_key(tmp_path):
     with browser:
         browser.get("/__launch", params={"code": cfg.launch_code})
         csrf = token(browser.get("/profiles/new").text)
-        first = browser.post("/profiles/new", data={"csrf": csrf, "name": "A", "password": PASSWORD, "confirm": PASSWORD})
+        first = browser.post("/profiles/new", data={"csrf": csrf, "name": "A", "password": PASSWORD, "confirm": PASSWORD, **SECRET})
         first_token = token(first.text)
-        second = browser.post("/profiles/new", data={"csrf": first_token, "name": "B", "password": PASSWORD, "confirm": PASSWORD})
+        second = browser.post("/profiles/new", data={"csrf": first_token, "name": "B", "password": PASSWORD, "confirm": PASSWORD, **SECRET})
         assert token(second.text) != first_token
-        assert browser.post("/profiles/confirm", data={"csrf": first_token, "saved": "yes"}).status_code == 403
+        assert browser.post("/profiles/confirm", data={"csrf": first_token, "recovery": recovery_shown(first.text)}).status_code == 403
         assert not app.session.root.exists()
 
 
@@ -266,8 +271,8 @@ def test_lock_drains_request_and_rejects_queued_old_generation(tmp_path):
         cfg = Credentials("http://127.0.0.1:9876")
         app = profile_app(cfg, tmp_path / "profiles")
         session = app.session
-        session.prepare("Home", PASSWORD, PASSWORD)
-        session.confirm(True)
+        session.prepare("Home", PASSWORD, PASSWORD, SECRET["question"], SECRET["answer"])
+        session.confirm(session.pending.recovery)
         entered, release = asyncio.Event(), asyncio.Event()
         writes = []
         inner = app.app.app

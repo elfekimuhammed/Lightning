@@ -14,22 +14,24 @@ from lightning.runtime.session import ProfileError, ProfileSession, write_slot
 
 PASSWORD = "a correct long passphrase"
 NEW_PASSWORD = "another correct long passphrase"
+QUESTION = "What was the name of your first school?"
+ANSWER = "El Orman"
 
 
 def created(tmp_path):
     session = ProfileSession(tmp_path / "Documents" / "Lightning")
-    pending = session.prepare("Home", PASSWORD, PASSWORD)
-    session.confirm(True)
+    pending = session.prepare("Home", PASSWORD, PASSWORD, QUESTION, ANSWER)
+    session.confirm(session.pending.recovery)
     return session, pending
 
 
 def test_setup_is_explicit_and_encrypted_and_reopens(tmp_path):
     session = ProfileSession(tmp_path / "profiles")
-    pending = session.prepare("Home", PASSWORD, PASSWORD)
+    pending = session.prepare("Home", PASSWORD, PASSWORD, QUESTION, ANSWER)
     assert not session.root.exists()
-    with pytest.raises(ProfileError, match="Save"):
-        session.confirm(False)
-    session.confirm(True)
+    with pytest.raises(ProfileError, match="recovery key shown"):
+        session.confirm("")
+    session.confirm(session.pending.recovery)
     path = session.paths.db_path
     session.container.settings.set("test_marker", "private data")
     with pytest.raises(InstanceAlreadyRunning):
@@ -54,10 +56,10 @@ def test_recovery_preserves_database_and_rejects_wrong_key(tmp_path):
     session.close()
     before_db, before_slot = path.read_bytes(), slot.read_bytes()
     with pytest.raises(ProfileError):
-        session.recover(str(path), "bad key", NEW_PASSWORD, NEW_PASSWORD)
+        session.recover(str(path), "bad key", ANSWER, NEW_PASSWORD, NEW_PASSWORD)
     assert slot.read_bytes() == before_slot
     session.retry_at = 0
-    session.recover(str(path), pending.recovery, NEW_PASSWORD, NEW_PASSWORD)
+    session.recover(str(path), pending.recovery, ANSWER, NEW_PASSWORD, NEW_PASSWORD)
     assert path.read_bytes() == before_db
     assert slot.read_bytes() != before_slot
     with pytest.raises(ProfileError, match="incorrect"):
@@ -72,9 +74,9 @@ def test_missing_slot_recovers_and_changes_password(tmp_path):
     path, slot = session.paths.db_path, session.paths.keys_path
     session.close()
     slot.unlink()
-    session.recover(str(path), pending.recovery, PASSWORD, PASSWORD)
+    session.recover(str(path), pending.recovery, ANSWER, PASSWORD, PASSWORD)
     session.unlock(str(path), PASSWORD)
-    session.change_password(PASSWORD, NEW_PASSWORD, NEW_PASSWORD)
+    session.change_password(ANSWER, NEW_PASSWORD, NEW_PASSWORD)
     session.close()
     session.unlock(str(path), NEW_PASSWORD)
     session.close()
@@ -84,8 +86,8 @@ def test_profiles_stay_separate_and_do_not_overwrite(tmp_path):
     session, first = created(tmp_path)
     first_path = session.paths.db_path
     session.close()
-    second = session.prepare("Home", NEW_PASSWORD, NEW_PASSWORD)
-    session.confirm(True)
+    second = session.prepare("Home", NEW_PASSWORD, NEW_PASSWORD, QUESTION, ANSWER)
+    session.confirm(session.pending.recovery)
     assert first_path != session.paths.db_path
     assert len(discover_profiles(session.root)) == 2
     assert first.paths.profile.sequence == 1
@@ -112,10 +114,10 @@ def test_plaintext_and_backups_not_opened_as_live_profiles(tmp_path):
 
 def test_pending_expires_and_slot_publication_is_non_destructive(tmp_path):
     session = ProfileSession(tmp_path / "profiles")
-    pending = session.prepare("Home", PASSWORD, PASSWORD)
+    pending = session.prepare("Home", PASSWORD, PASSWORD, QUESTION, ANSWER)
     pending.expires = 0
     with pytest.raises(ProfileError, match="expired"):
-        session.confirm(True)
+        session.confirm(session.pending.recovery)
     assert not session.root.exists()
     slot = tmp_path / "keys.json"
     write_slot(slot, {"old": True})
@@ -128,17 +130,17 @@ def test_pending_expires_and_slot_publication_is_non_destructive(tmp_path):
 def test_failed_setup_is_not_discovered_or_reused(tmp_path, monkeypatch):
     from lightning.runtime import session as module
     session = ProfileSession(tmp_path / "profiles")
-    pending = session.prepare("Home", PASSWORD, PASSWORD)
+    pending = session.prepare("Home", PASSWORD, PASSWORD, QUESTION, ANSWER)
     def fail(*args, **kwargs):
         raise RuntimeError("synthetic disk failure")
     monkeypatch.setattr(module, "build", fail)
     with pytest.raises(RuntimeError):
-        session.confirm(True)
+        session.confirm(session.pending.recovery)
     assert not discover_profiles(session.root)
     assert pending.paths.keys_path.exists()
     with InstanceLock(pending.paths.lock_path):
         pass
-    next_pending = session.prepare("Home", PASSWORD, PASSWORD)
+    next_pending = session.prepare("Home", PASSWORD, PASSWORD, QUESTION, ANSWER)
     assert next_pending.paths.profile.sequence == 2
 
 

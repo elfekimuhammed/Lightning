@@ -6,9 +6,9 @@ Last rewritten 2026-10-05 · Claude.
 
 ## Claude
 
-- **Last done (2026-10-05):** multi-device task 06 (session roles); unblocks 07 and 18a.
+- **Last done (2026-10-05):** owner's password, 12-digit key and security question (Architecture › Encryption); multi-device task 06.
 - **For Codex (restore, 03a):** (1) a failure after PENDING but before P1 still locks the profile; retire it as abandoned when the journal never prepared and live equals `old_sha256`. (2) Unlock re-verifies every retained copy (2.7 s after three restores of 23.5 MB); a change was blocked as a security-check removal, so the owner decides. (3) Deleting a retained copy locks the profile: intended?
-- **In progress · claimed files:** owner's new password, 12-digit key and security question: `lightning/security/`, `lightning/runtime/{session,app}.py`, `profiles.html` (not its restore sections), their tests. `keys.json` v2; restore's `unwrap_key` call keeps working.
+- **In progress · claimed files:** none. **For Codex:** `session.prepare`/`confirm`/`recover`/`change_password` changed signature (I updated your `test_profile_session.py` calls); `keys.json` is v2, and `unwrap_key(read_slot(...), password)` still works for restore.
 
 ## Codex
 

@@ -26,16 +26,16 @@
           <p>Each profile keeps its financial data in a separate database.</p>
         {% elif mode == 'setup' %}
           <h1 id="page-title">Create a profile</h1>
-          <p>Choose a name and a strong password to protect this profile.</p>
+          <p>Choose a name, a password and a security question. Together with a recovery key, they protect this profile.</p>
         {% elif mode == 'recovery-key' %}
           <h1 id="page-title">Save your recovery key</h1>
-          <p>This key is the only way to reset your password if you forget it.</p>
+          <p>If you forget your password, this key and your security answer set a new one.</p>
         {% elif mode == 'unlock' %}
           <h1 id="page-title">Unlock your profile</h1>
           <p>Enter the password for this profile to open its financial data.</p>
         {% elif mode == 'recover' %}
           <h1 id="page-title">Reset your password</h1>
-          <p>Verify this database with its recovery key, then choose a new password.</p>
+          <p>Your recovery key and security answer together set a new password.</p>
         {% elif mode == 'restore' %}
           <h1 id="page-title">Restore a backup</h1>
           <p>Return this profile to a saved copy. Later edits will not appear in the restored profile. Lightning keeps the current database for recovery.</p>
@@ -44,7 +44,7 @@
           <p>Lightning will check the saved copies and continue a restore that stopped partway through. If it cannot prove the next step is safe, the profile stays locked.</p>
         {% elif mode == 'manage' %}
           <h1 id="page-title">Profile settings</h1>
-          <p>Manage access to your encrypted financial data.</p>
+          <p>Because this profile is open, each change needs one more proof: your security answer or your recovery key.</p>
         {% endif %}
       </section>
 
@@ -95,8 +95,15 @@
           <form method="post" action="/profiles/new" class="form-stack">
             <input type="hidden" name="csrf" value="{{ csrf }}">
             <div class="field"><label for="profile-name">Profile name</label><input id="profile-name" name="name" type="text" value="{{ name }}" required autocomplete="off" maxlength="80"></div>
-            <div class="field"><label for="new-password">Password</label><input id="new-password" name="password" type="password" minlength="12" required autocomplete="new-password"><small>Use at least 12 characters.</small></div>
-            <div class="field"><label for="confirm-password">Confirm password</label><input id="confirm-password" name="confirm" type="password" minlength="12" required autocomplete="new-password"></div>
+            <input type="hidden" name="suggestion" value="{{ suggestion }}">
+            <div class="suggestion" aria-labelledby="suggestion-label">
+              <p id="suggestion-label">A strong password you can remember: four random words.</p>
+              <p class="suggestion-value">{{ suggestion }}</p>
+              <label class="check-row"><input type="checkbox" name="use_suggestion" value="yes" data-use-suggestion><span>Use this password</span></label>
+            </div>
+            <div class="field" data-own-password><label for="new-password">Or type your own password</label><input id="new-password" name="password" type="password" autocomplete="new-password" data-strength="new-password-strength"><small id="new-password-strength" class="strength" aria-live="polite">Any length works. Longer is safer: three or four unrelated words are hard to guess.</small></div>
+            <div class="field" data-own-password><label for="confirm-password">Confirm password</label><input id="confirm-password" name="confirm" type="password" autocomplete="new-password"></div>
+            {% include "_security_question.html" %}
             <div class="form-actions"><button class="button button-primary" type="submit">Create profile</button></div>
           </form>
         </section>
@@ -104,12 +111,13 @@
       {% elif mode == 'recovery-key' %}
         <section class="panel form-panel" aria-labelledby="key-heading">
           <h2 id="key-heading">Your recovery key</h2>
-          <p class="key-warning">Store this key offline in a secure place, separate from this computer. Anyone with the key and database can reset the profile password.</p>
+          <p class="key-warning">Write it down and keep it away from this computer. It opens nothing on its own: it needs your security answer too. If you lose your password and either the key or the answer, your data cannot be recovered.</p>
           <div class="recovery-value" aria-label="Recovery key">{{ recovery }}</div>
+          {% if chosen_password %}<p>Your password: <strong class="suggestion-value">{{ chosen_password }}</strong>. Write it down too.</p>{% endif %}
           <form method="post" action="/profiles/confirm" class="form-stack">
             <input type="hidden" name="csrf" value="{{ csrf }}">
-            <label class="check-row"><input type="checkbox" name="saved" value="yes" required><span>I have saved this recovery key somewhere safe.</span></label>
-            <div class="form-actions"><button class="button button-primary" type="submit">I saved my key</button></div>
+            <div class="field"><label for="typed-recovery">Type the recovery key you wrote down</label><input id="typed-recovery" name="recovery" type="text" inputmode="numeric" required autocomplete="off" spellcheck="false"><small>Twelve digits. Dashes and spaces are optional.</small></div>
+            <div class="form-actions"><button class="button button-primary" type="submit">Create profile</button></div>
           </form>
           <form method="post" action="/profiles/cancel" class="cancel-form"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="text-button" type="submit">Cancel profile setup</button></form>
         </section>
@@ -132,9 +140,10 @@
           <form method="post" action="/profiles/recover" class="form-stack">
             <input type="hidden" name="csrf" value="{{ csrf }}">
             <input type="hidden" name="db" value="{{ selected }}">
-            <div class="field"><label for="recovery-key">Recovery key</label><input id="recovery-key" name="recovery" type="text" required autocomplete="off" spellcheck="false"></div>
-            <div class="field"><label for="recovered-password">New password</label><input id="recovered-password" name="password" type="password" minlength="12" required autocomplete="new-password"><small>Use at least 12 characters.</small></div>
-            <div class="field"><label for="recovered-confirm">Confirm new password</label><input id="recovered-confirm" name="confirm" type="password" minlength="12" required autocomplete="new-password"></div>
+            <div class="field"><label for="recovery-key">Recovery key</label><input id="recovery-key" name="recovery" type="text" inputmode="numeric" required autocomplete="off" spellcheck="false"><small>Twelve digits.</small></div>
+            <div class="field"><label for="recovery-answer">{{ question or "Security answer" }}</label><input id="recovery-answer" name="answer" type="text" required autocomplete="off" spellcheck="false"><small>Capitals, spaces and Arabic letter forms do not matter.</small></div>
+            <div class="field"><label for="recovered-password">New password</label><input id="recovered-password" name="password" type="password" required autocomplete="new-password" data-strength="recovered-strength"><small id="recovered-strength" class="strength" aria-live="polite">Any length works. Longer is safer.</small></div>
+            <div class="field"><label for="recovered-confirm">Confirm new password</label><input id="recovered-confirm" name="confirm" type="password" required autocomplete="new-password"></div>
             <div class="form-actions"><button class="button button-primary" type="submit">Reset password</button></div>
           </form>
         </section>
@@ -172,14 +181,44 @@
           <div><p class="eyebrow">Unlocked profile</p><h2 id="active-heading">{{ active_name }}</h2></div>
           <div class="account-actions"><a class="button button-secondary" href="/">Open finance</a><form method="post" action="/profiles/lock"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="button button-secondary" type="submit">Lock profile</button></form></div>
         </section>
+        {% if new_recovery %}
+        <section class="panel form-panel" aria-labelledby="new-key-heading">
+          <h2 id="new-key-heading">Your new recovery key</h2>
+          <p class="key-warning">Write it down. The old key keeps working until you type this one back.</p>
+          <div class="recovery-value" aria-label="New recovery key">{{ new_recovery }}</div>
+          <form method="post" action="/profiles/recovery-key/confirm" class="form-stack">
+            <input type="hidden" name="csrf" value="{{ csrf }}">
+            <div class="field"><label for="typed-new-recovery">Type the new key you wrote down</label><input id="typed-new-recovery" name="recovery" type="text" inputmode="numeric" required autocomplete="off" spellcheck="false"></div>
+            <div class="form-actions"><button class="button button-primary" type="submit">Save new recovery key</button></div>
+          </form>
+        </section>
+        {% endif %}
         <section class="panel form-panel" aria-labelledby="password-heading">
           <h2 id="password-heading">Change password</h2>
           <form method="post" action="/profiles/password" class="form-stack">
             <input type="hidden" name="csrf" value="{{ csrf }}">
-            <div class="field"><label for="current-password">Current password</label><input id="current-password" name="current_password" type="password" required autocomplete="current-password"></div>
-            <div class="field"><label for="changed-password">New password</label><input id="changed-password" name="password" type="password" minlength="12" required autocomplete="new-password"><small>Use at least 12 characters.</small></div>
-            <div class="field"><label for="changed-confirm">Confirm new password</label><input id="changed-confirm" name="confirm" type="password" minlength="12" required autocomplete="new-password"></div>
+            <div class="field"><label for="password-proof">Your security answer or recovery key</label><input id="password-proof" name="proof" type="text" required autocomplete="off" spellcheck="false">{% if question %}<small>Your question: {{ question }}</small>{% endif %}</div>
+            <div class="field"><label for="changed-password">New password</label><input id="changed-password" name="password" type="password" required autocomplete="new-password" data-strength="changed-strength"><small id="changed-strength" class="strength" aria-live="polite">Any length works. Longer is safer.</small></div>
+            <div class="field"><label for="changed-confirm">Confirm new password</label><input id="changed-confirm" name="confirm" type="password" required autocomplete="new-password"></div>
             <div class="form-actions"><button class="button button-primary" type="submit">Change password</button></div>
+          </form>
+        </section>
+        <section class="panel form-panel" aria-labelledby="question-heading">
+          <h2 id="question-heading">Change security question</h2>
+          <form method="post" action="/profiles/question" class="form-stack">
+            <input type="hidden" name="csrf" value="{{ csrf }}">
+            <div class="field"><label for="question-proof">Your recovery key</label><input id="question-proof" name="recovery" type="text" inputmode="numeric" required autocomplete="off" spellcheck="false"><small>The old answer is not needed, in case you forgot it.</small></div>
+            {% set question = "" %}{% include "_security_question.html" %}
+            <div class="form-actions"><button class="button button-primary" type="submit">Change question</button></div>
+          </form>
+        </section>
+        <section class="panel form-panel" aria-labelledby="new-recovery-heading">
+          <h2 id="new-recovery-heading">New recovery key</h2>
+          <p>Lost your recovery key? Make a new one while you still know your password and answer.</p>
+          <form method="post" action="/profiles/recovery-key" class="form-stack">
+            <input type="hidden" name="csrf" value="{{ csrf }}">
+            <div class="field"><label for="new-key-answer">Your security answer</label><input id="new-key-answer" name="answer" type="text" required autocomplete="off" spellcheck="false"></div>
+            <div class="form-actions"><button class="button button-secondary" type="submit">Make a new recovery key</button></div>
           </form>
         </section>
       {% endif %}

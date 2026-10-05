@@ -85,8 +85,9 @@ def run_profile_checks() -> dict[str, bool]:
     with TemporaryDirectory(prefix="lightning-profile-check-") as folder:
         session = ProfileSession(Path(folder) / "Profiles")
         try:
-            pending = session.prepare("Synthetic household", "temporary synthetic password", "temporary synthetic password")
-            session.confirm(True)
+            pending = session.prepare("Synthetic household", "temporary synthetic password", "temporary synthetic password",
+                                      "Synthetic question?", "Synthetic answer")
+            session.confirm(pending.recovery)
             path = session.paths.db_path
             session.container.settings.set("profile_check", "synthetic marker")
             checks["profile_setup"] = path.is_file() and b"synthetic marker" not in path.read_bytes()
@@ -99,7 +100,8 @@ def run_profile_checks() -> dict[str, bool]:
             checks["profile_reopen"] = session.container.settings.get("profile_check") == "synthetic marker"
             checks["profile_backup"] = bool(session.container.backup_files())
             session.close()
-            session.recover(str(path), pending.recovery, "recovered synthetic password", "recovered synthetic password")
+            session.recover(str(path), pending.recovery, "synthetic ANSWER", "recovered synthetic password",
+                            "recovered synthetic password")
             session.unlock(str(path), "recovered synthetic password")
             checks["profile_recovery"] = session.container.settings.get("profile_check") == "synthetic marker"
         finally:

@@ -114,8 +114,8 @@ def test_every_page_of_a_saved_copy_opens_and_changes_nothing(tmp_path):
 @pytest.fixture
 def profile(tmp_path):
     session = ProfileSession(tmp_path / "Documents" / "Lightning")
-    session.prepare("Home", PASSWORD, PASSWORD)
-    session.confirm(True)
+    session.prepare("Home", PASSWORD, PASSWORD, "Which school?", "El Orman")
+    session.confirm(session.pending.recovery)
     path = session.paths.db_path
     session.container.settings.set("probe", "home")
     session.close()
@@ -154,8 +154,8 @@ def test_the_request_gate_refuses_every_finance_write_for_a_reader(tmp_path):
     cfg = Credentials("http://127.0.0.1:9876")
     app = profile_app(cfg, tmp_path / "Documents" / "Lightning")
     session = app.session
-    session.prepare("Home", PASSWORD, PASSWORD)
-    session.confirm(True)
+    session.prepare("Home", PASSWORD, PASSWORD, "Which school?", "El Orman")
+    session.confirm(session.pending.recovery)
     path = session.paths.db_path
     session.close()
     browser = TestClient(app, base_url=cfg.origin, headers={"Origin": cfg.origin})
@@ -242,8 +242,8 @@ def test_a_role_change_waits_for_the_request_in_flight(tmp_path):
 
     async def scenario():
         session = ProfileSession(tmp_path / "Documents" / "Lightning")
-        session.prepare("Home", PASSWORD, PASSWORD)
-        session.confirm(True)
+        session.prepare("Home", PASSWORD, PASSWORD, "Which school?", "El Orman")
+        session.confirm(session.pending.recovery)
         gate = SessionGate(SimpleNamespace(state=SimpleNamespace()), session)
         async with gate.mutex:  # a request is in flight
             change = asyncio.create_task(gate.change_role(SessionRole.READER))
@@ -277,7 +277,7 @@ def test_no_form_from_before_a_role_change_can_save(tmp_path):
 
     with browser:
         browser.get("/__launch", params={"code": cfg.launch_code})
-        browser.portal.call(lambda: (app.session.prepare("Home", PASSWORD, PASSWORD), app.session.confirm(True)))
+        browser.portal.call(lambda: (app.session.prepare("Home", PASSWORD, PASSWORD, "Which school?", "El Orman"), app.session.confirm(app.session.pending.recovery)))
         home_form = form_token()
         browser.portal.call(app.gate.change_role, SessionRole.READER)
         assert browser.post("/accounts/new", data={"__session": home_form, **wallet}).status_code == 403

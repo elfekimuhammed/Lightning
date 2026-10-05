@@ -99,4 +99,27 @@
   }
 
   checkHealth();
+
+  // Password advice (owner decision 2026-10-05: any length, advice only). The server never relies on it.
+  const advice = (value) => {
+    if (!value) return ["", "Any length works. Longer is safer: three or four unrelated words are hard to guess."];
+    if (value.length < 8) return ["weak", "Weak. Short passwords can be guessed if someone copies your files."];
+    if (value.length < 14 && !/\s/.test(value.trim())) return ["fair", "Fair. Another word or two makes it much harder to guess."];
+    return ["strong", "Strong."];
+  };
+  document.querySelectorAll("input[data-strength]").forEach((input) => {
+    const note = document.getElementById(input.dataset.strength);
+    if (!note) return;
+    input.addEventListener("input", () => {
+      const [level, text] = advice(input.value);
+      note.dataset.level = level;
+      note.textContent = text;
+    });
+  });
+  document.querySelectorAll("input[data-use-suggestion]").forEach((box) => {
+    const own = document.querySelectorAll("[data-own-password]");
+    const sync = () => own.forEach((field) => { field.hidden = box.checked; });
+    box.addEventListener("change", sync);
+    sync();
+  });
 })();

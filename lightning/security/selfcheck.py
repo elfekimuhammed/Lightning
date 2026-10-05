@@ -7,7 +7,7 @@ import tempfile
 from importlib import resources
 from pathlib import Path
 
-from .keys import generate_recovery, key_id, recover_key, unwrap_key, wrap_key
+from .keys import create_key_file, key_id, new_data_key, new_recovery_key, open_with_recovery, unwrap_key, wrap_key
 
 
 def _key_literal(key: bytes) -> str:
@@ -77,8 +77,10 @@ def run_checks() -> dict[str, bool]:
         return result
 
     try:
-        recovery_text, key = generate_recovery()
-        result["recovery_roundtrip"] = recover_key(recovery_text) == key
+        key, recovery_text = new_data_key(), new_recovery_key()
+        key_file = create_key_file(key, "synthetic self-check passphrase", recovery_text,
+                                   "Synthetic question?", "Synthetic answer")
+        result["recovery_roundtrip"] = open_with_recovery(key_file, recovery_text, "SYNTHETIC  answer") == key
         slot = wrap_key(key, "synthetic self-check passphrase")
         result["password_roundtrip"] = unwrap_key(slot, "synthetic self-check passphrase") == key
         tampered = dict(slot)

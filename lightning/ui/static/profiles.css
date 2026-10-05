@@ -85,6 +85,11 @@ input:focus { background: #E2EFE9; outline: 0; box-shadow: 0 0 0 2px #097852; }
 .alert-notice { border-left: 4px solid var(--nile); background: #EEF5F3; }
 .key-warning { padding: 12px 14px; border-left: 4px solid var(--rose); border-radius: 0 12px 12px 0; background: #FCEEF3; color: var(--ink); }
 .recovery-value { margin: 0 0 17px; padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: #fff; color: var(--ink); font: 700 17px/1.5 ui-monospace, "Cascadia Mono", monospace; overflow-wrap: anywhere; user-select: all; }
+.suggestion { padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--paper); }
+.suggestion p { margin: 0 0 8px; color: var(--ink-2); }
+.suggestion-value { color: var(--ink); font: 700 17px/1.5 ui-monospace, "Cascadia Mono", monospace; user-select: all; }
+.strength[data-level="weak"] { color: var(--rose); }
+.strength[data-level="strong"] { color: var(--meadow); }
 .check-row { display: flex; align-items: flex-start; gap: 10px; color: var(--ink); font-weight: 600; cursor: pointer; }
 .check-row input { width: 18px; height: 18px; flex: none; margin: 2px 0 0; accent-color: var(--meadow); }
 .cancel-form { margin-top: 18px; }
