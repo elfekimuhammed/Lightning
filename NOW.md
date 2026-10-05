@@ -12,6 +12,7 @@ Work longer than one sitting, and its files. Stay out of claimed files; remove y
 | Luna, for Codex | 03a restore safety: durable intent and source-copy manifest, Windows marker publication, then explicit deterministic repair. Codex reviews it and owns the restore UI and docs | `lightning/runtime/restore.py`, `lightning/database/promotion_windows.py`, `tests/test_profile_session.py`, `tests/test_database_promotion_windows.py` | 2026-10-05 |
 | Codex | 04a Android build feasibility; blockers in `android/README.md` | `android/`, the Android workflows | 2026-10-04 |
 | Codex | 05a, the remaining sync schemas | `lightning/sync/`, `tests/test_sync_domain.py` | 2026-10-05 |
+| Claude (entry helpers) | Upcoming projects #9: Ctrl-K command bar, privacy mode (blur amounts), `#tags` in notes | `lightning/ui/static/app.js`, `lightning/ui/templates/base.html`, `lightning/ui/routes/search.py`, `lightning/ui/templates/search.html`, `lightning/transactions/tags.py`, new blocks at the end of `style.css` | 2026-10-05 |
 
 ## Messages
 
