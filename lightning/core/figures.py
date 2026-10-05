@@ -111,7 +111,8 @@ _TABLE = [
      "Money added ÷ Money in"),
     ("average_monthly_income", "Average monthly income",
      "Income in your chosen income categories, averaged over the last 3 or 6 completed months that had any "
-     "(Settings › Budget). The budget, reserves and the cash forecast all use it."),
+     "(Settings › Budget). Until a completed month has income, the income set up in Recurring stands in. "
+     "The budget, reserves and the cash forecast all use it."),
     ("average_monthly_spending", "Average monthly spending",
      "Money out in your budget categories, leaving out investments and one-off categories, averaged over the same "
      "3 or 6 completed months as Average monthly income. The emergency fund can be counted in it (Settings › Budget)."),
@@ -156,8 +157,8 @@ _TABLE = [
     ("period_growth", "Growth", "Net gain or loss as a share of what the portfolio started the period with, plus money added.",
      "Net gain or loss ÷ (Portfolio value at the start + Money added)"),
     # ------------------------------------------------------------ cash planning
-    ("safe_to_spend", "Safe to spend", "Free cash after what is promised before your next income. An estimate. Budget left to spend and Saving for goals count for every month until that income (only the days before it in the month it lands), so a long gap between pays is covered.",
-     "Free cash − Bills and loan payments before next income − Budget left to spend − Saving for goals"),
+    ("safe_to_spend", "Safe to spend", "Free cash after what is promised before your next income. An estimate. Budget left to spend, Saving for goals and Emergency fund top-up count for every month until that income (only the days before it in the month it lands), so a long gap between pays is covered.",
+     "Free cash − Bills and loan payments before next income − Budget left to spend − Saving for goals − Emergency fund top-up"),
     ("bills_inside_the_plan", "Bills inside the plan",
      "This month's scheduled bills, due or upcoming, in a category that has a budget. They are part of that budget."),
     ("left_in_plan_after_bills", "Budget left to spend",

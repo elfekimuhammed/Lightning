@@ -143,9 +143,12 @@ class IncomeAverage:
     first_month: str           # yyyy-mm, the window (empty for a manual amount)
     last_month: str
     manual: bool = False
+    scheduled: bool = False    # no completed month had income yet: Recurring income stands in
 
     @property
     def window(self) -> str:
+        if self.scheduled:
+            return "from your recurring income"
         return f"{self.first_month} to {self.last_month}" if self.first_month else ""
 
 

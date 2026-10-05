@@ -142,6 +142,7 @@ def build(db_path: str | Path | None = None, backup_on_start: bool = False, *,
     planning = PlanningService(db, accounts, categories, counterparties, transactions)
     budgets.scheduled_loans = planning.loan_payments_by_category
     budgets.scheduled_bills = planning.budget_fill_schedule
+    budgets.scheduled_income = planning.income_a_month
     investments = InvestmentService(db, accounts, assets, categories, transactions, reporting, reevaluations)
     deposits = DepositService(db, accounts, assets, transactions)
     position = PositionService(reporting, assets, investments, money_from_others, reserves, planning, deposits)

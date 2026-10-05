@@ -66,6 +66,13 @@ def _deposit_cash_events(service, as_of: date, end: date):
     return adjusted
 
 
+def emergency_fund(reserves, budgets, month: str):
+    """The emergency fund the plan check and the forecast share: what Reserves sets aside, in months of the
+    chosen average. Read straight from Reserves: building a whole position here doubled the budget page's queries."""
+    reserve = next((row for row in reserves.list_active() if row["kind"] == "EMERGENCY"), None)
+    return budgets.emergency_fund(month, reserve["effective_allocated"] if reserve else None)
+
+
 class CashForecaster:
     def __init__(self, planning, reporting, reserves, budgets, categories, position, deposits=None):
         self.planning = planning
@@ -143,6 +150,9 @@ class CashForecaster:
         has_scheduled_income = any(i.kind == PlanKind.INCOME for i in self.planning.items((PlanKind.INCOME,)))
 
         rows, opening = [], free
+        # The emergency fund's top-up, as the plan check counts it: what each month must leave for it until full.
+        fund = emergency_fund(self.reserves, self.budgets, month_keys[0])
+        emergency_gap = max((fund.target or ZERO) - (fund.set_aside or ZERO), ZERO)
         for index, key in enumerate(month_keys):
             current = index == 0
             in_month = [p for p in upcoming if p.due_date[:7] == key]
@@ -166,10 +176,12 @@ class CashForecaster:
             budget_spending = max(budget_room - covered_bills - due_covered, ZERO)
             commitments = covered_bills + other_bills
             goals = self._goal_need(key, day)
+            emergency = min(fund.top_up, emergency_gap)
+            emergency_gap -= emergency
             deposit_cash = sum((event.amount for event in deposit_events if event.date[:7] == key), ZERO)
-            closing = opening + income + deposit_cash - commitments - budget_spending - goals
+            closing = opening + income + deposit_cash - commitments - budget_spending - goals - emergency
             rows.append(ForecastMonth(key, opening, income, estimated, commitments, budget_spending, goals, closing,
-                                      deposit_cash))
+                                      deposit_cash, emergency))
             opening = closing
 
         next_income = next((p for p in upcoming if p.item.is_income), None)
@@ -193,7 +205,7 @@ class CashForecaster:
         jobs, next month's spending still comes out of today's cash. The month the income lands in
         counts for the days before it."""
         bills = sum((p.amount for p in before), ZERO)
-        spending = goals = ZERO
+        spending = goals = emergency = ZERO
         for index, row in enumerate(rows):
             share = Decimal(1)
             if index:
@@ -207,7 +219,10 @@ class CashForecaster:
                     share = Decimal((pay_day - first_day).days) / Decimal((last_day - first_day).days + 1)
             spending += row.budget_spending * share
             goals += row.goal_saving * share
+            emergency += row.emergency_saving * share
         spending, goals = spending.quantize(Decimal("0.01")), goals.quantize(Decimal("0.01"))
+        emergency = emergency.quantize(Decimal("0.01"))
         parts = [(label("free_cash"), free), (label("payments_before_next_income"), -bills),
-                 (label("left_in_plan_after_bills"), -spending), (label("saving_for_goals"), -goals)]
-        return free - bills - spending - goals, [(name, value) for name, value in parts if value or name == label("free_cash")]
+                 (label("left_in_plan_after_bills"), -spending), (label("saving_for_goals"), -goals),
+                 (label("emergency_top_up"), -emergency)]
+        return free - bills - spending - goals - emergency, [(name, value) for name, value in parts if value or name == label("free_cash")]

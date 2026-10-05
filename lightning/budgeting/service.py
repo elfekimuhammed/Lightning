@@ -34,6 +34,7 @@ class BudgetService:
         # budget rule is planned at exactly what is scheduled (owner decision 2026-10-05: bills as loans).
         self.scheduled_loans = lambda month: {}
         self.scheduled_bills = lambda month: {}
+        self.scheduled_income = lambda: None
         self.reserve_goal_needs = lambda month: []
 
     def first_owned_spending_date(self) -> str | None:
@@ -87,6 +88,18 @@ class BudgetService:
         explicit = self.amounts_for(month, loans=False)
         return {cid: amount for cid, amount in self.scheduled_loans(month).items()
                 if amount and cid not in explicit}
+
+    def below_scheduled(self, month: str) -> list[dict]:
+        """Categories whose own rule plans less than the bills, subscriptions and loan payments scheduled
+        in them that month: the plan cannot hold what is already promised."""
+        explicit = self.amounts_for(month, loans=False)
+        names = {category.id: category.name for category in self.categories.tree()}
+        rows = []
+        for cid, scheduled in self.scheduled_payments(month).items():
+            planned = explicit.get(cid, (None,))[0]
+            if planned is not None and planned < scheduled:
+                rows.append({"category_id": cid, "name": names.get(cid, ""), "planned": planned, "scheduled": scheduled})
+        return rows
 
     @request_cached  # has_plan, loan_lines, bill_lines and month_view all ask for it
     def amounts_for(self, month: str, loans: bool = True) -> dict[int, tuple[Decimal | None, bool, int | None, Decimal | None]]:
@@ -176,7 +189,9 @@ class BudgetService:
     def income_average(self, month: str) -> IncomeAverage:
         """Average monthly income: owned income in the chosen income categories, averaged over
         the last 3 (or 6) completed months before `month` that had any. A manual amount in
-        Settings replaces the average. The budget, reserves and the cash forecast all use this."""
+        Settings replaces the average. Before any completed month has income, the income set up in
+        Cash planning › Recurring stands in, so a new plan is checked from day one. The budget, reserves
+        and the cash forecast all use this."""
         chosen = self.recurring_income_ids()
         categories = self.categories.tree()
         by_id = {category.id: category for category in categories}
@@ -213,7 +228,12 @@ class BudgetService:
             if included:
                 observed.append(sum((from_e6(row["total_e6"]) for row in included), ZERO))
             end = start - timedelta(days=1)
-        amount = (sum(observed, ZERO) / len(observed)).quantize(Decimal("0.01")) if observed else None
+        if not observed:
+            scheduled = self.scheduled_income()
+            if scheduled is not None:
+                return IncomeAverage(scheduled, 0, lookback, "", "", False, scheduled=True)
+            return IncomeAverage(None, 0, lookback, month_of(end + timedelta(days=1)), last_month, False)
+        amount = (sum(observed, ZERO) / len(observed)).quantize(Decimal("0.01"))
         return IncomeAverage(amount, len(observed), lookback, month_of(end + timedelta(days=1)), last_month, False)
 
     def _average_months(self) -> int:

@@ -29,7 +29,7 @@
   {% if fund.target and fund.target > pos.cash_you_own %}<p class="notice">Your emergency target is more than the cash you own.</p>{% endif %}
   <div class="emergency-stats">
     {% if fund.top_up %}<div><span class="muted small">{{ fig.emergency_top_up.label }}</span><b>{{ fund.top_up|money(False, 0) }}</b><small class="muted">a month to reach six months within two years; the budget leaves room for it</small></div>{% endif %}
-    <div><span class="muted small">{{ fig[fund.figure].label }}</span><b>{{ (avg.amount or 0)|money }}</b><small class="muted">{% if avg.manual %}Set by hand in Settings{% else %}{{ avg.window }} · {{ avg.months_counted }} month{{ '' if avg.months_counted == 1 else 's' }} with {{ what }}{% endif %}</small></div>
+    <div><span class="muted small">{{ fig[fund.figure].label }}</span><b>{{ (avg.amount or 0)|money }}</b><small class="muted">{% if avg.manual %}Set by hand in Settings{% elif avg.scheduled %}From your recurring income{% else %}{{ avg.window }} · {{ avg.months_counted }} month{{ '' if avg.months_counted == 1 else 's' }} with {{ what }}{% endif %}</small></div>
   </div>
   {% if not fund.monthly %}<p class="muted small">{% if fund.basis == 'income' %}Choose your income categories in <a href="/settings?section=budget">Settings</a> to measure months covered.{% else %}Months covered are measured once a month of spending is recorded.{% endif %}</p>{% endif %}
   <p class="muted small">Counted in months of {{ what }} · <a href="/settings?section=budget">Change in Settings</a></p>

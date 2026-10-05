@@ -11,7 +11,7 @@ from lightning.core.memo import request_cached
 from lightning.core.money import ZERO, from_e6, to_decimal
 from lightning.database.connection import Database
 
-from .domain import (Frequency, Payment, PaymentStatus, PlanKind, PlannedItem, WhatYouOwe)
+from .domain import (Frequency, Payment, PaymentStatus, PlanKind, PlannedItem, WhatYouOwe, per_year)
 from .repository import PlanningRepository
 from .schedule import payment_dates
 
@@ -288,6 +288,11 @@ class PlanningService:
                           bills_due_items=due)
 
     @request_cached  # read by every budget line since bills plan their category too (2026-10-05)
+    def income_a_month(self) -> Decimal | None:
+        """Recurring income a month: what Cash planning › Recurring expects to come in. None without any."""
+        total = sum((per_year(item) / 12 for item in self.items((PlanKind.INCOME,))), ZERO)
+        return total.quantize(Decimal("0.01")) if total > 0 else None
+
     def loan_payments_by_category(self, month: str) -> dict[int, Decimal]:
         """Loan payments scheduled in a month (paid, due or upcoming; not skipped), by category."""
         first, last = parse_month(month)

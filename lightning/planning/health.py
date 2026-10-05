@@ -11,6 +11,7 @@ from lightning.core.money import ZERO, check_places, fmt, to_decimal
 from lightning.database.settings import SettingsStore
 
 from .domain import PlanKind, per_year
+from .forecast import emergency_fund
 
 
 @dataclass(frozen=True)
@@ -227,9 +228,7 @@ class HealthService:
         and Financial health all read this one check."""
         planned = self.budgets.plan_summary(month)["planned"] if self.budgets.has_plan(month) else None
         goals = sum((row["amount"] for row in self.budgets.reserve_goal_needs(month)), ZERO)
-        # What is set aside, straight from Reserves: building a whole position here doubled the budget page's queries.
-        reserve = next((row for row in self.reserves.list_active() if row["kind"] == "EMERGENCY"), None)
-        fund = self.budgets.emergency_fund(month, reserve["effective_allocated"] if reserve else None)
+        fund = emergency_fund(self.reserves, self.budgets, month)
         return PlanCheck(month, self.budgets.income_average(month).amount, planned,
                          self.limit_values()["savings_rate"], goals, fund.top_up)
 
@@ -252,6 +251,26 @@ class HealthService:
                 text += f", within your {limit:.0f}% limit"
             parts.append(text)
         return "; ".join(parts) + "." if parts else ""
+
+    def plan_note(self, month: str | None = None) -> str:
+        """After the savings target, a goal or the emergency fund changes: what that does to this month's
+        Most you can plan, whether the plan still fits, and whether bills and loans alone already pass it.
+        Empty without average income."""
+        month = month or month_of(today())
+        check = self.plan_check(month)
+        room = check.spending_room
+        if room is None:
+            return ""
+        if room <= 0:
+            return (f"Saving needed is now {fmt(check.to_save, 0)} a month, all of your income: "
+                    "give a goal a later date or a smaller target.")
+        text = f"Most you can plan this month is now {fmt(room, 0)}"
+        if check.planned is not None:
+            text += f"; this month's plan is {fmt(check.over_by, 0)} over it" if check.over_by else "; this month's plan fits"
+        fixed = self.bills_a_month() + self.loans_a_month(parse_month(month)[0])
+        if fixed > room:
+            text += f". Bills and loan payments alone come to {fmt(fixed, 0)} a month, more than that"
+        return text + "."
 
     def fit_fill(self, proposal):
         """Fill this month stops at Most you can plan: rows stay ticked only while they fit in the room the

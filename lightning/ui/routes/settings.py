@@ -107,6 +107,8 @@ async def save_financial_health_limit(request: Request):
         else:
             c.health.set_limit(key, str(form.get("value", "")), form.get("no_limit") == "1")
             message = "Financial health limit saved."
+        if key == "savings_rate":  # the savings target sets Most you can plan
+            message = " ".join(x for x in (message, c.health.plan_note()) if x)
     except LightningError as exc:
         if request.headers.get("X-Requested-With") == "fetch":
             return Response(exc.message, status_code=400, media_type="text/plain; charset=utf-8")

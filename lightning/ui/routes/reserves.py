@@ -28,6 +28,11 @@ def _allocate(c, reserve_id: int, amount: str):
     return c.reserves.allocate(reserve_id, value)
 
 
+def _with_plan(c, message: str) -> str:
+    """A goal or the emergency fund changes what this month must leave: say what that does to the plan."""
+    return " ".join(x for x in (message, c.health.plan_note()) if x)
+
+
 def _context(request: Request, error: str = ""):
     c = container(request)
     reserves = c.reserves.list_active()
@@ -88,7 +93,7 @@ async def create_reserve(request: Request):
         if request.headers.get("X-Requested-With") == "fetch":
             return Response(exc.message, status_code=400, media_type="text/plain")
         return render(request, "reserves.html", status_code=400, **_context(request, exc.message))
-    return redirect("/reserves", f"Created {reserve['name']}.")
+    return redirect("/reserves", _with_plan(c, f"Created {reserve['name']}."))
 
 
 @router.post("/emergency")
@@ -111,7 +116,7 @@ async def save_emergency_fund(request: Request):
         return render(request, "reserves.html", status_code=400, **_context(request, exc.message))
     if request.headers.get("X-Requested-With") == "fetch":
         return Response("Saved", status_code=204)
-    return redirect("/reserves", f"Saved Emergency Fund: {reserve['allocated']} reserved.")
+    return redirect("/reserves", _with_plan(c, f"Saved Emergency Fund: {reserve['allocated']} reserved."))
 
 
 @router.post("/{reserve_id:int}/edit")
@@ -131,7 +136,7 @@ async def edit_reserve(request: Request, reserve_id: int):
         return redirect("/reserves", exc.message)
     if request.headers.get("X-Requested-With") == "fetch":
         return Response("Saved", status_code=204)
-    return redirect("/reserves", f"Saved {reserve['name']}.")
+    return redirect("/reserves", _with_plan(c, f"Saved {reserve['name']}."))
 
 
 @router.post("/{reserve_id:int}/allocate")
@@ -146,16 +151,17 @@ async def allocate_reserve(request: Request, reserve_id: int):
         return redirect("/reserves", exc.message)
     if request.headers.get("X-Requested-With") == "fetch":
         return Response("Saved", status_code=204)
-    return redirect("/reserves", f"Updated cash assigned to {reserve['name']}.")
+    return redirect("/reserves", _with_plan(c, f"Updated cash assigned to {reserve['name']}."))
 
 
 @router.post("/{reserve_id:int}/complete")
 async def complete_reserve(request: Request, reserve_id: int):
+    c = container(request)
     try:
-        reserve = container(request).reserves.complete(reserve_id)
+        reserve = c.reserves.complete(reserve_id)
     except LightningError as exc:
         return redirect("/reserves", exc.message)
-    return redirect("/reserves", f"Completed {reserve['name']}; its assigned cash is free again.")
+    return redirect("/reserves", _with_plan(c, f"Completed {reserve['name']}; its assigned cash is free again."))
 
 
 @router.get("/{reserve_id:int}/payments")

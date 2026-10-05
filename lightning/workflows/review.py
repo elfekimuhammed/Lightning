@@ -77,6 +77,12 @@ class ReviewInbox:
                 items.append({"label": f"{section.name} over plan",
                               "detail": f"{fmt(section.planned_actual - section.available)} {c.base_currency} over this month's plan.",
                               "href": "/budget", "priority": 2})
+        # A category's own plan below what is already scheduled in it: the bill will overrun the plan.
+        for row in c.budgets.below_scheduled(month_of(on)):
+            items.append({"label": f"{row['name']} is planned below its bills",
+                          "detail": f"Planned {fmt(row['planned'])} {c.base_currency}; bills and loan payments "
+                                    f"scheduled this month come to {fmt(row['scheduled'])}.",
+                          "href": f"/budget?month={month_of(on)}", "action": "Change the plan", "priority": 2})
         # The month's plan against the savings target and dated goals (one check: HealthService.plan_check).
         check = c.health.plan_check(month_of(on))
         if check.planned is not None and check.over_by and check.planned_savings_rate is not None:

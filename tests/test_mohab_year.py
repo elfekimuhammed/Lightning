@@ -704,7 +704,10 @@ def test_what_he_owes_and_when_the_car_is_paid_off(mohab):
 def test_safe_to_spend_until_payday(mohab):
     answer = mohab.answers["safe"]
     assert route(mohab, "safe") == ["/", "/plan"]
-    assert answer.figure("Safe to spend until 2026-10-01") == D("51354")
+    # 20,000 of a 270,000 emergency target: the top-up the budget asks for (250,000 over 24 months,
+    # 10,417) is kept back too, as Saving for goals is (owner request 2026-10-05: one plan).
+    assert answer.figure("Safe to spend until 2026-10-01") == D("40938")
+    assert answer.shows("Budget left to spend −1,309 Emergency fund top-up −10,417 Safe to spend 40,938")
 
 
 def test_free_cash_shows_what_was_taken_off(mohab):
