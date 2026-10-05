@@ -693,8 +693,9 @@ async def prices(request: Request, error: str = ""):
 
 def _followed(c) -> list[dict]:
     """The packs this profile follows, each with what this computer holds of it (or None)."""
-    have, names = pack_files(c.data_dir), {r["id"]: r["name"] for r in pack_rows(c.data_dir, ())}
-    return [{"id": p, "name": names.get(p, p), "have": have.get(p)} for p in chosen(c.settings.get("market_packs"))]
+    have, rows = pack_files(c.data_dir), {r["id"]: r for r in pack_rows(c.data_dir, ())}
+    return [{"id": p, "name": rows.get(p, {}).get("name", p), "source": rows.get(p, {}).get("source", ""),
+             "have": have.get(p)} for p in chosen(c.settings.get("market_packs"))]
 
 
 def _fill_from(c, done: str = "", back: str = "/investments/prices"):

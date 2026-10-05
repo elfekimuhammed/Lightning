@@ -140,7 +140,7 @@ def _month_end_closes(closes: list[Close]) -> list[Close]:
 
 
 def write(folder: Path, instruments: list[Instrument], closes: list[Close], created_at: str,
-          health: dict | None = None, pack: str = "") -> dict:
+          health: dict | None = None, pack: str = "", source: str = "") -> dict:
     """Write a whole market folder from instruments and every daily close, and return its manifest.
 
     Monthly files are derived from the daily closes, so the two can never disagree."""
@@ -171,7 +171,8 @@ def write(folder: Path, instruments: list[Instrument], closes: list[Close], crea
                                              for c in rows], PRICE_FIELDS)
     if health is not None:
         files["health.json"] = json.dumps(health, indent=2, sort_keys=True).encode("utf-8")
-    manifest = {"schema": SCHEMA, "created_at": created_at, "files": {}} | ({"pack": pack} if pack else {})
+    manifest = ({"schema": SCHEMA, "created_at": created_at, "files": {}} | ({"pack": pack} if pack else {})
+                | ({"source": source} if source else {}))  # the citation travels with the prices
     for name, data in sorted(files.items()):
         entry = {"sha256": hashlib.sha256(data).hexdigest(), "bytes": len(data)}
         if name.endswith(".csv") and name != "instruments.csv":

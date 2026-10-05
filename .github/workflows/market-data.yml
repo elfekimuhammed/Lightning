@@ -69,9 +69,16 @@ jobs:
           if ! [[ "$packs" =~ ^[a-z][a-z0-9,-]*$ ]]; then echo "Not a list of packs: $packs"; exit 1; fi
           publish=false
           if [ "$PUBLISH" = "true" ] && [ -n "$TOKEN" ]; then publish=true; fi
+          # Owner decision 2026-10-05: publish only packs whose sources allow republishing (packs.py, publish=True);
+          # the others are still collected and checked, kept only as this run's artifact.
+          public=$(python -c "import sys; from lightning.market.packs import publishable; print(','.join(publishable(sys.argv[1].split(','))))" "$packs")
+          private=$(python -c "import sys; from lightning.market.packs import publishable; p=sys.argv[1].split(','); print(','.join(x for x in p if x not in publishable(p)))" "$packs")
+          if [ -z "$public" ]; then publish=false; fi
           echo "packs=$packs" >> "$GITHUB_OUTPUT"
+          echo "public=$public" >> "$GITHUB_OUTPUT"
+          echo "private=$private" >> "$GITHUB_OUTPUT"
           echo "publish=$publish" >> "$GITHUB_OUTPUT"
-          echo "Packs: $packs · publish: $publish" >> "$GITHUB_STEP_SUMMARY"
+          echo "Packs: $packs · published: ${public:-none} · checked only: ${private:-none} · publish: $publish" >> "$GITHUB_STEP_SUMMARY"
       - name: Check out the data repository
         if: steps.plan.outputs.publish == 'true'
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -83,10 +90,21 @@ jobs:
         id: collect
         continue-on-error: true  # a failing source still lets the other packs publish; the job fails below
         env:
-          ROOT: ${{ steps.plan.outputs.publish == 'true' && 'market-data' || format('{0}/market', runner.temp) }}
+          PUBLISH: ${{ steps.plan.outputs.publish }}
           PACKS: ${{ steps.plan.outputs.packs }}
+          PUBLIC: ${{ steps.plan.outputs.public }}
+          PRIVATE: ${{ steps.plan.outputs.private }}
         run: |
-          python -m tools.market collect --root "$ROOT" --packs "$PACKS" > "$RUNNER_TEMP/report.json"
+          if [ "$PUBLISH" = "true" ]; then
+            status=0
+            python -m tools.market collect --root market-data --packs "$PUBLIC" > "$RUNNER_TEMP/report.json" || status=1
+            if [ -n "$PRIVATE" ]; then
+              python -m tools.market collect --root "$RUNNER_TEMP/market" --packs "$PRIVATE" > "$RUNNER_TEMP/private.json" || status=1
+              python -c "import json,os; t=os.environ['RUNNER_TEMP']; a=json.load(open(t+'/report.json')); a.update(json.load(open(t+'/private.json'))); json.dump(a, open(t+'/report.json','w'))"
+            fi
+            exit $status
+          fi
+          python -m tools.market collect --root "$RUNNER_TEMP/market" --packs "$PACKS" > "$RUNNER_TEMP/report.json"
       - name: Report
         if: always()
         env:
@@ -109,7 +127,7 @@ jobs:
                   print(f"\n- {pack}: {problem}")
           PY
       - name: Keep the packs as an artifact
-        if: steps.plan.outputs.publish != 'true' && always()
+        if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: price-packs

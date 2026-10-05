@@ -131,6 +131,7 @@ def pack_rows(data_dir: Path | None, followed) -> list[dict]:
         venues = known.venues if known else tuple(listed.get("venues", ()))
         rows.append({"id": pack_id, "name": known.name if known else str(listed.get("name", pack_id)),
                      "covers": known.covers if known else str(listed.get("covers", "")),
+                     "source": known.source if known else str(listed.get("source", "")),
                      "venues": ", ".join(venue_name(v) for v in venues), "on": pack_id in followed,
                      "bytes": listed.get("bytes"), "have": have.get(pack_id)})
     return rows

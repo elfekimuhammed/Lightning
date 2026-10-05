@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from lightning.market.bundle import MarketFileError
-from lightning.market.packs import PACKS, pack_release, read_zip
+from lightning.market.packs import PACKS, pack_release, publishable, read_zip
 from lightning.market.update import DEFAULT_URL, update_packs
 
 from .alarm import alarms
@@ -19,7 +19,7 @@ from .http import Polite
 
 def release_bundle(out: Path, url: str, required: bool) -> int:
     """Download the default packs and zip them for the app, checking the result reads back whole."""
-    defaults = [p.id for p in PACKS.values() if p.default]
+    defaults = publishable(p.id for p in PACKS.values() if p.default)  # we ship only what we may republish
     with tempfile.TemporaryDirectory(prefix="lightning-market-") as folder:
         try:
             _, missing = update_packs(Path(folder), defaults, url)

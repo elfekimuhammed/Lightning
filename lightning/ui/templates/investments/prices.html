@@ -9,7 +9,8 @@
     <thead><tr><th>Market</th><th class="num">Prices</th><th>Up to</th><th>File</th></tr></thead>
     {% for m in market %}<tr><td>{{ m.name }}</td>{% if m.have %}<td class="num">{{ m.have.instruments }}</td><td>{{ m.have.last_date }}</td><td class="muted small">{{ m.have.created_at }}, {{ m.have.origin }}</td>{% else %}<td class="num muted">—</td><td colspan="2" class="muted">Not downloaded yet</td>{% endif %}</tr>{% endfor %}
   </table>
-  <p class="muted small">Filling gives each investment you hold its price at every month-end and its latest close. <a href="/investments/prices/markets">Choose markets</a></p>
+  {% set cited = market | selectattr('have') | selectattr('source') | map(attribute='source') | unique | list %}
+  <p class="muted small">Filling gives each investment you hold its price at every month-end and its latest close.{% if cited %} Source: {{ cited | join('; ') }}.{% endif %} <a href="/investments/prices/markets">Choose markets</a></p>
   {% else %}
   <p class="muted">You follow no markets. <a href="/investments/prices/markets">Choose markets</a> to download their prices.</p>
   {% endif %}

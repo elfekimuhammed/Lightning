@@ -164,7 +164,7 @@ These need the owner's decision before the file is published (`OWNER.md`):
 - **CBE rates** are official public data; republishing with attribution is the safest part.
 - **Fund NAVs** are public disclosures by each manager; the manager's own page is the cleanest source.
 
-Recommendation: start with CBE and managers' NAVs as published sources, get a licensed end-of-day feed for EGX and US prices before the file goes public, and keep the free sources as fallbacks and cross-checks.
+**Decided (owner, 2026-10-05):** publish only what a source allows, and cite every source. Each pack in `packs.py` names its `source` (written into its manifest and `index.json`, and shown on Investment prices and Settings › Price files) and whether it may be `publish`ed. Today only `fx` (CBE) is published and shipped in the release ZIP; the other packs are collected and checked, kept only as the run's artifact. A fund-manager adapter, a source's written permission or a licensed end-of-day feed turns another pack on.
 
 ## Phases
 

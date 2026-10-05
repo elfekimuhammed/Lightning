@@ -9,7 +9,7 @@
     <tbody>{% for r in rows %}
       <tr>
         <td><label class="sc-check"><input type="checkbox" name="pack" value="{{ r.id }}" {{ 'checked' if r.on }} aria-label="Follow {{ r.name }}"></label></td>
-        <td><b>{{ r.name }}</b><div class="muted small">{{ r.covers }}</div></td>
+        <td><b>{{ r.name }}</b><div class="muted small">{{ r.covers }}{% if r.source %} · Source: {{ r.source }}{% endif %}</div></td>
         <td class="small">{{ r.venues or '—' }}</td>
         <td class="num small">{% if r.bytes and r.bytes >= 1000000 %}{{ (r.bytes / 1000000) | round(1) }} MB{% elif r.bytes %}{{ (r.bytes / 1000) | round(0, 'ceil') | int }} KB{% else %}<span class="muted">—</span>{% endif %}</td>
         <td class="small">{% if r.have %}{{ r.have.instruments }} price{{ '' if r.have.instruments == 1 else 's' }} to {{ r.have.last_date }}<div class="muted">File of {{ r.have.created_at }}, {{ r.have.origin }}</div>{% else %}<span class="muted">Not downloaded</span>{% endif %}</td>

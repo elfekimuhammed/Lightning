@@ -326,8 +326,8 @@ def test_a_release_carries_the_default_packs_downloaded_and_checked(tmp_path, ca
     out = tmp_path / "app" / "market.zip"
     with Server(root) as server:
         assert market_cli(["release", "--out", str(out), "--url", server.url, "--required"]) == 0
-    assert sorted(read_zip(out.read_bytes())) == ["eg-funds", "egx", "fx"]  # the default packs, not us
-    assert "egx of 2026-12-31" in capsys.readouterr().out
+    assert sorted(read_zip(out.read_bytes())) == ["fx"]  # only default packs we may republish
+    assert "fx of 2026-12-31" in capsys.readouterr().out
     out.unlink()
     with Server(tmp_path / "nothing-published") as server:
         assert market_cli(["release", "--out", str(out), "--url", server.url]) == 0  # a test build warns
@@ -347,3 +347,23 @@ def test_a_tagged_release_build_refuses_to_ship_without_price_files(tmp_path):
     workflow = (package_app.ROOT / ".github" / "workflows" / "desktop-probe.yml").read_text(encoding="utf-8")
     assert workflow.index("python -m tools.market release") < workflow.index("pyinstaller --clean")
     assert "github.ref_type == 'tag' && '--required'" in workflow
+
+
+def test_only_sources_that_allow_it_are_published_and_each_is_cited(tmp_path):
+    from lightning.market.packs import PACKS, publishable
+    assert publishable(PACKS) == ["fx"]  # CBE rates; stock and fund sources do not allow republishing (yet)
+    assert all(p.source for p in PACKS.values())
+    assert json.loads((publish(tmp_path / "m") / "index.json").read_text())["packs"]["fx"]["source"] \
+        == "Central Bank of Egypt (cbe.org.eg)"
+    from pathlib import Path
+    text = (Path(__file__).resolve().parents[1] / ".github" / "workflows" / "market-data.yml").read_text(encoding="utf-8")
+    assert '--root market-data --packs "$PUBLIC"' in text and 'publishable(' in text
+
+
+def test_the_pages_cite_the_source_of_the_prices(c, holdings, tmp_path, monkeypatch):
+    _bundle(tmp_path, monkeypatch)
+    client = TestClient(create_app(c))
+    text = client.get("/investments/prices").text
+    assert "Source: " in text and "Central Bank of Egypt (cbe.org.eg)." in text
+    page = client.get("/investments/prices/markets").text
+    assert "Source: Central Bank of Egypt (cbe.org.eg)" in page and "Source: TradingView" in page

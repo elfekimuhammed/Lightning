@@ -32,19 +32,30 @@ class Pack:
     days: frozenset[int]         # trading days as Python weekdays (Monday 0, Sunday 6)
     final_utc: str               # when the day's prices are final; the collector runs after it
     default: bool = False
+    source: str = ""             # who the prices come from, cited wherever they are published or shown
+    publish: bool = False        # owner decision 2026-10-05: only sources that allow republishing are published
+
+
+def publishable(pack_ids) -> list[str]:
+    """The packs whose sources allow us to republish them (proposal › Rights and limits)."""
+    return [p for p in pack_ids if p in PACKS and PACKS[p].publish]
 
 
 _SUN_THU, _MON_FRI = frozenset({6, 0, 1, 2, 3}), frozenset({0, 1, 2, 3, 4})
 PACKS: dict[str, Pack] = {p.id: p for p in (
-    Pack("egx", "Egyptian stocks", "Every stock listed on EGX, and the EGX indices", ("XCAI",), _SUN_THU, "13:30", True),
-    Pack("eg-funds", "Egyptian funds", "Egyptian mutual funds' prices (NAV), with their fund class", (), _SUN_THU, "19:00", True),
-    Pack("fx", "Exchange rates", "The Central Bank of Egypt's official rates, in pounds", (), _SUN_THU, "13:30", True),
+    Pack("egx", "Egyptian stocks", "Every stock listed on EGX, and the EGX indices", ("XCAI",), _SUN_THU, "13:30", True,
+         "TradingView, Yahoo Finance"),
+    Pack("eg-funds", "Egyptian funds", "Egyptian mutual funds' prices (NAV), with their fund class", (), _SUN_THU, "19:00", True,
+         "Mubasher"),
+    Pack("fx", "Exchange rates", "The Central Bank of Egypt's official rates, in pounds", (), _SUN_THU, "13:30", True,
+         "Central Bank of Egypt (cbe.org.eg)", publish=True),
     Pack("us", "US stocks and ETFs", "The 600 largest US stocks and 100 largest ETFs on Nasdaq, NYSE and NYSE Arca",
-         ("XNAS", "XNYS", "ARCX", "XASE"), _MON_FRI, "22:30"),
+         ("XNAS", "XNYS", "ARCX", "XASE"), _MON_FRI, "22:30", source="TradingView, Yahoo Finance"),
     Pack("gcc", "Gulf stocks", "Every stock on the Saudi Exchange, Dubai, Abu Dhabi, Qatar, Boursa Kuwait and Bahrain",
-         ("XSAU", "XDFM", "XADS", "DSMQ", "XKUW", "XBAH"), _SUN_THU | {4}, "13:30"),
+         ("XSAU", "XDFM", "XADS", "DSMQ", "XKUW", "XBAH"), _SUN_THU | {4}, "13:30", source="TradingView"),
     Pack("europe", "European stocks and ETFs", "The largest stocks and UCITS ETFs in London, Xetra, Euronext, Madrid, "
-         "Milan and Zurich", ("XLON", "XETR", "XPAR", "XAMS", "XBRU", "XLIS", "XMAD", "XMIL", "XSWX"), _MON_FRI, "17:30"),
+         "Milan and Zurich", ("XLON", "XETR", "XPAR", "XAMS", "XBRU", "XLIS", "XMAD", "XMIL", "XSWX"), _MON_FRI, "17:30",
+         source="TradingView"),
 )}
 
 
@@ -76,6 +87,7 @@ def write_index(root: Path, created_at: str) -> dict:
         files = manifest.get("files", {})
         packs[pack_id] = {
             "name": known.name if known else pack_id, "covers": known.covers if known else "",
+            "source": known.source if known else str(manifest.get("source", "")),
             "venues": list(known.venues) if known else [], "created_at": manifest.get("created_at", ""),
             "last_date": max((e.get("last_date", "") for e in files.values()), default=""),
             "instruments": files.get("instruments.csv", {}).get("rows", 0), "bytes": download_bytes(manifest)}

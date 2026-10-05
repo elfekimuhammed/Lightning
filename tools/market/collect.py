@@ -112,7 +112,7 @@ def _write(folder, instruments, series, accepted: list[Quote], problems, health,
                                    last_date=closes[-1].date if closes else "")
     health["_run"] = {"created_at": created_at, "problems": problems[:200], "problem_count": len(problems)}
     write(folder, list(instruments.values()), [c for closes in series.values() for c in closes], created_at, health,
-          pack=Path(folder).name)
+          pack=Path(folder).name, source=PACKS[Path(folder).name].source if Path(folder).name in PACKS else "")
     return health
 
 
