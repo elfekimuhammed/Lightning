@@ -39,8 +39,15 @@
       <input class="num money-input" type="text" inputmode="decimal" autocomplete="off" name="amount_{{ rid }}" value="{{ r.Amount }}" aria-label="Amount, line {{ r._line }}">
       <input type="text" name="notes_{{ rid }}" value="{{ r.Notes }}" placeholder="Note" aria-label="Note, line {{ r._line }}">
       {% if r._category_id and r._category_id|string != g.category %}<select name="category_{{ rid }}" aria-label="Category for line {{ r._line }} only" data-own-picker><option value="">Same as above</option>{{ category_options(category_groups(categories|map(attribute='id')|list), r._category_id) }}</select>{% else %}<span></span>{% endif %}
-      <label class="import-check"><input type="checkbox" name="skip_{{ rid }}" {{ 'checked' if r.get('_skip') or r._similarity_warning or r._reference_duplicate }}> Skip</label>
-      {% if r._row_error %}<small class="import-row-note neg">{{ r._row_error }}</small>{% elif r._errors %}<small class="import-row-note neg">{{ r._errors|join(' ') }}</small>{% elif r._reference_duplicate or r._similarity_warning %}<small class="import-row-note">Same date and amount or reference as a row you already have: skipped unless you untick it</small>{% endif %}
+      {% if r._possible_duplicate %}<span></span>
+      {% set chosen = r.get('_match') or r._default_match %}
+      <div class="import-row-match" role="radiogroup" aria-label="Line {{ r._line }}: already recorded?">
+        {% for m in r._link_candidates[:3] %}<label><input type="radio" name="match_{{ rid }}" value="link:{{ m.id }}" {{ 'checked' if chosen == 'link:' ~ m.id|string }}> Link to {{ m.counterparty or m.notes or 'the entry' }} · {{ m.date }} · <span class="num">{{ m.amount|money }}</span></label>{% endfor %}
+        <label><input type="radio" name="match_{{ rid }}" value="new" {{ 'checked' if chosen == 'new' }}> Post as new</label>
+        <label><input type="radio" name="match_{{ rid }}" value="skip" {{ 'checked' if chosen == 'skip' }}> Skip</label>
+      </div>
+      {% else %}<label class="import-check"><input type="checkbox" name="skip_{{ rid }}" {{ 'checked' if r.get('_skip') }}> Skip</label>{% endif %}
+      {% if r._row_error %}<small class="import-row-note neg">{{ r._row_error }}</small>{% elif r._errors %}<small class="import-row-note neg">{{ r._errors|join(' ') }}</small>{% elif r._voided_earlier %}<small class="import-row-note">You voided this row after an earlier import. Post it again only if that was a mistake.</small>{% elif r._reference_duplicate %}<small class="import-row-note">Already imported from an earlier statement.</small>{% elif r._link_candidates and r._default_match.startswith('link:') %}<small class="import-row-note">Already recorded? Link it to that entry: no money moves twice and the entry keeps its date and category.</small>{% elif r._link_candidates or r._similarity_warning %}<small class="import-row-note">Same date and amount as a row you already have. Post it as new only if it is a second payment.</small>{% endif %}
     </div>
     {% endfor %}
   </div>
@@ -48,7 +55,7 @@
 {% endmacro %}
 
 {% block content %}
-{% if batch.status == 'POSTED' %}<section class="card"><h2>Import complete</h2><p>{{ summary.posted }} posted · {{ summary.skipped }} skipped · {{ summary.duplicates }} duplicates.</p><a class="btn" href="/accounts/{{ account.id }}">Return to account</a></section>
+{% if batch.status == 'POSTED' %}<section class="card"><h2>Import complete</h2><p>{{ summary.posted }} posted · {% if summary.linked %}{{ summary.linked }} linked to entries you already had · {% endif %}{{ summary.skipped }} skipped · {{ summary.duplicates }} duplicates.</p><a class="btn" href="/accounts/{{ account.id }}">Return to account</a></section>
 {% else %}
 <datalist id="import-counterparty-names">{% for name in counterparty_search_names %}<option value="{{ name }}">{% endfor %}</datalist>
 <form method="post" action="/accounts/{{ account.id }}/import/{{ batch.id }}/confirm" id="import-review-form"><section class="card import-review">

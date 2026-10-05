@@ -208,7 +208,7 @@ def _review_groups(rows: list[dict], form=None) -> list[dict]:
     groups = []
     for index, (key, members) in enumerate(by_key.items()):
         lead = members[0]
-        duplicates = [r for r in members if r.get("_reference_duplicate") or r.get("_similarity_warning")]
+        duplicates = [r for r in members if r.get("_possible_duplicate")]
         categories = {r.get("_category_id") for r in members}
         value = (lambda name, default: str(form.get(f"group_{name}_{index}", default)) if form is not None else default)
         group = {
@@ -275,6 +275,7 @@ def _decision(form, row) -> dict:
     decision = {"category_id": category_choice if category_choice and category_choice != "__uncategorized__" else None,
                 "force_uncategorized": category_choice == "__uncategorized__",
                 "skip": form.get(f"skip_{row_id}") == "on",
+                "match": str(form.get(f"match_{row_id}", "")),
                 "date": form.get(f"date_{row_id}", row["Date"]),
                 "counterparty": shared("counterparty", row["Counterparty"]),
                 "amount": form.get(f"amount_{row_id}", row["Amount"]),
@@ -304,6 +305,7 @@ def _keep_typed(form, rows) -> None:
         row["_counterparty_choice"] = decision["counterparty_choice"]
         row["_category_id"] = int(decision["category_id"]) if str(decision["category_id"] or "").isdigit() else None
         row["_skip"] = decision["skip"]
+        row["_match"] = decision["match"]
         row["_transfer_account_id"] = decision["transfer_account_id"]
         row["_remember_category"] = decision["remember_category"]
 
@@ -341,4 +343,6 @@ async def confirm(request: Request, account_id: int, batch_id: int):
         feedback += f" {count['ambiguous_reserves']} row(s) could match multiple reserves; choose beside each transaction in its account list."
     batch, result_rows = c.bank_imports.preview(batch_id)
     return _render_review(request, c, account_id, batch, result_rows, summary=count,
-                          msg=f"Import complete: {count['posted']} posted, {count['skipped']} skipped, {count['duplicates']} duplicates.{feedback}")
+                          msg=f"Import complete: {count['posted']} posted, "
+                              + (f"{count['linked']} linked to entries you already had, " if count.get("linked") else "")
+                              + f"{count['skipped']} skipped, {count['duplicates']} duplicates.{feedback}")

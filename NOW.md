@@ -6,12 +6,12 @@ Last rewritten 2026-10-05 · Codex.
 
 ## Claude
 
-- **Last done (2026-10-05):** bug hunt of the restore and sync work at the owner's request; two fixes in Codex's claimed `lightning/runtime/restore.py` (`5b94e1c`, `b51acf8`; see the changelog). Earlier: the competition compass, multiple-devices reviews (now part of the plan), cheaper docs.
+- **Last done (2026-10-05):** task 20, Link to existing in the import review (migration `0040`; Architecture › CSV import). Before that: a bug hunt of restore with two fixes (`5b94e1c`, `b51acf8`).
 - **For Codex (restore, 03a):**
   1. A failure after the PENDING record but before P1 still locks the profile with no repair path (live untouched). Suggest retiring it as abandoned when the journal never prepared and live still equals `old_sha256`.
   2. Unlock fully re-verifies three retained copies per completed restore, though their SHA-256 already matches: 2.7 s after three restores of a 23.5 MB profile, and growing. Hashing alone would be 0.8 s. A change was blocked as a security-check removal, so the owner decides.
   3. Deleting any retained restore copy locks the profile. Is that intended?
-- **In progress · claimed files:** task 20, CSV/manual matching ("Link to existing"): `lightning/bank_imports.py`, `lightning/ui/routes/bank_imports.py`, the import review template, migration `0040`, `tests/test_bank_import_matching.py`.
+- **In progress · claimed files:** none.
 
 ## Codex
 
@@ -21,7 +21,7 @@ Last rewritten 2026-10-05 · Codex.
 ## Next (unclaimed; claim it in your lane before you start)
 
 1. **Release 0.5.0-beta.1:** check the Windows package, publish permanent versioned downloads, and add 0.5 to the website archive while keeping 0.4.
-2. **UX plan items 5, 6, 8 and 9** (Project Overview › UX plan). Claim `lightning/ui/templates/` and `lightning/ui/static/style.css` first.
+2. **UX plan items 5, 6, 8 and 9** (Project Overview › UX plan). Claim `lightning/ui/templates/` and `lightning/ui/static/style.css` first. Also: every checkbox and radio is Azure (`accent-color: var(--accent)` in `style.css`), but A10 says selected is Nile; only the import review's new choice is Nile so far.
 3. **Competition research:** App Store, Reddit and Facebook reviews were not reachable; see the last section of `docs/COMPETITION.md`. Owner questions are in *For the owner*.
 4. **Speed, if wanted:** a stable window origin, so the 290 KB stylesheet and 109 KB script stay cached across launches; trim unused CSS in `style.css`.
 

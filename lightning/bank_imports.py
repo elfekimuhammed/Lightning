@@ -30,6 +30,10 @@ class _ImportReviewRequired(Exception):
         self.errors = errors
 
 
+# A bank often posts a purchase a day or two after it happened: a transaction you
+# already recorded this many days either side can stand behind a statement row.
+LINK_WINDOW_DAYS = 3
+
 INTERNAL_WORDS = {"internal", "internal transfer", "transfer", "transfers", "own account"}
 
 
@@ -235,8 +239,8 @@ class BankImportService:
             for raw, parsed in stored:
                 ref = parsed["Reference"].strip() or None
                 self.db.execute(
-                    "INSERT INTO bank_import_rows(batch_id,row_number,raw_json,bank_reference,status) "
-                    "VALUES (?,?,?,?,?)", (batch_id, int(raw["__line__"]),
+                    "INSERT INTO bank_import_rows(batch_id,account_id,row_number,raw_json,bank_reference,status) "
+                    "VALUES (?,?,?,?,?,?)", (batch_id, account_id, int(raw["__line__"]),
                     json.dumps({"raw": raw, "parsed": parsed}, ensure_ascii=False), ref, "REVIEW")
                 )
         return batch_id, False
@@ -260,7 +264,7 @@ class BankImportService:
             ref_duplicate = bool(row["bank_reference"] and (row["bank_reference"] in seen_refs or self.db.scalar(
                 "SELECT 1 FROM bank_import_rows r JOIN bank_import_batches b ON b.id=r.batch_id "
                 "JOIN transactions t ON t.id=r.transaction_id AND t.status='POSTED' "
-                "WHERE b.account_id=? AND r.bank_reference=? AND b.id<>? AND r.status='POSTED' LIMIT 1",
+                "WHERE b.account_id=? AND r.bank_reference=? AND b.id<>? AND r.status IN ('POSTED','LINKED') LIMIT 1",
                 (batch["account_id"], row["bank_reference"], batch_id))))
             if row["bank_reference"]:
                 seen_refs.add(row["bank_reference"])
@@ -270,6 +274,10 @@ class BankImportService:
             parsed["_reference_duplicate"] = ref_duplicate
             parsed["_similarity_warning"] = (self._similarity_warning(batch["account_id"], parsed)
                 or amount_dates.get((parsed["Date"], parsed["Amount"]), 0) > 1)
+            parsed["_voided_earlier"] = not ref_duplicate and self._voided_earlier(batch["account_id"], batch_id,
+                                                                                row["bank_reference"], parsed)
+            parsed["_link_candidates"] = ([] if ref_duplicate or row["status"] != "REVIEW"
+                                          else self._link_candidates(batch["account_id"], parsed))
             parsed["_internal"] = is_internal(parsed["Category"])
             parsed["_category_id"] = None if parsed["_internal"] else self._category_for(parsed, cp)
             parsed["_transfer_target_suggestion"] = (self._own_account(batch["account_id"], parsed["Counterparty"])
@@ -292,14 +300,64 @@ class BankImportService:
             # Keep the canonical owner ready in the form: the user may choose
             # the custody category during review rather than in the CSV.
             parsed["_whom"] = cp["name"] if cp and cp["active"] else ""
-            parsed["_ready"] = bool(not parsed.get("_errors") and not ref_duplicate and not parsed["_similarity_warning"]
+            parsed["_possible_duplicate"] = bool(ref_duplicate or parsed["_similarity_warning"]
+                                                 or parsed["_voided_earlier"] or parsed["_link_candidates"])
+            parsed["_ready"] = bool(not parsed.get("_errors") and not parsed["_possible_duplicate"]
                                     and not parsed["_suggestions"] and not parsed["_needs_account"]
                                     and (parsed["_category_id"] or parsed["_transfer_target"]))
             parsed["_import_row_id"] = row["id"]
+            parsed["_account_id"] = batch["account_id"]
             parsed["_status"] = row["status"]
             parsed["_transaction_id"] = row["transaction_id"]
             result.append(parsed)
+        claimed = set()
+        for parsed in result:
+            free = [c for c in parsed["_link_candidates"] if c["id"] not in claimed]
+            if free:
+                parsed["_default_match"] = f"link:{free[0]['id']}"
+                claimed.add(free[0]["id"])
+            else:
+                parsed["_default_match"] = "skip" if parsed["_possible_duplicate"] else "new"
         return batch, result
+
+    def _link_candidates(self, account_id: int, parsed: dict) -> list[dict]:
+        """Posted transactions this statement row may already stand for: the same signed amount on
+        this account within LINK_WINDOW_DAYS, not already backed by an imported row. Closest date first.
+        Amount and date alone only suggest a match; the user confirms it in the review."""
+        if parsed.get("_errors"):
+            return []
+        amount_e6 = int(Decimal(parsed["Amount"]) * 1_000_000)
+        rows = self.db.all(
+            "SELECT t.id,t.date,t.type,t.counterparty,t.notes FROM transactions t "
+            "JOIN ledger_entries l ON l.transaction_id=t.id AND l.account_id=? "
+            "WHERE t.status='POSTED' AND julianday(t.date) BETWEEN julianday(?)-? AND julianday(?)+? "
+            "AND NOT EXISTS (SELECT 1 FROM bank_import_rows r WHERE r.transaction_id=t.id "
+            "AND r.account_id=? AND r.status IN ('POSTED','LINKED')) "
+            "GROUP BY t.id HAVING SUM(l.amount_e6)=? "
+            "ORDER BY abs(julianday(t.date)-julianday(?)), t.id",
+            (account_id, parsed["Date"], LINK_WINDOW_DAYS, parsed["Date"], LINK_WINDOW_DAYS,
+             account_id, amount_e6, parsed["Date"]))
+        return [{"id": r["id"], "date": r["date"], "type": r["type"],
+                 "counterparty": r["counterparty"] or "", "notes": r["notes"] or "",
+                 "amount": parsed["Amount"]} for r in rows]
+
+    def _voided_earlier(self, account_id: int, batch_id: int, reference: str | None, parsed: dict) -> bool:
+        """An earlier import of this row was voided: importing it again must not quietly bring it back."""
+        if parsed.get("_errors"):
+            return False
+        if reference:
+            return bool(self.db.scalar(
+                "SELECT 1 FROM bank_import_rows r JOIN bank_import_batches b ON b.id=r.batch_id "
+                "JOIN transactions t ON t.id=r.transaction_id AND t.status='VOID' "
+                "WHERE b.account_id=? AND b.id<>? AND r.bank_reference=? LIMIT 1",
+                (account_id, batch_id, reference)))
+        amount_e6 = int(Decimal(parsed["Amount"]) * 1_000_000)
+        return bool(self.db.scalar(
+            "SELECT 1 FROM bank_import_rows r JOIN bank_import_batches b ON b.id=r.batch_id "
+            "JOIN transactions t ON t.id=r.transaction_id AND t.status='VOID' AND t.date=? "
+            "JOIN ledger_entries l ON l.transaction_id=t.id AND l.account_id=b.account_id "
+            "WHERE b.account_id=? AND b.id<>? GROUP BY t.id HAVING SUM(l.amount_e6)=? LIMIT 1",
+            (parsed["Date"], account_id, batch_id, amount_e6)))
 
     def _own_account(self, source_account_id: int, name: str):
         """The name of another of your accounts typed as the counterparty, if it is one."""
@@ -460,9 +518,17 @@ class BankImportService:
                     row = row_by_id.get(int(row_id))
                     if not row or self.db.scalar("SELECT status FROM bank_import_rows WHERE id=?", (row_id,)) != "REVIEW":
                         continue
-                    if decision.get("skip"):
-                        skip_status = "DUPLICATE" if row["_reference_duplicate"] or row["_similarity_warning"] else "SKIPPED"
+                    match = str(decision.get("match") or "")
+                    if decision.get("skip") or match == "skip":
+                        skip_status = "DUPLICATE" if row["_possible_duplicate"] else "SKIPPED"
                         self.db.execute("UPDATE bank_import_rows SET status=? WHERE id=?", (skip_status, row_id))
+                        continue
+                    if match.startswith("link:"):
+                        try:
+                            with self.db.transaction():
+                                self._link_import_row(row_id, row, match)
+                        except LightningError as exc:
+                            errors[int(row_id)] = exc.message
                         continue
                     self._pending_created = None
                     try:
@@ -485,6 +551,23 @@ class BankImportService:
         except _ImportReviewRequired as exc:
             errors = exc.errors
         return self.summary(batch_id) | {"errors": errors, "ambiguous_reserves": ambiguous_reserves}
+
+    def _link_import_row(self, row_id, row, match: str) -> None:
+        """Stand this statement row behind a transaction already recorded. No money moves and the
+        transaction keeps its own date, amount and category."""
+        try:
+            txn_id = int(match.split(":", 1)[1])
+        except ValueError:
+            raise ValidationError(f"CSV row {row['_line']}: choose an entry to link to.", "match") from None
+        if txn_id not in {c["id"] for c in row["_link_candidates"]}:
+            raise ValidationError(f"CSV row {row['_line']}: that entry no longer matches this row; "
+                                  "choose again or post it as new.", "match")
+        if self.db.scalar("SELECT 1 FROM bank_import_rows WHERE transaction_id=? AND account_id=? "
+                          "AND status IN ('POSTED','LINKED')", (txn_id, row["_account_id"])):
+            raise ValidationError(f"CSV row {row['_line']}: another statement row is already linked to that "
+                                  "entry. Post this one as new if it is a second payment.", "match")
+        self.db.execute("UPDATE bank_import_rows SET status='LINKED',transaction_id=? WHERE id=?",
+                        (txn_id, row_id))
 
     def _post_import_row(self, batch, row_id, decision, row, accounts):
         cp_text = str(decision.get("counterparty", row["Counterparty"])).strip()
@@ -635,5 +718,5 @@ class BankImportService:
     def summary(self, batch_id: int) -> dict[str, int]:
         counts = {row["status"]: row["n"] for row in self.db.all(
             "SELECT status,COUNT(*) AS n FROM bank_import_rows WHERE batch_id=? GROUP BY status", (batch_id,))}
-        return {"posted": counts.get("POSTED", 0), "skipped": counts.get("SKIPPED", 0),
-                "duplicates": counts.get("DUPLICATE", 0)}
+        return {"posted": counts.get("POSTED", 0), "linked": counts.get("LINKED", 0),
+                "skipped": counts.get("SKIPPED", 0), "duplicates": counts.get("DUPLICATE", 0)}
