@@ -298,6 +298,25 @@ class PlanningService:
                     out[item.category_id] = out.get(item.category_id, ZERO) + p.amount
         return out
 
+    def budget_fill_schedule(self, month: str) -> dict[int, dict]:
+        """Bill and subscription amounts due in a month, grouped by spending category.
+
+        Loans are deliberately left to ``loan_payments_by_category``; budget rules already add
+        those automatically when a category has no explicit rule.
+        """
+        first, last = parse_month(month)
+        out: dict[int, dict] = {}
+        for item in self.items((PlanKind.BILL, PlanKind.SUBSCRIPTION)):
+            if item.category_id is None:
+                continue
+            for payment in self.payments(item, last):
+                if payment.due_date < fmt_date(first) or payment.status == PaymentStatus.SKIPPED:
+                    continue
+                row = out.setdefault(item.category_id, {"amount": ZERO, "items": []})
+                row["amount"] += payment.amount
+                row["items"].append(item.name)
+        return out
+
     def loan_progress(self, item: PlannedItem, as_of: date | None = None) -> dict:
         payments = self.payments(item, "2999-12-31", as_of)
         paid = [p for p in payments if p.status == PaymentStatus.PAID]

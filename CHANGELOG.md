@@ -11,6 +11,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 - 2026-10-05 · Claude: #tags in notes (#eid, #عيد): a note shows them as links to every tagged transaction, headed with their count, Money in and Money out; a register search of `#eid` is the same exact filter (`transactions/tags.py`, `tests/test_tags.py`, Mohab's Eid).
+- 2026-10-05 · Codex: Added Budget fill review for prior-month base limits and scheduled Bills/Subscriptions, with reserve goals kept separate and selected edits saved for one month atomically.
 - 2026-10-05 · Codex: Defined Budget fill proposal rules in Architecture: month-only base limits, scheduled Bills/Subscriptions, separate reserve goals, and explicit existing-limit/parent-ceiling conflicts.
 - 2026-10-05 · Claude: Project Overview › *Compared with the best budgeting apps* now names the Egyptian apps and links Competition; rows 1, 2, 3, 6 and 11 point to the Upcoming projects that answer them.
 - 2026-10-05 · Claude: added to *Upcoming projects* at the owner's ask: #15 multi-currency and FX revaluation, #16 US stocks, #17 reading PDF and Excel files; the M4 and M7 roadmap rows name them.

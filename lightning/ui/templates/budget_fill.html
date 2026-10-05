@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Fill this month's budget{% endblock %}
+{% block heading %}<div class="budget-heading"><div><h1>Fill this month's budget</h1><div class="muted">Review base limits for {{ month }}. Nothing is saved until you apply selected rows.</div></div><a class="btn small" href="/budget?month={{ month }}">Back to Budget</a></div>{% endblock %}
+{% block content %}
+{% if error %}<p class="notice" role="alert">{{ error }}</p>{% endif %}
+<form method="get" action="/budget/fill" class="row">
+  <input type="hidden" name="month" value="{{ month }}">
+  <label>Fill from
+    <select name="source">
+      <option value="last_month" {{ 'selected' if source == 'last_month' }}>Last month</option>
+      <option value="schedule" {{ 'selected' if source == 'schedule' }}>Schedule</option>
+      <option value="goal" {{ 'selected' if source == 'goal' }}>Goal</option>
+    </select>
+  </label>
+  <button class="btn" type="submit">Show proposal</button>
+</form>
+{% if proposal %}
+  {% if proposal.rows %}
+    {% if source == 'goal' %}
+      <section class="card wide-card">
+        <h2>Saving goals</h2>
+        <p class="muted">These are monthly amounts to set aside in Reserves. They do not become spending limits.</p>
+        <table class="setup-table"><thead><tr><th>Goal</th><th class="num">Monthly amount</th></tr></thead><tbody>
+        {% for row in proposal.rows %}<tr><td>{{ row.category_name }}<small>{{ row.note }} · {{ row.conflict }}</small></td><td class="num">{{ row.amount|money }} {{ base }}</td></tr>{% endfor %}
+        </tbody></table>
+        <a class="btn" href="/plan/reserves">Open Reserves</a>
+      </section>
+    {% else %}
+      <p class="muted">Proposals use base limits only. Spending and carryover are not copied. Selecting a row replaces that category's limit for {{ month }} only.</p>
+      <form method="post" action="/budget/fill?month={{ month }}">
+        <input type="hidden" name="source" value="{{ source }}">
+        <table class="setup-table"><thead><tr><th>Category</th><th>Source</th><th class="num">Current base limit</th><th class="num">Proposed limit</th><th>Review</th></tr></thead><tbody>
+        {% for row in proposal.rows %}
+          <tr>
+            <td>{% if row.selectable %}<label><input type="checkbox" name="selected" value="{{ row.category_id }}" {{ 'checked' if row.selected }}> {{ row.category_name }}</label>{% else %}{{ row.category_name }}{% endif %}</td>
+            <td>{{ row.note }}</td>
+            <td class="num">{% if row.current_rule %}{{ row.current_rule }}{% else %}—{% endif %}</td>
+            <td class="num">{% if row.selectable %}<input name="amount_{{ row.category_id }}" type="number" min="0" step="0.01" inputmode="decimal" value="{{ values.get(row.category_id, row.amount|string) if values is defined else row.amount }}" aria-label="Proposed monthly limit for {{ row.category_name }}"> {{ base }}{% else %}—{% endif %}</td>
+            <td>{% if row.conflict %}<span class="notice">{{ row.conflict }}</span>{% elif row.current_amount is not none %}Current limit differs.{% else %}New limit{% endif %}</td>
+          </tr>
+        {% endfor %}
+        </tbody></table>
+        <button class="btn primary" type="submit">Apply selected for this month only</button>
+        <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}">
+      </form>
+    {% endif %}
+  {% else %}
+    <section class="card wide-card"><p class="empty">{% if source == 'last_month' %}No base limits from last month are available to copy.{% else %}No scheduled bills or subscriptions have a spending category this month.{% endif %}</p></section>
+  {% endif %}
+{% endif %}
+{% endblock %}

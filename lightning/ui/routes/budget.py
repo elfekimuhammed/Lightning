@@ -733,6 +733,53 @@ async def budget_page(request: Request):
     return _page(request, month)
 
 
+@router.get("/fill")
+async def budget_fill_page(request: Request):
+    c = container(request)
+    try:
+        month = _month(request)
+    except ValidationError:
+        return redirect("/budget", "That month is invalid. Use YYYY-MM, for example 2026-09.")
+    if month > month_of(today()):
+        return redirect("/budget", f"{month} has not started yet. Choose a current or past month to fill.")
+    source = request.query_params.get("source", "last_month")
+    try:
+        proposal = c.budgets.fill_proposal(month, source)
+    except LightningError as exc:
+        return render(request, "budget_fill.html", month=month, source="last_month", proposal=None,
+                      error=exc.message, status_code=400)
+    return render(request, "budget_fill.html", month=month, source=source, proposal=proposal, error="")
+
+
+@router.post("/fill")
+async def apply_budget_fill(request: Request):
+    c = container(request)
+    try:
+        month = _month(request)
+    except ValidationError:
+        return redirect("/budget", "That month is invalid. Use YYYY-MM, for example 2026-09.")
+    if month > month_of(today()):
+        return redirect("/budget", f"{month} has not started yet. Choose a current or past month to fill.")
+    form = await request.form()
+    source = str(form.get("source", ""))
+    try:
+        proposal = c.budgets.fill_proposal(month, source)
+        allowed = {row.category_id for row in proposal.rows if row.selectable and row.category_id is not None}
+        selected = {int(value) for value in form.getlist("selected") if str(value).isdigit()}
+        if not selected.issubset(allowed):
+            raise ValidationError("Refresh the proposal before applying these categories.", "categories")
+        amounts = {category_id: str(form.get(f"amount_{category_id}", "")) for category_id in selected}
+        changed = c.budgets.apply_fill(month, amounts)
+    except LightningError as exc:
+        values = {row.category_id: str(form.get(f"amount_{row.category_id}", ""))
+                  for row in proposal.rows if row.category_id is not None} if "proposal" in locals() and proposal else {}
+        return render(request, "budget_fill.html", month=month, source=source, proposal=proposal if "proposal" in locals() else None,
+                      values=values, error=exc.message, status_code=400)
+    if not changed:
+        return redirect(f"/budget?month={month}", "Those base limits are already set for this month.")
+    return redirect(f"/budget?month={month}", f"Applied {changed} budget{'s' if changed != 1 else ''} for {month} only.")
+
+
 @router.post("")
 async def save_budget(request: Request):
     c = container(request)

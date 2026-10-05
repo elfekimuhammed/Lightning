@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from decimal import Decimal
 from datetime import timedelta
 import json
@@ -14,7 +15,8 @@ from lightning.core.money import ZERO, check_places, fmt, from_e6, to_decimal
 from lightning.database.connection import Database
 from lightning.reporting.service import ReportingService
 
-from .domain import EMERGENCY_BASES, BudgetLine, BudgetMonth, BudgetSection, EmergencyFund, IncomeAverage, SpendingAverage
+from .domain import (EMERGENCY_BASES, BudgetFillProposal, BudgetFillRow, BudgetLine, BudgetMonth,
+                     BudgetSection, EmergencyFund, IncomeAverage, SpendingAverage)
 from .repository import BudgetRepository
 
 SECTION_NAMES = {Scope.PERSONAL: "Personal", Scope.WORK: "Work"}
@@ -29,6 +31,8 @@ class BudgetService:
         # Set by the composition root: month -> {category_id: loan payments scheduled that month}.
         # A category with no budget rule is planned at exactly that amount.
         self.scheduled_loans = lambda month: {}
+        self.scheduled_bills = lambda month: {}
+        self.reserve_goal_needs = lambda month: []
 
     def first_owned_spending_date(self) -> str | None:
         """Earliest posted, personally owned entry in a spending category."""
@@ -340,6 +344,123 @@ class BudgetService:
                 result[category.id] = avg
         return result
 
+    def fill_proposal(self, month: str, source: str) -> BudgetFillProposal:
+        """Build a read-only month-fill preview; all returned amounts are base limits in EGP."""
+        first, _ = parse_month(month)
+        if source not in {"last_month", "schedule", "goal"}:
+            raise ValidationError("Choose Last month, Schedule, or Goal as the fill source.", "source")
+        categories = [c for c in self.categories.tree(Movement.OUTFLOW)
+                      if not c.is_root and c.family != CategoryFamily.INVESTMENT]
+        by_id = {c.id: c for c in categories}
+        current = self.amounts_for(month, loans=False)
+        current_rules = {cid: rule for cid, rule in current.items() if cid in by_id}
+        candidates: dict[int, tuple[Decimal | None, str]] = {}
+
+        if source == "last_month":
+            previous = month_of(first - timedelta(days=1))
+            for category_id, (amount, _, period, percent) in self.amounts_for(previous, loans=False).items():
+                if category_id in by_id:
+                    detail = (f"{period}-month average" if period else
+                              f"{fmt(percent)}% of income" if percent is not None else "fixed")
+                    candidates[category_id] = (amount, f"From {previous} · {detail}")
+        elif source == "schedule":
+            for category_id, data in self.scheduled_bills(month).items():
+                if category_id in by_id and data["amount"] > ZERO:
+                    names = ", ".join(dict.fromkeys(data["items"]))
+                    candidates[category_id] = (data["amount"], f"Scheduled: {names}")
+        else:
+            rows = tuple(BudgetFillRow(
+                category_id=None,
+                category_name=f"{item['name']} · reserve goal",
+                source="Goal",
+                amount=item["amount"],
+                conflict="Savings goals are managed in Reserves, not in spending budgets.",
+                selectable=False,
+                note=f"Set aside monthly · due {item['due_date']}",
+            ) for item in self.reserve_goal_needs(month))
+            return BudgetFillProposal(month, source, rows)
+
+        loans = self.scheduled_loans(month)
+        rows = []
+        for category_id, (amount, note) in candidates.items():
+            rule = current_rules.get(category_id)
+            current_amount = rule[0] if rule else None
+            current_rule = self._fill_rule_name(rule) if rule else ""
+            same = rule is not None and amount is not None and current_amount == amount
+            auto_loan = loans.get(category_id, ZERO) if rule is None else ZERO
+            conflict = ""
+            if same:
+                conflict = ("Already using last month's plan" if source == "last_month"
+                            else "Matches the current base limit.")
+            elif rule is not None:
+                conflict = f"Current limit: {current_rule}. Applying replaces it for {month} only."
+            elif auto_loan:
+                conflict = (f"{fmt(auto_loan)} of loan payments are already planned automatically. "
+                            "Applying this amount would replace that automatic line.")
+            rows.append(BudgetFillRow(
+                category_id=category_id,
+                category_name=self.categories.display_name(category_id),
+                source="Last month" if source == "last_month" else "Schedule",
+                amount=amount,
+                current_amount=current_amount,
+                current_rule=current_rule,
+                conflict=conflict,
+                selectable=amount is not None,
+                selected=amount is not None and rule is None and not auto_loan,
+                already_using_last_month=source == "last_month" and same,
+                note=note,
+            ))
+
+        # Forecast child allocations against every direct parent ceiling without changing it.
+        direct = {cid: rule[0] for cid, rule in current_rules.items() if rule[0] is not None}
+        direct.update({cid: amount for cid, (amount, _) in candidates.items() if amount is not None})
+        direct.update({cid: amount for cid, amount in loans.items() if cid not in current_rules})
+        children: dict[int, list[int]] = {}
+        for category in categories:
+            if category.parent_id in by_id:
+                children.setdefault(category.parent_id, []).append(category.id)
+
+        def allocated(category_id: int) -> Decimal:
+            if category_id in direct:
+                return direct[category_id]
+            return sum((allocated(child) for child in children.get(category_id, [])), ZERO)
+
+        for parent_id, child_ids in children.items():
+            ceiling = direct.get(parent_id)
+            if ceiling is None:
+                continue
+            child_total = sum((allocated(child_id) for child_id in child_ids), ZERO)
+            if child_total <= ceiling:
+                continue
+            warning = (f"Child limits total {fmt(child_total)}, above the "
+                       f"{self.categories.display_name(parent_id)} ceiling of {fmt(ceiling)}.")
+            affected = {parent_id, *self._descendant_ids(parent_id, children)}
+            rows = [replace(row, conflict=" ".join(x for x in (row.conflict, warning) if x), selected=False)
+                    if row.category_id in affected else row for row in rows]
+        rows.sort(key=lambda row: (by_id[row.category_id].sort_order, row.category_name.casefold()))
+        return BudgetFillProposal(month, source, tuple(rows))
+
+    @staticmethod
+    def _fill_rule_name(rule) -> str:
+        amount, _, period, percent = rule
+        if percent is not None:
+            return f"{fmt(percent)}% of income" + (f" (currently {fmt(amount)})" if amount is not None else "")
+        if period:
+            return f"{period}-month average" + (f" (currently {fmt(amount)})" if amount is not None else "")
+        return f"{fmt(amount)} fixed" if amount is not None else "No resolved monthly amount"
+
+    @staticmethod
+    def _descendant_ids(category_id: int, children: dict[int, list[int]]) -> set[int]:
+        descendants: set[int] = set()
+        pending = list(children.get(category_id, []))
+        while pending:
+            child = pending.pop()
+            if child in descendants:
+                continue
+            descendants.add(child)
+            pending.extend(children.get(child, []))
+        return descendants
+
     def _owned_spending(self, start, end) -> dict[int, Decimal]:
         # Report queries already filter to posted, user-owned categorized ledger
         # effects; investment buys, transfers, and revaluations have no outflow
@@ -469,6 +590,14 @@ class BudgetService:
                     self.repo.set_carryover(category_id, month, False)
                 changed += 1
         return changed
+
+    def apply_fill(self, month: str, amounts: dict[int, object]) -> int:
+        """Apply selected fill amounts as one atomic, one-month-only edit."""
+        parse_month(month)
+        if not amounts:
+            raise ValidationError("Choose at least one category to fill.", "categories")
+        with self.db.transaction():
+            return self.save_month(month, amounts, only_this_month=True)
 
     # ------------------------------------------------------------------ helpers
     def _repeating_before(self, category_id: int, month: str) -> tuple[Decimal | None, int | None]:

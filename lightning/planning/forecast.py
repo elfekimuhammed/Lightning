@@ -104,8 +104,13 @@ class CashForecaster:
 
     def _goal_need(self, month: str, as_of: date) -> Decimal:
         """What dated reserve goals still need set aside, spread over the months left."""
-        need = ZERO
+        return sum((row["amount"] for row in self.goal_needs(month, as_of)), ZERO)
+
+    def goal_needs(self, month: str, as_of: date | None = None) -> list[dict]:
+        """Informational monthly saving needs for dated project reserves."""
+        day = as_of or today()
         month_start, _ = parse_month(month)
+        result = []
         for reserve in self.reserves.list_active():
             if reserve["kind"] == "EMERGENCY" or not reserve.get("due_date"):
                 continue
@@ -115,9 +120,11 @@ class CashForecaster:
             # Everything set aside so far counts, including what the goal has already paid for: a goal
             # funded in full and partly spent needs nothing more (audit 2026-10-05 #8).
             missing = max(reserve["target"] - reserve["allocated"], ZERO)
-            months_left = max((due.year - as_of.year) * 12 + due.month - as_of.month + 1, 1)
-            need += (missing / months_left).quantize(Decimal("0.01"))
-        return need
+            months_left = max((due.year - day.year) * 12 + due.month - day.month + 1, 1)
+            amount = (missing / months_left).quantize(Decimal("0.01"))
+            if amount:
+                result.append({"name": reserve["name"], "amount": amount, "due_date": reserve["due_date"]})
+        return result
 
     # -------------------------------------------------------------- forecast
     def forecast(self, as_of: date | None = None, months: int = HORIZON_MONTHS) -> CashForecast:

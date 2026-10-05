@@ -192,3 +192,27 @@ class EmergencyFund:
     def target(self) -> Decimal | None:
         """Six months of the chosen average."""
         return self.monthly * 6 if self.monthly else None
+
+
+@dataclass(frozen=True)
+class BudgetFillRow:
+    """One read-only row offered by a month-fill source."""
+
+    category_id: int | None
+    category_name: str
+    source: str
+    amount: Decimal | None
+    current_amount: Decimal | None = None
+    current_rule: str = ""
+    conflict: str = ""
+    selectable: bool = True
+    selected: bool = False
+    already_using_last_month: bool = False
+    note: str = ""
+
+
+@dataclass(frozen=True)
+class BudgetFillProposal:
+    month: str
+    source: str
+    rows: tuple[BudgetFillRow, ...]

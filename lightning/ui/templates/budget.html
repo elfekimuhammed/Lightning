@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Budget{% endblock %}
-{% block top_actions %}{% from "partials/macros.html" import period_control %}{{ period_control("/budget", period.key, month, this_month, period.start_text, period.end_text) }}{% endblock %}
+{% block top_actions %}{% from "partials/macros.html" import period_control %}{{ period_control("/budget", period.key, month, this_month, period.start_text, period.end_text) }} <a class="btn small" href="/budget/fill?month={{ month }}">Fill this month</a>{% endblock %}
 {% block heading %}<div class="budget-heading"><div><h1>Budget</h1><div class="muted">Your spending plan</div></div><a id="budget-settings-link" class="btn small icon-btn" aria-label="Budget settings" title="Budget settings" href="/settings?section=budget&amp;return_to={{ request.url.path|urlencode }}%3F{{ request.url.query|urlencode }}"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7h-9M14 17H4M4 7h3M20 17h-2"/><circle cx="9" cy="7" r="2.5"/><circle cx="16" cy="17" r="2.5"/></svg></a></div>{% endblock %}
 {% block content %}
 {% from "partials/charts.html" import key_notes, meter, bullet_row, saved_split %}
