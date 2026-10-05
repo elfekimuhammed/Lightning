@@ -15,8 +15,8 @@ from lightning.market.bundle import Close, Instrument, MarketFile, write
 from lightning.market.packs import PACK_ID, PACKS, write_index
 
 from . import checks
-from .model import Quote, SourceError, SourceResult
-from .sources import cbe, mubasher, tradingview, yahoo
+from lightning.market.model import Quote, SourceError, SourceResult
+from lightning.market.sources import cbe, mubasher, tradingview, yahoo
 
 INACTIVE_AFTER_DAYS = 30
 

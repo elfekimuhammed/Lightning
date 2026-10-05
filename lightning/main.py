@@ -86,12 +86,14 @@ def main(argv: list[str] | None = None) -> None:
         summary = load_mohab_2026(container)
         print(f"Mohab's 2026 ready: {summary['rows']} imported rows, {summary['from']} to {summary['to']}.")
     from lightning.core.dates import today
+    from lightning.workflows.live_prices import fetch_if_due
     from lightning.workflows.market_prices import fill_if_due
 
-    try:  # prices come from the price files the app already has; nothing is fetched per user
-        report = fill_if_due(container, today())
-        if report is not None:
-            print(report.summary())
+    try:  # prices from the files the app has, then month-end closes still missing, fetched online
+        for step in (fill_if_due, fetch_if_due):
+            report = step(container, today())
+            if report is not None:
+                print(report.summary())
         completed = container.reevaluations.process_due()
         print(f"Investment reevaluations: {completed} monthly checkpoint(s) posted.")
     except Exception as exc:

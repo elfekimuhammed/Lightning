@@ -264,6 +264,10 @@ class ReevaluationService:
             return None
         return price, source
 
+    def has_price(self, asset_id: int, day: str) -> bool:
+        """Whether a month-end can be valued from saved prices (a price within ten days before it)."""
+        return self._price(asset_id, day) is not None
+
     def pending_prices(self) -> list[dict]:
         return [dict(row) for row in self.db.all(
             "SELECT DISTINCT p.date,e.asset_id,a.name AS asset_name,a.code AS asset_code,e.currency "

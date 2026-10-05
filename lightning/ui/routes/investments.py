@@ -23,6 +23,7 @@ from .. import charts
 from lightning.core.figures import label
 from lightning.market.packs import chosen, read_zip
 from lightning.market.update import DEFAULT_URL, update_packs
+from lightning.workflows import live_prices
 from lightning.workflows.market_prices import fill_followed, forget, local_folder, pack_files, pack_rows
 
 from .. import keynotes, visuals
@@ -703,7 +704,7 @@ def _fill_from(c, done: str = "", back: str = "/investments/prices"):
     try:
         report = fill_followed(c, today())
         if report is None:
-            return redirect(back, f"{done} No price files yet. Update prices downloads the markets you follow.".strip())
+            return redirect(back, f"{done} No price files yet. Download shared prices brings the markets you follow.".strip())
     except LightningError as exc:
         return redirect(back, exc.message)
     return redirect(back, f"{done} {report.summary()}".strip())
@@ -723,6 +724,23 @@ async def _update(c, back: str):
     if missing:
         done += f" Not published yet: {', '.join(names.get(p, p) for p in missing)}."
     return _fill_from(c, done, back)
+
+
+@router.post("/prices/online")
+async def online_update(request: Request):
+    """Update prices: fetch each held investment's latest close and missing month-ends from the sources.
+    The network runs off the request thread; reading and saving stay on it."""
+    c = container(request)
+    if c.db.read_only:
+        return redirect("/investments/prices", "This is a read-only copy; prices cannot be saved here.")
+    if not live_prices.enabled():
+        return redirect("/investments/prices", "Fetching prices online is off on this computer. Type them, or use a price file.")
+    on = today()
+    work = live_prices.plan(c, on)
+    if not work.wants:
+        return redirect("/investments/prices", live_prices.save(c, work, {}, []).summary())
+    found, failed = await run_in_threadpool(live_prices.gather, work)
+    return redirect("/investments/prices", live_prices.save(c, work, found, failed).summary())
 
 
 @router.post("/prices/market/fill")
@@ -784,7 +802,7 @@ async def save_price_files(request: Request):
     forget(c.data_dir, dropped)
     if form.get("update"):
         return await _update(c, "/investments/prices/markets")
-    return redirect("/investments/prices/markets", "Saved. Update prices downloads the markets you added.")
+    return redirect("/investments/prices/markets", "Saved. Download shared prices on Investment prices brings the markets you added.")
 
 
 @router.post("/prices")

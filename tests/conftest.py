@@ -6,6 +6,8 @@ import pytest
 
 # Tests use dates across 2026; pin "today" so future-date rules don't depend on when they run.
 os.environ["LIGHTNING_TODAY"] = "2026-12-31"
+# Never ask the real price sources from a test (lightning/workflows/live_prices.py).
+os.environ["LIGHTNING_PRICES_OFFLINE"] = "1"
 
 from lightning.bootstrap import Container, build
 

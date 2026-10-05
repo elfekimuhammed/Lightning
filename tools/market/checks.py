@@ -5,7 +5,7 @@ from decimal import Decimal
 
 from lightning.market.bundle import Close
 
-from .model import Quote
+from lightning.market.model import Quote
 
 # How far one close may move from the last published one without a second source agreeing.
 LIMITS = {"STOCK": Decimal("0.20"), "FUND": Decimal("0.15"), "CURRENCY": Decimal("0.15"), "GOLD": Decimal("0.15"),

@@ -158,13 +158,16 @@ def read_keys(paths: ProfilePaths) -> dict:
 
 def _fill_prices(container: Container) -> None:
     """First run, a newer price file or a new month: fill held investments' prices from the files the app
-    already has (no download). Opening a profile never fails because of it."""
+    already has, then fetch online the month-end closes still missing (at most once a day). Opening a
+    profile never fails because of it."""
     from lightning.core.dates import today
+    from lightning.workflows.live_prices import fetch_if_due
     from lightning.workflows.market_prices import fill_if_due
-    try:
-        fill_if_due(container, today())
-    except Exception:  # noqa: BLE001 - prices stay as saved; Investment prices can fill them by hand
-        pass
+    for step in (fill_if_due, fetch_if_due):
+        try:
+            step(container, today())
+        except Exception:  # noqa: BLE001 - prices stay as saved; Investment prices can fill them by hand
+            pass
 
 
 @dataclass

@@ -1,5 +1,5 @@
-"""A polite HTTP client for the collector: one request every few seconds, a User-Agent that names
-Lightning, retries on network errors and server errors only, and loud failures on block pages."""
+"""A polite HTTP client for the collector and the app's own price fetching: a pause between requests, a
+User-Agent that names Lightning, retries on network errors and server errors only, and loud failures on block pages."""
 from __future__ import annotations
 
 import json
@@ -13,13 +13,14 @@ from .model import SourceError
 # The usual crawler form (as search engines use), still naming Lightning: some sites' firewalls reject a
 # request without it or without the headers every browser sends (CBE answered "Request Rejected").
 USER_AGENT = "Mozilla/5.0 (compatible; Lightning-market-collector/1; +https://github.com/elfekimuhammed/Lightning)"
+APP_AGENT = "Mozilla/5.0 (compatible; Lightning/1; personal finance; +https://lightningeg.com)"
 HEADERS = {"Accept": "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8",
            "Accept-Language": "en-US,en;q=0.9,ar;q=0.8"}
 
 
 class Polite:
-    def __init__(self, min_interval: float = 3.0, retries: int = 3, timeout: float = 30.0):
-        self.min_interval, self.retries, self.timeout = min_interval, retries, timeout
+    def __init__(self, min_interval: float = 3.0, retries: int = 3, timeout: float = 30.0, user_agent: str = USER_AGENT):
+        self.min_interval, self.retries, self.timeout, self.user_agent = min_interval, retries, timeout, user_agent
         self.requests = 0
         self._last = float("-inf")
 
@@ -31,7 +32,7 @@ class Polite:
             self._last = time.monotonic()
             self.requests += 1
             try:
-                with urlopen(Request(url, data=data, headers={"User-Agent": USER_AGENT, **HEADERS, **headers}),
+                with urlopen(Request(url, data=data, headers={"User-Agent": self.user_agent, **HEADERS, **headers}),
                              timeout=self.timeout) as response:
                     return response.read(50_000_000)
             except HTTPError as exc:

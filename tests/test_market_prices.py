@@ -193,7 +193,7 @@ def test_a_release_zip_holds_several_packs_and_a_pack_zip_names_its_own(tmp_path
 def test_the_prices_page_follows_markets_updates_imports_and_fills(c, holdings, tmp_path):
     client = TestClient(create_app(c), base_url="http://127.0.0.1")
     page = client.get("/investments/prices").text
-    assert "Egyptian stocks" in page and "Not downloaded yet" in page and "Fill my prices" not in page
+    assert "Egyptian stocks" in page and "Not downloaded yet" in page and "Fill from price files" not in page
     assert "No price files yet" in client.post("/investments/prices/market/fill").text
 
     older = pack_release(publish(tmp_path / "old", "2026-11-01T22:30:00Z"), tmp_path / "old.zip", ["egx", "eg-funds"])
@@ -203,7 +203,7 @@ def test_the_prices_page_follows_markets_updates_imports_and_fills(c, holdings, 
     assert pack_files(c.data_dir)["egx"] == {"created_at": "2026-12-31", "origin": "downloaded", "last_date": "2026-12-31",
                                              "instruments": 1}
     page = client.get("/investments/prices").text
-    assert "Fill my prices" in page and "2026-12-31, downloaded" in page and "price file" in page
+    assert "Fill from price files" in page and "2026-12-31, downloaded" in page and "price file" in page
     refused = client.post("/investments/prices/market/import", files={"file": ("market.zip", older.read_bytes(), "application/zip")})
     assert "Nothing was imported. Kept your newer Egyptian funds, Egyptian stocks." in refused.text
     junk = client.post("/investments/prices/market/import", files={"file": ("market.zip", b"not a zip", "application/zip")})
@@ -381,6 +381,6 @@ def test_a_pack_without_prices_is_never_offered_or_shipped(tmp_path):
 
 
 def test_the_collector_asks_like_a_browser_and_names_itself():
-    from tools.market.http import HEADERS, USER_AGENT
+    from lightning.market.http import HEADERS, USER_AGENT
     assert USER_AGENT.startswith("Mozilla/5.0 (compatible; Lightning-market-collector")
     assert {"Accept", "Accept-Language"} <= set(HEADERS)

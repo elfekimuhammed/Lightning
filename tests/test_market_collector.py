@@ -12,8 +12,8 @@ from lightning.market.bundle import Close, MarketFile
 from tools.market import checks
 from tools.market.alarm import alarms
 from tools.market.collect import _settle_keys, backfill, collect
-from tools.market.model import Quote, SourceError, SourceResult
-from tools.market.sources import cbe, mubasher, tradingview, yahoo
+from lightning.market.model import Quote, SourceError, SourceResult
+from lightning.market.sources import cbe, mubasher, tradingview, yahoo
 
 SAMPLES = Path(__file__).parent / "fixtures" / "market"
 

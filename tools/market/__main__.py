@@ -14,7 +14,7 @@ from lightning.market.update import DEFAULT_URL, update_packs
 
 from .alarm import alarms
 from .collect import backfill, collect
-from .http import Polite
+from lightning.market.http import Polite
 
 
 def release_bundle(out: Path, url: str, required: bool) -> int:
