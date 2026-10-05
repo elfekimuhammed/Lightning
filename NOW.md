@@ -19,7 +19,7 @@ Last rewritten 2026-10-05 · Claude.
 
 1. **Release 0.5.0-beta.1:** check the Windows package, publish permanent versioned downloads, and add 0.5 to the website archive while keeping 0.4.
 2. **UX plan items 5, 6, 8 and 9** (Project Overview › UX plan). Claim `lightning/ui/templates/` and `lightning/ui/static/style.css` first. Also: every checkbox and radio is Azure (`accent-color: var(--accent)` in `style.css`), but A10 says selected is Nile; only the import review's new choice is Nile so far.
-3. **Competition research:** App Store, Reddit and Facebook reviews were not reachable; see the last section of `docs/COMPETITION.md`. Owner questions are in *For the owner*.
+3. **From Competition** (`docs/COMPETITION.md` › Actual Budget code analysis › Suggested order): undo, rules with conditions, weekend-aware schedules, i18n. Owner picks.
 4. **Speed, if wanted:** a stable window origin, so the 290 KB stylesheet and 109 KB script stay cached across launches; trim unused CSS in `style.css`.
 
 5. **Multiple devices:** tasks 01, 02a–02c and 06 are done (07 and 18a are now unblocked); 02d and 04a are in progress. The first 03a encrypted restore preview is wired; next is an interrupted-operation repair path, fault/reboot drills and ordinary Windows restore acceptance before using real profile data. Follow the [dependencies and Read column](docs/proposals/multiple_devices.md#15-implementation-work-packages).
