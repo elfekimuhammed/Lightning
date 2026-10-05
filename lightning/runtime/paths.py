@@ -8,7 +8,7 @@ import secrets
 import sys
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Callable, Mapping
 
 _PROFILE_STEM = re.compile(
@@ -420,3 +420,122 @@ def legacy_database_candidates(
             found.append(candidate)
             seen.add(candidate)
     return tuple(found)
+
+
+# --------------------------------------------------------------------------- borrowed profiles
+# Multiple devices plan, section 4: a profile borrowed from its home lives in the user's local app data,
+# never in Documents or a synced folder, and never through a link that could redirect it.
+_PROFILE_UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\Z")
+_SYNCED_FOLDER_NAMES = ("onedrive", "dropbox", "google drive", "googledrive", "icloud")
+_FILE_ATTRIBUTE_REPARSE_POINT = 0x400
+
+
+@dataclass(frozen=True)
+class BorrowedPaths:
+    """Files of one borrowed profile on this device. Nothing here is created until ``prepare``."""
+
+    profile_id: str
+    data_dir: Path
+
+    @property
+    def control_path(self) -> Path:
+        return self.data_dir / "control.db"       # device-local authority store (task 05b)
+
+    @property
+    def keys_path(self) -> Path:
+        return self.data_dir / "keys.json"        # this PC's password slot for the borrowed key
+
+    @property
+    def working_path(self) -> Path:
+        return self.data_dir / "working.db"       # the borrowed ledger, writable only while borrowing
+
+    @property
+    def lock_path(self) -> Path:
+        return self.data_dir / "instance.lock"
+
+    @property
+    def prefetch_dir(self) -> Path:
+        return self.data_dir / "prefetch"
+
+    @property
+    def recovery_dir(self) -> Path:
+        return self.data_dir / "recovery"
+
+    @property
+    def sealed_dir(self) -> Path:
+        return self.data_dir / "sealed"
+
+    def prepare(self) -> None:
+        """Create the private folders (owner-only where the OS supports it), then check them."""
+        check_borrowed_location(self.data_dir)
+        for folder in (self.data_dir, self.prefetch_dir, self.recovery_dir, self.sealed_dir):
+            folder.mkdir(mode=0o700, parents=True, exist_ok=True)
+        self.validate()
+
+    def validate(self) -> None:
+        """Refuse links, junctions and hard links anywhere in the borrowed folder."""
+        check_borrowed_location(self.data_dir)
+        for path in (self.data_dir, self.prefetch_dir, self.recovery_dir, self.sealed_dir, self.control_path,
+                     self.keys_path, self.working_path, self.lock_path):
+            _refuse_redirect(path)
+        _reject_hardlinked_database(self.working_path)
+        _reject_hardlinked_database(self.control_path)
+
+
+def _refuse_redirect(path: Path) -> None:
+    try:
+        info = os.lstat(path)
+    except FileNotFoundError:
+        return
+    if os.path.islink(path) or getattr(info, "st_file_attributes", 0) & _FILE_ATTRIBUTE_REPARSE_POINT:
+        raise ValueError(f"borrowed profile paths must not be links or junctions: {path}")
+
+
+def app_data_root(*, platform: str | None = None, environ: Mapping[str, str] | None = None,
+                  home: str | Path | None = None) -> Path:
+    """This user's local (not roaming, not synced) application data folder for Lightning.
+
+    Windows: ``%LOCALAPPDATA%``. Elsewhere: ``$XDG_DATA_HOME`` or ``~/.local/share``. No path is created."""
+    platform = sys.platform if platform is None else platform
+    environ = os.environ if environ is None else environ
+    if platform == "win32" or platform.startswith("win"):
+        local = environ.get("LOCALAPPDATA", "")
+        if not local or not PureWindowsPath(local).is_absolute():
+            raise ValueError("LOCALAPPDATA is not set to an absolute folder")
+        return Path(local) / "Lightning"
+    home_path = Path(home or environ.get("HOME") or Path.home()).expanduser()
+    xdg = environ.get("XDG_DATA_HOME", "")
+    base = Path(xdg) if xdg and Path(xdg).is_absolute() else home_path / ".local" / "share"
+    return base / "Lightning"
+
+
+def check_borrowed_location(folder: Path, *, documents_root: Path | None = None) -> None:
+    """A borrowed profile must stay on this device: not in Documents/Lightning, not in a synced folder,
+    and not reached through a link (the real path must be the path itself)."""
+    folder = Path(folder)
+    if not folder.is_absolute():
+        raise ValueError("borrowed profile folder must be absolute")
+    lowered = [part.casefold() for part in folder.parts]
+    if any(name in part for part in lowered for name in _SYNCED_FOLDER_NAMES):
+        raise ValueError(f"borrowed profiles cannot live in a synced folder: {folder}")
+    if documents_root is not None:
+        documents = Path(documents_root).resolve()
+        if folder.resolve() == documents or documents in folder.resolve().parents:
+            raise ValueError("borrowed profiles cannot live in the Documents profile folder")
+    if os.path.normcase(os.path.realpath(folder)) != os.path.normcase(str(folder)):
+        raise ValueError(f"borrowed profile folder is reached through a link: {folder}")
+
+
+def borrowed_profile(profile_id: str, *, root: Path | None = None, documents_root: Path | None = None,
+                     platform: str | None = None, environ: Mapping[str, str] | None = None,
+                     home: str | Path | None = None) -> BorrowedPaths:
+    """Paths of a borrowed profile: ``<app data>/Lightning/borrowed/<profile_id>/``. ``root`` replaces the
+    app data folder in tests; the location rules apply either way."""
+    if not isinstance(profile_id, str) or _PROFILE_UUID.fullmatch(profile_id) is None:
+        raise ValueError("profile_id must be a lowercase version 4 UUID")
+    base = Path(root) if root is not None else app_data_root(platform=platform, environ=environ, home=home)
+    if documents_root is None and root is None:
+        documents_root = choose_data_root(platform=platform, environ=environ, home=home)
+    data_dir = base / "borrowed" / profile_id
+    check_borrowed_location(data_dir, documents_root=documents_root)
+    return BorrowedPaths(profile_id, data_dir)

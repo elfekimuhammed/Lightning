@@ -6,9 +6,9 @@ Last rewritten 2026-10-05 · Claude.
 
 ## Claude
 
-- **Last done (2026-10-05):** fixed 13 of the routine audit's 15 wrong numbers, part of the other two (rest: Overview › Known finance gaps).
+- **Last done (2026-10-05):** multi-device task 06 (session roles: reader build, drained role changes, borrowed paths). Unblocks 07 and 18a. Before that: 13 of the routine audit's 15 numbers.
 - **For Codex (restore, 03a):** (1) a failure after PENDING but before P1 still locks the profile; retire it as abandoned when the journal never prepared and live equals `old_sha256`. (2) Unlock re-verifies every retained copy (2.7 s after three restores of 23.5 MB); a change was blocked as a security-check removal, so the owner decides. (3) Deleting a retained copy locks the profile: intended?
-- **In progress · claimed files:** multi-device 06a (read-only reader sessions): `lightning/runtime/{session,app,paths,roles}.py`, `lightning/bootstrap.py`, `tests/test_session_roles.py`. Restore's session calls stay unchanged.
+- **In progress · claimed files:** none.
 
 ## Codex
 
@@ -22,7 +22,7 @@ Last rewritten 2026-10-05 · Claude.
 3. **Competition research:** App Store, Reddit and Facebook reviews were not reachable; see the last section of `docs/COMPETITION.md`. Owner questions are in *For the owner*.
 4. **Speed, if wanted:** a stable window origin, so the 290 KB stylesheet and 109 KB script stay cached across launches; trim unused CSS in `style.css`.
 
-5. **Multiple devices:** tasks 01 and 02a–02c are done; 02d and 04a are in progress. The first 03a encrypted restore preview is wired; next is an interrupted-operation repair path, fault/reboot drills and ordinary Windows restore acceptance before using real profile data. Follow the [dependencies and Read column](docs/proposals/multiple_devices.md#15-implementation-work-packages).
+5. **Multiple devices:** tasks 01, 02a–02c and 06 are done (07 and 18a are now unblocked); 02d and 04a are in progress. The first 03a encrypted restore preview is wired; next is an interrupted-operation repair path, fault/reboot drills and ordinary Windows restore acceptance before using real profile data. Follow the [dependencies and Read column](docs/proposals/multiple_devices.md#15-implementation-work-packages).
 
 ## For the owner
 

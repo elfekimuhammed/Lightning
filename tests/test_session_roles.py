@@ -177,3 +177,113 @@ def test_the_request_gate_refuses_every_finance_write_for_a_reader(tmp_path):
         csrf = re.search(r'name="csrf" value="([^"]+)"', browser.get("/profiles").text).group(1)
         browser.post("/profiles/lock", data={"csrf": csrf})
         assert session.container is None
+
+
+# ------------------------------------------------------------------ 06b: borrowed paths, role changes
+PROFILE_ID = "5b0c3c52-7d0e-4c4a-9f3e-2b8d9c1a0e11"
+
+
+def test_a_borrowed_profile_lives_in_local_app_data(tmp_path):
+    from lightning.runtime.paths import app_data_root, borrowed_profile
+
+    windows = app_data_root(platform="win32", environ={"LOCALAPPDATA": r"C:\Users\m\AppData\Local"})
+    assert str(windows).replace("\\", "/").endswith("AppData/Local/Lightning")
+    linux = app_data_root(platform="linux", environ={}, home=tmp_path)
+    assert linux == tmp_path / ".local" / "share" / "Lightning"
+    paths = borrowed_profile(PROFILE_ID, platform="linux", environ={}, home=tmp_path)
+    assert paths.data_dir == linux / "borrowed" / PROFILE_ID
+    paths.prepare()
+    assert paths.prefetch_dir.is_dir() and paths.recovery_dir.is_dir() and paths.sealed_dir.is_dir()
+    assert not paths.working_path.exists()  # nothing but folders until a lend writes a file
+    with pytest.raises(ValueError, match="UUID"):
+        borrowed_profile("../escape", root=tmp_path)
+    with pytest.raises(ValueError, match="LOCALAPPDATA"):
+        app_data_root(platform="win32", environ={})
+
+
+@pytest.mark.parametrize("folder", ["OneDrive/Lightning", "Dropbox/Apps/Lightning", "iCloud Drive/Lightning"])
+def test_a_borrowed_profile_refuses_synced_folders(tmp_path, folder):
+    from lightning.runtime.paths import borrowed_profile
+
+    with pytest.raises(ValueError, match="synced"):
+        borrowed_profile(PROFILE_ID, root=tmp_path / folder)
+
+
+def test_a_borrowed_profile_refuses_documents_links_and_hard_links(tmp_path):
+    from lightning.runtime.paths import BorrowedPaths, borrowed_profile, check_borrowed_location
+
+    documents = tmp_path / "Documents" / "Lightning"
+    with pytest.raises(ValueError, match="Documents"):
+        check_borrowed_location(documents / "borrowed" / PROFILE_ID, documents_root=documents)
+    real = tmp_path / "real"
+    real.mkdir()
+    (tmp_path / "linked").symlink_to(real, target_is_directory=True)
+    with pytest.raises(ValueError, match="link"):
+        borrowed_profile(PROFILE_ID, root=tmp_path / "linked")
+    paths = borrowed_profile(PROFILE_ID, root=tmp_path / "app")
+    paths.prepare()
+    paths.working_path.write_bytes(b"x")
+    (tmp_path / "copy.db").hardlink_to(paths.working_path)
+    with pytest.raises(ValueError, match="hard link"):
+        paths.validate()
+    (tmp_path / "copy.db").unlink()
+    paths.working_path.unlink()
+    paths.working_path.symlink_to(tmp_path / "elsewhere.db")
+    with pytest.raises(ValueError, match="links or junctions"):
+        BorrowedPaths(PROFILE_ID, paths.data_dir).validate()
+
+
+def test_a_role_change_waits_for_the_request_in_flight(tmp_path):
+    """The gate closes and drains before the new role is published (plan section 5, rule 1)."""
+    import asyncio
+    from types import SimpleNamespace
+
+    from lightning.runtime.app import SessionGate
+
+    async def scenario():
+        session = ProfileSession(tmp_path / "Documents" / "Lightning")
+        session.prepare("Home", PASSWORD, PASSWORD)
+        session.confirm(True)
+        gate = SessionGate(SimpleNamespace(state=SimpleNamespace()), session)
+        async with gate.mutex:  # a request is in flight
+            change = asyncio.create_task(gate.change_role(SessionRole.READER))
+            await asyncio.sleep(0.01)
+            assert not change.done() and session.role is SessionRole.HOME
+            session.container.settings.set("probe", "last write before lending")
+        await change
+        assert session.role is SessionRole.READER and session.container.db.read_only
+        assert session.container.settings.get("probe") == "last write before lending"
+        assert gate.app.state.container is session.container
+        await gate.change_role(SessionRole.HOME)
+        assert not session.container.db.read_only
+        session.container.settings.set("probe", "home again")
+        session.close()
+
+    asyncio.run(scenario())
+
+
+def test_no_form_from_before_a_role_change_can_save(tmp_path):
+    from lightning.runtime.app import profile_app
+    from lightning.runtime.http import Credentials
+
+    cfg = Credentials("http://127.0.0.1:9876")
+    app = profile_app(cfg, tmp_path / "Documents" / "Lightning")
+    browser = TestClient(app, base_url=cfg.origin, headers={"Origin": cfg.origin})
+    wallet = {"name": "Wallet", "account_type": "CASH", "currency": "EGP", "opening_balance": "0",
+              "opening_date": "2026-09-30"}
+
+    def form_token():
+        return re.search(r'name="__session" value="([^"]+)"', browser.get("/accounts/new").text).group(1)
+
+    with browser:
+        browser.get("/__launch", params={"code": cfg.launch_code})
+        browser.portal.call(lambda: (app.session.prepare("Home", PASSWORD, PASSWORD), app.session.confirm(True)))
+        home_form = form_token()
+        browser.portal.call(app.gate.change_role, SessionRole.READER)
+        assert browser.post("/accounts/new", data={"__session": home_form, **wallet}).status_code == 403
+        reader_form = form_token()
+        browser.portal.call(app.gate.change_role, SessionRole.HOME)
+        stale = browser.post("/accounts/new", data={"__session": reader_form, **wallet})
+        assert stale.status_code == 403 and "expired" in stale.text
+        assert browser.post("/accounts/new", data={"__session": form_token(), **wallet}).status_code == 200
+        assert "Wallet" in browser.get("/accounts").text

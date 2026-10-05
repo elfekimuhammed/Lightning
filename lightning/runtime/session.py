@@ -230,6 +230,26 @@ class ProfileSession:
             lock.close()
             raise
 
+    def change_role(self, role: SessionRole) -> None:
+        """Reopen the open profile in another role, keeping its instance lock and needing no password.
+
+        The caller holds the request gate (`SessionGate.change_role`), so no request is in flight: the gate is
+        closed and drained before the new role is published (plan section 5, rule 1). A new generation token
+        means no form rendered under the old role can save. If the reopen fails, the profile is locked."""
+        if self.container is None or self.paths is None:
+            raise ProfileError("Unlock a profile first.")
+        if role is self.role:
+            return
+        key = self.container.db.copy_key()
+        self.container.db.close()
+        self.container = None
+        try:
+            container = build(self.paths.db_path, key=key, read_only=not role.writable)
+        except BaseException:
+            self.close()
+            raise
+        self._activate(self.paths, self.lock, container, role)
+
     def restore_backup(self, selected: str, backup_path: str, password: str) -> None:
         from lightning.runtime.restore import EncryptedBackupRestorer
 

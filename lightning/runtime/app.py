@@ -57,6 +57,14 @@ class SessionGate:
         self.app, self.session = app, session
         self.mutex = asyncio.Lock()
 
+    async def change_role(self, role) -> None:
+        """Change the open profile's role between requests, never during one (multi-device task 06)."""
+        async with self.mutex:
+            try:
+                self.session.change_role(role)
+            finally:
+                self.app.state.container = self.session.container
+
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
             return await self.app(scope, receive, send)
@@ -289,4 +297,5 @@ def profile_app(credentials: Credentials, root: Path | str | None = None):
 
     secured = Guard(gate, credentials)
     secured.session = session  # Lifecycle tests inspect synthetic state only.
+    secured.gate = gate  # The sync service (task 07) changes roles through gate.change_role.
     return secured

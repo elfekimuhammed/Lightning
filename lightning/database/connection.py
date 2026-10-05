@@ -81,6 +81,14 @@ class Database:
             self._local.depth = 0
         return conn
 
+    def copy_key(self) -> bytes:
+        """The data key, to reopen this same file in another session role without asking for the password
+        again (multiple devices, task 06). Owning thread only; close() still wipes this object's copy."""
+        self._check_owner()
+        if self._key is None:
+            raise ValueError("This database has no key")
+        return bytes(self._key)
+
     def close(self) -> None:
         if self.encrypted and self._closed:
             return
