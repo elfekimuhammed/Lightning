@@ -152,6 +152,7 @@ This is why history ships in the file: it turns a minute of live requests that m
 - **Our own history.** Because every day is kept in git, losing a source loses future prices from it, never past ones.
 - **The address can move.** The app reads the manifest address from a setting with a built-in default, and Import a file always works.
 - **Schedules keep running.** GitHub disables scheduled workflows after 60 days without activity; the daily data commit counts as activity.
+- **Built (2026-10-05):** `.github/workflows/market-data.yml` runs a schedule per market close (13:30 UTC Egypt and Gulf, 19:00 funds, 17:30 Europe, 22:30 US; `tests/test_market_collector.py` keeps them in step with `packs.py`), tests the collector first, and publishes to the data repository only when the variable `MARKET_PUBLISH` is `true` and the secret `LIGHTNING_MARKET_TOKEN` exists; until then each run checks every source and keeps its packs as a seven-day artifact. `python -m tools.market alarm` lists sources failing twice in a row, which open an issue; a good run closes it.
 
 ## Rights and limits
 
@@ -167,7 +168,7 @@ Recommendation: start with CBE and managers' NAVs as published sources, get a li
 
 ## Phases
 
-1. **Now:** this proposal; the file format with ISO names (`lightning/market/`); the collector with adapters, checks and health (`tools/market/`); exchange and ISIN on financial assets, with a Financial assets page to edit them; packs and Settings › Price files; filling, updating and importing on Investment prices (all built); the scheduled workflow, publishing only after the owner's go-ahead.
+1. **Now:** this proposal; the file format with ISO names (`lightning/market/`); the collector with adapters, checks and health (`tools/market/`); exchange and ISIN on financial assets, with a Financial assets page to edit them; packs and Settings › Price files; filling, updating and importing on Investment prices; the scheduled workflow, publishing only after the owner's go-ahead (all built).
 2. The release ZIP carries `market.zip`; a statement import and first run fill month-ends; Needs you lists what is missing; the Yahoo-per-user code is removed.
 3. Funds, currencies and gold matched to profile holdings; reviewed Thndr-to-Mubasher fund mapping.
 4. US stocks and FX revaluation, with multi-currency (Upcoming projects #15, #16).

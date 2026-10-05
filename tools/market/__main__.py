@@ -9,6 +9,7 @@ from pathlib import Path
 
 from lightning.market.packs import PACKS, pack_release
 
+from .alarm import alarms
 from .collect import backfill, collect
 from .http import Polite
 
@@ -27,7 +28,12 @@ def main(argv=None) -> int:
     zipped.add_argument("--out", default="market.zip")
     zipped.add_argument("--packs", default=",".join(p.id for p in PACKS.values() if p.default))
     zipped.add_argument("--daily-months", type=int, default=13)
+    alarm = sub.add_parser("alarm", help="sources failing twice in a row, and those that recovered (JSON)")
+    alarm.add_argument("--root", default="market")
     args = parser.parse_args(argv)
+    if args.command == "alarm":
+        print(json.dumps(alarms(Path(args.root)), indent=2))
+        return 0
     now = datetime.now(timezone.utc)
     today, created_at = now.date().isoformat(), now.strftime("%Y-%m-%dT%H:%M:%SZ")
     if args.command == "pack":

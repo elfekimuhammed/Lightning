@@ -81,6 +81,7 @@ core/                 dates, money, identifiers, posting rules; no app dependenc
 | `lightning/database` | Connection, migrations, seed, backups, audit, settings |
 | `lightning/accounts` + `workflows/accounts.py` | Account rules and atomic account/opening-balance workflows |
 | `lightning/assets` | Asset classes, financial assets, local EGX catalogue, prices and quote adapters |
+| `lightning/market` + `workflows/market_prices.py` | Price packs: the checked market file format (ISO names), pack registry, delta download and import; filling held month-ends and latest closes as source `MARKET` (a typed price wins). Pure Python, no network but `update.py`. The collector that writes packs is `tools/market`, run only in CI. Design and unbuilt phases: [proposal](proposals/market_data.md) |
 | `lightning/categories` | Activity taxonomy and archived/pickable category rules |
 | `lightning/counterparties.py` | Canonical names, aliases, match suggestions and defaults |
 | `lightning/transactions` | Main-ledger posting, editing, voiding, search; the only writer of postings |

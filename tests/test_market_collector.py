@@ -10,6 +10,7 @@ import pytest
 
 from lightning.market.bundle import Close, MarketFile
 from tools.market import checks
+from tools.market.alarm import alarms
 from tools.market.collect import _settle_keys, backfill, collect
 from tools.market.model import Quote, SourceError, SourceResult
 from tools.market.sources import cbe, mubasher, tradingview, yahoo
@@ -198,6 +199,12 @@ def test_a_run_writes_one_folder_per_pack_and_a_failing_source_keeps_its_last_pr
     assert cbe_health["ok"] is False and cbe_health["failures_in_a_row"] == 1 and "403" in cbe_health["error"]
     assert cbe_health["last_ok"] == "2026-10-01T22:30:00Z"
     assert MarketFile.open(root / "fx").latest("USD/EGP").date == "2026-10-01"
+    assert alarms(root)["failing"] == []  # one failure is not yet an issue
+
+    collect(root, FakeNet(failing={"cbe"}), "2026-10-05", "2026-10-05T22:30:00Z", ("fx",))
+    assert [a["name"] for a in alarms(root)["failing"]] == ["fx/cbe"] and alarms(root)["failing"][0]["failures"] == 2
+    collect(root, FakeNet(), "2026-10-06", "2026-10-06T22:30:00Z", ("fx",))
+    assert alarms(root)["failing"] == [] and "fx/cbe" in alarms(root)["ok"]  # recovered: its issue closes
 
 
 def test_a_source_that_answers_too_little_counts_as_failing(tmp_path):
@@ -217,3 +224,21 @@ def test_backfill_brings_whole_histories_into_the_pack_that_lists_them(tmp_path)
     assert MarketFile.open(root / "egx").close_on("EG:COMI", "2025-09-25") == Close("2025-09-25", "EG:COMI", D("82"))
     assert MarketFile.open(root / "eg-funds").close_on("EG:FUND:4", "2022-12-19") == Close("2022-12-19", "EG:FUND:4", D("10.02"))
     assert any("EG:NOPE: not in the instrument list" in p for p in report["_run"]["problems"])
+
+
+def test_the_schedules_run_each_pack_after_its_market_closes():
+    import re
+
+    import yaml
+    from lightning.market.packs import PACKS as REGISTRY
+
+    workflow = (Path(__file__).parents[1] / ".github" / "workflows" / "market-data.yml").read_text(encoding="utf-8")
+    crons = [entry["cron"] for entry in yaml.safe_load(workflow)[True]["schedule"]]  # YAML reads `on:` as True
+    routed = dict(re.findall(r'"([0-9*, -]+)"\) packs=([a-z,-]+) ;;', workflow))
+    assert sorted(routed) == sorted(crons)
+    for pack in REGISTRY.values():
+        cron = next(c for c, packs in routed.items() if pack.id in packs.split(","))
+        minute, hour, _, _, weekdays = cron.split()
+        assert f"{int(hour):02d}:{int(minute):02d}" == pack.final_utc, pack.id
+        first, last = (int(d) for d in weekdays.split("-"))
+        assert {(day + 1) % 7 for day in pack.days} <= set(range(first, last + 1)), pack.id  # cron counts from Sunday

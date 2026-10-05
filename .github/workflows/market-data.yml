@@ -1,0 +1,156 @@
+# Price packs: collect each market's closing prices after it closes, check them, and publish the packs
+# to the open data repository (docs/proposals/market_data.md; packs and schedules: lightning/market/packs.py).
+#
+# - Each schedule runs the packs whose market has just closed; the collector itself skips a pack on a day
+#   its market does not trade, so one schedule can serve markets with different weeks.
+# - Nothing is published until the owner decides the data rights and turns it on (OWNER.md): the repository
+#   variable MARKET_PUBLISH set to true and the secret LIGHTNING_MARKET_TOKEN (Contents: read and write on
+#   the data repository only). Until then every run still asks every source and fails visibly when one
+#   breaks, and the packs it made are kept for seven days as an artifact.
+# - Once publishing, a source failing two runs in a row opens an issue here; its next good run closes it.
+name: Price packs
+
+on:
+  schedule:
+    - cron: '30 13 * * 0-5'   # EGX, CBE rates, Gulf exchanges (Saudi, Qatar, Kuwait, Bahrain Sun-Thu; UAE Mon-Fri)
+    - cron: '0 19 * * 0-4'    # Egyptian fund prices, published in the evening
+    - cron: '30 17 * * 1-5'   # European exchanges
+    - cron: '30 22 * * 1-5'   # US exchanges
+  workflow_dispatch:
+    inputs:
+      packs:
+        description: 'Packs to collect, comma-separated'
+        default: 'egx,eg-funds,fx,us,gcc,europe'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: price-packs  # one run at a time, so two runs never push to the data repository together
+  cancel-in-progress: false
+
+env:
+  PYTHONUTF8: '1'
+  MARKET_REPO: elfekimuhammed/Lightning-market
+
+jobs:
+  collect:
+    name: Collect, check and publish
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write  # the source alarms
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.13'
+      - name: Install locked Linux dependencies
+        run: |
+          python -m pip install --require-hashes --only-binary=:all: -r requirements/desktop-probe-linux.lock
+      - name: Test the collector and the file format
+        run: python -m pytest -o addopts= -q tests/test_market_file.py tests/test_market_collector.py
+      - name: Decide the packs and whether to publish
+        id: plan
+        env:
+          SCHEDULE: ${{ github.event.schedule }}
+          PACKS_INPUT: ${{ inputs.packs }}
+          PUBLISH: ${{ vars.MARKET_PUBLISH }}
+          TOKEN: ${{ secrets.LIGHTNING_MARKET_TOKEN }}
+        run: |
+          case "$SCHEDULE" in
+            "30 13 * * 0-5") packs=egx,fx,gcc ;;
+            "0 19 * * 0-4") packs=eg-funds ;;
+            "30 17 * * 1-5") packs=europe ;;
+            "30 22 * * 1-5") packs=us ;;
+            *) packs="${PACKS_INPUT:-egx,eg-funds,fx,us,gcc,europe}" ;;
+          esac
+          if ! [[ "$packs" =~ ^[a-z][a-z0-9,-]*$ ]]; then echo "Not a list of packs: $packs"; exit 1; fi
+          publish=false
+          if [ "$PUBLISH" = "true" ] && [ -n "$TOKEN" ]; then publish=true; fi
+          echo "packs=$packs" >> "$GITHUB_OUTPUT"
+          echo "publish=$publish" >> "$GITHUB_OUTPUT"
+          echo "Packs: $packs · publish: $publish" >> "$GITHUB_STEP_SUMMARY"
+      - name: Check out the data repository
+        if: steps.plan.outputs.publish == 'true'
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: ${{ env.MARKET_REPO }}
+          token: ${{ secrets.LIGHTNING_MARKET_TOKEN }}
+          path: market-data
+      - name: Collect
+        id: collect
+        continue-on-error: true  # a failing source still lets the other packs publish; the job fails below
+        env:
+          ROOT: ${{ steps.plan.outputs.publish == 'true' && 'market-data' || format('{0}/market', runner.temp) }}
+          PACKS: ${{ steps.plan.outputs.packs }}
+        run: |
+          python -m tools.market collect --root "$ROOT" --packs "$PACKS" > "$RUNNER_TEMP/report.json"
+      - name: Report
+        if: always()
+        env:
+          ROOT: ${{ steps.plan.outputs.publish == 'true' && 'market-data' || format('{0}/market', runner.temp) }}
+        run: |
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json, os
+          try:
+              report = json.load(open(os.path.join(os.environ["RUNNER_TEMP"], "report.json")))
+          except (OSError, ValueError):
+              report = {}
+              print("The collector stopped before reporting; see its log.")
+          print("| Pack | Source | OK | Rows | Error |\n|---|---|---|---|---|")
+          for pack, health in sorted(report.items()):
+              for name, entry in sorted(health.items()):
+                  if not name.startswith("_") and isinstance(entry, dict):
+                      print(f"| {pack} | {name} | {entry.get('ok')} | {entry.get('rows', '')} | {str(entry.get('error', ''))[:120]} |")
+              problems = health.get("_run", {}).get("problems", []) if isinstance(health, dict) else []
+              for problem in problems[:20]:
+                  print(f"\n- {pack}: {problem}")
+          PY
+      - name: Keep the packs as an artifact
+        if: steps.plan.outputs.publish != 'true' && always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: price-packs
+          path: ${{ runner.temp }}/market
+          retention-days: 7
+          if-no-files-found: ignore
+      - name: Publish
+        if: steps.plan.outputs.publish == 'true' && always()
+        working-directory: market-data
+        env:
+          PACKS: ${{ steps.plan.outputs.packs }}
+        run: |
+          git config user.name "Lightning price collector"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then echo "Nothing new to publish."; exit 0; fi
+          git commit -q -m "Prices $(date -u +%F) ($PACKS)"
+          git push -q origin HEAD
+      - name: Open or close source alarms
+        if: steps.plan.outputs.publish == 'true' && always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python -m tools.market alarm --root market-data > "$RUNNER_TEMP/alarm.json"
+          issue_for() {
+            gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "\"$1\" in:title" --json number,title \
+              --jq ".[] | select(.title == \"$1\") | .number" | head -1
+          }
+          jq -c '.failing[]' "$RUNNER_TEMP/alarm.json" | while read -r source; do
+            title="Price source failing: $(jq -r .name <<<"$source")"
+            body="$(jq -r '"Failed \(.failures) runs in a row. Last good run: \(.last_ok).\n\nError: \(.error)\n\nFix the adapter in tools/market/sources (docs/proposals/market_data.md › Keeping it alive)."' <<<"$source")"
+            number="$(issue_for "$title")"
+            if [ -n "$number" ]; then gh issue comment "$number" --repo "$GITHUB_REPOSITORY" --body "$body"
+            else gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body"; fi
+          done
+          jq -r '.ok[]' "$RUNNER_TEMP/alarm.json" | while read -r name; do
+            number="$(issue_for "Price source failing: $name")"
+            if [ -n "$number" ]; then gh issue close "$number" --repo "$GITHUB_REPOSITORY" --comment "Recovered on $(date -u +%F)."; fi
+          done
+      - name: Fail when a source failed
+        if: steps.collect.outcome == 'failure'
+        run: |
+          echo "A source failed; its pack kept its last good prices. See the summary above."
+          exit 1
