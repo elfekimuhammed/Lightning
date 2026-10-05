@@ -11,6 +11,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 - 2026-10-06 · Codex: Fixed nine Mohab checks: dividend amounts, emergency-target warning, today position snapshot, long-period monthly spending, category sign key, persistent investing goal, total fund valuation, dated Other asset values, and multiple CSV selection.
+- 2026-10-05 · Claude: The price data repository is `Lightning_Market_Data` (the owner's name): the collector publishes there and the app downloads from it.
 - 2026-10-05 · Claude: Price data rights (owner decision): only packs whose source allows republishing are published and shipped (today CBE exchange rates); every pack cites its source in its files and on the price pages; the others are collected only to check sources (`tests/test_market_prices.py`).
 - 2026-10-05 · Claude: Price files, phase 2: the release ZIP carries the default packs (`market.zip`; a tagged release needs them); prices fill by themselves on first run, a newer file, each new month and after a brokerage statement import; Needs you lists missing month-ends; the per-user Yahoo fetch is removed (`tests/test_market_prices.py`).
 - 2026-10-05 · Claude: scheduled price collector (`.github/workflows/market-data.yml`): one run per market close, the collector's tests first, publishing to the open data repository only after the owner turns it on; a source failing twice in a row opens an issue (`tools/market/alarm.py`).

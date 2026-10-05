@@ -19,7 +19,7 @@ from .packs import DAILY_MONTHS, INDEX, PACK_ID
 
 # The open data repository the collector publishes to (proposal › How the app gets prices); a profile can
 # point elsewhere with the market_url setting, e.g. a mirror.
-DEFAULT_URL = "https://raw.githubusercontent.com/elfekimuhammed/Lightning-market/main/"
+DEFAULT_URL = "https://raw.githubusercontent.com/elfekimuhammed/Lightning_Market_Data/main/"
 
 
 def _get(url: str, timeout: float) -> bytes:

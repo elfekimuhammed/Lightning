@@ -29,7 +29,7 @@ Today each copy of Lightning asks Yahoo's undocumented chart feed for each Egypt
 ## The design in one picture
 
 ```
- sources (whitelist)          the cloud, after each close          Lightning-market (open)      each user's app
+ sources (whitelist)          the cloud, after each close          Lightning_Market_Data (open)      each user's app
  ───────────────────          ───────────────────────────          ───────────────────────      ───────────────
  TradingView, Mubasher,  ─▶  collector: adapters, fallbacks,  ─▶  index.json + one folder ─▶  default packs in the ZIP,
  CBE, banks, Yahoo, ...      checks, cross-checks, health          per pack: manifest,          then "Update prices"
@@ -127,7 +127,7 @@ A run never publishes a price that fails these; it keeps the last good one and s
 ## How the app gets prices
 
 - **The bundled file.** Each release carries `market.zip` with the default packs. On first run, after an import, and every month-end, the app fills prices from it for the instruments the profile holds. Manual prices still win.
-- **Update prices.** One button (and later an opt-in check at start-up) downloads `index.json` and, for each followed pack, its `manifest.json` from the open data repository (setting `market_url`, default `Lightning-market`), compares checksums with the profile's copy (`<profile>/market/<pack>/`; sharing one copy between profiles is a later step), downloads only the changed files, checks them all before writing any, and fills. After the first time, a month of updates is about 1 MB per pack.
+- **Update prices.** One button (and later an opt-in check at start-up) downloads `index.json` and, for each followed pack, its `manifest.json` from the open data repository (setting `market_url`, default `Lightning_Market_Data`), compares checksums with the profile's copy (`<profile>/market/<pack>/`; sharing one copy between profiles is a later step), downloads only the changed files, checks them all before writing any, and fills. After the first time, a month of updates is about 1 MB per pack.
 - **Import a file.** Investment prices takes a `market.zip` by hand (40 MB at most in the desktop window), for an offline PC or when the address moves.
 - **Built (2026-10-05):** the Price files card on Investment prices (Fill my prices, Update prices, Import a file), Settings › Price files, `lightning/workflows/market_prices.py` (matching: ISIN, saved key, alias, country and ticker), `lightning/market/update.py`; prices are saved with source `MARKET`. Measured on a realistic test file of all six markets' size in one: about 2.6 MB zipped, 15 MB unpacked.
 - **Say how old it is.** Every price shown from the file carries its date; Needs you says "Prices are from 2026-10-01" when they are a week old, as today.
