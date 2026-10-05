@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en"{% if privacy_on(request) %} class="privacy"{% endif %}>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -8,15 +8,19 @@
   <link rel="icon" type="image/svg+xml" href="/static/lightning-mark.svg">
   <link rel="stylesheet" href="/static/fonts/fonts.css">
   {# Bricolage Grotesque and Manrope (guideline A06) are bundled in fonts.css: no outside request, in every mode. #}
-  <link rel="stylesheet" href="/static/style.css?v=71">
+  <link rel="stylesheet" href="/static/style.css?v=72">
 </head>
-<body>
+<body data-base-currency="{{ base }}">
 <div class="shell">
   <aside class="side">
     <a class="brand" href="/">
       <svg width="22" height="22" viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="brand-bolt" x1="0" y1="0" x2="0.35" y2="1"><stop offset="0" stop-color="#45A9E8"/><stop offset="0.55" stop-color="#1FB5A8"/><stop offset="1" stop-color="#34BF8C"/></linearGradient></defs><path d="M18.2 3.5 7.6 17.4c-.6.8 0 1.9 1 1.9h5.9l-1.6 8.3c-.2 1.1 1.2 1.7 1.9.8l10.6-13.9c.6-.8 0-1.9-1-1.9h-5.9l1.6-8.3c.2-1.1-1.2-1.7-1.9-.8Z" fill="url(#brand-bolt)"/></svg>
       <img class="brand-mark" src="/static/lightning-mark.svg" alt="" width="16" height="22">Lightning
     </a>
+    <div class="side-tools">
+      <a class="side-search" href="/search" data-command-open aria-keyshortcuts="Control+K"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><span>Search</span><kbd>Ctrl K</kbd></a>
+      {% set hidden = privacy_on(request) %}<button type="button" class="side-privacy" data-privacy-toggle aria-pressed="{{ 'true' if hidden else 'false' }}" aria-label="{{ 'Show amounts' if hidden else 'Hide amounts' }}" title="{{ 'Show amounts' if hidden else 'Hide amounts' }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path class="side-privacy-off" d="M4 4l16 16"/></svg></button>
+    </div>
     <nav class="nav" aria-label="Main navigation">
       {% for href, label, icon in [('/', 'Overview', 'overview'), ('/budget', 'Budget', 'budget'), ('/investments', 'Investments', 'investments'), ('/birdview/expenses', 'Expense analysis', 'expenses'), ('/plan', 'Cash planning', 'reserves'), ('/money-from-others', 'Held for others', 'people'), ('/settings', 'Settings', 'settings')] %}
         {% set active = (path == '/' if href == '/' else (path == '/birdview' if href == '/birdview' else path.startswith(href))) or (href == '/settings' and (path.startswith('/counterparties') or path.startswith('/categories') or path.startswith('/checks'))) %}
@@ -66,7 +70,14 @@
     <div id="app-popup-content"></div>
   </div>
 </dialog>
-<script nonce="{{ request.state.csp_nonce|default('') }}" src="/static/app.js?v=31"></script>
+<dialog id="command-bar" class="app-popup command-bar" aria-label="Search">
+  <div class="app-popup-frame command-frame">
+    <input class="pick-search command-input" type="search" placeholder="Search pages, accounts, actions or #tags" aria-label="Search" autocomplete="off" aria-controls="command-results">
+    <div class="pick-list command-results" id="command-results" role="listbox" aria-label="Results"></div>
+    <p class="command-hint">↑ ↓ to move · Enter to open · Esc to close</p>
+  </div>
+</dialog>
+<script nonce="{{ request.state.csp_nonce|default('') }}" src="/static/app.js?v=32"></script>
 <script nonce="{{ request.state.csp_nonce|default('') }}" src="/static/ai-handoff.js?v=1" defer></script>
 <script nonce="{{ request.state.csp_nonce|default('') }}">(()=>{const section=document.getElementById('sidebar-accounts'),mobile=window.matchMedia('(max-width: 900px)');if(!section)return;const sync=()=>{section.open=!mobile.matches};sync();mobile.addEventListener('change',sync)})();</script>
 {% if request.state.secure_profiles|default(false) %}<script nonce="{{ request.state.csp_nonce|default('') }}" src="/static/session.js?v=1"></script>{% endif %}

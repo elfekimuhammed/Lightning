@@ -380,6 +380,11 @@ def _first_evening(o: Mohab) -> None:
     o.ask("plan", "Am I sticking to my plan?", "Budget")
     o.ask("investing", "How are my investments doing?", "Investments")
     o.ask("checks", "Is my data right?", "Settings", "Data checks")
+    # The sidebar's Search (Ctrl-K opens the same search in the app window); a typo still finds the page.
+    b.go("Search")
+    b.submit({"q": "lons"}, button="Search")
+    b.click("Loans")
+    o.answers["search"] = Answer("Where are my loans? (typed as lons)", list(b.trail), b.page)
 
 
 def _live_the_year(o: Mohab) -> None:
@@ -881,6 +886,11 @@ def test_end_of_service_is_not_monthly_pay(mohab):
 def test_between_jobs_the_next_pay_is_the_new_employer(mohab):
     answer = mohab.answers["next_pay"]
     assert answer.shows("Safe to spend until 2027-10-01", "Valeo 2027-10-01 · Income +55,000")
+
+
+def test_search_finds_a_page_through_a_typo(mohab):
+    assert route(mohab, "search") == ["/", "/search", "/plan/loans"]  # the typed search is a form, not a page in the trail
+    assert mohab.answers["search"].shows("Loans still to pay")
 
 
 def test_is_my_debt_under_control(mohab):

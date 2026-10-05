@@ -170,6 +170,22 @@ def container(request: Request) -> Container:
     return current
 
 
+PRIVACY_COOKIE = "lightning_privacy"
+
+
+def privacy_on(request: Request) -> bool:
+    """Privacy mode: the window's choice for this sitting, else what the profile remembers. The window
+    runs in private mode, so its cookie ends with it; a reader session, which cannot save, keeps the cookie."""
+    cookie = request.cookies.get(PRIVACY_COOKIE)
+    if cookie in ("0", "1"):
+        return cookie == "1"
+    current = request.app.state.container
+    return current is not None and current.settings.get("privacy_mode") == "1"
+
+
+templates.env.globals["privacy_on"] = privacy_on
+
+
 def render(request: Request, name: str, status_code: int = 200, **context) -> HTMLResponse:
     c = container(request)
     context.setdefault("msg", request.query_params.get("msg", ""))

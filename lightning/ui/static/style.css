@@ -2913,3 +2913,30 @@ a.chart-sankey-label:hover b { color:var(--azure); }
   .main .import-row { grid-template-columns:1fr 1fr; }
   .main :is(.import-row-match, .import-row-note) { grid-column:1 / -1; }
 }
+
+/* Entry helpers (Upcoming projects #9). The sidebar's Search and privacy switch use the soft well of
+   our dropdown search (A10.3); pressed is Nile (A10). The Ctrl-K command bar is our own popup with our
+   dropdown list inside (A10.5: Escape closes, a bottom sheet on phones). Privacy mode blurs money only. */
+.side-tools { display:flex; gap:8px; margin:6px 0 14px; }
+.side-search { flex:1; min-width:0; display:flex; align-items:center; gap:8px; height:36px; padding:0 12px; border-radius:10px;
+  background:#EAF6EF; color:var(--ink-2); font:500 13px/1 var(--body); text-decoration:none; }
+.side-search:hover, .side-search:focus-visible { background:#fff; box-shadow:inset 0 0 0 1px var(--meadow-dark); outline:0; }
+.side-search kbd { margin-left:auto; font:600 11px/1 var(--body); color:var(--muted); }
+.side-privacy { flex:none; display:grid; place-items:center; width:36px; height:36px; border:0; border-radius:10px;
+  background:#EAF6EF; color:var(--ink-2); cursor:pointer; }
+.side-privacy:hover, .side-privacy:focus-visible { box-shadow:inset 0 0 0 1px var(--meadow-dark); outline:0; }
+.side-privacy[aria-pressed="true"] { background:var(--action); color:var(--on-action); }
+.side-privacy:not([aria-pressed="true"]) .side-privacy-off { display:none; }
+:is(.side-search, .side-privacy) svg { width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+.command-bar { width:min(640px, calc(100vw - 32px)); margin-top:12vh; }
+.command-frame { display:flex; flex-direction:column; max-height:min(70vh, 640px); padding:14px; }
+.command-input { height:44px; font-size:15px; }
+.command-results { flex:1; min-height:0; }
+.command-option { display:flex; align-items:baseline; gap:10px; text-decoration:none; }
+.command-context { min-width:0; overflow:hidden; text-overflow:ellipsis; color:var(--muted); font:500 12px/1.3 var(--body); }
+.command-hint { margin:8px 4px 0; color:var(--muted); font:500 12px/1.3 var(--body); }
+@media (max-width:640px) { .command-bar { width:100vw; margin:auto 0 0; } .command-hint { display:none; } }
+.privacy .amt { filter:blur(6px); }
+.privacy .amt:hover { filter:none; }
+.privacy:not(.privacy-ready) :is(.main, .side-accounts) { filter:blur(6px); }
+.privacy :is(input.money-input, input[inputmode="decimal"]):not(:focus) { filter:blur(5px); }

@@ -93,6 +93,14 @@ async def settings_page(request: Request):
                   current_month=month_of(today()))
 
 
+@router.post("/privacy")
+async def save_privacy(request: Request):
+    """Remember privacy mode in the profile; the window has already switched it with its cookie."""
+    form = await request.form()
+    container(request).settings.set("privacy_mode", "1" if form.get("on") == "1" else "0")
+    return Response(status_code=204)
+
+
 @router.post("/ai-analysis")
 async def prepare_ai_analysis(request: Request):
     c = container(request)

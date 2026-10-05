@@ -2047,3 +2047,168 @@ document.addEventListener("click", (event) => {
   window.addEventListener("resize", close);
   document.addEventListener("scroll", (e) => { if (open && !open.panel.contains(e.target)) close(); }, true);
 })();
+
+// Privacy mode (the eye in the sidebar, or "Hide amounts" in the command bar): every money amount on
+// the page is blurred, for a café or an office; percentages, dates and names stay readable. A page
+// that starts hidden is blurred whole by CSS until its amounts are marked, so none flashes.
+window.lightningPrivacy = (() => {
+  const root = document.documentElement;
+  const AMOUNT = /(?<![\d.,])[+−-]?(?:\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+\.\d{2})(?![\d%])(?!\s%)/g;
+  const LONE = /^\s*[+−-]?\d+(?:\.\d+)?\s*$/;
+  const SKIP = new Set(["SCRIPT", "STYLE", "TEXTAREA", "INPUT", "SELECT", "OPTION", "NOSCRIPT", "TITLE"]);
+  const currency = () => document.querySelector("[data-base-currency]")?.dataset.baseCurrency || "EGP";
+  const mark = (scope) => {
+    if (!scope) return;
+    const walker = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT, { acceptNode: (node) => {
+      const parent = node.parentElement;
+      return parent && !SKIP.has(parent.tagName) && /\d/.test(node.data) && !parent.closest(".amt, .command-bar")
+        ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+    } });
+    const nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    for (const node of nodes) {
+      const parent = node.parentElement, text = node.data;
+      // "450" with its currency beside it (<b>450<small>EGP</small></b>) is an amount too.
+      const lone = LONE.test(text) && (node.nextSibling?.textContent || "").trim() === currency();
+      const found = lone ? [[0, text.length]] : [...text.matchAll(AMOUNT)].map((m) => [m.index, m.index + m[0].length]);
+      if (!found.length) continue;
+      if (parent instanceof SVGElement) { parent.classList.add("amt"); continue; }  // chart labels blur whole
+      const pieces = document.createDocumentFragment();
+      let at = 0;
+      for (const [start, end] of found) {
+        if (start > at) pieces.append(text.slice(at, start));
+        const span = document.createElement("span");
+        span.className = "amt";
+        span.textContent = text.slice(start, end);
+        pieces.append(span);
+        at = end;
+      }
+      if (at < text.length) pieces.append(text.slice(at));
+      node.replaceWith(pieces);
+    }
+  };
+  const label = (on) => document.querySelectorAll("[data-privacy-toggle]").forEach((control) => {
+    const words = on ? "Show amounts" : "Hide amounts";
+    control.setAttribute("aria-pressed", on ? "true" : "false");
+    if (control.tagName === "BUTTON") { control.setAttribute("aria-label", words); control.title = words; }
+    else if (control.querySelector("b")) control.querySelector("b").textContent = words;
+  });
+  const set = (on) => {
+    if (on) mark(document.body);
+    root.classList.toggle("privacy", on);
+    root.classList.toggle("privacy-ready", on);
+    label(on);
+    document.cookie = `lightning_privacy=${on ? 1 : 0}; path=/; SameSite=Strict`;
+    // Remember it in the profile too; a read-only (reader) session refuses, and the cookie keeps it for now.
+    const token = document.querySelector('meta[name="lightning-session"]')?.content
+      || document.querySelector('input[name="__session"]')?.value || "";
+    fetch("/settings/privacy", { method: "POST", body: new URLSearchParams({ on: on ? "1" : "0", __session: token }) })
+      .catch(() => {});
+  };
+  if (root.classList.contains("privacy")) { mark(document.body); root.classList.add("privacy-ready"); }
+  new MutationObserver((records) => {
+    if (!root.classList.contains("privacy")) return;
+    for (const record of records) {
+      if (record.type === "characterData") mark(record.target.parentElement);
+      for (const node of record.addedNodes) mark(node.nodeType === 1 ? node : node.parentElement);
+    }
+  }).observe(document.body, { childList: true, subtree: true, characterData: true });
+  document.addEventListener("click", (event) => {
+    const control = event.target.closest("[data-privacy-toggle]");
+    if (!control) return;
+    event.preventDefault();
+    set(!root.classList.contains("privacy"));
+  });
+  return { toggle: () => set(!root.classList.contains("privacy")), mark };
+})();
+
+// Command bar: Ctrl-K (Cmd-K on a Mac), or Search in the sidebar. One field over the app's one search
+// (/search, ranked in Python), grouped by type as on the Search page. Arrows move, Enter opens the
+// highlighted result, Escape or a click outside closes it.
+(() => {
+  const bar = document.getElementById("command-bar");
+  if (!bar) return;
+  const field = bar.querySelector(".command-input"), list = bar.querySelector(".command-results");
+  const groups = { Transaction: "Transaction", Page: "Pages", Action: "Actions", Account: "Accounts",
+    Counterparty: "Counterparties", Category: "Categories", Investment: "Investments", Tag: "Tags", Search: "Transactions" };
+  let results = [], active = 0, asked = "", waiting = null, timer = null;
+  const paint = () => {
+    list.replaceChildren();
+    let kind = "";
+    results.forEach((row, index) => {
+      if (row.kind !== kind) {
+        kind = row.kind;
+        const head = document.createElement("div");
+        head.className = "pick-group";
+        head.textContent = groups[kind] || kind;
+        list.append(head);
+      }
+      const option = document.createElement("a");
+      option.className = `pick-option command-option${index === active ? " is-active" : ""}`;
+      option.href = row.href;
+      option.id = `command-option-${index}`;
+      option.setAttribute("role", "option");
+      const name = document.createElement("span");
+      name.textContent = row.label;
+      option.append(name);
+      if (row.context) {
+        const context = document.createElement("small");
+        context.className = "command-context";
+        context.textContent = row.context;
+        option.append(context);
+      }
+      option.addEventListener("mousemove", () => { if (active !== index) { active = index; paint(); } });
+      option.addEventListener("click", (event) => { event.preventDefault(); go(row); });
+      list.append(option);
+    });
+    field.setAttribute("aria-activedescendant", results.length ? `command-option-${active}` : "");
+  };
+  const ask = () => {
+    const query = field.value;
+    asked = query;
+    waiting = fetch(`/search?format=json&q=${encodeURIComponent(query)}`)
+      .then((response) => response.json())
+      .then((data) => { if (asked === query) { results = data.results || []; active = 0; paint(); } })
+      .catch(() => {});
+    return waiting;
+  };
+  const go = (row) => {
+    if (!row) return;
+    bar.close();
+    if (row.action === "privacy") window.lightningPrivacy?.toggle();
+    else location.href = row.href;
+  };
+  const open = () => {
+    if (bar.open) return;
+    field.value = "";
+    results = [];
+    paint();
+    bar.showModal();
+    field.focus();
+    ask();
+  };
+  document.addEventListener("keydown", (event) => {
+    if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "k") {
+      event.preventDefault();
+      if (bar.open) bar.close(); else open();
+    }
+  });
+  document.querySelectorAll("[data-command-open]").forEach((link) =>
+    link.addEventListener("click", (event) => { event.preventDefault(); open(); }));
+  field.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(ask, 120); });
+  field.addEventListener("keydown", async (event) => {
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      if (!results.length) return;
+      active = (active + (event.key === "ArrowDown" ? 1 : -1) + results.length) % results.length;
+      paint();
+      list.querySelector(".is-active")?.scrollIntoView({ block: "nearest" });
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      if (asked !== field.value) { clearTimeout(timer); ask(); }  // typed faster than the search answered
+      await waiting;
+      go(results[active]);
+    }
+  });
+  bar.addEventListener("click", (event) => { if (event.target === bar) bar.close(); });
+})();
