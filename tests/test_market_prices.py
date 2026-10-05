@@ -367,3 +367,20 @@ def test_the_pages_cite_the_source_of_the_prices(c, holdings, tmp_path, monkeypa
     assert "Source: " in text and "Central Bank of Egypt (cbe.org.eg)." in text
     page = client.get("/investments/prices/markets").text
     assert "Source: Central Bank of Egypt (cbe.org.eg)" in page and "Source: TradingView" in page
+
+
+def test_a_pack_without_prices_is_never_offered_or_shipped(tmp_path):
+    from lightning.market.bundle import write
+    from lightning.market.packs import write_index
+    from tools.market.__main__ import main as market_cli
+    root = tmp_path / "published"
+    write(root / "fx", [], [], "2026-12-31T22:30:00Z", health={"cbe": {"ok": False}}, pack="fx")
+    assert write_index(root, "2026-12-31T22:30:00Z")["packs"] == {}  # its source failed: nothing to offer
+    with Server(root) as server:
+        assert market_cli(["release", "--out", str(tmp_path / "m.zip"), "--url", server.url, "--required"]) == 1
+
+
+def test_the_collector_asks_like_a_browser_and_names_itself():
+    from tools.market.http import HEADERS, USER_AGENT
+    assert USER_AGENT.startswith("Mozilla/5.0 (compatible; Lightning-market-collector")
+    assert {"Accept", "Accept-Language"} <= set(HEADERS)

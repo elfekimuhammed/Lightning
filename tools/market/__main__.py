@@ -28,6 +28,9 @@ def release_bundle(out: Path, url: str, required: bool) -> int:
             out.parent.mkdir(parents=True, exist_ok=True)
             pack_release(Path(folder), out, defaults)
             packs = read_zip(out.read_bytes())
+            empty = [p for p, m in packs.items() if not m.instruments()]
+            if empty:
+                raise MarketFileError(f"No prices yet in: {', '.join(empty)}.")
         except MarketFileError as exc:
             out.unlink(missing_ok=True)
             print(f"{'error' if required else 'warning'}: no price files for this build: {exc}", file=sys.stderr)

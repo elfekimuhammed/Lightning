@@ -10,7 +10,11 @@ from urllib.request import Request, urlopen
 
 from .model import SourceError
 
-USER_AGENT = "Lightning-market-collector/1 (+https://github.com/elfekimuhammed/Lightning)"
+# The usual crawler form (as search engines use), still naming Lightning: some sites' firewalls reject a
+# request without it or without the headers every browser sends (CBE answered "Request Rejected").
+USER_AGENT = "Mozilla/5.0 (compatible; Lightning-market-collector/1; +https://github.com/elfekimuhammed/Lightning)"
+HEADERS = {"Accept": "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8",
+           "Accept-Language": "en-US,en;q=0.9,ar;q=0.8"}
 
 
 class Polite:
@@ -27,7 +31,7 @@ class Polite:
             self._last = time.monotonic()
             self.requests += 1
             try:
-                with urlopen(Request(url, data=data, headers={"User-Agent": USER_AGENT, **headers}),
+                with urlopen(Request(url, data=data, headers={"User-Agent": USER_AGENT, **HEADERS, **headers}),
                              timeout=self.timeout) as response:
                     return response.read(50_000_000)
             except HTTPError as exc:

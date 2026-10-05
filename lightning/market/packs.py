@@ -85,6 +85,8 @@ def write_index(root: Path, created_at: str) -> dict:
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         known = PACKS.get(pack_id)
         files = manifest.get("files", {})
+        if not files.get("instruments.csv", {}).get("rows"):
+            continue  # no prices yet (its source has not answered): its health is kept, but no app is offered it
         packs[pack_id] = {
             "name": known.name if known else pack_id, "covers": known.covers if known else "",
             "source": known.source if known else str(manifest.get("source", "")),
