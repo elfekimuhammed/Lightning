@@ -568,3 +568,55 @@ assert session.container is None and session.lock is None
     fresh.unlock(str(live), PASSWORD)
     assert fresh.container.settings.get("restore_marker") == "before restore"
     fresh.close()
+
+
+def test_resume_rolls_back_a_hot_restore_journal(tmp_path, monkeypatch):
+    """A crash inside a control-store transaction leaves a hot rollback journal.
+
+    A read-only connection cannot roll it back, so recovery must open the store
+    read-write under the held profile lock instead of staying locked forever.
+    """
+    from lightning.database.promotion import PromotionPhase, SqlitePromotionJournalStore
+    from lightning.runtime.restore import EncryptedBackupRestorer
+
+    session, _ = created(tmp_path)
+    live, paths = session.paths.db_path, session.paths
+    session.container.settings.set("restore_marker", "current")
+    selected = session.container.backup_now()
+    session.close()
+
+    original = SqlitePromotionJournalStore.advance
+    tripped = {"value": False}
+
+    def advance_then_fail(self, expected, updated):
+        result = original(self, expected, updated)
+        if not tripped["value"] and updated.phase is PromotionPhase.PREVIOUS_PROTECTED:
+            tripped["value"] = True
+            raise OSError("injected P2 interruption")
+        return result
+
+    monkeypatch.setattr(SqlitePromotionJournalStore, "advance", advance_then_fail)
+    with pytest.raises(ProfileError):
+        session.restore_backup(str(live), str(selected), PASSWORD)
+    monkeypatch.setattr(SqlitePromotionJournalStore, "advance", original)
+
+    (control,) = paths.data_dir.glob(".lightning-restore-*.sqlite")
+    crash = (
+        "import os, sqlite3, sys\n"
+        "c = sqlite3.connect(sys.argv[1], isolation_level=None)\n"
+        "c.execute('PRAGMA cache_size=1')\n"
+        "c.execute('BEGIN IMMEDIATE')\n"
+        "c.execute(\"UPDATE promotion_control SET journal_json='{}'\")\n"
+        "c.execute('CREATE TABLE spill(x)')\n"
+        "c.execute('INSERT INTO spill SELECT randomblob(200000) FROM (SELECT 1 UNION SELECT 2)')\n"
+        "os._exit(0)\n"
+    )
+    subprocess.run([sys.executable, "-c", crash, str(control)], check=True)
+    assert Path(str(control) + "-journal").exists(), "the crash must leave a hot journal"
+
+    session.retry_at = 0.0
+    EncryptedBackupRestorer(session).resume_interrupted_restore(str(live), PASSWORD)
+    assert not Path(str(control) + "-journal").exists()
+    session.unlock(str(live), PASSWORD)
+    assert session.container.settings.get("restore_marker") == "current"
+    session.close()

@@ -575,15 +575,10 @@ class EncryptedBackupRestorer:
                 info = journal_path.stat(follow_symlinks=False)
                 if journal_path.is_symlink() or not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
                     raise OSError("unsafe restore journal")
-                connection = sqlite3.connect(journal_path.resolve(strict=True).as_uri() + "?mode=ro", uri=True)
-                try:
-                    row = connection.execute(
-                        "SELECT accepted_checkpoint_id, accepted_sha256, journal_json "
-                        "FROM promotion_control WHERE singleton=1"
-                    ).fetchone()
-                    observed = SqlitePromotionJournalStore._row_state(row)
-                finally:
-                    connection.close()
+                # Read-write under the held profile lock: a crash inside a control
+                # transaction leaves a hot journal that only a writer can roll back.
+                store = SqlitePromotionJournalStore(journal_path)
+                observed = store.read_state()
             except Exception as exc:
                 raise ProfileError("The pending restore has no readable matching journal; this profile remains locked.") from exc
             journal = observed.journal
@@ -623,7 +618,6 @@ class EncryptedBackupRestorer:
             except Exception as exc:
                 raise ProfileError("Protected restore source or pre-restore evidence is missing or corrupt; profile remains locked.") from exc
 
-            store = SqlitePromotionJournalStore(journal_path)
             if os.name == "nt":
                 from lightning.database.promotion_windows import WindowsPromotionFileOps
                 file_ops = WindowsPromotionFileOps(paths.data_dir)
