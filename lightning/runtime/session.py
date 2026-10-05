@@ -156,6 +156,17 @@ def read_keys(paths: ProfilePaths) -> dict:
     raise ProfileError("The key file and its copy are missing or damaged. Restore them from a backup of this profile's folder.")
 
 
+def _fill_prices(container: Container) -> None:
+    """First run, a newer price file or a new month: fill held investments' prices from the files the app
+    already has (no download). Opening a profile never fails because of it."""
+    from lightning.core.dates import today
+    from lightning.workflows.market_prices import fill_if_due
+    try:
+        fill_if_due(container, today())
+    except Exception:  # noqa: BLE001 - prices stay as saved; Investment prices can fill them by hand
+        pass
+
+
 @dataclass
 class PendingProfile:
     paths: ProfilePaths
@@ -268,6 +279,8 @@ class ProfileSession:
         if container.db.read_only == role.writable:
             raise ProfileError("The profile opened with the wrong kind of connection for its role.")
         self.paths, self.lock, self.container, self.role = paths, lock, container, role
+        if role.writable:
+            _fill_prices(container)
         self.token = secrets.token_urlsafe(32)
         self.csrf = secrets.token_urlsafe(32)
         self.pending = None

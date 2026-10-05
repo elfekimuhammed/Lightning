@@ -4,14 +4,37 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
-from lightning.market.packs import PACKS, pack_release
+from lightning.market.bundle import MarketFileError
+from lightning.market.packs import PACKS, pack_release, read_zip
+from lightning.market.update import DEFAULT_URL, update_packs
 
 from .alarm import alarms
 from .collect import backfill, collect
 from .http import Polite
+
+
+def release_bundle(out: Path, url: str, required: bool) -> int:
+    """Download the default packs and zip them for the app, checking the result reads back whole."""
+    defaults = [p.id for p in PACKS.values() if p.default]
+    with tempfile.TemporaryDirectory(prefix="lightning-market-") as folder:
+        try:
+            _, missing = update_packs(Path(folder), defaults, url)
+            if missing:
+                raise MarketFileError(f"Not published yet: {', '.join(missing)}.")
+            out.parent.mkdir(parents=True, exist_ok=True)
+            pack_release(Path(folder), out, defaults)
+            packs = read_zip(out.read_bytes())
+        except MarketFileError as exc:
+            out.unlink(missing_ok=True)
+            print(f"{'error' if required else 'warning'}: no price files for this build: {exc}", file=sys.stderr)
+            return 1 if required else 0
+    print(f"Wrote {out} ({out.stat().st_size // 1024} KB): "
+          + ", ".join(f"{p} of {m.created_at[:10]}" for p, m in sorted(packs.items())))
+    return 0
 
 
 def main(argv=None) -> int:
@@ -28,9 +51,17 @@ def main(argv=None) -> int:
     zipped.add_argument("--out", default="market.zip")
     zipped.add_argument("--packs", default=",".join(p.id for p in PACKS.values() if p.default))
     zipped.add_argument("--daily-months", type=int, default=13)
+    release = sub.add_parser("release", help="the default packs the release ZIP carries, downloaded from the "
+                                             "published price files (lightning/market/market.zip)")
+    release.add_argument("--out", default="lightning/market/market.zip")
+    release.add_argument("--url", default=DEFAULT_URL)
+    release.add_argument("--required", action="store_true",
+                         help="fail when the price files cannot be had (a tagged release); otherwise warn")
     alarm = sub.add_parser("alarm", help="sources failing twice in a row, and those that recovered (JSON)")
     alarm.add_argument("--root", default="market")
     args = parser.parse_args(argv)
+    if args.command == "release":
+        return release_bundle(Path(args.out), args.url, args.required)
     if args.command == "alarm":
         print(json.dumps(alarms(Path(args.root)), indent=2))
         return 0

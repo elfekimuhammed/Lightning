@@ -110,6 +110,9 @@ class AssetRepository:
             (asset_id, date, to_e6(price), currency, source, now, now),
         )
 
+    def has_price(self, asset_id: int, date: str) -> bool:
+        return self.db.scalar("SELECT 1 FROM price_history WHERE asset_id=? AND date=? LIMIT 1", (asset_id, date)) is not None
+
     def delete_price(self, asset_id: int, date: str, source: str) -> None:
         self.db.execute("DELETE FROM price_history WHERE asset_id = ? AND date = ? AND source = ?",
                         (asset_id, date, source))

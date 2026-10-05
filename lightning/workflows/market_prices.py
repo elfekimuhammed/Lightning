@@ -19,7 +19,7 @@ from pathlib import Path
 from lightning.core.dates import fmt_date
 from lightning.market.bundle import MarketFile, MarketFileError
 from lightning.market.iso import venue_name
-from lightning.market.packs import INDEX, PACK_ID, PACKS, MarketSet, read_zip
+from lightning.market.packs import INDEX, PACK_ID, PACKS, MarketSet, chosen, read_zip
 
 SOURCE = "MARKET"
 BUNDLED = Path(__file__).resolve().parents[1] / "market" / "market.zip"
@@ -32,6 +32,7 @@ class FillReport:
     matched: list[str] = field(default_factory=list)
     added: int = 0
     missing: list[tuple[str, str]] = field(default_factory=list)     # (investment, month-end)
+    missing_ids: list[tuple[int, str]] = field(default_factory=list)  # (asset id, month-end), for Needs you
     unmatched: list[str] = field(default_factory=list)
     other_currency: list[str] = field(default_factory=list)
 
@@ -204,7 +205,9 @@ class MarketPrices:
             for day in month_ends:
                 close = market.close_on(key, day)
                 if close is None:
-                    report.missing.append((asset.name, day))
+                    if not self.assets.priced_on(asset.id, day):  # a typed price already covers it
+                        report.missing.append((asset.name, day))
+                        report.missing_ids.append((asset.id, day))
                 else:
                     found[close.date] = close
             latest = market.latest(key)
@@ -214,3 +217,51 @@ class MarketPrices:
                 self.assets.set_price(asset.id, close.date, close.close, source=SOURCE)
             report.added += len(found)
         return report
+
+
+# ------------------------------------------------------------------ filling without being asked
+# Proposal › How the app gets prices: on first run, after a statement import and every month-end, the app
+# fills the held instruments' prices from the files it already has. Nothing is downloaded here.
+FILLED_SETTING = "market_filled"     # "<file date>|<month>" of the last automatic fill
+MISSING_SETTING = "market_missing"   # what that fill could not find, for Needs you
+
+
+def fill_followed(c, on: date) -> FillReport | None:
+    """Fill from the followed packs now, post the month-end returns this allows, and remember what is
+    missing. None when there are no price files or the profile is a read-only copy."""
+    if c.db.read_only:
+        return None
+    market = current_set(c.data_dir, chosen(c.settings.get("market_packs")))
+    if market is None:
+        return None
+    report = MarketPrices(c.assets, c.reporting).fill(market, on)
+    c.reevaluations.process_due()
+    c.settings.set(MISSING_SETTING, json.dumps([[asset_id, day] for asset_id, day in report.missing_ids[:200]]))
+    c.settings.set(FILLED_SETTING, f"{market.created_at[:10]}|{on.isoformat()[:7]}")
+    return report
+
+
+def fill_if_due(c, on: date) -> FillReport | None:
+    """The automatic fill: on first run, when a newer file arrived, or in a new month. Quiet otherwise."""
+    if c.db.read_only:
+        return None
+    market = current_set(c.data_dir, chosen(c.settings.get("market_packs")))
+    if market is None or c.settings.get(FILLED_SETTING) == f"{market.created_at[:10]}|{on.isoformat()[:7]}":
+        return None
+    return fill_followed(c, on)
+
+
+def missing_prices(c) -> list[tuple[str, str]]:
+    """(investment, month-end) pairs the last fill could not find and nobody has typed since."""
+    try:
+        pairs = json.loads(c.settings.get(MISSING_SETTING) or "[]")
+    except ValueError:
+        return []
+    found = []
+    for asset_id, day in pairs if isinstance(pairs, list) else []:
+        try:
+            if not c.assets.priced_on(int(asset_id), str(day)):
+                found.append((c.assets.get_asset(int(asset_id)).name, str(day)))
+        except Exception:  # a removed asset or a damaged entry is simply not listed
+            continue
+    return found

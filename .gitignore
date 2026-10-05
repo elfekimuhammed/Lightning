@@ -8,3 +8,5 @@ build/
 dist/
 *.egg-info/
 nul
+# The release build writes this from the published price files; never committed.
+lightning/market/market.zip

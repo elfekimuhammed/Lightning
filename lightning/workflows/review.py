@@ -12,6 +12,7 @@ from datetime import date
 from lightning.core.dates import fmt_date, month_of
 from lightning.core.money import ZERO, fmt as _fmt
 from lightning.transactions.domain import TxnFilter
+from lightning.workflows.market_prices import missing_prices
 
 
 def fmt(value, places: int = 0, signed: bool = False) -> str:
@@ -52,6 +53,18 @@ class ReviewInbox:
                           "detail": f"The cash forecast ends {lowest.month} at {fmt(lowest.closing)} {c.base_currency}.",
                           "href": "/plan", "priority": 1})
         # Honest numbers: a holding priced more than two months ago is shown at an old value.
+        # Month-end prices the price files lack (a fund they do not cover, a stock listed later): typed by hand.
+        missing = missing_prices(c)
+        if missing:
+            by_name: dict[str, list[str]] = {}
+            for name, day in missing:
+                by_name.setdefault(name, []).append(date.fromisoformat(day).strftime("%B %Y"))
+            named = "; ".join(f"{name}, {', '.join(months[:3])}{' and more' if len(months) > 3 else ''}"
+                              for name, months in list(by_name.items())[:2])
+            more = f"; and {len(by_name) - 2} more" if len(by_name) > 2 else ""
+            items.append({"label": _plural(len(missing), "price missing", "prices missing"),
+                          "detail": f"{named}{more}.", "href": "/investments/prices",
+                          "action": "Enter prices", "priority": 2})
         stale = c.reporting.stale_prices(on)
         if stale:
             named = ", ".join(f"{row['name']} ({row['price_date']})" for row in stale[:2])

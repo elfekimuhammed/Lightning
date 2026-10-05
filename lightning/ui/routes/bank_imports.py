@@ -6,6 +6,8 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, PlainTextResponse
 from decimal import Decimal, InvalidOperation
 
+from lightning.core.dates import today
+from lightning.workflows.market_prices import fill_followed
 from lightning.bank_imports import OPTIONAL, REQUIRED, SEPARATE_AMOUNT_FIELDS, decode_csv
 from lightning.core.errors import LightningError, ValidationError
 from lightning.core.limits import MAX_CSV_MAPPING_REQUEST_BYTES, MAX_IMPORT_REVIEW_REQUEST_BYTES
@@ -376,6 +378,14 @@ async def confirm(request: Request, account_id: int, batch_id: int):
         return _render_review(request, c, account_id, batch, review_rows, summary=c.bank_imports.summary(batch_id),
                               form=form, msg=msg)
     feedback = _budget_import_feedback(c, batch_id)
+    if count.get("posted") and c.accounts.get(account_id).account_type.value == "BROKERAGE":
+        # A brokerage statement brings holdings: give each the month-end prices it needs from the price files.
+        try:
+            report = fill_followed(c, today())
+        except LightningError:
+            report = None
+        if report is not None and (report.added or report.missing):
+            feedback += f" {report.summary()}"
     if count.get("ambiguous_reserves"):
         feedback += f" {count['ambiguous_reserves']} row(s) could match multiple reserves; choose beside each transaction in its account list."
     batch, result_rows = c.bank_imports.preview(batch_id)

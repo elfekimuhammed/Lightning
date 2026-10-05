@@ -23,7 +23,7 @@ from .. import charts
 from lightning.core.figures import label
 from lightning.market.packs import chosen, read_zip
 from lightning.market.update import DEFAULT_URL, update_packs
-from lightning.workflows.market_prices import MarketPrices, current_set, forget, local_folder, pack_files, pack_rows
+from lightning.workflows.market_prices import fill_followed, forget, local_folder, pack_files, pack_rows
 
 from .. import keynotes, visuals
 
@@ -699,12 +699,10 @@ def _followed(c) -> list[dict]:
 
 def _fill_from(c, done: str = "", back: str = "/investments/prices"):
     """Fill every held investment's prices from the followed packs, then post the month-end returns they allow."""
-    market = current_set(c.data_dir, chosen(c.settings.get("market_packs")))
-    if market is None:
-        return redirect(back, f"{done} No price files yet. Update prices downloads the markets you follow.".strip())
     try:
-        report = MarketPrices(c.assets, c.reporting).fill(market, today())
-        c.reevaluations.process_due()
+        report = fill_followed(c, today())
+        if report is None:
+            return redirect(back, f"{done} No price files yet. Update prices downloads the markets you follow.".strip())
     except LightningError as exc:
         return redirect(back, exc.message)
     return redirect(back, f"{done} {report.summary()}".strip())

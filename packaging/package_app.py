@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import ast
 import hashlib
+import json
 import importlib.metadata
 import os
 import platform
@@ -83,10 +84,26 @@ def build_identity(env=os.environ) -> dict[str, str]:
     }
 
 
+def price_files(bundle: Path) -> str:
+    """Which price packs the app carries (market.zip, written by `python -m tools.market release`)."""
+    found = list(bundle.rglob("market.zip"))
+    if not found:
+        return "none"
+    import zipfile
+    try:
+        with zipfile.ZipFile(found[0]) as archive:
+            dates = {name.split("/")[0]: json.loads(archive.read(name)).get("created_at", "")[:10]
+                     for name in archive.namelist() if name.count("/") == 1 and name.endswith("/manifest.json")}
+    except (OSError, ValueError, zipfile.BadZipFile):
+        return "damaged"
+    return ", ".join(f"{pack} of {day}" for pack, day in sorted(dates.items())) or "none"
+
+
 def build_info_text(identity: dict[str, str]) -> str:
     return (f"Lightning {identity['version']} for Windows x64\n"
             f"Build: {identity['kind']}\n"
-            f"Commit: {identity['commit']}\n"
+            + (f"Price files: {identity['price_files']}\n" if identity.get("price_files") else "")
+            + f"Commit: {identity['commit']}\n"
             f"Run: {identity['run']}\n"
             f"Built: {identity['built']}\n"
             f"Python: {identity['python']} ({identity['platform']})\n")
@@ -242,6 +259,9 @@ def package(strict: bool = False, env=os.environ) -> Path:
     if not (bundle / "Lightning.exe").is_file():
         raise RuntimeError("Missing Windows Lightning executable")
     identity = build_identity(env)
+    identity["price_files"] = price_files(bundle)
+    if identity["kind"].startswith("release") and identity["price_files"] in ("none", "damaged"):
+        raise RuntimeError("A release must carry the default price files: run python -m tools.market release --required")
 
     readme = (ROOT / "packaging" / "APP_README.txt").read_text(encoding="utf-8")
     (bundle / "README.txt").write_text(readme.replace("@VERSION@", DISPLAY_VERSION), encoding="utf-8")

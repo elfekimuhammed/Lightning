@@ -29,7 +29,7 @@ WRITE_LIFECYCLE_INVENTORY = {
     ),
     "prices and revaluations": (
         "lightning/assets/service.py:AssetService.set_price",
-        "lightning/assets/market_data.py:refresh_market_prices, refresh_reevaluation_prices",
+        "lightning/workflows/market_prices.py:fill_followed, fill_if_due (from the bundled or downloaded price files)",
         "lightning/reevaluations.py:ReevaluationService.record_manual_price",
     ),
     "imports": (

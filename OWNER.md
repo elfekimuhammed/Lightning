@@ -8,7 +8,7 @@ What only the owner can do or decide. Any AI adds an item here, and removes it o
   1. Create a fine-grained token with Contents: read and write on `Lightning-downloads` only. Save it in this repository as the Actions secret `LIGHTNING_DOWNLOADS_TOKEN`.
   2. Turn on release immutability in `Lightning-downloads` › Settings.
   3. Release with `git tag v0.5.0-beta.1 <commit on main>` and `git push origin v0.5.0-beta.1`.
-- **Price packs (one-time, after deciding *Price data rights* below):** create the public repository `elfekimuhammed/Lightning-market` (an empty `main`) and a fine-grained token with Contents: read and write on it only, saved here as the Actions secret `LIGHTNING_MARKET_TOKEN`. Until both exist the collector runs and checks sources but publishes nothing.
+- **Price packs (one-time, after deciding *Price data rights* below):** create the public repository `elfekimuhammed/Lightning-market` (an empty `main`) and a fine-grained token with Contents: read and write on it only, saved here as the Actions secret `LIGHTNING_MARKET_TOKEN`. Until both exist the collector runs and checks sources but publishes nothing. A tagged release now needs the default packs (egx, eg-funds, fx) published there, because the release ZIP carries them: until then `v0.5.0-beta.1` stops at its price-files step. To release first, publish at least those packs, or say to make the price files optional for this one release.
 - **Website search:** add `lightningeg.com` to Google Search Console and Bing Webmaster Tools; submit `/sitemap.xml`.
 - **Retest:** on the PC whose window failed to start, try a ZIP downloaded in a browser. Builds from `f4e1603` on include the fix.
 

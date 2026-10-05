@@ -85,21 +85,17 @@ def main(argv: list[str] | None = None) -> None:
         from lightning.samples import load_mohab_2026
         summary = load_mohab_2026(container)
         print(f"Mohab's 2026 ready: {summary['rows']} imported rows, {summary['from']} to {summary['to']}.")
-    from lightning.assets.market_data import refresh_market_prices, refresh_reevaluation_prices
+    from lightning.core.dates import today
+    from lightning.workflows.market_prices import fill_if_due
 
-    try:
-        updated = refresh_market_prices(container)
-        if updated:
-            print(f"Updated {updated} investment price{'s' if updated != 1 else ''}.")
-    except Exception:
-        print("Investment price refresh skipped; existing saved prices remain in use.", file=sys.stderr)
-    try:
-        fetched = refresh_reevaluation_prices(container)
+    try:  # prices come from the price files the app already has; nothing is fetched per user
+        report = fill_if_due(container, today())
+        if report is not None:
+            print(report.summary())
         completed = container.reevaluations.process_due()
-        print(f"Investment reevaluations: {completed} monthly checkpoint(s) posted; "
-              f"{fetched} historical price(s) fetched.")
+        print(f"Investment reevaluations: {completed} monthly checkpoint(s) posted.")
     except Exception as exc:
-        print(f"Investment reevaluation catch-up deferred: {exc}", file=sys.stderr)
+        print(f"Investment price fill deferred: {exc}", file=sys.stderr)
     app = create_app(container)
     print(f"Lightning is running at {url}  (data: {container.db.path})  — press Ctrl+C to stop.")
     if not args.no_browser:

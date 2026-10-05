@@ -318,6 +318,10 @@ class AssetService:
                     count += 1
         return count
 
+    def priced_on(self, asset_id: int, date: str) -> bool:
+        """Whether any price, typed or filled, is saved for the asset on that exact day."""
+        return self.repo.has_price(asset_id, fmt_date(parse_date(date)))
+
     def remove_price(self, asset_id: int, date: str, source: str = "MANUAL") -> None:
         with self.db.transaction():
             self.repo.delete_price(asset_id, fmt_date(parse_date(date)), source)

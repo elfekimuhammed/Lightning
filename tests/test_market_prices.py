@@ -3,6 +3,7 @@ left for the user, choosing packs, the delta download, a hand-imported market.zi
 limits for it."""
 
 import gzip
+import re
 import hashlib
 import json
 import threading
@@ -233,3 +234,116 @@ def test_the_desktop_window_takes_one_bounded_market_file():
     assert request_body_limit(MARKET_IMPORT_PATH) == MAX_MARKET_IMPORT_BODY == 40 * 1024 * 1024
     assert runtime_app._form_file_limit(MARKET_IMPORT_PATH) == 1 and runtime_app._form_part_limit(MARKET_IMPORT_PATH) == MAX_MARKET_IMPORT_BODY
     assert runtime_app._form_file_limit("/investments/prices") == 0
+
+
+# ------------------------------------------------------------------ phase 2: filling without being asked
+def _bundle(tmp_path, monkeypatch, created_at="2026-12-31T22:30:00Z"):
+    """The default packs as a release carries them (lightning/market/market.zip)."""
+    root = publish(tmp_path / f"published-{created_at[:10]}", created_at)
+    path = tmp_path / f"market-{created_at[:10]}.zip"
+    pack_release(root, path, ["egx", "eg-funds", "fx"])
+    monkeypatch.setattr(market_prices, "BUNDLED", path)
+    return path
+
+
+def test_the_app_fills_from_its_own_files_once_per_file_and_month(c, holdings, tmp_path, monkeypatch):
+    from lightning.workflows.market_prices import fill_if_due
+    assert fill_if_due(c, date(2026, 12, 31)) is None  # no price files at all: nothing happens
+    _bundle(tmp_path, monkeypatch)
+    first = fill_if_due(c, date(2026, 12, 31))  # first run
+    assert first is not None and first.matched == ["CIB", "AZ Savings"]
+    assert c.reporting.value_of(holdings["cib"].id, D(1), "2026-09-30").source == "MARKET"
+    assert fill_if_due(c, date(2026, 12, 31)) is None  # same file, same month: quiet
+    assert fill_if_due(c, date(2027, 1, 1)) is not None  # a new month fills again
+    _bundle(tmp_path, monkeypatch, "2027-01-02T13:30:00Z")
+    assert fill_if_due(c, date(2027, 1, 3)) is not None  # a newer file fills again
+
+
+def test_needs_you_lists_missing_month_ends_until_they_are_typed(c, holdings, tmp_path, monkeypatch):
+    from lightning.workflows.market_prices import fill_followed
+    from lightning.workflows.review import ReviewInbox
+    _bundle(tmp_path, monkeypatch)
+    fill_followed(c, date(2026, 12, 31))
+    item = next(i for i in ReviewInbox(c).items(date(2026, 12, 31)) if "missing" in i["label"])
+    assert item["label"] == "1 price missing" and item["detail"] == "CIB, November 2026."
+    assert (item["href"], item["action"]) == ("/investments/prices", "Enter prices")
+    c.assets.set_price(holdings["cib"].id, "2026-11-30", "85")
+    assert not any("missing" in i["label"] for i in ReviewInbox(c).items(date(2026, 12, 31)))
+
+
+def test_a_read_only_copy_never_fills(tmp_path, monkeypatch):
+    from lightning.bootstrap import build
+    from lightning.workflows.market_prices import fill_followed, fill_if_due
+    _bundle(tmp_path, monkeypatch)
+    path = tmp_path / "copy.db"
+    build(path).db.close()
+    reader = build(path, read_only=True)
+    assert fill_if_due(reader, date(2026, 12, 31)) is None and fill_followed(reader, date(2026, 12, 31)) is None
+    reader.db.close()
+
+
+def test_opening_a_profile_fills_but_a_reader_does_not(tmp_path, monkeypatch):
+    from lightning.runtime.roles import SessionRole
+    from lightning.runtime.session import ProfileSession
+    calls = []
+    monkeypatch.setattr(market_prices, "fill_if_due", lambda c, on: calls.append(c.db.read_only))
+    session = ProfileSession(tmp_path / "Documents" / "Lightning")
+    session.prepare("Home", "pw", "pw", "Which school?", "El Orman")
+    session.confirm(session.pending.recovery)
+    path = str(session.paths.db_path)
+    session.close()
+    session.unlock(path, "pw", role=SessionRole.READER)
+    session.close()
+    session.unlock(path, "pw")
+    session.close()
+    assert calls == [False, False]  # first run and the later unlock; never the read-only copy
+
+
+def test_a_brokerage_statement_import_fills_prices(c, setup, monkeypatch):
+    from lightning.ui.routes import bank_imports as route
+    from tests.test_bank_imports import _upload_and_map
+    accounts, cats = setup
+    calls = []
+    monkeypatch.setattr(route, "fill_followed", lambda c, on: calls.append(on))
+    client = TestClient(create_app(c))
+    for account in ("thndr", "cib"):
+        account_id = accounts[account].id
+        upload = _upload_and_map(client, account_id, f"{account}.csv", f"Date,Counterparty,Amount\n2026-09-22,Fee {account},-14\n".encode(),
+                                 {"Date": "Date", "Amount": "Amount", "Counterparty": "Counterparty"})
+        batch_id = int(upload.headers["location"].rsplit("/", 1)[-1])
+        row_id = c.bank_imports.preview(batch_id)[1][0]["_import_row_id"]
+        posted = client.post(f"/accounts/{account_id}/import/{batch_id}/confirm", data={
+            f"counterparty_{row_id}": f"Fee {account}", f"counterparty_choice_{row_id}": "new",
+            f"category_{row_id}": str(cats["EXP.PERSONAL.FOOD"].id), f"date_{row_id}": "2026-09-22",
+            f"amount_{row_id}": "-14"})
+        assert "Import complete: 1 posted" in posted.text, re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", posted.text))[:1500]
+    assert len(calls) == 1  # the brokerage statement, not the bank one
+
+
+def test_a_release_carries_the_default_packs_downloaded_and_checked(tmp_path, capsys):
+    from tools.market.__main__ import main as market_cli
+    root = publish(tmp_path / "published")
+    out = tmp_path / "app" / "market.zip"
+    with Server(root) as server:
+        assert market_cli(["release", "--out", str(out), "--url", server.url, "--required"]) == 0
+    assert sorted(read_zip(out.read_bytes())) == ["eg-funds", "egx", "fx"]  # the default packs, not us
+    assert "egx of 2026-12-31" in capsys.readouterr().out
+    out.unlink()
+    with Server(tmp_path / "nothing-published") as server:
+        assert market_cli(["release", "--out", str(out), "--url", server.url]) == 0  # a test build warns
+        assert market_cli(["release", "--out", str(out), "--url", server.url, "--required"]) == 1
+    assert not out.exists()
+
+
+def test_a_tagged_release_build_refuses_to_ship_without_price_files(tmp_path):
+    from tests.test_profile_packaging import _packager
+    package_app = _packager()
+    bundle = tmp_path / "Lightning"
+    (bundle / "_internal" / "lightning" / "market").mkdir(parents=True)
+    assert package_app.price_files(bundle) == "none"
+    pack_release(publish(tmp_path / "published"), bundle / "_internal" / "lightning" / "market" / "market.zip",
+                 ["egx", "fx"])
+    assert package_app.price_files(bundle) == "egx of 2026-12-31, fx of 2026-12-31"
+    workflow = (package_app.ROOT / ".github" / "workflows" / "desktop-probe.yml").read_text(encoding="utf-8")
+    assert workflow.index("python -m tools.market release") < workflow.index("pyinstaller --clean")
+    assert "github.ref_type == 'tag' && '--required'" in workflow

@@ -169,6 +169,6 @@ Recommendation: start with CBE and managers' NAVs as published sources, get a li
 ## Phases
 
 1. **Now:** this proposal; the file format with ISO names (`lightning/market/`); the collector with adapters, checks and health (`tools/market/`); exchange and ISIN on financial assets, with a Financial assets page to edit them; packs and Settings › Price files; filling, updating and importing on Investment prices; the scheduled workflow, publishing only after the owner's go-ahead (all built).
-2. The release ZIP carries `market.zip`; a statement import and first run fill month-ends; Needs you lists what is missing; the Yahoo-per-user code is removed.
+2. **Built 2026-10-05:** the release ZIP carries `market.zip` (`python -m tools.market release`, required for a tagged release, so a release waits until the packs are published); opening a profile (first run, newer file, new month) and a brokerage statement import fill month-ends (`workflows/market_prices.fill_if_due`, `fill_followed`); Needs you lists what is missing until typed; the per-user Yahoo code (`assets/market_data.py`) is removed.
 3. Funds, currencies and gold matched to profile holdings; reviewed Thndr-to-Mubasher fund mapping.
 4. US stocks and FX revaluation, with multi-currency (Upcoming projects #15, #16).
