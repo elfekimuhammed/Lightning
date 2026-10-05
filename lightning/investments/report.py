@@ -256,8 +256,7 @@ def results_by_asset(investments, money_from_others, reporting, opening_day: str
             other_value = (reporting.value_of(holding.asset_id, others, on_day).value or ZERO) if others else ZERO
             share = ((holding.value or ZERO) - other_value) / holding.value if holding.value else ZERO
             values[key] = (share, (holding.value or ZERO) - other_value,
-                           holding.cost_basis * (holding.quantity - others) / holding.quantity
-                           if holding.quantity else ZERO)
+                           holding.owned_cost_basis)
         return values
 
     current_owned = owned_values(current_portfolio, current_day)

@@ -38,6 +38,11 @@ class Position:
     price_source: str  # MANUAL · TRADE · COST
     value: Decimal | None
     xirr: Decimal | None = None
+    # Your own units and what they cost, apart from units held for someone else. Each owner's units keep
+    # their own average cost, so your cost never blends in another owner's purchase prices.
+    owned_quantity: Decimal | None = None
+    owned_cost_basis: Decimal | None = None
+    owned_realized: Decimal | None = None
 
     @property
     def average_cost(self) -> Decimal | None:

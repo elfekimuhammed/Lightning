@@ -90,11 +90,16 @@ class CashForecaster:
         return position.cash_you_own - self.reserves.cash_summary(ZERO)["allocated"] - position.bills_due
 
     def _budget(self, month: str, current: bool) -> tuple[Decimal, set[int]]:
-        """Budget still to spend in the month, and the categories a budget covers."""
+        """Budget still to spend in the month, and the categories the plan covers.
+
+        It is the Budget screen's own plan (BudgetService.plan_summary): limits plus background
+        estimates, so the forecast and the Budget tab show one Left in plan (audit 2026-10-05 #7)."""
         view = self.budgets.month_view(month)
+        summary = self.budgets.plan_summary(month)
         covered = {line.category_id for section in view.sections for line in section.lines
                    if line.budget is not None or line.covered}
-        room = view.available - (view.actual if current else ZERO)
+        covered |= {estimate["category_id"] for estimate in summary["estimates"]}
+        room = summary["left"] if current else summary["planned"]
         return max(room, ZERO), covered
 
     def _goal_need(self, month: str, as_of: date) -> Decimal:
@@ -107,7 +112,9 @@ class CashForecaster:
             due = date.fromisoformat(reserve["due_date"])
             if due < month_start:
                 continue
-            missing = max(reserve["target"] - reserve["effective_allocated"], ZERO)
+            # Everything set aside so far counts, including what the goal has already paid for: a goal
+            # funded in full and partly spent needs nothing more (audit 2026-10-05 #8).
+            missing = max(reserve["target"] - reserve["allocated"], ZERO)
             months_left = max((due.year - as_of.year) * 12 + due.month - as_of.month + 1, 1)
             need += (missing / months_left).quantize(Decimal("0.01"))
         return need
@@ -132,7 +139,10 @@ class CashForecaster:
             current = index == 0
             in_month = [p for p in upcoming if p.due_date[:7] == key]
             due_now = due if current else []
-            income = sum((p.amount for p in in_month + due_now if p.item.is_income), ZERO)
+            # Only this month's unreceived income is still expected now. Older paydays that were never
+            # marked received are not added on top (audit 2026-10-05 #3: five months of salary at once).
+            income = sum((p.amount for p in in_month + [p for p in due_now if p.due_date[:7] == key]
+                          if p.item.is_income), ZERO)
             estimated = False
             if not has_scheduled_income and average:
                 received = (self.reporting.cash_flow(parse_month(key)[0], day).inflows if current else ZERO)

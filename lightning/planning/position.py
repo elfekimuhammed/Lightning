@@ -179,15 +179,13 @@ class PositionService:
             if asset.is_cash:
                 held = self.money_from_others.cash_total_for_account(row.account.id, day)
             quantity = max(ZERO, row.quantity - held)
-            valuation = self.reporting.value_of(row.asset_id, quantity, day) if held else None
-            value = valuation.value if held and valuation else row.value
-            if held and row.value is not None and value is not None:
-                value = max(ZERO, row.value - value)
-            elif held and asset.is_cash:
-                held_value = self.reporting.value_of(row.asset_id, min(held, row.quantity), day).value
-                value = max(ZERO, (row.value or ZERO) - (held_value or ZERO))
-            elif held:
-                value = None
+            # Part of the holding is someone else's: value only your own units. (This used to value your
+            # units and then subtract them from the whole holding, leaving the other owner's share as yours.)
+            if held:
+                valuation = self.reporting.value_of(row.asset_id, quantity, day)
+                value = valuation.value if valuation else None
+            else:
+                value = row.value
             result.append(OwnedHolding(row.account.id, row.account.label, row.asset_id, asset.name,
                                        row.asset_class_code, quantity, value, asset.unit))
         return result, unvalued

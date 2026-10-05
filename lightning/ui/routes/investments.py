@@ -123,9 +123,9 @@ async def portfolio(request: Request):
         if value is not None:
             custody_value += value
         if holding.quantity:
-            custody_cost += holding.cost_basis * units / holding.quantity
+            custody_cost += holding.cost_basis - holding.owned_cost_basis
         own_by_holding[f"{holding.account_id}:{holding.asset_id}"] = (holding.value or Decimal(0)) - held_value
-        own_cost_by_holding[f"{holding.account_id}:{holding.asset_id}"] = holding.cost_basis * (holding.quantity-units) / holding.quantity if holding.quantity else ZERO
+        own_cost_by_holding[f"{holding.account_id}:{holding.asset_id}"] = holding.owned_cost_basis
         own_units_by_holding[f"{holding.account_id}:{holding.asset_id}"] = holding.quantity-units
     owned_value = p.value - custody_value
     owned_cost = p.cost_basis - custody_cost
@@ -152,7 +152,7 @@ async def portfolio(request: Request):
             old_other_units = prior_custody.get(key, ZERO)
             old_valuation = c.reporting.value_of(holding.asset_id, old_other_units, before_day)
             old_owned_value = (old.value or ZERO) - (old_valuation.value or ZERO)
-            old_owned_capital = old.cost_basis * (old.quantity - old_other_units) / old.quantity
+            old_owned_capital = old.owned_cost_basis
         row["starting_capital"] += old_owned_capital
         row["period_unrealized"] += (yours - owned_capital) - (old_owned_value - old_owned_capital)
         if total:
@@ -371,7 +371,7 @@ async def holding_detail(request: Request, asset_id: int):
     if custody and h.quantity:
         own_units=max(ZERO,h.quantity-Decimal(str(custody["units"])))
         factor=own_units/h.quantity
-        h=replace(h,quantity=own_units,cost_basis=h.cost_basis*factor,realized=h.realized*factor,
+        h=replace(h,quantity=own_units,cost_basis=h.owned_cost_basis,realized=h.owned_realized,
                   dividends=h.dividends*factor,value=(h.value*factor if h.value is not None else None),xirr=None)
     asset=c.assets.get_asset(asset_id)
     saved_bucket, saved_horizon = c.assets.investment_preferences(asset_id)
