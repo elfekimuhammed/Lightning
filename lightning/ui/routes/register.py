@@ -20,6 +20,7 @@ from lightning.core.dates import fmt_date, parse_date, parse_month, today
 from lightning.core.errors import ConflictError, LightningError, ValidationError
 from lightning.core.money import ZERO, fmt, to_decimal
 from lightning.core.refs import DocType
+from lightning.transactions.tags import normalize as normal_tag
 
 from ..web import container, render
 
@@ -183,7 +184,12 @@ def page(request: Request, account_id: int | None, entry: dict | None = None, ed
             date_from, date_to = fmt_date(first), fmt_date(last)
         except ValidationError as exc:
             error, month = error or exc.message, ""
-    matched_ids = c.transactions.search_ids(q) if q else None
+    # A tag (#eid, from a note's link or typed in the search) matches exactly: never #eid2026.
+    filter_tag = normal_tag(qp.get("tag", "")) or (normal_tag(q) if q.startswith("#") and " " not in q else "")
+    matched_ids = c.transactions.search_ids(q) if q and not (filter_tag and q.startswith("#")) else None
+    if filter_tag:
+        tagged = c.transactions.tag_transaction_ids(filter_tag)
+        matched_ids = tagged if matched_ids is None else matched_ids & tagged
     raw_category_id = qp.get("category_id", "")
     filter_category = ""
     if str(raw_category_id).isdigit():
@@ -211,6 +217,7 @@ def page(request: Request, account_id: int | None, entry: dict | None = None, ed
         page_number = min(max(_int(qp.get("page")) or 1, 1), max(1, -(-total_rows // page_size)))
         rows = all_rows[(page_number - 1) * page_size:page_number * page_size]
     total_pages = max(1, -(-total_rows // page_size))
+    tag_flows = c.reporting.money_in_out({row.txn_id for row in all_rows}) if filter_tag else None
     custody_owners = c.money_from_others.transaction_owners(row.txn_id for row in rows)
     edit_id = edit_id or _int(qp.get("edit"))
     edit_acct = edit_acct or _int(qp.get("acct")) or account_id
@@ -243,7 +250,8 @@ def page(request: Request, account_id: int | None, entry: dict | None = None, ed
         picked = next((item for item in trade_choices if item["key"] == investment_entry["instrument_key"]), None)
         if picked:
             investment_entry["instrument_label"] = f"{picked['name']} · {picked['ticker']}"
-    keep = {k: v for k, v in (("q", q), ("month", month), ("date_from", from_query), ("date_to", to_query)) if v}
+    keep = {k: v for k, v in (("q", q), ("tag", "" if q.startswith("#") else filter_tag), ("month", month),
+                              ("date_from", from_query), ("date_to", to_query)) if v}
     page_base_qs = urlencode(keep)
     if page_number > 1:
         keep["page"] = page_number
@@ -266,7 +274,7 @@ def page(request: Request, account_id: int | None, entry: dict | None = None, ed
         custody_present=any(custody_owners.values()),
         entry=entry or {"date": qp.get("date") or fmt_date(today()), "account_id": qp.get("new_acct", "")},
         edit_id=edit_id if edit_values is not None else None, edit_acct=edit_acct, edit=edit_values or {},
-        q=q, month=month, filter_category=filter_category, date_from=from_query, date_to=to_query, base_url=base_url, keep_qs=urlencode(keep),
+        q=q, month=month, filter_category=filter_category, filter_tag=filter_tag, tag_flows=tag_flows, date_from=from_query, date_to=to_query, base_url=base_url, keep_qs=urlencode(keep),
         page_number=page_number, total_pages=total_pages, total_rows=total_rows, page_base_qs=page_base_qs,
         search_suggestions=c.counterparties.suggestions(q, limit=3) if q else [],
         post_url=(f"/accounts/{account_id}/register" if account_id else "/transactions/register"),

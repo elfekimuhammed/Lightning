@@ -288,6 +288,7 @@ Categories are selected from an explicit list, not silently created by typing. N
 | **Ledger-line reference** | A transaction ref plus its line number. | `TRF-2026-09-26-001/2` |
 | **Date input** | Accepts ISO (`2026-01-31`), day/month/year (`31/1/2026`), or day/month (`31/1`, current year); stored canonically as ISO. Ambiguous numeric dates are interpreted day-first. | `31/1` → `2026-01-31` in 2026 |
 | **Amount input** | Accepts a number (`1,250.50`, Arabic-Indic digits) or a sum with + - * / ^ and round brackets. Order: brackets, then ^, then * and /, then + and -, left to right; a bracket after a number or a bracket multiplies. Anything unclear is refused with the reason (`-2^2`, `2^3^2`, `8/2(2+2)`, a sign too many or too few, an uneven division, %, a date). The window shows the result before saving. | `3+5*8` → 43; `2(3+5)` → 16 |
+| **Tag** | A #word in a transaction's notes: letters, digits, - or _, with at least one letter; case does not matter. A note shows it as a link to every transaction carrying it, headed with their count, Money in and Money out. Typing it in a register's search is the same exact filter. | `#Eid` and `#eid` are one tag; `#eid2026` is another; `invoice #4521` has none |
 
 ## Asset and account taxonomy (what vs where)
 

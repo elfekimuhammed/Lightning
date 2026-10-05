@@ -69,6 +69,17 @@ def _keep_dates(text) -> Markup:
 templates.env.filters["money"] = _money
 
 
+def _tagged(text) -> Markup:
+    """A note with each #tag a link to every transaction that carries it."""
+    from lightning.transactions.tags import split
+    link = Markup('<a class="note-tag" href="/transactions?tag={}">{}</a>')
+    return Markup("").join(link.format(quote(tag), piece) if tag else escape(piece)
+                           for piece, tag in split(str(text or "")))
+
+
+templates.env.filters["tagged"] = _tagged
+
+
 def _signed_pct(value) -> str:
     """A signed percentage to one decimal ("+6.2", "−1.5"); a value that rounds to zero reads "0.0",
     never "−0.0" or "+0.0" (audit 2026-10-05: a certificate's XIRR showed −0.0%)."""

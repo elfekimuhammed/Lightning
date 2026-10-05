@@ -128,6 +128,21 @@ class ReportQueries:
             params.append(before)
         return int(self.db.scalar(sql, tuple(params)) or 0)
 
+    def category_totals_for(self, txn_ids: list[int]) -> list[dict]:
+        """The same totals as category_totals, for the given transactions instead of a date range."""
+        rows: list[dict] = []
+        for at in range(0, len(txn_ids), 500):  # SQLite allows a limited number of parameters
+            chunk = txn_ids[at:at + 500]
+            rows += [dict(r) for r in self.db.all(
+                f"SELECT le.category_id, le.effect, SUM(le.amount_base_e6) AS total"
+                f" FROM ledger_entries le {POSTED}"
+                f" WHERE le.transaction_id IN ({','.join('?' * len(chunk))}) AND le.category_id IS NOT NULL"
+                f" AND le.effect IN ('INFLOW','OUTFLOW')"
+                " AND COALESCE(le.category_id,0) NOT IN (SELECT id FROM categories WHERE code='EXP.SYSTEM.CUSTODY')"
+                " AND le.owner_id IS NULL"
+                " GROUP BY le.category_id, le.effect", tuple(chunk))]
+        return rows
+
     def category_transaction_ids(self, category_ids: set[int]) -> set[int]:
         if not category_ids:
             return set()

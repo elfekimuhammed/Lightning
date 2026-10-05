@@ -455,11 +455,12 @@ def _live_the_year(o: Mohab) -> None:
     # ============================================================== March: Eid, and a phone on installments
     o.on("2027-03-31")
     o.month("2027-03", salary="50,000")
-    o.enter("Cash wallet", "2027-03-09", "Eidiya", "Gifts & Donations", "-3,000")
-    o.enter("Cash wallet", "2027-03-10", "Uncle Hassan", "Gifts Received", "1,000")
+    o.enter("Cash wallet", "2027-03-09", "Eidiya", "Gifts & Donations", "-3,000", notes="For the nephews #Eid")
+    o.enter("Cash wallet", "2027-03-10", "Uncle Hassan", "Gifts Received", "1,000", notes="#eid")
     o.add_loan("Phone installments", "valU", "2,000", "2027-04-15", "12", "24,000")
     o.ask("owe_more", "With the phone, what do I owe now?", "Loans still to pay")
     o.ask("eid", "What did Eid cost me?", "Expense analysis")
+    o.ask("eid_tag", "And everything I tagged #eid?", "Cash wallet", "#Eid")
 
     # ============================================================== April: the insurance, and selling COMI
     o.on("2027-04-30")
@@ -844,6 +845,13 @@ def test_installments_are_owed_like_a_loan(mohab):
 
 def test_eid_gifts_given_are_spending_and_gifts_received_are_not(mohab):
     assert mohab.answers["eid"].shows("Money out 26,415 EGP", "Gifts & Donations 5,000 · 19%")
+
+
+def test_a_tag_in_a_note_gathers_eid(mohab):
+    """He wrote #Eid and #eid in two notes; the tag's link opens both, with their money in and out."""
+    assert route(mohab, "eid_tag")[-1] == "/transactions"
+    assert mohab.answers["eid_tag"].shows("Tagged #eid · 2 transactions · Money in 1,000.00 · Money out 3,000.00",
+                                         "For the nephews")
 
 
 def test_a_sale_shows_its_gain_after_fees(mohab):

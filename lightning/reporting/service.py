@@ -637,6 +637,14 @@ class ReportingService:
     def category_transaction_ids(self, category_ids: set[int]) -> set[int]:
         return self.q.category_transaction_ids(category_ids)
 
+    def money_in_out(self, txn_ids: set[int]) -> tuple[Decimal, Decimal]:
+        """Money in and Money out of the given transactions (a tag's, say), by the one flow rule."""
+        money_in = money_out = ZERO
+        for row in self.q.category_totals_for(sorted(txn_ids)):
+            got_in, got_out = flow_of(row["effect"], from_e6(row["total"]), self.categories.get(row["category_id"]))
+            money_in, money_out = money_in + got_in, money_out + got_out
+        return money_in, money_out
+
     def register(self, account_id: int | None, date_from: date | str, date_to: date | str,
                  txn_ids: set[int] | None = None) -> list[StatementRow]:
         """Rows for the register view, newest first.

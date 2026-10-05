@@ -26,6 +26,7 @@ from lightning.database.connection import Database
 
 from .domain import Transaction, TxnFilter, TxnSource, TxnStatus, TxnSummary
 from .repository import TransactionRepository
+from .tags import normalize as normal_tag, tags_in
 
 EDITABLE_TYPES = {DocType.IN, DocType.OUT, DocType.TRF}
 
@@ -295,6 +296,22 @@ class TransactionService:
                                   "category")
         category = self.categories.get(category_id)
         return (DocType.OUT if value < 0 else DocType.IN), value, category.id
+
+    def _tagged_notes(self) -> list:
+        return self.repo.db.all("SELECT id, notes FROM transactions WHERE status='POSTED' AND instr(notes, '#') > 0")
+
+    def tag_transaction_ids(self, tag: str) -> set[int]:
+        """Posted transactions whose notes carry the tag (#eid matches #Eid, never #eid2026)."""
+        tag = normal_tag(tag)
+        return {int(row["id"]) for row in self._tagged_notes() if tag and tag in tags_in(row["notes"])}
+
+    def tags(self) -> list[tuple[str, int]]:
+        """Every tag in use, with how many posted transactions carry it, most used first."""
+        counts: dict[str, int] = {}
+        for row in self._tagged_notes():
+            for tag in tags_in(row["notes"]):
+                counts[tag] = counts.get(tag, 0) + 1
+        return sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
 
     def search_ids(self, text: str) -> set[int]:
         """Transaction ids matching a search (posted ones)."""

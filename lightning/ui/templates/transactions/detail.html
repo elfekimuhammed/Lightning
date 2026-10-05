@@ -20,7 +20,7 @@
       {% if txn.counterparty %}<tr><td class="muted">Counterparty</td><td>{{ txn.counterparty }}</td></tr>{% endif %}
       {% set owner = lines|selectattr('owner_id', 'defined')|selectattr('owner_id')|first %}
       {% if owner %}<tr><td class="muted">Held for</td><td>{{ owner.owner_name }}</td></tr>{% endif %}
-      {% if txn.notes %}<tr><td class="muted">Notes</td><td>{{ txn.notes }}</td></tr>{% endif %}
+      {% if txn.notes %}<tr><td class="muted">Notes</td><td>{{ txn.notes|tagged }}</td></tr>{% endif %}
       <tr><td class="muted">Recorded</td><td class="small">{{ txn.created_at }}{% if txn.updated_at != txn.created_at %} · updated {{ txn.updated_at }}{% endif %}</td></tr>
     </table>
     <div class="actions" style="margin-top:14px">
