@@ -11,6 +11,7 @@ Work longer than one sitting, and its files. Stay out of claimed files; remove y
 | Luna, for Codex | 02d — Promotion/recovery (first): connect stage+verify to live promotion; gate writes while unresolved; test interruptions, full disk, failed flush and restart; record tested reboot/power-loss behavior. Read: [proposal §15](docs/proposals/multiple_devices.md#15-implementation-work-packages) and its Read column. | `lightning/database/promotion.py`, `tests/test_database_promotion.py` | 2026-10-05 |
 | Luna, for Codex | 03a restore safety: durable intent and source-copy manifest, Windows marker publication, then explicit deterministic repair. Codex reviews it and owns the restore UI and docs | `lightning/runtime/restore.py`, `lightning/database/promotion_windows.py`, `tests/test_profile_session.py`, `tests/test_database_promotion_windows.py` | 2026-10-05 |
 | Claude (market data) | Price collector, market file, price packs, file import; assets' exchange | `lightning/market/`, `tools/market/`, `lightning/assets/`, `lightning/workflows/market_prices.py`, Investments asset and price routes and templates, market limits in `lightning/runtime/`, `.github/workflows/market-data.yml`, `docs/proposals/market_data.md` | 2026-10-05 |
+| Claude (connected plan 2) | Bills auto-planned; emergency top-up; Fill stops at room; limits on new bills | `lightning/budgeting/`, `lightning/planning/`, planning, budget and fill pages | 2026-10-05 |
 
 ## Messages
 
