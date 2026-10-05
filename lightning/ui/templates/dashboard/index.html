@@ -21,7 +21,7 @@
 {% set period_query = request.url.query %}
 <div class="overview-stack">
   <section class="overview-section" aria-labelledby="position-heading">
-    <header class="overview-section-head"><h2 id="position-heading">Your position</h2><span>As of {{ as_of }}</span></header>
+    <header class="overview-section-head"><h2 id="position-heading">Your position</h2><span>As of {{ position_as_of }}</span></header>
     <article class="overview-block wide-card overview-wealth-card" aria-labelledby="owned-heading">
       {% set owes = pos.what_you_owe > 0 %}{% set lead = 'net_worth' if owes else 'what_you_own' %}
       <div class="overview-split">

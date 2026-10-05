@@ -6,6 +6,7 @@ never quietly brought back, and a transfer can be backed by each bank's statemen
 """
 from __future__ import annotations
 
+import asyncio
 import shutil
 
 import pytest
@@ -175,7 +176,9 @@ def test_upgrading_an_older_profile_keeps_its_import_rows(tmp_path, monkeypatch)
     db.conn.commit()
 
     monkeypatch.setattr(migrator, "MIGRATIONS_DIR", migrator._BUNDLED_MIGRATIONS_DIR)
-    assert migrator.migrate(db)[0] == "0040_import_links (APPLIED)"
+    applied = migrator.migrate(db)
+    assert applied[0] == "0040_import_links (APPLIED)"
+    assert "0043_other_asset_valuations (APPLIED)" in applied
     row = db.one("SELECT batch_id,account_id,bank_reference,status FROM bank_import_rows WHERE id=11")
     assert dict(row) == {"batch_id": 3, "account_id": 7, "bank_reference": "R-1", "status": "REVIEW"}
     db.close()
@@ -207,3 +210,24 @@ def test_review_screen_offers_link_post_as_new_and_skip(c, setup):
     assert posted.status_code == 200
     assert "0 posted, 1 linked to entries you already had" in posted.text
     assert c.reporting.account_balance(cib) == before
+
+
+def test_upload_accepts_several_lightning_csv_files(c, setup):
+    import httpx
+
+    from lightning.ui.web import create_app
+
+    accounts, _ = setup
+    cib = accounts["cib"].id
+    app = create_app(c)
+    files = [
+        ("file", ("first.csv", b"Date,Amount,Counterparty\n2026-10-02,-50,Shop\n", "text/csv")),
+        ("file", ("second.csv", b"Date,Amount,Counterparty\n2026-10-03,-25,Cafe\n", "text/csv")),
+    ]
+    async def upload_files():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://testserver") as client:
+            return await client.post(f"/accounts/{cib}/import", files=files, follow_redirects=False)
+
+    response = asyncio.run(upload_files())
+    assert response.status_code == 303 and f"/accounts/{cib}/import/" in response.headers["location"]
+    assert {row["file_name"] for row in c.bank_imports.waiting(cib)} == {"first.csv", "second.csv"}

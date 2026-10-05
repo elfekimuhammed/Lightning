@@ -101,17 +101,18 @@ async def dashboard(request: Request):
     if not accounts:
         return render(request, "dashboard/welcome.html")
     # Every position figure comes from one calculation; see lightning/planning/position.py.
-    position = c.position.at(as_of)
+    period_position = c.position.at(as_of)
+    position = c.position.at(today())
     net_worth = c.reporting.net_worth(as_of)
-    account_contributions = _owned_account_type_rows(c, accounts, as_of)
+    account_contributions = _owned_account_type_rows(c, accounts, today())
     cash_accounts = [
         {"id": account.id, "label": account.label,
-         "value": c.reporting.owned_account_value(account.id, as_of),
+         "value": c.reporting.owned_account_value(account.id, today()),
          "type": _ACCOUNT_TYPE_LABELS[account.account_type]}
         for account in accounts if account.account_type in {AccountType.CASH, AccountType.BANK}
     ]
     cash_accounts.extend({**row, "type": "Brokerage cash"}
-                         for row in c.reporting.owned_brokerage_cash_by_account(as_of))
+                         for row in c.reporting.owned_brokerage_cash_by_account(today()))
     owe = position.owe
     # One review inbox: every decision waiting on the user (lightning/workflows/review.py).
     attention = ReviewInbox(c).items(today())
@@ -191,7 +192,7 @@ async def dashboard(request: Request):
                         if cash_flow.inflows > ZERO else None)
     savings_rate = cash_flow.savings_rate
     networth_trend = visuals.net_worth_trend(c, as_of)
-    stats = _period_stats(c, period, first, as_of, position, cash_flow, change, change_reason,
+    stats = _period_stats(c, period, first, as_of, period_position, cash_flow, change, change_reason,
                           closing_report["net_money"], networth_trend, urlencode(request.query_params))
     return render(
         request,
@@ -205,9 +206,9 @@ async def dashboard(request: Request):
         networth_trend=networth_trend, free_cash_steps=visuals.free_cash_steps(position),
         month_calendar=visuals.month_calendar(c, today()),
         month=month, this_month=month_of(today()), period=period, period_error=period_error,
-        date_from=fmt_date(first), date_to=fmt_date(as_of), as_of=fmt_date(as_of),
-        range_label=(f"No recorded activity · Position as of {fmt_date(as_of)}"
-                     if period.key == "all" and not first_activity else f"{fmt_date(first)} to {fmt_date(as_of)} · Position as of {fmt_date(as_of)}"),
+        date_from=fmt_date(first), date_to=fmt_date(as_of), as_of=fmt_date(as_of), position_as_of=fmt_date(today()),
+        range_label=(f"No recorded activity · Position as of {fmt_date(today())}"
+                     if period.key == "all" and not first_activity else f"{fmt_date(first)} to {fmt_date(as_of)} · Position as of {fmt_date(today())}"),
         pos=position, cash_accounts=cash_accounts, owe=owe,
         change=change, change_reason=change_reason, change_label=change_label,
         attention=attention, setup=setup,

@@ -7,8 +7,8 @@ buttons (tests/screens.py). Along the way he asks the questions a salaried perso
 answered by starting at the Overview and clicking through to the page that answers it, and the test
 for that question checks both the route he took and what the page told him.
 
-A question the app answers wrongly today is a strict expected failure. When the fix lands it fails
-as an unexpected pass, and the marker and the Overview's "Today" column must change together.
+Each open product gap has a direct screen assertion. When a gap is fixed, update its assertion and
+the Overview's "Today" column in docs/PROJECT_OVERVIEW.md together.
 
 What Mohab's test focuses on. Mohab is a real Egyptian user, not a tester: he judges Lightning by whether
 he gets the right answer quickly, with as little effort and as few words to decode as possible.
@@ -27,9 +27,8 @@ he would see there.
 - Clarity: plain words and numbers a person can read (no "System", no −1,351.7%), the date or period
   every figure belongs to, and a warning when something cannot work as planned.
 - UI: compact rows, readable messages, and layouts that work in the app window and on a phone.
-User feedback (the "user feedback" folder) is added here as steps Mohab takes: fixed points are
-checked as answers, open ones are strict expected failures. Speed and look are judged on a real PC
-and in a browser; this file covers what the screens can show.
+User feedback (the "user feedback" folder) is added here as steps Mohab takes and checked by screen
+assertions. Speed and look are judged on a real PC and in a browser; this file covers what screens show.
 """
 from __future__ import annotations
 
@@ -47,10 +46,6 @@ from lightning.ui.web import create_app
 from screens import TICK, Browser, Choose, Screen
 
 D = Decimal
-
-
-def known_gap(reason: str):
-    return pytest.mark.xfail(strict=True, reason=reason)
 
 
 def money(text: str) -> Decimal:
@@ -122,7 +117,13 @@ class Mohab:
 
     def prices(self, when: str, typed: dict[str, str]) -> Screen:
         screen = self.b.go("Settings", "Valuations", "Update prices")
-        return self.b.submit({"date": when} | {screen.field_in_row(name): price for name, price in typed.items()},
+        fields = {}
+        for name, price in typed.items():
+            row = next(block for block in re.findall(r"(?s)<tr\b.*?</tr>", screen.html)
+                       if name.casefold() in re.sub(r"<[^>]+>", " ", block).casefold())
+            names = re.findall(r'<(?:input|select|textarea)\b[^>]*\bname="([^"]+)"', row)
+            fields[next(field for field in names if field.startswith("p_"))] = price
+        return self.b.submit({"date": when} | fields,
                              button="Save prices")
 
     def track(self, name: str) -> Screen:
@@ -798,7 +799,6 @@ def test_a_dividend_is_listed_under_dividends_collected(mohab):
     assert mohab.answers["dividend"].shows("2026-11-20", "Commercial International Bank")
 
 
-@known_gap("The dividends list shows the date and the share but not how much was paid")
 def test_the_dividends_list_says_how_much(mohab):
     assert mohab.answers["dividend"].shows("300.00")
 
@@ -954,7 +954,7 @@ def test_cash_ownership_and_external_expense_keep_the_account_total(mohab):
 
 # ------------------------------------------------------------------ what users reported (user feedback, batch 001)
 # The pain points from "user feedback/user-feedback-batch-001.md", met by Mohab on his way through the year.
-# A fixed point is checked like any other answer; one that is still open is a strict expected failure.
+# Fixed points are checked like any other answer; each named gap has a direct screen assertion.
 
 def _review_choices(screen: Screen, prefix: str) -> list[str]:
     """The choices one name's picker offers (every name offers the same)."""
@@ -1001,7 +1001,6 @@ def test_a_saved_change_says_so_in_a_status_message(mohab):
     assert re.search(r'class="flash"[^>]*role="status"', mohab.notes["prices_saved"].html)
 
 
-@known_gap("The emergency target (270,000) is far above the cash he owns (72,663) and nothing warns him")
 def test_an_emergency_target_above_his_cash_is_flagged(mohab):
     assert mohab.answers["emergency_target"].shows("more than the cash you own")
 
@@ -1022,7 +1021,6 @@ def test_the_overview_says_which_parts_follow_the_period(mohab):
                         "Month by month 2026-07 to today")
 
 
-@known_gap("Your position follows the chosen period (As of 2026-10-31) instead of staying a snapshot of today")
 def test_your_position_stays_today_whatever_the_period(mohab):
     assert mohab.answers["past_month"].shows("Your position As of 2027-09-30")
 
@@ -1035,7 +1033,6 @@ def test_a_month_of_spending_is_shown_day_by_day(mohab):
     assert mohab.answers["where"].shows("Day by day")
 
 
-@known_gap("A year of spending is still 365 day squares; a long period should be shown month by month")
 def test_a_year_of_spending_is_shown_month_by_month(mohab):
     assert not mohab.answers["year_spending"].shows("Day by day")
 
@@ -1044,15 +1041,18 @@ def test_categories_say_which_way_money_moves_and_whether_it_repeats(mohab):
     assert mohab.answers["categories"].shows("− Expense + Income ± Both Recurring One-off")
 
 
-@known_gap("Categories still opens with the key line \"− expense · + income · ± both\" above controls that say it")
 def test_categories_need_no_sign_key(mohab):
     assert not mohab.answers["categories"].shows("− expense · + income · ± both")
 
 
-@known_gap("The investment planner is a one-off what-if; there is no monthly investing goal to keep")
 def test_a_monthly_investing_goal_is_kept(mohab):
     screen = mohab.answers["invest_monthly"].screen
     assert any("month" in name for form in screen.forms for name in form.fields)
+    mohab.b.open(screen.path)
+    mohab.b.submit({"amount": "3000", "monthly_goal": "3000"}, button="Show suggested split")
+    saved = mohab.b.open(screen.path)
+    assert any(value == "3000" for form in saved.forms for name, value in form.fields.items()
+               if name == "monthly_goal")
 
 
 def test_selected_rows_can_be_edited_together(mohab):
@@ -1064,9 +1064,13 @@ def test_selected_rows_can_be_edited_together(mohab):
     assert done.shows("Talabat Food & Groceries") and "Talabat Eating Out" not in done.text
 
 
-@known_gap("A fund can only be valued by its unit price; he cannot type the value THNDR shows")
 def test_a_fund_can_be_valued_by_its_total(mohab):
-    assert "value" in mohab.answers["fund_value"].screen.field_in_row("Azimut")
+    screen = mohab.answers["fund_value"].screen
+    field = screen.field_in_row("Azimut")
+    assert "value" in field
+    mohab.b.open(screen.path)
+    saved = mohab.b.submit({"date": "2027-09-30", field: "20000"}, button="Save prices")
+    assert saved.shows("Saved 1 price")
 
 
 def test_other_investments_are_in_the_investment_analysis(mohab):
@@ -1074,9 +1078,14 @@ def test_other_investments_are_in_the_investment_analysis(mohab):
     assert mohab.answers["flat"].shows("Other Investments", "400,000")
 
 
-@known_gap("An asset he only knows the worth of (the flat) has no way to record a new value")
 def test_the_flat_can_be_given_a_new_value(mohab):
-    assert any("value" in (text or "").casefold() for form in mohab.notes["flat_page"].forms for text, *_ in form.buttons)
+    page = mohab.notes["flat_page"]
+    assert any("value" in (text or "").casefold() for form in page.forms for text, *_ in form.buttons)
+    account_id = int(re.search(r"/accounts/(\d+)", page.path).group(1))
+    mohab.b.open(page.path)
+    saved = mohab.b.submit({"date": "2027-09-30", "value": "425000"}, button="Update value")
+    assert saved.shows("Dated estimated value saved")
+    assert mohab.c.reporting.account_value(account_id, "2027-09-30") == D("425000")
 
 
 def test_a_300_row_statement_with_seven_columns_reaches_review(mohab):
@@ -1095,7 +1104,6 @@ def test_a_waiting_import_can_be_discarded(mohab):
     assert mohab.notes["import_error"].shows("Discard this import")
 
 
-@known_gap("The upload takes one CSV at a time")
 def test_several_statements_can_be_uploaded_together(mohab):
     assert re.search(r'<input[^>]*type="file"[^>]*\bmultiple\b', mohab.notes["upload_form"].html)
 

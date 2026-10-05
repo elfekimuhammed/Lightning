@@ -79,6 +79,19 @@ async def account_register(request: Request, account_id: int):
     return register.page(request, account_id)
 
 
+@router.post("/{account_id:int}/value")
+async def update_other_asset_value(request: Request, account_id: int):
+    c = container(request)
+    account = c.accounts.get(account_id)
+    form = await request.form()
+    try:
+        c.reporting.other_asset_values.save(account, str(form.get("date") or today()),
+                                            str(form.get("value") or ""), str(form.get("notes") or ""))
+    except LightningError as exc:
+        return redirect(f"/accounts/{account_id}", exc.message)
+    return redirect(f"/accounts/{account_id}", "Dated estimated value saved.")
+
+
 def _transaction_popup_context(request, account, values, action, error=None, txn_id=None, split_categories=None):
     c = container(request)
     return dict(account=account, values=values, action=action, txn_id=txn_id,

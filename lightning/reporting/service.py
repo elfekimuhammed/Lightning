@@ -11,6 +11,7 @@ from decimal import Decimal
 
 from lightning.accounts.domain import SIDEBAR_GROUPS, Account, AccountType
 from lightning.accounts.service import AccountService
+from lightning.accounts.valuations import OtherAssetValuationRepository
 from lightning.assets.service import AssetService
 from lightning.categories.domain import CategoryFamily, IncomeClass, Scope
 from lightning.categories.service import CategoryService
@@ -169,6 +170,7 @@ class ReportingService:
         self.base_currency = base_currency
         self.money_from_others = money_from_others
         self.valuer = Valuer(self.q, base_currency)
+        self.other_asset_values = OtherAssetValuationRepository(db)
 
     # -- holdings & net worth ---------------------------------------------
     def holdings(self, as_of: date | str) -> tuple[list[HoldingValue], list[str]]:
@@ -192,6 +194,12 @@ class ReportingService:
             class_id = account.cash_class_id if asset.is_cash else asset.asset_class_id
             asset_class = classes[class_id]
             valuation = self.valuer.value(asset, quantity, day)
+            if account.account_type == AccountType.OTHER_ASSET and asset.is_cash:
+                manual = self.other_asset_values.latest(account.id, day)
+                if manual:
+                    valuation = self.valuer.value(asset, manual["value"], day)
+                    valuation.price_date = manual["effective_date"]
+                    valuation.source = "MANUAL_VALUE"
             if valuation.value is None:
                 unvalued.append(f"{account.label} — {valuation.reason}")
             result.append(HoldingValue(account, asset.code, asset_class.code, asset_class.name, quantity,

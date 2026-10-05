@@ -89,10 +89,10 @@ The period picker (All time · YTD · Monthly · Custom) changes what most visua
 
 | Follows the period you chose | Keeps a fixed horizon |
 |---|---|
-| **Overview:** the four stat cards; Cash flow (net flow, column waterfall, Sankey); the Investments section | **Overview:** Net worth over time (the last 12 month ends); the position cards (as of the period's last day) |
+| **Overview:** the four stat cards; Cash flow (net flow, column waterfall, Sankey); the Investments section | **Overview:** Net worth over time (the last 12 month ends); the position cards (as of today) |
 | **Budget:** the savings waffle, the plan bar and Spent of plan | **Budget:** plans are monthly, so a longer period adds up its months |
 | **Investments:** the saved-and-invested waffle; Net gain or loss with Growth; the allocation donut and biggest holdings (as of the period's end); money and value by class | **Investments:** the Portfolio value sparkline (always the last six months); Dividends collected (year to date); XIRR (since the first investment, shown after a full year); the horizon bar (today) |
-| **Expense analysis:** the four KPI cards; the treemap; now against usual; the months of the period in the heatmap | **Expense analysis:** "usual" is the six whole months before the period; the usual range, small multiples and heatmap history use the 12 whole months before it |
+| **Expense analysis:** the four KPI cards; the treemap; now against usual; daily calendar for short periods and monthly summaries for longer periods | **Expense analysis:** "usual" is the six whole months before the period; the usual range, small multiples and heatmap history use the 12 whole months before it |
 | — | **Holding page:** the holding's whole history, up to 24 month ends; sparklines for the last six |
 
 A sparkline never follows the period. It is a quick "where is this heading" beside a number, so it always covers the last six months. A comparison ("against your usual month", "usual range") always looks at whole months *before* the period, so the period never compares with itself.
@@ -111,7 +111,7 @@ Each tab answers one main question first, then its natural follow-ups. **Partial
 - **Clarity:** plain words and readable numbers (no "System", no −1,351.7%), the date or period of every figure, and a warning when a plan cannot work.
 - **UI:** compact rows, readable messages, and layouts that fit the app window and a phone.
 
-User feedback becomes steps Mohab takes: fixed points are checked as answers, open ones are strict expected failures. Speed and look are also judged on a real PC, because the test sees only what the screens show.
+User feedback becomes steps Mohab takes: fixed points are checked as answers, and each remaining gap is named plainly. Speed and look are also judged on a real PC, because the test sees only what the screens show.
 
 | Screen | Main question | Leads with |
 |---|---|---|
@@ -235,7 +235,7 @@ Drive it in a browser through the screens only, and re-run it after any workflow
 
 **The rest of Mohab's year.** Steps 1–10 are one ordinary month. Steps 11–28 carry the same household from October 2026 to September 2027 through what a salaried year brings: fees, a refund, a repair, a bonus, an early payday, a raise, Eid, installments, a share sale, a rent rise, a holiday, and a job change with a month between jobs. Every month also has the routine: salary on the 1st, rent on the 3rd, the car loan on the 5th, groceries, phone, internet and electricity.
 
-`tests/test_mohab_year.py` runs these steps through the services, one test per step. A step that is wrong today is a strict expected failure. When its fix lands, the test fails as an unexpected pass, and its marker and the **Today** column below must change together. Steps 1–10 are still driven in a browser.
+`tests/test_mohab_year.py` runs these steps through the screens, one test per step. When a screen gap is fixed, its assertion and the **Today** column below change together. Steps 1–10 are still driven in a browser.
 
 | # | When | Step | What must be true afterwards | Today |
 |---|---|---|---|---|
@@ -258,7 +258,7 @@ Drive it in a browser through the screens only, and re-run it after any workflow
 | 27 | Sep | Between jobs, no pay | Next income is Valeo on 1 October; the average does not rise | Known gap: zero-income months are skipped by the average; the test checks non-increase, not zero-month inclusion |
 | 28 | 30 Sep | Reads the year | Money in 651,300 and Money out 295,186; Change in what you own 357,364; loans still to pay 34,500; Checks pass; nothing is due | Answered, except *why* net worth changed (M3.2) |
 
-**What users reported.** After the year's answers are read, Mohab walks through the pain points in `user feedback/user-feedback-batch-001.md`: leaving and resuming an import, a 300-row seven-column statement, a review with an error, transfer and category choices, the emergency target against his cash, All time and past-month reports, categories, a monthly investing goal, bulk editing, valuing a fund or his share of the family flat by its total. Fixed points are checked as answers. Open ones are strict expected failures: the waiting import is not offered back or discardable, one CSV at a time, categories start as "Uncategorized" and lack their group, no warning when the emergency target exceeds cash, Your position follows the period, a year of spending is drawn day by day, the Categories sign key, no monthly investing goal, no bulk edit, and no direct value for a fund or an asset like a flat. Loading speed, keeping the scroll position, compact review rows, chart colours and the register balance are not checked from the screens.
+**What users reported.** After the year’s answers are read, Mohab revisits `user feedback/user-feedback-batch-001.md`. The screen test now checks the nine named points: paid dividend amounts, emergency-target warning, a today-only position, monthly summaries for long periods, no category sign key, a saved monthly investing goal, total fund valuation, dated Other asset values, and multi-file CSV import. Loading speed, keeping scroll position, compact review rows, chart colours and register balance are not checked from the screens.
 
 **Not scripted, because Lightning cannot record them yet:**
 

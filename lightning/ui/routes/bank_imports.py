@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import json
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, PlainTextResponse
 from decimal import Decimal, InvalidOperation
@@ -126,35 +127,59 @@ def _lightning_columns(headers: list[str]) -> bool:
 async def upload(request: Request, account_id: int):
     c = container(request)
     form = await request.form()
-    upload_file = form.get("file")
-    if not upload_file or not getattr(upload_file, "filename", ""):
-        return _render_upload(request, c, account_id, error="Choose a CSV file.", status_code=400)
-    data = await upload_file.read()
+    upload_files = [item for item in form.getlist("file") if getattr(item, "filename", "")]
+    if not upload_files:
+        return _render_upload(request, c, account_id, error="Choose at least one CSV file.", status_code=400)
     try:
-        headers, _ = decode_csv(data)
-        mapping = c.bank_imports.suggested_mapping(account_id, headers)
-        saved_mapping = c.bank_imports.saved_mapping(account_id, headers)
-        if not saved_mapping and _lightning_columns(headers):
-            # Lightning's own columns (the template and the sample files): nothing to match.
-            saved_mapping = {"amount_model": "SINGLE"} | {key: key for key in headers}
-        if saved_mapping:
-            batch_id, repeated = c.bank_imports.stage(
-                account_id, upload_file.filename, data, saved_mapping,
-                invert_amount=saved_mapping.get("amount_sign") == "invert")
-            if repeated:
-                return redirect(f"/accounts/{account_id}/import/{batch_id}",
-                                "This exact file was already imported.")
-            return redirect(f"/accounts/{account_id}/import/{batch_id}")
-        return render(request, "bank_import_map.html", account=c.accounts.get(account_id), headers=headers,
-                      payload=base64.b64encode(data).decode("ascii"), filename=upload_file.filename,
-                      required=REQUIRED, optional=OPTIONAL, amount_fields=SEPARATE_AMOUNT_FIELDS,
-                      suggested_amount_model=mapping.get("amount_model", "SINGLE"), mapping=mapping,
-                      invert_amount=mapping.get("amount_sign") == "invert")
+        prepared = []
+        needs_mapping = None
+        for upload_file in upload_files:
+            data = await upload_file.read()
+            headers, _ = decode_csv(data)
+            mapping = c.bank_imports.suggested_mapping(account_id, headers)
+            saved_mapping = c.bank_imports.saved_mapping(account_id, headers)
+            if not saved_mapping and _lightning_columns(headers):
+                saved_mapping = {"amount_model": "SINGLE"} | {key: key for key in headers}
+            if not saved_mapping:
+                needs_mapping = needs_mapping or (headers, mapping)
+                if headers != needs_mapping[0]:
+                    return _render_upload(request, c, account_id,
+                                          error="Group files with the same columns together, or match each file separately.",
+                                          status_code=400)
+                saved_mapping = None
+            prepared.append((upload_file.filename, data, saved_mapping, mapping, headers))
+        if needs_mapping:
+            if any(item[4] != needs_mapping[0] for item in prepared):
+                return _render_upload(request, c, account_id,
+                                      error="Group files with the same columns together, or match each file separately.",
+                                      status_code=400)
+            bundle = [{"filename": name, "payload": base64.b64encode(data).decode("ascii")}
+                      for name, data, _, _, _ in prepared]
+            total_bytes = sum(len(item["payload"]) for item in bundle)
+            if total_bytes > MAX_CSV_MAPPING_REQUEST_BYTES:
+                return _render_upload(request, c, account_id,
+                                      error="These files are too large to map together. Choose fewer files, or match them one at a time.",
+                                      status_code=413)
+            headers, mapping = needs_mapping
+            first = bundle[0]
+            return render(request, "bank_import_map.html", account=c.accounts.get(account_id), headers=headers,
+                          payload=first["payload"], filename=first["filename"], bundle=bundle,
+                          required=REQUIRED, optional=OPTIONAL, amount_fields=SEPARATE_AMOUNT_FIELDS,
+                          suggested_amount_model=mapping.get("amount_model", "SINGLE"), mapping=mapping,
+                          invert_amount=mapping.get("amount_sign") == "invert")
+        batches = []
+        for filename, data, saved_mapping, _, _ in prepared:
+            mapping = saved_mapping
+            batch_id, repeated = c.bank_imports.stage(account_id, filename, data, mapping,
+                                                       invert_amount=mapping.get("amount_sign") == "invert")
+            batches.append((batch_id, repeated))
+        batch_id, repeated = batches[0]
+        message = ("Imported files are ready for review." if len(batches) > 1 else "")
+        if repeated and len(batches) == 1:
+            message = "This exact file was already imported."
+        return redirect(f"/accounts/{account_id}/import/{batch_id}", message)
     except LightningError as exc:
         return _render_upload(request, c, account_id, error=exc.message, status_code=400)
-    if repeated:
-        return redirect(f"/accounts/{account_id}/import/{batch_id}", "This exact file was already imported; no rows were posted again.")
-    return redirect(f"/accounts/{account_id}/import/{batch_id}")
 
 
 @router.post("/{account_id:int}/import/map")
@@ -165,6 +190,7 @@ async def map_columns(request: Request, account_id: int):
     headers = []
     data = b""
     mapping = {}
+    bundle = []
     filename = str(form.get("filename", "statement.csv"))
     try:
         data = base64.b64decode(str(form.get("payload", "")), validate=True)
@@ -174,20 +200,31 @@ async def map_columns(request: Request, account_id: int):
         selected_amount_fields = REQUIRED if amount_model == "SINGLE" else ("Date", *SEPARATE_AMOUNT_FIELDS)
         mapping.update({key: str(form.get(f"map_{key}", "")) for key in (*selected_amount_fields, *OPTIONAL)})
         mapping = {key: value for key, value in mapping.items() if value}
-        batch_id, repeated = c.bank_imports.stage(account_id, filename, data, mapping,
-                                                     invert_amount=form.get("amount_sign") == "invert")
+        bundle = json.loads(str(form.get("bundle") or "[]"))
+        if not bundle:
+            bundle = [{"filename": filename, "payload": str(form.get("payload", ""))}]
+        batches = []
+        for item in bundle:
+            file_data = base64.b64decode(item["payload"], validate=True)
+            file_headers, _ = decode_csv(file_data)
+            if file_headers != headers:
+                raise ValidationError("All selected files must use the same columns.", "mapping")
+            batch_id, repeated = c.bank_imports.stage(account_id, str(item["filename"]), file_data, mapping,
+                                                       invert_amount=form.get("amount_sign") == "invert")
+            batches.append((batch_id, repeated))
     except (ValueError, LightningError) as exc:
         if isinstance(exc, ValidationError) and exc.field == "mapping":
             return render(request, "bank_import_map.html", account=c.accounts.get(account_id), headers=headers,
                           payload=base64.b64encode(data).decode("ascii"), filename=filename,
+                          bundle=bundle,
                           required=REQUIRED, optional=OPTIONAL, amount_fields=SEPARATE_AMOUNT_FIELDS,
                           suggested_amount_model=mapping.get("amount_model", "SINGLE"), mapping=mapping,
                           invert_amount=form.get("amount_sign") == "invert", error=exc.message, status_code=400)
         msg = exc.message if isinstance(exc, LightningError) else "The uploaded statement could not be read. Upload it again."
         return _render_upload(request, c, account_id, error=msg, status_code=400)
-    if repeated:
-        return redirect(f"/accounts/{account_id}/import/{batch_id}", "This exact file was already imported.")
-    return redirect(f"/accounts/{account_id}/import/{batch_id}")
+    batch_id, repeated = batches[0]
+    message = "Files are ready for review." if len(batches) > 1 else "This exact file was already imported." if repeated else ""
+    return redirect(f"/accounts/{account_id}/import/{batch_id}", message)
 
 
 def _amount(row) -> Decimal:

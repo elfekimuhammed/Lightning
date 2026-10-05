@@ -12,7 +12,7 @@ from lightning.accounts.domain import AccountType
 from lightning.core.dates import fmt_date, parse_date, parse_month, today
 from lightning.core.errors import LightningError, NotFoundError
 from lightning.core.refs import DocType
-from lightning.core.money import ZERO, to_decimal
+from lightning.core.money import ZERO, from_e6, to_decimal
 
 from ..web import container, redirect, render
 from ...assets.catalog import instruments
@@ -40,9 +40,11 @@ async def investment_report_detail(request: Request):
         return render(request, "investments/report_detail.html", title="Owned holdings",
                       rows=report["holdings"], holdings=True, show_popup=True)
     rows = c.investments.report_transactions(kind, start, end)
+    if kind == "dividends":
+        rows = [{**row, "amount": from_e6(row["amount_base_e6"])} for row in rows]
     return render(request, "investments/report_detail.html", title={"dividends": label("dividends_and_interest"), "sales": label("realized_gain"),
                   "flows": label("new_money_in")}.get(kind, "Investment transactions"),
-                  rows=rows, show_amount=kind == "flows", show_popup=True)
+                  rows=rows, show_amount=kind in {"flows", "dividends"}, show_popup=True)
 
 
 def _allocation_classes(c):
@@ -344,8 +346,11 @@ async def planner_popup(request: Request):
 @router.post("/planner")
 async def calculate_planner(request: Request):
     form=await request.form()
+    c=container(request)
     mode=str(form.get("mode",""))
     if mode in PLANNER_MODES: container(request).settings.set("investment_planner_mode", mode)
+    if str(form.get("monthly_goal", "")).strip():
+        c.settings.set("investment_monthly_goal", str(to_decimal(str(form.get("monthly_goal")), "monthly_goal")))
     return await _render_planner(request,str(form.get("amount","10000")))
 
 
@@ -377,6 +382,7 @@ async def _render_planner(request: Request, raw_amount: str="10000"):
                      "target":targets.get(bucket),"suggested":suggested,"tone":tones.get(bucket,"other"),
                      "after":(value+suggested)/(total+amount)*100 if total+amount else ZERO})
     return render(request,"investments/planner.html",amount=amount,mode=mode,rows=rows,target_total=target_total,
+                  monthly_goal=c.settings.get("investment_monthly_goal") or "",
                   planner_ready=target_total==100,allocation_sum=sum((r["suggested"] for r in rows),ZERO))
 
 
@@ -786,9 +792,21 @@ async def save_price_files(request: Request):
 async def save_prices(request: Request):
     c = container(request)
     form = await request.form()
-    day = str(form.get("date", "")) or fmt_date(today())
-    values = {int(k[2:]): str(v) for k, v in form.items() if k.startswith("p_") and k[2:].isdigit()}
+    day = fmt_date(parse_date(str(form.get("date", "")) or fmt_date(today())))
+    values = {int(k[2:]): str(v) for k, v in form.items() if k.startswith("p_") and k[2:].isdigit() and str(v).strip()}
     try:
+        portfolio = c.investments.portfolio(day)
+        held = {position.asset_id: position for position in portfolio.open}
+        for key, raw in form.items():
+            if not key.startswith("value_") or not key[6:].isdigit() or not str(raw).strip():
+                continue
+            asset_id = int(key[6:])
+            position = held.get(asset_id)
+            if not position or position.quantity <= ZERO:
+                raise LightningError("A total value needs a positive holding quantity.", "value")
+            if asset_id in values:
+                raise LightningError("Enter either a unit price or total value for each investment, not both.", "price")
+            values[asset_id] = to_decimal(str(raw), "value") / position.quantity
         count = c.assets.set_prices(day, values)
         for key, raw in form.items():
             if not key.startswith("rp_") or not str(raw).strip():

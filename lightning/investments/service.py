@@ -132,7 +132,10 @@ class InvestmentService:
                        if kind == "result" else
                        "t.type IN ('BUY','SEL','TRF','IN','OUT','ADJ')")
         return self.db.all(
-            "SELECT DISTINCT t.id,t.ref,t.date,t.type,t.description,t.counterparty "
+            "SELECT DISTINCT t.id,t.ref,t.date,t.type,t.description,t.counterparty, "
+            "CASE WHEN t.type='DIV' THEN (SELECT COALESCE(SUM(le2.amount_base_e6),0) "
+            "FROM ledger_entries le2 WHERE le2.transaction_id=t.id AND le2.amount_base_e6>0) "
+            "ELSE NULL END AS amount_base_e6 "
             "FROM transactions t JOIN ledger_entries le ON le.transaction_id=t.id "
             "LEFT JOIN categories c ON c.id=le.category_id "
             "WHERE t.status='POSTED' AND le.owner_id IS NULL AND t.date BETWEEN ? AND ? AND " + type_filter +

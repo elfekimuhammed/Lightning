@@ -31,7 +31,7 @@
 <div class="cat-toolbar">
   <label class="cat-search"><input type="search" id="category-search" placeholder="Find a category" aria-label="Find a category"></label>
   <span id="category-result-count" class="muted small"></span>
-  <span class="cat-legend"><b>−</b> expense · <b>+</b> income · <b>±</b> both · <span class="cat-pill" aria-pressed="true">Recurring</span> counts toward the income average and forecast · <span class="cat-pill is-oneoff" aria-pressed="true">One-off</span> stays in cash flow, out of the budget · changes save as you make them</span>
+  <span class="cat-legend"><span class="cat-pill" aria-pressed="true">Recurring</span> counts toward the income average and forecast · <span class="cat-pill is-oneoff" aria-pressed="true">One-off</span> stays in cash flow, out of the budget · changes save as you make them</span>
   {% if archived %}<a class="btn small" href="/categories{{ '' if show_archived else '?archived=1' }}">{{ 'Hide archived' if show_archived else 'Archived (' ~ archived|length ~ ')' }}</a>{% endif %}
 </div>
 <form id="category-bulk-form" method="post" action="/categories/bulk-action" data-category-bulk><input type="hidden" name="__session" value="{{ session }}"></form>

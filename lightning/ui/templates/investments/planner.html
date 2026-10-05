@@ -4,6 +4,7 @@
 {% block content %}
 <form method="post" action="/investments/planner" data-popup-return="popup" class="card planner-popup-form">
   <label>Amount in EGP<input autofocus name="amount" type="text" inputmode="decimal" class="money-input" autocomplete="off" value="{{ amount }}" required></label>
+  <label>Monthly investing goal<input name="monthly_goal" type="text" inputmode="decimal" class="money-input" value="{{ monthly_goal }}" placeholder="Set a monthly amount"></label>
   <fieldset class="planner-mode"><legend>How to split it</legend><span class="planner-mode-label">How to split it</span><span class="planner-mode-seg">
     <label title="Every class below target gets the same share of its gap"><input type="radio" name="mode" value="prorata"{% if mode=='prorata' %} checked{% endif %}><span>Spread across gaps</span></label>
     <label title="The class furthest below target is filled first, until it catches up with the next"><input type="radio" name="mode" value="fill_gaps"{% if mode=='fill_gaps' %} checked{% endif %}><span>Biggest gaps first</span></label></span>

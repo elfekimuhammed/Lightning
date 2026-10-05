@@ -43,17 +43,18 @@
     <input type="text" id="date" name="date" value="{{ day }}" placeholder="yyyy-mm-dd" inputmode="numeric" autocomplete="off" data-smart-date required>
   </div>
   <table class="budget">
-    <thead><tr><th>Investment</th><th class="num">You hold</th><th class="num">Last price</th><th class="num" style="width:170px">New price</th></tr></thead>
+    <thead><tr><th>Investment</th><th class="num">You hold</th><th class="num">Last price</th><th class="num">Total value</th><th class="num" style="width:170px">New price per unit</th></tr></thead>
     {% for r in rows %}
     <tr>
       <td>{{ r.asset.name }} <span class="code muted small">{{ r.asset.code }}</span>
         <a class="small" href="/investments/assets/{{ r.asset.id }}/edit" style="margin-left:6px">edit</a></td>
       <td class="num small">{% if r.held %}{{ r.held.quantity|money(False, 3 if r.asset.unit == 'gram' else (0 if r.asset.unit == 'share' else 4)) }} {{ r.asset.unit }}s{% else %}<span class="muted">—</span>{% endif %}</td>
       <td class="num small">{% if r.price is not none %}{{ r.price|money(False, 4) }}<div class="muted">{{ r.price_date }}{{ ' · last trade' if r.source == 'TRADE' else (' · at cost' if r.source == 'COST' else (' · price file' if r.source == 'MARKET' else '')) }}</div>{% else %}<span class="muted">none</span>{% endif %}</td>
+      <td>{% if r.held and r.held.quantity > 0 %}<input type="text" name="value_{{ r.asset.id }}" inputmode="decimal" class="num" aria-label="Total value of {{ r.asset.name }}">{% else %}<span class="muted">—</span>{% endif %}</td>
       <td><input type="text" name="p_{{ r.asset.id }}" inputmode="decimal" class="num" placeholder="{{ r.price|money(False, 4) if r.price is not none else '' }}"></td>
     </tr>
     {% else %}
-    <tr><td colspan="4" class="empty">No investments yet. <a href="/investments/assets/new">Add one</a>.</td></tr>
+    <tr><td colspan="5" class="empty">No investments yet. <a href="/investments/assets/new">Add one</a>.</td></tr>
     {% endfor %}
   </table>
   <div class="actions" style="margin-top:14px"><button class="btn primary">Save prices</button><a class="btn" href="/investments">Cancel</a></div>

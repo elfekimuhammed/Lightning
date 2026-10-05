@@ -13,6 +13,7 @@ from urllib.parse import urlencode
 from fastapi import Request
 
 from lightning.accounts.domain import AccountType, INVESTMENT_ACCOUNT_TYPES
+from lightning.accounts.valuations import OtherAssetValuationRepository
 from lightning.categories.domain import Movement
 from lightning.assets.catalog import instruments as catalog_instruments
 from lightning.core.codes import slug
@@ -259,6 +260,9 @@ def page(request: Request, account_id: int | None, entry: dict | None = None, ed
     return render(
         request, "register.html", status_code=status_code,
         account=account,
+        today=fmt_date(today()),
+        account_balance=c.reporting.account_balance(account.id, today()) if account else None,
+        manual_asset_value=OtherAssetValuationRepository(c.db).latest(account.id, fmt_date(today())) if account and account.account_type == AccountType.OTHER_ASSET else None,
         group=c.accounts.reporting_group(account) if account else "",
         account_value=account_value, account_owned_value=account_owned_value,
         account_held_value=account_held_value, account_asset_breakdown=account_asset_breakdown,
