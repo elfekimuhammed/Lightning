@@ -267,7 +267,7 @@ Drive it in a browser through the screens only, and re-run it after any workflow
 
 ## Compared with the best budgeting apps
 
-The reference apps are YNAB, Monarch, Copilot, Simplifi, Rocket Money, Lunch Money and Actual Budget.
+The reference apps are YNAB, Monarch, Copilot, Simplifi, Rocket Money, Lunch Money and Actual Budget. The Egyptian apps people actually install are Say, Qershnat, Masarifi, Masareef, Money Manager and Wallet; what their users love and hate, and Lightning's main edge over all of them (the whole of an Egyptian's money, with numbers you can trust), are in [Competition](COMPETITION.md).
 
 **Already on par or adopted:**
 
@@ -285,17 +285,17 @@ The reference apps are YNAB, Monarch, Copilot, Simplifi, Rocket Money, Lunch Mon
 
 | # | Missing | Best example | Why it matters here |
 |---|---|---|---|
-| 1 | Capture on the phone in seconds | Copilot, Monarch mobile | Cash and Vodafone Cash spending is forgotten unless logged on the spot |
-| 2 | Automatic transaction feed | Bank sync in Monarch, YNAB | Import is the heaviest step. There is no Egyptian aggregator, so parsing bank SMS or e-statement PDFs is the cheaper route |
-| 3 | Learned categorization rules | Monarch, Copilot, Lunch Money | A first import still needs one decision per distinct name |
+| 1 | Capture on the phone in seconds | Say (voice, SMS), Copilot, Monarch mobile | Cash and Vodafone Cash spending is forgotten unless logged on the spot. Say's users love exactly this; it is where Lightning loses today. Planned: [Multiple devices](proposals/multiple_devices.md) |
+| 2 | Automatic transaction feed | Bank sync in Monarch, YNAB; bank SMS in Say, Qershnat | Import is the heaviest step. There is no Egyptian aggregator, so parsing bank SMS or e-statement PDFs and Excel files (Upcoming projects #17) is the cheaper route. Their users' complaint to avoid: SMS entries that miss or invent a spend, so every parsed message is reviewed before it posts |
+| 3 | Learned categorization rules | Monarch, Copilot, Lunch Money, Actual Budget | A first import still needs one decision per distinct name. Upcoming projects #5 |
 | 4 | ~~One review inbox~~ Done 2026-10-05 | Monarch, Copilot "to review" | Needs you now lists every waiting statement and uncategorized activity; recurring suggestions wait for the owner's answer |
 | 5 | Reminders | Monarch, Rocket Money, Simplifi | A user who doesn't open the app never sees a due bill |
-| 6 | Multi-currency | Lunch Money, YNAB | Many Egyptians keep USD savings or earn USD |
+| 6 | Multi-currency | Lunch Money, YNAB, Wallet | Many Egyptians keep USD savings or earn USD. Upcoming projects #15 (FX revaluation) and #16 (US stocks) |
 | 7 | Spending history | Monarch | Answers "am I improving?" |
 | 8 | Give every pound a job | YNAB "Ready to assign" | Closes question 4's last follow-up |
 | 9 | Watchlists | Simplifi | Track one habit without a full budget |
 | 10 | Shared household | Monarch partner access | Couples manage money together |
-| 11 | Guided first setup | Monarch, YNAB onboarding | Mohab's first run needed six account forms before seeing anything |
+| 11 | Guided first setup | Monarch, YNAB onboarding | Mohab's first run needed six account forms before seeing anything. The first run is also where Say loses users, to a paywall: Lightning's is 7 days free, never a lock (*Product decisions*) |
 | 12 | Receipts and attachments | Monarch, Lunch Money | Warranty and gold purchase receipts |
 
 **Known finance gaps** (the early-pay, raise and rent paths now require explicit confirmation; no-pay-month averaging in step 27 only has a non-increase assertion):

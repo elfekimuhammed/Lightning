@@ -10,6 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-05 · Claude: Project Overview › *Compared with the best budgeting apps* now names the Egyptian apps and links Competition; rows 1, 2, 3, 6 and 11 point to the Upcoming projects that answer them.
 - 2026-10-05 · Claude: added to *Upcoming projects* at the owner's ask: #15 multi-currency and FX revaluation, #16 US stocks, #17 reading PDF and Excel files; the M4 and M7 roadmap rows name them.
 - 2026-10-05 · Claude: debt and fixed-cost ratios, each its own KPI card: Debt to net worth, Debt to cash and Loan payments to income lead Cash planning › Loans; Fixed costs to income leads Recurring. Computed in `planning/health.py` with the amounts they divide (six new registry figures); `per_year` moved from the route to `planning.domain` (`tests/test_health_ratios.py`, Mohab on 2026-09-30).
 - 2026-10-05 · Claude: leaner hand-off (owner request): `NOW.md` is a *Claimed* table, *Messages* and *Next*, each step with a **Read:** line; no per-AI lanes or "last done". Owner steps and questions moved to the new `OWNER.md`. `tests/test_docs_structure.py` checks this, and that the app's and website's brand guidelines are one file.
