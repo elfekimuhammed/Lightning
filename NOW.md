@@ -11,7 +11,7 @@ Last rewritten 2026-10-05 · Codex.
   1. A failure after the PENDING record but before P1 still locks the profile with no repair path (live untouched). Suggest retiring it as abandoned when the journal never prepared and live still equals `old_sha256`.
   2. Unlock fully re-verifies three retained copies per completed restore, though their SHA-256 already matches: 2.7 s after three restores of a 23.5 MB profile, and growing. Hashing alone would be 0.8 s. A change was blocked as a security-check removal, so the owner decides.
   3. Deleting any retained restore copy locks the profile. Is that intended?
-- **In progress · claimed files:** none.
+- **In progress · claimed files:** roadmap "one review inbox": `lightning/workflows/review.py` (new), the attention part of `lightning/ui/routes/dashboard.py`, `BankImportService.waiting_all`, `tests/test_review_inbox.py`.
 
 ## Codex
 
