@@ -1,5 +1,6 @@
-"""Filling a profile's prices from the market file: matching holdings to instruments, what is left for the
-user, the delta download, a hand-imported market.zip, and the desktop upload limits for it."""
+"""Filling a profile's prices from the price packs it follows: matching holdings to instruments, what is
+left for the user, choosing packs, the delta download, a hand-imported market.zip, and the desktop upload
+limits for it."""
 
 import gzip
 import hashlib
@@ -15,11 +16,12 @@ from fastapi.testclient import TestClient
 
 from lightning.market import update as market_update
 from lightning.market.bundle import Close, Instrument, MarketFile, MarketFileError, pack, write
+from lightning.market.packs import MarketSet, chosen, pack_release, read_zip, write_index
 from lightning.runtime import app as runtime_app
 from lightning.runtime.http import MARKET_IMPORT_PATH, MAX_MARKET_IMPORT_BODY, request_body_limit
 from lightning.ui.web import create_app
 from lightning.workflows import market_prices
-from lightning.workflows.market_prices import MarketPrices, current_file, file_info, local_folder
+from lightning.workflows.market_prices import MarketPrices, current_set, pack_files, pack_rows
 
 COMI = Instrument("EG:COMI", "Commercial International Bank", "STOCK", "EGP", isin="EGS60121C018", mic="XCAI",
                   ticker="COMI", country="EG", unit="share")
@@ -37,14 +39,22 @@ def _daily(key, first, last, price):
     return out
 
 
-def publish(folder, created_at="2026-12-31T22:30:00Z", december="88"):
-    """A market file with CIB daily except November, a weekly fund NAV, Apple in dollars and the dollar rate."""
-    closes = (_daily("EG:COMI", "2026-09-01", "2026-10-31", "80") + _daily("EG:COMI", "2026-12-01", "2026-12-31", december)
-              + [Close(d, "EG:FUND:4104", D(p)) for d, p in (("2026-09-24", "31.25"), ("2026-10-29", "31.6"),
-                                                             ("2026-11-26", "31.9"), ("2026-12-24", "32.2"))]
-              + _daily("US:AAPL", "2026-09-01", "2026-12-31", "230") + _daily("USD/EGP", "2026-09-01", "2026-12-31", "48.5"))
-    write(folder, [COMI, AZS, AAPL, USD], closes, created_at)
-    return folder
+def publish(root, created_at="2026-12-31T22:30:00Z", december="88"):
+    """Three packs as the collector writes them: CIB daily except November in egx, a weekly fund NAV in
+    eg-funds, the dollar rate in fx; and Apple, in dollars, in us."""
+    root.mkdir(parents=True, exist_ok=True)
+    cib = _daily("EG:COMI", "2026-09-01", "2026-10-31", "80") + _daily("EG:COMI", "2026-12-01", "2026-12-31", december)
+    write(root / "egx", [COMI], cib, created_at, pack="egx")
+    write(root / "eg-funds", [AZS], [Close(d, "EG:FUND:4104", D(p)) for d, p in (
+        ("2026-09-24", "31.25"), ("2026-10-29", "31.6"), ("2026-11-26", "31.9"), ("2026-12-24", "32.2"))], created_at, pack="eg-funds")
+    write(root / "fx", [USD], _daily("USD/EGP", "2026-09-01", "2026-12-31", "48.5"), created_at, pack="fx")
+    write(root / "us", [AAPL], _daily("US:AAPL", "2026-09-01", "2026-12-31", "230"), created_at, pack="us")
+    write_index(root, created_at)
+    return root
+
+
+def everything(root):
+    return MarketSet({p: MarketFile.open(root / p) for p in ("egx", "eg-funds", "fx", "us")})
 
 
 @pytest.fixture(autouse=True)
@@ -67,7 +77,7 @@ def holdings(c, setup):
 
 def test_filling_matches_each_holding_and_leaves_the_rest_for_you(c, holdings, tmp_path):
     c.assets.set_price(holdings["cib"].id, "2026-10-31", "99")  # typed: wins over the file on that day
-    report = MarketPrices(c.assets, c.reporting).fill(MarketFile.open(publish(tmp_path / "m")), date(2026, 12, 31))
+    report = MarketPrices(c.assets, c.reporting).fill(everything(publish(tmp_path / "m")), date(2026, 12, 31))
     assert report.matched == ["CIB", "AZ Savings"] and report.unmatched == ["Nope fund"]
     assert report.other_currency == ["Apple"]  # a dollar price is never silently converted
     assert report.missing == [("CIB", "2026-11-30")]  # no CIB close within ten days of it
@@ -81,8 +91,8 @@ def test_filling_matches_each_holding_and_leaves_the_rest_for_you(c, holdings, t
     fund = c.reporting.value_of(holdings["azs"].id, D(1), "2026-11-30")
     assert (fund.price, fund.price_date) == (D("31.9"), "2026-11-26")
     text = report.summary()
-    assert text.startswith("Filled 7 prices for 2 investments from the price file of 2026-12-31.")
-    assert "1 still missing: CIB 2026-11-30." in text and "Not in the file: Nope fund." in text and "Apple" in text
+    assert text.startswith("Filled 7 prices for 2 investments from the price files of 2026-12-31.")
+    assert "1 still missing: CIB 2026-11-30." in text and "Not in the packs you follow: Nope fund." in text and "Apple" in text
 
 
 class Server:
@@ -131,7 +141,7 @@ def local_server_without_proxy(monkeypatch):
 
 
 def test_updating_downloads_only_what_changed_and_never_keeps_a_damaged_file(tmp_path):
-    published, local = publish(tmp_path / "published"), tmp_path / "profile" / "market"
+    published, local = publish(tmp_path / "published") / "egx", tmp_path / "profile" / "market" / "egx"
     with Server(published) as server:
         changed = market_update.update_folder(local, server.url)
         assert changed == sorted(json.loads((published / "manifest.json").read_text())["files"])
@@ -139,7 +149,7 @@ def test_updating_downloads_only_what_changed_and_never_keeps_a_damaged_file(tmp
         server.fetched.clear()
         assert market_update.update_folder(local, server.url) == [] and server.fetched == ["manifest.json"]
 
-        publish(published, "2027-01-01T22:30:00Z", december="90")  # only December and the year's month-ends change
+        publish(published.parent, "2027-01-01T22:30:00Z", december="90")  # only December and the year's month-ends change
         server.damage = "daily/2026-12.csv"
         with pytest.raises(MarketFileError, match="arrived damaged"):
             market_update.update_folder(local, server.url)
@@ -149,46 +159,74 @@ def test_updating_downloads_only_what_changed_and_never_keeps_a_damaged_file(tmp
         assert MarketFile.open(local).latest("EG:COMI").close == D("90")
 
 
+def test_only_followed_packs_are_downloaded(tmp_path):
+    published, root = publish(tmp_path / "published"), tmp_path / "profile" / "market"
+    with Server(published) as server:
+        changed, missing = market_update.update_packs(root, ["egx", "gcc"], server.url)
+    assert list(changed) == ["egx"] and missing == ["gcc"]  # the Gulf pack is not published here
+    assert sorted(p.name for p in root.iterdir()) == ["egx", "index.json"]
+    assert chosen("") == ["egx", "eg-funds", "fx"] and chosen("none") == [] and chosen("us,../x") == ["us"]
+
+
 def test_a_published_manifest_cannot_name_a_file_outside_the_folder(tmp_path):
-    published = publish(tmp_path / "published")
+    published = publish(tmp_path / "published") / "egx"
     manifest = json.loads((published / "manifest.json").read_text())
     manifest["files"]["../outside.csv"] = {"sha256": hashlib.sha256(b"x").hexdigest()}
     (published / "manifest.json").write_text(json.dumps(manifest))
-    (tmp_path / "outside.csv").write_text("x")
     with Server(published) as server, pytest.raises(MarketFileError, match="may not hold"):
-        market_update.update_folder(tmp_path / "profile" / "market", server.url)
+        market_update.update_folder(tmp_path / "profile" / "market" / "egx", server.url)
     assert not (tmp_path / "profile").exists()
 
 
-def test_the_prices_page_updates_imports_and_fills(c, holdings, tmp_path):
+def test_a_release_zip_holds_several_packs_and_a_pack_zip_names_its_own(tmp_path):
+    root = publish(tmp_path / "published")
+    release = read_zip(pack_release(root, tmp_path / "market.zip", ["egx", "fx"]).read_bytes())
+    assert sorted(release) == ["egx", "fx"] and release["fx"].latest("USD/EGP").close == D("48.5")
+    single = read_zip(pack(root / "us", tmp_path / "us.zip").read_bytes())
+    assert list(single) == ["us"]
+    write(tmp_path / "loose", [USD], [], "2026-12-31")
+    with pytest.raises(MarketFileError, match="does not say which pack"):
+        read_zip(pack(tmp_path / "loose", tmp_path / "loose.zip").read_bytes())
+
+
+def test_the_prices_page_follows_markets_updates_imports_and_fills(c, holdings, tmp_path):
     client = TestClient(create_app(c), base_url="http://127.0.0.1")
     page = client.get("/investments/prices").text
-    assert "No price file yet" in page and "Fill my prices" not in page
-    assert "No price file yet" in client.post("/investments/prices/market/fill").text
+    assert "Egyptian stocks" in page and "Not downloaded yet" in page and "Fill my prices" not in page
+    assert "No price files yet" in client.post("/investments/prices/market/fill").text
 
-    older = pack(publish(tmp_path / "old", "2026-11-01T22:30:00Z"), tmp_path / "old.zip")
-    newer = pack(publish(tmp_path / "new"), tmp_path / "new.zip")
+    older = pack_release(publish(tmp_path / "old", "2026-11-01T22:30:00Z"), tmp_path / "old.zip", ["egx", "eg-funds"])
+    newer = pack_release(publish(tmp_path / "new"), tmp_path / "new.zip", ["egx", "eg-funds"])
     done = client.post("/investments/prices/market/import", files={"file": ("market.zip", newer.read_bytes(), "application/zip")})
-    assert "Price file imported. Filled 7 prices for 2 investments" in done.text
-    assert file_info(c.data_dir) == {"created_at": "2026-12-31", "origin": "downloaded", "last_date": "2026-12-31",
-                                     "instruments": 4}
+    assert "Imported Egyptian funds, Egyptian stocks. Filled 7 prices for 2 investments" in done.text
+    assert pack_files(c.data_dir)["egx"] == {"created_at": "2026-12-31", "origin": "downloaded", "last_date": "2026-12-31",
+                                             "instruments": 1}
     page = client.get("/investments/prices").text
-    assert "Closing prices of 4 stocks, funds and currencies up to 2026-12-31" in page and "price file" in page
+    assert "Fill my prices" in page and "2026-12-31, downloaded" in page and "price file" in page
     refused = client.post("/investments/prices/market/import", files={"file": ("market.zip", older.read_bytes(), "application/zip")})
-    assert "older than the one you have (2026-12-31). Nothing was changed." in refused.text
+    assert "Nothing was imported. Kept your newer Egyptian funds, Egyptian stocks." in refused.text
     junk = client.post("/investments/prices/market/import", files={"file": ("market.zip", b"not a zip", "application/zip")})
     assert "not a Lightning market file" in junk.text
 
+    settings = client.get("/investments/prices/markets").text
+    assert "Gulf stocks" in settings and "Saudi Exchange" in settings and "European stocks and ETFs" in settings
+    assert 'value="egx" checked' in settings and 'value="gcc" ' in settings and 'value="gcc" checked' not in settings
+    saved = client.post("/investments/prices/markets", data={"pack": ["egx", "us"]})
+    assert "Saved." in saved.text and c.settings.get("market_packs") == "egx,us"
+    assert not (c.data_dir / "market" / "eg-funds").exists()  # unfollowed: its file is removed
     publish(tmp_path / "published", "2027-01-01T22:30:00Z", december="90")
     c.settings.set("market_url", "http://127.0.0.1:1/")  # nothing listens there
     assert "Could not reach the price file" in client.post("/investments/prices/market/update").text
-    assert current_file(c.data_dir).created_at == "2026-12-31T22:30:00Z"
+    assert current_set(c.data_dir, ["egx"]).created_at == "2026-12-31T22:30:00Z"
     with Server(tmp_path / "published") as server:
         c.settings.set("market_url", server.url)
-        updated = client.post("/investments/prices/market/update").text
-    assert "Price file updated. Filled" in updated
+        updated = client.post("/investments/prices/markets", data={"pack": ["egx", "us", "gcc"], "update": "1"}).text
+    assert "Updated Egyptian stocks, US stocks and ETFs. Not published yet: Gulf stocks. Filled" in updated
     assert c.reporting.value_of(holdings["cib"].id, D(1), "2026-12-31").price == D("90")
-    assert local_folder(c.data_dir) == c.data_dir / "market"
+    rows = {r["id"]: r for r in pack_rows(c.data_dir, chosen(c.settings.get("market_packs")))}
+    assert rows["us"]["on"] and rows["us"]["bytes"] > 0 and rows["us"]["have"]["origin"] == "downloaded"
+    assert client.post("/investments/prices/markets", data={}).status_code == 200 and chosen(c.settings.get("market_packs")) == []
+    assert "You follow no markets" in client.get("/investments/prices").text
 
 
 def test_the_desktop_window_takes_one_bounded_market_file():

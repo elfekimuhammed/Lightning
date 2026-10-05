@@ -1,0 +1,5 @@
+{"totalCount": 3, "data": [
+ {"s": "LSE:VOD", "d": ["VOD", "Vodafone Group Plc", 71.82, "GBX", "stock", "common", "LSE"]},
+ {"s": "LSE:VWRA", "d": ["VWRA", "Vanguard FTSE All-World UCITS ETF USD Acc", 142.5, "USD", "fund", "etf", "LSE"]},
+ {"s": "XETR:SAP", "d": ["SAP", "SAP SE, on another board", 210.4, "EUR", "stock", "common", "XETR"]}
+]}

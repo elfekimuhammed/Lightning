@@ -1,0 +1,6 @@
+{"totalCount": 4, "data": [
+ {"s": "DFM:EMAAR", "d": ["EMAAR", "Emaar Properties PJSC", 14.35, "AED", "stock", "common", "DFM"]},
+ {"s": "ADX:ALDAR", "d": ["ALDAR", "Aldar Properties PJSC", 8.12, "AED", "stock", "common", "ADX"]},
+ {"s": "ADX:EMAAR", "d": ["EMAAR", "A same-ticker listing in Abu Dhabi", 14.4, "AED", "stock", "common", "ADX"]},
+ {"s": "DFM:BAD TICKER", "d": ["BAD TICKER", "Not a key Lightning can publish", 1.0, "AED", "stock", "common", "DFM"]}
+]}

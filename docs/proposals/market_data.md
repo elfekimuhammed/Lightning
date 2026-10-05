@@ -1,4 +1,4 @@
-# Market data: one price file, collected in the cloud
+# Market data: price packs, collected in the cloud
 
 Status: proposal, 2026-10-05 (Claude, owner's request). Phase 1 is being built; see *Phases*. When a phase is built, what holds moves into Architecture and this file shrinks.
 
@@ -7,6 +7,7 @@ Status: proposal, 2026-10-05 (Claude, owner's request). Phase 1 is being built; 
 | The problem | You want to know why prices change |
 | The design in one picture | You need the whole idea in a minute |
 | The market file | You read or write the file, or match instruments |
+| Packs: choose your markets | You add a market, change a schedule, or work on Settings › Price files |
 | Sources, the whitelist | You add, fix or replace a source |
 | Checks before anything is published | A price looks wrong, or a source fails |
 | Financial assets in the app | You change how an asset is named, classed or edited |
@@ -28,27 +29,27 @@ Today each copy of Lightning asks Yahoo's undocumented chart feed for each Egypt
 ## The design in one picture
 
 ```
- sources (whitelist)          the cloud, once a day                Lightning-downloads          each user's app
- ───────────────────          ─────────────────────                ───────────────────          ───────────────
- TradingView, Mubasher,  ─▶  collector: adapters, fallbacks,  ─▶  market/ folder:          ─▶  bundled copy in the ZIP,
- CBE, banks, Yahoo, ...      checks, cross-checks, health          manifest + instruments       then "Update prices"
-                             report; never overwrites good         + monthly and daily          downloads only the files
-                             data with bad                         price files                  that changed
+ sources (whitelist)          the cloud, after each close          Lightning-market (open)      each user's app
+ ───────────────────          ───────────────────────────          ───────────────────────      ───────────────
+ TradingView, Mubasher,  ─▶  collector: adapters, fallbacks,  ─▶  index.json + one folder ─▶  default packs in the ZIP,
+ CBE, banks, Yahoo, ...      checks, cross-checks, health          per pack: manifest,          then "Update prices"
+                             report; never overwrites good         instruments, monthly         downloads only the changed
+                             data with bad                         and daily price files        files of followed packs
 ```
 
-1. **The app never scrapes.** A collector runs once a day in GitHub Actions, after the Cairo close. When a source breaks, it breaks once, in one place; we fix one adapter and every user gets the fix with the next file, no new app version.
-2. **One file for everything.** Every EGX stock, Egyptian fund, CBE currency, gold karat and US stock or ETF, each with its category and ISO identifiers, in one versioned set of files.
-3. **History comes with the app.** Each release ships the latest file, so first run and back-filling work offline and at once.
+1. **The app never scrapes.** A collector runs in GitHub Actions after each market closes. When a source breaks, it breaks once, in one place; we fix one adapter and every user gets the fix with the next file, no new app version.
+2. **One format, one pack per market.** Egyptian stocks, Egyptian funds, exchange rates, US, Gulf and European stocks: each pack is the same format with ISO identifiers, refreshed on its own schedule, and a user follows only the packs they want (owner's request).
+3. **History comes with the app.** Each release ships the default packs, so first run and back-filling work offline and at once.
 4. **Updating is one button and a few kilobytes.** The app compares checksums and downloads only what changed, usually today's closes.
 5. **Nothing depends on the network.** Without it, the app keeps the last file; a user can import a file by hand; typing a price always works and always wins.
 
 ## The market file
 
-A folder, published as files in `Lightning-downloads/market/` and zipped into each release as `market.zip`:
+One folder per pack (*Packs* below), published as files in the open data repository and zipped into each release as `market.zip` (the default packs, one folder each). A pack:
 
 ```
 market/
-  manifest.json          schema, version, created_at, one entry per file: path, sha256, rows, first and last date
+  manifest.json          schema, created_at, pack, one entry per file: path, sha256, bytes, rows, first and last date
   instruments.csv        every instrument, its category and its aliases
   monthly/2015.csv ...   one closing price per instrument per month-end, every year we have
   daily/2026-09.csv ...  every daily close, one file per month; the app keeps the last 13 months
@@ -67,9 +68,29 @@ market/
 
 **Price files** — `date,key,close`, with `close` in the instrument's currency, six decimals at most, sorted by key and date. Month-end closes are the last close on or before the month's last day. A fund that publishes weekly simply has fewer rows.
 
-**Size.** About 300 EGX stocks, 200 funds, 20 currencies, 4 gold karats and, to start, the S&P 500, Nasdaq-100 and 100 largest ETFs (about 700). Month-end history since 2015 is about 160,000 rows; 13 months of daily closes about 330,000. Zipped, a few megabytes in the release and about 25 KB for a day's update.
+**Size.** Measured on a realistic test set the size of all six packs (about 1,100 instruments, month-ends since 2016, 13 months of daily closes): 2.6 MB zipped, 15 MB unpacked; one month of daily closes is about 700 KB raw. An update re-downloads only each followed pack's current month and year files, compressed on the wire (gzip), so a few hundred KB at most.
 
 **Why plain CSV in a folder:** git keeps every version, so our history survives even if a source drops its own; a day's change is a small diff; the app needs no new library; a person can open it.
+
+## Packs: choose your markets
+
+Owner's request (2026-10-05): compile Gulf and European stocks too, let each user choose the exchanges to download and track, publish each in an open repository, and refresh each market on its own schedule. Built in `lightning/market/packs.py` (shared by the app and the collector):
+
+| Pack | What it holds | Venues (ISO 10383) | Trading days | Collected (UTC) | Default |
+|---|---|---|---|---|---|
+| `egx` | Every EGX stock, the EGX indices | XCAI | Sun–Thu | 13:30 | On |
+| `eg-funds` | Egyptian mutual funds' NAV, with fund class | — | Sun–Thu | 19:00 | On |
+| `fx` | CBE official rates in pounds | — | Sun–Thu | 13:30 | On |
+| `us` | 600 largest US stocks, 100 largest ETFs | XNAS, XNYS, ARCX, XASE | Mon–Fri | 22:30 | Off |
+| `gcc` | Every stock on Saudi, Dubai, Abu Dhabi, Qatar, Kuwait and Bahrain exchanges | XSAU, XDFM, XADS, DSMQ, XKUW, XBAH | Sun–Fri | 13:30 | Off |
+| `europe` | Largest stocks and UCITS ETFs in London, Xetra, Euronext, Madrid, Milan, Zurich | XLON, XETR, XPAR, XAMS, XBRU, XLIS, XMAD, XMIL, XSWX | Mon–Fri | 17:30 | Off |
+
+- **Published layout:** `index.json` (every pack's name, venues, date, instrument count and download size) and one folder per pack. A pack the app does not know yet still shows in Settings › Price files, by the name the index gives, so a new market needs no new app version.
+- **Keys** stay country and ticker of the venue (`SA:2222`, `AE:EMAAR`, `GB:VOD`). One ticker on two venues of one country (Dubai and Abu Dhabi) publishes the second as `AE:EMAAR-XADS`; a published key keeps its venue across runs.
+- **Whole units:** prices quoted in pence (`GBX`) or fils (`KWF`) are published in pounds and dinars (ISO 4217).
+- **In the app:** Settings › Price files lists every pack with its exchanges, download size and what this computer holds; the profile follows the default packs until it saves its own list (`market_packs`, `none` for none). Unfollowing removes the pack's folder; prices already filled stay. Update prices downloads only followed packs; Import a file takes one pack or a release's several, follows what it imports, and skips a pack older than the one held.
+- **Other currencies:** Gulf, European and US prices are in their own currency. Until holdings can be in another currency (Upcoming projects #15, #16), filling lists them as "priced in another currency, left for you" instead of converting.
+- **Unverified live:** the Gulf and European screener boards (TradingView market and exchange names) and Oman (Muscat, `XMUS`, not included) are checked on the first live run.
 
 ## Sources, the whitelist
 
@@ -105,9 +126,10 @@ A run never publishes a price that fails these; it keeps the last good one and s
 
 ## How the app gets prices
 
-- **The bundled file.** Each release carries `market.zip`. On first run, after an import, and every month-end, the app fills prices from it for the instruments the profile holds. Manual prices still win.
-- **Update prices.** One button (and an opt-in check at start-up) downloads `manifest.json` from a fixed address, compares checksums with the local copy in `Documents/Lightning/market/` (shared by all profiles, as it holds nothing personal), downloads only the changed files, verifies each checksum, and imports. A day's update is one daily file and the manifest.
-- **Import a file.** Settings › Prices takes a `market.zip` by hand, for an offline PC or when the address moves.
+- **The bundled file.** Each release carries `market.zip` with the default packs. On first run, after an import, and every month-end, the app fills prices from it for the instruments the profile holds. Manual prices still win.
+- **Update prices.** One button (and later an opt-in check at start-up) downloads `index.json` and, for each followed pack, its `manifest.json` from the open data repository (setting `market_url`, default `Lightning-market`), compares checksums with the profile's copy (`<profile>/market/<pack>/`; sharing one copy between profiles is a later step), downloads only the changed files, checks them all before writing any, and fills. After the first time, a month of updates is about 1 MB per pack.
+- **Import a file.** Investment prices takes a `market.zip` by hand (40 MB at most in the desktop window), for an offline PC or when the address moves.
+- **Built (2026-10-05):** the Price files card on Investment prices (Fill my prices, Update prices, Import a file), Settings › Price files, `lightning/workflows/market_prices.py` (matching: ISIN, saved key, alias, country and ticker), `lightning/market/update.py`; prices are saved with source `MARKET`. Measured on a realistic test file of all six markets' size in one: about 2.6 MB zipped, 15 MB unpacked.
 - **Say how old it is.** Every price shown from the file carries its date; Needs you says "Prices are from 2026-10-01" when they are a week old, as today.
 - **Same file for everyone.** Downloading the whole file tells no one what you hold.
 
@@ -145,7 +167,7 @@ Recommendation: start with CBE and managers' NAVs as published sources, get a li
 
 ## Phases
 
-1. **Now:** this proposal; the file format with ISO names (`lightning/market/`); the collector with adapters, checks and health (`tools/market/`); exchange and ISIN on financial assets, with a Financial assets page to edit them; importing a market file into a profile from the Update prices page; the scheduled workflow, publishing only after the owner's go-ahead.
-2. The release ZIP carries `market.zip`; Update prices downloads changed files; a statement import fills month-ends; Needs you lists what is missing; the Yahoo-per-user code is removed.
+1. **Now:** this proposal; the file format with ISO names (`lightning/market/`); the collector with adapters, checks and health (`tools/market/`); exchange and ISIN on financial assets, with a Financial assets page to edit them; packs and Settings › Price files; filling, updating and importing on Investment prices (all built); the scheduled workflow, publishing only after the owner's go-ahead.
+2. The release ZIP carries `market.zip`; a statement import and first run fill month-ends; Needs you lists what is missing; the Yahoo-per-user code is removed.
 3. Funds, currencies and gold matched to profile holdings; reviewed Thndr-to-Mubasher fund mapping.
 4. US stocks and FX revaluation, with multi-currency (Upcoming projects #15, #16).

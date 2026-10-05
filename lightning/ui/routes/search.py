@@ -41,6 +41,7 @@ PAGES = (
     ("Investment planner", "/investments/planner", "allocation targets invest"),
     ("Update prices", "/investments/prices", "valuations market prices gold price"),
     ("Financial assets", "/investments/assets", "stocks funds tickers isin exchange egx edit instruments"),
+    ("Price files", "/investments/prices/markets", "markets exchanges egx gulf gcc europe us stocks prices download update follow"),
     ("Settings", "/settings", "backup data version"),
     ("Budget settings", "/settings?section=budget", "average monthly income one-off emergency fund"),
     ("Target allocation", "/settings?section=targets", "asset classes targets"),

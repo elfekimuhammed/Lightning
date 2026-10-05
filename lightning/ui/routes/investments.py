@@ -21,9 +21,9 @@ from ...investments.report import (PLANNER_MODES, build_investment_report, inves
                                     period_growth, results_by_asset, suggest_contributions)
 from .. import charts
 from lightning.core.figures import label
-from lightning.market.bundle import MarketFile
-from lightning.market.update import DEFAULT_URL, update_folder
-from lightning.workflows.market_prices import MarketPrices, current_file, file_info, local_folder
+from lightning.market.packs import chosen, read_zip
+from lightning.market.update import DEFAULT_URL, update_packs
+from lightning.workflows.market_prices import MarketPrices, current_set, forget, local_folder, pack_files, pack_rows
 
 from .. import keynotes, visuals
 
@@ -682,56 +682,104 @@ async def prices(request: Request, error: str = ""):
                      "price_date": valuation.price_date, "source": valuation.source})
     rows.sort(key=lambda r: (r["held"] is None, r["asset"].name))
     return render(request, "investments/prices.html", rows=rows, day=day, error=error,
-                  pending=c.reevaluations.pending_prices(), market=file_info(c.data_dir))
+                  pending=c.reevaluations.pending_prices(), market=_followed(c))
 
 
-def _fill_from(c, market: MarketFile | None, done: str = ""):
-    """Fill every held investment's prices from the market file, then post the month-end returns they allow."""
+def _followed(c) -> list[dict]:
+    """The packs this profile follows, each with what this computer holds of it (or None)."""
+    have, names = pack_files(c.data_dir), {r["id"]: r["name"] for r in pack_rows(c.data_dir, ())}
+    return [{"id": p, "name": names.get(p, p), "have": have.get(p)} for p in chosen(c.settings.get("market_packs"))]
+
+
+def _fill_from(c, done: str = "", back: str = "/investments/prices"):
+    """Fill every held investment's prices from the followed packs, then post the month-end returns they allow."""
+    market = current_set(c.data_dir, chosen(c.settings.get("market_packs")))
     if market is None:
-        return redirect("/investments/prices", "No price file yet. Update prices downloads it, or import a market.zip.")
+        return redirect(back, f"{done} No price files yet. Update prices downloads the markets you follow.".strip())
     try:
         report = MarketPrices(c.assets, c.reporting).fill(market, today())
         c.reevaluations.process_due()
     except LightningError as exc:
-        return redirect("/investments/prices", exc.message)
-    return redirect("/investments/prices", f"{done} {report.summary()}".strip())
+        return redirect(back, exc.message)
+    return redirect(back, f"{done} {report.summary()}".strip())
+
+
+async def _update(c, back: str):
+    """Download what changed in the followed packs (about 1 MB a month each after the first time), then fill."""
+    followed = chosen(c.settings.get("market_packs"))
+    try:
+        changed, missing = await run_in_threadpool(update_packs, local_folder(c.data_dir), followed,
+                                                   c.settings.get("market_url") or DEFAULT_URL)
+    except LightningError as exc:
+        return redirect(back, exc.message)
+    names = {r["id"]: r["name"] for r in pack_rows(c.data_dir, ())}
+    done = (f"Updated {', '.join(names.get(p, p) for p, files in changed.items() if files)}."
+            if any(changed.values()) else "The price files were already up to date.")
+    if missing:
+        done += f" Not published yet: {', '.join(names.get(p, p) for p in missing)}."
+    return _fill_from(c, done, back)
 
 
 @router.post("/prices/market/fill")
 async def market_fill(request: Request):
-    c = container(request)
-    return _fill_from(c, current_file(c.data_dir))
+    return _fill_from(container(request))
 
 
 @router.post("/prices/market/update")
 async def market_update(request: Request):
-    """Download what changed in the published price file (about 1 MB a month after the first time), then fill."""
-    c = container(request)
-    try:
-        changed = await run_in_threadpool(update_folder, local_folder(c.data_dir), c.settings.get("market_url") or DEFAULT_URL)
-    except LightningError as exc:
-        return redirect("/investments/prices", exc.message)
-    return _fill_from(c, current_file(c.data_dir), "Price file updated." if changed else "The price file was already up to date.")
+    return await _update(container(request), "/investments/prices")
 
 
 @router.post("/prices/market/import")
 async def market_import(request: Request):
-    """Import a market.zip by hand (from a newer Lightning, or a friend's download)."""
+    """Import a market.zip by hand: one pack, or several as a release ships them. An older pack than the
+    one on this computer is skipped; an imported pack you did not follow is followed from now on."""
     c = container(request)
     form = await request.form()
     upload = form.get("file")
     if not upload or not getattr(upload, "filename", ""):
         return redirect("/investments/prices", "Choose a market.zip file.")
     try:
-        market = MarketFile.from_zip(await upload.read())
-        have = file_info(c.data_dir)
-        if have and have["origin"] == "downloaded" and have["created_at"] > market.created_at[:10]:
-            return redirect("/investments/prices", f"That file is from {market.created_at[:10]}, older than the one "
-                                                   f"you have ({have['created_at']}). Nothing was changed.")
-        market.save(local_folder(c.data_dir))
+        packs = read_zip(await upload.read())
     except LightningError as exc:
         return redirect("/investments/prices", exc.message)
-    return _fill_from(c, market, "Price file imported.")
+    have, followed, saved, older = pack_files(c.data_dir), chosen(c.settings.get("market_packs")), [], []
+    for pack_id, market in sorted(packs.items()):
+        if have.get(pack_id, {}).get("created_at", "") > market.created_at[:10]:
+            older.append(pack_id)
+            continue
+        market.save(local_folder(c.data_dir) / pack_id)
+        saved.append(pack_id)
+        if pack_id not in followed:
+            followed.append(pack_id)
+    c.settings.set("market_packs", ",".join(followed) or "none")
+    names = {r["id"]: r["name"] for r in pack_rows(c.data_dir, ())}
+    done = f"Imported {', '.join(names.get(p, p) for p in saved)}." if saved else "Nothing was imported."
+    if older:
+        done += f" Kept your newer {', '.join(names.get(p, p) for p in older)}."
+    return _fill_from(c, done)
+
+
+@router.get("/prices/markets")
+async def price_files(request: Request):
+    """Settings › Price files: which exchanges' prices to download and keep."""
+    c = container(request)
+    return render(request, "investments/price_files.html",
+                  rows=pack_rows(c.data_dir, chosen(c.settings.get("market_packs"))))
+
+
+@router.post("/prices/markets")
+async def save_price_files(request: Request):
+    c = container(request)
+    form = await request.form()
+    known = {r["id"] for r in pack_rows(c.data_dir, ())}
+    picked = [p for p in form.getlist("pack") if p in known]
+    dropped = [p for p in chosen(c.settings.get("market_packs")) if p not in picked]
+    c.settings.set("market_packs", ",".join(picked) or "none")
+    forget(c.data_dir, dropped)
+    if form.get("update"):
+        return await _update(c, "/investments/prices/markets")
+    return redirect("/investments/prices/markets", "Saved. Update prices downloads the markets you added.")
 
 
 @router.post("/prices")

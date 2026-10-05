@@ -1,7 +1,8 @@
-"""The price collector (tools/market): each adapter on a recorded sample of its source's answer, the checks,
-and whole runs against a fake network, including a source that fails."""
+"""The price collector (tools/market): each adapter on a sample in its source's answer format, the checks,
+and whole runs of several packs against a fake network, including a source that fails."""
 
 import json
+from dataclasses import replace
 from decimal import Decimal as D
 from pathlib import Path
 
@@ -9,8 +10,8 @@ import pytest
 
 from lightning.market.bundle import Close, MarketFile
 from tools.market import checks
-from tools.market.collect import backfill, collect
-from tools.market.model import Quote, SourceError
+from tools.market.collect import _settle_keys, backfill, collect
+from tools.market.model import Quote, SourceError, SourceResult
 from tools.market.sources import cbe, mubasher, tradingview, yahoo
 
 SAMPLES = Path(__file__).parent / "fixtures" / "market"
@@ -23,15 +24,39 @@ def sample(name):
 
 # -- adapters, on recorded samples -----------------------------------------------------------------
 def test_tradingview_lists_egx_and_us_with_iso_venues():
-    egx = tradingview.parse(sample("tradingview_egx.json"), "egx", "2026-10-05")
+    egx = tradingview.parse(sample("tradingview_egx.json"), tradingview.BOARDS["egx"][0], "2026-10-05", "tradingview-egx")
     assert [(i.key, i.mic, i.country, i.currency) for i in egx.instruments] == [
         ("EG:COMI", "XCAI", "EG", "EGP"), ("EG:ETEL", "XCAI", "EG", "EGP")]  # no close, not EGX: skipped
     assert egx.quotes[0] == Quote("EG:COMI", "2026-10-05", D("85.25"), "tradingview-egx")
-    us = tradingview.parse(sample("tradingview_us.json"), "us", "2026-10-05")
+    us = tradingview.parse(sample("tradingview_us.json"), tradingview.BOARDS["us"][0], "2026-10-05", "tradingview-us")
     assert [(i.key, i.mic, i.category) for i in us.instruments] == [
         ("US:AAPL", "XNAS", "STOCK"), ("US:BRK.B", "XNYS", "STOCK"), ("US:SPY", "ARCX", "FUND.OTHER")]
     with pytest.raises(SourceError, match="data list"):
-        tradingview.parse({"error": "blocked"}, "egx", "2026-10-05")
+        tradingview.parse({"error": "blocked"}, tradingview.BOARDS["egx"][0], "2026-10-05", "tradingview-egx")
+
+
+def test_gulf_and_european_boards_use_iso_venues_and_whole_currency_units():
+    uae = tradingview.parse(sample("tradingview_uae.json"), tradingview.BOARDS["gcc"][1], "2026-10-05", "tradingview-gcc")
+    assert [(i.key, i.mic, i.country) for i in uae.instruments] == [
+        ("AE:EMAAR", "XDFM", "AE"), ("AE:ALDAR", "XADS", "AE"), ("AE:EMAAR", "XADS", "AE")]  # a bad ticker is left out
+    _settle_keys(uae, {})  # one ticker on two Emirates exchanges: the second is published as KEY-MIC
+    assert [i.key for i in uae.instruments] == ["AE:EMAAR", "AE:ALDAR", "AE:EMAAR-XADS"]
+    assert [(q.key, q.close) for q in uae.quotes] == [
+        ("AE:EMAAR", D("14.35")), ("AE:ALDAR", D("8.12")), ("AE:EMAAR-XADS", D("14.4"))]
+    london = tradingview.parse(sample("tradingview_uk.json"), tradingview.BOARDS["europe"][0], "2026-10-05", "tradingview-europe")
+    assert [(i.key, i.mic, i.currency, i.category) for i in london.instruments] == [
+        ("GB:VOD", "XLON", "GBP", "STOCK"), ("GB:VWRA", "XLON", "USD", "FUND.OTHER")]  # Xetra is another board
+    assert london.quotes[0].close == D("0.7182")  # 71.82 pence is published as pounds
+    kuwait = tradingview.parse({"data": [{"s": "KSE:NBK", "d": ["NBK", "National Bank of Kuwait", 912, "KWF", "stock",
+                                                                "common", "KSE"]}]},
+                               tradingview.BOARDS["gcc"][3], "2026-10-05", "tradingview-gcc")
+    assert (kuwait.instruments[0].key, kuwait.instruments[0].mic, kuwait.instruments[0].currency,
+            kuwait.quotes[0].close) == ("KW:NBK", "XKUW", "KWD", D("0.912"))  # fils as dinars
+    published = {"AE:EMAAR": uae.instruments[0]}
+    later = SourceResult("tradingview-gcc", [replace(uae.instruments[0], mic="XADS")],
+                         [Quote("AE:EMAAR", "2026-10-06", D("14.5"), "tradingview-gcc")])
+    _settle_keys(later, published)  # a published key keeps its venue across runs
+    assert later.instruments[0].key == later.quotes[0].key == "AE:EMAAR-XADS"
 
 
 def test_mubasher_funds_and_their_history():
@@ -95,7 +120,7 @@ def test_checks_hold_back_a_jump_unless_a_second_source_or_the_official_one_says
 
 # -- whole runs against a fake network --------------------------------------------------------------
 class FakeNet:
-    """Answers each source's URL from samples; `failing` names sources that are down."""
+    """Answers each source's URL with made-up rows in its format; `failing` names sources that are down."""
 
     def __init__(self, failing=(), egx_close="85.25"):
         self.failing, self.egx_close = set(failing), egx_close
@@ -105,12 +130,20 @@ class FakeNet:
             raise SourceError(f"{name} answered HTTP 403")
 
     def post_json(self, url, payload):
-        if "egypt" in url:
+        screener = url.split("/")[-2]
+        if screener == "egypt":
             self._fail("tradingview-egx")
             rows = [{"s": f"EGX:T{i:03d}", "d": [f"T{i:03d}", f"Company {i}", 10 + i, "EGP", "stock", "common", "EGX"]}
                     for i in range(160)]
             rows.append({"s": "EGX:COMI", "d": ["COMI", "CIB", float(self.egx_close), "EGP", "stock", "common", "EGX"]})
             return {"data": rows}
+        if screener in ("ksa", "uae", "qatar", "kuwait", "bahrain"):
+            self._fail("tradingview-gcc")
+            board = next(b for b in tradingview.BOARDS["gcc"] if b.screener == screener)
+            exchange = sorted(board.venues)[0]
+            return {"data": [{"s": f"{exchange}:{screener[:2].upper()}{i}", "d": [
+                f"{screener[:2].upper()}{i}", f"{screener} company {i}", 20 + i, "SAR", "stock", "common", exchange]}
+                for i in range(70)]}
         self._fail("tradingview-us")
         kind = "fund" if payload["filter"][1]["right"] == "fund" else "stock"
         count = 100 if kind == "fund" else 420
@@ -134,28 +167,37 @@ class FakeNet:
         return sample("mubasher_history.csv")
 
 
-def test_a_run_writes_every_market_and_a_failing_source_keeps_its_last_prices(tmp_path):
-    folder = tmp_path / "market"
-    health = collect(folder, FakeNet(), "2026-10-01", "2026-10-01T22:30:00Z")  # a Thursday: EGX and US both trade
-    assert all(health[name]["ok"] for name in ("tradingview-egx", "mubasher-funds", "cbe", "tradingview-us"))
-    market = MarketFile.open(folder)
-    assert len(market.instruments()) == 161 + 110 + 5 + 520
-    assert market.close_on("EG:COMI", "2026-10-01").close == D("85.25")
-    assert market.close_on("USD/EGP", "2026-10-01").close == D("52.4315")
+PACKS = ("egx", "eg-funds", "fx", "us", "gcc")
 
-    # Next day (Friday): EGX does not trade, CBE is down, and nothing published is lost or changed.
-    health = collect(folder, FakeNet(failing={"cbe"}), "2026-10-02", "2026-10-02T22:30:00Z")
-    assert "tradingview-egx" in health and health["tradingview-egx"]["checked_at"] == "2026-10-01T22:30:00Z"  # skipped
-    assert health["cbe"]["ok"] is False and health["cbe"]["failures_in_a_row"] == 1 and "403" in health["cbe"]["error"]
-    assert health["cbe"]["last_ok"] == "2026-10-01T22:30:00Z"
-    market = MarketFile.open(folder)
-    assert market.close_on("USD/EGP", "2026-10-02").close == D("52.4315")  # the last good rate stays
 
-    # Sunday: EGX trades again; a 60% jump in CIB from one source is held back and reported.
-    health = collect(folder, FakeNet(egx_close="136.4"), "2026-10-04", "2026-10-04T22:30:00Z")
-    assert MarketFile.open(folder).latest("EG:COMI") == Close("2026-10-01", "EG:COMI", D("85.25"))
-    assert any("EG:COMI 2026-10-04 held back" in p for p in health["_run"]["problems"])
-    assert health["cbe"]["ok"] is True and health["cbe"]["failures_in_a_row"] == 0
+def test_a_run_writes_one_folder_per_pack_and_a_failing_source_keeps_its_last_prices(tmp_path):
+    root = tmp_path / "market"
+    report = collect(root, FakeNet(), "2026-10-01", "2026-10-01T22:30:00Z", PACKS)  # a Thursday: every pack trades
+    assert all(report[pack][name]["ok"] for pack, name in (("egx", "tradingview-egx"), ("eg-funds", "mubasher-funds"),
+                                                            ("fx", "cbe"), ("us", "tradingview-us"), ("gcc", "tradingview-gcc")))
+    counts = {pack: len(MarketFile.open(root / pack).instruments()) for pack in PACKS}
+    assert counts == {"egx": 161, "eg-funds": 110, "fx": 5, "us": 520, "gcc": 350}
+    assert MarketFile.open(root / "egx").close_on("EG:COMI", "2026-10-01").close == D("85.25")
+    assert MarketFile.open(root / "fx").close_on("USD/EGP", "2026-10-01").close == D("52.4315")
+    assert MarketFile.open(root / "gcc").manifest["pack"] == "gcc"
+    index = json.loads((root / "index.json").read_text())
+    assert sorted(index["packs"]) == sorted(PACKS) and index["packs"]["gcc"]["name"] == "Gulf stocks"
+    assert index["packs"]["egx"]["instruments"] == 161 and index["packs"]["egx"]["bytes"] > 0
+
+    # Friday: EGX, Egyptian funds and CBE do not trade, the Gulf (Dubai, Abu Dhabi) does; nothing is lost.
+    report = collect(root, FakeNet(), "2026-10-02", "2026-10-02T22:30:00Z", PACKS)
+    assert report["egx"]["tradingview-egx"]["checked_at"] == "2026-10-01T22:30:00Z"  # skipped, unchanged
+    assert report["gcc"]["tradingview-gcc"]["checked_at"] == "2026-10-02T22:30:00Z"
+    assert MarketFile.open(root / "fx").close_on("USD/EGP", "2026-10-04").close == D("52.4315")  # the last rate stays
+
+    # Sunday: CBE is down and a 60% jump in CIB from one source is held back; both are reported.
+    report = collect(root, FakeNet(failing={"cbe"}, egx_close="136.4"), "2026-10-04", "2026-10-04T22:30:00Z", PACKS)
+    assert MarketFile.open(root / "egx").latest("EG:COMI") == Close("2026-10-01", "EG:COMI", D("85.25"))
+    assert any("EG:COMI 2026-10-04 held back" in p for p in report["egx"]["_run"]["problems"])
+    cbe_health = report["fx"]["cbe"]
+    assert cbe_health["ok"] is False and cbe_health["failures_in_a_row"] == 1 and "403" in cbe_health["error"]
+    assert cbe_health["last_ok"] == "2026-10-01T22:30:00Z"
+    assert MarketFile.open(root / "fx").latest("USD/EGP").date == "2026-10-01"
 
 
 def test_a_source_that_answers_too_little_counts_as_failing(tmp_path):
@@ -163,15 +205,15 @@ def test_a_source_that_answers_too_little_counts_as_failing(tmp_path):
         def get_json(self, url, params=None):
             return {"numberOfPages": 1, "rows": [{"fundId": 1, "name": "One fund", "price": 10, "date": "1 October 2026"}]}
 
-    health = collect(tmp_path / "m", Thin(), "2026-10-01", "2026-10-01T22:30:00Z", markets=("funds",))
-    assert health["mubasher-funds"]["ok"] is False and "fewer than the 100 expected" in health["mubasher-funds"]["error"]
+    report = collect(tmp_path / "m", Thin(), "2026-10-01", "2026-10-01T22:30:00Z", packs=("eg-funds",))
+    assert report["eg-funds"]["mubasher-funds"]["ok"] is False
+    assert "fewer than the 100 expected" in report["eg-funds"]["mubasher-funds"]["error"]
 
 
-def test_backfill_brings_whole_histories(tmp_path):
-    folder = tmp_path / "market"
-    collect(folder, FakeNet(), "2026-10-01", "2026-10-01T22:30:00Z")
-    health = backfill(folder, FakeNet(), ["EG:COMI", "EG:FUND:4", "EG:NOPE"], "2026-10-01", "2026-10-01T23:00:00Z")
-    market = MarketFile.open(folder)
-    assert market.close_on("EG:COMI", "2025-09-25") == Close("2025-09-25", "EG:COMI", D("82"))
-    assert market.close_on("EG:FUND:4", "2022-12-19") == Close("2022-12-19", "EG:FUND:4", D("10.02"))
-    assert any("EG:NOPE: not in the instrument list" in p for p in health["_run"]["problems"])
+def test_backfill_brings_whole_histories_into_the_pack_that_lists_them(tmp_path):
+    root = tmp_path / "market"
+    collect(root, FakeNet(), "2026-10-01", "2026-10-01T22:30:00Z", ("egx", "eg-funds"))
+    report = backfill(root, FakeNet(), ["EG:COMI", "EG:FUND:4", "EG:NOPE"], "2026-10-01", "2026-10-01T23:00:00Z")
+    assert MarketFile.open(root / "egx").close_on("EG:COMI", "2025-09-25") == Close("2025-09-25", "EG:COMI", D("82"))
+    assert MarketFile.open(root / "eg-funds").close_on("EG:FUND:4", "2022-12-19") == Close("2022-12-19", "EG:FUND:4", D("10.02"))
+    assert any("EG:NOPE: not in the instrument list" in p for p in report["_run"]["problems"])

@@ -1,7 +1,8 @@
-"""One collector run: ask every source, check every answer, merge into the market folder, report health.
+"""One collector run: for each pack whose market traded today, ask its sources, check every answer, merge
+into the pack's folder, report health; then describe every pack in index.json (lightning/market/packs.py).
 
-A failing source never stops the others and never removes a price: its market keeps its last good closes,
-and health.json counts its failures in a row so the workflow can open an issue (proposal › Keeping it alive).
+A failing source never stops the others and never removes a price: its pack keeps its last good closes,
+and its health.json counts failures in a row so the workflow can open an issue (proposal › Keeping it alive).
 Published closes are never changed by a run; a different value for a published day is only reported."""
 from __future__ import annotations
 
@@ -11,13 +12,12 @@ from datetime import date, timedelta
 from pathlib import Path
 
 from lightning.market.bundle import Close, Instrument, MarketFile, write
+from lightning.market.packs import PACK_ID, PACKS, write_index
 
 from . import checks
 from .model import Quote, SourceError, SourceResult
 from .sources import cbe, mubasher, tradingview, yahoo
 
-MARKETS = ("egx", "funds", "fx", "us")
-TRADING_DAYS = {"egx": {6, 0, 1, 2, 3}, "us": {0, 1, 2, 3, 4}}  # Python weekdays: Sunday is 6
 INACTIVE_AFTER_DAYS = 30
 
 
@@ -34,20 +34,36 @@ def _load(folder: Path) -> tuple[dict[str, Instrument], dict[str, list[Close]], 
     return dict(market.instruments()), series, health
 
 
-def _sources(session, markets, today: str, instruments: dict[str, Instrument]):
-    """(name, market, fetch) for today's run, highest priority first within a market."""
-    weekday = date.fromisoformat(today).weekday()
+def _sources(session, pack: str, today: str, instruments: dict[str, Instrument]):
+    """(name, fetch) for one pack's sources, highest priority first."""
     classes = {int(i.sources["mubasher"]): i.category for i in instruments.values() if "mubasher" in i.sources}
-    plan = []
-    if "egx" in markets and weekday in TRADING_DAYS["egx"]:
-        plan.append(("tradingview-egx", "egx", lambda: tradingview.fetch(session, "egx", today)))
-    if "funds" in markets:
-        plan.append(("mubasher-funds", "funds", lambda: mubasher.fetch(session, classes)))
-    if "fx" in markets:
-        plan.append(("cbe", "fx", lambda: cbe.fetch(session, today)))
-    if "us" in markets and weekday in TRADING_DAYS["us"]:
-        plan.append(("tradingview-us", "us", lambda: tradingview.fetch(session, "us", today)))
-    return plan
+    if pack == "eg-funds":
+        return [("mubasher-funds", lambda: mubasher.fetch(session, classes))]
+    if pack == "fx":
+        return [("cbe", lambda: cbe.fetch(session, today))]
+    if pack in tradingview.BOARDS:
+        return [(f"tradingview-{pack}", lambda: tradingview.fetch(session, pack, today))]
+    return []
+
+
+def _settle_keys(result: SourceResult, instruments: dict[str, Instrument]) -> None:
+    """Keys never change once published, so a listing whose key is already another venue's (one ticker on
+    both Dubai and Abu Dhabi) is published as KEY-MIC. A source lists each instrument's quotes in the order
+    of its instruments, so the n-th quote under a key belongs to the n-th instrument that had it."""
+    taken = {k: i.mic for k, i in instruments.items() if i.mic}
+    keys: dict[str, list[str]] = {}
+    for n, instrument in enumerate(result.instruments):
+        original = instrument.key
+        owner = taken.get(original)
+        if owner and instrument.mic and owner != instrument.mic:
+            instrument = result.instruments[n] = replace(instrument, key=f"{original}-{instrument.mic}")
+        taken.setdefault(instrument.key, instrument.mic)
+        keys.setdefault(original, []).append(instrument.key)
+    seen: dict[str, int] = {}
+    for n, quote in enumerate(result.quotes):
+        if len(set(keys.get(quote.key, ()))) > 1 or keys.get(quote.key, [quote.key])[0] != quote.key:
+            index = seen[quote.key] = seen.get(quote.key, -1) + 1
+            result.quotes[n] = replace(quote, key=keys[quote.key][min(index, len(keys[quote.key]) - 1)])
 
 
 def _merge_instrument(old: Instrument | None, new: Instrument) -> Instrument:
@@ -95,49 +111,69 @@ def _write(folder, instruments, series, accepted: list[Quote], problems, health,
         instruments[key] = replace(instrument, status=status, first_date=closes[0].date if closes else "",
                                    last_date=closes[-1].date if closes else "")
     health["_run"] = {"created_at": created_at, "problems": problems[:200], "problem_count": len(problems)}
-    write(folder, list(instruments.values()), [c for closes in series.values() for c in closes], created_at, health)
+    write(folder, list(instruments.values()), [c for closes in series.values() for c in closes], created_at, health,
+          pack=Path(folder).name)
     return health
 
 
-def collect(folder: Path, session, today: str, created_at: str, markets=MARKETS) -> dict:
-    folder = Path(folder)
-    instruments, series, health = _load(folder)
-    quotes, problems = [], []
-    for name, market, fetch in _sources(session, markets, today, instruments):
-        try:
-            result: SourceResult = fetch()
-            minimum = checks.MINIMUM_ROWS.get(name, 1)
-            if len(result.quotes) < minimum:
-                raise SourceError(f"answered with {len(result.quotes)} prices, fewer than the {minimum} expected")
-        except SourceError as exc:
-            health[name] = _health_entry(health, name, False, created_at, error=str(exc), rows=0)
+def collect(root: Path, session, today: str, created_at: str, packs=tuple(PACKS)) -> dict:
+    """Run the packs whose market traded today; return each pack's health (unchanged for a skipped pack)."""
+    root, weekday, report = Path(root), date.fromisoformat(today).weekday(), {}
+    for pack in packs:
+        folder = root / pack
+        if pack not in PACKS or not PACK_ID.fullmatch(pack):
+            report[pack] = {"_run": {"problems": [f"{pack}: not a pack this collector knows"]}}
             continue
-        for instrument in result.instruments:
-            instruments[instrument.key] = _merge_instrument(instruments.get(instrument.key), instrument)
-        quotes += result.quotes
-        health[name] = _health_entry(health, name, True, created_at, rows=len(result.quotes))
-    return _finish(folder, instruments, series, quotes, problems, health, today, created_at)
+        if weekday not in PACKS[pack].days:
+            report[pack] = _load(folder)[2]
+            continue
+        instruments, series, health = _load(folder)
+        quotes, problems = [], []
+        for name, fetch in _sources(session, pack, today, instruments):
+            try:
+                result: SourceResult = fetch()
+                minimum = checks.MINIMUM_ROWS.get(name, 1)
+                if len(result.quotes) < minimum:
+                    raise SourceError(f"answered with {len(result.quotes)} prices, fewer than the {minimum} expected")
+            except SourceError as exc:
+                health[name] = _health_entry(health, name, False, created_at, error=str(exc), rows=0)
+                continue
+            _settle_keys(result, instruments)
+            for instrument in result.instruments:
+                instruments[instrument.key] = _merge_instrument(instruments.get(instrument.key), instrument)
+            quotes += result.quotes
+            health[name] = _health_entry(health, name, True, created_at, rows=len(result.quotes))
+        report[pack] = _finish(folder, instruments, series, quotes, problems, health, today, created_at)
+    write_index(root, created_at)
+    return report
 
 
-def backfill(folder: Path, session, keys: list[str], today: str, created_at: str) -> dict:
-    """Whole history for some instruments: Mubasher's CSV for funds, Yahoo's chart for the rest."""
-    folder = Path(folder)
-    instruments, series, health = _load(folder)
-    accepted, problems = [], []
-    for key in keys:
-        instrument = instruments.get(key)
-        if instrument is None:
-            problems.append(f"{key}: not in the instrument list; run collect first")
+def backfill(root: Path, session, keys: list[str], today: str, created_at: str) -> dict:
+    """Whole history for some instruments, in whichever pack lists them: Mubasher's CSV for funds, Yahoo's
+    chart for the rest. Returns the health of each pack written."""
+    root, report, left = Path(root), {}, list(keys)
+    for folder in sorted(p.parent for p in root.glob("*/manifest.json")):
+        instruments, series, health = _load(folder)
+        mine = [k for k in left if k in instruments]
+        if not mine:
             continue
-        try:
-            if "mubasher" in instrument.sources:
-                found = mubasher.fetch_history(session, key, instrument.sources["mubasher"])
-            else:
-                found = yahoo.fetch_history(session, key)
-        except SourceError as exc:
-            problems.append(f"{key}: {exc}")
-            continue
-        quotes, issues = checks.accept(found, series, {key: instrument.category}, today, history=True)
-        accepted += quotes
-        problems += issues
-    return _write(folder, instruments, series, accepted, problems, health, today, created_at)
+        left = [k for k in left if k not in instruments]
+        accepted, problems = [], []
+        for key in mine:
+            instrument = instruments[key]
+            try:
+                if "mubasher" in instrument.sources:
+                    found = mubasher.fetch_history(session, key, instrument.sources["mubasher"])
+                else:
+                    found = yahoo.fetch_history(session, key)
+            except SourceError as exc:
+                problems.append(f"{key}: {exc}")
+                continue
+            quotes, issues = checks.accept(found, series, {key: instrument.category}, today, history=True)
+            accepted += quotes
+            problems += issues
+        report[folder.name] = _write(folder, instruments, series, accepted, problems, health, today, created_at)
+    if left:
+        report["_run"] = {"problems": [f"{key}: not in the instrument list of any pack; run collect first" for key in left]}
+    write_index(root, created_at)
+    return report

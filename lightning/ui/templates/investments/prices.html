@@ -1,23 +1,27 @@
 {% extends "base.html" %}
 {% block title %}Investment prices{% endblock %}
-{% block heading %}<h1>Investment prices</h1><div class="muted">Fill them from the price file, or type them. A price you type for a day wins over the file.</div>{% endblock %}
+{% block heading %}<h1>Investment prices</h1><div class="muted">Fill them from the price files of the markets you follow, or type them. A price you type for a day wins.</div>{% endblock %}
 {% block content %}
-<section class="card" style="max-width:860px;margin-bottom:16px" aria-labelledby="price-file">
-  <h2 id="price-file">Price file</h2>
+<section class="card" style="max-width:860px;margin-bottom:16px" aria-labelledby="price-files">
+  <h2 id="price-files">Price files</h2>
   {% if market %}
-  <p class="muted">Closing prices of {{ market.instruments }} stocks, funds and currencies up to {{ market.last_date }}. File of {{ market.created_at }}, {{ market.origin }}. Filling gives each investment you hold its price at every month-end and its latest close.</p>
+  <table class="budget">
+    <thead><tr><th>Market</th><th class="num">Prices</th><th>Up to</th><th>File</th></tr></thead>
+    {% for m in market %}<tr><td>{{ m.name }}</td>{% if m.have %}<td class="num">{{ m.have.instruments }}</td><td>{{ m.have.last_date }}</td><td class="muted small">{{ m.have.created_at }}, {{ m.have.origin }}</td>{% else %}<td class="num muted">—</td><td colspan="2" class="muted">Not downloaded yet</td>{% endif %}</tr>{% endfor %}
+  </table>
+  <p class="muted small">Filling gives each investment you hold its price at every month-end and its latest close. <a href="/investments/prices/markets">Choose markets</a></p>
   {% else %}
-  <p class="muted">No price file yet. Update prices downloads it: about 2.5 MB the first time, about 1 MB a month after.</p>
+  <p class="muted">You follow no markets. <a href="/investments/prices/markets">Choose markets</a> to download their prices.</p>
   {% endif %}
-  <form method="post" class="actions" action="/investments/prices/market/fill">
-    {% if market %}<button class="btn primary">Fill my prices</button>{% endif %}
-    <button class="btn {{ '' if market else 'primary' }}" formaction="/investments/prices/market/update">Update prices</button>
-  <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
+  {% if market %}<form method="post" class="actions" action="/investments/prices/market/fill">
+    {% if market | selectattr('have') | list %}<button class="btn primary">Fill my prices</button>{% endif %}
+    <button class="btn {{ '' if market | selectattr('have') | list else 'primary' }}" formaction="/investments/prices/market/update">Update prices</button>
+  <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>{% endif %}
   <details style="margin-top:12px">
     <summary>Import a file</summary>
     <form method="post" enctype="multipart/form-data" action="/investments/prices/market/import" style="margin-top:10px">
       <div class="field"><label for="market-zip">market.zip</label><input id="market-zip" type="file" name="file" accept=".zip,application/zip" required>
-        <div class="help">From a newer Lightning or another computer. An older file than yours is refused.</div></div>
+        <div class="help">From a newer Lightning or another computer. A pack older than yours is skipped.</div></div>
       <div class="actions"><button class="btn">Import and fill</button></div>
     <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
   </details>
@@ -53,6 +57,6 @@
     {% endfor %}
   </table>
   <div class="actions" style="margin-top:14px"><button class="btn primary">Save prices</button><a class="btn" href="/investments">Cancel</a></div>
-  <p class="muted small">A price you type wins over the price file and the last trade price for the same day.</p>
+  <p class="muted small">A price you type wins over the price files and the last trade price for the same day.</p>
 <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
 {% endblock %}

@@ -1,30 +1,62 @@
-"""TradingView's screener: every EGX stock (and the largest US stocks and ETFs) with its latest close,
-in one request per market. The request shape is the one open-source trackers use daily."""
+"""TradingView's screener: every listing on EGX and the Gulf exchanges, and the largest US and European
+stocks and ETFs, with their latest close, in one request per board and kind. The request shape is the one
+open-source trackers use daily; Gulf and European boards are unverified until the first live run."""
 from __future__ import annotations
 
+from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 
-from lightning.market.bundle import Instrument
+from lightning.market.bundle import Instrument, MarketFileError
 
 from ..model import Quote, SourceError, SourceResult
 
 SCAN = "https://scanner.tradingview.com/{screener}/scan"
 COLUMNS = ["name", "description", "close", "currency", "type", "subtype", "exchange"]
-EGX_QUERY = {"columns": COLUMNS, "range": [0, 2000], "sort": {"sortBy": "name", "sortOrder": "asc"}}
-US_STOCKS = 600   # about the S&P 500 and Nasdaq-100 by size; widened later on request
-US_ETFS = 100
-_US = [{"left": "exchange", "operation": "in_range", "right": ["NASDAQ", "NYSE", "AMEX"]}]
-US_STOCK_QUERY = {"columns": COLUMNS, "filter": _US + [
-    {"left": "type", "operation": "in_range", "right": ["stock", "dr"]},
-    {"left": "subtype", "operation": "nequal", "right": "preferred"}],
-    "sort": {"sortBy": "market_cap_basic", "sortOrder": "desc"}, "range": [0, US_STOCKS]}
-US_ETF_QUERY = {"columns": COLUMNS, "filter": _US + [
-    {"left": "type", "operation": "equal", "right": "fund"},
-    {"left": "subtype", "operation": "equal", "right": "etf"}],
-    "sort": {"sortBy": "aum", "sortOrder": "desc"}, "range": [0, US_ETFS]}
-# TradingView names venues its own way; ISO 10383 MICs are what the file stores. It reports NYSE Arca
-# listings (most ETFs) as AMEX, so an ETF there is ARCX and a share there is NYSE American (XASE).
-_MIC = {"EGX": "XCAI", "NASDAQ": "XNAS", "NYSE": "XNYS"}
+ALL = 2000  # a whole board, every listing
+
+
+@dataclass(frozen=True)
+class Board:
+    """One TradingView screener and the venues taken from it, as ISO 10383 MICs. `stocks` and `etfs` are
+    how many, largest first; ALL takes every listing in one request."""
+    screener: str
+    venues: dict
+    country: str                 # ISO 3166 country of the venues: the key's prefix (SA:2222, GB:VOD)
+    stocks: int = ALL
+    etfs: int = 0
+
+
+# TradingView reports NYSE Arca listings (most ETFs) as AMEX: an ETF there is ARCX, a share NYSE American.
+BOARDS: dict[str, list[Board]] = {
+    "egx": [Board("egypt", {"EGX": "XCAI"}, "EG")],
+    "us": [Board("america", {"NASDAQ": "XNAS", "NYSE": "XNYS", "AMEX": ""}, "US", stocks=600, etfs=100)],
+    "gcc": [Board("ksa", {"TADAWUL": "XSAU"}, "SA"), Board("uae", {"DFM": "XDFM", "ADX": "XADS"}, "AE"),
+            Board("qatar", {"QSE": "DSMQ"}, "QA"), Board("kuwait", {"KSE": "XKUW"}, "KW"),
+            Board("bahrain", {"BAHRAIN": "XBAH"}, "BH")],
+    "europe": [Board("uk", {"LSE": "XLON"}, "GB", 350, 100), Board("germany", {"XETR": "XETR"}, "DE", 160, 60),
+               Board("france", {"EURONEXT": "XPAR"}, "FR", 120), Board("netherlands", {"EURONEXT": "XAMS"}, "NL", 75, 40),
+               Board("belgium", {"EURONEXT": "XBRU"}, "BE", 30), Board("portugal", {"EURONEXT": "XLIS"}, "PT", 20),
+               Board("spain", {"BME": "XMAD"}, "ES", 60), Board("italy", {"MIL": "XMIL"}, "IT", 60),
+               Board("switzerland", {"SIX": "XSWX"}, "CH", 60)],
+}
+# Prices quoted in a currency's minor unit are published in the ISO 4217 unit: pence, fils.
+MINOR = {"GBX": ("GBP", Decimal(100)), "KWF": ("KWD", Decimal(1000)), "ZAC": ("ZAR", Decimal(100)),
+         "ILA": ("ILS", Decimal(100))}
+
+
+def query(board: Board, kind: str) -> dict:
+    """The screener request: a whole board by name, or its largest stocks or ETFs."""
+    venue = [{"left": "exchange", "operation": "in_range", "right": sorted(board.venues)}]
+    if kind == "all":
+        return {"columns": COLUMNS, "filter": venue, "range": [0, ALL], "sort": {"sortBy": "name", "sortOrder": "asc"}}
+    if kind == "stocks":
+        return {"columns": COLUMNS, "filter": venue + [
+            {"left": "type", "operation": "in_range", "right": ["stock", "dr"]},
+            {"left": "subtype", "operation": "nequal", "right": "preferred"}],
+            "sort": {"sortBy": "market_cap_basic", "sortOrder": "desc"}, "range": [0, board.stocks]}
+    return {"columns": COLUMNS, "filter": venue + [
+        {"left": "type", "operation": "equal", "right": "fund"}, {"left": "subtype", "operation": "equal", "right": "etf"}],
+        "sort": {"sortBy": "aum", "sortOrder": "desc"}, "range": [0, board.etfs]}
 
 
 def _decimal(value) -> Decimal | None:
@@ -35,11 +67,11 @@ def _decimal(value) -> Decimal | None:
     return number if number.is_finite() and number > 0 else None
 
 
-def parse(data: dict, market: str, day: str) -> SourceResult:
+def parse(data: dict, board: Board, day: str, source: str) -> SourceResult:
     """One screener answer as instruments and closes dated `day` (the trading day the run is for)."""
     if not isinstance(data, dict) or not isinstance(data.get("data"), list):
         raise SourceError("TradingView's screener answered without its data list")
-    result = SourceResult(f"tradingview-{market}")
+    result = SourceResult(source)
     for row in data["data"]:
         try:
             symbol, values = row["s"], dict(zip(COLUMNS, row["d"]))
@@ -47,33 +79,36 @@ def parse(data: dict, market: str, day: str) -> SourceResult:
             continue
         exchange, _, ticker = str(symbol).partition(":")
         close = _decimal(values.get("close"))
-        if not ticker or close is None:
+        if not ticker or close is None or exchange not in board.venues or values.get("type") not in ("stock", "fund", "dr"):
             continue
-        if market == "egx":
-            if exchange != "EGX" or values.get("type") not in ("stock", "fund", "dr"):
-                continue
-            key, country, mic = f"EG:{ticker}", "EG", "XCAI"
-        else:
-            if exchange not in ("NASDAQ", "NYSE", "AMEX"):
-                continue
-            key, country = f"US:{ticker}", "US"
-            mic = _MIC.get(exchange) or ("ARCX" if values.get("type") == "fund" else "XASE")
         is_fund = values.get("type") == "fund"
-        result.instruments.append(Instrument(
-            key=key, name=" ".join(str(values.get("description") or ticker).split()), ticker=ticker, mic=mic,
-            country=country, currency=str(values.get("currency") or ("EGP" if market == "egx" else "USD")).upper(),
+        mic = board.venues[exchange] or ("ARCX" if is_fund else "XASE")
+        currency = str(values.get("currency") or "").upper()
+        if currency in MINOR:
+            currency, per_unit = MINOR[currency]
+            close = (close / per_unit).normalize()
+        instrument = Instrument(
+            key=f"{board.country}:{ticker.upper()}", name=" ".join(str(values.get("description") or ticker).split()),
+            ticker=ticker.upper(), mic=mic, country=board.country, currency=currency,
             category="FUND.OTHER" if is_fund else "STOCK", unit="unit" if is_fund else "share",
-            sources={"tradingview": symbol}))
-        result.quotes.append(Quote(key, day, close, result.source))
+            sources={"tradingview": symbol})
+        try:
+            instrument.check()
+        except MarketFileError:
+            continue  # a ticker the published key form cannot hold is left out, never mangled
+        result.instruments.append(instrument)
+        result.quotes.append(Quote(instrument.key, day, close, source))
     return result
 
 
-def fetch(session, market: str, day: str) -> SourceResult:
-    url = SCAN.format(screener="egypt" if market == "egx" else "america")
-    if market == "egx":
-        return parse(session.post_json(url, EGX_QUERY), "egx", day)
-    stocks = parse(session.post_json(url, US_STOCK_QUERY), "us", day)
-    etfs = parse(session.post_json(url, US_ETF_QUERY), "us", day)
-    stocks.instruments += etfs.instruments
-    stocks.quotes += etfs.quotes
-    return stocks
+def fetch(session, pack: str, day: str) -> SourceResult:
+    """Every board of a pack, merged; a board that fails fails the pack's source (its last prices stay)."""
+    result = SourceResult(f"tradingview-{pack}")
+    for board in BOARDS[pack]:
+        url = SCAN.format(screener=board.screener)
+        kinds = ["all"] if board.stocks == ALL else ["stocks"] + (["etfs"] if board.etfs else [])
+        for kind in kinds:
+            part = parse(session.post_json(url, query(board, kind)), board, day, result.source)
+            result.instruments += part.instruments
+            result.quotes += part.quotes
+    return result

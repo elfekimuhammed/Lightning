@@ -1,7 +1,9 @@
-"""Bring a local market folder up to date from the published one, downloading only files that changed.
+"""Bring the packs a profile follows up to date from the open data repository, downloading only files
+that changed (lightning/market/packs.py).
 
-Every changed file is downloaded and checked against the published manifest before any is written, so a
-failed or damaged download changes nothing; the manifest is written last (bundle.install)."""
+Every changed file of a pack is downloaded and checked against the published manifest before any is
+written, so a failed or damaged download changes nothing in that pack; the manifest is written last
+(bundle.install)."""
 from __future__ import annotations
 
 import gzip
@@ -13,9 +15,11 @@ from urllib.error import URLError
 from urllib.request import Request, urlopen
 
 from .bundle import FILE_NAME, MAX_UNPACKED, SCHEMA, MarketFileError, install
+from .packs import DAILY_MONTHS, INDEX, PACK_ID
 
-DEFAULT_URL = "https://raw.githubusercontent.com/elfekimuhammed/Lightning-downloads/main/market/"
-DAILY_MONTHS = 13
+# The open data repository the collector publishes to (proposal › How the app gets prices); a profile can
+# point elsewhere with the market_url setting, e.g. a mirror.
+DEFAULT_URL = "https://raw.githubusercontent.com/elfekimuhammed/Lightning-market/main/"
 
 
 def _get(url: str, timeout: float) -> bytes:
@@ -56,3 +60,25 @@ def update_folder(folder: Path, base_url: str = DEFAULT_URL, timeout: float = 20
         changed[name] = data
     install(folder, changed, dict(remote, files=keep))
     return sorted(changed)
+
+
+def update_packs(root: Path, pack_ids, base_url: str = DEFAULT_URL, timeout: float = 20.0) -> tuple[dict, list[str]]:
+    """Update each followed pack in its own folder under `root`; keep the published index for the Price
+    files page. Returns the changed files by pack, and the followed packs not published (yet)."""
+    root, base = Path(root), base_url.rstrip("/") + "/"
+    try:
+        index = json.loads(_get(base + INDEX, timeout))
+    except ValueError:
+        raise MarketFileError("The published price index is not readable.") from None
+    if not isinstance(index, dict) or index.get("schema") != SCHEMA or not isinstance(index.get("packs"), dict):
+        raise MarketFileError("The published price files need a newer Lightning; your saved prices stay in use.")
+    published = {p: e for p, e in index["packs"].items() if PACK_ID.fullmatch(str(p)) and isinstance(e, dict)}
+    root.mkdir(parents=True, exist_ok=True)
+    (root / INDEX).write_text(json.dumps(dict(index, packs=published), indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    changed, missing = {}, []
+    for pack_id in pack_ids:
+        if pack_id in published:
+            changed[pack_id] = update_folder(root / pack_id, base + pack_id + "/", timeout)
+        else:
+            missing.append(pack_id)
+    return changed, missing

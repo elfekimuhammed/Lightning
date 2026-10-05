@@ -17,7 +17,18 @@ VENUES: dict[str, tuple[str, str]] = {
     "XSAU": ("Saudi Exchange", "SA"),
     "XDFM": ("Dubai Financial Market", "AE"),
     "XADS": ("Abu Dhabi Securities Exchange", "AE"),
+    "DSMQ": ("Qatar Stock Exchange", "QA"),
+    "XKUW": ("Boursa Kuwait", "KW"),
+    "XBAH": ("Bahrain Bourse", "BH"),
     "XLON": ("London Stock Exchange", "GB"),
+    "XETR": ("Xetra", "DE"),
+    "XPAR": ("Euronext Paris", "FR"),
+    "XAMS": ("Euronext Amsterdam", "NL"),
+    "XBRU": ("Euronext Brussels", "BE"),
+    "XLIS": ("Euronext Lisbon", "PT"),
+    "XMAD": ("Madrid Stock Exchange", "ES"),
+    "XMIL": ("Borsa Italiana", "IT"),
+    "XSWX": ("SIX Swiss Exchange", "CH"),
 }
 
 

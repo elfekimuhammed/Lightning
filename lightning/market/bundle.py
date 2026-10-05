@@ -140,7 +140,7 @@ def _month_end_closes(closes: list[Close]) -> list[Close]:
 
 
 def write(folder: Path, instruments: list[Instrument], closes: list[Close], created_at: str,
-          health: dict | None = None) -> dict:
+          health: dict | None = None, pack: str = "") -> dict:
     """Write a whole market folder from instruments and every daily close, and return its manifest.
 
     Monthly files are derived from the daily closes, so the two can never disagree."""
@@ -171,7 +171,7 @@ def write(folder: Path, instruments: list[Instrument], closes: list[Close], crea
                                              for c in rows], PRICE_FIELDS)
     if health is not None:
         files["health.json"] = json.dumps(health, indent=2, sort_keys=True).encode("utf-8")
-    manifest = {"schema": SCHEMA, "created_at": created_at, "files": {}}
+    manifest = {"schema": SCHEMA, "created_at": created_at, "files": {}} | ({"pack": pack} if pack else {})
     for name, data in sorted(files.items()):
         entry = {"sha256": hashlib.sha256(data).hexdigest(), "bytes": len(data)}
         if name.endswith(".csv") and name != "instruments.csv":
@@ -247,7 +247,7 @@ class MarketFile:
                    if p.is_file() and not p.name.endswith(".part")}
         except OSError as exc:
             raise MarketFileError(f"This is not a Lightning market file ({exc.__class__.__name__}).") from None
-        return cls._checked(raw)
+        return cls.from_files(raw)
 
     @classmethod
     def from_zip(cls, data: bytes) -> MarketFile:
@@ -258,10 +258,12 @@ class MarketFile:
                 raw = {name: archive.read(name) for name in archive.namelist() if not name.endswith("/")}
         except (OSError, ValueError, zipfile.BadZipFile) as exc:
             raise MarketFileError(f"This is not a Lightning market file ({exc.__class__.__name__}).") from None
-        return cls._checked(raw)
+        return cls.from_files(raw)
 
     @classmethod
-    def _checked(cls, raw: dict[str, bytes]) -> MarketFile:
+    def from_files(cls, raw: dict[str, bytes]) -> MarketFile:
+        """A market file from its files by name (manifest.json among them), each checked against the manifest."""
+        raw = dict(raw)
         try:
             manifest = json.loads(raw.pop("manifest.json"))
         except (KeyError, ValueError) as exc:

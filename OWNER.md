@@ -8,6 +8,7 @@ What only the owner can do or decide. Any AI adds an item here, and removes it o
   1. Create a fine-grained token with Contents: read and write on `Lightning-downloads` only. Save it in this repository as the Actions secret `LIGHTNING_DOWNLOADS_TOKEN`.
   2. Turn on release immutability in `Lightning-downloads` › Settings.
   3. Release with `git tag v0.5.0-beta.1 <commit on main>` and `git push origin v0.5.0-beta.1`.
+- **Price packs (one-time, after deciding *Price data rights* below):** create the public repository `elfekimuhammed/Lightning-market` (an empty `main`) and a fine-grained token with Contents: read and write on it only, saved here as the Actions secret `LIGHTNING_MARKET_TOKEN`. Until both exist the collector runs and checks sources but publishes nothing.
 - **Website search:** add `lightningeg.com` to Google Search Console and Bing Webmaster Tools; submit `/sitemap.xml`.
 - **Retest:** on the PC whose window failed to start, try a ZIP downloaded in a browser. Builds from `f4e1603` on include the fix.
 
@@ -30,3 +31,4 @@ What only the owner can do or decide. Any AI adds an item here, and removes it o
 7. *Restore, from Claude's review of 03a:* unlock re-verifies every retained copy (2.7 s for three 23.5 MB restores). Keep that, or drop it?
 8. *Ratios (2026-10-05):* when should a ratio turn strong rose (needs you)? Suggested: loan payments over 35% of income, fixed costs over 50% of it. Until then the four ratio cards on Loans and Recurring stay soft rose (Project Overview › Upcoming projects #3).
 9. *Not in the brand guideline (2026-10-05):* the sidebar's Search well and privacy eye (styled as the dropdown's soft search well, pressed in Nile), and privacy mode's 6px blur on amounts. Keep them, or give the rule?
+10. *Price data rights (2026-10-05), before any pack is published:* the collector reads TradingView (EGX, US, Gulf, Europe), Mubasher (funds; its robots.txt asks bots to keep off `/api/`), CBE (official) and Yahoo (history). TradingView's and Yahoo's terms forbid collecting and republishing, exchanges license their data, and an open repository makes it public. Publish (a) only CBE rates and fund NAVs until a licensed end-of-day feed with redistribution rights covers stocks (recommended), (b) everything as built, or (c) nothing openly, shipping packs only inside releases? Proposal › Rights and limits (`docs/proposals/market_data.md`).

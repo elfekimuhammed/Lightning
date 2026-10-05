@@ -15,7 +15,8 @@ TOLERANCE = {"STOCK": Decimal("0.01"), "FUND": Decimal("0.005"), "CURRENCY": Dec
              "INDEX": Decimal("0.01")}
 OFFICIAL = {"cbe"}  # the official number: never held back by the jump check
 # The fewest rows a healthy answer has; fewer means the source is broken or blocking us.
-MINIMUM_ROWS = {"tradingview-egx": 150, "tradingview-us": 400, "mubasher-funds": 100, "cbe": 5}
+MINIMUM_ROWS = {"tradingview-egx": 150, "tradingview-us": 400, "tradingview-gcc": 300, "tradingview-europe": 700,
+                "mubasher-funds": 100, "cbe": 5}
 SPLIT_RATIO = Decimal("1.9")  # a fund NAV moving this much at once is a unit split, not a price
 
 
