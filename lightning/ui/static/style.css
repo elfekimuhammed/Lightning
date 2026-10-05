@@ -2904,6 +2904,9 @@ a.chart-sankey-label:hover b { color:var(--azure); }
 .main .budget-select-all input { width:16px; height:16px; }
 .main .budget-set .budget-select-all { margin:10px 0 4px; }
 
+/* A segment in Settings hugs its choices (A10.2); a phone still gets the full-width one. */
+.main .sc-group .planner-mode-seg:not(#_) { justify-self:start; }
+
 /* Import review on a phone: the fixed six-column import row is declared after the earlier
    phone rule and overrode it, so the phone layout is re-applied here, last. */
 @media (max-width:760px) {

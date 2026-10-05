@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
+from lightning.core.figures import FIGURES
 from lightning.core.money import ZERO, fmt as _fmt
 
 
@@ -170,12 +171,16 @@ def next_payment(payments: list) -> dict | None:
                 label=f"{p.item.name} · {'due since' if p.status.value == 'DUE' else 'due'} {p.due_date}", figure=fmt(p.amount))
 
 
-def emergency(months: Decimal | None, target: Decimal | None) -> dict | None:
+def emergency(fund) -> dict | None:
+    """How long the emergency fund lasts, in months of the average Settings › Budget names."""
+    months = fund.months
     if months is None:
-        return note("info", "Emergency fund not measured yet", "Set your income categories so months covered can be worked out.",
+        how = ("Set your income categories" if fund.basis == "income" else "Record a month of spending")
+        return note("info", "Emergency fund not measured yet", f"{how} so months covered can be worked out.",
                     "/settings?section=budget", "Open settings")
     tone = "good" if months >= 6 else "attention" if months < 1 else "info"
-    return note(tone, f"Emergency fund covers {months:.1f} months", "Of average monthly income. The aim is six.",
+    of = FIGURES[fund.figure].label
+    return note(tone, f"Emergency fund covers {months:.1f} months", f"Of {of[0].lower() + of[1:]}. The aim is six.",
                 label="Emergency fund covers", figure=f"{months:.1f} months")
 
 

@@ -98,6 +98,9 @@ _TABLE = [
     ("average_monthly_income", "Average monthly income",
      "Income in your chosen income categories, averaged over the last 3 or 6 completed months that had any "
      "(Settings › Budget). The budget, reserves and the cash forecast all use it."),
+    ("average_monthly_spending", "Average monthly spending",
+     "Money out in your budget categories, leaving out investments and one-off categories, averaged over the same "
+     "3 or 6 completed months as Average monthly income. The emergency fund can be counted in it (Settings › Budget)."),
     # ------------------------------------------------------------ budget (a month)
     ("base_budget", "Base budget", "The amount the budget rule gives: fixed, a share of income or an average."),
     ("carryover", "Carryover", "Unused plan from last month, added to this month when carryover is on.",
@@ -174,6 +177,7 @@ _SOURCES = {
     "fall_from_high": (LEDGER, "lightning.investments.journey.holding_history"),
     "investing_rate": (LEDGER, f"{INV}.investing_rate"),
     "average_monthly_income": (LEDGER, "lightning.budgeting.service.BudgetService.income_average"),
+    "average_monthly_spending": (LEDGER, "lightning.budgeting.service.BudgetService.spending_average"),
     "base_budget": (PLAN, f"{BL}.budget"),
     "carryover": (BOTH, f"{BL}.opening_carryover"),
     "planned": (BOTH, f"{BL}.available"),

@@ -134,8 +134,7 @@ def _plan(c, accounts: dict[str, int], day: date) -> None:
     suggested = c.budgets.suggested_plan(month)
     if suggested:
         c.budgets.save_month(month, suggested)
-    income = c.budgets.income_average(month)
-    c.reserves.set_emergency_fund("20,000", income.six_months or 0)
+    c.reserves.set_emergency_fund("20,000", c.budgets.emergency_fund(month, None).target or 0)
 
     def category(text):
         return str(c.categories.find_by_text(text).id)

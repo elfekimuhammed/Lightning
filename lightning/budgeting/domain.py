@@ -147,7 +147,48 @@ class IncomeAverage:
     def window(self) -> str:
         return f"{self.first_month} to {self.last_month}" if self.first_month else ""
 
+
+
+@dataclass(frozen=True)
+class SpendingAverage:
+    """Average monthly spending, and the completed months it was averaged over."""
+    amount: Decimal | None
+    months_counted: int        # completed months in the window that had spending
+    lookback: int              # 3 or 6, the same as Average monthly income
+    first_month: str           # yyyy-mm, the window
+    last_month: str
+
     @property
-    def six_months(self) -> Decimal | None:
-        """The emergency-fund target: six months of average monthly income."""
-        return None if self.amount is None else self.amount * 6
+    def window(self) -> str:
+        return f"{self.first_month} to {self.last_month}" if self.first_month else ""
+
+
+EMERGENCY_BASES = {"income": "average_monthly_income", "spending": "average_monthly_spending"}
+
+
+@dataclass(frozen=True)
+class EmergencyFund:
+    """How long the emergency fund lasts, in months of Average monthly income or of Average monthly
+    spending, whichever Settings › Budget names. The aim is six months."""
+    set_aside: Decimal | None              # None while there is no emergency fund
+    basis: str                             # a key of EMERGENCY_BASES
+    average: IncomeAverage | SpendingAverage
+
+    @property
+    def figure(self) -> str:
+        """The registry key of the average it is counted in."""
+        return EMERGENCY_BASES[self.basis]
+
+    @property
+    def monthly(self) -> Decimal | None:
+        amount = self.average.amount
+        return amount if amount and amount > 0 else None
+
+    @property
+    def months(self) -> Decimal | None:
+        return self.set_aside / self.monthly if self.set_aside is not None and self.monthly else None
+
+    @property
+    def target(self) -> Decimal | None:
+        """Six months of the chosen average."""
+        return self.monthly * 6 if self.monthly else None

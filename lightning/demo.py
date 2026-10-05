@@ -154,8 +154,7 @@ def build_demo(c, as_of: date | None = None) -> dict:
         suggested = c.budgets.suggested_plan(this_month)
         if suggested:
             c.budgets.save_month(this_month, suggested)
-        income = c.budgets.income_average(this_month)
-        c.reserves.set_emergency_fund("20,000", income.six_months or D(0))
+        c.reserves.set_emergency_fund("20,000", c.budgets.emergency_fund(this_month, None).target or D(0))
 
         def party(name):
             found = c.counterparties.resolve(name)

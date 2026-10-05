@@ -6,7 +6,7 @@ Last rewritten 2026-10-05 · Claude.
 
 ## Claude
 
-- **Last done (2026-10-05):** sums in amount fields (Glossary › Amount input); Overview › Upcoming projects; website SEO and seven Egypt guide pages (website README › Search); guideline 3.21 in both copies.
+- **Last done (2026-10-05):** emergency fund in months of income or spending (Settings › Budget); sums in amount fields; Overview › Upcoming projects; website SEO and Egypt guides; guideline 3.21.
 - **For Codex (03a):** (1) a failure after PENDING, before P1, still locks the profile: retire it as abandoned when the journal never prepared and live equals `old_sha256`. (2) Unlock re-verifies every retained copy (2.7 s for three 23.5 MB restores); drop it? Owner's call. (3) Deleting a retained copy locks the profile: intended?
 - **In progress:** none. `session.prepare`/`confirm`/`recover`/`change_password` changed signature; `keys.json` is v2; `unwrap_key(read_slot(...), password)` still works.
 

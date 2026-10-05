@@ -24,11 +24,13 @@
 
 <section class="card emergency-fund">
   <div class="section-head"><div><h2>Emergency fund</h2><p>Money set aside for the unexpected</p></div></div>
-  {% if emergency_meter %}<div class="emergency-meter">{{ meter('Towards six months of income', emergency_set_aside, income.six_months, emergency_meter, '', '', 'target') }}</div>{% endif %}
+  {% set avg = fund.average %}{% set what = 'income' if fund.basis == 'income' else 'spending' %}
+  {% if emergency_meter %}<div class="emergency-meter">{{ meter('Towards six months of ' ~ what, emergency_set_aside, fund.target, emergency_meter, '', '', 'target') }}</div>{% endif %}
   <div class="emergency-stats">
-    <div><span class="muted small">{{ fig.average_monthly_income.label }}</span><b>{{ (income.amount or 0)|money }}</b><small class="muted">{% if income.manual %}Set by hand in Settings{% else %}{{ income.window }} · {{ income.months_counted }} month{{ '' if income.months_counted == 1 else 's' }} with income{% endif %}</small></div>
+    <div><span class="muted small">{{ fig[fund.figure].label }}</span><b>{{ (avg.amount or 0)|money }}</b><small class="muted">{% if avg.manual %}Set by hand in Settings{% else %}{{ avg.window }} · {{ avg.months_counted }} month{{ '' if avg.months_counted == 1 else 's' }} with {{ what }}{% endif %}</small></div>
   </div>
-  {% if not income.amount %}<p class="muted small">Choose your income categories in <a href="/settings?section=budget">Settings</a> to measure months covered.</p>{% endif %}
+  {% if not fund.monthly %}<p class="muted small">{% if fund.basis == 'income' %}Choose your income categories in <a href="/settings?section=budget">Settings</a> to measure months covered.{% else %}Months covered are measured once a month of spending is recorded.{% endif %}</p>{% endif %}
+  <p class="muted small">Counted in months of {{ what }} · <a href="/settings?section=budget">Change in Settings</a></p>
   <form method="post" action="/reserves/emergency" class="emergency-form" data-autosave-form>
     <label>Amount set aside<input class="money-input" type="text" name="allocated" value="{{ emergency.effective_allocated|money(False, 2) if emergency else '0.00' }}" inputmode="decimal" required>{% if emergency and emergency.spent %}<small class="muted">After {{ emergency.spent|money }} paid from the fund</small>{% endif %}</label>
     <span class="inline-save-status" aria-live="polite"></span>

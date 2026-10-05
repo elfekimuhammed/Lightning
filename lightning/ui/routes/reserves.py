@@ -32,9 +32,8 @@ def _context(request: Request, error: str = ""):
     c = container(request)
     reserves = c.reserves.list_active()
     emergency = next((item for item in reserves if item["kind"] == "EMERGENCY"), None)
-    # Emergency coverage uses Average monthly income, the same figure the budget and forecast use.
-    income = c.budgets.income_average(month_of(today()))
-    emergency_months = (emergency["effective_allocated"] / income.amount) if emergency and income.amount else None
+    # Months of Average monthly income or of Average monthly spending, as Settings › Budget says.
+    fund = c.budgets.emergency_fund(month_of(today()), emergency["effective_allocated"] if emergency else None)
     listed = [item for item in reserves if item["kind"] != "EMERGENCY"]
     for item in listed:
         item["payments"] = [dict(row) | {"amount": from_e6(row["amount_e6"])}
@@ -46,13 +45,12 @@ def _context(request: Request, error: str = ""):
         item["payments"] = [dict(row) | {"amount": from_e6(row["amount_e6"])}
                             for row in c.reserves.links_for_reserve(item["id"])]
     set_aside = emergency["effective_allocated"] if emergency else ZERO
-    emergency_meter = charts.meter(set_aside, income.six_months) if income.six_months else None
+    emergency_meter = charts.meter(set_aside, fund.target) if fund.target else None
     position = c.position.at(today())
     # Free cash is the last tile below, so the one note is how long the emergency fund lasts.
-    notes = [n for n in (keynotes.emergency(emergency_months, income.six_months),) if n]
+    notes = [n for n in (keynotes.emergency(fund),) if n]
     return {"reserves": listed, "completed_reserves": completed, "notes": notes, "emergency_meter": emergency_meter,
-            "emergency_set_aside": set_aside,
-            "emergency": emergency, "income": income, "emergency_months": emergency_months,
+            "emergency_set_aside": set_aside, "emergency": emergency, "fund": fund,
             "pos": position, "error": error,
             "counterparties": c.counterparties.list_active(),
             "accounts": [account for account in c.accounts.list(active_only=True)
@@ -95,7 +93,7 @@ async def save_emergency_fund(request: Request):
     c = container(request)
     form = await request.form()
     try:
-        salary_target = (c.budgets.income_average(month_of(today())).amount or ZERO) * 6
+        salary_target = c.budgets.emergency_fund(month_of(today()), None).target or ZERO
         amount = str(form.get("allocated", ""))
         existing = next((row for row in c.reserves.list_active() if row["kind"] == "EMERGENCY"), None)
         assigned = c.reserves.cash_summary(c.reporting.owned_liquid_cash(today()))["allocated"]

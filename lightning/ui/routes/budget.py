@@ -505,6 +505,8 @@ async def save_budget_settings(request: Request):
         parse_month(carry_month)
         categories = [int(x) for x in form.getlist("income_category") if str(x).isdigit()]
         exclusions = [int(x) for x in form.getlist("exclusion_category") if str(x).isdigit()]
+        if "emergency_basis" in form:  # the older budget settings page has no such choice
+            c.budgets.set_emergency_basis(str(form.get("emergency_basis")))
         c.settings.set("budget_income_categories", json.dumps(sorted(set(categories))))
         c.settings.set("budget_income_months", income_months)
         c.settings.set("budget_manual_monthly_income", manual)

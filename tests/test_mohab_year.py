@@ -508,6 +508,12 @@ def _live_the_year(o: Mohab) -> None:
     o.month("2027-09", salary=None, rent="13,200")
     o.ask("next_pay", "I'm between jobs. When is my next pay?", "Cash planning")
     o.ask("last", "How long could my emergency fund carry me?", "Cash planning", "Reserves")
+    # He would rather count it in months of what he spends; Reserves links to the setting.
+    b.go("Cash planning", "Reserves", "Change in Settings")
+    b.submit({"emergency_basis": "spending"}, button="Save budget settings")
+    o.ask("last_in_spending", "And in months of what I spend?", "Cash planning", "Reserves")
+    b.go("Cash planning", "Reserves", "Change in Settings")
+    b.submit({"emergency_basis": "income"}, button="Save budget settings")
 
     # ============================================================== the year
     for key, question, page in (("year", "How did my year go?", ""),
@@ -870,6 +876,14 @@ def test_between_jobs_the_next_pay_is_the_new_employer(mohab):
 def test_the_emergency_fund_in_months(mohab):
     answer = mohab.answers["last"]
     assert answer.shows("Emergency fund covers 0.3 months")
+
+
+def test_the_emergency_fund_in_months_of_spending(mohab):
+    answer = mohab.answers["last_in_spending"]
+    # 13,500 left in the fund after the repair, over June to August's spending (no one-offs, no investing)
+    assert answer.shows("Emergency fund covers 0.4 months", "Of average monthly spending. The aim is six.",
+                        "2027-06 to 2027-08 · 3 months with spending", "Counted in months of spending")
+    assert answer.figure("Average monthly spending") == D("31348.33")
 
 
 def test_the_year_on_the_overview(mohab):

@@ -42,7 +42,7 @@ Every number comes from one of three layers, and each screen says which:
 - **One ledger.** Account registers, the all-accounts view, budget actuals, investments, the Overview and the reports are all views of one transaction ledger.
 - **Other people's money** (*Held for others*) stays in the account balance but belongs to its owner. It is left out of *What you own*. It is not income, spending or money owed to you.
 - **Certain obligations count; forecasts never do.** Bills due and loans still to pay make up *What you owe*. Bills due come off Free cash, and What you owe comes off Net worth. Loans are payment schedules, not debt accounts. A loan payment counts as spending when it is paid. Credit cards, loan-interest accounting and money owed to you are out of scope; CD interest schedules are in scope as estimates.
-- **Reserves are not budgets.** A reserve sets aside cash you already own and lowers Free cash. A budget limit changes only the spending plan. The two are never added together. The emergency fund is shown in months of *Average monthly income*, the same average the budget and the forecast use.
+- **Reserves are not budgets.** A reserve sets aside cash you already own and lowers Free cash. A budget limit changes only the spending plan. The two are never added together. The emergency fund is shown in months of *Average monthly income*, the same average the budget and the forecast use, unless Settings › Budget counts it in months of *Average monthly spending* (owner decision 2026-10-05: income is the default).
 - **Categories describe the activity, not the direction of money.** Level 1 is Personal / Work / Investment / System (money held for others and loan payments), level 2 is broad, and level 3 is optional detail under an L2. Each category is + income, − expense or ± both; income is recurring (counted in the average and the forecast) or irregular, and an expense can be one-off (in cash flow, out of the budget). A category that has been used is archived, never deleted.
 - **Names are canonical.** Similar spellings are suggestions the user must pick. Lightning never silently merges or creates a counterparty.
 - **Physical gold** is tracked piece by piece: net gold weight per piece, karat and cost. It is valued at a price per gram for the same karat, and purity is never applied twice.
@@ -118,7 +118,7 @@ User feedback becomes steps Mohab takes: fixed points are checked as answers, op
 | Budget | Am I on plan? | Left in plan, categories over plan |
 | Investments | What do I hold, and how did it do? | Net gain or loss for the period, holdings, allocation |
 | Cash planning | How much can I actually spend? | Safe to spend, What you owe, the forecast |
-| Reserves | Am I safe if something goes wrong? | Emergency fund in months of income |
+| Reserves | Am I safe if something goes wrong? | Emergency fund in months of income, or of spending |
 | Account | What happened here? | One balance, then add/import and the register |
 | Held for others | Whose money am I holding? | Balances by person |
 | Settings · Checks | Is my data right? | Configuration and integrity checks |
@@ -190,7 +190,7 @@ User feedback becomes steps Mohab takes: fixed points are checked as answers, op
 
 | Follow-up | Answered by | Status |
 |---|---|---|
-| How long could I live if I lost my job? | Emergency fund in months of Average monthly income | Partial: it should be months of *spending*, since spending is what continues when the salary stops |
+| How long could I live if I lost my job? | Emergency fund in months of Average monthly income, or of Average monthly spending (Settings › Budget) | Answered (Mohab reads both after his job ends) |
 | I paid for a repair from the emergency fund: what now? | The fund shows what is left; Free cash is unchanged | Partial: nothing reminds him to refill it (Mohab step 14) |
 | When is the car loan paid off? | Loans › last payment | Answered |
 | Can I pay the loan off early? | — | Missing: no early payoff or lump-sum payment |
@@ -302,7 +302,6 @@ The reference apps are YNAB, Monarch, Copilot, Simplifi, Rocket Money, Lunch Mon
 - **Unconfirmed early salary** remains in the bank-posting month of the income average and may leave a future salary payment due. The Recurring tab suggests the plausible match; Mohab must confirm the specific transaction before the scheduled-month average and forecast adjust.
 - **A changed recurring amount** prompts a future-plan update and a reserve review, but the user must choose them. A reserve is named only when the payment is explicitly linked to it; a name or category match does not silently change cash assignments.
 - **CD projections** use an actual/365 day-count estimate, not a bank guarantee. Interest is never posted automatically. Existing account-level `cd_terms` stay visible as legacy and are not automatically converted. Cash in old `DEPOSIT` accounts must be moved out; these legacy terms remain pending a safe conversion workflow. Actual bank interest entries are not yet linked to certificates to reconcile projections.
-- **The emergency fund** should count months of spending, not of income.
 
 Bank sync and bill negotiation are not adopted. Any sync first needs a provider and regional coverage; local CSV stays the foundation. A "safe to spend" figure must always say which obligations and income it includes. Simplifi's projection, which leaves out planned spending, shows why.
 

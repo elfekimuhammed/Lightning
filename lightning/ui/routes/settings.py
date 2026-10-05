@@ -83,6 +83,7 @@ async def settings_page(request: Request):
                   carryover=c.settings.get("budget_carryover_global")=="1",
                   carryover_month=c.settings.get("budget_carryover_month") or month_of(today()),
                   income_months=c.settings.get("budget_income_months") or "3",
+                  emergency_basis=c.budgets.emergency_basis(),
                   manual_income=c.settings.get("budget_manual_monthly_income") or "",
                   suggestion_percent=c.settings.get("budget_track_suggestion_percent") or "20",
                   suggestion_fixed=c.settings.get("budget_track_suggestion_fixed") or "",

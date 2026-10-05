@@ -1,5 +1,5 @@
 <form class="card settings-compact" method="post" action="/budget/settings/full"><input type="hidden" name="return_to" value="{{ budget_return_to }}">
-  <div class="section-head"><div><h2>Budget</h2><p class="muted small">How plans carry over, which income they use, and how suggestions are made</p></div><button class="btn primary">Save budget settings</button></div>
+  <div class="section-head"><div><h2>Budget</h2><p class="muted small">How plans carry over, which income they use, how suggestions are made, and what the emergency fund is counted in</p></div><button class="btn primary">Save budget settings</button></div>
   <div class="sc-groups">
     <fieldset class="sc-group"><legend>Carryover</legend>
       <label class="sc-check"><input type="checkbox" name="carryover" value="1" {{ 'checked' if carryover }}> Carry unused room and overspending into tracked categories</label>
@@ -10,6 +10,7 @@
         <label>Set by hand (optional)<input name="manual_income" inputmode="decimal" value="{{ manual_income }}" placeholder="Use recorded income"></label></div>
       <div class="sc-chips" role="group" aria-label="Income categories to include"><span class="sc-chips-label">Recurring income counted in the average · the same as <a href="/categories">Recurring</a> on Categories</span>{% for category in income_categories %}<label class="sc-chip"><input type="checkbox" name="income_category" value="{{ category.id }}" {{ 'checked' if category.id in selected_income }}> {{ category.name }}</label>{% else %}<span class="muted small">No income categories yet.</span>{% endfor %}</div>
     </fieldset>
+    {% include 'settings/_emergency_basis.html' %}
     <fieldset class="sc-group sc-wide"><legend>Suggestions</legend>
       <div class="sc-row three"><label>Tracking threshold<span class="sc-unit"><input name="suggestion_percent" type="number" min="0" max="100" step="0.1" value="{{ suggestion_percent }}"><i>%</i></span></label>
         <label>Fixed monthly suggestion<span class="sc-unit"><input name="suggestion_fixed" inputmode="decimal" value="{{ suggestion_fixed }}"><i>{{ base }}</i></span></label>

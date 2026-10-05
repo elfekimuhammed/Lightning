@@ -14,7 +14,7 @@ from lightning.core.money import ZERO, check_places, fmt, from_e6, to_decimal
 from lightning.database.connection import Database
 from lightning.reporting.service import ReportingService
 
-from .domain import BudgetLine, BudgetMonth, BudgetSection, IncomeAverage
+from .domain import EMERGENCY_BASES, BudgetLine, BudgetMonth, BudgetSection, EmergencyFund, IncomeAverage, SpendingAverage
 from .repository import BudgetRepository
 
 SECTION_NAMES = {Scope.PERSONAL: "Personal", Scope.WORK: "Work"}
@@ -159,8 +159,7 @@ class BudgetService:
         chosen = self.recurring_income_ids()
         categories = self.categories.tree()
         by_id = {category.id: category for category in categories}
-        raw_months = self.db.scalar("SELECT value FROM settings WHERE key='budget_income_months'") or "3"
-        lookback = 6 if str(raw_months) == "6" else 3
+        lookback = self._average_months()
         manual = self.db.scalar("SELECT value FROM settings WHERE key='budget_manual_monthly_income'")
         if manual:
             return IncomeAverage(to_decimal(manual, "manual_income"), 0, lookback, "", "", True)
@@ -195,6 +194,44 @@ class BudgetService:
             end = start - timedelta(days=1)
         amount = (sum(observed, ZERO) / len(observed)).quantize(Decimal("0.01")) if observed else None
         return IncomeAverage(amount, len(observed), lookback, month_of(end + timedelta(days=1)), last_month, False)
+
+    def _average_months(self) -> int:
+        """3 or 6 completed months, from Settings › Budget; both averages use it."""
+        return 6 if str(self.db.scalar("SELECT value FROM settings WHERE key='budget_income_months'")) == "6" else 3
+
+    def spending_average(self, month: str) -> SpendingAverage:
+        """Average monthly spending: money out in budget categories (investments and one-off categories
+        left out, as in the budget), averaged over the same last 3 (or 6) completed months before
+        `month` as Average monthly income, counting only months that had any."""
+        lookback, one_off = self._average_months(), self.one_off_ids()
+        end = parse_month(month)[0] - timedelta(days=1)
+        last_month = month_of(end)
+        observed = []
+        for _ in range(lookback):
+            start, finish = parse_month(month_of(end))
+            spent = [value for cid, value in self._owned_spending(start, finish).items() if cid not in one_off]
+            if spent:
+                observed.append(sum(spent, ZERO))
+            end = start - timedelta(days=1)
+        amount = (sum(observed, ZERO) / len(observed)).quantize(Decimal("0.01")) if observed else None
+        return SpendingAverage(amount, len(observed), lookback, month_of(end + timedelta(days=1)), last_month)
+
+    def emergency_basis(self) -> str:
+        """What the emergency fund is counted in: "income" (the default) or "spending"."""
+        value = self.db.scalar("SELECT value FROM settings WHERE key='emergency_fund_basis'")
+        return value if value in EMERGENCY_BASES else "income"
+
+    def set_emergency_basis(self, basis: str) -> None:
+        if basis not in EMERGENCY_BASES:
+            raise ValidationError("Count the emergency fund in months of income or of spending.", "emergency_basis")
+        from lightning.database.settings import SettingsStore
+        SettingsStore(self.db).set("emergency_fund_basis", basis)
+
+    def emergency_fund(self, month: str, set_aside: Decimal | None) -> EmergencyFund:
+        """The emergency fund in months of the chosen average, and its six-month target."""
+        basis = self.emergency_basis()
+        average = self.income_average(month) if basis == "income" else self.spending_average(month)
+        return EmergencyFund(set_aside, basis, average)
 
     def has_plan(self, month: str) -> bool:
         return bool(self.amounts_for(month, loans=False))
