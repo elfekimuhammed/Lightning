@@ -10,6 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-05 · Claude: Fixed: a restore that stopped before its first journal step could still lock the profile for good. A folder the Windows file adapter refuses (OneDrive or another reparse point) is now checked before any record is written, and a protected source copy made just before a failure is removed. Two regressions in `tests/test_profile_session.py`.
 - 2026-10-05 · Claude: Fixed: a crash inside a restore's control-store transaction left a hot journal that resume opened read-only, so the profile stayed locked for good. Resume now opens it read-write under the profile lock, which rolls it back (`tests/test_profile_session.py`).
 - 2026-10-05 · Codex: GitHub run 37244657944 passed Linux tests, Windows profile and UI tests, packaged-app self-check and WebView2 smoke after the restore process-exit tests landed.
 - 2026-10-05 · Codex: Android wheel run 37244107860 reached the native toolchains but neither package built: cryptography still missed target Python headers; SQLCipher's Conan OpenSSL graph needs an explicit compiler profile. Recorded the next build checks.

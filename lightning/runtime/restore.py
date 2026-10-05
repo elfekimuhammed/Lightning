@@ -432,50 +432,72 @@ class EncryptedBackupRestorer:
             self._require_clean_database_file(paths.db_path)
             if self._digest(source) != source_hash:
                 raise ProfileError("The selected backup changed during staging; restore was cancelled.")
-            preserved_source = self._preserve_source_backup(source, paths.backups_dir, operation_id)
-            if self._digest(preserved_source) != source_hash:
-                raise ProfileError("Could not preserve the selected backup bytes; restore was cancelled.")
-
-            live_hash = self._digest(paths.db_path)
-            store_path = paths.data_dir / f".lightning-restore-{operation_id}.sqlite"
+            # Open the file adapter before recording intent: a folder it refuses
+            # (a reparse point such as OneDrive on Windows) must cancel the
+            # restore cleanly, not leave a pending record that locks the profile.
+            try:
+                if os.name == "nt":
+                    from lightning.database.promotion_windows import WindowsPromotionFileOps
+                    file_ops = WindowsPromotionFileOps(paths.data_dir)
+                else:
+                    from lightning.database.promotion import PosixPromotionFileOps
+                    file_ops = PosixPromotionFileOps(paths.data_dir)
+            except (OSError, ValueError) as exc:
+                raise ProfileError("Restore cannot run in this profile's folder (it may be a synced or linked folder). Nothing was replaced.") from exc
+            # Until the PENDING manifest exists, nothing refers to the protected
+            # source copy; remove it on failure so it cannot lock the profile.
+            preserved_source = None
             marker_path = paths.data_dir / f".lightning-restore-{operation_id}.state"
-            old_checkpoint = "restore-base-" + live_hash[:32]
-            self._require_clean_database_file(paths.db_path)
-            self._require_clean_database_file(candidate)
-            previous_name = f".lightning-restore-{operation_id}.previous.db"
-            new_checkpoint = "restore-" + uuid4().hex
-            manifest = RestoreManifest(
-                state="PENDING",
-                operation_id=operation_id,
-                profile_id=paths.profile.profile_id,
-                live_name=paths.db_path.name,
-                old_checkpoint_id=old_checkpoint,
-                old_sha256=live_hash,
-                candidate_name=candidate.name,
-                new_checkpoint_id=new_checkpoint,
-                candidate_sha256=self._digest(candidate),
-                previous_name=previous_name,
-                source_backup_name=source.name,
-                source_sha256=source_hash,
-                source_copy_name=preserved_source.name,
-                source_copy_sha256=self._digest(preserved_source),
-                pre_restore_name=saved.name,
-                pre_restore_sha256=saved_hash,
-            )
-            if store_path.exists() or marker_path.exists() or marker_path.is_symlink():
-                raise ProfileError("Restore operation ID collision; no files were replaced.")
-            self._write_restore_manifest(marker_path, manifest)
-            store = SqlitePromotionJournalStore(store_path)
-            state = store.read_state()
-            if state.accepted is not None or state.journal is not None:
-                raise ProfileError("Restore control state is not empty; this profile is locked for repair.")
-            store.initialize_accepted(old_checkpoint, live_hash)
-            if os.name == "nt":
-                from lightning.database.promotion_windows import WindowsPromotionFileOps
-                file_ops = WindowsPromotionFileOps(paths.data_dir)
-            else:
-                from lightning.database.promotion import PosixPromotionFileOps
-                file_ops = PosixPromotionFileOps(paths.data_dir)
+            manifest_written = False
+            try:
+                preserved_source = self._preserve_source_backup(source, paths.backups_dir, operation_id)
+                if self._digest(preserved_source) != source_hash:
+                    raise ProfileError("Could not preserve the selected backup bytes; restore was cancelled.")
+
+                live_hash = self._digest(paths.db_path)
+                store_path = paths.data_dir / f".lightning-restore-{operation_id}.sqlite"
+                old_checkpoint = "restore-base-" + live_hash[:32]
+                self._require_clean_database_file(paths.db_path)
+                self._require_clean_database_file(candidate)
+                previous_name = f".lightning-restore-{operation_id}.previous.db"
+                new_checkpoint = "restore-" + uuid4().hex
+                manifest = RestoreManifest(
+                    state="PENDING",
+                    operation_id=operation_id,
+                    profile_id=paths.profile.profile_id,
+                    live_name=paths.db_path.name,
+                    old_checkpoint_id=old_checkpoint,
+                    old_sha256=live_hash,
+                    candidate_name=candidate.name,
+                    new_checkpoint_id=new_checkpoint,
+                    candidate_sha256=self._digest(candidate),
+                    previous_name=previous_name,
+                    source_backup_name=source.name,
+                    source_sha256=source_hash,
+                    source_copy_name=preserved_source.name,
+                    source_copy_sha256=self._digest(preserved_source),
+                    pre_restore_name=saved.name,
+                    pre_restore_sha256=saved_hash,
+                )
+                if store_path.exists() or marker_path.exists() or marker_path.is_symlink():
+                    raise ProfileError("Restore operation ID collision; no files were replaced.")
+                self._write_restore_manifest(marker_path, manifest)
+                manifest_written = True
+            except BaseException:
+                if (not manifest_written and preserved_source is not None
+                        and not (marker_path.exists() or marker_path.is_symlink())):
+                    preserved_source.unlink(missing_ok=True)
+                file_ops.close()
+                raise
+            try:
+                store = SqlitePromotionJournalStore(store_path)
+                state = store.read_state()
+                if state.accepted is not None or state.journal is not None:
+                    raise ProfileError("Restore control state is not empty; this profile is locked for repair.")
+                store.initialize_accepted(old_checkpoint, live_hash)
+            except BaseException:
+                file_ops.close()
+                raise
             try:
                 service = CandidatePromotionService(file_ops, store)
                 def verify(name: str) -> None:

@@ -620,3 +620,54 @@ def test_resume_rolls_back_a_hot_restore_journal(tmp_path, monkeypatch):
     session.unlock(str(live), PASSWORD)
     assert session.container.settings.get("restore_marker") == "current"
     session.close()
+
+
+def test_restore_refused_by_file_adapter_leaves_profile_unlockable(tmp_path, monkeypatch):
+    """A folder the adapter refuses (e.g. a OneDrive reparse point on Windows) is
+    found before any restore intent is recorded, so nothing needs repair."""
+    from lightning.database import promotion, promotion_windows
+
+    session, _ = created(tmp_path)
+    live, paths = session.paths.db_path, session.paths
+    session.container.settings.set("restore_marker", "current")
+    selected = session.container.backup_now()
+    session.close()
+    live_before = live.read_bytes()
+
+    def refuse(self, directory):
+        raise ValueError("Promotion directory path must not contain reparse points")
+
+    monkeypatch.setattr(promotion.PosixPromotionFileOps, "__init__", refuse)
+    monkeypatch.setattr(promotion_windows.WindowsPromotionFileOps, "__init__", refuse)
+    with pytest.raises(ProfileError):
+        session.restore_backup(str(live), str(selected), PASSWORD)
+    assert live.read_bytes() == live_before
+    assert not list(paths.data_dir.glob(".lightning-restore-*.state"))
+    assert not list(paths.data_dir.glob(".lightning-restore-*.sqlite"))
+    session.retry_at = 0.0
+    session.unlock(str(live), PASSWORD)
+    assert session.container.settings.get("restore_marker") == "current"
+    session.close()
+
+
+def test_restore_failing_before_its_record_removes_the_orphan_source_copy(tmp_path, monkeypatch):
+    from lightning.runtime.restore import EncryptedBackupRestorer
+
+    session, _ = created(tmp_path)
+    live, paths = session.paths.db_path, session.paths
+    session.container.settings.set("restore_marker", "current")
+    selected = session.container.backup_now()
+    session.close()
+
+    def fail_write(path, manifest, *, replace_existing=False):
+        raise OSError("injected failure before the restore record is written")
+
+    monkeypatch.setattr(EncryptedBackupRestorer, "_write_restore_manifest", staticmethod(fail_write))
+    with pytest.raises(ProfileError):
+        session.restore_backup(str(live), str(selected), PASSWORD)
+    assert not list(paths.backups_dir.glob(".lightning-restore-source-*.db"))
+    assert selected.exists()
+    session.retry_at = 0.0
+    session.unlock(str(live), PASSWORD)
+    assert session.container.settings.get("restore_marker") == "current"
+    session.close()
