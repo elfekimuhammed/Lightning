@@ -1,6 +1,6 @@
 # Lightning — Project Overview
 
-**Last updated 2026-10-04 · app 0.5.0b1.**
+**Last updated 2026-10-05 · app 0.5.0b1.**
 
 This file tells the story: what Lightning is, who it is for, what it answers and where it goes next. [Architecture](ARCHITECTURE.md) holds the technical side. The [Brand guideline](BRAND_GUIDELINE.html) holds the visual side. The [Glossary](GLOSSARY.md) defines every term and figure. Shipped changes go in `CHANGELOG.md`; the hand-off is in `NOW.md`.
 
@@ -18,6 +18,7 @@ Read only the section your task needs (`grep -n '^## ' docs/PROJECT_OVERVIEW.md`
 | Reference workflow: a month with Mohab | You change Mohab's test or a screen he uses |
 | Compared with the best budgeting apps | You plan a feature |
 | UX plan (guideline 3.6) | You take a UX item, or answer the owner's open UX questions |
+| Upcoming projects | You pick the next feature, or want to know which app an idea came from |
 | Roadmap | You plan or finish a milestone |
 
 ## What Lightning is
@@ -334,6 +335,36 @@ From a full UX review on 2026-10-03: Mohab's year at a 1,366 × 768 window (the 
 
 - *Recurring suggestions.* Cash planning › Recurring has a "Looks recurring" list that offers to track things that repeated. It offers Carrefour and Talabat (shopping that changes every month, which belongs in the budget) and the NBE certificate's interest (already in the forecast, so tracking it counts it twice). Stop offering those, and add a "Not recurring" button to hide a suggestion?
 - *Menu.* The main menu has Overview, Budget, Investments, Expense analysis, Cash planning, Held for others and Settings. Your accounts list and "every transaction across all accounts" are reachable only from the account list in the left column. Add "Accounts" and "Transactions" to the main menu?
+
+## Upcoming projects
+
+Features worth building, each with the app it came from (added 2026-10-05). None is started or scheduled: the owner picks what enters *Next* in [`NOW.md`](../NOW.md). The evidence is in [Competition](COMPETITION.md). The gaps already ranked in *Compared with the best budgeting apps* (phone capture, bank feed, reminders, multi-currency, household and the rest) are not repeated here. When one is built, its figures get one name in the [Glossary](GLOSSARY.md) and it moves to *What you can do today*.
+
+**Asked for by the owner:**
+
+| # | Project | Idea from | What it would do |
+|---|---|---|---|
+| 1 | **Return against the risk-free rate** (the risk premium) | **Quicken** (Growth of $10,000 against market indexes, and against a buy-and-hold alternative); **Monarch** (portfolio return against the S&P 500, time-weighted) | Beside each holding's and the portfolio's return, show what a risk-free Egyptian choice (a bank certificate or treasury-bill rate) would have paid over the same dates, and the difference: what Mohab gains, or loses, for taking risk. Neither app compares with a risk-free rate; in Egypt a certificate is the bar every investment must clear, so this is Lightning's own twist. Needs a dated rate history and a time-weighted return beside XIRR |
+| 2 | **Arabic version** | **Say, Masarifi, Masrofi** (Arabic that works is praised); **Money Manager, Wallet** (lose Egyptian users for no Arabic, or for removing it); **Actual Budget** (translation scaffolding: string files, a CI job that extracts strings, a review rule that every visible string is translated) | Every screen in Arabic and right to left, numbers never mirrored, Hijri dates beside Gregorian (asked of Money Manager and Wallet). Add the scaffolding before more screens are written. Competition calls Arabic a launch condition for Egypt. The brand guideline has no Arabic or right-to-left rules yet: ask the owner before writing any |
+| 3 | **Financial health** | **NetTrack** (a 0–100 score from savings rate, net-worth growth, debt-to-asset ratio, emergency runway and spending stability); **WalletHub** (WalletScore). From their store pages and a search summary; neither was tried | A few plain ratios, each with what it includes and a rule of thumb: debt to net worth (What you owe ÷ Net worth), loan payments ÷ Average monthly income, Emergency fund months, Savings rate. Most inputs are existing figures. Start with the ratios; a single score only if the owner wants one, since a score hides what it counts (compass 5) |
+
+**From the Competition research** (the order follows Competition › Actual Budget code analysis › Suggested order, then the Egyptian apps):
+
+| # | Project | Idea from | What it would do |
+|---|---|---|---|
+| 4 | **Undo and redo** | **Actual Budget** (20 steps over every change); Say and Masarifi users ask to edit and delete | Undo the last edit, delete or import, not only bulk rules and a skipped payment |
+| 5 | **Rules with conditions** | **Actual Budget** (rules engine) | If counterparty or notes contain a word and the amount is in a range, set the category and optionally split. Learning only suggests. The way to build *Still missing* #3 |
+| 6 | **Layered import match and a locked checked month** | **Actual Budget** | Match by bank reference first, then by amount and nearest date; a month checked against the bank is never overwritten by an import; merge two transactions. The same match serves SMS against CSV |
+| 7 | **Weekend-aware schedules** | **Actual Budget** ("skip weekend", amount ranges) | Due dates move before or after Friday, Saturday and holidays; payments match within an amount range |
+| 8 | **Fill this month** | **Actual Budget** (budget templates) | One click sets a month's budgets from last month, a schedule or a goal, through a form rather than typed text |
+| 9 | **Entry helpers** | **Actual Budget** | Sums in amount fields (`120+35*2`), a privacy mode that blurs amounts, a Ctrl-K command bar, `#tags` in notes |
+| 10 | **Age of Money and a spending calendar** | **Actual Budget** (reports) | How long money rests before it is spent, for people who live salary to salary; a calendar of spending days; one saved filter shared by search, reports and rules |
+| 11 | **Move in from another app** | **Say**'s reviews: a four-year Wallet user cannot bring their data, so cannot switch | Import the exports of Wallet, Money Manager and Masareef, mapping their categories once |
+| 12 | **Deeper investments** | **Quicken, Banktivity, GnuCash, Moneydance** | Stock splits and bonus shares, reinvested dividends, return of capital, choosing which lot is sold, and a time-weighted return (#1 needs it too) |
+| 13 | **Silver, property and vehicles** | **Qershnat** (has them); Say's users ask for "property, silver, watches" | Value them beside gold in What you own |
+| 14 | **Gam'eya and zakat** | **Qershnat** (gam'eya with turns and proof of payment; its users ask for zakat); **Masroofy** (zakat) | Waits for the owner (`NOW.md`, question 3) |
+
+**For the code** (from **Actual Budget**): one change note per change, joined at release, to end changelog conflicts between AIs; visual snapshots of key screens to guard the brand guideline; a warning on any push that touches a database migration.
 
 ## Roadmap
 
