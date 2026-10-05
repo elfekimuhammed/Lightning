@@ -5,7 +5,8 @@
 {% block top_actions %}<a class="btn primary" data-popup-open href="/plan/items/new?kind=LOAN">Add loan</a>{% endblock %}
 {% block content %}
 {{ plan_tabs(tabs, plan_tab) }}
-{% from "partials/charts.html" import key_notes %}
+{% from "partials/charts.html" import key_notes, stat_tiles %}
+{{ stat_tiles(debt_tiles, base, 'Your debt') }}
 {{ key_notes(notes) }}
 <section class="plan-section" aria-labelledby="loans-total">
   <header class="overview-section-head"><h2 id="loans-total">Loans still to pay</h2></header>

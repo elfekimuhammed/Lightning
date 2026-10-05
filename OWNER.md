@@ -27,5 +27,6 @@ What only the owner can do or decide. Any AI adds an item here, and removes it o
 3. *Competition:* should Lightning get gam'eya (rotating savings) and zakat, as Qershnat has them? (Trial decided: 7 days free, never a lock; Project Overview › Product decisions.)
 4. *UX:* recurring suggestions, and whether to add Accounts and Transactions to the main menu (Project Overview › UX plan, "Still open").
 5. *Routine audit (2026-10-05):* should a certificate's interest count in its Net gain and return (link the interest to the certificate)? Pain points to decide: the "System" group name, Housing 22% vs 45%, "80 of 68" rounding, "Kept 0", "Split · 0 categories", a certificate named twice, Reserves dropdowns (A16: type and pick).
-6. *Upcoming projects* (Project Overview): 14 ideas, each naming its source app (risk-free return, Arabic, financial health first). Which enter *Next*?
+6. *Upcoming projects* (Project Overview): 14 ideas, each naming its source app. Financial health (#3) and sums in amount fields (#9) are built; which of the rest enter *Next*?
 7. *Restore, from Claude's review of 03a:* unlock re-verifies every retained copy (2.7 s for three 23.5 MB restores). Keep that, or drop it?
+8. *Ratios (2026-10-05):* when should a ratio turn strong rose (needs you)? Suggested: loan payments over 35% of income, fixed costs over 50% of it. Until then the four ratio cards on Loans and Recurring stay soft rose (Project Overview › Upcoming projects #3).

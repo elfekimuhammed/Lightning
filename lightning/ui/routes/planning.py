@@ -11,7 +11,7 @@ from lightning.core.dates import fmt_date, parse_date, today
 from lightning.core.errors import LightningError
 from lightning.core.figures import label
 from lightning.core.money import ZERO, fmt, to_decimal
-from lightning.planning.domain import (FREQUENCY_LABELS, KIND_LABELS, RECURRING_KINDS, Frequency, PaymentStatus,
+from lightning.planning.domain import (FREQUENCY_LABELS, KIND_LABELS, RECURRING_KINDS, Frequency, PaymentStatus, per_year,
                                        PlanKind)
 from lightning.planning.schedule import describe
 from lightning.planning.service import LOAN_CATEGORY
@@ -62,10 +62,7 @@ def _row(c, item, labels, as_of, linked):
             "per_year": per_year, "reserve_links": reserve_links, "review_next": review_next}
 
 
-def _per_year(item) -> Decimal:
-    times = {Frequency.ONCE: 0, Frequency.WEEKLY: Decimal(52), Frequency.MONTHLY: Decimal(12),
-             Frequency.QUARTERLY: Decimal(4), Frequency.YEARLY: Decimal(1)}[item.frequency]
-    return (item.amount * times / item.interval_count).quantize(Decimal("0.01")) if times else ZERO
+_per_year = per_year  # one calculation, in lightning.planning.domain
 
 
 def _form_values(form) -> dict:
@@ -142,6 +139,30 @@ def _plan_stats(f, plan, day, has_income: bool = True) -> list[dict]:
     ]
 
 
+def _ratio_tile(ratio, as_of: str, sub: str, missing: str, href: str = "", over: bool = False) -> dict:
+    """One KPI card per ratio (A08): its percent, the two amounts it divides, and a meter up to 100%."""
+    pct = ratio.percent
+    return {"key": ratio.key, "surface": "over" if over else "out", "label": label(ratio.key), "value": pct,
+            "kind": "rate", "empty": "—", "badge": {"tone": "flat", "text": as_of},
+            "sub": sub if pct is not None and ratio.part else missing, "href": href,
+            "meter": {"width": float(min(pct, 100)), "tone": "spend"} if pct is not None else None}
+
+
+def _debt_tiles(h, as_of: str) -> list[dict]:
+    """Cash planning › Loans: is my debt under control? Each ratio its own card."""
+    owed, worth, cash = h.debt_to_net_worth.part, h.debt_to_net_worth.whole, h.debt_to_cash.whole
+    loans, income = h.loan_payments_to_income.part, h.loan_payments_to_income.whole
+    return [
+        _ratio_tile(h.debt_to_net_worth, as_of, f"{fmt(owed, 0)} owed against {fmt(worth, 0)} net worth",
+                    "You owe more than you own" if owed and worth <= 0 else "Nothing owed", "/", over=bool(owed) and worth <= 0),
+        _ratio_tile(h.debt_to_cash, as_of, f"{fmt(owed, 0)} owed against {fmt(cash, 0)} cash you own",
+                    "No cash to set it against" if owed else "Nothing owed", "/"),
+        _ratio_tile(h.loan_payments_to_income, as_of, f"{fmt(loans, 0)} a month of {fmt(income or ZERO, 0)} income",
+                    "Set your income categories to measure it" if loans and not income else "No loan payments left",
+                    "#loans-list"),
+    ]
+
+
 @router.get("/recurring")
 async def recurring_page(request: Request):
     c = container(request)
@@ -153,14 +174,20 @@ async def recurring_page(request: Request):
     stopped = c.planning.items(RECURRING_KINDS, active_only=False)
     stopped = [i for i in stopped if not i.active]
     subscriptions = sum((r["per_year"] for r in rows if r["item"].kind == PlanKind.SUBSCRIPTION), ZERO)
-    monthly_out = sum((r["per_year"] for r in rows if not r["item"].is_income), ZERO) / 12
+    health = c.health.at(day)
+    monthly_out = health.bills_a_month
+    fixed = health.fixed_costs_to_income
+    fixed_tiles = [_ratio_tile(fixed, fmt_date(day),
+                               f"{fmt(fixed.part, 0)} a month of {fmt(fixed.whole or ZERO, 0)} income · bills, subscriptions and loans",
+                               "Set your income categories to measure it" if fixed.part else "No bills, subscriptions or loans yet",
+                               "#recurring-totals")]
     monthly_in = sum((r["per_year"] for r in rows if r["item"].is_income), ZERO) / 12
     notes = [n for n in (keynotes.recurring_summary(monthly_out, monthly_in, subscriptions),) if n]
     bill_bars = charts.bars([{"label": r["item"].name, "value": r["per_year"] / 12,
                               "note": r["item"].kind_label + (" · " + r["category"] if r["category"] else "")}
                              for r in rows if not r["item"].is_income])
     return render(request, "planning/recurring.html", tabs=TABS, plan_tab="recurring", rows=rows, stopped=stopped,
-                  notes=notes, bill_bars=bill_bars,
+                  notes=notes, bill_bars=bill_bars, fixed_tiles=fixed_tiles,
                   suggestions=c.planning.suggestions(day), subscriptions_per_year=subscriptions,
                   monthly_out=monthly_out, monthly_in=monthly_in, labels=labels, as_of=fmt_date(day))
 
@@ -177,6 +204,7 @@ async def loans_page(request: Request):
         entry["meter"] = charts.meter(entry["progress"]["paid_amount"], entry["progress"]["total_amount"])
     notes = [n for n in (keynotes.loans_summary(loans),) if n]
     return render(request, "planning/loans.html", tabs=TABS, plan_tab="loans", loans=loans, notes=notes,
+                  debt_tiles=_debt_tiles(c.health.at(day), fmt_date(day)),
                   still_to_pay=sum((l["progress"]["still_to_pay"] for l in loans), ZERO), as_of=fmt_date(day))
 
 

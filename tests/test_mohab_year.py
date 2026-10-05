@@ -372,6 +372,8 @@ def _first_evening(o: Mohab) -> None:
     o.add_loan("Car loan", "Toyota Finance", "2,500", "2026-07-05", "24", "60,000")
 
     o.ask("owe", "What do I owe, and when is the car paid off?", "Loans still to pay")
+    o.ask("debt", "Is my debt under control?", "Cash planning", "Loans")
+    o.ask("fixed_costs", "How much of my income is already promised?", "Cash planning", "Recurring")
     o.ask("safe", "How much can I spend before payday?", "Cash planning")
     o.ask("free_cash", "Why is my free cash lower than what I have?")
     o.ask("where", "Where did my money go in September?", "Expense analysis")
@@ -871,6 +873,25 @@ def test_end_of_service_is_not_monthly_pay(mohab):
 def test_between_jobs_the_next_pay_is_the_new_employer(mohab):
     answer = mohab.answers["next_pay"]
     assert answer.shows("Safe to spend until 2027-10-01", "Valeo 2027-10-01 · Income +55,000")
+
+
+def test_is_my_debt_under_control(mohab):
+    """Cash planning › Loans leads with three ratios, each with the two amounts it divides, and those
+    amounts are the Overview's own (2026-09-30: the car loan has 21 payments of 2,500 left)."""
+    debt, overview = mohab.answers["debt"], mohab.answers["free_cash"]
+    assert route(mohab, "debt") == ["/", "/plan", "/plan/loans"]
+    assert [overview.figure(x) for x in ("What you owe", "Net worth", "Cash you own")] == [D("-52500"), D("198065"), D("72663")]
+    assert debt.shows("Debt to net worth 2026-09-30 26.5 % 52,500 owed against 198,065 net worth",
+                      "Debt to cash 2026-09-30 72.3 % 52,500 owed against 72,663 cash you own",
+                      "Loan payments to income 2026-09-30 5.6 % 2,500 a month of 45,000 income")
+
+
+def test_how_much_of_my_income_is_already_promised(mohab):
+    """Cash planning › Recurring: bills and subscriptions a month plus the car loan's 2,500, of income."""
+    fixed = mohab.answers["fixed_costs"]
+    assert route(mohab, "fixed_costs") == ["/", "/plan", "/plan/recurring"]
+    assert fixed.figure("Bills and subscriptions") + D("2500") == D("15630")
+    assert fixed.shows("Fixed costs to income 2026-09-30 34.7 % 15,630 a month of 45,000 income · bills, subscriptions and loans")
 
 
 def test_the_emergency_fund_in_months(mohab):

@@ -12,6 +12,7 @@ from lightning.accounts.service import AccountService
 from lightning.assets.service import AssetService
 from lightning.budgeting.service import BudgetService
 from lightning.planning.forecast import CashForecaster
+from lightning.planning.health import HealthService
 from lightning.planning.position import PositionService
 from lightning.planning.service import PlanningService
 from lightning.bank_imports import BankImportService
@@ -66,6 +67,7 @@ class Container:
     planning: PlanningService
     forecaster: CashForecaster
     position: PositionService
+    health: HealthService
     backup_dir: Path | None = None
 
     @property
@@ -168,5 +170,6 @@ def build(db_path: str | Path | None = None, backup_on_start: bool = False, *,
         planning=planning,
         forecaster=forecaster,
         position=position,
+        health=HealthService(planning, position, budgets),
         backup_dir=backup_dir,
     )

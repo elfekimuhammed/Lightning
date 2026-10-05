@@ -65,6 +65,13 @@ class PlannedItem:
         return KIND_LABELS[self.kind]
 
 
+def per_year(item: PlannedItem) -> Decimal:
+    """What a repeating item comes to in a year; a one-off payment comes to nothing a year."""
+    times = {Frequency.ONCE: 0, Frequency.WEEKLY: Decimal(52), Frequency.MONTHLY: Decimal(12),
+             Frequency.QUARTERLY: Decimal(4), Frequency.YEARLY: Decimal(1)}[item.frequency]
+    return (item.amount * times / item.interval_count).quantize(Decimal("0.01")) if times else ZERO
+
+
 @dataclass(frozen=True)
 class Payment:
     """One scheduled payment of a planned item and its status on the as-of date."""

@@ -5,7 +5,8 @@
 {% block top_actions %}<a class="btn primary" data-popup-open href="/plan/items/new?kind=BILL">Add recurring item</a>{% endblock %}
 {% block content %}
 {{ plan_tabs(tabs, plan_tab) }}
-{% from "partials/charts.html" import key_notes %}
+{% from "partials/charts.html" import key_notes, stat_tiles %}
+{{ stat_tiles(fixed_tiles, base, 'Your fixed costs') }}
 {{ key_notes(notes) }}
 {% for r in rows %}{% if r.last_paid and r.last_paid.paid_amount is not none and r.last_paid.paid_amount != r.item.amount and r.item.frequency.value != 'ONCE' %}
 <section class="card stack" aria-label="Review changed recurring amount">
