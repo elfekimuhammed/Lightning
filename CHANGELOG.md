@@ -10,6 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-05 · Claude: leaner hand-off (owner request): `NOW.md` is a *Claimed* table, *Messages* and *Next*, each step with a **Read:** line; no per-AI lanes or "last done". Owner steps and questions moved to the new `OWNER.md`. `tests/test_docs_structure.py` checks this, and that the app's and website's brand guidelines are one file.
 - 2026-10-05 · Claude: the emergency fund counts months of income (default) or months of spending, chosen in Settings › Budget; Reserves links to it. New figure Average monthly spending (budget spending without one-offs, same 3 or 6 months); the fund's months and target moved from the route to `BudgetService.emergency_fund` (`tests/test_emergency_basis.py`, Mohab's last month).
 - 2026-10-05 · Claude: sums in every amount field: `120+35*2` saves 190; + - * / ^ and brackets, `2(3+5)` multiplies; brackets, then ^, then * /, then + -. Unclear sums (`-2^2`, `2^3^2`, `8/2(2+2)`, a sign too many, an uneven division, a date) are refused with the reason. The window shows the result before Save sends it (`core/money.py`, `/amount-sum`, `app.js`; `tests/test_amount_sums.py`).
 - 2026-10-05 · Claude: added *Upcoming projects* to `docs/PROJECT_OVERVIEW.md`: the owner's three asks (return against the risk-free rate, Arabic, financial health ratios) and 11 more from `docs/COMPETITION.md`, each naming the app the idea came from.

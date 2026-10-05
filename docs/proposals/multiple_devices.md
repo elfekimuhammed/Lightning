@@ -681,7 +681,7 @@ The follow-up review is valid on everyday friction, early value and task size. T
 
 ### Product choices still pending
 
-The questions live in NOW.md under For the owner; this plan keeps safe defaults while work unrelated to them proceeds.
+The questions live in OWNER.md under To decide; this plan keeps safe defaults while work unrelated to them proceeds.
 
 | Choice | Recommendation and alternative | Until the owner decides |
 |---|---|---|

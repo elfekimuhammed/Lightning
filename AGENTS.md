@@ -9,7 +9,8 @@ not know it.
 
 | File | What it holds | Update it when |
 |---|---|---|
-| [NOW.md](NOW.md) | **The hand-off:** a lane for each AI (last done, in progress, claimed files), the unclaimed next steps, and what the owner must do or decide | You finish any task: rewrite your lane, and the shared parts you changed |
+| [NOW.md](NOW.md) | **The hand-off:** claimed work and files, messages between AIs, and the unclaimed next steps, each saying what to read | You claim or finish long work, leave a message, or change what comes next |
+| [OWNER.md](OWNER.md) | What only the owner can do or decide | You need the owner to do or decide something; remove it once done or decided |
 | [Project Overview](docs/PROJECT_OVERVIEW.md) | What Lightning is, the owner's decisions, the questions each screen answers, Mohab's test, the UX plan, known gaps, roadmap | The owner decides something, or what the product does or plans changes |
 | [Architecture](docs/ARCHITECTURE.md) | Module boundaries, financial rules, data model, UI contract, desktop app and encrypted profiles | You change how something is built or calculated |
 | [Glossary](docs/GLOSSARY.md) | One name and one meaning for every term and figure | You add or rename a term or figure |
@@ -21,7 +22,7 @@ not know it.
 - Do not add other files under `docs/`. Each fact lives in one file; link to it, never copy it.
 - Old changelog entries are history, not the current specification.
 
-**The brand guideline is strict, not a suggestion.** Every visual follows it exactly: colours and what they mean, headers, type and numbers, cards and KPI cards, controls and fields, lists, every chart, words, spacing and icons. If the app's CSS differs from the guideline, the guideline wins and the CSS is fixed. If something the screen needs is not in the guideline, do not invent a new style: use the closest rule and ask the owner in `NOW.md`.
+**The brand guideline is strict, not a suggestion.** Every visual follows it exactly: colours and what they mean, headers, type and numbers, cards and KPI cards, controls and fields, lists, every chart, words, spacing and icons. If the app's CSS differs from the guideline, the guideline wins and the CSS is fixed. If something the screen needs is not in the guideline, do not invent a new style: use the closest rule and ask the owner in `OWNER.md`.
 
 **Before it ships (guideline A16).** A screen with any of these is not done: All caps: Anywhere. · Coloured headers: Headers are Ink. · A colour off its meaning: Check A03. · Vivid gradient card: Brand only. · KPI by position: Tone by meaning. · Chip by direction: Good or bad. · Decimals on big figures: Whole EGP. · "L1 › L2": Header, then list. · Five or more names: Four, then Other. · White or boxed fields: Soft wells. · Dropdown for your data: Type and pick. · Card in a card: Never. `tests/test_docs_structure.py` keeps this list the same as the guideline's.
 
@@ -29,28 +30,28 @@ not know it.
 
 Be as efficient with tokens as you can, in what you read, run and write. This never means skipping a test, a check this file asks for, or a read you need to be sure of an answer.
 
-- **Start small:** read `NOW.md` and `git log --oneline -15`. Read the top changelog entries only if `NOW.md` sends you there. That is all most tasks need to begin.
+- **Start small:** read `NOW.md` and `git log --oneline -15`; that is all most tasks need to begin. A *Next* item's **Read:** line names everything else it needs.
 - **Read sections, not files.** The long docs start with a contents list that says when to read each section. Find the heading (`grep -n '^## ' <file>`) and read from that line to the next heading.
 - **Never open the brand guideline whole** (about 95,000 tokens, mostly drawings). Run `python tools/guideline.py` to list its sections and `python tools/guideline.py A12` to print one as text.
 - **Search before you read:** grep for the name, then read only the lines around it. Do not re-read a file you have just edited, or read code you are not changing.
 - **Keep output short:** run the tests for what you changed with `-q`, and show only the failures. Run the full suite once, before you push.
-- **Skip unless your task needs it:** old changelog sections, `docs/proposals/`, `user feedback/`, `Claude outputs/`, and the generated figures table in the Glossary (grep it).
-- **Write short:** a changelog entry is at most three lines, and `NOW.md` stays under 6,000 bytes. Put each fact in the one file that owns it and link to it from elsewhere.
+- **Skip unless your task needs it:** `OWNER.md`, old changelog sections, `docs/proposals/`, `user feedback/`, `Claude outputs/`, and the generated figures table in the Glossary (grep it).
+- **Write short:** a changelog entry is at most three lines, and `NOW.md` stays under 4,500 bytes. Put each fact in the one file that owns it and link to it from elsewhere.
 
 ## 3. Every task, in this order
 
 1. **Start fresh.** `git pull` on `main`, then read as in section 2.
-2. **Claim long work.** If the task will take more than one sitting, put it in your lane in `NOW.md` (what, and which files) and push that first. Stay out of files another AI has claimed.
+2. **Claim long work.** If the task will take more than one sitting, add a row to *Claimed* in `NOW.md` and push that first. Stay out of files someone else has claimed.
 3. **Work in small, finished steps.** Commit and push each step to `main` once its tests pass. Never leave work unpushed.
 4. **Test.** Run the tests for what you changed. For any change a user can see, also run Mohab's test (`tests/test_mohab_year.py`; section 5 says what it checks) and check the screen against A16 above.
 5. **Write it down.** Add a changelog entry at the top of `Unreleased`: `2026-10-03 · Claude:` or `2026-10-03 · Codex:`, with the date from `date`. Update the files from section 1 that your change touches.
-6. **Hand off.** Rewrite your lane in `NOW.md`: last done, in progress (with claimed files). Take items you finished out of *Next*. Add new next steps, and questions for the owner, to the shared parts. Then push.
+6. **Hand off.** In `NOW.md`, remove or update your *Claimed* row, take finished items out of *Next*, and add new ones, each with a **Read:** line. Add a *Messages* line only for what another AI must know that your commit doesn't say. Owner items go in `OWNER.md`. Then push. No "last done": the commit log says it.
 
-**Your lane is yours; the other lanes are not.** Never delete or rewrite another AI's lane. If you finish an item another AI listed, take it out of *Next* and say so in your own lane.
+**Claims and messages belong to their author.** Never remove or rewrite another AI's claim or message, except a message to you: delete that once handled (a message to all stays seven days). Sessions of one AI can run at once, so make each claim's *Work* tell them apart. An AI that runs a helper (Codex runs Luna) gives it its own rows and writes the helper's lines in `NOW.md`, `OWNER.md` and the changelog.
 
-**If your push is rejected** because someone else pushed first: `git pull --rebase`, keep both sides of any conflict in the changelog and `NOW.md` (never drop the other AI's lines), run the tests again, then push.
+**If your push is rejected** because someone else pushed first: `git pull --rebase`, keep both sides of any conflict in the changelog, `NOW.md` and `OWNER.md` (never drop the other AI's lines), run the tests again, then push.
 
-**Never undo another AI's work** without the owner's say. If you disagree, put it under questions for the owner in `NOW.md`.
+**Never undo another AI's work** without the owner's say. If you disagree, add it to *To decide* in `OWNER.md`.
 
 ## 4. Rules about the product
 

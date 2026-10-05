@@ -4,6 +4,8 @@ import importlib.util
 import re
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parent.parent
 DOCS = ROOT / "docs"
 
@@ -17,11 +19,28 @@ def _guideline_tool():
 
 def test_the_hand_off_is_short_and_has_its_parts():
     text = (ROOT / "NOW.md").read_text(encoding="utf-8")
-    assert len(text.encode("utf-8")) < 6000, "NOW.md must stay under 6,000 bytes: move finished work to CHANGELOG.md"
-    for heading in ("## Claude", "## Codex", "## Next", "## For the owner"):
+    assert len(text.encode("utf-8")) < 4500, "NOW.md must stay under 4,500 bytes: done work is in the changelog, owner items in OWNER.md"
+    for heading in ("## Claimed", "## Messages", "## Next"):
         assert re.search(rf"^{re.escape(heading)}", text, re.M), f"NOW.md lost its {heading!r} part"
+    assert "| Who | Work | Files | Since |" in text, "NOW.md's claims are one table: Who, Work, Files, Since"
+    old_parts = re.findall(r"^## (?:Claude|Codex|For the owner)\b.*$", text, re.M)
+    assert not old_parts, f"NOW.md has no lanes: claims go in Claimed, owner items in OWNER.md (AGENTS.md section 3): {old_parts}"
     overview = (DOCS / "PROJECT_OVERVIEW.md").read_text(encoding="utf-8")
     assert "## Now and next" not in overview, "the hand-off lives in NOW.md only"
+
+
+def test_every_next_step_says_what_to_read():
+    text = (ROOT / "NOW.md").read_text(encoding="utf-8")
+    steps = re.split(r"(?m)^(?=\d+\. )", text.split("\n## Next", 1)[1].split("\n## ", 1)[0])[1:]
+    assert steps, "NOW.md's Next part lists its steps as 1. 2. 3."
+    missing = [step.split("\n", 1)[0][:70] for step in steps if "Read:" not in step]
+    assert not missing, f"each Next step has a Read: line naming what it needs (AGENTS.md section 3): {missing}"
+
+
+def test_owner_items_live_in_owner_md():
+    text = (ROOT / "OWNER.md").read_text(encoding="utf-8")
+    for heading in ("## To do", "## To decide"):
+        assert re.search(rf"^{re.escape(heading)}", text, re.M), f"OWNER.md lost its {heading!r} part"
 
 
 def test_docs_holds_only_the_carrying_files_and_proposals():
@@ -67,3 +86,19 @@ def test_the_guideline_tool_prints_one_section_as_text():
     assert [n for n, _, _ in found if n.startswith("A")][-1] == "A16"
     a16 = tool.as_text(next(block for number, _, block in found if number == "A16"))
     assert "Before it ships" in a16 and "<" not in a16 and len(a16) < 2000
+
+
+def _title(path: Path) -> str:
+    return re.search(r"<title>([^<]*)</title>", path.read_text(encoding="utf-8")).group(1)
+
+
+def test_the_app_and_website_guidelines_are_one_file():
+    """AGENTS.md section 1: change both copies together. Checked when the website repo sits beside this one."""
+    beside = [ROOT.parent / name / "brand-guidelines.html" for name in ("Lightning_website", "lightning_website")]
+    website = next((path for path in beside if path.is_file()), None)
+    if website is None:
+        pytest.skip("the website repository is not checked out next to this one")
+    app = DOCS / "BRAND_GUIDELINE.html"
+    same = app.read_bytes().replace(b"\r\n", b"\n") == website.read_bytes().replace(b"\r\n", b"\n")
+    assert same, (f"docs/BRAND_GUIDELINE.html ({_title(app)}) differs from the website's brand-guidelines.html "
+                  f"({_title(website)}): pull both repos, copy the newer over the older, and push both")
