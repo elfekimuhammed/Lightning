@@ -211,8 +211,9 @@
   <form method="get" class="toolbar-filters" data-auto-filter>
     <input type="search" name="q" value="{{ q }}" placeholder="Search: counterparty, notes, category, amount, ref…">
     <input type="text" name="month" value="{{ month }}" placeholder="yyyy-mm" pattern="\d{4}-\d{2}" title="Month, yyyy-mm" class="month-input">
-    {% if q or month %}<a class="btn small" href="{{ base_url }}">Clear</a>{% endif %}
+    {% if q or month or filter_category %}<a class="btn small" href="{{ base_url }}">Clear</a>{% endif %}
   </form>
+  {% if filter_category %}<div class="muted small">Only {{ filter_category }} · {{ total_rows }} transaction{{ 's' if total_rows != 1 }}</div>{% endif %}
   {% if search_suggestions %}<div class="muted small">Did you mean {% for name, score in search_suggestions %}<a href="{{ base_url }}?q={{ name|urlencode }}">{{ name }}</a>{% if not loop.last %} · {% endif %}{% endfor %}?</div>{% endif %}
 </div>
 <script nonce="{{ request.state.csp_nonce|default('') }}">(()=>{const form=document.querySelector('[data-auto-filter]');if(!form)return;const search=form.elements.q,month=form.elements.month;let timer;search?.addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(()=>form.requestSubmit(),350)});month?.addEventListener('change',()=>form.requestSubmit());search?.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();clearTimeout(timer);form.requestSubmit()}})})();</script>

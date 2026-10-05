@@ -123,6 +123,15 @@ class BankImportService:
             "WHERE r.status='REVIEW' ORDER BY r.id LIMIT 1"
         )
 
+    def waiting_all(self) -> list[dict]:
+        """Every statement with rows still waiting for a decision, oldest first, with its first waiting row."""
+        return [dict(row) for row in self.db.all(
+            "SELECT w.*,f.row_number AS first_row_number,f.raw_json AS first_raw_json FROM ("
+            "SELECT b.id AS batch_id,b.account_id,b.file_name,b.created_at,COUNT(r.id) AS waiting,"
+            "MIN(r.id) AS first_row_id FROM bank_import_batches b "
+            "JOIN bank_import_rows r ON r.batch_id=b.id AND r.status='REVIEW' GROUP BY b.id) w "
+            "JOIN bank_import_rows f ON f.id=w.first_row_id ORDER BY w.first_row_id")]
+
     def suggested_mapping(self, account_id: int, headers: list[str]) -> dict[str, str]:
         """Return saved or best-effort column matches for the reviewable map step."""
         saved = self.saved_mapping(account_id, headers)

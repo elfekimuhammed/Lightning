@@ -3,7 +3,6 @@ from __future__ import annotations
 from decimal import Decimal, InvalidOperation
 from datetime import timedelta
 from collections import defaultdict
-import json
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Request
@@ -19,6 +18,7 @@ def fmt(value, places: int = 0, signed: bool = False) -> str:
     """Reporting text rounds to the nearest unit (stored values keep their decimals)."""
     return _fmt(value, places, signed)
 from lightning.investments.report import investing_rate, investment_period
+from lightning.workflows.review import ReviewInbox
 
 from ..web import container, render
 from ..web import redirect
@@ -113,57 +113,8 @@ async def dashboard(request: Request):
     cash_accounts.extend({**row, "type": "Brokerage cash"}
                          for row in c.reporting.owned_brokerage_cash_by_account(as_of))
     owe = position.owe
-    # The Overview lists actions a user can take. Reconciliation diagnostics
-    # remain in the dedicated Integrity checks management view.
-    attention = [{"label": "Missing valuation", "detail": item, "href": "/investments/prices", "priority": 0}
-                 for item in c.reporting.net_worth(today()).unvalued]
-    pending_row = c.bank_imports.first_pending_review()
-    if pending_row:
-        row = pending_row
-        try:
-            source = json.loads(row["raw_json"])
-        except (TypeError, ValueError):
-            source = {}
-        if not isinstance(source, dict):
-            source = {}
-        date_value = next((str(value) for key, value in source.items() if "date" in key.casefold() and value),
-                          str(row["created_at"])[:10])
-        attention.append({"label": "Imported activity needs a decision",
-                          "detail": f"{row['file_name']} · row {row['row_number']} · {date_value}.",
-                          "href": f"/accounts/{row['account_id']}/import/{row['batch_id']}#import-row-{row['id']}", "priority": 1})
-    for reserve in c.reserves.list_active():
-        if reserve.get("due_date") and reserve["due_date"] < fmt_date(today()) and reserve["effective_allocated"] > ZERO:
-            attention.append({"label": f"{reserve['name']} is past its date",
-                              "detail": f"Due {reserve['due_date']} · {fmt(reserve['effective_allocated'])} {c.base_currency} still set aside.",
-                              "href": "/plan/reserves", "priority": 2})
-    # Payments that are due and unpaid today, whatever period is selected.
-    for payment in c.planning.what_you_owe(today()).bills_due_items:
-        kind = "Loan payment due" if payment.item.kind.value == "LOAN" else "Bill due"
-        attention.append({"label": f"{kind}: {payment.item.name}",
-                          "detail": f"Due {payment.due_date} · {fmt(payment.amount)} {c.base_currency} · not paid yet.",
-                          "href": f"/plan/items/{payment.item.id}/pay?due={payment.due_date}&back=%2F",
-                          "popup": True, "action": "Mark paid", "priority": 1})
-    today_forecast = c.forecaster.forecast(today())
-    lowest = today_forecast.lowest
-    if lowest is not None and lowest.closing < ZERO:
-        attention.append({"label": "Cash may run short",
-                          "detail": f"The cash forecast ends {lowest.month} at {fmt(lowest.closing)} {c.base_currency}.",
-                          "href": "/plan", "priority": 1})
-    # Honest numbers: a holding priced more than two months ago is shown at an old value.
-    stale = c.reporting.stale_prices(today())
-    if stale:
-        named = ", ".join(f"{row['name']} ({row['price_date']})" for row in stale[:2])
-        more = f" and {len(stale) - 2} more" if len(stale) > 2 else ""
-        attention.append({"label": "Prices are out of date",
-                          "detail": f"Last priced: {named}{more}. Values use these old prices.",
-                          "href": "/investments/prices", "action": "Update prices", "priority": 2})
-    current_budget = c.budgets.month_view(month_of(today()))
-    for section in current_budget.sections:
-        if section.planned_actual > section.available:
-            attention.append({"label": f"{section.name} over plan",
-                              "detail": f"{fmt(section.planned_actual - section.available)} {c.base_currency} over this month's plan.",
-                              "href": "/budget", "priority": 2})
-    attention = sorted(attention, key=lambda item: item["priority"])
+    # One review inbox: every decision waiting on the user (lightning/workflows/review.py).
+    attention = ReviewInbox(c).items(today())
     setup = _setup_steps(c, accounts)
     change, change_reason = c.position.change_in_what_you_own(first, as_of, since_first_record=period.key == "all")
     change_label = (f"{label('change_in_what_you_own')} since your first record" if period.key == "all"

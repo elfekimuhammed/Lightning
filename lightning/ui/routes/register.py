@@ -185,8 +185,10 @@ def page(request: Request, account_id: int | None, entry: dict | None = None, ed
             error, month = error or exc.message, ""
     matched_ids = c.transactions.search_ids(q) if q else None
     raw_category_id = qp.get("category_id", "")
+    filter_category = ""
     if str(raw_category_id).isdigit():
         category = c.categories.get(int(raw_category_id))
+        filter_category = c.categories.display_name(category.id)
         tree = c.categories.tree(Movement.OUTFLOW)
         children = {}
         for item in tree:
@@ -264,7 +266,7 @@ def page(request: Request, account_id: int | None, entry: dict | None = None, ed
         custody_present=any(custody_owners.values()),
         entry=entry or {"date": qp.get("date") or fmt_date(today()), "account_id": qp.get("new_acct", "")},
         edit_id=edit_id if edit_values is not None else None, edit_acct=edit_acct, edit=edit_values or {},
-        q=q, month=month, date_from=from_query, date_to=to_query, base_url=base_url, keep_qs=urlencode(keep),
+        q=q, month=month, filter_category=filter_category, date_from=from_query, date_to=to_query, base_url=base_url, keep_qs=urlencode(keep),
         page_number=page_number, total_pages=total_pages, total_rows=total_rows, page_base_qs=page_base_qs,
         search_suggestions=c.counterparties.suggestions(q, limit=3) if q else [],
         post_url=(f"/accounts/{account_id}/register" if account_id else "/transactions/register"),
