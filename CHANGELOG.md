@@ -10,6 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-05 · Claude: the market file format (`lightning/market/`): instruments with ISO names (ISIN, MIC, ISO 4217, ISO 3166), daily and month-end closes, a manifest of checksums that reading enforces, and a packed zip for releases (`tests/test_market_file.py`; design in `docs/proposals/market_data.md`).
 - 2026-10-05 · Claude: Ctrl-K command bar (also Search in the sidebar): one ranked search for pages, actions, records, refs and #tags, grouped by type; privacy mode (the eye beside Search) blurs every amount, remembered in the profile. Static file versions raised (`search.py`, `app.js`; `tests/test_entry_helpers.py`, Mohab's search).
 - 2026-10-05 · Claude: #tags in notes (#eid, #عيد): a note shows them as links to every tagged transaction, headed with their count, Money in and Money out; a register search of `#eid` is the same exact filter (`transactions/tags.py`, `tests/test_tags.py`, Mohab's Eid).
 - 2026-10-05 · Codex: Added Budget fill review for prior-month base limits and scheduled Bills/Subscriptions, with reserve goals kept separate and selected edits saved for one month atomically.
