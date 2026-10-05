@@ -83,6 +83,16 @@ class Payment:
     def outstanding(self) -> bool:
         return self.status in (PaymentStatus.DUE, PaymentStatus.UPCOMING)
 
+    @property
+    def still_owed(self) -> Decimal:
+        """What is left of this payment: all of it while outstanding, and the shortfall of a payment
+        recorded for less than its amount (a partial loan instalment is not a full one)."""
+        if self.outstanding:
+            return self.amount
+        if self.status == PaymentStatus.PAID and self.paid_amount is not None:
+            return max(self.amount - self.paid_amount, Decimal(0))
+        return Decimal(0)
+
 
 @dataclass(frozen=True)
 class WhatYouOwe:

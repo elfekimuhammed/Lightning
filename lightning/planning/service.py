@@ -74,6 +74,11 @@ class PlanningService:
             return None
         with self.db.transaction():
             self.repo.set_start(item_id, later[0])
+            if item.payment_count:
+                # The payments before the new start are behind you: they still count toward a fixed
+                # number of payments, so the plan does not grow (audit 2026-10-05 #10: 6 became 8).
+                passed = sum(1 for _, d in payment_dates(item, later[0]) if d < later[0])
+                self.repo.set_payment_count(item_id, item.payment_count - passed)
         return later[0]
 
     def set_amount(self, item_id: int, amount) -> None:
@@ -103,12 +108,14 @@ class PlanningService:
         day = as_of or today()
         settled = self.repo.settled()
         original = item
-        if item.kind == PlanKind.LOAN and item.payment_count:
-            # A skipped loan payment is still owed: it moves to the end of the loan.
+        if item.kind == PlanKind.LOAN:
+            # A skipped loan payment is still owed: it moves to the end of the loan. A loan set by its
+            # last date counts its payments up to that date first, so the skip is not cut off by it.
             skipped = sum(1 for (item_id, _), row in settled.items()
                           if item_id == item.id and row["status"] == PaymentStatus.SKIPPED.value)
             if skipped:
-                item = replace(item, payment_count=item.payment_count + skipped)
+                count = item.payment_count or len(payment_dates(item, item.end_date))
+                item = replace(item, payment_count=count + skipped, end_date=None)
         out = []
         for number, due in payment_dates(item, until):
             row = settled.get((item.id, due))
@@ -272,8 +279,8 @@ class PlanningService:
         due = [p for p in self.all_payments(day, day, outgoing) if p.status == PaymentStatus.DUE]
         loans_left = ZERO
         for item in self.items((PlanKind.LOAN,)):
-            end = item.end_date or "2999-12-31"
-            loans_left += sum((p.amount for p in self.payments(item, end, day) if p.outstanding), ZERO)
+            # The schedule bounds itself (count or last date, extended by skips).
+            loans_left += sum((p.still_owed for p in self.payments(item, "2999-12-31", day)), ZERO)
         return WhatYouOwe(bills_due=sum((p.amount for p in due), ZERO), loans_still_to_pay=loans_left,
                           bills_due_items=due)
 
@@ -290,13 +297,14 @@ class PlanningService:
         return out
 
     def loan_progress(self, item: PlannedItem, as_of: date | None = None) -> dict:
-        payments = self.payments(item, item.end_date or "2999-12-31", as_of)
+        payments = self.payments(item, "2999-12-31", as_of)
         paid = [p for p in payments if p.status == PaymentStatus.PAID]
         left = [p for p in payments if p.outstanding]
         skipped = [p for p in payments if p.status == PaymentStatus.SKIPPED]
         return {"total": len(payments) - len(skipped), "paid": len(paid), "left": len(left), "skipped": skipped,
-                "still_to_pay": sum((p.amount for p in left), ZERO),
-                "paid_amount": sum((p.amount for p in paid), ZERO),
+                "still_to_pay": sum((p.still_owed for p in payments), ZERO),
+                # What was actually paid: a partial instalment counts at its paid amount.
+                "paid_amount": sum((p.amount - p.still_owed for p in paid), ZERO),
                 "total_amount": sum((p.amount for p in paid + left), ZERO),  # paid + still to pay
                 "next": next((p for p in payments if p.outstanding), None),
                 "due": [p for p in payments if p.status == PaymentStatus.DUE],

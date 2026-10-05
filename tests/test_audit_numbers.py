@@ -87,3 +87,44 @@ def test_8_a_funded_goal_that_was_partly_spent_is_not_saved_for_again(c, setup, 
     c.reserves.set_expense_link(goal, spent.id, "1500")
     october = c.forecaster.forecast(date(2026, 10, 1), months=2).months[0]
     assert october.goal_saving == 0
+
+
+def test_4_a_partial_loan_payment_leaves_the_rest_still_to_pay(c, setup, monkeypatch):
+    """#4: a 4 × 2,500 loan with 1,000 paid on the first instalment still owes 9,000, not 7,500."""
+    from datetime import date
+    monkeypatch.setenv("LIGHTNING_TODAY", "2026-10-06")
+    accounts, _ = setup
+    loans = c.categories.get_by_code("EXP.PERSONAL.FOOD")  # any spending category for the payment
+    item = c.planning.create(kind="LOAN", name="Phone", amount="2500", frequency="MONTHLY",
+                             start_date="2026-10-05", payment_count="4", category_id=str(loans.id))
+    c.planning.record_payment(item, "2026-10-05", "2026-10-05", "1000", accounts["cib"].id)
+    day = date(2026, 10, 6)
+    assert c.planning.what_you_owe(day).loans_still_to_pay == D("9000")
+    progress = c.planning.loan_progress(c.planning.get(item), day)
+    assert progress["still_to_pay"] == D("9000") and progress["paid_amount"] == D("1000")
+    assert progress["paid_amount"] + progress["still_to_pay"] == progress["total_amount"]
+
+
+def test_9_a_skipped_payment_stays_owed_on_a_loan_with_an_end_date(c, setup, monkeypatch):
+    """#9: a loan of 2,500 a month to 2027-01-05 (4 payments) with one skipped still owes 10,000."""
+    from datetime import date
+    monkeypatch.setenv("LIGHTNING_TODAY", "2026-10-06")
+    item = c.planning.create(kind="LOAN", name="Car", amount="2500", frequency="MONTHLY",
+                             start_date="2026-10-05", end_date="2027-01-05")
+    day = date(2026, 10, 6)
+    assert c.planning.what_you_owe(day).loans_still_to_pay == D("10000")
+    c.planning.skip(item, "2026-10-05")
+    assert c.planning.what_you_owe(day).loans_still_to_pay == D("10000")
+    assert c.planning.loan_progress(c.planning.get(item), day)["last_date"] == "2027-02-05"
+
+
+def test_10_already_paid_keeps_the_number_of_payments(c, setup, monkeypatch):
+    """#10: a 6-payment plan whose first two dates were already paid keeps 6 payments in all, not 8."""
+    from datetime import date
+    from lightning.planning.schedule import payment_dates
+    monkeypatch.setenv("LIGHTNING_TODAY", "2026-10-06")
+    item = c.planning.create(kind="BILL", name="Course", amount="1000", frequency="MONTHLY",
+                             start_date="2026-08-20", payment_count="6")
+    assert c.planning.start_after_paid(item, date(2026, 10, 6)) == "2026-10-20"
+    remaining = payment_dates(c.planning.get(item), "2099-12-31")
+    assert [d for _, d in remaining] == ["2026-10-20", "2026-11-20", "2026-12-20", "2027-01-20"]

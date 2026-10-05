@@ -56,6 +56,9 @@ class PlanningRepository:
         self.db.execute("UPDATE planned_items SET start_date=?, updated_at=? WHERE id=?",
                         (start_date, now_iso(), item_id))
 
+    def set_payment_count(self, item_id: int, count: int) -> None:
+        self.db.execute("UPDATE planned_items SET payment_count=?,updated_at=? WHERE id=?", (count, now_iso(), item_id))
+
     def set_active(self, item_id: int, active: bool) -> None:
         self.db.execute("UPDATE planned_items SET active=?,updated_at=? WHERE id=?", (int(active), now_iso(), item_id))
 
