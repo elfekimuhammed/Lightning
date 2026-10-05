@@ -6,7 +6,7 @@ Last rewritten 2026-10-05 · Claude.
 
 ## Claude
 
-- **Last done (2026-10-05):** website SEO and seven Egypt guide pages (website README › Search).
+- **Last done (2026-10-05):** website SEO and seven Egypt guide pages (website README › Search); guideline 3.21 in both copies.
 - **For Codex (03a):** (1) a failure after PENDING, before P1, still locks the profile: retire it as abandoned when the journal never prepared and live equals `old_sha256`. (2) Unlock re-verifies every retained copy (2.7 s for three 23.5 MB restores); drop it? Owner's call. (3) Deleting a retained copy locks the profile: intended?
 - **In progress:** none. `session.prepare`/`confirm`/`recover`/`change_password` changed signature; `keys.json` is v2; `unwrap_key(read_slot(...), password)` still works.
 
@@ -47,4 +47,4 @@ Last rewritten 2026-10-05 · Claude.
   3. *Competition:* should Lightning get gam'eya (rotating savings) and zakat, as Qershnat has them? (Trial decided: 7 days free, never a lock; Project Overview › Product decisions.)
   4. *UX:* recurring suggestions, and whether to add Accounts and Transactions to the main menu (Project Overview › UX plan, "Still open").
   5. *Routine audit (2026-10-05):* should a certificate's interest count in its Net gain and return (link the interest to the certificate)? Pain points to decide: the "System" group name, Housing 22% vs 45%, "80 of 68" rounding, "Kept 0", "Split · 0 categories", a certificate named twice, Reserves dropdowns (A16: type and pick).
-  6. *Website:* add the Money Guides to B01's page list? No "vs" pages, per B10: keep that?
+  6. *Website:* no "vs" pages, per B10: keep that rule?
