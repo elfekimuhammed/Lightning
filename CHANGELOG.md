@@ -10,6 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-05 · Claude: owner decision: the website never mentions other apps, not even in comparison pages for search (Project Overview › Product decisions).
 - 2026-10-05 · Claude: brand guideline 3.21, the same file as the website's `brand-guidelines.html` again (this copy was 3.16). Website only: B01 lists the home page and the Money guides; B02's label examples are sentence case, as A16 says. Part A is unchanged.
 - 2026-10-05 · Claude: website search: canonicals, Open Graph card, `sitemap.xml`, `robots.txt`, noindex on internal and archived pages, structured data, the home title and label "Free personal finance for Egypt", and seven Egypt guide pages (website README › Search).
 - 2026-10-05 · Claude: added the *Actual Budget code analysis* section to `docs/COMPETITION.md`: ten things Actual's code does better (rules, undo, import match, weekend schedules, budget templates, i18n and more), what not to copy, and where Lightning is ahead.
