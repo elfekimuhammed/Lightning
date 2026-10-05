@@ -10,6 +10,7 @@ Work longer than one sitting, and its files. Stay out of claimed files; remove y
 |---|---|---|---|
 | Luna, for Codex | 02d — Promotion/recovery (first): connect stage+verify to live promotion; gate writes while unresolved; test interruptions, full disk, failed flush and restart; record tested reboot/power-loss behavior. Read: [proposal §15](docs/proposals/multiple_devices.md#15-implementation-work-packages) and its Read column. | `lightning/database/promotion.py`, `tests/test_database_promotion.py` | 2026-10-05 |
 | Luna, for Codex | 03a restore safety: durable intent and source-copy manifest, Windows marker publication, then explicit deterministic repair. Codex reviews it and owns the restore UI and docs | `lightning/runtime/restore.py`, `lightning/database/promotion_windows.py`, `tests/test_profile_session.py`, `tests/test_database_promotion_windows.py` | 2026-10-05 |
+| Claude | Price files, phase 2: `market.zip` in the release ZIP; fill prices at first run and statement import; remove the per-user Yahoo fetch | `lightning/assets/`, `lightning/bootstrap.py`, `lightning/bank_imports.py`, `packaging/`, price tests | 2026-10-05 |
 
 ## Messages
 
@@ -28,4 +29,3 @@ Unclaimed: add a *Claimed* row before you start. Each item's **Read:** names wha
 3. **Speed (optional):** stable window origin for CSS/JS caching; trim unused CSS. Read: Architecture › Page speed.
 4. **04a — Android build feasibility, after 03a:** resolve the pinned cryptography and SQLCipher blockers. Claim `android/` and Android workflows. Exit evidence: a reproducible arm64 APK loads both native dependencies on a real phone and reports the SQLCipher version; otherwise record the exact blocker and build evidence and leave it open. Read: `android/README.md`; [proposal section 15](docs/proposals/multiple_devices.md#15-implementation-work-packages) and its Read column.
 5. **05a — Sync protocol, after 04a:** compare schemas and in-memory state with protocol v1; add only missing messages, fixtures and duplicate/reordered/stale/restarted-flow tests. Freeze schemas on `main`; durable storage and transport remain later work. Claim `lightning/sync/` and `tests/test_sync_domain.py`. Read: [proposal section 15](docs/proposals/multiple_devices.md#15-implementation-work-packages) and its Read column.
-6. **Price files, phase 2:** ship `market.zip` (default packs) in the release ZIP; fill prices at first run and statement import; remove the per-user Yahoo fetch (`assets/market_data.py`). Read: [market data proposal](docs/proposals/market_data.md) › Phases.
