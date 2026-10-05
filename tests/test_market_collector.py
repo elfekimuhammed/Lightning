@@ -229,11 +229,10 @@ def test_backfill_brings_whole_histories_into_the_pack_that_lists_them(tmp_path)
 def test_the_schedules_run_each_pack_after_its_market_closes():
     import re
 
-    import yaml
     from lightning.market.packs import PACKS as REGISTRY
 
     workflow = (Path(__file__).parents[1] / ".github" / "workflows" / "market-data.yml").read_text(encoding="utf-8")
-    crons = [entry["cron"] for entry in yaml.safe_load(workflow)[True]["schedule"]]  # YAML reads `on:` as True
+    crons = re.findall(r"- cron: '([^']+)'", workflow)  # no YAML library: the locked test set has none
     routed = dict(re.findall(r'"([0-9*, -]+)"\) packs=([a-z,-]+) ;;', workflow))
     assert sorted(routed) == sorted(crons)
     for pack in REGISTRY.values():
