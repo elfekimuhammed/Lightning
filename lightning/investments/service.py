@@ -374,6 +374,14 @@ class InvestmentService:
                 s["qty"] += qty
             if s["qty"] == ZERO:
                 s["cost"] = ZERO
+        # A certificate's interest lands on the bank account; it is still the certificate's return.
+        for paid in self.reporting.certificate_interest(day):
+            if account_id is not None and paid["account_id"] != account_id:
+                continue
+            key = (paid["account_id"], self.assets.get_asset(paid["asset_id"]).code)
+            dividends[key] = dividends.get(key, ZERO) + paid["amount"]
+            cashflows.append((paid["date"], paid["amount"]))
+            holding_flows.setdefault((paid["account_id"], paid["asset_id"]), []).append((paid["date"], paid["amount"]))
         positions = []
         for (acc_id, asset_id), pools in state.items():
             s = {key: sum((pool[key] for pool in pools.values()), ZERO) for key in ("qty", "cost", "realized")}

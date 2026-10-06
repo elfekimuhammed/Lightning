@@ -261,6 +261,23 @@ class ReportQueries:
         )
         return [dict(r) for r in rows]
 
+    def interest_from_banks(self, as_of: str) -> list[dict]:
+        """Owned interest received outside investment accounts, with the payer's name, oldest first."""
+        return [dict(r) for r in self.db.all(
+            f"SELECT le.date, le.amount_base_e6, t.id AS txn_id, cp.name AS payer FROM ledger_entries le {POSTED} "
+            "JOIN categories c ON c.id=le.category_id JOIN counterparties cp ON cp.id=t.counterparty_id "
+            "JOIN accounts a ON a.id=le.account_id "
+            "WHERE c.code='EXP.INVEST.INTEREST' AND le.effect='INFLOW' AND le.owner_id IS NULL AND le.date <= ? "
+            "AND a.account_type IN ('BANK','CASH') ORDER BY le.date, t.id", (as_of,))]
+
+    def certificate_lines(self, as_of: str) -> list[dict]:
+        """Owned non-cash lines in certificate (DEPOSIT) accounts with the bank's name, oldest first."""
+        return [dict(r) for r in self.db.all(
+            f"SELECT le.date, le.account_id, le.asset_id, le.amount_base_e6, a.institution FROM ledger_entries le {POSTED} "
+            "JOIN accounts a ON a.id=le.account_id JOIN financial_assets fa ON fa.id=le.asset_id "
+            "WHERE a.account_type='DEPOSIT' AND fa.is_cash=0 AND le.owner_id IS NULL AND le.date <= ? "
+            "ORDER BY le.date, t.id, le.line_no", (as_of,))]
+
     def latest_fx(self, base: str, quote: str, as_of: str) -> dict | None:
         row = self.db.one(
             "SELECT rate_e6, date, source FROM fx_rates WHERE base = ? AND quote = ? AND date <= ?"

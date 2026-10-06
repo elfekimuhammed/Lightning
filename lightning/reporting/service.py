@@ -746,6 +746,30 @@ class ReportingService:
         """Posted lines of investments (and dividends), oldest first — the input for positions."""
         return self.q.investment_lines(self._day(as_of), account_id)
 
+    @request_cached(deep=True)
+    def certificate_interest(self, as_of: date | str) -> list[dict]:
+        """Interest a bank paid on its certificates, up to a date: each Investment › Interest payment into a bank
+        or cash account whose payer is a CD portfolio's bank (its Institution, any case) belongs to the
+        certificates held there that day, split by what they cost. [{date, account_id, asset_id, amount}]"""
+        day = self._day(as_of)
+        lines = self.q.certificate_lines(day)
+        out = []
+        for row in self.q.interest_from_banks(day):
+            payer = row["payer"].strip().casefold()
+            held: dict[tuple[int, int], int] = {}
+            for line in lines:
+                if line["date"] > row["date"]:
+                    break
+                if line["institution"].strip().casefold() == payer and payer:
+                    key = (line["account_id"], line["asset_id"])
+                    held[key] = held.get(key, 0) + line["amount_base_e6"]
+            held = {key: cost for key, cost in held.items() if cost > 0}
+            total, amount = sum(held.values()), from_e6(row["amount_base_e6"])
+            for (account_id, asset_id), cost in held.items():
+                out.append({"date": row["date"], "account_id": account_id, "asset_id": asset_id,
+                            "amount": (amount * cost / total).quantize(Decimal("0.01"))})
+        return out
+
     def value_of(self, asset_id: int, quantity: Decimal, as_of: date | str):
         """Market value of units of an asset on a date (see Valuer for where the price comes from)."""
         return self.valuer.value(self.assets.get_asset(asset_id), quantity, self._day(as_of))

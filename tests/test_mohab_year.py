@@ -781,7 +781,8 @@ def test_the_budget_says_what_is_over(mohab):
 def test_investments_lead_with_the_periods_result(mohab):
     answer = mohab.answers["investing"]
     assert route(mohab, "investing") == ["/", "/investments"]
-    assert answer.shows("Net gain or loss 2026-09 +5,673")
+    # 5,673 from prices and the dividend, plus the certificate's 1,833 interest paid into CIB
+    assert answer.shows("Net gain or loss 2026-09 +7,506")
 
 
 def test_data_checks_pass_after_setup(mohab):
@@ -1061,8 +1062,10 @@ def test_the_years_spending(mohab):
 
 
 def test_the_years_investments(mohab):
-    # 1,025 from the sale + 225 price change + 300 dividends
-    assert mohab.answers["year_investing"].shows("Net gain or loss 2026-10-01 to 2027-09-30 +1,550")
+    # 1,025 from the sale + 225 price change + 300 dividends + 12 × 1,833.33 of certificate interest
+    assert mohab.answers["year_investing"].shows("Net gain or loss 2026-10-01 to 2027-09-30 +23,550")
+    # The interest lands on CIB Payroll from NBE, the certificate's bank, and is still the certificate's return.
+    assert mohab.answers["flat"].shows("NBE 3-year certificate 1 certificate 100,000 100,000 100,000 100,000 17.5% 0 0.0% +24.6%")
 
 
 def test_data_checks_pass_after_a_year(mohab):

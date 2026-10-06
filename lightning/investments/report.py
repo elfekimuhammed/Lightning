@@ -135,6 +135,8 @@ def build_investment_report(db, accounts, assets, reporting, start: str, end: st
             b["units"] += q
             if not b["units"]:
                 b["cost"] = ZERO
+    # A certificate's interest lands on the bank account; it is still the certificate's return.
+    dividends += sum((paid["amount"] for paid in reporting.certificate_interest(end) if paid["date"] >= start), ZERO)
     # Portfolio boundary movement per source transaction: inside-to-inside lines cancel. Deposit
     # accounts are inside: buying a certificate from the bank is money added (owner decision 2026-10-04).
     portfolio_ids = investment_account_ids | balance_ids

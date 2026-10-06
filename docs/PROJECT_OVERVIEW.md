@@ -311,10 +311,10 @@ The reference apps are YNAB, Monarch, Copilot, Simplifi, Rocket Money, Lunch Mon
 **Known finance gaps** (the early-pay, raise and rent paths now require explicit confirmation; no-pay-month averaging in step 27 only has a non-increase assertion):
 
 
-- **Left open by the 2026-10-05 audit** (its other wrong numbers are fixed, `tests/test_audit_numbers.py`): a certificate's interest lands on the bank as Investment › Interest with no link to the certificate, so Net gain and the return leave it out; a payment scheduled on the 31st moves to the 30th after a shorter month and stays there.
+- **Left open by the 2026-10-05 audit** (its other wrong numbers are fixed, `tests/test_audit_numbers.py`): a payment scheduled on the 31st moves to the 30th after a shorter month and stays there.
 - **Unconfirmed early salary** remains in the bank-posting month of the income average and may leave a future salary payment due. The Recurring tab suggests the plausible match; Mohab must confirm the specific transaction before the scheduled-month average and forecast adjust.
 - **A changed recurring amount** prompts a future-plan update and a reserve review, but the user must choose them. A reserve is named only when the payment is explicitly linked to it; a name or category match does not silently change cash assignments.
-- **CD projections** use an actual/365 day-count estimate, not a bank guarantee. Interest is never posted automatically. Existing account-level `cd_terms` stay visible as legacy and are not automatically converted. Cash in old `DEPOSIT` accounts must be moved out; these legacy terms remain pending a safe conversion workflow. Actual bank interest entries are not yet linked to certificates to reconcile projections.
+- **CD projections** use an actual/365 day-count estimate, not a bank guarantee. Interest is never posted automatically. Existing account-level `cd_terms` stay visible as legacy and are not automatically converted. Cash in old `DEPOSIT` accounts must be moved out; these legacy terms remain pending a safe conversion workflow. Interest recorded from the certificate's bank counts as the certificate's return (Architecture › Investment return); it is not yet reconciled against the projection.
 
 Bank sync and bill negotiation are not adopted. Any sync first needs a provider and regional coverage; local CSV stays the foundation. A "safe to spend" figure must always say which obligations and income it includes. Simplifi's projection, which leaves out planned spending, shows why.
 
