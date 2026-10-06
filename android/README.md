@@ -64,3 +64,13 @@ is undefined. Neither job produced a wheel. The next probe must supply an
 explicit Android Clang Conan profile and a target-header path that survives
 the build environment setup. These remain configuration findings; they do not
 establish Android runtime or 16 KB page compatibility.
+
+**APK built (2026-10-06, Claude).** [Wheel run 37432876490](https://github.com/elfekimuhammed/Lightning/actions/runs/37432876490)
+builds all four native wheels for Python 3.13 arm64 from their pinned sources: `cryptography==50.0.2` (static
+OpenSSL 3.5.4, target flags in `CFLAGS_aarch64_linux_android`, which cibuildwheel does not rewrite),
+`sqlcipher3==0.6.2` (explicit Conan Android host and Linux build profiles, linked to `liblog`), `cffi==2.0.0`
+(static libffi 3.5.2) and `pydantic_core==2.46.5`; native libraries link with 16 KB pages. The
+[probe run 37434558665](https://github.com/elfekimuhammed/Lightning/actions/runs/37434558665) installs them
+(`-PwheelDir`) and builds the APK. 04a passes only when that APK, launched on a real arm64 phone, shows the
+SQLCipher version (owner step in `OWNER.md`). Still unverified: loading on a device and 16 KB page alignment of
+the packaged libraries.
