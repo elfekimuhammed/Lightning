@@ -10,8 +10,9 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
-- 2026-10-06 · Claude: 04b passed: on the owner's arm64 phone the encrypted round-trip (open, write, close, reopen, recovery key) gives the same figures, row counts and key checks as Linux and Windows (`android/README.md`). 04c is next.
 
+- 2026-10-06 · Claude: the level-1 group "System" is now "Loans & held money" (migration `0044_loans_group_name.sql`; a renamed group keeps its name); samples and the round-trip fixture rebuilt (only its schema lines changed).
+- 2026-10-06 · Claude: 04b passed: on the owner's arm64 phone the encrypted round-trip (open, write, close, reopen, recovery key) gives the same figures, row counts and key checks as Linux and Windows (`android/README.md`). 04c is next.
 - 2026-10-06 · Claude: an account added as already owned is no longer read as growth: the net worth chart names the month and amount of opening balances, and the Investments line's change since six months ago leaves them out.
 - 2026-10-06 · Claude: Looks recurring leaves out everyday spending and investment income, and *Not recurring* hides a suggestion (`PlanningService.suggestions`, `POST /plan/suggestions/{id}/not-recurring`).
 - 2026-10-06 · Claude: Mohab review fixes. Budget and Reserves meters say left/over as the two rounded figures read (80 of 68 is 12 over, not 13); budget suggestions are whole EGP; Reserves shows whole EGP like the other Cash planning tabs; Overview Bills due reads 0, not 0.00; Spending's change reads 0%, never +0% or −0%.
@@ -26,7 +27,6 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - 2026-10-06 · Claude: Holdings table (owner): one column each for units, average cost, price, cost, value, share, gain, return and XIRR (account only when there are several); no lines or fold-outs under names. Fixed a stray CSS line from the layout change that drew the Plan timeline over the page.
 - 2026-10-06 · Claude: two levels (owner): six sections (Overview: Summary, Spending, Health; Budget; Cash planning; Investments: Holdings, Planner, Prices; Accounts: Accounts, Transactions, Held for others; Settings: Your data, Categories, Counterparties, Data checks); each tab's settings behind its gear; no tab descriptions (`ui/sections.py`, `tests/test_two_levels.py`).
 - 2026-10-06 · Claude: proposal `docs/proposals/two_level_layout.md` (owner request): two levels only, six sections and five tabs at most, each tab's settings behind its gear, icons for row actions, one choice one field; where Expense analysis, Financial health, Held for others and FX go. Not built; OWNER.md item 13.
-
 - 2026-10-06 · Claude: Working, not stuck (guideline A10.6, owner's choice): a pressed button becomes unavailable and shows a small Muted turning square; slow pages and the background month-end fetch show it in a note at the bottom right (`app.js`, `/investments/prices/online/status`).
 - 2026-10-06 · Claude: Financial health says a month with far more out than in in words, as the Overview does ("21,582 more went out than the 1,833 that came in", still below your limit), in the card and the six-month table, instead of −1177.2% (`CashFlow.rate_says_nothing`).
 - 2026-10-06 · Claude: Mohab meets the smarter plan (steps 20, 22, 24, 29–31): the raise offer, loans and rent planned below their bills, Safe to spend's rest of target, a late laptop goal, moving room to Food. Fixed what he found: "move 0", a −1,177% short month, a move offer that stayed, editing a reserve crashed.

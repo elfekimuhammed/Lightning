@@ -2,7 +2,7 @@ Date,Amount,Counterparty,Category,Notes
 2026-01-01,45000.00,ACME Egypt,Work › Salary,Salary
 2026-01-02,-3021.50,Carrefour,Personal › Food & Groceries,
 2026-01-03,-12000.00,Landlord,Personal › Housing & Rent,Rent
-2026-01-05,-2500.00,Toyota Finance,System › Loan payments,Car loan · payment 1 of 24
+2026-01-05,-2500.00,Toyota Finance,Loans & held money › Loan payments,Car loan · payment 1 of 24
 2026-01-05,-3000.00,Cash wallet,Internal transfer,ATM withdrawal
 2026-01-06,-1000.00,Vodafone Cash,Internal transfer,Top-up
 2026-01-08,-900.00,Gold's Gym,Personal › Health,Membership
@@ -20,7 +20,7 @@ Date,Amount,Counterparty,Category,Notes
 2026-02-01,45000.00,ACME Egypt,Work › Salary,Salary
 2026-02-02,-3500.75,Carrefour,Personal › Food & Groceries,
 2026-02-03,-12000.00,Landlord,Personal › Housing & Rent,Rent
-2026-02-05,-2500.00,Toyota Finance,System › Loan payments,Car loan · payment 2 of 24
+2026-02-05,-2500.00,Toyota Finance,Loans & held money › Loan payments,Car loan · payment 2 of 24
 2026-02-05,-3000.00,Cash wallet,Internal transfer,ATM withdrawal
 2026-02-06,-1000.00,Vodafone Cash,Internal transfer,Top-up
 2026-02-08,-900.00,Gold's Gym,Personal › Health,Membership
@@ -41,7 +41,7 @@ Date,Amount,Counterparty,Category,Notes
 2026-03-02,-3306.50,Carrefour,Personal › Food & Groceries,
 2026-03-03,-12000.00,Landlord,Personal › Housing & Rent,Rent
 2026-03-03,-960.00,Abou El Sid,Personal › Eating Out,Iftar
-2026-03-05,-2500.00,Toyota Finance,System › Loan payments,Car loan · payment 3 of 24
+2026-03-05,-2500.00,Toyota Finance,Loans & held money › Loan payments,Car loan · payment 3 of 24
 2026-03-05,-3000.00,Cash wallet,Internal transfer,ATM withdrawal
 2026-03-06,-1000.00,Vodafone Cash,Internal transfer,Top-up
 2026-03-08,-900.00,Gold's Gym,Personal › Health,Membership
@@ -60,11 +60,11 @@ Date,Amount,Counterparty,Category,Notes
 2026-04-01,45000.00,ACME Egypt,Work › Salary,Salary
 2026-04-02,-3560.50,Carrefour,Personal › Food & Groceries,
 2026-04-03,-12000.00,Landlord,Personal › Housing & Rent,Rent
-2026-04-05,-2500.00,Toyota Finance,System › Loan payments,Car loan · payment 4 of 24
+2026-04-05,-2500.00,Toyota Finance,Loans & held money › Loan payments,Car loan · payment 4 of 24
 2026-04-05,-3000.00,Cash wallet,Internal transfer,ATM withdrawal
 2026-04-06,-1000.00,Vodafone Cash,Internal transfer,Top-up
 2026-04-08,-900.00,Gold's Gym,Personal › Health,Membership
-2026-04-09,10000.00,Mom,System › Money Held for Others,"Mom's savings, kept for her"
+2026-04-09,10000.00,Mom,Loans & held money › Money Held for Others,"Mom's savings, kept for her"
 2026-04-10,-362.00,Talabat,Personal › Eating Out,
 2026-04-12,-240.00,Netflix,Personal › Entertainment,
 2026-04-15,-1299.00,Amazon,Personal › Shopping,Headphones
@@ -80,7 +80,7 @@ Date,Amount,Counterparty,Category,Notes
 2026-05-02,-3418.75,Carrefour,Personal › Food & Groceries,
 2026-05-03,-12000.00,Landlord,Personal › Housing & Rent,Rent
 2026-05-03,1299.00,Amazon,Personal › Shopping,Headphones returned
-2026-05-05,-2500.00,Toyota Finance,System › Loan payments,Car loan · payment 5 of 24
+2026-05-05,-2500.00,Toyota Finance,Loans & held money › Loan payments,Car loan · payment 5 of 24
 2026-05-05,-3000.00,Cash wallet,Internal transfer,ATM withdrawal
 2026-05-06,-1000.00,Vodafone Cash,Internal transfer,Top-up
 2026-05-08,-900.00,Gold's Gym,Personal › Health,Membership
@@ -99,7 +99,7 @@ Date,Amount,Counterparty,Category,Notes
 2026-06-01,45000.00,ACME Egypt,Work › Salary,Salary
 2026-06-02,-2950.00,Carrefour,Personal › Food & Groceries,
 2026-06-03,-12000.00,Landlord,Personal › Housing & Rent,Rent
-2026-06-05,-2500.00,Toyota Finance,System › Loan payments,Car loan · payment 6 of 24
+2026-06-05,-2500.00,Toyota Finance,Loans & held money › Loan payments,Car loan · payment 6 of 24
 2026-06-05,-3000.00,Cash wallet,Internal transfer,ATM withdrawal
 2026-06-06,-1000.00,Vodafone Cash,Internal transfer,Top-up
 2026-06-08,-1200.00,Uber,Work › Transportation,Client visit
@@ -118,7 +118,7 @@ Date,Amount,Counterparty,Category,Notes
 2026-07-01,50000.00,ACME Egypt,Work › Salary,Salary · new amount after the raise
 2026-07-02,-3585.50,Carrefour,Personal › Food & Groceries,
 2026-07-03,-12000.00,Landlord,Personal › Housing & Rent,Rent
-2026-07-05,-2500.00,Toyota Finance,System › Loan payments,Car loan · payment 7 of 24
+2026-07-05,-2500.00,Toyota Finance,Loans & held money › Loan payments,Car loan · payment 7 of 24
 2026-07-05,-3000.00,Cash wallet,Internal transfer,ATM withdrawal
 2026-07-06,-1000.00,Vodafone Cash,Internal transfer,Top-up
 2026-07-08,-900.00,Gold's Gym,Personal › Health,Membership
@@ -137,7 +137,7 @@ Date,Amount,Counterparty,Category,Notes
 2026-08-02,-3511.75,Carrefour,Personal › Food & Groceries,
 2026-08-03,-12000.00,Landlord,Personal › Housing & Rent,Rent
 2026-08-05,-10000.00,THNDR,Internal transfer,Transfer to THNDR
-2026-08-05,-2500.00,Toyota Finance,System › Loan payments,Car loan · payment 8 of 24
+2026-08-05,-2500.00,Toyota Finance,Loans & held money › Loan payments,Car loan · payment 8 of 24
 2026-08-05,-3000.00,Cash wallet,Internal transfer,ATM withdrawal
 2026-08-06,-1000.00,Vodafone Cash,Internal transfer,Top-up
 2026-08-08,-900.00,Gold's Gym,Personal › Health,Membership
@@ -146,7 +146,7 @@ Date,Amount,Counterparty,Category,Notes
 2026-08-12,-240.00,Netflix,Personal › Entertainment,
 2026-08-15,1833.33,NBE,Investment › Interest,Certificate interest
 2026-08-18,-487.00,Talabat,Personal › Eating Out,
-2026-08-20,-4000.00,Mom,System › Money Held for Others,Mom took back part of her savings
+2026-08-20,-4000.00,Mom,Loans & held money › Money Held for Others,Mom took back part of her savings
 2026-08-20,-650.00,WE Internet,Personal › Utilities & Bills,
 2026-08-22,-1450.00,Seoudi,Personal › Food & Groceries,
 2026-08-24,-960.00,North Cairo Electricity,Personal › Utilities & Bills,
@@ -156,7 +156,7 @@ Date,Amount,Counterparty,Category,Notes
 2026-09-01,50000.00,ACME Egypt,Work › Salary,Salary
 2026-09-02,-2934.50,Carrefour,Personal › Food & Groceries,
 2026-09-03,-12000.00,Landlord,Personal › Housing & Rent,Rent
-2026-09-05,-2500.00,Toyota Finance,System › Loan payments,Car loan · payment 9 of 24
+2026-09-05,-2500.00,Toyota Finance,Loans & held money › Loan payments,Car loan · payment 9 of 24
 2026-09-05,-3000.00,Cash wallet,Internal transfer,ATM withdrawal
 2026-09-06,-1000.00,Vodafone Cash,Internal transfer,Top-up
 2026-09-08,-900.00,Gold's Gym,Personal › Health,Membership

@@ -74,7 +74,7 @@ CATEGORIES: list[tuple[str, str, dict]] = [
     ("EXP.WORK.OFFICE", "Office Supplies", {}),
     ("EXP.WORK.TRAVEL", "Travel", {}),
     ("EXP.WORK.OTHER", "Other Work", {}),
-    ("EXP.SYSTEM", "System", {"scope": "PERSONAL", "family": "PERSONAL"}),
+    ("EXP.SYSTEM", "Loans & held money", {"scope": "PERSONAL", "family": "PERSONAL"}),
     ("EXP.SYSTEM.CUSTODY", "Money Held for Others", {"movement": "INFLOW", "family": "PERSONAL"}),
     ("EXP.SYSTEM.LOANS", "Loan payments", {"scope": "PERSONAL"}),
     ("EXP.UNACCOUNTED", "Unaccounted Spending", {"scope": "PERSONAL", "is_system": 1}),

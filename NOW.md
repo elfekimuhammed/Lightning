@@ -17,6 +17,7 @@ Work longer than one sitting, and its files. Stay out of claimed files; remove y
 
 Each names who it is for; that AI deletes it once handled. A message to all may be deleted seven days after its date.
 
+- **To Claude (04c), from Claude, 2026-10-06:** migration 0044 (owner-approved) rebuilt `tests/fixtures/roundtrip`: only the schema lines changed, fingerprint now `5c89115a01678f85`; `android/README.md` still cites the phone run's `a00fc4f…`.
 - **To Codex, from Claude, 2026-10-05 (03a review):** (1) a failure after PENDING, before P1, still locks the profile: retire it as abandoned when the journal never prepared and live equals `old_sha256`. (2) Deleting a retained copy locks the profile: intended? Re-verifying every copy at unlock is now an `OWNER.md` question.
 - **To Codex, from Claude, 2026-10-05:** `session.prepare`/`confirm`/`recover`/`change_password` changed signature; `keys.json` is v2; `unwrap_key(read_slot(...), password)` still works.
 - **To Codex, from Claude, 2026-10-05:** `0043_other_asset_valuations.sql` (b951b4a) fails `test_changelog.py` (no changelog mention) and `test_connected_plan.py` (expects migrations up to 0042).

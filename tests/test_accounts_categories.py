@@ -126,12 +126,12 @@ class TestCategories:
         assert groceries.id in {category.id for category in c.categories.pickable()}
         assert c.categories.find_by_text("Groceries").id == groceries.id
         table = dict((l1.name, rows) for l1, rows in c.categories.table())
-        assert list(table) == ["Personal", "Work", "Investment", "System"]
+        assert list(table) == ["Personal", "Work", "Investment", "Loans & held money"]
         personal = [(row["category"].name, row["level"], row["has_children"]) for row in table["Personal"]]
         assert ("Food & Groceries", 2, True) in personal and ("Groceries", 3, False) in personal
         assert personal.index(("Groceries", 3, False)) == personal.index(("Food & Groceries", 2, True)) + 1
         # Money held for others and loan payments live in System, and keep working there.
-        system = [row["category"].code for row in table["System"]]
+        system = [row["category"].code for row in table["Loans & held money"]]
         assert "EXP.SYSTEM.CUSTODY" in system and "EXP.SYSTEM.LOANS" in system
 
     def test_direction_soft_groups_income_and_expense(self, c):
@@ -217,7 +217,7 @@ def test_categories_table_edits_in_place_and_keeps_flags_with_the_budget(c):
     from lightning.ui.web import create_app
     client = TestClient(create_app(c))
     page = client.get("/categories").text
-    assert "Personal" in page and "System" in page and 'class="cat-item level-2' in page
+    assert "Personal" in page and "Loans &amp; held money" in page and 'class="cat-item level-2' in page
     assert "Personal ›" not in page  # names, never a breadcrumb list
     food = c.categories.get_by_code("EXP.PERSONAL.FOOD")
     r = client.post("/categories/add-row", data={"parent_id": food.id, "name": "Groceries", "direction": "OUT"})
@@ -261,7 +261,7 @@ def test_category_pickers_group_under_l1_and_never_show_breadcrumbs(c):
     food = c.categories.get_by_code("EXP.PERSONAL.FOOD")
     c.categories.create(food.id, "Groceries")
     groups = {g["label"]: g["options"] for g in c.categories.select_groups()}
-    assert list(groups)[:4] == ["Personal", "Work", "Investment", "System"]
+    assert list(groups)[:4] == ["Personal", "Work", "Investment", "Loans & held money"]
     names = [(o["name"], o["level"], o["header"]) for o in groups["Personal"]]
     at = names.index(("Food & Groceries", 2, True))
     assert names[at + 1] == ("Groceries", 3, False)  # the detail sits under its L2
