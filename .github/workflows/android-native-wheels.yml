@@ -83,6 +83,10 @@ jobs:
           needle = "        *[x for s in settings for x in ('-s', s)],"
           assert original.count(needle) == 1, 'upstream setup changed; review the Conan patch'
           patched = original.replace(needle, "        '-pr:h', '/tmp/lightning-conan-android', '-pr:b', '/tmp/lightning-conan-linux',")
+          # SQLCipher logs through Android's liblog (__android_log_write), which upstream does not link.
+          link = "        extra_link_args.extend(['-lm', '-lcrypto'])"
+          assert patched.count(link) == 1, 'upstream link arguments changed; review the patch'
+          patched = patched.replace(link, "        extra_link_args.extend(['-lm', '-lcrypto', '-llog'])")
           source.write_text(patched, encoding='iso-8859-1')
           PY
       - name: Build a static OpenSSL for Android (cryptography links it)
