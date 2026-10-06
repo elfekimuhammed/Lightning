@@ -55,3 +55,18 @@ def test_serve_unlock_overview_and_shutdown(probe, tmp_path):
     report = probe.stop()
     assert "OK  04c shutdown: stopped in" in report and "never unlocked" not in report
     assert probe._host is None
+
+
+def test_phone_app_entry_serves_the_profiles_and_reports_when_it_must_listen(tmp_path, monkeypatch):
+    """`lightning_android` is what MainActivity and SyncService call."""
+    monkeypatch.syspath_prepend(str(ROOT / "android" / "app" / "src" / "main" / "python"))
+    sys.modules.pop("lightning_android", None)
+    phone = importlib.import_module("lightning_android")
+    try:
+        launch = phone.start(str(tmp_path / "files"))
+        assert "/__launch?code=" in launch
+        assert phone.start(str(tmp_path / "files")).endswith("/")  # reopening needs no new launch link
+        assert phone.background_note() == ""  # nothing paired or lent: the phone may sleep
+    finally:
+        if phone._host is not None:
+            phone._host.stop()

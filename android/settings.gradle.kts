@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "LightningAndroidProbe"
+rootProject.name = "LightningAndroid"
 include(":app")

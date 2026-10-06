@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Lightning mark (lightning/ui/static/lightning-mark.svg) in its two brand colours, centred on a square. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="432" android:viewportHeight="432">
+    <group android:translateX="116" android:translateY="76">
+        <path android:fillColor="#0B6DD6"
+            android:pathData="M100,10 C100,3 94,-1 88,2.5 L50,22 C19,37.5 0,66 0,105 L0,196 C0,221 20,231 41,219 L100,190 Z" />
+        <path android:fillColor="#36B4F2"
+            android:pathData="M0,138.5 L100,90 L100,190 L41,219 C20,231 0,221 0,196 Z" />
+        <group android:rotation="180" android:pivotX="100" android:pivotY="140">
+            <path android:fillColor="#14A874"
+                android:pathData="M100,10 C100,3 94,-1 88,2.5 L50,22 C19,37.5 0,66 0,105 L0,196 C0,221 20,231 41,219 L100,190 Z" />
+            <path android:fillColor="#8BE6B6"
+                android:pathData="M0,138.5 L100,90 L100,190 L41,219 C20,231 0,221 0,196 Z" />
+        </group>
+    </group>
+</vector>

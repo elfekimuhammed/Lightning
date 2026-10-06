@@ -1,4 +1,4 @@
-package org.lightning.probe;
+package org.lightning.app;
 
 import android.app.Activity;
 import android.net.Uri;

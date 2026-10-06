@@ -1,4 +1,4 @@
-name: Android dependency probe
+name: Android app
 
 on:
   workflow_dispatch:
@@ -44,7 +44,7 @@ jobs:
           pattern: android-*-wheel
           merge-multiple: true
           path: android/wheels
-      - name: Build arm64 dependency probe
+      - name: Build the arm64 app
         working-directory: android
         env:
           WHEEL_RUN: ${{ inputs.wheel_run }}
@@ -57,11 +57,11 @@ jobs:
           unzip -l app-debug.apk | grep chaquopy/ || true
           unzip -o -q app-debug.apk 'assets/chaquopy/app.*' -d carried
           for file in carried/assets/chaquopy/app.*; do unzip -l "$file"; done > carried.txt
-          for wanted in probe.py lightning/runtime/roundtrip.py lightning/database/migrations/ roundtrip_fixture/profile.db roundtrip_fixture/expected.json lightning/ui/static/app.js lightning/ui/templates/; do
+          for wanted in probe.py lightning_android.py lightning/runtime/devices.py lightning/sync/transport.py lightning/runtime/roundtrip.py lightning/database/migrations/ roundtrip_fixture/profile.db roundtrip_fixture/expected.json lightning/ui/static/app.js lightning/ui/templates/; do
             grep -q "$wanted" carried.txt || { echo "::error::$wanted is not in the APK"; exit 1; }
           done
       - uses: actions/upload-artifact@v4
         if: success() && matrix.mode == 'full'
         with:
-          name: lightning-android-dependency-probe
+          name: lightning-android
           path: android/app/build/outputs/apk/debug/app-debug.apk

@@ -4,15 +4,15 @@ plugins {
 }
 
 android {
-    namespace = "org.lightning.probe"
+    namespace = "org.lightning.app"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "org.lightning.probe"
+        applicationId = "org.lightning.app"
         minSdk = 24
         targetSdk = 35
         versionCode = 1
-        versionName = "0.1"
+        versionName = "0.5-m1"
         ndk {
             abiFilters += "arm64-v8a"
         }
