@@ -10,7 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
-
+- 2026-10-06 · Claude: 07/08: lend and hand back with real encrypted files (`lightning/sync/service.py`): the phone checkpoints, refuses a stale copy, goes read-only while lent, verifies and promotes the returned copy (or waits for unlock), keeps its copy from before; the PC seals when the phone is away. `tests/test_sync_lend.py`.
 - 2026-10-06 · Claude: brand guideline 3.25 in `docs/BRAND_GUIDELINE.html`, the same file as the website's: new Part C · Phone (C01–C12: frame, tab bar, KPIs, charts, lists, sheets). AGENTS.md, README, Project Overview, OWNER.md and `tools/guideline.py` name Part C.
 - 2026-10-06 · Claude: 05b: device-local control store per profile (`lightning/sync/control.py`): authority, paired devices and the promotion journal in one file; P4 records the hand-back receipt in the same transaction. `0045_profile_identity.sql` adds the table; round-trip fixture rebuilt.
 - 2026-10-06 · Claude: 05a: protocol v1 complete and frozen (`tests/fixtures/sync_v1.json`): pairing, status, prefetch, checkpoint, return status and error messages; home and borrower authority survive restarts as records; take back and revoke (`lightning/sync/state.py`).
