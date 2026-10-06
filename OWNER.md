@@ -12,7 +12,6 @@ What only the owner can do or decide. Any AI adds an item here, and removes it o
 - **Website search:** add `lightningeg.com` to Google Search Console and Bing Webmaster Tools; submit `/sitemap.xml`.
 - **Retest:** on the PC whose window failed to start, try a ZIP downloaded in a browser. Builds from `f4e1603` on include the fix.
 
-- **Android phone check (04a):** on an arm64 Android phone (Android 7 or newer), install `lightning-android-dependency-probe` from [Actions run 37434558665](https://github.com/elfekimuhammed/Lightning/actions/runs/37434558665) (unzip, allow installing unknown apps, open the APK), launch it and send me the one line it shows. It holds no financial data.
 
 ## To decide
 

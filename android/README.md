@@ -74,3 +74,11 @@ OpenSSL 3.5.4, target flags in `CFLAGS_aarch64_linux_android`, which cibuildwhee
 (`-PwheelDir`) and builds the APK. 04a passes only when that APK, launched on a real arm64 phone, shows the
 SQLCipher version (owner step in `OWNER.md`). Still unverified: loading on a device and 16 KB page alignment of
 the packaged libraries.
+
+**04a passed (2026-10-06).** On the owner's arm64 phone the probe from
+[run 37451039074](https://github.com/elfekimuhammed/Lightning/actions/runs/37451039074) (wheels from
+[run 37449625570](https://github.com/elfekimuhammed/Lightning/actions/runs/37449625570)) reported every check OK:
+cffi 2.0.0, cryptography 50.0.2 (Argon2id and AES-GCM work), pydantic-core 2.46.5, fastapi 0.141.1, jinja2
+3.1.6, uvicorn 0.54.0 and SQLCipher 4.12.0 community. Lesson: on Android a native module must declare its
+libpython dependency (`-lpython3.13`); the wheel job now refuses one that does not. Open for Google Play:
+16 KB page alignment of the Rust modules (linked with it from `24cfb0d`; the job reports any that is not).

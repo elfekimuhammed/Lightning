@@ -10,6 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-06 · Claude: 04a passed: on the owner's arm64 phone, Python 3.13 loads cryptography 50 (Argon2id, AES-GCM), SQLCipher 4.12.0, cffi, pydantic-core, fastapi, jinja2 and uvicorn from our own Android wheels (`android/README.md`).
 - 2026-10-06 · Claude: 04a: the four native wheels (cryptography 50, sqlcipher3 0.6.2, cffi 2.0, pydantic-core) now build for Android arm64 and the probe APK builds with them; a real-phone launch remains (`android/README.md`).
 - 2026-10-06 · Claude: brand guideline 3.24 (owner): the tab bar with its gear replaces the tab header; an icon stands alone when its tooltip names it; row actions are icons; one choice, one field; A16 adds "A line that repeats its label". Website copy updated with it.
 - 2026-10-06 · Claude: the two-level layout is built: its rules moved to Architecture › UI contract (*Two levels*) and the proposal is deleted.

@@ -545,7 +545,7 @@ Claim these subtask IDs instead of claiming a large package for several sessions
 | 02d | 02b, 02c | Integrate staging/verification with publication; run process-kill, disk-full and reboot/fault drills. Record separately what power-loss behavior was verified. | 3, 9, 16 |
 | 03a | 02d | Ship encrypted backup restore through existing profile UI; verify source preservation and ordinary Windows recovery. | 9–10 |
 | 03b | 03a | Add explicit plaintext legacy import to a new encrypted destination; verify round-trip contents and recovery. | 3, 10 |
-| 04a | None | Pin candidate SDK/Python/native build matrix; produce a reproducible arm64 app with critical dependencies loaded. | 3, 11 |
+| 04a | None | **Done 2026-10-06 (Claude): all native checks pass on the owner's arm64 phone (`android/README.md`).** Pin candidate SDK/Python/native build matrix; produce a reproducible arm64 app with critical dependencies loaded. | 3, 11 |
 | 04b | 04a | Open/write/close the same encrypted fixture on Android and Windows; compare figures, inventory and key recovery. | 3, 11 |
 | 04c | 04b | Render one representative shared page; exercise WebView isolation, owning-thread shutdown and 16 KB device/native loading. | 11 |
 | 04d | 04c | Measure startup, unlock, page and snapshot costs; record go/no-go with the supported-device/build matrix. | 11, 14 |
