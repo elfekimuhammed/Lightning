@@ -10,7 +10,7 @@ from fastapi import APIRouter, Request, Response
 
 from lightning.core.dates import fmt_date, month_of, parse_month, today
 from lightning.core.errors import LightningError, ValidationError
-from lightning.categories.domain import CategoryFamily, Movement, Scope
+from lightning.categories.domain import Movement, Scope
 from lightning.core.money import ZERO, to_decimal
 
 from lightning.investments.report import build_investment_report, saved_and_invested
@@ -435,34 +435,6 @@ def _budget_return_to(raw: str | None) -> str:
 @router.get("/settings")
 async def budget_settings_page(request: Request):
     return redirect("/settings?section=budget&return_to=%2Fbudget")
-    c = container(request)
-    c = container(request)
-    categories = [x for x in c.categories.tree() if not x.is_root and x.movement == Movement.INFLOW
-                  and x.income_class is not None and x.code != "EXP.INVEST"
-                  and not any(word in x.code.casefold() for word in ("sale", "opening", "valuation"))]
-    expense_categories = [x for x in c.categories.tree(Movement.OUTFLOW) if not x.is_root]
-    raw_selected = c.settings.get("budget_income_categories")
-    try:
-        selected = {int(x) for x in json.loads(raw_selected)} if raw_selected is not None else {
-            x.id for x in categories if x.family == CategoryFamily.WORK or
-            any(w in x.name.casefold() for w in ("salary", "pay", "wage"))}
-    except (ValueError, TypeError):
-        selected = set()
-    try:
-        excluded = {int(x) for x in json.loads(c.settings.get("budget_one_off_exclusions") or "[]")}
-    except (ValueError, TypeError):
-        excluded = set()
-    return render(request, "budget_settings.html", income_categories=categories, selected_income=selected,
-                  expense_categories=expense_categories, excluded_categories=excluded,
-                  return_to=_budget_return_to(request.query_params.get("return_to")),
-                  carryover=c.settings.get("budget_carryover_global") == "1",
-                  carryover_month=c.settings.get("budget_carryover_month") or month_of(today()),
-                  income_months=c.settings.get("budget_income_months") or "3",
-                  manual_income=c.settings.get("budget_manual_monthly_income") or "",
-                  suggestion_percent=(c.settings.get("budget_track_suggestion_percent")
-                                      if c.settings.get("budget_track_suggestion_percent") is not None else "20"),
-                  suggestion_fixed=c.settings.get("budget_track_suggestion_fixed") or "",
-                  exclusions=c.settings.get("budget_one_off_exclusions") or "")
 
 
 @router.post("/settings/full")
@@ -482,7 +454,7 @@ async def save_budget_settings(request: Request):
         exclusions = [int(x) for x in form.getlist("exclusion_category") if str(x).isdigit()]
         if "income_from_recurring_shown" in form:  # nor this one (it is offered after a raise)
             c.settings.set(INCOME_FROM_RECURRING, "1" if form.get("income_from_recurring") == "1" else "0")
-        if "emergency_basis" in form:  # the older budget settings page has no such choice
+        if "emergency_basis" in form:  # a form without the choice leaves it alone
             c.budgets.set_emergency_basis(str(form.get("emergency_basis")))
         c.settings.set("budget_income_categories", json.dumps(sorted(set(categories))))
         c.settings.set("budget_income_months", income_months)
@@ -498,18 +470,7 @@ async def save_budget_settings(request: Request):
         message = exc.message if isinstance(exc, LightningError) else "Check the entered values."
         if request.headers.get("X-Requested-With") == "fetch":
             return Response(message, status_code=400, media_type="text/plain")
-        categories = [x for x in c.categories.tree() if not x.is_root and x.movement == Movement.INFLOW
-                      and x.income_class is not None and x.code != "EXP.INVEST"
-                      and not any(word in x.code.casefold() for word in ("sale", "opening", "valuation"))]
-        expense_categories = [x for x in c.categories.tree(Movement.OUTFLOW) if not x.is_root]
-        return render(request, "budget_settings.html", status_code=400, error=message,
-                      income_categories=categories, expense_categories=expense_categories,
-                      selected_income={int(x) for x in form.getlist("income_category") if str(x).isdigit()},
-                      excluded_categories={int(x) for x in form.getlist("exclusion_category") if str(x).isdigit()}, return_to=return_to,
-                      carryover=form.get("carryover")=="1", carryover_month=str(form.get("carryover_month", "")),
-                      income_months=str(form.get("income_months", "3")), manual_income=str(form.get("manual_income", "")),
-                      suggestion_percent=str(form.get("suggestion_percent", "20")),
-                      suggestion_fixed=str(form.get("suggestion_fixed", "")))
+        return redirect("/settings?section=budget", message)
     return redirect(return_to, "Budget settings updated.")
 
 

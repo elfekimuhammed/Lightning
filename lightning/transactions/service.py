@@ -824,7 +824,7 @@ class TransactionService:
         if src.account_type not in source_accounts or dst.account_type not in destination_accounts:
             raise ValidationError("Transfers can move cash from wallets, banks, or legacy deposit balances into liquid accounts.", "to_account")
         if src.currency != dst.currency:
-            raise ValidationError("Both accounts must use the same currency (exchanges arrive in M4).", "to_account")
+            raise ValidationError("Both accounts must use the same currency; moving money between currencies is not built yet.", "to_account")
         day = self._check_date(date)
         asset = self.assets.cash_asset(src.currency)
         value = self._positive_amount(amount, asset.quantity_decimals)
@@ -944,7 +944,7 @@ class TransactionService:
     def _fx(self, account: Account) -> Decimal:
         if account.currency == self.base_currency:
             return ONE
-        raise ValidationError(f"Exchange rates for {account.currency} arrive in M4.", "currency")
+        raise ValidationError(f"Amounts in {account.currency} need exchange rates, which are not built yet.", "currency")
 
     @staticmethod
     def _snapshot(t: Transaction) -> dict:

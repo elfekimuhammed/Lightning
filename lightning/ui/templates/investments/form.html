@@ -52,7 +52,7 @@
   <div class="field {{ 'has-error' if error_field == 'cash_account' }}">
     <label for="cash_account_id">Cash account</label>
     <select id="cash_account_id" name="cash_account_id" data-own-picker>
-      <option value="">The same account (broker cash, e.g. THNDR)</option>
+      <option value="">The same account (its broker cash)</option>
       {% for a in all_accounts %}<option value="{{ a.id }}" {{ 'selected' if values.cash_account_id == a.id|string }}>{{ a.label }}</option>{% endfor %}
     </select>
     <div class="help">{{ 'Where the money came from' if kind == 'buy' else 'Where the money went' }}. For gold at home, choose the wallet or bank account.</div>

@@ -227,7 +227,7 @@ def test_register_entry(client, c, setup):
 
 def test_account_form_has_no_class_picker(client):
     r = client.get("/accounts/new")
-    assert "cash_class_code" not in r.text and "Liquid Cash › Bank Balance" in r.text
+    assert "cash_class_code" not in r.text and "Shown under <b id=\"group_name\">Bank Balance</b>" in r.text and " › " not in r.text.split("<main", 1)[-1]
     assert "Credit card" not in r.text and "Loan" not in r.text
 
 
