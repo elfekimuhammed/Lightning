@@ -10,6 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-06 · Claude: CI minutes (owner): a push to main runs only the Linux suite; the Windows app builds daily when the app changed, on a tag or by hand (`packaging/ci_scope.py`). AGENTS.md: run Windows or Android builds by hand only when needed.
 - 2026-10-06 · Claude: milestone 1 built: the Android app is Lightning itself (`org.lightning.app`) and the phone's home for the ledger; a Windows PC pairs, borrows, edits and hands back over the local network. Architecture › Multiple devices; review steps in `OWNER.md`.
 - 2026-10-06 · Claude: devices in the app (`lightning/runtime/devices.py`): the phone's Profile settings › Devices pairs a PC and can take the ledger back; the PC's profile list has From your phone and Connect to your phone; a line under the header says Borrowed from… (Hand back) or Lent to… · read only. Closing the PC hands back or seals. `tests/test_devices_app.py`.
 - 2026-10-06 · Claude: 09/10: pairing and the encrypted local link (`lightning/sync/identity.py`, `transport.py`): the phone shows a one-time code and its address; both screens show the same six check digits; TLS 1.3 pinned to the phone's certificate; every request signed by the PC. `tests/test_sync_transport.py` runs the whole cycle over real sockets.

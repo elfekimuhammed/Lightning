@@ -190,13 +190,15 @@ def test_only_documentation_skips_the_windows_build():
     # Anything uncertain builds.
     assert scope.build_windows("workflow_dispatch", "refs/heads/main", None, "HEAD")[0]
     assert scope.build_windows("push", "refs/tags/v1.0.0", "a" * 40, "HEAD")[0]
-    assert scope.build_windows("push", "refs/heads/main", None, "HEAD")[0]  # no earlier successful build
-    assert scope.build_windows("push", "refs/heads/main", "f" * 40, "HEAD")[0]  # unknown commit
+    assert scope.build_windows("schedule", "refs/heads/main", None, "HEAD")[0]  # no earlier successful build
+    assert scope.build_windows("schedule", "refs/heads/main", "f" * 40, "HEAD")[0]  # unknown commit
+    # Owner, 2026-10-06: a push to main runs the Linux suite only (Windows minutes count double).
+    assert not scope.build_windows("push", "refs/heads/main", None, "HEAD")[0]
 
 
 def test_the_docs_only_skip_compares_with_the_last_successful_windows_build(monkeypatch):
-    """A docs-only push is skipped only against the last commit whose Windows build succeeded, so
-    a code push whose build was cancelled or failed still gets built by the next push."""
+    """The daily run skips only against the last commit whose Windows build succeeded, so code whose
+    build was cancelled or failed is still built by the next daily run."""
     import subprocess
 
     scope = _ci_scope()
@@ -204,9 +206,9 @@ def test_the_docs_only_skip_compares_with_the_last_successful_windows_build(monk
     available = all(subprocess.run(["git", "cat-file", "-e", f"{sha}^{{commit}}"], cwd=ROOT).returncode == 0
                     for sha in (code, docs, "5518572"))
     if available:  # needs full history (the Linux job checks out with fetch-depth 0)
-        assert not scope.build_windows("push", "refs/heads/main", code, docs)[0]  # docs only since the build
-        assert scope.build_windows("push", "refs/heads/main", "5518572", docs)[0]  # code changed since
-        assert scope.build_windows("push", "refs/heads/main", docs, docs)[0]  # a re-run builds again
+        assert not scope.build_windows("schedule", "refs/heads/main", code, docs)[0]  # docs only since the build
+        assert scope.build_windows("schedule", "refs/heads/main", "5518572", docs)[0]  # code changed since
+        assert not scope.build_windows("schedule", "refs/heads/main", docs, docs)[0]  # nothing new: no build
 
     # A file moved from the app into docs/ still builds (git would otherwise report only the new path).
     import shutil
@@ -224,7 +226,7 @@ def test_the_docs_only_skip_compares_with_the_last_successful_windows_build(monk
             (repo / "docs").mkdir()
             git("mv", "lightning/page.html", "docs/page.html"); git("commit", "-qm", "move")
             monkeypatch.setattr(scope, "ROOT", repo)
-            assert scope.build_windows("push", "refs/heads/main", before, git("rev-parse", "HEAD"))[0]
+            assert scope.build_windows("schedule", "refs/heads/main", before, git("rev-parse", "HEAD"))[0]
             monkeypatch.setattr(scope, "ROOT", ROOT)
 
     runs = {"workflow_runs": [{"id": 3, "head_sha": "c" * 40}, {"id": 2, "head_sha": "b" * 40},

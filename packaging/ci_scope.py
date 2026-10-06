@@ -3,10 +3,11 @@
     python packaging/ci_scope.py                      # sets build_windows=true|false for this push
     python packaging/ci_scope.py --check-release-tag  # a tag must match the source version and sit on main
 
-Whether to build: tags, manual runs and anything uncertain always build. A push to main builds unless
+Whether to build (owner, 2026-10-06: Actions minutes are limited and Windows minutes count double): a push
+to main runs only the Linux suite. Tags and manual runs always build. The daily scheduled run builds unless
 every file changed since the last commit whose Windows build SUCCEEDED is one that cannot reach the app
-(documentation, feedback notes, Linux launchers). Comparing with that commit, not the previous push,
-means a code push whose build was cancelled or failed is never skipped by the docs-only push after it.
+(documentation, feedback notes, Linux launchers), or nothing changed at all. Comparing with that commit means
+code whose build was cancelled or failed is never skipped; anything uncertain builds.
 """
 from __future__ import annotations
 
@@ -73,10 +74,12 @@ def last_windows_build(api=github_api) -> str | None:
 
 
 def build_windows(event: str, ref: str, baseline: str | None, sha: str) -> tuple[bool, str]:
-    if event != "push":
-        return True, f"{event or 'manual'} run"
     if ref.startswith("refs/tags/"):
         return True, "release tag"
+    if event == "push":
+        return False, "a push runs the Linux suite only; Windows builds daily, on a tag or when run by hand"
+    if event != "schedule":
+        return True, f"{event or 'manual'} run"
     if not baseline:
         return True, "no earlier successful Windows build to compare with"
     if _git("cat-file", "-e", f"{baseline}^{{commit}}").returncode != 0:
@@ -89,7 +92,7 @@ def build_windows(event: str, ref: str, baseline: str | None, sha: str) -> tuple
         return True, "could not list changed files"
     changed = [line for line in diff.stdout.splitlines() if line.strip()]
     if not changed:
-        return True, f"same commit as the last build ({baseline[:8]}): a re-run builds again"
+        return False, f"nothing changed since the last build ({baseline[:8]})"
     reaching = [path for path in changed if not cannot_reach_app(path)]
     if reaching:
         return True, f"{len(reaching)} changed file(s) can reach the app, e.g. {reaching[0]}"

@@ -1,8 +1,9 @@
 # Lightning for Windows: test every push, build the app, and publish tagged releases.
 #
-# - Every push to main runs the full test suite on Linux.
-# - The Windows app is built only after that suite passes, and only when something that can change
-#   the app changed (a docs-only push skips it). Tags and manual runs always build.
+# - Every push to main runs the full test suite on Linux, and nothing else (owner, 2026-10-06: Actions
+#   minutes are limited and Windows minutes count double).
+# - The Windows app is built after that suite passes, on a tag, on a manual run, and once a day when
+#   something that can change the app changed since the last successful Windows build.
 # - The ZIP that is uploaded is the ZIP that was tested: it is extracted to a fresh folder and its
 #   own Lightning.exe must pass the self-check and the real WebView2 window check.
 # - A tag vX.Y.Z[-beta.N] that matches the source version and sits on main publishes that tested ZIP
@@ -15,6 +16,8 @@ on:
   push:
     branches: [main]
     tags: ['v*']
+  schedule:
+    - cron: '17 1 * * *'  # daily, about 04:17 in Cairo: builds Windows only if the app changed
 
 permissions:
   contents: read
