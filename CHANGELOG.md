@@ -10,6 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-06 · Claude: deleted the stale `Claude outputs/lightning-update.zip` (owner's call) and the `app.js` handlers for `data-owner-filter`/`data-option-filter`, which no page uses.
 - 2026-10-06 · Claude: test audit: removed `test_sync_write_inventory.py` (it checked only its own constants), merged six one-off files into their siblings, renamed task-named files; new tests for sync edge cases, transaction edits, CD certificates and the app guard. `0046_unused_settings.sql` deletes two settings nothing reads (`app_name`, `investment_liquidation_factor`); the code stops writing them; roundtrip fixture rebuilt (schema 46).
 - 2026-10-06 · Claude: the Android workflow's `wheel_run` defaults to the run with the sqlcipher3 arm64 wheel (37449625570), so a build started by hand no longer stops at pip.
 - 2026-10-06 · Claude: phone designs for Budget (Left in plan with its meter, groups as rows opening their categories), Cash planning (safe to spend as rows, next 30 days as a list, months as rows) and Investments (two tiles, allocation, holdings as rows by class). Charts' *Show the numbers* are rows on a phone.

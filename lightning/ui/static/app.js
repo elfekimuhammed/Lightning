@@ -1346,36 +1346,6 @@ if (typeSelect) {
 }
 
 // Bank import: filter the canonical Counterparty chooser as the user types.
-document.querySelectorAll("[data-owner-filter]").forEach((search) => {
-  const select = document.getElementById(search.dataset.ownerFilter);
-  if (!select) return;
-  search.addEventListener("input", () => {
-    const query = search.value.trim().toLocaleLowerCase();
-    Array.from(select.options).forEach((option) => {
-      option.hidden = option.value !== "" && !option.textContent.toLocaleLowerCase().includes(query);
-    });
-    if (select.selectedOptions[0]?.hidden) select.value = "";
-  });
-  select.addEventListener("change", () => { search.value = ""; });
-});
-document.addEventListener("input", (event) => {
-  const search = event.target.closest("[data-option-filter]");
-  if (!search) return;
-  const select = document.getElementById(search.dataset.optionFilter);
-  if (!select) return;
-  const query = search.value.trim().toLocaleLowerCase();
-  Array.from(select.options).forEach((option) => {
-    option.hidden = option.value !== "" && !option.textContent.toLocaleLowerCase().includes(query);
-  });
-  if (select.selectedOptions[0]?.hidden) select.value = "";
-});
-document.addEventListener("change", (event) => {
-  if (!(event.target instanceof HTMLSelectElement)) return;
-  const search = document.querySelector(`[data-option-filter="${CSS.escape(event.target.id)}"]`);
-  if (search) search.value = "";
-});
-
-// Bank import: filter the canonical Counterparty chooser as the user types.
 document.querySelectorAll("[data-counterparty-filter]").forEach((search) => {
   const select = document.getElementById(search.dataset.counterpartyFilter);
   if (!select) return;

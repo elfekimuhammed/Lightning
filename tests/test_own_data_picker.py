@@ -141,3 +141,8 @@ def test_dynamic_and_fixed_select_behavior_is_preserved():
 
     item = template("physical_item_form.html")
     assert 'name="karat" data-own-picker' not in item
+
+
+def test_the_old_search_box_filters_are_gone_from_the_script_too():
+    app = (ROOT / "lightning/ui/static/app.js").read_text()
+    assert "data-owner-filter" not in app and "data-option-filter" not in app
