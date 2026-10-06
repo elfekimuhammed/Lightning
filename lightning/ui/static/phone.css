@@ -98,3 +98,103 @@ html.phone.keyboard-open .phone-tabbar, html.phone.sheet-open .phone-tabbar { di
 .phone .phone-sheet .app-popup-frame { max-height: 92vh; overflow-y: auto; padding: 8px 16px 16px; box-sizing: border-box; }
 .phone-grabber { display: block; width: 40px; height: 4px; margin: 4px auto 8px; border-radius: 99px; background: var(--c-track); }
 .phone .phone-sheet form .btn.primary, .phone .phone-sheet form button[type="submit"].primary { width: 100%; }
+
+/* C06: cards, KPI tiles, lead figures and rows (guideline C06, C10). */
+.phone-note { color: var(--c-muted); font-size: 13px; margin: 2px 0 0; }
+.phone-section { margin: 32px 0 0; }
+.phone-section-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; margin: 0 0 12px; }
+.phone-section-head h2 { margin: 0; font-size: 18px; color: var(--c-ink); }
+.phone-section-head span { color: var(--c-muted); font-size: 12.5px; }
+.phone-card-title { margin: 0; font-size: 16px; color: var(--c-ink); }
+.phone-lead { margin: 10px 0 8px; font: 800 40px/1.1 var(--display, inherit); color: var(--c-ink); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.phone-lead small { font-size: 15px; font-weight: 600; color: var(--c-muted); }
+.phone-lead.is-negative { color: #C93D72; }
+.phone-rows { display: flex; flex-direction: column; margin: 4px 0 0; }
+.phone-rows.is-inner { margin: 0 0 0 12px; }
+.phone-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 48px; padding: 6px 0;
+  border-top: 1px solid var(--c-line); color: var(--c-ink); text-decoration: none; box-sizing: border-box; }
+.phone-row:hover { text-decoration: none; }
+.phone-row > span { display: flex; flex-direction: column; min-width: 0; overflow-wrap: anywhere; }
+.phone-row small { color: var(--c-muted); font-size: 12.5px; }
+.phone-row > b { flex: none; font-variant-numeric: tabular-nums; font-size: 15px; white-space: nowrap; }
+.phone-row b small { margin-left: 4px; font-weight: 600; }
+.phone-row-more > summary { list-style: none; cursor: pointer; }
+.phone-row-more > summary::-webkit-details-marker { display: none; }
+.phone-quiet { display: inline-flex; align-items: center; min-height: 44px; font-weight: 700; color: var(--c-nile); }
+.phone-key { display: inline-block; width: 10px; height: 10px; margin-right: 8px; border-radius: 3px; vertical-align: middle; }
+
+.phone-needs > summary { display: flex; align-items: center; gap: 10px; min-height: 56px; list-style: none; cursor: pointer; }
+.phone-needs > summary::-webkit-details-marker { display: none; }
+.phone-needs.is-empty { display: flex; align-items: center; gap: 10px; min-height: 56px; }
+.phone-needs { padding: 0 16px; }
+
+.phone-kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 12px 0 0; }
+.phone-kpi { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 14px; border-radius: 20px; background: var(--c-surface);
+  box-shadow: var(--shadow); color: var(--c-ink); text-decoration: none; box-sizing: border-box; }
+.phone-kpi:hover { text-decoration: none; }
+.phone-kpi-head { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+.phone-kpi-head .stat-chip { white-space: nowrap; }
+.phone-kpi-label { font-size: 13px; font-weight: 700; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.phone-kpi-value { font: 800 26px/1.1 var(--display, inherit); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.phone-kpi-value.is-long { font-size: 22px; }
+.phone-kpi-value small { font-size: 14px; margin-left: 2px; }
+.phone-kpi-sub { color: var(--c-ink-2); font-size: 12.5px; }
+
+/* C07.3.2 and C07.3.5: bars with the name above. Tones by meaning (A03). */
+.phone-bars { display: flex; flex-direction: column; gap: 10px; margin: 8px 0; }
+.phone-bar-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; align-items: baseline; }
+.phone-bar-name { min-width: 0; overflow-wrap: anywhere; font-size: 14px; }
+.phone-bar-value { font-variant-numeric: tabular-nums; white-space: nowrap; font-size: 15px; }
+.phone-bar-track { grid-column: 1 / -1; height: 8px; border-radius: 99px; background: var(--c-track); overflow: hidden; }
+.phone-bar-track i { display: block; height: 100%; border-radius: 99px; background: #0B6DD6; }
+.phone-bar-row.is-up .phone-bar-track i { background: #14A874; }
+.phone-bar-row.is-down .phone-bar-track i { background: #E68CA8; }
+.phone-bar-row.is-short .phone-bar-track i { background: #C93D72; }
+.scheme-cash .is-end .phone-bar-track i { background: #097852; }
+.scheme-flow .is-total .phone-bar-track i, .scheme-flow .is-end .phone-bar-track i { background: #14A874; }
+.phone-bar-row.is-end .phone-bar-name, .phone-bar-row.is-end .phone-bar-value { font-weight: 700; }
+
+/* C07.3.3: in, and out and kept, on one scale. */
+.phone-flow { display: grid; gap: 6px; margin: 8px 0 12px; }
+.phone-flow-label { font-size: 12.5px; color: var(--c-muted); }
+.phone-flow-bar { display: flex; height: 14px; border-radius: 99px; overflow: hidden; background: var(--c-track); }
+.phone-flow-bar i { display: block; height: 100%; border-right: 2px solid var(--c-surface); }
+.phone-flow-bar i:last-child { border-right: 0; }
+.tone-in { background: #14A874; }
+.tone-out, .tone-spend { background: #E68CA8; }
+.tone-kept, .tone-save { background: #14A874; }
+.tone-hold { background: #0B6DD6; }
+
+/* C07.3.4: the year as 4 × 3 month tiles. */
+.phone-months { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin: 10px 0; }
+.phone-month { display: flex; flex-direction: column; gap: 2px; min-height: 52px; padding: 6px; border-radius: 10px; background: var(--c-track);
+  color: var(--c-ink); text-decoration: none; box-sizing: border-box; min-width: 0; }
+.phone-month small { font-size: 12px; color: var(--c-ink-2); }
+.phone-month b { font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; }
+.phone-month.is-out { background: transparent; border: 1px dashed var(--c-line); }
+.phone-scale { display: flex; align-items: center; gap: 4px; color: var(--c-muted); font-size: 12px; margin: 4px 0 0; }
+.phone-scale i { width: 18px; height: 10px; border-radius: 3px; }
+.phone .chart-donut, .phone .chart-trend { max-width: 100%; }
+
+.phone-row > span.has-key { flex-direction: row; align-items: center; }
+.phone-row-more > summary.phone-row { display: flex; justify-content: space-between; }
+.phone-row-more > summary.phone-row > b { margin-left: auto; }
+.phone-row-more > summary.phone-row::after { content: none; }
+/* C07.1: no y-axis labels, one line at zero; three labels on the time axis at most. */
+.phone .chart-grid > span { display: none; }
+.phone .chart-grid:not(.chart-grid-zero) { border-color: transparent; }
+/* The month tiles and their scale use the calendar steps of A12 (rose for more out, green for more kept). */
+.phone :is(.phone-month, .phone-scale i).heat-0 { background: #F1F5F4; }
+.phone :is(.phone-month, .phone-scale i):is(.heat-1, .flow-out-1) { background: #FCEEF3; }
+.phone :is(.phone-month, .phone-scale i):is(.heat-2, .flow-out-2) { background: #F6CFDB; }
+.phone :is(.phone-month, .phone-scale i):is(.heat-3, .flow-out-3) { background: #EDA3BB; }
+.phone :is(.phone-month, .phone-scale i):is(.heat-4, .flow-out-4) { background: #D4567F; color: #fff; }
+.phone :is(.phone-month, .phone-scale i).flow-in-1 { background: #E3F4EA; }
+.phone :is(.phone-month, .phone-scale i).flow-in-2 { background: #C5E8D3; }
+.phone :is(.phone-month, .phone-scale i).flow-in-3 { background: #8FD1AC; }
+.phone :is(.phone-month, .phone-scale i).flow-in-4 { background: #0B8A5F; color: #fff; }
+.phone .phone-month:is(.heat-4, .flow-out-4, .flow-in-4) small { color: #fff; }
+.phone .phone-row-more > summary.phone-row { display: flex !important; justify-content: space-between; }
+.phone .phone-row-more > summary.phone-row::after { display: none !important; }
+.phone-chevron { flex: none; margin-left: 8px; color: var(--c-muted); font-size: 18px; transition: transform .15s; }
+.phone-row-more[open] .phone-chevron { transform: rotate(90deg); }

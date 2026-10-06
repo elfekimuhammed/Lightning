@@ -1,0 +1,53 @@
+{# Phone forms of the charts (guideline C06–C07): one column, full card width, names never cut, rows explain
+   colour. The desktop macros stay in partials/charts.html. #}
+{% from "partials/charts.html" import tone_icon, rate %}
+
+{# C06.1: up to four KPI tiles, two by two. No sparkline; the figure, then one line or a meter. #}
+{% macro kpi_tiles(stats, base) %}
+<section class="phone-kpis" aria-label="This period">{% for s in stats[:4] %}
+  {% set tag = 'a' if s.href else 'div' %}
+  <{{ tag }} class="phone-kpi surface-{{ s.surface }}"{% if s.href %} href="{{ s.href }}"{% endif %}>
+    <span class="phone-kpi-head">{{ tone_icon(s.surface) }}{% if s.badge %}<span class="stat-chip is-{{ s.badge.tone }}">{{ s.badge.text }}</span>{% endif %}</span>
+    <span class="phone-kpi-label">{{ s.label }}</span>
+    {% set shown = (s.value|money(s.key == 'change' or s.signed is defined and s.signed)) if s.value is not none and s.kind != 'rate' else '' %}
+    <span class="phone-kpi-value{{ ' is-long' if shown|length > 7 }}">{% if s.value is none %}{{ s.empty or '—' }}{% elif s.kind == 'rate' %}{{ rate(s.value) }}<small>%</small>{% else %}{{ shown }}{% endif %}</span>
+    {% if s.meter %}<span class="stat-tile-meter tone-{{ s.meter.tone }}"><i style="width:{{ '%.1f'|format(s.meter.width) }}%"></i></span>
+    {% elif s.sub is defined and s.sub %}<span class="phone-kpi-sub">{% if s.figure is defined and s.figure is not none and s.value is not none %}{{ s.figure|money(True) }} {% endif %}{{ s.sub }}</span>{% endif %}
+  </{{ tag }}>{% endfor %}
+</section>
+{% endmacro %}
+
+{# C07.3.5 and C07.3.2: one row per step, name and amount on one line, the bar under them. #}
+{% macro bar_rows(rows, caption, scheme='cash') %}
+{% set top = (rows|map(attribute='value')|map('abs')|max) if rows else 0 %}
+<div class="phone-bars scheme-{{ scheme }}" role="list" aria-label="{{ caption }}">{% for r in rows %}
+  <div class="phone-bar-row is-{{ r.kind }}" role="listitem"><span class="phone-bar-name">{{ r.label }}</span><b class="phone-bar-value">{{ r.value|money(r.kind in ('down', 'up')) }}</b>
+    <span class="phone-bar-track"><i style="width:{{ '%.2f'|format([(r.value|abs) / top * 100 if top else 0, 1]|max) }}%"></i></span></div>
+{% endfor %}</div>
+{% endmacro %}
+
+{# C07.3.3: where money in went as two bars on one scale (in; out and kept), then rows. #}
+{% macro flow_bars(s, base) %}
+{% if s.nodes %}
+<div class="phone-flow" aria-hidden="true">
+  <span class="phone-flow-label">In</span>
+  <span class="phone-flow-bar">{% for n in s.sources %}<i class="tone-in" style="width:{{ '%.2f'|format(n.value / s.total * 100) }}%"></i>{% endfor %}</span>
+  <span class="phone-flow-label">Out and kept</span>
+  <span class="phone-flow-bar">{% for n in s.targets %}<i class="tone-{{ n.tone }}" style="width:{{ '%.2f'|format(n.value / s.total * 100) }}%"></i>{% endfor %}</span>
+</div>
+<div class="phone-rows">
+  {% for n in s.sources %}<div class="phone-row"><span class="has-key"><i class="phone-key tone-in"></i>{{ n.label }}</span><b>{{ n.value|money }} <small>{{ '%.0f'|format(n.value / s.total * 100) }}%</small></b></div>{% endfor %}
+  {% for n in s.targets %}{% set tag = 'a' if n.href else 'div' %}<{{ tag }} class="phone-row"{% if n.href %} href="{{ n.href }}"{% endif %}><span class="has-key"><i class="phone-key tone-{{ n.tone }}"></i>{{ n.label }}</span><b>{{ n.value|money }} <small>{{ '%.0f'|format(n.value / s.total * 100) }}%</small></b></{{ tag }}>{% endfor %}
+</div>
+{% else %}<p class="chart-empty">No money moved in this period.</p>{% endif %}
+{% endmacro %}
+
+{# C07.3.4: the latest year as a 4 × 3 grid of month tiles, the amount in each. #}
+{% macro month_tiles(cal, kind) %}
+{% set r = cal.years[-1] %}
+<div class="phone-months" role="list" aria-label="{{ 'Money out' if kind == 'spend' else 'Net cash flow' }}, {{ r.year }}">{% for x in r.cells %}
+  {% set name = cal.months[loop.index0] %}
+  {% if not x.known %}<span class="phone-month is-out" role="listitem"><small>{{ name }}</small><b>–</b></span>
+  {% else %}{% set v = x.spend if kind == 'spend' else x.net %}<a class="phone-month {{ ('heat-' ~ x.spend_step) if kind == 'spend' else ('flow-' ~ x.net_tone ~ '-' ~ x.net_step) }}" role="listitem" href="/birdview/expenses?period=month&amp;month={{ x.key }}"><small>{{ name }}</small><b>{{ ((v|compact) if kind == 'spend' else (('+' if v > 0 else ('−' if v < 0 else '')) ~ (v|abs|compact))) if v else '0' }}</b></a>{% endif %}
+{% endfor %}</div>
+{% endmacro %}
