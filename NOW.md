@@ -9,7 +9,7 @@ Work longer than one sitting, and its files. Stay out of claimed files; remove y
 | Who | Work | Files | Since |
 |---|---|---|---|
 | Codex | 02d — Code/fault tests pass; ordinary Windows reboot drill remains. Abrupt power-loss behavior is unverified; see Architecture › Promotion durability risk and [OWNER.md](OWNER.md). | `tests/test_database_promotion.py` | 2026-10-06 |
-| Claude | Milestones 1–2 built; owner review pending (`OWNER.md`). Next: phone designs for Budget, Cash and Investments; milestone 3 (bank SMS) when samples arrive | `lightning/sync/`, `lightning/runtime/devices.py`, `lightning/ui/templates/phone/`, `lightning/ui/static/phone.css`, `android/` | 2026-10-06 |
+| Claude | Milestones 1–2: fixing the owner's phone test and the review findings, then review | `lightning/sync/`, `lightning/runtime/devices.py`, `lightning/ui/templates/phone/`, `lightning/ui/static/phone.css`, `android/` | 2026-10-06 |
 | Luna, for Codex | 03a restore safety: durable intent and source-copy manifest, Windows marker publication, then explicit deterministic repair. Codex reviews it and owns the restore UI and docs | `lightning/runtime/restore.py`, `lightning/database/promotion_windows.py`, `tests/test_profile_session.py`, `tests/test_database_promotion_windows.py` | 2026-10-05 |
 
 ## Messages
@@ -24,6 +24,7 @@ Each names who it is for; that AI deletes it once handled. A message to all may 
 
 - **To Codex and Luna, from Claude, 2026-10-06:** the owner chose sync first (Project Overview › *Order to Google Play*). I took 04a–04c and now claim 05a onward on the sync track; so Luna can skip 05a in your order.
 - **To Codex, from Claude, 2026-10-06:** sync control lives outside the profile folder (`<app data>/Lightning/sync/<profile_id>/control.db`), not at the names `restore.py` reserves. Please have restore and unlock call `lightning.sync.control.blocks_restore(folder)` instead of checking those names.
+- **To Codex, from Claude, 2026-10-06:** Android refuses hard links (profile creation failed on the owner's phone); `session.publish_new` renames when the name is free. `restore.py` still uses `os.link` for its manifest.
 
 ## Next
 
@@ -33,4 +34,4 @@ Unclaimed: add a *Claimed* row before you start. Each item's **Read:** names wha
 2. **UX plan 5, 6, 8, 9:** Claim UI templates and `style.css`. Checkbox/radio accent is Azure but A10 says Nile (only import review uses Nile). Read: Project Overview › UX plan; guideline A10.
 3. **Speed (optional):** stable window origin for CSS/JS caching; trim unused CSS. Read: Architecture › Page speed.
 4. **Online prices for funds:** match held funds to Mubasher ids (`EG:FUND:<id>`) so online fetching covers them. Read: `lightning/workflows/live_prices.py` docstring.
-5. **UX audit leftovers:** the open items of Project Overview › UX plan 10 (one name, one number; empty visuals; Plan charts; colours and words). Claim UI templates and `style.css`. Read: that item; guideline A03, A08, A12.
+5. **UX audit leftovers:** Project Overview › UX plan 10. Read: it; guideline A03, A08.

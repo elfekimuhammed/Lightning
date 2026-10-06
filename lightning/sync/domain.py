@@ -226,7 +226,8 @@ class Accepted:
 # ---------------------------------------------------------------- pairing, status and transfer (task 05a)
 # Pairing runs over TLS to the phone's pinned-on-first-use certificate. Each side proves it knows the one-time
 # pairing secret with an HMAC over both certificate fingerprints, so a relay that presents another certificate
-# fails. The phone sends the data key only in PairReply, only while its profile is unlocked.
+# fails. PairReply carries the profile's key file, still locked by its password, only while the profile is
+# unlocked on the phone; the PC opens the ledger with the same password.
 
 @dataclass(frozen=True)
 class PairRequest:
@@ -254,7 +255,7 @@ class PairReply:
     home_id: str
     home_name: str
     lineage_id: str
-    data_key: str          # the profile's SQLCipher key as hex; the PC wraps it under its own password at once
+    key_file: str          # the profile's keys.json as JSON text, still locked: the PC opens it with the same password
     key_id: str
     proof: str
 
@@ -263,7 +264,8 @@ class PairReply:
             _id(getattr(self, name), name)
         _name(self.profile_name, "profile_name")
         _name(self.home_name, "home_name")
-        _hex32(self.data_key, "data_key")
+        if not isinstance(self.key_file, str) or not 2 <= len(self.key_file) <= 8000:
+            raise ValueError("Invalid key_file")
         if not isinstance(self.key_id, str) or _KEY_ID.fullmatch(self.key_id) is None:
             raise ValueError("Invalid key_id")
         _hex32(self.proof, "proof")

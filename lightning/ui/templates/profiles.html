@@ -144,8 +144,7 @@
           {% if chosen_password %}<p>Your password: <strong class="suggestion-value">{{ chosen_password }}</strong>. Write it down too.</p>{% endif %}
           <form method="post" action="/profiles/confirm" class="form-stack">
             <input type="hidden" name="csrf" value="{{ csrf }}">
-            <div class="field"><label for="typed-recovery">Type the recovery key you wrote down</label><input id="typed-recovery" name="recovery" type="text" inputmode="numeric" required autocomplete="off" spellcheck="false"><small>Twelve digits. Dashes and spaces are optional.</small></div>
-            <div class="form-actions"><button class="button button-primary" type="submit">Create profile</button></div>
+            <div class="form-actions"><button class="button button-primary" type="submit">I saved it, create the profile</button></div>
           </form>
           <form method="post" action="/profiles/cancel" class="cancel-form"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="text-button" type="submit">Cancel profile setup</button></form>
         </section>
@@ -257,14 +256,13 @@
       {% elif mode == 'connect' %}
         <section class="panel form-panel" aria-labelledby="connect-heading">
           <h2 id="connect-heading">Your phone keeps the ledger</h2>
-          <p>On the phone, open Lightning, then Profile settings, Devices, Pair a PC. Type what it shows.</p>
+          <p>On the phone, open Lightning, then Profile settings, Devices, Pair a PC. Type what it shows. The profile opens here with its own password.</p>
+          <p class="key-warning">Moving a profile from this PC to the phone instead? Unlock it here and choose Profile settings, Move to your phone.</p>
           <form method="post" action="/profiles/connect" class="form-stack">
             <input type="hidden" name="csrf" value="{{ csrf }}">
             <div class="field"><label for="phone-address">Phone address</label><input id="phone-address" name="address" type="text" required value="{{ address|default('') }}" placeholder="192.168.1.20:47513" autocomplete="off" spellcheck="false"></div>
             <div class="field"><label for="pair-code">Code</label><input id="pair-code" name="code" type="text" required autocomplete="off" spellcheck="false" autocapitalize="characters"></div>
             <div class="field"><label for="pc-name">This PC's name</label><input id="pc-name" name="pc_name" type="text" required maxlength="60" value="{{ pc_name|default('') }}" autocomplete="off"></div>
-            <div class="field"><label for="pc-password">Password for this PC</label><input id="pc-password" name="password" type="password" required autocomplete="new-password"><small>Opens the ledger on this PC. It can differ from the phone's.</small></div>
-            <div class="field"><label for="pc-confirm">Type it again</label><input id="pc-confirm" name="confirm" type="password" required autocomplete="new-password"></div>
             <div class="form-actions"><button class="button button-primary" type="submit">Connect</button></div>
           </form>
         </section>
@@ -283,7 +281,7 @@
           <form method="post" action="/profiles/borrowed" class="form-stack">
             <input type="hidden" name="csrf" value="{{ csrf }}">
             <input type="hidden" name="id" value="{{ item.profile_id }}">
-            <div class="field"><label for="borrowed-password">Password for this PC</label><input id="borrowed-password" name="password" type="password" required autocomplete="current-password"></div>
+            <div class="field"><label for="borrowed-password">Password</label><input id="borrowed-password" name="password" type="password" required autocomplete="current-password"></div>
             <div class="form-actions"><button class="button button-primary" type="submit">{% if item.state.value in ['BORROWING', 'SEALED'] %}Open{% elif item.state.value == 'RETURNING' %}Finish handing back{% elif item.state.value == 'NEEDS_REPAIR' %}Open read only{% else %}Borrow{% endif %}</button></div>
           </form>
         </section>
@@ -333,12 +331,11 @@
         {% if new_recovery %}
         <section class="panel form-panel" aria-labelledby="new-key-heading">
           <h2 id="new-key-heading">Your new recovery key</h2>
-          <p class="key-warning">Write it down. The old key keeps working until you type this one back.</p>
+          <p class="key-warning">Write it down. The old key keeps working until you save this one.</p>
           <div class="recovery-value" aria-label="New recovery key">{{ new_recovery }}</div>
           <form method="post" action="/profiles/recovery-key/confirm" class="form-stack">
             <input type="hidden" name="csrf" value="{{ csrf }}">
-            <div class="field"><label for="typed-new-recovery">Type the new key you wrote down</label><input id="typed-new-recovery" name="recovery" type="text" inputmode="numeric" required autocomplete="off" spellcheck="false"></div>
-            <div class="form-actions"><button class="button button-primary" type="submit">Save new recovery key</button></div>
+            <div class="form-actions"><button class="button button-primary" type="submit">I saved it, use the new key</button></div>
           </form>
         </section>
         {% endif %}

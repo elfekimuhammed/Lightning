@@ -12,7 +12,7 @@ What only the owner can do or decide. Any AI adds an item here, and removes it o
 - **Review milestones 1 and 2 together, dummy data only:**
   1. Phone: install `lightning-android` from [Android run 37492652109](https://github.com/elfekimuhammed/Lightning/actions/runs/37492652109) (a new app called Lightning). PC: install the ZIP from [Windows run 37492657700](https://github.com/elfekimuhammed/Lightning/actions/runs/37492657700). Same Wi-Fi.
   2. PC: create a dummy profile and add an account. Phone: Bring a profile from your PC, Show a code. PC: Profile settings › Move to your phone, type the address and code. Both show the same six digits.
-  3. Phone: unlock the profile with the same password. Look at Overview, Accounts, an account (add a transaction with the + button) and the other sections: does it feel like a phone app?
+  3. Phone: unlock the profile with its password (the same one as on the PC; there is no other password). Look at Overview, Accounts, an account (add a transaction with the + button) and the other sections: does it feel like a phone app?
   4. PC: open it under From your phone and add something; the phone says "Lent to … · read only". Hand back; the phone has it.
   5. Borrow again, turn the phone's Wi-Fi off, Hand back on the PC: the PC keeps your edits; hand back later.
   Known gaps: you type the phone's address; Budget, Cash planning and Investments have the phone frame but not yet their own phone design; no SMS yet (milestone 3).

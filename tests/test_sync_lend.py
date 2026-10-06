@@ -96,6 +96,7 @@ class Pair:
         self.live = tmp / "phone" / "profile.db"
         if not self.live.exists():
             shutil.copyfile(FIXTURE / "profile.db", self.live)
+            shutil.copyfile(FIXTURE / "keys.json", self.live.with_name("keys.json"))
         self.bridge = Bridge(self.live)
         db = Database(self.live, key=KEY)
         try:

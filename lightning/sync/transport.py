@@ -40,6 +40,10 @@ PAIRING_MINUTES = 10
 PAIRING_TRIES = 3
 
 
+def _digest(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
 def move_transcript(request: MoveBegin, home_fingerprint: str) -> bytes:
     """A move's proof covers who sends, to which certificate, and exactly which ledger and key file."""
     key_file_hash = hashlib.sha256(request.key_file.encode("utf-8")).hexdigest()
@@ -148,7 +152,8 @@ class PairingDesk:
         with self._lock:
             pending = self.pending
             if pending is not None and pending.receive is None:
-                pending = None  # a pairing desk, not a move
+                raise ProtocolError("PAIRING_FAILED", "The phone is pairing a PC, not waiting for a profile. On the "
+                                    "phone, choose Bring a profile from your PC.")
             data = move_transcript(request, home_fingerprint)
             pending = self._check_code(pending, request.proof, "pc-move", data)
             home_id, lineage_id = pending.receive(request, source)
@@ -163,7 +168,8 @@ class PairingDesk:
         with self._lock:
             pending = self.pending
             if pending is not None and pending.node is None:
-                pending = None  # a move desk, not a pairing
+                raise ProtocolError("PAIRING_FAILED", "The phone is waiting for a profile to move to it, not to pair. "
+                                    "On the PC, unlock that profile and choose Profile settings, Move to your phone.")
             if pending is None or pending.paired_name or time.monotonic() >= pending.expires:
                 raise ProtocolError("PAIRING_FAILED", "Open Pair a PC on the phone and use the code it shows.")
             data = transcript(request.pairing_id, home_fingerprint, request.device_id, request.public_key)
@@ -179,9 +185,10 @@ class PairingDesk:
             node.pair(Peer(request.device_id, request.device_name, request.public_key, "", ""))
             home = node.model
             pending.paired_name, pending.digits = request.device_name, check_digits(data)
-            reply_data = data + f"\n{home.profile_id}\n{key.hex()}".encode("ascii")
+            key_file = (node.live.parent / "keys.json").read_text(encoding="utf-8")
+            reply_data = data + f"\n{home.profile_id}\n{_digest(key_file)}".encode("ascii")
             return PairReply(request.pairing_id, home.profile_id, pending.profile_name, home.home_id,
-                             pending.home_name, home.lineage_id, key.hex(), home.compatibility.key_id,
+                             pending.home_name, home.lineage_id, key_file, home.compatibility.key_id,
                              proof(pending.code, "phone", reply_data))
 
 
@@ -382,7 +389,7 @@ def pair(endpoint: str, code: str, identity: DeviceIdentity) -> Paired:
         raise LinkDown("The connection to the phone dropped. Try again.") from exc
     finally:
         stream.close()
-    reply_data = data + f"\n{reply.profile_id}\n{reply.data_key}".encode("ascii")
+    reply_data = data + f"\n{reply.profile_id}\n{_digest(reply.key_file)}".encode("ascii")
     if reply.pairing_id != pairing_id or not secrets.compare_digest(proof(code, "phone", reply_data), reply.proof):
         raise ProtocolError("PAIRING_FAILED", "The device that answered is not the phone showing this code.")
     return Paired(reply, fingerprint, check_digits(data))
@@ -484,24 +491,26 @@ __all__ = ["HomeServer", "Moved", "PairingDesk", "Paired", "TlsLink", "move_prof
 
 # ==================================================================== the PC: keeping a pairing
 
-def join_home(paired: Paired, *, endpoint: str, password: str, identity: DeviceIdentity, root=None):
-    """Keep a new pairing on this PC: the borrowed profile's folder, the data key wrapped under this PC's own
-    password, the phone's pinned certificate and address, and a borrower record. Returns its BorrowerNode."""
+def join_home(paired: Paired, *, endpoint: str, identity: DeviceIdentity, root=None):
+    """Keep a new pairing on this PC: the borrowed profile's folder, the profile's key file (opened with the same
+    password as on the phone), the phone's pinned certificate and address, and a borrower record. Returns its
+    BorrowerNode."""
     import json
     from lightning.runtime.paths import borrowed_profile
-    from lightning.security.keys import key_id, wrap_key
+    from lightning.security.keys import validate_key_file
     from .control import ControlStore, Peer
     from .service import BorrowerNode
     from .state import BorrowerModel
 
     reply = paired.reply
-    key = bytes.fromhex(reply.data_key)
-    if key_id(key) != reply.key_id:
-        raise ProtocolError("PAIRING_FAILED", "The phone sent a key that does not match its profile.")
+    try:
+        validate_key_file(json.loads(reply.key_file))
+    except (TypeError, ValueError) as exc:
+        raise ProtocolError("PAIRING_FAILED", "The phone sent a damaged key file. Try again.") from exc
     paths = borrowed_profile(reply.profile_id, root=root)
     paths.prepare()
     slot = paths.keys_path.with_suffix(".part")
-    slot.write_text(json.dumps(wrap_key(key, password)), encoding="utf-8")
+    slot.write_text(reply.key_file, encoding="utf-8")
     slot.replace(paths.keys_path)
     (paths.data_dir / "profile.json").write_text(json.dumps({"name": reply.profile_name}), encoding="utf-8")
     store = ControlStore(paths.data_dir)
