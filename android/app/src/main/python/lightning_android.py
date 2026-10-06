@@ -20,7 +20,7 @@ def start(files_dir):
 
         files = Path(files_dir)
         _devices = Devices(files / "appdata")
-        _host = Host(lambda credentials: profile_app(credentials, files / "Lightning", devices=_devices)).start()
+        _host = Host(lambda credentials: profile_app(credentials, files / "Lightning", devices=_devices, phone=True)).start()
     if not _launched:
         _launched = True
         return _host.launch_url

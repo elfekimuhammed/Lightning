@@ -123,6 +123,7 @@ class SessionGate:
                     return await PlainTextResponse("This form expired. Reload the page and try again.", 403)(scope, receive, send)
             line, device_action = self.device_line()
             scope.setdefault("state", {}).update(secure_profiles=True, csrf=self.session.csrf,
+                                                  phone=getattr(self, "phone", False),
                                                   session_token=self.session.token,
                                                   read_only=not self.session.role.writable,
                                                   device_line=line, device_action=device_action)
@@ -132,7 +133,9 @@ class SessionGate:
             await self.app(scope, receive, send)
 
 
-def profile_app(credentials: Credentials, root: Path | str | None = None, devices: Devices | None = None):
+def profile_app(credentials: Credentials, root: Path | str | None = None, devices: Devices | None = None,
+                *, phone: bool = False):
+    """`phone`: the Android app, whose pages use the phone frame and screens (guideline Part C)."""
     configure_memory_only_import_uploads()
     session = ProfileSession(root)
     session.borrowed_home = ""
@@ -141,6 +144,7 @@ def profile_app(credentials: Credentials, root: Path | str | None = None, device
     gate = SessionGate(app, session)
     devices = devices if devices is not None else Devices()
     gate.devices = devices
+    gate.phone = phone
 
     async def expire_sessions():
         while True:

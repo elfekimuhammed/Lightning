@@ -205,7 +205,38 @@ def render(request: Request, name: str, status_code: int = 200, **context) -> HT
         _ROUND_MONEY.reset(token)
 
 
+_PHONE: contextvars.ContextVar[bool] = contextvars.ContextVar("lightning_phone", default=False)
+_PHONE_TEMPLATES: set[str] | None = None
+
+
+def phone_mode() -> bool:
+    """Whether this page renders for the phone app (guideline Part C); for macros, which have no request."""
+    return _PHONE.get()
+
+
+templates.env.globals["phone_mode"] = phone_mode
+
+
+def _phone_template(name: str) -> str:
+    """A page with its own phone screen has it under templates/phone/; every other page keeps its own."""
+    global _PHONE_TEMPLATES
+    if _PHONE_TEMPLATES is None:
+        _PHONE_TEMPLATES = {t for t in templates.env.list_templates() if t.startswith("phone/")}
+    return f"phone/{name}" if f"phone/{name}" in _PHONE_TEMPLATES else name
+
+
 def _render(request, name, status_code, c, total, owned_total, groups, context) -> HTMLResponse:
+    phone = bool(getattr(request.state, "phone", False))
+    if phone:
+        name = _phone_template(name)
+    marker = _PHONE.set(phone)
+    try:
+        return _render_page(request, name, status_code, c, total, owned_total, groups, context)
+    finally:
+        _PHONE.reset(marker)
+
+
+def _render_page(request, name, status_code, c, total, owned_total, groups, context) -> HTMLResponse:
     return templates.TemplateResponse(
         request,
         name,

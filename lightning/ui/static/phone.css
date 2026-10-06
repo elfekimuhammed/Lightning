@@ -1,0 +1,100 @@
+/* The app on a phone: guideline Part C. Loaded only in the phone frame (templates/phone/base.html), after
+   style.css; on a phone Part C wins over Part A. Nothing here applies on the PC. */
+:root {
+  --c-nile: #0A2442; --c-ink: #0D2233; --c-ink-2: #304A5C; --c-muted: #5C7483;
+  --c-track: #E6EFEC; --c-well: #EEF4F2; --c-surface: #FFFFFF; --c-line: #E3ECE9;
+  --c-appbar: 56px; --c-tabbar: 64px; --c-side: 16px;
+}
+html.phone { -webkit-text-size-adjust: 100%; }
+html.phone, .phone-body { max-width: 100%; overflow-x: hidden; }
+.phone-body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--c-ink); font-size: 15px; }
+
+/* C02 frame: one bar fixed on top, one at the bottom, content scrolls between them. */
+.phone-appbar { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 8px;
+  height: var(--c-appbar); padding: env(safe-area-inset-top) var(--c-side) 0; box-sizing: content-box;
+  background: rgba(244, 248, 252, .96); border-bottom: 1px solid var(--c-line); }
+.phone-mark { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; margin-left: -8px; }
+.phone-mark img { width: 20px; height: 28px; }
+.phone-back { display: inline-flex; align-items: center; gap: 2px; min-height: 44px; color: var(--c-ink); font-weight: 700; text-decoration: none; }
+.phone-back svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.phone-appbar-title { flex: 1; min-width: 0; }
+.phone-appbar-icons { display: flex; gap: 2px; margin-right: -8px; }
+.phone-icon { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 0;
+  border: 0; border-radius: 999px; background: transparent; color: var(--c-ink); cursor: pointer; }
+.phone-icon svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.phone-icon[aria-pressed="false"] .side-privacy-off { display: none; }
+
+.main.phone-content { box-sizing: border-box; width: 100%; max-width: 100%; min-width: 0; margin: 0; padding: 16px var(--c-side)
+  calc(var(--c-tabbar) + env(safe-area-inset-bottom) + 24px); overflow-x: hidden; }
+.phone-content > * { max-width: 100%; }
+
+.phone-tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; display: grid; grid-template-columns: repeat(5, 1fr);
+  height: var(--c-tabbar); padding-bottom: env(safe-area-inset-bottom); box-sizing: content-box;
+  background: var(--c-surface); border-top: 1px solid var(--c-line); }
+.phone-tabbar a.phone-tab, .phone-tabbar a.phone-tab:visited { color: var(--c-muted); }
+.phone-tabbar a.phone-tab.is-chosen, .phone-tabbar a.phone-tab.is-chosen:visited { color: var(--c-ink); }
+.phone-tab { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-width: 0;
+  color: var(--c-muted); text-decoration: none; }
+.phone-tab-icon { display: inline-flex; align-items: center; justify-content: center; width: 56px; height: 30px; border-radius: 999px; }
+.phone-tab svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.phone-tab-name { font-size: 11px; font-weight: 600; line-height: 1.2; white-space: nowrap; }
+.phone-tab.is-chosen { color: var(--c-ink); }
+.phone-tab.is-chosen .phone-tab-icon { background: var(--c-nile); color: #fff; }
+.phone-tab:hover { text-decoration: none; }
+html.phone.keyboard-open .phone-tabbar, html.phone.sheet-open .phone-tabbar { display: none; }
+
+/* C04 page header: title, its dates, the period control, then the tabs. Four rows, nothing beside them. */
+.phone-header h1 { margin: 0; font-size: 24px; line-height: 1.2; color: var(--c-ink); }
+.phone-header .muted, .phone-header p { margin: 4px 0 0; color: var(--c-muted); font-size: 13px; }
+.phone-header > div { display: block; }
+.phone-page-actions { display: flex; flex-direction: column; gap: 8px; margin: 12px 0 0; }
+.phone-page-actions:empty { display: none; }
+.phone-page-actions > .btn { align-self: flex-start; min-height: 40px; }
+.phone .site-period-control { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+.phone .period-buttons { display: grid; grid-template-columns: repeat(4, 1fr); width: 100%; }
+.phone .period-button { min-height: 40px; padding: 0 4px; white-space: nowrap; font-size: 14px; }
+.phone .period-month-picker, .phone .period-date-range { width: 100%; display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* C03.3 tabs in a section: full width, equal, never scrolling; the gear lives in the app bar. */
+.phone .section-bar { display: block; margin: 12px 0 0; }
+.phone .section-gear { display: none; }
+.phone .section-tabs { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; width: 100%; overflow: hidden; }
+.phone .section-tabs .plan-tab { justify-content: center; min-height: 48px; min-width: 0; padding: 0 6px; white-space: nowrap; }
+.phone .section-tabs:has(.plan-tab:nth-child(4)) .plan-tab:not([aria-current]) { font-size: 0; gap: 0; }
+.phone .section-tabs:has(.plan-tab:nth-child(4)) .plan-tab svg { width: 22px; height: 22px; }
+
+/* C05 touch: 48 to press, fields 48 with 16px text so the phone does not zoom. */
+.phone .btn { min-height: 48px; }
+.phone .btn.small { min-height: 40px; }
+.phone input, .phone select, .phone textarea { font-size: 16px; min-height: 48px; max-width: 100%; box-sizing: border-box; }
+.phone kbd, .phone .command-hint, .phone .side-search kbd { display: none; }
+
+/* C06 cards: one column, 16 inside, 20px corners, 12 between. */
+.phone .card, .phone .overview-block { box-sizing: border-box; width: 100%; max-width: 100%; margin: 0 0 12px; padding: 16px; border-radius: 20px; }
+.phone .overview-split, .phone .grid, .phone [class*="-grid"] { grid-template-columns: minmax(0, 1fr) !important; }
+.phone .overview-split { display: grid; gap: 16px; }
+.phone .flash { margin: 12px 0; }
+.phone .flash.device-line { flex-direction: column; align-items: stretch; }
+
+/* C12: nothing scrolls sideways. Tables become rows (C07.2, "Any table of figures"); charts fit the card. */
+.phone svg { max-width: 100%; }
+.phone img { max-width: 100%; height: auto; }
+.phone table { display: block; width: 100%; border: 0; }
+.phone thead { display: none; }
+.phone tbody, .phone tfoot { display: block; width: 100%; }
+.phone tr { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 2px 12px;
+  min-height: 56px; padding: 10px 0; border-bottom: 1px solid var(--c-line); box-sizing: border-box; }
+.phone td, .phone th { display: block; padding: 0; border: 0; min-width: 0; max-width: 100%; white-space: normal !important;
+  overflow-wrap: anywhere; text-align: left; }
+.phone td.num, .phone th.num { margin-left: auto; text-align: right; }
+.phone td:first-child { flex: 1 1 60%; font-weight: 600; min-width: 0 !important; }
+.phone .table-scroll, .phone .wide-table { overflow: visible; }
+.phone pre, .phone code { white-space: pre-wrap; overflow-wrap: anywhere; }
+.phone [style*="min-width"] { min-width: 0 !important; }
+
+/* C09 sheets: dialogs come up from the bottom, one column, Save in reach. */
+.phone .app-popup.phone-sheet { position: fixed; inset: auto 0 0 0; margin: 0; width: 100%; max-width: 100%; max-height: 92vh;
+  border: 0; border-radius: 20px 20px 0 0; padding: 0 0 env(safe-area-inset-bottom); box-sizing: border-box; }
+.phone .phone-sheet .app-popup-frame { max-height: 92vh; overflow-y: auto; padding: 8px 16px 16px; box-sizing: border-box; }
+.phone-grabber { display: block; width: 40px; height: 4px; margin: 4px auto 8px; border-radius: 99px; background: var(--c-track); }
+.phone .phone-sheet form .btn.primary, .phone .phone-sheet form button[type="submit"].primary { width: 100%; }
