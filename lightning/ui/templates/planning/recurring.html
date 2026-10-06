@@ -48,7 +48,8 @@
       <div class="compact-row plan-item-row">
         <span><b>{{ s.name }}</b><small class="muted">{{ s.months }} months · usually around day {{ s.day }} · last {{ s.last_date }}</small></span>
         <span class="plan-payment-side"><b class="{{ 'pos' if s.kind == 'INCOME' }}">{{ '+' if s.kind == 'INCOME' else '−' }}{{ s.amount|money }}</b>
-        <a class="btn small" data-popup-open href="/plan/items/new?kind={{ s.kind }}&amp;name={{ s.name|urlencode }}&amp;amount={{ s.amount }}&amp;frequency=MONTHLY&amp;counterparty={{ s.name|urlencode }}&amp;account_id={{ s.account_id or '' }}&amp;category_id={{ s.category_id or '' }}&amp;start_date={{ as_of[:8] }}{{ '%02d'|format([s.day, 28]|min) }}">Track</a></span>
+        <a class="btn small" data-popup-open href="/plan/items/new?kind={{ s.kind }}&amp;name={{ s.name|urlencode }}&amp;amount={{ s.amount }}&amp;frequency=MONTHLY&amp;counterparty={{ s.name|urlencode }}&amp;account_id={{ s.account_id or '' }}&amp;category_id={{ s.category_id or '' }}&amp;start_date={{ as_of[:8] }}{{ '%02d'|format([s.day, 28]|min) }}">Track</a>
+        <form method="post" action="/plan/suggestions/{{ s.counterparty_id }}/not-recurring"><button class="btn small">Not recurring</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form></span>
       </div>{% endfor %}</div>
   </article>
 </section>{% endif %}

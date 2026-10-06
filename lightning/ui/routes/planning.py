@@ -295,6 +295,12 @@ async def update_item(request: Request, item_id: int):
     return redirect(back, " ".join(x for x in (f"{values['name']} saved.", c.health.commitments_note(item.kind.value)) if x))
 
 
+@router.post("/suggestions/{counterparty_id:int}/not-recurring")
+async def not_recurring(request: Request, counterparty_id: int):
+    name = container(request).planning.not_recurring(counterparty_id)
+    return redirect("/plan/recurring", f"{name} will not be suggested again.")
+
+
 @router.post("/items/{item_id:int}/amount")
 async def set_item_amount(request: Request, item_id: int):
     c = container(request)

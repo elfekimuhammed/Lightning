@@ -344,7 +344,7 @@ From a full UX review on 2026-10-03: Mohab's year at a 1,366 × 768 window (the 
 
 **Still open (asked again in plainer words):**
 
-- *Recurring suggestions.* Cash planning › Recurring has a "Looks recurring" list that offers to track things that repeated. It offers Carrefour and Talabat (shopping that changes every month, which belongs in the budget) and the NBE certificate's interest (already in the forecast, so tracking it counts it twice). Stop offering those, and add a "Not recurring" button to hide a suggestion?
+- ~~*Recurring suggestions.*~~ Done 2026-10-06: Looks recurring no longer offers everyday spending (food, eating out, shopping, transport, entertainment: the budget's) or investment income (certificate interest, already in the forecast), and *Not recurring* hides a suggestion for good.
 
 ## Upcoming projects
 

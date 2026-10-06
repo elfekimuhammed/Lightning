@@ -287,10 +287,28 @@ def test_tiny_repeats_are_not_suggested(c, setup, monkeypatch):
     for month in ("07", "08", "09"):
         c.transactions.record_outflow(f"2026-{month}-28", accounts["cib"].id, "15", cats["EXP.PERSONAL.FOOD"].id,
                                       counterparty="Bank fee")
-        c.transactions.record_outflow(f"2026-{month}-20", accounts["cib"].id, "650", cats["EXP.PERSONAL.FOOD"].id,
+        c.transactions.record_outflow(f"2026-{month}-20", accounts["cib"].id, "650", c.categories.get_by_code("EXP.PERSONAL.UTILITIES").id,
                                       counterparty="WE")
     names = [s["name"] for s in c.planning.suggestions(date(2026, 10, 6))]
     assert "WE" in names and "Bank fee" not in names
+
+
+def test_everyday_spending_and_interest_are_not_suggested_and_a_suggestion_can_be_hidden(c, setup, monkeypatch):
+    # Owner's UX plan: Carrefour belongs in the budget, and certificate interest is already in the forecast.
+    monkeypatch.setenv("LIGHTNING_TODAY", "2026-10-06")
+    accounts, cats = setup
+    for month in ("07", "08", "09"):
+        for name, code in (("Carrefour", "EXP.PERSONAL.FOOD"), ("Talabat", "EXP.PERSONAL.DINING"),
+                           ("Gym", "EXP.PERSONAL.HEALTH")):
+            c.transactions.record_outflow(f"2026-{month}-10", accounts["cib"].id, "900", c.categories.get_by_code(code).id,
+                                          counterparty=name)
+        c.transactions.record_inflow(f"2026-{month}-15", accounts["cib"].id, "1833.33",
+                                     cats["EXP.INVEST.INTEREST"].id, counterparty="NBE")
+    assert [s["name"] for s in c.planning.suggestions(date(2026, 10, 6))] == ["Gym"]
+    gym = c.planning.suggestions(date(2026, 10, 6))[0]["counterparty_id"]
+    page = TestClient(create_app(c), base_url="http://127.0.0.1").post(f"/plan/suggestions/{gym}/not-recurring", follow_redirects=True)
+    assert "Gym will not be suggested again." in page.text and "Looks recurring" not in page.text
+    assert c.planning.suggestions(date(2026, 10, 6)) == []
 
 
 def test_safe_to_spend_counts_every_month_until_the_next_income(c, setup, monkeypatch):

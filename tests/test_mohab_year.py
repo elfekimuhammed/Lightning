@@ -621,6 +621,9 @@ def _the_feedback_round(o: Mohab) -> None:
     o.on("2027-09-30")   # opening Lightning again forgets the period he picked
 
     # Categories, the investment plan, and editing several rows at once.
+    # Looks recurring offers bills, not his groceries or the certificate's interest; Mom's gift he hides.
+    o.ask("looks_recurring", "What does Lightning think repeats?", "Cash planning", "Recurring")
+    o.notes["not_recurring"] = b.submit({}, action=b.page.action_after("<b>Mom</b>", "not-recurring"))
     o.ask("categories", "Which categories are income, which are spending, and which repeat?", "Settings", "Categories")
     o.ask("invest_monthly", "Can I keep a goal of investing 3,000 every month?", "Investments", "Investment planner")
     o.ask("bulk", "I selected six Talabat rows. Can I change their category together?", "CIB Payroll")
@@ -997,6 +1000,15 @@ def test_end_of_service_is_not_monthly_pay(mohab):
 def test_between_jobs_the_next_pay_is_the_new_employer(mohab):
     answer = mohab.answers["next_pay"]
     assert answer.shows("Safe to spend until 2027-10-01", "Valeo 2027-10-01 · Income +55,000")
+
+
+def test_looks_recurring_leaves_spending_and_interest_to_the_budget_and_forecast(mohab):
+    answer = mohab.answers["looks_recurring"]
+    assert route(mohab, "looks_recurring") == ["/", "/plan", "/plan/recurring"]
+    offered = re.findall(r"<b>([^<]+)</b><small class=\"muted\">\d+ months", answer.screen.html)
+    assert "Mom" in offered and not {"Carrefour", "Talabat", "Seoudi", "Koshary El Tahrir", "NBE"} & set(offered)
+    assert mohab.notes["not_recurring"].shows("Mom will not be suggested again.")
+    assert not re.search(r"<b>Mom</b><small", mohab.notes["not_recurring"].html)
 
 
 def test_search_finds_a_page_through_a_typo(mohab):

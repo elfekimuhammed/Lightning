@@ -10,6 +10,7 @@ from lightning.core.errors import NotFoundError, ValidationError
 from lightning.core.memo import request_cached
 from lightning.core.money import ZERO, from_e6, to_decimal
 from lightning.database.connection import Database
+from lightning.database.settings import SettingsStore
 
 from .domain import (Frequency, Payment, PaymentStatus, PlanKind, PlannedItem, WhatYouOwe, per_year)
 from .repository import PlanningRepository
@@ -24,6 +25,10 @@ DEFAULT_TOLERANCE = Decimal("0.10")
 SUGGESTION_TOLERANCE = Decimal("0.50")
 SUGGESTION_MINIMUM = Decimal("50")  # recurring amounts below this are not suggested
 LOAN_CATEGORY = "EXP.SYSTEM.LOANS"
+# Everyday spending repeats but belongs in the budget, not in Recurring (owner's UX plan, 2026-10-06).
+EVERYDAY_CATEGORIES = ("EXP.PERSONAL.FOOD", "EXP.PERSONAL.DINING", "EXP.PERSONAL.SHOPPING",
+                       "EXP.PERSONAL.TRANSPORT", "EXP.PERSONAL.ENTERTAINMENT")
+NOT_RECURRING = "recurring_not_suggested"  # counterparty ids the user said are not recurring
 
 
 class PlanningService:
@@ -254,10 +259,10 @@ class PlanningService:
         for row in self.repo.history(fmt_date(start), fmt_date(day)):
             groups.setdefault((row["counterparty_id"], row["effect"]), []).append(row)
         planned = {i.counterparty_id for i in self.items()} | {
-            i.counterparty_id for i in self.items(active_only=False) if not i.active}
+            i.counterparty_id for i in self.items(active_only=False) if not i.active} | self._not_recurring()
         out = []
         for (party, effect), rows in groups.items():
-            if party in planned:
+            if party in planned or not self._may_recur(rows[-1]["category_id"]):
                 continue
             months = {r["date"][:7] for r in rows}
             if len(months) < 3 or len(rows) > len(months) + 1:
@@ -273,6 +278,29 @@ class PlanningService:
                         "account_id": latest["account_id"], "category_id": latest["category_id"],
                         "last_date": latest["date"]})
         return sorted(out, key=lambda s: (-s["months"], -s["amount"]))
+
+    def _may_recur(self, category_id: int | None) -> bool:
+        """Everyday spending is the budget's; investment income (certificate interest, dividends) is
+        already in the forecast, so tracking it would count it twice."""
+        if category_id is None:
+            return True
+        category = self.categories.get(category_id)
+        if category.family == "INVESTMENT":
+            return False
+        return not any(category.code == code or category.code.startswith(code + ".") for code in EVERYDAY_CATEGORIES)
+
+    def _not_recurring(self) -> set[int]:
+        saved = SettingsStore(self.db).get(NOT_RECURRING)
+        return {int(x) for x in saved.split(",") if x.strip().isdigit()} if saved else set()
+
+    def not_recurring(self, counterparty_id: int) -> str:
+        """Stop suggesting a counterparty in Looks recurring. Returns its name."""
+        party = self.counterparties.get(counterparty_id)
+        if party is None:
+            raise NotFoundError("That counterparty no longer exists.")
+        name = party["name"]
+        SettingsStore(self.db).set(NOT_RECURRING, ",".join(str(i) for i in sorted(self._not_recurring() | {counterparty_id})))
+        return name
 
     # -------------------------------------------------------------- what you owe
     def what_you_owe(self, as_of: date | None = None) -> WhatYouOwe:
