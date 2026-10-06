@@ -2,6 +2,7 @@ package org.lightning.probe;
 
 import android.app.Activity;
 import android.os.Bundle;
+import android.util.Log;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import com.chaquo.python.Python;
@@ -22,8 +23,9 @@ public final class ProbeActivity extends Activity {
             String text;
             try {
                 text = Python.getInstance().getModule("probe").callAttr("run").toString();
-            } catch (Exception error) {
-                text = "Dependency probe failed: " + error;  // the Python error and its message
+            } catch (Throwable error) {
+                // The whole chain: a Python error's message and traceback, or the Java error and its causes.
+                text = "Dependency probe failed:\n" + Log.getStackTraceString(error);
             }
             String shown = text;
             runOnUiThread(() -> result.setText(shown));

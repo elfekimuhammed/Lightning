@@ -32,7 +32,8 @@ file("$sharedPython/roundtrip_fixture/__init__.py").writeText("")
 
 chaquopy {
     sourceSets {
-        getByName("main") { srcDir(sharedPython) }
+        // Both named: srcDir must not leave the probe's own folder out (owner's phone: the probe failed outright).
+        getByName("main") { srcDir("src/main/python"); srcDir(sharedPython) }
     }
     defaultConfig {
         version = "3.13"

@@ -55,6 +55,14 @@ def _roundtrip():
 
 
 def run():
+    try:
+        return _run()
+    except BaseException:  # noqa: BLE001 - show the whole traceback on the phone, never just its type
+        import traceback
+        return "Probe stopped:\n" + traceback.format_exc()
+
+
+def _run():
     lines = [_check(name, lambda name=name: getattr(importlib.import_module(name), "__version__", "loaded"))
              for name in ("_cffi_backend", "cryptography", "pydantic_core", "fastapi", "jinja2", "uvicorn")]
     lines += [_check("encryption", _argon2), _check("sqlcipher3", _sqlcipher)]
