@@ -107,6 +107,20 @@ jobs:
           make -j"$(nproc)" >/dev/null
           make install_sw >/dev/null
           ls /tmp/openssl-android/lib /tmp/openssl-android/include/openssl | head -5
+      - name: Build a static libffi for Android (cffi links it)
+        if: matrix.package == 'cffi'
+        run: |
+          set -euo pipefail
+          curl -fsSL -o /tmp/libffi.tar.gz https://github.com/libffi/libffi/releases/download/v3.5.2/libffi-3.5.2.tar.gz
+          echo "f3a3082a23b37c293a4fcd1053147b371f2ff91fa7ea1b2a52e335676bac82dc  /tmp/libffi.tar.gz" | sha256sum -c -
+          tar -xzf /tmp/libffi.tar.gz -C /tmp
+          cd /tmp/libffi-3.5.2
+          bin="${ANDROID_NDK_LATEST_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          ./configure --host=aarch64-linux-android --prefix=/tmp/libffi-android --disable-shared --enable-static \
+            --with-pic --disable-docs CC="$bin/aarch64-linux-android24-clang" AR="$bin/llvm-ar" RANLIB="$bin/llvm-ranlib" >/dev/null
+          make -j"$(nproc)" >/dev/null
+          make install >/dev/null
+          ls /tmp/libffi-android/include /tmp/libffi-android/lib/pkgconfig
       - name: Install isolated target-header locator
         run: cp android/find_target_python_include.py /tmp/lightning-find-target-python-include.py
       - name: Cross-build CPython 3.13 arm64 wheel
@@ -121,6 +135,7 @@ jobs:
             AARCH64_LINUX_ANDROID_OPENSSL_DIR=/tmp/openssl-android
             OPENSSL_DIR=/tmp/openssl-android
             OPENSSL_STATIC=1
+            PKG_CONFIG_PATH=/tmp/libffi-android/lib/pkgconfig
           ANDROID_API_LEVEL: '24'
           PROBE_PACKAGE: ${{ matrix.package }}
           PROBE_VERSION: ${{ matrix.version }}
