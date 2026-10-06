@@ -52,7 +52,8 @@ class ReviewInbox:
                           "detail": f"Due {payment.due_date} · {fmt(payment.amount)} {c.base_currency} · not paid yet.",
                           "href": f"/plan/items/{payment.item.id}/pay?due={payment.due_date}&back=%2F",
                           "popup": True, "action": "Mark paid", "priority": 1})
-        lowest = c.forecaster.forecast(on).lowest
+        forecast = c.forecaster.forecast(on)
+        lowest = forecast.lowest
         if lowest is not None and lowest.closing < ZERO:
             items.append({"label": "Cash may run short",
                           "detail": f"The cash forecast ends {lowest.month} at {fmt(lowest.closing)} {c.base_currency}.",
@@ -102,20 +103,24 @@ class ReviewInbox:
                               "detail": f"It saves {fmt(check.planned_savings_rate)}% of income; your target is "
                                         f"{fmt(check.target_percent)}%. Plan {fmt(check.over_by)} {c.base_currency} less.",
                               "href": f"/budget?month={check.month}", "priority": 2})
-        items.extend(self._smarter_plan(on))
+        items.extend(self._smarter_plan(on, forecast.free_cash))
         return sorted(items, key=lambda item: item["priority"])
 
-    def _smarter_plan(self, on: date) -> list[dict]:
+    def _smarter_plan(self, on: date, free_cash) -> list[dict]:
         """Where the plan's parts disagree: a goal it cannot reach in time, income above the average, a month
         that saved less than the target, a category over its plan two months running (owner decision 2026-10-05)."""
         c, month, cur = self.c, month_of(on), self.c.base_currency
         found = []
         for goal in c.health.goal_reach(month):
-            pace = (f"At that pace it is ready in {_month_name(goal['reached'])}." if goal["reached"]
-                    else "Your plan leaves nothing for it.")
+            # Nothing moves into a goal by itself: the pace holds only if he sets that much aside each month.
+            pace = (f"Setting aside {fmt(goal['can'])} a month, it is ready in {_month_name(goal['reached'])}."
+                    if goal["reached"] else "Your plan leaves nothing for it.")
+            # Free cash that already covers the goal is the quickest way: set it aside now (Reserves).
+            way = (f"Set aside {fmt(goal['missing'])} of your {fmt(free_cash)} free cash now, or give it a later date."
+                   if free_cash >= goal["missing"] else "Give it a later date, or plan less.")
             found.append({"label": f"{goal['name']} will not be ready by its date",
                           "detail": f"Due {goal['due_date']} · it needs {fmt(goal['need'])} {cur} a month and your plan "
-                                    f"leaves {fmt(goal['can'])} for it. {pace} Give it a later date, or plan less.",
+                                    f"leaves {fmt(goal['can'])} for it. {pace} {way}",
                           "href": "/plan/reserves", "action": "See reserves", "priority": 2})
         offer = c.health.raise_offer(month)
         if offer:
@@ -129,7 +134,8 @@ class ReviewInbox:
                           "detail": f"It saved {fmt(short['rate'])}% of money in; your target is {fmt(short['limit'])}%, "
                                     f"{fmt(short['short'])} {cur} more.",
                           "href": "/financial-health", "action": "See financial health", "priority": 2})
-        for row in c.budgets.over_twice(month):
+        below = {row["category_id"] for row in c.budgets.below_scheduled(month)}  # already named: plan below its bills
+        for row in (row for row in c.budgets.over_twice(month) if row["category_id"] not in below):
             first, second = (_month_name(key).split()[0] for key in row["months"])
             detail = f"Over its plan in {first} and {second}, by up to {fmt(row['amount'])} {cur}."
             if row["from_id"]:

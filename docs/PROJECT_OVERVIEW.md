@@ -235,7 +235,7 @@ Drive it in a browser through the screens only, and re-run it after any workflow
 | 9 | On 2026-10-06 mark salary, rent and a loan payment paid from the Overview | Plan → Ledger | Each posts a real transaction; Net worth moves only by the salary (+45,000); loans still to pay 57,500 |
 | 10 | Read every tab | Report | Free cash and What you own read the same everywhere; Checks pass |
 
-**The rest of Mohab's year.** Steps 1–10 are one ordinary month. Steps 11–28 carry the same household from October 2026 to September 2027 through what a salaried year brings: fees, a refund, a repair, a bonus, an early payday, a raise, Eid, installments, a share sale, a rent rise, a holiday, and a job change with a month between jobs. Every month also has the routine: salary on the 1st, rent on the 3rd, the car loan on the 5th, groceries, phone, internet and electricity.
+**The rest of Mohab's year.** Steps 1–10 are one ordinary month. Steps 11–31 carry the same household from October 2026 to September 2027 through what a salaried year brings: fees, a refund, a repair, a bonus, an early payday, a raise, Eid, installments, a share sale, a rent rise, a holiday, and a job change with a month between jobs. Every month also has the routine: salary on the 1st, rent on the 3rd, the car loan on the 5th, groceries, phone, internet and electricity.
 
 `tests/test_mohab_year.py` runs these steps through the screens, one test per step. When a screen gap is fixed, its assertion and the **Today** column below change together. Steps 1–10 are still driven in a browser.
 
@@ -250,15 +250,18 @@ Drive it in a browser through the screens only, and re-run it after any workflow
 | 17 | 20 Dec | ACME pays a 90,000 year-end bonus | Net worth +90,000; Average monthly income stays 45,000 | Answered after Mohab confirms the separately suggested early January salary; Bonus itself stays excluded |
 | 18 | 24 Dec | January's salary comes before the holidays | It settles January's payment; January's forecast expects no more pay | Answered after Mohab confirms the early-pay suggestion; cash-flow reporting still uses 24 December |
 | 19 | Jan–Apr | Plans 9,000 car insurance due 30 April, pays it from the goal | Saving for goals shows 2,250 a month | Answered; but no cash moves into the goal until he assigns it, and it cannot pay the bill until he does |
-| 20 | 1 Feb | Raise to 50,000 | February settles after Mohab confirms the changed-amount suggestion; later payments are planned at 50,000 only after he chooses it; December stays paid at 45,000 | Answered with confirmation, not automatic plan changes |
+| 20 | 1 Feb | Raise to 50,000 | February settles after Mohab confirms the changed-amount suggestion; later payments are planned at 50,000 only after he chooses it; December stays paid at 45,000 | Answered with confirmation, not automatic plan changes; Needs you then offers the raise to the plan, and he keeps his plan and saves the 5,000 (target 28%) |
 | 21 | 9–10 Mar | Eid: gives 3,000 in cash, receives 1,000 | Gifts & Donations and Gifts Received; gifts do not change the salary average | Answered; the rolling January–March salary average is 48,333.33 after January's 45,000 pay and two 50,000 pays |
-| 22 | Mar | Buys a phone on 12 installments of 2,000 from 15 April | What you owe +24,000; each installment settles itself | Answered (as a loan; credit cards are out of scope) |
+| 22 | Mar | Buys a phone on 12 installments of 2,000 from 15 April | What you owe +24,000; each installment settles itself | Answered (as a loan; credit cards are out of scope); in April Needs you names Loan payments planned at 2,500, below both loans' 4,500, and he changes it |
 | 23 | 20 Apr | Sells 75 of 150 COMI for 7,100 after a 25 fee; moves it to CIB | 75 left; Gain from sales after fees; April's Money in is only the salary | Answered |
-| 24 | 3 Jun | Rent rises 10% to 13,200 | June settles; July onwards is planned at 13,200 after Mohab accepts the prompt; reserve target is reviewed separately | Answered with confirmation; neither future plan nor reserve changes silently |
+| 24 | 3 Jun | Rent rises 10% to 13,200 | June settles; July onwards is planned at 13,200 after Mohab accepts the prompt; reserve target is reviewed separately | Answered with confirmation; neither future plan nor reserve changes silently; Needs you names Housing & Rent planned at 12,000, below the 13,200 rent, and he changes it |
 | 25 | Jul–Aug | Sets aside 15,000 for a Sahel trip; spends 14,200 | 800 left in the goal | Answered |
 | 26 | 31 Aug | Leaves ACME with 30,000 end of service; adds Valeo at 55,000 from 1 October | The old salary stops with its history; Average monthly income stays 50,000 | Right since Categories marks Bonus irregular |
 | 27 | Sep | Between jobs, no pay | Next income is Valeo on 1 October; the average does not rise | Known gap: zero-income months are skipped by the average; the test checks non-increase, not zero-month inclusion |
 | 28 | 30 Sep | Reads the year | Money in 651,300 and Money out 295,186; Change in what you own 357,364; loans still to pay 34,500; Checks pass; nothing is due | Answered, except *why* net worth changed (M3.2) |
+| 29 | 30 Apr | Reads Safe to spend after raising his target | It keeps back the emergency top-up (11,521) and the rest of the 28% target (2,013) | Answered |
+| 30 | May–Jul | Wants a 60,000 laptop by 30 June | Needs you: the plan leaves 23,302 a month, so July at the earliest, or set it aside from free cash; he sets it aside, and in July, past its date, completes it | Answered |
+| 31 | 30 Sep | Moves Talabat to Food (feedback round) | Food is over plan in July and August; Needs you moves 500 from Shopping in one step | Answered |
 
 **What users reported.** After the year’s answers are read, Mohab revisits `user feedback/user-feedback-batch-001.md`. The screen test now checks the nine named points: paid dividend amounts, emergency-target warning, a today-only position, monthly summaries for long periods, no category sign key, a saved monthly investing goal, total fund valuation, dated Other asset values, and multi-file CSV import. Loading speed, keeping scroll position, compact review rows, chart colours and register balance are not checked from the screens.
 
@@ -304,6 +307,8 @@ The reference apps are YNAB, Monarch, Copilot, Simplifi, Rocket Money, Lunch Mon
 | 12 | Receipts and attachments | Monarch, Lunch Money | Warranty and gold purchase receipts |
 
 **Known finance gaps** (the early-pay, raise and rent paths now require explicit confirmation; no-pay-month averaging in step 27 only has a non-increase assertion):
+
+- **Financial health's Savings rate for a month paid early** reads −1177.2% for Mohab's January (pay came on 24 December); the Overview already says "21,582 more went out than the 1,833 that came in", and Needs you does not call it a short month (`test_financial_health_reads_the_early_paid_january_as_a_rate`).
 
 - **Left open by the 2026-10-05 audit** (its other wrong numbers are fixed, `tests/test_audit_numbers.py`): a certificate's interest lands on the bank as Investment › Interest with no link to the certificate, so Net gain and the return leave it out; a payment scheduled on the 31st moves to the 30th after a shorter month and stays there; the Investments sparkline and the net worth chart show a recorded opening balance as a jump.
 - **Unconfirmed early salary** remains in the bank-posting month of the income average and may leave a future salary payment due. The Recurring tab suggests the plausible match; Mohab must confirm the specific transaction before the scheduled-month average and forecast adjust.

@@ -231,9 +231,9 @@ def test_a_goal_the_plan_cannot_reach_says_when_it_can(c):
     assert (late["need"], late["can"], late["reached"]) == (Decimal("2000.00"), Decimal("1000"), "2027-05")
     inbox = {item["label"]: item for item in ReviewInbox(c).items(today())}
     item = inbox["Car deposit will not be ready by its date"]
-    assert "leaves 1,000 for it. At that pace it is ready in May 2027." in item["detail"]
+    assert "leaves 1,000 for it. Setting aside 1,000 a month, it is ready in May 2027." in item["detail"]
     page = visible_text(_ScreenClient(create_app(c), "http://testserver").get("/plan/reserves").text)
-    assert "Your plan leaves 1,000 a month for it: ready in 2027-05" in page
+    assert "Your plan leaves 1,000 a month for it: set that aside each month and it is ready in 2027-05" in page
     c.budgets.set_budget(c.categories.get_by_code("EXP.PERSONAL.FOOD").id, MONTH, "7000")
     assert c.health.goal_reach() == []
 
@@ -306,3 +306,10 @@ def test_over_plan_two_months_running_offers_to_move_room(c, setup):
     plans = c.budgets.amounts_for(MONTH, loans=False)
     assert (plans[food][0], plans[transport][0]) == (Decimal("6000"), Decimal("2000"))
     assert c.budgets.amounts_for("2026-11", loans=False)[food][0] == Decimal("5000")  # history unchanged
+
+
+def test_editing_a_goal_saves_and_returns_it(c):
+    # Edit used to fail after saving (it looked up the goal on the returned row); Mohab found it moving a date.
+    goal = c.reserves.create("Phone", "6000", due_date="2027-03-31")
+    saved = c.reserves.update(goal["id"], "Phone", "6000", "2027-06-30")
+    assert (saved["name"], saved["due_date"]) == ("Phone", "2027-06-30")

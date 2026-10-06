@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from decimal import Decimal
+import math
 from datetime import timedelta
 import json
 
@@ -21,6 +22,9 @@ from .domain import (EMERGENCY_BASES, INCOME_FROM_RECURRING, BudgetFillProposal,
 from .repository import BudgetRepository
 
 SECTION_NAMES = {Scope.PERSONAL: "Personal", Scope.WORK: "Work"}
+
+
+OVER_PLAN_MARGIN = Decimal(50)  # a category a few pounds over its plan is not worth a move
 
 
 class BudgetService:
@@ -102,8 +106,8 @@ class BudgetService:
         return rows
 
     def over_twice(self, month: str) -> list[dict]:
-        """Categories over their own plan in both of the two completed months before `month`, with how much
-        more a month they needed (the larger overspend, rounded up to 50) and, when one exists, a category
+        """Categories over their own plan (by OVER_PLAN_MARGIN or more) in both of the two completed months
+        before `month`, with how much more a month they needed (the larger overspend, rounded up to 50) and, when one exists, a category
         whose plan was left with at least that much in both months to move it from."""
         start = parse_month(month)[0]
         earlier = month_of(start - timedelta(days=1))
@@ -118,10 +122,13 @@ class BudgetService:
         rows = []
         for cid, line in views[1].items():
             before = views[0].get(cid)
-            if not (own(line) and own(before) and line.remaining < 0 and before.remaining < 0 and own(now.get(cid))):
+            if not (own(line) and own(before) and own(now.get(cid))
+                    and min(-line.remaining, -before.remaining) >= OVER_PLAN_MARGIN):
                 continue
             short = max(-line.remaining, -before.remaining)
-            amount = (-(-short // 50) * 50).quantize(Decimal("1"))
+            if now[cid].direct - line.direct >= short:  # this month's plan already has what it lacked
+                continue
+            amount = Decimal(math.ceil(short / 50) * 50)
             related = lambda other: other.code.startswith(line.code + ".") or line.code.startswith(other.code + ".")
             donors = [(min(views[0][d].remaining, other.remaining), other) for d, other in views[1].items()
                       if d != cid and own(other) and own(views[0].get(d)) and own(now.get(d)) and not related(other)

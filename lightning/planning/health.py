@@ -1,6 +1,7 @@
 """Named financial-health figures and profile-owned comparison limits."""
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, replace
 from datetime import date, timedelta
 from decimal import Decimal
@@ -296,11 +297,11 @@ class HealthService:
                 continue
             reached = None
             if share > 0:
-                months = int(-(-goal["missing"] // share))  # whole months, rounded up
+                months = math.ceil(goal["missing"] / share)  # whole months, rounded up
                 index = start.year * 12 + start.month - 1 + months - 1
                 reached = f"{index // 12}-{index % 12 + 1:02d}"
             late.append({"id": goal["id"], "name": goal["name"], "due_date": goal["due_date"], "need": goal["amount"],
-                         "can": share, "reached": reached})
+                         "can": share, "reached": reached, "missing": goal["missing"]})
         return late
 
     def raise_offer(self, month: str | None = None) -> dict | None:
@@ -338,12 +339,17 @@ class HealthService:
 
     def short_month(self, day: date | None = None) -> dict | None:
         """The last completed month, when it saved less than the Savings rate limit (Financial health's own
-        Savings rate). None without money in that month or when it met the target."""
+        Savings rate). None without money in that month or when it met the target, and None when less than
+        half the usual income came in: the pay landed in another month (paid early, or between jobs), so the
+        month's rate says nothing about the plan (Mohab's January, paid on 24 December)."""
         day = day or today()
         end = parse_month(month_of(day))[0] - timedelta(days=1)
         flow = self.reporting.cash_flow(parse_month(month_of(end))[0], end)
         limit = self.limit_values()["savings_rate"]
         if flow.savings_rate is None or not flow.inflows or limit is None or flow.savings_rate >= limit:
+            return None
+        usual = self.budgets.income_average(month_of(end)).amount
+        if usual and flow.inflows < usual / 2:
             return None
         return {"month": month_of(end), "rate": flow.savings_rate, "limit": limit,
                 "short": (flow.inflows * limit / 100 - flow.net).quantize(Decimal("0.01"))}

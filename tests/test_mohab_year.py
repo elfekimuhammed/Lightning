@@ -32,6 +32,7 @@ assertions. Speed and look are judged on a real PC and in a browser; this file c
 """
 from __future__ import annotations
 
+import html
 import os
 import re
 from dataclasses import dataclass
@@ -184,6 +185,13 @@ class Mohab:
             assert button, f"Nothing is suggested for {name}'s payment: {popup.text[:300]}"
             self.b.submit({}, button=button)
         raise AssertionError(f"{name} kept showing payments due")
+
+    def plan_category(self, name: str, amount: str) -> Screen:
+        """On the Budget page he is on, type a new amount into the category's one field and save it."""
+        found = re.search(rf'(?s)<form\b[^>]*action="(/budget/rule/\d+)"(?:(?!</form>).)*aria-label="Budget for {re.escape(html.escape(name))}:',
+                          self.b.page.html)
+        assert found, f"No budget field for {name} on {self.b.page.path}"
+        return self.b.submit({"rule": amount}, action=found.group(1))
 
     def period(self, page: str, date_from: str, date_to: str) -> Screen:
         """Press Custom on a report and type the dates."""
@@ -444,6 +452,7 @@ def _live_the_year(o: Mohab) -> None:
     o.ask("january_pay", "January's salary came early. Does Lightning know?", "Cash planning", "Recurring")
     o.settle_due_income("ACME Egypt")   # he confirms the 24 December payment it suggests
     o.ask("january_pay_after", "And after I confirm it?", "Cash planning", "Recurring")
+    o.ask("january_saved", "January's pay came in December. Does Lightning say I saved too little?")
     o.ask("bonus_budget", "Does the bonus change what I can budget?", "Cash planning", "Reserves")
     b.go("Cash planning", "Reserves")
     b.submit({"name": "Car insurance", "target": "9,000", "due_date": "2027-04-30"}, button="Add reserve")
@@ -457,6 +466,10 @@ def _live_the_year(o: Mohab) -> None:
     o.notes["raise_offered"] = b.go("Cash planning", "Recurring").shows("Use 50,000.00 from now on")
     b.submit({}, button="Use 50,000.00 from now on")
     o.ask("raise_after", "Is the plan at 50,000 now?", "Cash planning", "Recurring")
+    # Needs you notices the raise is not in his average yet; he keeps his plan and saves the 5,000.
+    o.ask("income_up", "My pay went up. What should my plan do with it?", "Choose")
+    o.notes["raise_saved"] = b.submit({}, button="Save it")
+    o.ask("raise_target", "Did my savings target go up?", "Settings", "Financial health")
 
     # ============================================================== March: Eid, and a phone on installments
     o.on("2027-03-31")
@@ -479,21 +492,43 @@ def _live_the_year(o: Mohab) -> None:
     o.trade("sell", "2027-04-20", "COMI", units="75", total="7,100", fees="25")
     o.enter("THNDR", "2027-04-21", "CIB Payroll", "", "-7,100")
     o.ask("sale", "What did I make on the COMI I sold?", "Investments", "Commercial International Bank")
+    # The phone installments started this month, on top of the car: the plan still says 2,500 for loans.
+    o.ask("loans_planned", "Does my plan cover both loans?")
+    b.click("Change the plan")
+    o.notes["loans_replanned"] = o.plan_category("Loan payments", "4,500")
+    o.ask("loans_planned_after", "And now?")
+    o.ask("safe_keeps_saving", "Does Safe to spend leave what I mean to save?", "Cash planning")
     o.ask("insurance", "Is the insurance paid from its goal?", "Cash planning", "Reserves")
 
     # ============================================================== May and June: the rent goes up
     o.on("2027-05-31")
     o.month("2027-05", salary="50,000")
+    # A laptop by the end of June: Needs you says the plan cannot get there in time, and that his free cash
+    # can; he sets the 60,000 aside.
+    b.go("Cash planning", "Reserves")
+    b.submit({"name": "New laptop", "target": "60,000", "due_date": "2027-06-30"}, button="Add reserve")
+    o.ask("laptop", "Can I have a 60,000 laptop by the end of June?")
+    screen = b.go("Cash planning", "Reserves")
+    o.notes["laptop_set_aside"] = b.submit({"allocated": "60,000"}, action=screen.action_after("New laptop", "/allocate"))
+    o.ask("laptop_after", "And once the money is set aside?")
     o.on("2027-06-30")
     o.month("2027-06", salary="50,000", rent="13,200")
     o.ask("rent", "My rent went up to 13,200. Does the plan know?", "Cash planning", "Recurring")
     if b.page.shows("Use 13,200.00 from now on"):
         b.submit({}, button="Use 13,200.00 from now on")
     o.ask("rent_after", "And now?", "Cash planning", "Recurring")
+    o.ask("rent_planned", "Does my budget know the rent went up?")
+    b.click("Change the plan")
+    o.notes["rent_replanned"] = o.plan_category("Housing & Rent", "13,200")
+    o.ask("rent_planned_after", "And now?")
 
     # ============================================================== July and August: Sahel, and a new job
     o.on("2027-07-31")
     o.month("2027-07", salary="50,000", rent="13,200")
+    # The new model is out in the autumn: he lets the laptop goal go and its 60,000 is free again.
+    o.ask("laptop_late", "The laptop's date has passed. What now?")
+    screen = b.go("Cash planning", "Reserves")
+    o.notes["laptop_done"] = b.submit({}, action=screen.action_after("New laptop", "/complete"))
     b.go("Cash planning", "Reserves")
     b.submit({"name": "Sahel trip", "target": "15,000", "due_date": "2027-08-15", "allocated": "15,000"},
              button="Add reserve")
@@ -596,6 +631,11 @@ def _the_feedback_round(o: Mohab) -> None:
     o.notes["bulk_rows"] = len(talabat)
     o.notes["bulk_done"] = b.submit({"txn_ids": talabat, "category_id": Choose("Food & Groceries"),
                                      "back": found.path}, action="/transactions/bulk-category")
+    # Talabat is food now, so Food runs over its plan every month; Needs you offers room from Shopping.
+    o.ask("food_over", "Food is over its plan every month now. What can I do?")
+    o.notes["move_popup"] = b.click("Move it")
+    o.notes["moved"] = b.submit({}, button="Move it")
+    o.ask("food_over_after", "And now?")
     o.ask("fund_value", "THNDR shows the fund's value, not its unit price. Can I type that?",
           "Settings", "Valuations", "Update prices")
 
@@ -845,6 +885,60 @@ def test_after_the_raise_the_plan_is_at_50000(mohab):
     assert re.search(r"ACME Egypt Income [^+]*\+50,000\.00", mohab.answers["raise_after"].screen.text)
 
 
+def test_an_early_paid_january_is_not_a_month_that_saved_too_little(mohab):
+    # January's pay came on 24 December: the Overview says what happened, and Needs you does not call it
+    # a month that missed the savings target (less than half the usual income came in).
+    answer = mohab.answers["january_saved"]
+    assert answer.shows("Savings rate 2027-01 — 21,582 more went out than the 1,833 that came in")
+    assert not answer.shows("saved less than your target")
+
+
+def test_financial_health_reads_the_early_paid_january_as_a_rate(mohab):
+    # Known gap: Financial health shows January as a percentage of the 1,833 that came in; it should say,
+    # as the Overview does, that more went out than came in (the pay landed in December).
+    assert mohab.answers["raise_target"].shows("Savings rate -1177.2% Below your limit 2027-01")
+
+
+def test_needs_you_offers_the_raise_to_the_plan(mohab):
+    # Recurring says 50,000 and his average still 45,000: plan with it, save the difference, or wait.
+    offer = mohab.answers["income_up"]
+    assert route(mohab, "income_up") == ["/", "/budget/raise"]
+    assert offer.shows("Recurring expects 50,000 EGP a month; your average is 45,000",
+                       "What should the plan do with 5,000 EGP more a month?",
+                       "Most you can plan becomes 36,313 EGP; your 20% target stays",
+                       "Keep today's plan and raise your savings target to 28.0%")
+    # 20% of 45,000 is 9,000; with the 5,000 raise he keeps 14,000 of 50,000.
+    assert mohab.notes["raise_saved"].shows("Savings target raised to 28.0%: the plan stays and saves the difference. "
+                                            "Most you can plan this month is now 31,313; this month's plan fits.")
+    assert mohab.answers["raise_target"].shows("Your limit At least 28.0%")
+
+
+def test_a_plan_below_both_loans_is_named_and_fixed(mohab):
+    answer = mohab.answers["loans_planned"]
+    assert answer.shows("Loan payments is planned below its bills Planned 2,500 EGP; bills and loan payments "
+                        "scheduled this month come to 4,500. Change the plan")
+    assert mohab.notes["loans_replanned"].shows("Budget saved.")
+    assert not mohab.answers["loans_planned_after"].shows("planned below its bills")
+
+
+def test_safe_to_spend_keeps_the_rest_of_the_savings_target(mohab):
+    # His 28% target is 13,533 of 48,333; the emergency top-up already holds back 11,521 of it.
+    assert route(mohab, "safe_keeps_saving") == ["/", "/plan"]
+    assert mohab.answers["safe_keeps_saving"].shows(
+        "Free cash 313,205 Emergency fund top-up −11,521 Rest of savings target −2,013 Safe to spend 299,672")
+
+
+def test_a_goal_the_plan_cannot_reach_says_when_and_what_else_works(mohab):
+    answer = mohab.answers["laptop"]
+    assert answer.shows("New laptop will not be ready by its date Due 2027-06-30 · it needs 30,000 EGP a month and "
+                        "your plan leaves 23,302 for it. Setting aside 23,302 a month, it is ready in July 2027. "
+                        "Set aside 60,000 of your 339,623 free cash now, or give it a later date.")
+    assert mohab.notes["laptop_set_aside"].shows("Updated cash assigned to New laptop.")
+    assert not mohab.answers["laptop_after"].shows("New laptop will not be ready")
+    assert mohab.answers["laptop_late"].shows("New laptop is past its date Due 2027-06-30 · 60,000 EGP still set aside.")
+    assert mohab.notes["laptop_done"].shows("Completed New laptop; its assigned cash is free again.")
+
+
 def test_installments_are_owed_like_a_loan(mohab):
     answer = mohab.answers["owe_more"]
     assert answer.figure("Loans still to pay") == D("61500")
@@ -875,6 +969,13 @@ def test_the_insurance_is_paid_from_its_goal(mohab):
 def test_the_rent_rise_is_offered_and_taken(mohab):
     assert mohab.answers["rent"].shows("Last paid 13,200.00 Use 13,200.00 from now on")
     assert mohab.answers["rent_after"].shows("Landlord Bill · Housing & Rent 13,200.00")
+
+
+def test_the_rent_rise_reaches_the_budget(mohab):
+    assert mohab.answers["rent_planned"].shows("Housing & Rent is planned below its bills Planned 12,000 EGP; "
+                                               "bills and loan payments scheduled this month come to 13,200.")
+    assert mohab.notes["rent_replanned"].shows("Budget saved.")
+    assert not mohab.answers["rent_planned_after"].shows("planned below its bills")
 
 
 def test_the_trip_goal_keeps_what_was_not_spent(mohab):
@@ -1065,6 +1166,16 @@ def test_selected_rows_can_be_edited_together(mohab):
     done = mohab.notes["bulk_done"]
     assert done.shows(f"Food & Groceries is now the category of {rows} rows.")
     assert done.shows("Talabat Food & Groceries") and "Talabat Eating Out" not in done.text
+
+
+def test_food_over_plan_two_months_running_gets_room_from_shopping(mohab):
+    # Talabat is Food now (the bulk change above), so July and August ran 480 over: one move fixes September on.
+    answer = mohab.answers["food_over"]
+    assert answer.shows("Food & Groceries over plan two months running Over its plan in July and August, by up to "
+                        "500 EGP. Move 500 from Shopping, which had that left both months. Move it")
+    assert mohab.notes["move_popup"].shows("Move plan to Food & Groceries", "From 2027-09 on · the total plan stays the same")
+    assert mohab.notes["moved"].shows("Moved plan from Shopping to Food & Groceries from 2027-09 on.")
+    assert not mohab.answers["food_over_after"].shows("over plan two months running")
 
 
 def test_a_fund_can_be_valued_by_its_total(mohab):

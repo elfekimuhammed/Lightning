@@ -10,6 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-06 · Claude: Mohab meets the smarter plan (steps 20, 22, 24, 29–31): the raise offer, loans and rent planned below their bills, Safe to spend's rest of target, a late laptop goal, moving room to Food. Fixed what he found: "move 0", a −1,177% short month, a move offer that stayed, editing a reserve crashed.
 
 - 2026-10-06 · Claude: Online prices never in the way: the month-end fetch on opening runs in the background and the next page saves it and says so; Get prices on missing month-ends, Use shared prices after two failed tries; Settings › Price files › Test price sources (`tests/test_live_prices.py`).
 - 2026-10-06 · Codex: Documented promotion's unverified power-loss risk, the ordinary Windows drill, and the explicit real-data release decision.

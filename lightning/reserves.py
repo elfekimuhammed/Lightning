@@ -174,7 +174,7 @@ class CashReserveService:
             "UPDATE cash_reserves SET name=?,target_e6=?,due_date=?,recurrence=?,recurrence_day=?,counterparty_id=?,category_id=?,account_id=?,updated_at=? WHERE id=?",
             (name, to_e6(target_value), day, recurrence, recurrence_day, counterparty_id, category_id, account_id, now_iso(), reserve_id),
         )
-        return self.get(reserve.id)
+        return self.get(reserve_id)
 
     def allocate(self, reserve_id: int, amount):
         reserve = self.get(reserve_id)
