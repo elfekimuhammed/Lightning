@@ -105,6 +105,20 @@ def read_slot(path: Path) -> dict:
         raise ProfileError("The password file is missing or invalid. Use your recovery key.") from exc
 
 
+def publish_new(temporary: Path, target: Path) -> None:
+    """Put a finished file at a name that must not exist yet, never replacing one. A hard link does this on
+    Windows and POSIX; Android refuses hard links in app storage, so there, with the name still free, the file
+    is renamed into place (the profile folder is private to the app, so nothing else races for the name)."""
+    try:
+        os.link(temporary, target)
+    except PermissionError:
+        if os.path.lexists(target):
+            raise FileExistsError(target) from None
+        os.rename(temporary, target)
+        return
+    temporary.unlink()
+
+
 def write_slot(path: Path, document: dict, *, replace: bool = False) -> None:
     """Durable atomic slot publication, never truncate the working password file."""
     if path.is_symlink():
@@ -119,9 +133,7 @@ def write_slot(path: Path, document: dict, *, replace: bool = False) -> None:
         if replace:
             os.replace(temporary, path)
         else:
-            # Link publishes exclusively on both supported platforms.
-            os.link(temporary, path)
-            temporary.unlink()
+            publish_new(temporary, path)
         if os.name != "nt":
             directory = os.open(path.parent, os.O_RDONLY)
             try:
@@ -263,8 +275,7 @@ class ProfileSession:
             container = None
             with candidate.open("r+b") as handle:
                 os.fsync(handle.fileno())
-            os.link(candidate, paths.db_path)  # No replacement even in a collision.
-            candidate.unlink()
+            publish_new(candidate, paths.db_path)  # No replacement even in a collision.
             if os.name != "nt":
                 directory = os.open(paths.data_dir, os.O_RDONLY)
                 try:

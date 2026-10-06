@@ -30,7 +30,7 @@ COMPAT = Compatibility(1, 1, 45, 1, "0123456789abcdef", 1)
 def examples():
     return [
         PairRequest(u(1), u(2), "Office PC", "02" + "ab" * 32, "cd" * 32),
-        PairReply(u(1), u(3), "Mohab", u(4), "Mohab's phone", u(5), "11" * 32, "0123456789abcdef", "ef" * 32),
+        PairReply(u(1), u(3), "Mohab", u(4), "Mohab's phone", u(5), '{"version": 2}', "0123456789abcdef", "ef" * 32),
         PairConfirm(u(1), u(2)),
         Status(u(2)),
         StatusReply(u(3), u(5), "LENT", u(6), "a" * 64, 3, u(2), False),
@@ -66,7 +66,7 @@ def test_every_message_round_trips(message):
     lambda: PairRequest(u(1), u(2), " padded", "02" + "ab" * 32, "cd" * 32),
     lambda: PairRequest(u(1), u(2), "x" * 61, "02" + "ab" * 32, "cd" * 32),
     lambda: PairRequest(u(1), u(2), "PC", "04" + "ab" * 32, "cd" * 32),
-    lambda: PairReply(u(1), u(3), "M", u(4), "P", u(5), "11" * 31, "0123456789abcdef", "ef" * 32),
+    lambda: PairReply(u(1), u(3), "M", u(4), "P", u(5), "", "0123456789abcdef", "ef" * 32),
     lambda: StatusReply(u(3), u(5), "SOMEWHERE", u(6), "a" * 64, 0, "", True),
     lambda: StatusReply(u(3), u(5), "AT_HOME", u(6), "a" * 64, 0, "", 1),
     lambda: Checkpoint(u(6), u(5), "a" * 64, 0, 45),

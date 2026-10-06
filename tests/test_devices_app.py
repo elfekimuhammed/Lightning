@@ -10,9 +10,8 @@ from lightning.runtime.app import profile_app
 from lightning.runtime.devices import Devices
 from lightning.runtime.http import Credentials
 
-from test_profile_app import create, token
+from test_profile_app import PASSWORD, create, token
 
-PC_PASSWORD = "the office pc password"
 
 
 def app_for(tmp_path, name, port):
@@ -48,8 +47,7 @@ def test_pair_borrow_edit_hand_back_and_seal_through_the_screens(tmp_path):
         address = f"127.0.0.1:{phone_devices.server.port}"
         page = pc.get("/profiles/connect")
         page = pc.post("/profiles/connect", data={"csrf": token(page.text), "address": address, "code": code,
-                                                  "pc_name": "Office PC", "password": PC_PASSWORD,
-                                                  "confirm": PC_PASSWORD})
+                                                  "pc_name": "Office PC"})
         assert "Connected to My phone" in page.text, page.text[-2000:]
         digits = re.search(r"(\d{3} \d{3})", page.text).group(1)
         assert digits in phone.get("/profiles/devices").text  # both screens show the same check digits
@@ -60,7 +58,7 @@ def test_pair_borrow_edit_hand_back_and_seal_through_the_screens(tmp_path):
         profile_id = re.search(r'/profiles/borrowed\?id=([0-9a-f-]{36})', listing).group(1)
         page = pc.get("/profiles/borrowed", params={"id": profile_id})
         opened = pc.post("/profiles/borrowed", data={"csrf": token(page.text), "id": profile_id,
-                                                     "password": PC_PASSWORD})
+                                                     "password": PASSWORD})
         assert opened.url.path == "/", opened.text[-1500:]
         assert "Borrowed from My phone" in pc.get("/accounts").text
         assert add_account(pc, "PC wallet").status_code == 200
@@ -79,7 +77,7 @@ def test_pair_borrow_edit_hand_back_and_seal_through_the_screens(tmp_path):
 
         # Borrow again, then the phone goes away: closing the PC keeps the lend sealed here.
         page = pc.get("/profiles/borrowed", params={"id": profile_id})
-        pc.post("/profiles/borrowed", data={"csrf": token(page.text), "id": profile_id, "password": PC_PASSWORD})
+        pc.post("/profiles/borrowed", data={"csrf": token(page.text), "id": profile_id, "password": PASSWORD})
         assert "After" in pc.get("/accounts").text
         add_account(pc, "Offline edit")
         phone_devices.stop()
@@ -89,7 +87,7 @@ def test_pair_borrow_edit_hand_back_and_seal_through_the_screens(tmp_path):
         assert "On this PC, not handed back" in pc.get("/profiles").text
         page = pc.get("/profiles/borrowed", params={"id": profile_id})
         reopened = pc.post("/profiles/borrowed", data={"csrf": token(page.text), "id": profile_id,
-                                                       "password": PC_PASSWORD})
+                                                       "password": PASSWORD})
         assert reopened.url.path == "/" and "Offline edit" in pc.get("/accounts").text
 
 
@@ -105,10 +103,5 @@ def test_wrong_pc_password_and_wrong_code_are_explained(tmp_path):
         address = f"127.0.0.1:{phone_devices.server.port}"
         page = pc.get("/profiles/connect")
         wrong = pc.post("/profiles/connect", data={"csrf": token(page.text), "address": address,
-                                                   "code": "AAAA-BBBB-CCCC", "pc_name": "Office PC",
-                                                   "password": PC_PASSWORD, "confirm": PC_PASSWORD})
+                                                   "code": "AAAA-BBBB-CCCC", "pc_name": "Office PC"})
         assert wrong.status_code == 400 and "not the one on the phone" in wrong.text
-        mismatch = pc.post("/profiles/connect", data={"csrf": token(wrong.text), "address": address,
-                                                      "code": "AAAA-BBBB-CCCC", "pc_name": "Office PC",
-                                                      "password": PC_PASSWORD, "confirm": "other"})
-        assert mismatch.status_code == 400

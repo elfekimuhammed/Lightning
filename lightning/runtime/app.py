@@ -22,7 +22,7 @@ from .http import (MARKET_IMPORT_PATH, MAX_IMPORT_CONFIRM_BODY, MAX_IMPORT_CONFI
 from .devices import Devices, home_state_line, move_to_phone, open_move
 from .paths import choose_data_root, discover_profiles, resolve_profile
 from .roles import READ_ONLY_REFUSAL, SessionRole
-from .session import AttemptGuard, ProfileError, ProfileSession, validate_password
+from .session import AttemptGuard, ProfileError, ProfileSession
 
 _DEFAULT_FORM_FIELDS = 2_000
 _IMPORT_CONFIRM_FORM_FIELDS = MAX_IMPORT_CONFIRM_FIELDS
@@ -210,9 +210,11 @@ def profile_app(credentials: Credentials, root: Path | str | None = None, device
             return result or RedirectResponse("/" if session.container else "/profiles", 303)
         except ProfileError as exc:
             return page(request, mode, error=str(exc), status=400, **context)
-        except Exception:
-            # Never render native exception strings (paths, SQL, secrets).
-            return page(request, mode, error="The operation could not finish. Your existing database was not replaced. Check the folder permissions, available space and app version.", status=400, **context)
+        except Exception as exc:
+            # Never render native exception strings (paths, SQL, secrets); the error's kind alone helps a report.
+            return page(request, mode, error="The operation could not finish. Your existing database was not "
+                        f"replaced. Check the folder permissions, available space and app version ({type(exc).__name__}).",
+                        status=400, **context)
 
     @app.get("/profiles")
     async def profiles(request: Request):
@@ -261,7 +263,8 @@ def profile_app(credentials: Credentials, root: Path | str | None = None, device
         if session.pending is None:
             return page(request, "setup", error="Setup expired. Create the profile again.", status=400)
         pending = session.pending
-        return await action(request, "recovery-key", lambda: session.confirm(str(form.get("recovery", ""))),
+        # Owner, 2026-10-06: the key is shown once and confirmed with a press, not typed back.
+        return await action(request, "recovery-key", lambda: session.confirm(pending.recovery),
                             recovery=pending.recovery, name=pending.paths.profile.name if pending.paths.profile else "")
 
     @app.post("/profiles/cancel")
@@ -391,7 +394,7 @@ def profile_app(credentials: Credentials, root: Path | str | None = None, device
         form = await request.form()
         pending = session.pending_recovery
         def operation():
-            session.confirm_recovery_key(str(form.get("recovery", "")))
+            session.confirm_recovery_key(pending.recovery if pending else "")
             return page(request, "manage", notice="New recovery key saved. The old one no longer works.")
         return await action(request, "manage", operation, new_recovery=pending.recovery if pending else "")
 
@@ -502,14 +505,12 @@ def profile_app(credentials: Credentials, root: Path | str | None = None, device
         pc_name = " ".join(str(form.get("pc_name", "")).split())[:60]
         values = dict(address=address, pc_name=pc_name)
         try:
-            validate_password(str(form.get("password", "")), str(form.get("confirm", "")))
             normalize_code(code)
             if not pc_name:
                 raise ValueError("Name this PC, so the phone can show it.")
             identity = devices.identity(pc_name)
             paired = await asyncio.to_thread(pair, address, code, identity)
-            node = await asyncio.to_thread(join_home, paired, endpoint=address, password=str(form.get("password")),
-                                           identity=identity, root=devices.root)
+            node = await asyncio.to_thread(join_home, paired, endpoint=address, identity=identity, root=devices.root)
         except (ProfileError, ValueError) as exc:
             return page(request, "connect", error=str(exc), status=400, **values)
         except (LinkDown, ProtocolError) as exc:
@@ -548,8 +549,8 @@ def profile_app(credentials: Credentials, root: Path | str | None = None, device
                                  str(form.get("password", "")))
             except ValueError as exc:
                 attempts.failed()
-                raise ProfileError("The password is incorrect. It is this PC's password for the phone's "
-                                   "ledger, set when you connected.") from exc
+                raise ProfileError("The password is incorrect. It is the profile's password, the same as on "
+                                   "the phone.") from exc
             attempts.succeeded()
             state = node.model.state
             notice = ""

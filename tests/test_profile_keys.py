@@ -176,9 +176,8 @@ def test_the_pages_offer_a_suggestion_and_ask_for_the_second_proof(tmp_path):
                                                    "use_suggestion": "yes", "question": QUESTION, "answer": ANSWER}).text
         assert suggestion in page  # the chosen password is shown once, to write down
         recovery = re.search(r'aria-label="Recovery key">([0-9-]+)<', page).group(1)
-        wrong = browser.post("/profiles/confirm", data={"csrf": csrf(page), "recovery": "1"})
-        assert wrong.status_code == 400 and recovery in wrong.text  # the key stays on screen to try again
-        browser.post("/profiles/confirm", data={"csrf": csrf(wrong.text), "recovery": recovery})
+        assert 'name="recovery"' not in page  # owner, 2026-10-06: shown once, confirmed with a press
+        browser.post("/profiles/confirm", data={"csrf": csrf(page)})
         manage = browser.get("/profiles").text
         for heading in ("Change password", "Change security question", "New recovery key"):
             assert heading in manage

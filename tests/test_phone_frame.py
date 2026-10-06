@@ -97,3 +97,18 @@ def test_profile_pages_on_the_phone_name_no_folders(phone):
     html = phone.get("/profiles").text  # unlocked: settings; locked: the chooser
     assert "on this phone" in html and "on this computer" not in html
     assert "Use another profile location" not in html and "Full database path" not in html
+
+
+def test_a_profile_can_be_created_where_hard_links_are_refused(tmp_path, monkeypatch):
+    """Android refuses hard links in app storage; creating a profile must still work there."""
+    import os
+
+    def refuse(*args, **kwargs):
+        raise PermissionError("hard links are not allowed here")
+    monkeypatch.setattr(os, "link", refuse)
+    cfg = Credentials("http://127.0.0.1:9863")
+    app = profile_app(cfg, tmp_path / "docs", devices=Devices(tmp_path / "app", port=0), phone=True)
+    with TestClient(app, base_url=cfg.origin, headers={"Origin": cfg.origin}) as browser:
+        browser.get("/__launch", params={"code": cfg.launch_code})
+        create(browser)
+        assert app.session.container is not None and app.session.paths.db_path.exists()

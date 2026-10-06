@@ -42,15 +42,15 @@ def join(phone, tmp_path, name="Office PC"):
     pc_id = load_or_create(tmp_path / f"pc-id-{name}", name)
     paired = pair(phone.endpoint, show_code(pending.code), pc_id)
     assert paired.digits == pending.digits and pending.paired_name == name  # both screens show the same digits
-    node = join_home(paired, endpoint=phone.endpoint, password="pc password", identity=pc_id,
-                     root=tmp_path / f"pc-data-{name}")
+    node = join_home(paired, endpoint=phone.endpoint, identity=pc_id, root=tmp_path / f"pc-data-{name}")
     return node, pc_id
 
 
 def test_pair_then_lend_edit_and_hand_back_over_tls(phone, tmp_path):
     node, pc_id = join(phone, tmp_path)
-    key = unwrap_key(json.loads(node.paths.keys_path.read_text()), "pc password")
-    assert key == KEY  # the PC holds the same data key, under its own password
+    from lightning.runtime.roundtrip import PASSWORD
+    key = unwrap_key(json.loads(node.paths.keys_path.read_text()), PASSWORD)
+    assert key == KEY  # the PC opens the profile with the same password as the phone
     link = link_to_home(node, pc_id)
     assert link.status(Status(pc_id.device_id)).state == "AT_HOME"
     node.fetch(link, key)
@@ -148,3 +148,10 @@ def test_codes_are_typed_forgivingly():
     assert normalize_code("abcd efgh-jkmn") == "ABCDEFGHJKMN"
     with pytest.raises(ValueError):
         normalize_code("ABCD-EFGH-JKL0")  # 0 is never in a code
+
+
+def test_codes_from_the_wrong_screen_say_which_screen_to_use(phone, tmp_path):
+    pending = phone.desk.open_move(lambda message, source: ("", ""), home_name="My phone")
+    with pytest.raises(ProtocolError) as refused:
+        pair(phone.endpoint, pending.code, load_or_create(tmp_path / "pc", "Office PC"))
+    assert "Move to your phone" in str(refused.value)

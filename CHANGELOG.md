@@ -10,6 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-06 · Claude: owner's phone test: creating a profile failed on Android (hard links refused; `session.publish_new` now renames when the name is free). The recovery key is confirmed with a press, not typed back. Pairing sends the locked key file, so a PC opens a profile with its own password: no second password. A code from the wrong screen says which screen to use.
 - 2026-10-06 · Claude: milestone 2 built (daily use on the phone): KPI tiles two by two without sparklines on every page; Architecture › UI contract › The phone; review steps for milestones 1 and 2 in `OWNER.md`.
 - 2026-10-06 · Claude: milestone 2, step 4 (task 17): move a PC profile's home to the phone. The phone shows Bring a profile from your PC and a code; the PC's Profile settings › Move to your phone sends it (same password); the PC keeps its old file as a backup and borrows from the phone. `tests/test_move_to_phone.py`.
 - 2026-10-06 · Claude: milestone 2, step 3: on the phone an account is its balance, search, a month chip and a list grouped by day (C08, C11.2); the add button opens the entry sheet (C09: Out, In, Transfer; amount first; Save full width); Accounts lists rows and asks which account; profile pages show no folders (C09.6).
