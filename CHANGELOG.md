@@ -10,6 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-06 · Claude: test suite 405 s → 246 s: tests lock profile keys at the key file's cheapest Argon2 cost (`tests/conftest.py`; one `real_kdf` test keeps the shipped 128/256 MiB), `tests/screens.py` parses a page only when read, and the migrator splits SQL from `;` to `;` and caches it (every database open is faster).
 - 2026-10-06 · Claude: SMS that no bank pattern knows: a general rule reads amount, ending and direction and marks the row *Check this*; money nothing reads stays on From SMS until entered or dismissed. Phone and PC each have their own From SMS layout.
 - 2026-10-06 · Claude: milestone 3 starts: bank SMS (`lightning/sms_imports.py`, CIB and NBE in Arabic; samples in `tests/fixtures/bank_sms.json`). From SMS (`/sms`, on Accounts) takes pasted messages, asks once which account an ending is, and sends rows to the bank import's review.
 - 2026-10-06 · Claude: deleted the stale `Claude outputs/lightning-update.zip` (owner's call) and the `app.js` handlers for `data-owner-filter`/`data-option-filter`, which no page uses.

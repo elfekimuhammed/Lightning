@@ -12,6 +12,23 @@ os.environ["LIGHTNING_PRICES_OFFLINE"] = "1"
 from lightning.bootstrap import Container, build
 
 
+def pytest_configure(config):
+    config.addinivalue_line("markers", "real_kdf: keep the shipped Argon2 costs instead of the cheap test ones")
+
+
+@pytest.fixture(autouse=True)
+def cheap_key_locks(request, monkeypatch):
+    # Profile keys are locked with Argon2 at 128 and 256 MiB (lightning/security/keys.py), most of the
+    # suite's time. Tests use the smallest cost the key file accepts; lock two stays the slower one.
+    if request.node.get_closest_marker("real_kdf"):
+        return
+    from lightning.security import keys
+    monkeypatch.setattr(keys, "ARGON2_MEMORY_KIB", keys._ARGON2_MEMORY_MIN_KIB)
+    monkeypatch.setattr(keys, "ARGON2_ITERATIONS", keys._ARGON2_ITERATIONS_MIN)
+    monkeypatch.setattr(keys, "RECOVERY_MEMORY_KIB", keys._ARGON2_MEMORY_MIN_KIB)
+    monkeypatch.setattr(keys, "RECOVERY_ITERATIONS", keys._ARGON2_ITERATIONS_MIN + 1)
+
+
 @pytest.fixture(autouse=True)
 def fixed_audit_clock(monkeypatch):
     # Historical fixtures also depend on record creation timestamps, not only

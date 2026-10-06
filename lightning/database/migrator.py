@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 import re
 import sqlite3
 from dataclasses import dataclass
@@ -51,18 +52,20 @@ class SchemaInspection:
         return bool(self.pending)
 
 
+@functools.lru_cache(maxsize=None)
 def _split_sql(sql: str, source: str) -> tuple[str, ...]:
-    """Split complete SQLite statements, including trigger bodies."""
+    """Split complete SQLite statements, including trigger bodies. Cached: every database open reads them."""
     statements: list[str] = []
-    pending: list[str] = []
-    for char in sql:
-        pending.append(char)
-        if char == ";" and sqlite3.complete_statement("".join(pending)):
-            statement = "".join(pending).strip()
+    start = 0
+    end = sql.find(";")
+    while end != -1:
+        if sqlite3.complete_statement(sql[start:end + 1]):
+            statement = sql[start:end + 1].strip()
             if _COMMENT_RE.sub("", statement).strip():
                 statements.append(statement)
-            pending.clear()
-    remainder = "".join(pending)
+            start = end + 1
+        end = sql.find(";", end + 1)
+    remainder = sql[start:]
     if remainder.strip():
         body = _COMMENT_RE.sub("", remainder).strip()
         # Comments and whitespace after a terminated statement are not SQL
