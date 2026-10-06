@@ -271,8 +271,8 @@ def _period_stats(c, period, first, as_of, position, cash_flow, change, change_r
     }]
     rate = cash_flow.savings_rate
     # Honest numbers: when money out is more than twice money in, a rate like −1,375% says nothing.
-    # Show the gap in words instead (guideline A01).
-    thin = rate is not None and rate < -100
+    # Show the gap in words instead (guideline A01); Financial health does the same.
+    thin = cash_flow.rate_says_nothing
     if rate is None:
         savings_sub = "No money in this period"
     elif thin:

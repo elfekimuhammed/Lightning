@@ -43,6 +43,7 @@ class HealthMonth:
     month: str
     savings_rate: Decimal | None
     net_worth: Decimal | None
+    gap: str = ""                # said instead of a rate below −100% (CashFlow.rate_says_nothing)
 
 
 @dataclass(frozen=True)
@@ -56,6 +57,7 @@ class HealthFigure:
     status: str | None
     support: tuple[tuple[str, Decimal | None], ...]
     href: str
+    gap: str = ""                # said instead of a rate below −100% (CashFlow.rate_says_nothing)
 
 
 @dataclass(frozen=True)
@@ -146,6 +148,11 @@ RAISE_SHARE = Decimal("1.05")  # recurring income at least 5% above the average 
 RAISE_DECLINED = "income_raise_declined"         # the recurring amount whose offer was declined
 
 NO_LIMIT_SUPPORTED = frozenset({"debt_to_cash", "debt_to_net_worth"})
+
+
+def _gap(flow) -> str:
+    """The Overview's words for a month whose money out is more than twice its money in."""
+    return f"{fmt(-flow.net, 0)} more went out than the {fmt(flow.inflows, 0)} that came in"
 
 
 def compare_to_limit(value: Decimal | None, limit: Decimal | None, direction: str) -> str | None:
@@ -407,6 +414,10 @@ class HealthService:
             HealthFigure("emergency_fund", fund.months, "months", f"As of {fmt_date(day)} · months of {avg_label.lower()}",
                          EMERGENCY_FUND_MONTHS, "minimum", emergency_status,
                          (("Reserves for emergencies", fund.set_aside), (avg_label, fund.monthly)), "/plan/reserves"),
+            HealthFigure("savings_rate", None, "%", savings_month, limits["savings_rate"], "minimum",
+                         "outside your limit" if limits["savings_rate"] is not None else None,
+                         (("Net flow", savings.net), ("Money in", savings.inflows)), "/", _gap(savings))
+            if savings.rate_says_nothing else
             figure("savings_rate", savings.savings_rate, "%", savings_month, limits["savings_rate"], "minimum",
                    (("Net flow", savings.net), ("Money in", savings.inflows)), "/"),
             figure("planned_savings_rate", check.planned_savings_rate, "%", f"{month_of(day)} plan",
@@ -441,7 +452,8 @@ class HealthService:
             flow = self.reporting.cash_flow(cursor, month_end)
             worth = (self.position.at(month_end, match_payments=False).net_worth
                      if first_date and month_end >= first_date else None)
-            trends.append(HealthMonth(key, flow.savings_rate, worth))
+            trends.append(HealthMonth(key, None if flow.rate_says_nothing else flow.savings_rate, worth,
+                                      _gap(flow) if flow.rate_says_nothing else ""))
             next_month = month_end + timedelta(days=1)
             cursor = next_month
         return {"as_of": fmt_date(day), "savings_month": savings_month, "fund": fund,

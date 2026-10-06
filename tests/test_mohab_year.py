@@ -893,10 +893,11 @@ def test_an_early_paid_january_is_not_a_month_that_saved_too_little(mohab):
     assert not answer.shows("saved less than your target")
 
 
-def test_financial_health_reads_the_early_paid_january_as_a_rate(mohab):
-    # Known gap: Financial health shows January as a percentage of the 1,833 that came in; it should say,
-    # as the Overview does, that more went out than came in (the pay landed in December).
-    assert mohab.answers["raise_target"].shows("Savings rate -1177.2% Below your limit 2027-01")
+def test_financial_health_says_the_early_paid_january_in_words(mohab):
+    # As the Overview does: a rate of −1,177% says nothing when the pay landed in December.
+    answer = mohab.answers["raise_target"]
+    assert answer.shows("Savings rate — Below your limit 21,582 more went out than the 1,833 that came in 2027-01")
+    assert not answer.shows("1177")
 
 
 def test_needs_you_offers_the_raise_to_the_plan(mohab):

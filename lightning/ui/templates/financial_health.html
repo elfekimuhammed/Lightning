@@ -21,9 +21,9 @@
     {% set label = 'Emergency fund' if item.key == 'emergency_fund' else fig[item.key].label %}
     <article class="metric-card health-card {{ 'health-outside' if item.status == 'outside your limit' else ('health-within' if item.status == 'within your limit' else '') }}">
       <span class="metric-label">{{ label }}</span>
-      <b class="metric-value">{% if item.value is none %}Unavailable{% elif item.unit == '%' %}{{ '%.1f'|format(item.value) }}%{% elif item.unit == 'months' %}{{ '%.1f'|format(item.value) }} months{% else %}{{ item.value|money }} {{ base }}{% endif %}</b>
+      <b class="metric-value">{% if item.gap %}—{% elif item.value is none %}Unavailable{% elif item.unit == '%' %}{{ '%.1f'|format(item.value) }}%{% elif item.unit == 'months' %}{{ '%.1f'|format(item.value) }} months{% else %}{{ item.value|money }} {{ base }}{% endif %}</b>
       {% if item.status == 'within your limit' %}<span class="health-status">Within your limit</span>{% elif item.status == 'outside your limit' %}<span class="health-status">{{ 'Below' if item.direction == 'minimum' else 'Above' }} your limit</span>{% elif item.limit is none %}<span class="health-status muted">No limit</span>{% else %}<span class="health-status muted">No comparison available</span>{% endif %}
-      <small class="metric-note">{{ item.period }}</small>
+      {% if item.gap %}<small class="metric-note">{{ item.gap }}</small>{% endif %}<small class="metric-note">{{ item.period }}</small>
       <details class="health-numbers"><summary>Show the numbers</summary><dl>
         {% for name, value in item.support %}<div><dt>{{ name }}</dt><dd>{{ value|money ~ ' ' ~ base if value is not none else 'Unavailable' }}</dd></div>{% endfor %}
         {% if item.limit is not none %}<div><dt>Your limit</dt><dd>{{ 'At least' if item.direction == 'minimum' else 'At most' }} {% if item.unit == '%' %}{{ '%.1f'|format(item.limit) }}%{% else %}{{ '%.0f'|format(item.limit) }} months{% endif %}</dd></div>{% else %}<div><dt>Your limit</dt><dd>No limit</dd></div>{% endif %}
@@ -64,7 +64,7 @@
       {{ sparkline(spark, tone, title ~ ' over six completed months') }}
       <details class="health-numbers"><summary>Show the numbers</summary>
         <div class="table-wrap"><table><thead><tr><th>Completed month</th><th class="num">{{ title }}</th></tr></thead><tbody>
-        {% for month in trends %}<tr><td>{{ month.month }}</td><td class="num">{% set val = month.savings_rate if key == 'savings_rate' else month.net_worth %}{% if val is none %}Unavailable{% elif key == 'savings_rate' %}{{ '%.1f'|format(val) }}%{% else %}{{ val|money }} {{ base }}{% endif %}</td></tr>{% endfor %}
+        {% for month in trends %}<tr><td>{{ month.month }}</td><td class="num">{% set val = month.savings_rate if key == 'savings_rate' else month.net_worth %}{% if key == 'savings_rate' and month.gap %}{{ month.gap }}{% elif val is none %}Unavailable{% elif key == 'savings_rate' %}{{ '%.1f'|format(val) }}%{% else %}{{ val|money }} {{ base }}{% endif %}</td></tr>{% endfor %}
         </tbody></table></div>
       </details>
     </article>

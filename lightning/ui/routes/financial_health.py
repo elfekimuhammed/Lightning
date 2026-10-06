@@ -32,8 +32,8 @@ async def financial_health(request: Request):
                   limits=c.health.limit_settings(),
                   as_of_iso=as_of.isoformat(),
                   today_iso=today().isoformat(),
-                  savings_spark=(charts.sparkline(savings_values) if all(v is not None for v in savings_values)
-                                 else {"points": ""}),
+                  # A month that says its gap in words is left out of the line (it skips missing points).
+                  savings_spark=charts.sparkline(savings_values),
                   worth_spark=(charts.sparkline(worth_values) if all(v is not None for v in worth_values)
                                else {"points": ""}),
                   error=error)

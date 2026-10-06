@@ -308,7 +308,6 @@ The reference apps are YNAB, Monarch, Copilot, Simplifi, Rocket Money, Lunch Mon
 
 **Known finance gaps** (the early-pay, raise and rent paths now require explicit confirmation; no-pay-month averaging in step 27 only has a non-increase assertion):
 
-- **Financial health's Savings rate for a month paid early** reads −1177.2% for Mohab's January (pay came on 24 December); the Overview already says "21,582 more went out than the 1,833 that came in", and Needs you does not call it a short month (`test_financial_health_reads_the_early_paid_january_as_a_rate`).
 
 - **Left open by the 2026-10-05 audit** (its other wrong numbers are fixed, `tests/test_audit_numbers.py`): a certificate's interest lands on the bank as Investment › Interest with no link to the certificate, so Net gain and the return leave it out; a payment scheduled on the 31st moves to the 30th after a shorter month and stays there; the Investments sparkline and the net worth chart show a recorded opening balance as a jump.
 - **Unconfirmed early salary** remains in the bank-posting month of the income average and may leave a future salary payment due. The Recurring tab suggests the plausible match; Mohab must confirm the specific transaction before the scheduled-month average and forecast adjust.

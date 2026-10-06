@@ -126,7 +126,7 @@ Every figure a screen shows is listed here once. **From** says which layer its i
 | **Money in** | Your posted income in the period. Transfers, trades and money held for others are left out. | Read directly from the ledger | `reporting.service.CashFlow.inflows` |
 | **Money out** | Your posted spending in the period, after refunds. Transfers, trades and money held for others are left out. | Read directly from the ledger | `reporting.service.CashFlow.outflows` |
 | **Net flow** | What was left of money in after money out. | Money in − Money out | `reporting.service.CashFlow.net` |
-| **Savings rate** | The share of money in that you kept. | Net flow ÷ Money in | `reporting.service.CashFlow.savings_rate` |
+| **Savings rate** | The share of money in that you kept. When money out is more than twice money in (below −100%, such as a month whose pay came early), the Overview and Financial health say the gap in words instead. | Net flow ÷ Money in | `reporting.service.CashFlow.savings_rate` |
 | **Opening balances in the period** | Money and assets you recorded as already yours (opening balances and existing holdings) during the period. They were yours before, so they are not a change. | Read directly from the ledger | `reporting.service.ReportingService.opening_balances_between` |
 | **Change in what you own** | How much what you own grew or shrank in the period. | What you own at the end − What you own the day before the start − Opening balances in the period | `planning.position.PositionService.change_in_what_you_own` |
 | **Per month** | A period's money out divided by the calendar months it covers, so a year to date compares with a single month. | Read directly from the ledger | `reporting.spending.spending_profile` |

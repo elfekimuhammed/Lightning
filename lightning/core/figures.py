@@ -96,7 +96,9 @@ _TABLE = [
     ("money_in", "Money in", "Your posted income in the period. Transfers, trades and money held for others are left out."),
     ("money_out", "Money out", "Your posted spending in the period, after refunds. Transfers, trades and money held for others are left out."),
     ("net_flow", "Net flow", "What was left of money in after money out.", "Money in − Money out"),
-    ("savings_rate", "Savings rate", "The share of money in that you kept.", "Net flow ÷ Money in"),
+    ("savings_rate", "Savings rate", "The share of money in that you kept. When money out is more than twice money "
+     "in (below −100%, such as a month whose pay came early), the Overview and Financial health say the gap in "
+     "words instead.", "Net flow ÷ Money in"),
     ("opening_balances_in_period", "Opening balances in the period", "Money and assets you recorded as already yours (opening balances and existing holdings) during the period. They were yours before, so they are not a change."),
     ("change_in_what_you_own", "Change in what you own", "How much what you own grew or shrank in the period.",
      "What you own at the end − What you own the day before the start − Opening balances in the period"),

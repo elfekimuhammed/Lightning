@@ -108,6 +108,13 @@ class CashFlow:
         """Savings rate = Net flow ÷ Money in, as a percentage; None without money in."""
         return self.net / self.inflows * 100 if self.inflows > ZERO else None
 
+    @property
+    def rate_says_nothing(self) -> bool:
+        """Money out more than twice money in (a rate below −100%, such as a month whose pay came early):
+        screens say the gap in words instead of a rate like −1,177% (guideline A01)."""
+        rate = self.savings_rate
+        return rate is not None and rate < -100
+
 
 @dataclass
 class StatementRow:
