@@ -10,6 +10,8 @@
 {% block title %}Reserves · Cash planning{% endblock %}
 {% block heading %}<div><h1>Cash planning</h1></div>{% endblock %}
 {% block content %}
+{% macro match_by(kind, label) %}<div class="planner-mode reserve-match" role="radiogroup" aria-label="{{ label }}" data-reserve-match><span class="planner-mode-label">Match by</span><span class="planner-mode-seg">{% for value, text in [('none', 'Ask'), ('account', 'Account'), ('counterparty', 'Counterparty'), ('category', 'Category')] %}<label{% if value == 'none' %} title="Ask every time"{% endif %}><input type="radio" name="match_by" value="{{ value }}"{% if value == kind %} checked{% endif %}><span>{{ text }}</span></label>{% endfor %}</span></div>{% endmacro %}
+
 
 {% from "partials/charts.html" import key_notes, meter %}
 {{ key_notes(notes) }}
@@ -59,7 +61,7 @@
           <label>Target amount<input class="money-input" type="text" name="target" value="{{ reserve.target|money(False, 2) }}" inputmode="decimal" required></label>
           <label>Due date{{ date_control('due_date', reserve.due_date, 'reserve-due-' ~ reserve.id) }}</label>
           <label>Repeat<select name="recurrence"><option value="NONE" {{ 'selected' if reserve.recurrence == 'NONE' }}>Does not repeat</option><option value="WEEKLY" {{ 'selected' if reserve.recurrence == 'WEEKLY' }}>Weekly</option><option value="MONTHLY" {{ 'selected' if reserve.recurrence == 'MONTHLY' }}>Monthly</option><option value="YEARLY" {{ 'selected' if reserve.recurrence == 'YEARLY' }}>Yearly</option></select></label>
-          <label>Match by<select name="match_by" data-reserve-match><option value="none" {{ 'selected' if not reserve.counterparty_id and not reserve.category_id and not reserve.account_id }}>Ask every time</option><option value="account" {{ 'selected' if reserve.account_id }}>Account</option><option value="counterparty" {{ 'selected' if reserve.counterparty_id }}>Counterparty</option><option value="category" {{ 'selected' if reserve.category_id }}>Category</option></select></label>
+          {% set kind = 'account' if reserve.account_id else 'counterparty' if reserve.counterparty_id else 'category' if reserve.category_id else 'none' %}{{ match_by(kind, 'Match payments for ' ~ reserve.name) }}
           <label data-match-picker="account">Account<select name="account_id" data-own-picker><option value="">Choose an account</option>{% for account in accounts %}<option value="{{ account.id }}" {{ 'selected' if reserve.account_id == account.id }}>{{ account.name }}</option>{% endfor %}</select></label>
           <label data-match-picker="counterparty">Counterparty<select name="counterparty_id" data-own-picker><option value="">Choose a saved counterparty</option>{% for party in counterparties %}<option value="{{ party.id }}" {{ 'selected' if reserve.counterparty_id == party.id }}>{{ party.name }}</option>{% endfor %}</select></label>
           <label data-match-picker="category">Category<select name="category_id" data-own-picker><option value="">Choose a spending category</option>{% from "partials/macros.html" import category_options %}{{ category_options(category_groups(categories), reserve.category_id or '') }}</select></label>
@@ -75,13 +77,13 @@
 {% if completed_reserves %}<details class="card data-panel"><summary><b>Completed payment occurrences</b><span class="muted small">{{ completed_reserves|length }} completed</span></summary><p class="muted small">Recurring payments appear here after the matched payment completes an occurrence. Savings goals stay separate.</p><div class="table-wrap"><table><thead><tr><th>Payment</th><th>Due</th><th>State</th><th>Matched transaction</th></tr></thead><tbody>{% for reserve in completed_reserves %}<tr><td>{{ reserve.name }}</td><td>{{ reserve.due_date or '—' }}</td><td>{{ 'Paid/reconciled' if reserve.spent >= reserve.target else 'Completed' }}</td><td>{% for payment in reserve.payments %}<a href="/transactions/{{ payment.id }}">{{ payment.ref }} · {{ payment.date }} · {{ payment.amount|money }}</a>{% else %}<span class="muted">No linked transaction</span>{% endfor %}</td></tr>{% endfor %}</tbody></table></div></details>{% endif %}
 <details id="add-reserve" class="card reserve-create" {{ 'open' if error }}>
   <summary><b>Add a reserve</b></summary>
-  <p class="muted small">A reserve is a plan for cash you already own. Recording a payment remains a separate transaction.</p>
+  
   <form method="post" action="/reserves" class="reserve-create-form">
     <label>Name<input type="text" name="name" placeholder="e.g. Rent" required></label>
     <label>Target amount<input class="money-input" type="text" name="target" inputmode="decimal" placeholder="e.g. 20,000" required></label>
     <label>Due date{{ date_control('due_date', '', 'reserve-due-new') }}</label>
     <label>Repeat<select name="recurrence"><option value="NONE">Does not repeat</option><option value="WEEKLY">Weekly</option><option value="MONTHLY">Monthly</option><option value="YEARLY">Yearly</option></select></label>
-    <label>Match by<select name="match_by" data-reserve-match><option value="none">Ask every time</option><option value="account">Account</option><option value="counterparty">Counterparty</option><option value="category">Category</option></select></label>
+    {{ match_by('none', 'Match payments') }}
     <label data-match-picker="account">Account<select name="account_id" data-own-picker><option value="">Choose an account</option>{% for account in accounts %}<option value="{{ account.id }}">{{ account.name }}</option>{% endfor %}</select></label>
     <label data-match-picker="counterparty">Counterparty<select name="counterparty_id" data-own-picker><option value="">Choose a saved counterparty</option>{% for party in counterparties %}<option value="{{ party.id }}">{{ party.name }}</option>{% endfor %}</select></label>
     <label data-match-picker="category">Category<select name="category_id" data-own-picker><option value="">Choose a spending category</option>{% from "partials/macros.html" import category_options %}{{ category_options(category_groups(categories)) }}</select></label>
@@ -89,7 +91,7 @@
     <button class="btn primary">Add reserve</button>
   <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
 </details>
-<script nonce="{{ request.state.csp_nonce|default('') }}">document.querySelectorAll('[data-reserve-match]').forEach(select=>{const update=()=>{select.form.querySelectorAll('[data-match-picker]').forEach(label=>{const active=select.value===label.dataset.matchPicker;label.hidden=!active;label.querySelectorAll('select,input').forEach(field=>field.disabled=!active)})};select.addEventListener('change',update);update()});
+<script nonce="{{ request.state.csp_nonce|default('') }}">document.querySelectorAll('[data-reserve-match]').forEach(group=>{const form=group.closest('form');const update=()=>{const kind=form.querySelector('input[name=match_by]:checked')?.value||'none';form.querySelectorAll('[data-match-picker]').forEach(label=>{const active=kind===label.dataset.matchPicker;label.hidden=!active;label.querySelectorAll('select,input').forEach(field=>field.disabled=!active)})};group.addEventListener('change',update);update()});
 const createDetails=document.getElementById('add-reserve');document.querySelector('.reserve-add-link')?.addEventListener('click',()=>{if(createDetails)createDetails.open=true});if(location.hash==='#add-reserve'&&createDetails){createDetails.open=true;createDetails.scrollIntoView({block:'start'})}
 const post=(form,status)=>fetch(form.action,{method:'POST',body:new URLSearchParams(new FormData(form)),headers:{'X-Requested-With':'fetch'}}).then(async r=>{if(!r.ok)throw Error(await r.text());status.textContent='Saved'}).catch(e=>{status.textContent=e.message||'Could not save. Retry by pressing Enter or leaving the field.'});
 document.querySelectorAll('[data-autosave-form]').forEach(form=>{const input=form.querySelector('input');let prior=input.value,busy=false;const status=form.querySelector('.inline-save-status');const save=()=>{if(input.value===prior||busy)return;busy=true;status.textContent='Saving…';post(form,status).then(()=>{if(status.textContent==='Saved')prior=input.value}).finally(()=>busy=false)};input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();save()}if(e.key==='Escape'){input.value=prior;input.blur()}});input.addEventListener('blur',save)});

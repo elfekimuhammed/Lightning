@@ -3,7 +3,6 @@
   <div class="sc-groups">
     <fieldset class="sc-group"><legend>Carryover</legend>
       <label class="sc-check"><input type="checkbox" name="carryover" value="1" {{ 'checked' if carryover }}> Carry unused room and overspending into tracked categories</label>
-      <div class="sc-row"><label>Effective from<input type="text" name="carryover_month" value="{{ carryover_month }}" placeholder="yyyy-mm" pattern="\d{4}-\d{2}" title="Month, yyyy-mm" class="month-input" required></label></div>
     </fieldset>
     <fieldset class="sc-group"><legend>{{ fig.average_monthly_income.label }}</legend>
       <div class="sc-row"><label>Average over<select name="income_months"><option value="3" {{ 'selected' if income_months=='3' }}>3 months</option><option value="6" {{ 'selected' if income_months=='6' }}>6 months</option></select></label>
@@ -12,11 +11,8 @@
       <div class="sc-chips" role="group" aria-label="Income categories to include"><span class="sc-chips-label">Recurring income counted in the average · the same as <a href="/categories">Recurring</a> on Categories</span>{% for category in income_categories %}<label class="sc-chip"><input type="checkbox" name="income_category" value="{{ category.id }}" {{ 'checked' if category.id in selected_income }}> {{ category.name }}</label>{% else %}<span class="muted small">No income categories yet.</span>{% endfor %}</div>
     </fieldset>
     {% include 'settings/_emergency_basis.html' %}
-    <fieldset class="sc-group sc-wide"><legend>Suggestions</legend>
-      <div class="sc-row"><label>Tracking threshold<span class="sc-unit"><input name="suggestion_percent" type="number" min="0" max="100" step="0.1" value="{{ suggestion_percent }}"><i>%</i></span></label>
-        <label>Fixed monthly suggestion<span class="sc-unit"><input name="suggestion_fixed" inputmode="decimal" value="{{ suggestion_fixed }}"><i>{{ base }}</i></span></label></div>
-      <span class="sc-chips-label">The most you can plan each month follows your savings target in <a href="/settings?section=financial-health">Financial health</a>.</span>
-      <span class="sc-chips-label sc-groups-label">One-off categories, left out of the budget and estimates · the same as <a href="/categories">One-off</a> on Categories</span>
+    <fieldset class="sc-group sc-wide"><legend>One-off categories</legend>
+      <span class="sc-chips-label sc-groups-label">Left out of the budget and estimates · the same as <a href="/categories">One-off</a> on Categories</span>
       <div class="sc-cat-groups">{% for category in expense_categories if category.active %}{% if category.depth == 1 %}{% if not loop.first %}</div></div>{% endif %}<div class="sc-cat-group"><label class="sc-cat-head"><input type="checkbox" name="exclusion_category" value="{{ category.id }}" {{ 'checked' if category.id in excluded_categories }}> {{ category.name }}</label><div class="sc-chips">{% else %}<label class="sc-chip"><input type="checkbox" name="exclusion_category" value="{{ category.id }}" {{ 'checked' if category.id in excluded_categories }}> {{ category.name }}</label>{% endif %}{% if loop.last %}</div></div>{% endif %}{% endfor %}</div>
     </fieldset>
   </div>

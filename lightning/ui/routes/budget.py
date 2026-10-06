@@ -22,6 +22,7 @@ from ..web import container, redirect, render
 from ..periods import parse_period
 
 router = APIRouter(prefix="/budget")
+TRACK_SUGGESTION_PERCENT = Decimal(20)
 
 
 def _month(request: Request) -> str:
@@ -165,9 +166,8 @@ def _page(request: Request, month: str, values: dict | None = None, error: str =
         background_counts[group_id] = len(untracked_lines)
         background_totals[group_id] = sum((averages.get(line.category_id) or ZERO for line in untracked_lines), ZERO)
     income_basis = c.budgets.budgeting_income(month)
-    threshold_raw = c.settings.get("budget_track_suggestion_percent")
-    threshold = to_decimal(threshold_raw, "suggestion_percent") if threshold_raw else None
-    fixed_threshold = to_decimal(c.settings.get("budget_track_suggestion_fixed") or "0")
+    # A default, not a setting (owner, 2026-10-06): suggest tracking a category that averages a fifth of income.
+    threshold, fixed_threshold = TRACK_SUGGESTION_PERCENT, ZERO
     try:
         raw_exclusions = c.settings.get("budget_one_off_exclusions") or "[]"
         exclusions = {int(x) for x in json.loads(raw_exclusions)} if raw_exclusions.strip().startswith("[") else set()
@@ -416,24 +416,6 @@ async def mark_budget_one_off(request: Request):
     return redirect(f"/budget?period=month&month={month}", "Category excluded from background estimates.")
 
 
-@router.post("/settings")
-async def budget_settings(request: Request):
-    c = container(request)
-    form = await request.form()
-    try:
-        value = to_decimal(str(form.get("suggestion_percent", "")), "suggestion_percent")
-        if value < ZERO or value > 100:
-            raise ValidationError("Enter a percentage from 0 to 100.")
-        c.settings.set("budget_track_suggestion_percent", str(value))
-    except LightningError as exc:
-        if request.headers.get("X-Requested-With") == "fetch":
-            return Response(exc.message, status_code=400, media_type="text/plain")
-        return redirect("/budget", exc.message)
-    if request.headers.get("X-Requested-With") == "fetch":
-        return Response("Saved", status_code=204)
-    return redirect("/budget", "Budget settings saved.")
-
-
 def _budget_return_to(raw: str | None) -> str:
     value = str(raw or "")
     if not (value.startswith("/budget") or value.startswith("/settings")) or value.startswith("//") or "\\" in value:
@@ -491,20 +473,11 @@ async def save_budget_settings(request: Request):
         income_months = str(form.get("income_months", "3"))
         if income_months not in {"3", "6"}:
             raise ValidationError("Average monthly income must use three or six completed months.")
-        suggestion_percent = str(form.get("suggestion_percent", "")).strip()
-        if suggestion_percent:
-            value = to_decimal(suggestion_percent, "suggestion_percent")
-            if value < ZERO or value > 100:
-                raise ValidationError("Suggestion percentage must be between 0 and 100.")
         manual = str(form.get("manual_income", "")).strip()
         if manual and to_decimal(manual, "manual_income") < ZERO:
             raise ValidationError("Manual monthly income cannot be negative.")
-        fixed = str(form.get("suggestion_fixed", "")).strip()
-        if fixed and to_decimal(fixed, "suggestion_fixed") < ZERO:
-            raise ValidationError("Fixed suggestion threshold cannot be negative.")
         enabled = form.get("carryover") == "1"
-        carry_month = str(form.get("carryover_month", month_of(today())))
-        parse_month(carry_month)
+        carry_month = month_of(today())  # turning carryover on or off takes effect this month (owner, 2026-10-06)
         categories = [int(x) for x in form.getlist("income_category") if str(x).isdigit()]
         exclusions = [int(x) for x in form.getlist("exclusion_category") if str(x).isdigit()]
         if "income_from_recurring_shown" in form:  # nor this one (it is offered after a raise)
@@ -514,8 +487,6 @@ async def save_budget_settings(request: Request):
         c.settings.set("budget_income_categories", json.dumps(sorted(set(categories))))
         c.settings.set("budget_income_months", income_months)
         c.settings.set("budget_manual_monthly_income", manual)
-        c.settings.set("budget_track_suggestion_percent", suggestion_percent)
-        c.settings.set("budget_track_suggestion_fixed", fixed)
         c.settings.set("budget_one_off_exclusions", json.dumps(sorted(set(exclusions))))
         c.settings.set("budget_carryover_global", "1" if enabled else "0")
         c.settings.set("budget_carryover_month", carry_month)

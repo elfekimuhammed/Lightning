@@ -41,7 +41,8 @@ def test_fixed_enum_selects_are_not_marked_as_own_data():
     assert 'id="kind" name="kind"' in planning_form
     assert 'id="frequency" name="frequency"' in planning_form
     assert 'name="recurrence"' in reserves
-    assert 'name="match_by" data-reserve-match' in reserves
+    # Match by is a segment now (one choice, one field; owner, 2026-10-06), and never an own-data picker.
+    assert 'type="radio" name="match_by"' in reserves and 'data-reserve-match' in reserves
 
 
 def test_external_form_picker_input_keeps_form_validation_association():

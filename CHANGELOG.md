@@ -10,6 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-06 · Claude: one choice, one field: Reserves' Match by is a segment and only its field shows (all three showed before: a CSS rule beat `hidden`). Defaults for settings: tracking suggestions at 20% of income (the shown 20% never applied unless saved once), carryover from the month you turn it on.
 - 2026-10-06 · Claude: fewer words (owner: "if it's intuitive, we don't need to describe it"): slogans under page titles and lines that restate a label or a sort order are gone; figure definitions, first-run help and field instructions stay.
 - 2026-10-06 · Claude: Holdings table (owner): one column each for units, average cost, price, cost, value, share, gain, return and XIRR (account only when there are several); no lines or fold-outs under names. Fixed a stray CSS line from the layout change that drew the Plan timeline over the page.
 - 2026-10-06 · Claude: two levels (owner): six sections (Overview: Summary, Spending, Health; Budget; Cash planning; Investments: Holdings, Planner, Prices; Accounts: Accounts, Transactions, Held for others; Settings: Your data, Categories, Counterparties, Data checks); each tab's settings behind its gear; no tab descriptions (`ui/sections.py`, `tests/test_two_levels.py`).

@@ -75,8 +75,8 @@ def test_screens_share_the_one_check(c):
 def test_budget_settings_point_to_the_savings_target_instead_of_a_ceiling(c):
     browser = _ScreenClient(create_app(c), "http://testserver")
     page = browser.get("/settings?section=budget").text
-    assert "ceiling_percent" not in page
-    assert "follows your savings target" in visible_text(page)
+    assert "ceiling_percent" not in page  # the savings target, behind Health's gear, sets Most you can plan
+    assert "suggestion_percent" not in page and "carryover_month" not in page  # defaults now (owner, 2026-10-06)
 
 
 def test_migration_0042_keeps_a_custom_ceiling_as_the_savings_target(monkeypatch, tmp_path):

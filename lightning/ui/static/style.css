@@ -2999,3 +2999,8 @@ a.chart-sankey-label:hover b { color:var(--azure); }
 .main .holdings-wide td:first-child, .main .holdings-wide th:first-child { white-space:normal; min-width:150px; padding-left:0; }
 .main .holdings-wide td:last-child, .main .holdings-wide th:last-child { padding-right:0; }
 .main .holdings-wide thead th { font:700 var(--fs-meta)/1.2 var(--body); color:var(--ink-2); }
+/* One choice, one field (owner, 2026-10-06): Match by picks the kind, only that field shows. */
+.main [data-match-picker][hidden] { display:none !important; }
+.main .reserve-create-form .reserve-match { grid-column:1 / -1; }
+.main .reserve-match { justify-self:start; display:inline-flex; align-items:center; gap:10px; }
+.main .reserve-match .planner-mode-seg { flex:none; flex-wrap:nowrap; width:auto; }
