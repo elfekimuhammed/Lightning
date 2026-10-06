@@ -9,7 +9,7 @@ Work longer than one sitting, and its files. Stay out of claimed files; remove y
 | Who | Work | Files | Since |
 |---|---|---|---|
 | Codex | 02d — Code/fault tests pass; ordinary Windows reboot drill remains. Abrupt power-loss behavior is unverified; see Architecture › Promotion durability risk and [OWNER.md](OWNER.md). | `tests/test_database_promotion.py` | 2026-10-06 |
-| Claude | Milestone 2 (daily use on the phone, Part C): phone frame and screens, move a profile's home to the phone. Milestone 1 awaits the owner's review (`OWNER.md`) | `lightning/ui/templates/phone/`, `lightning/ui/static/phone.css`, `base.html` (phone branch), `lightning/sync/`, `lightning/runtime/devices.py`, `android/` | 2026-10-06 |
+| Claude | Milestones 1–2 built; owner review pending (`OWNER.md`). Next: phone designs for Budget, Cash and Investments; milestone 3 (bank SMS) when samples arrive | `lightning/sync/`, `lightning/runtime/devices.py`, `lightning/ui/templates/phone/`, `lightning/ui/static/phone.css`, `android/` | 2026-10-06 |
 | Luna, for Codex | 03a restore safety: durable intent and source-copy manifest, Windows marker publication, then explicit deterministic repair. Codex reviews it and owns the restore UI and docs | `lightning/runtime/restore.py`, `lightning/database/promotion_windows.py`, `tests/test_profile_session.py`, `tests/test_database_promotion_windows.py` | 2026-10-05 |
 
 ## Messages

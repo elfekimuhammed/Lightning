@@ -10,6 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-06 · Claude: milestone 2 built (daily use on the phone): KPI tiles two by two without sparklines on every page; Architecture › UI contract › The phone; review steps for milestones 1 and 2 in `OWNER.md`.
 - 2026-10-06 · Claude: milestone 2, step 4 (task 17): move a PC profile's home to the phone. The phone shows Bring a profile from your PC and a code; the PC's Profile settings › Move to your phone sends it (same password); the PC keeps its old file as a backup and borrows from the phone. `tests/test_move_to_phone.py`.
 - 2026-10-06 · Claude: milestone 2, step 3: on the phone an account is its balance, search, a month chip and a list grouped by day (C08, C11.2); the add button opens the entry sheet (C09: Out, In, Transfer; amount first; Save full width); Accounts lists rows and asks which account; profile pages show no folders (C09.6).
 - 2026-10-06 · Claude: milestone 2, step 2: the Overview on the phone (C11.1): four KPI tiles two by two, lead then support cards, Free cash and net flow as bars with the name above, where money in went as two bars and rows, the year as twelve month tiles (`templates/phone/`).

@@ -9,6 +9,13 @@ What only the owner can do or decide. Any AI adds an item here, and removes it o
   2. Turn on release immutability in `Lightning-downloads` › Settings.
   3. Release with `git tag v0.5.0-beta.1 <commit on main>` and `git push origin v0.5.0-beta.1`.
 - **Price packs (one-time):** the public repository `elfekimuhammed/Lightning_Market_Data` exists (2026-10-05); still to do: a fine-grained token with Contents: read and write on it only, saved here as the Actions secret `LIGHTNING_MARKET_TOKEN`, and the repository variable `MARKET_PUBLISH` set to `true`. Until then the collector runs and checks sources but publishes nothing. Only exchange rates (CBE) are published (decided 2026-10-05). A tagged release needs that pack published there, because the release ZIP carries it: until then `v0.5.0-beta.1` stops at its price-files step.
+- **Review milestones 1 and 2 together, dummy data only** (APK and ZIP links follow when the builds finish):
+  1. Phone: install the new Lightning APK. PC: install the Windows ZIP. Same Wi-Fi.
+  2. PC: create a dummy profile and add an account. Phone: Bring a profile from your PC, Show a code. PC: Profile settings › Move to your phone, type the address and code. Both show the same six digits.
+  3. Phone: unlock the profile with the same password. Look at Overview, Accounts, an account (add a transaction with the + button) and the other sections: does it feel like a phone app?
+  4. PC: open it under From your phone and add something; the phone says "Lent to … · read only". Hand back; the phone has it.
+  5. Borrow again, turn the phone's Wi-Fi off, Hand back on the PC: the PC keeps your edits; hand back later.
+  Known gaps: you type the phone's address; Budget, Cash planning and Investments have the phone frame but not yet their own phone design; no SMS yet (milestone 3).
 - **For milestone 2: review the phone brand guideline.** Part C of the brand guideline (3.25, 2026-10-06) is the phone's own: bottom tab bar, 2 × 2 KPIs, phone forms of every chart. Check it, especially the five bottom sections (C03.1), then say it is final. Until then phone screens follow it as a draft.
 - **For milestone 3: bank SMS samples.** Sanitized real messages from each bank you use (purchase, transfer, salary, refund, declined, OTP), with names, card digits and balances changed. They stay out of Git; tell me where you put them.
 - **GitHub spending limit (your choice, 2026-10-06):** GitHub › Settings › Billing and licensing › Budgets and alerts: set Actions to $0 (or the most you accept). CI then pauses until next month instead of charging you.
