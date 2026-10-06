@@ -11,6 +11,7 @@ Work longer than one sitting, and its files. Stay out of claimed files; remove y
 | Codex | 02d — Code/fault tests pass; ordinary Windows reboot drill remains. Abrupt power-loss behavior is unverified; see Architecture › Promotion durability risk and [OWNER.md](OWNER.md). | `tests/test_database_promotion.py` | 2026-10-06 |
 | Claude | M3 bank SMS, then Android reading it; M1–2 in owner review | `lightning/sms_imports.py`, `lightning/sync/`, `runtime/devices.py`, `ui/templates/phone/`, `phone.css`, `android/` | 2026-10-06 |
 | Claude (rules) | Proposal 1.2 rules, 1.7 weekend dates | `lightning/rules/`, `planning/schedule.py` | 2026-10-06 |
+| Claude (UX) | *Next* 1–4, to fix or clear | `ui/templates/` (not `phone/`), `style.css`, `ui/routes/`, `live_prices.py` | 2026-10-06 |
 | Luna, for Codex | 03a restore safety: durable intent and source-copy manifest, Windows marker publication, then explicit deterministic repair. Codex reviews it and owns the restore UI and docs | `lightning/runtime/restore.py`, `lightning/database/promotion_windows.py`, `tests/test_profile_session.py`, `tests/test_database_promotion_windows.py` | 2026-10-05 |
 
 ## Messages
@@ -29,11 +30,9 @@ Each names who it is for; that AI deletes it once handled. A message to all may 
 
 ## Next
 
-Unclaimed: add a *Claimed* row before you start. Each item's **Read:** names what it needs.
+Unclaimed: add a *Claimed* row before you start. Each item's **Read:** names what it needs. The 0.5.0-beta.1 release waits on the owner (`OWNER.md`, Price packs).
 
-1. **Release 0.5.0-beta.1:** check the Windows package, publish permanent versioned downloads, and add 0.5 to the website archive while keeping 0.4. Read: Architecture, *Releasing a version* (grep it); website README › Version identity and archive.
-2. **UX plan 5, 6, 8, 9:** Claim UI templates and `style.css`. Checkbox/radio accent is Azure but A10 says Nile (only import review uses Nile). Read: Project Overview › UX plan; guideline A10.
-3. **Speed (optional):** stable window origin for CSS/JS caching; trim unused CSS. Read: Architecture › Page speed.
-4. **Online prices for funds:** match held funds to Mubasher ids (`EG:FUND:<id>`) so online fetching covers them. Read: `lightning/workflows/live_prices.py` docstring.
-5. **UX audit leftovers:** Project Overview › UX plan 10. Read: it; guideline A03, A08.
-6. **Audit leftovers:** budget track-suggestion fields never saved; "›" on `/accounts/new` (A16); "(M4)" in USD refusal. Read: `routes/budget.py:462`.
+1. **UX plan 5, 6, 8, 9, 10.** Read: Project Overview › UX plan; guideline A03, A08, A10, A11.
+2. **Online prices for funds:** match held funds to Mubasher ids (`EG:FUND:<id>`). Read: `workflows/live_prices.py` docstring.
+3. **Audit leftovers:** budget track-suggestion fields never saved; "›" on `/accounts/new`; "(M4)" in USD refusal. Read: `routes/budget.py:462`.
+4. **Speed (optional):** stable window origin for caching; trim unused CSS. Read: Architecture › Page speed.
