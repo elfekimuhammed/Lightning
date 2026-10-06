@@ -139,7 +139,7 @@ jobs:
             AARCH64_LINUX_ANDROID_OPENSSL_DIR=/tmp/openssl-android
             OPENSSL_DIR=/tmp/openssl-android
             OPENSSL_STATIC=1
-            CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS="-C link-arg=-L$(python /tmp/lightning-find-target-python-include.py lib) -C link-arg=-lpython3.13"
+            CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS="-C link-arg=-L$(python /tmp/lightning-find-target-python-include.py lib) -C link-arg=-lpython3.13 -C link-arg=-Wl,-z,max-page-size=16384"
             PKG_CONFIG_PATH=/tmp/libffi-android/lib/pkgconfig
           ANDROID_API_LEVEL: '24'
           PROBE_PACKAGE: ${{ matrix.package }}
