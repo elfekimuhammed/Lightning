@@ -15,7 +15,14 @@ from __future__ import annotations
 
 from decimal import Decimal
 
+from lightning.core.money import quantize
+
 ZERO = Decimal(0)
+
+
+def _gap(more: Decimal, less: Decimal) -> Decimal:
+    """What is left or over, in whole EGP, as the two rounded figures beside it read: 80 of 67.50 is 12 over."""
+    return quantize(more, 0) - quantize(less, 0)
 
 # Asset class code (root or child) -> chart tone. One hue family per kind of asset, a lighter shade
 # for the fund version (App guideline · Asset class colours). Order is the donut order.
@@ -245,7 +252,7 @@ def meter(used: Decimal, total: Decimal | None) -> dict:
     if not total or total <= 0:
         return {"width": 0.0, "over": used > 0, "left": None}
     return {"width": float(min(used / total, Decimal(1)) * 100), "over": used > total,
-            "left": total - used, "share": float(used / total * 100)}
+            "left": _gap(total, used), "over_by": _gap(used, total), "share": float(used / total * 100)}
 
 
 def bullet(used: Decimal, plan: Decimal | None) -> dict:
@@ -258,7 +265,7 @@ def bullet(used: Decimal, plan: Decimal | None) -> dict:
     scale = max(plan, used) or Decimal(1)
     return {"plan": float(plan / scale * 100), "spent": float(min(used, plan) / scale * 100),
             "over": float((used - plan) / scale * 100) if used > plan else 0.0,
-            "is_over": used > plan, "left": plan - used,
+            "is_over": used > plan, "left": _gap(plan, used), "over_by": _gap(used, plan),
             "share": float(used / plan * 100) if plan else None}
 
 

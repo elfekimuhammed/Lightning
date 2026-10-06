@@ -40,7 +40,7 @@ def _minus(text: str) -> str:
 _ROUND_MONEY: contextvars.ContextVar[bool] = contextvars.ContextVar("round_money", default=False)
 REPORTING_TEMPLATES = ("dashboard/", "budget.html", "birdview/", "investments/index.html", "investments/holding.html", "financial_health.html",
                        "investments/_targets.html", "investments/targets.html", "investments/report_detail.html",
-                       "planning/plan.html", "settings/index.html")
+                       "planning/plan.html", "reserves.html", "settings/index.html")
 
 
 def _money(value, signed: bool = False, places: int | None = None) -> str:
@@ -82,11 +82,11 @@ def _tagged(text) -> Markup:
 templates.env.filters["tagged"] = _tagged
 
 
-def _signed_pct(value) -> str:
+def _signed_pct(value, places: int = 1) -> str:
     """A signed percentage to one decimal ("+6.2", "−1.5"); a value that rounds to zero reads "0.0",
     never "−0.0" or "+0.0" (audit 2026-10-05: a certificate's XIRR showed −0.0%)."""
-    text = "%+.1f" % value
-    return "0.0" if text in ("+0.0", "-0.0") else text.replace("-", "\u2212")
+    text = f"{value:+.{places}f}"
+    return text[1:] if float(text) == 0 else text.replace("-", "\u2212")
 
 
 templates.env.filters["signed_pct"] = _signed_pct

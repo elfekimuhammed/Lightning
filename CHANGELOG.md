@@ -10,6 +10,8 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+
+- 2026-10-06 · Claude: Mohab review fixes. Budget and Reserves meters say left/over as the two rounded figures read (80 of 68 is 12 over, not 13); budget suggestions are whole EGP; Reserves shows whole EGP like the other Cash planning tabs; Overview Bills due reads 0, not 0.00; Spending's change reads 0%, never +0% or −0%.
 - 2026-10-06 · Claude: 04b: `lightning/runtime/roundtrip.py` opens a committed encrypted dummy profile (`tests/fixtures/roundtrip`), writes, reopens and recovers its key; Linux, Windows CI and the Android probe must give the same report (`expected.json`). Phone run pending.
 - 2026-10-06 · Claude: 04a passed: on the owner's arm64 phone, Python 3.13 loads cryptography 50 (Argon2id, AES-GCM), SQLCipher 4.12.0, cffi, pydantic-core, fastapi, jinja2 and uvicorn from our own Android wheels (`android/README.md`).
 - 2026-10-06 · Claude: 04a: the four native wheels (cryptography 50, sqlcipher3 0.6.2, cffi 2.0, pydantic-core) now build for Android arm64 and the probe APK builds with them; a real-phone launch remains (`android/README.md`).

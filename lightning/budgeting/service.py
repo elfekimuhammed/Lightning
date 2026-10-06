@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 import math
 from datetime import timedelta
 import json
@@ -437,6 +437,8 @@ class BudgetService:
             if children.get(category.id):
                 continue
             avg = self._rolling_average(category.id, month, 3, children, cache)
+            # Whole EGP: a plan of 67.50 shows as 68, and 80 spent beside it would read "13 over".
+            avg = avg.quantize(Decimal("1"), ROUND_HALF_UP) if avg is not None else None
             if avg is not None and avg > ZERO:
                 result[category.id] = avg
         return result

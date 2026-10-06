@@ -53,7 +53,8 @@ def test_grouped_bars_put_each_l2_under_its_l1():
 
 def test_a_meter_over_plan_fills_and_says_so():
     over = charts.meter(D(90), D("67.50"))
-    assert over["over"] and over["width"] == 100 and over["left"] == D("-22.50")
+    # Shown as "90 of 68", so it is 22 over, not 23 (22.50 rounded on its own).
+    assert over["over"] and over["width"] == 100 and over["left"] == D("-22") and over["over_by"] == D(22)
     under = charts.meter(D(50), D(200))
     assert not under["over"] and under["width"] == 25 and under["left"] == D(150)
     assert charts.meter(D(10), None)["left"] is None

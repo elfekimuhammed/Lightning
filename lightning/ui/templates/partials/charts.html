@@ -45,7 +45,7 @@
 {% macro meter(label, used, total, m, href='', note='', target_word='plan') %}
 {% set tag = 'a' if href else 'div' %}
 <{{ tag }} class="chart-meter{{ ' is-over' if m.over }}"{% if href %} href="{{ href }}"{% endif %}>
-  <span class="chart-meter-head"><b>{{ label }}</b>{% if m.over and total %}<span class="chart-badge-over">{{ (used - total)|money }} over</span>{% elif m.left is not none %}<small>{{ ('On plan' if target_word == 'plan' else 'Reached') if m.left == 0 else (m.left|money ~ (' left' if target_word == 'plan' else ' to go')) }}</small>{% endif %}</span>
+  <span class="chart-meter-head"><b>{{ label }}</b>{% if m.over and total %}<span class="chart-badge-over">{{ m.over_by|money }} over</span>{% elif m.left is not none %}<small>{{ ('On plan' if target_word == 'plan' else 'Reached') if m.left == 0 else (m.left|money ~ (' left' if target_word == 'plan' else ' to go')) }}</small>{% endif %}</span>
   <span class="chart-meter-track"><i style="width:{{ '%.1f'|format(m.width) }}%"></i></span>
   <small class="chart-meter-foot">{{ used|money }} of {{ total|money if total else '—' }}{% if note %} · {{ note }}{% endif %}</small>
 </{{ tag }}>
@@ -189,7 +189,7 @@
   <span class="bullet-name">{{ label }}</span>
   <span class="bullet-track" role="img" aria-label="{{ label }}: {{ used|money }} of {{ plan|money }}"><span class="bullet-plan" style="width:{{ '%.2f'|format(b.plan) }}%"><i class="bullet-spent" style="width:{{ '%.2f'|format(b.spent / b.plan * 100 if b.plan else 0) }}%"></i></span>{% if b.over %}<i class="bullet-over" style="left:{{ '%.2f'|format(b.plan) }}%;width:{{ '%.2f'|format(b.over) }}%"></i>{% endif %}</span>
   <span class="bullet-values"><b>{{ used|money }}</b> <small>of {{ plan|money }}</small></span>
-  <span class="bullet-status">{% if b.is_over %}<em class="over">{{ (used - plan)|money }} over</em>{% elif b.left == 0 %}<em>On plan</em>{% else %}<em class="left">{{ b.left|money }} left</em>{% endif %}</span>
+  <span class="bullet-status">{% if b.is_over %}<em class="over">{{ b.over_by|money }} over</em>{% elif b.left == 0 %}<em>On plan</em>{% else %}<em class="left">{{ b.left|money }} left</em>{% endif %}</span>
 </{{ tag }}>
 {% endmacro %}
 

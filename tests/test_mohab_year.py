@@ -746,8 +746,8 @@ def test_safe_to_spend_until_payday(mohab):
     assert route(mohab, "safe") == ["/", "/plan"]
     # 20,000 of a 270,000 emergency target: the top-up the budget asks for (250,000 over 24 months,
     # 10,417) is kept back too, as Saving for goals is (owner request 2026-10-05: one plan).
-    assert answer.figure("Safe to spend until 2026-10-01") == D("40938")
-    assert answer.shows("Budget left to spend −1,309 Emergency fund top-up −10,417 Safe to spend 40,938")
+    assert answer.figure("Safe to spend until 2026-10-01") == D("40937")
+    assert answer.shows("Budget left to spend −1,309 Emergency fund top-up −10,417 Safe to spend 40,937")
 
 
 def test_free_cash_shows_what_was_taken_off(mohab):
@@ -760,12 +760,18 @@ def test_september_spending_by_category(mohab):
     answer = mohab.answers["where"]
     assert route(mohab, "where") == ["/", "/birdview/expenses"]
     assert answer.shows("Money out 23,390 EGP Against 2026-08 −1,364", "Housing & Rent 12,000 · 51%")
+    # Rent did not change and food moved by 5 EGP: both read 0%, never "+0%" or "−0%".
+    assert answer.shows("Housing & Rent 12,000 12,000 0%", "Food & Groceries 4,666 4,671 0%")
 
 
 def test_the_budget_says_what_is_over(mohab):
     answer = mohab.answers["plan"]
     assert route(mohab, "plan") == ["/", "/budget"]
     assert answer.shows("Categories over plan 2 Transportation, Food & Groceries")
+    # Each "80 of 67 · 13 over" adds up as he reads it: plans built from his spending are whole EGP.
+    for spent, planned, gap, word in re.findall(r"([\d,]+) of ([\d,]+) ([\d,]+) (over|left)", answer.screen.text):
+        spent, planned, gap = (money(x) for x in (spent, planned, gap))
+        assert gap == (spent - planned if word == "over" else planned - spent), (spent, planned, gap, word)
 
 
 def test_investments_lead_with_the_periods_result(mohab):
@@ -827,7 +833,7 @@ def test_where_it_went_adds_up_to_money_out(mohab):
 def test_a_repair_paid_from_the_emergency_fund(mohab):
     answer = mohab.answers["emergency"]
     assert route(mohab, "emergency") == ["/", "/plan", "/plan/reserves"]
-    assert answer.shows("13,500.00 of 270,000.00")
+    assert answer.shows("13,500 of 270,000")
 
 
 def test_checking_october_against_the_bank_balance(mohab):
@@ -932,7 +938,7 @@ def test_safe_to_spend_keeps_the_rest_of_the_savings_target(mohab):
 def test_a_goal_the_plan_cannot_reach_says_when_and_what_else_works(mohab):
     answer = mohab.answers["laptop"]
     assert answer.shows("New laptop will not be ready by its date Due 2027-06-30 · it needs 30,000 EGP a month and "
-                        "your plan leaves 23,302 for it. Setting aside 23,302 a month, it is ready in July 2027. "
+                        "your plan leaves 23,301 for it. Setting aside 23,301 a month, it is ready in July 2027. "
                         "Set aside 60,000 of your 339,623 free cash now, or give it a later date.")
     assert mohab.notes["laptop_set_aside"].shows("Updated cash assigned to New laptop.")
     assert not mohab.answers["laptop_after"].shows("New laptop will not be ready")
@@ -964,7 +970,7 @@ def test_a_sale_shows_its_gain_after_fees(mohab):
 
 
 def test_the_insurance_is_paid_from_its_goal(mohab):
-    assert mohab.answers["insurance"].shows("Car insurance", "9,000.00 spent · 0.00 still set aside")
+    assert mohab.answers["insurance"].shows("Car insurance", "9,000 spent · 0 still set aside")
 
 
 def test_the_rent_rise_is_offered_and_taken(mohab):
@@ -981,7 +987,7 @@ def test_the_rent_rise_reaches_the_budget(mohab):
 
 def test_the_trip_goal_keeps_what_was_not_spent(mohab):
     text = mohab.answers["trip"].screen.text
-    assert re.search(r"Sahel trip .*?800\.00", text)
+    assert re.search(r"Sahel trip .*?800\b", text)
 
 
 def test_end_of_service_is_not_monthly_pay(mohab):
@@ -1027,7 +1033,7 @@ def test_the_emergency_fund_in_months_of_spending(mohab):
     # 13,500 left in the fund after the repair, over June to August's spending (no one-offs, no investing)
     assert answer.shows("Emergency fund covers 0.4 months", "Of average monthly spending. The aim is six.",
                         "2027-06 to 2027-08 · 3 months with spending", "Counted in months of spending")
-    assert answer.figure("Average monthly spending") == D("31348.33")
+    assert answer.figure("Average monthly spending") == D("31348")
 
 
 def test_the_year_on_the_overview(mohab):

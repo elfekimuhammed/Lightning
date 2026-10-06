@@ -19,7 +19,7 @@ def test_emergency_fund_uses_average_monthly_income_over_months_with_income(c, s
             "category": "Work › Salary", "amount": "30000"})
     c.reserves.set_emergency_fund("15000")
     page = client.get("/reserves").text
-    assert "30,000.00" in page and "2 months with income" in page
+    assert "30,000" in page and "2 months with income" in page
     assert "0.5 months" in page  # 15,000 of 30,000 average monthly income, not 15,000 of 10,000
     assert c.budgets.income_average("2026-12").amount == 30000  # the same figure the budget uses
 
