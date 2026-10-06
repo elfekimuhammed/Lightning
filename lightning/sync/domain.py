@@ -76,6 +76,8 @@ class MessageKind(StrEnum):
     ERROR = "Error"
     HELLO = "Hello"
     AUTHENTICATE = "Authenticate"
+    MOVE_BEGIN = "MoveBegin"
+    MOVE_DONE = "MoveDone"
 
 
 @dataclass(frozen=True)
@@ -368,6 +370,57 @@ class Authenticate:
             raise ValueError("Invalid signature")
 
 
+@dataclass(frozen=True)
+class MoveBegin:
+    """A PC moves its profile's home to the phone (task 17). Exactly `size` bytes of the encrypted ledger follow.
+    The key file travels as it is stored, still locked by the profile's password and recovery key."""
+    pairing_id: str
+    device_id: str
+    device_name: str
+    public_key: str
+    profile_id: str
+    profile_name: str
+    key_file: str          # the profile's keys.json, as JSON text
+    key_id: str
+    ledger_schema: int
+    sha256: str
+    size: int
+    proof: str             # HMAC with the phone's code over the transcript, the file's hash and the key file
+
+    def __post_init__(self) -> None:
+        for name in ("pairing_id", "device_id", "profile_id"):
+            _id(getattr(self, name), name)
+        _name(self.device_name, "device_name")
+        _name(self.profile_name, "profile_name")
+        if (not isinstance(self.public_key, str) or len(self.public_key) != 66 or self.public_key[:2] not in ("02", "03")
+                or any(c not in "0123456789abcdef" for c in self.public_key)):
+            raise ValueError("Invalid public_key")
+        if not isinstance(self.key_file, str) or not 2 <= len(self.key_file) <= 8000:
+            raise ValueError("Invalid key_file")
+        if not isinstance(self.key_id, str) or _KEY_ID.fullmatch(self.key_id) is None:
+            raise ValueError("Invalid key_id")
+        _natural(self.ledger_schema, "ledger_schema", minimum=1, maximum=65535)
+        _hash(self.sha256, "sha256")
+        _natural(self.size, "size", minimum=1, maximum=MAX_CANDIDATE_BYTES)
+        _hex32(self.proof, "proof")
+
+
+@dataclass(frozen=True)
+class MoveDone:
+    """The phone kept the ledger and is its home now; the PC is paired with it."""
+    pairing_id: str
+    home_id: str
+    home_name: str
+    lineage_id: str
+    proof: str
+
+    def __post_init__(self) -> None:
+        for name in ("pairing_id", "home_id", "lineage_id"):
+            _id(getattr(self, name), name)
+        _name(self.home_name, "home_name")
+        _hex32(self.proof, "proof")
+
+
 ERROR_CODES = frozenset({
     "UNAUTHORIZED", "REPLAY_CONFLICT", "STALE_AUTHORITY", "INCOMPATIBLE", "CANCELLED", "ALREADY_LENT",
     "STALE_BASE", "ACTIVE_CHECKOUT", "NOT_PUBLISHED", "UNLOCK_NEEDED", "UPDATE_NEEDED", "NO_SPACE",
@@ -389,7 +442,7 @@ class Error:
 
 Message = (BorrowRequest | BorrowGrant | BorrowActivated | BorrowCancel | Cancelled | ReturnBegin | Received | Accepted
            | PairRequest | PairReply | PairConfirm | Status | StatusReply | Prefetch | Checkpoint | ReturnStatus | Error
-           | Hello | Authenticate)
+           | Hello | Authenticate | MoveBegin | MoveDone)
 _TYPES: dict[MessageKind, type] = {
     MessageKind.BORROW_REQUEST: BorrowRequest,
     MessageKind.BORROW_GRANT: BorrowGrant,
@@ -410,6 +463,8 @@ _TYPES: dict[MessageKind, type] = {
     MessageKind.ERROR: Error,
     MessageKind.HELLO: Hello,
     MessageKind.AUTHENTICATE: Authenticate,
+    MessageKind.MOVE_BEGIN: MoveBegin,
+    MessageKind.MOVE_DONE: MoveDone,
 }
 _KINDS = {value: key for key, value in _TYPES.items()}
 

@@ -26,7 +26,8 @@ from typing import BinaryIO, Callable, Iterable
 
 from .copies import CHUNK, CopyRejected
 from .domain import (MAX_MESSAGE_BYTES, Accepted, Authenticate, BorrowActivated, BorrowCancel, BorrowGrant,
-                     BorrowRequest, Cancelled, Checkpoint, Error, Hello, Message, PairReply, PairRequest, Prefetch,
+                     BorrowRequest, Cancelled, Checkpoint, Error, Hello, Message, MoveBegin, MoveDone, PairReply,
+                     PairRequest, Prefetch,
                      Received, ReturnBegin, ReturnStatus, Status, StatusReply, decode_message, encode_message)
 from .identity import (DEFAULT_PORT, DeviceIdentity, check_digits, new_pairing_code, normalize_code, proof,
                        show_code, transcript, verify_signature)
@@ -37,6 +38,14 @@ TIMEOUT = 30
 MAX_CONNECTIONS = 4
 PAIRING_MINUTES = 10
 PAIRING_TRIES = 3
+
+
+def move_transcript(request: MoveBegin, home_fingerprint: str) -> bytes:
+    """A move's proof covers who sends, to which certificate, and exactly which ledger and key file."""
+    key_file_hash = hashlib.sha256(request.key_file.encode("utf-8")).hexdigest()
+    return transcript(request.pairing_id, home_fingerprint, request.device_id, request.public_key) + (
+        f"\n{request.profile_id}\n{request.sha256}\n{request.size}\n{key_file_hash}\n{request.key_id}"
+        f"\n{request.ledger_schema}").encode("ascii")
 
 
 def _auth_data(nonce: str, home_fingerprint: str) -> bytes:
@@ -89,7 +98,7 @@ def _send_file(stream, source: BinaryIO, size: int) -> None:
 
 @dataclass
 class PendingPairing:
-    node: HomeNode
+    node: HomeNode | None      # None while the phone waits for a PC to move a profile here
     code: str
     home_name: str
     profile_name: str
@@ -97,6 +106,7 @@ class PendingPairing:
     tries: int = 0
     paired_name: str = ""      # set when a PC paired: what the phone shows
     digits: str = ""
+    receive: Callable | None = None  # for a move: stores the ledger, returns (home_id, lineage_id)
 
 
 class PairingDesk:
@@ -112,14 +122,48 @@ class PairingDesk:
                                           time.monotonic() + PAIRING_MINUTES * 60)
             return self.pending
 
+    def open_move(self, receive: Callable, *, home_name: str) -> PendingPairing:
+        """Wait for a PC to move one of its profiles here (task 17). `receive(message, source)` keeps it."""
+        with self._lock:
+            self.pending = PendingPairing(None, new_pairing_code(), home_name, "",
+                                          time.monotonic() + PAIRING_MINUTES * 60, receive=receive)
+            return self.pending
+
     def close(self) -> None:
         with self._lock:
             self.pending = None
+
+    def _check_code(self, pending: PendingPairing | None, proof_sent: str, role: str, data: bytes) -> PendingPairing:
+        if pending is None or pending.paired_name or time.monotonic() >= pending.expires:
+            raise ProtocolError("PAIRING_FAILED", "Open the phone's code screen again and use the code it shows.")
+        if not secrets.compare_digest(proof(pending.code, role, data), proof_sent):
+            pending.tries += 1
+            if pending.tries >= PAIRING_TRIES:
+                self.pending = None
+            raise ProtocolError("PAIRING_FAILED", "That code is not the one on the phone.")
+        return pending
+
+    def handle_move(self, request: MoveBegin, home_fingerprint: str, source) -> MoveDone:
+        """Check the code against the file's hash, keep the ledger, and answer with this phone as its home."""
+        with self._lock:
+            pending = self.pending
+            if pending is not None and pending.receive is None:
+                pending = None  # a pairing desk, not a move
+            data = move_transcript(request, home_fingerprint)
+            pending = self._check_code(pending, request.proof, "pc-move", data)
+            home_id, lineage_id = pending.receive(request, source)
+            pending.paired_name, pending.profile_name = request.device_name, request.profile_name
+            pending.digits = check_digits(data)
+            done_data = data + f"\n{home_id}\n{lineage_id}".encode("ascii")
+            return MoveDone(request.pairing_id, home_id, pending.home_name, lineage_id,
+                            proof(pending.code, "phone-move", done_data))
 
     def handle(self, request: PairRequest, home_fingerprint: str) -> PairReply:
         from .control import Peer
         with self._lock:
             pending = self.pending
+            if pending is not None and pending.node is None:
+                pending = None  # a move desk, not a pairing
             if pending is None or pending.paired_name or time.monotonic() >= pending.expires:
                 raise ProtocolError("PAIRING_FAILED", "Open Pair a PC on the phone and use the code it shows.")
             data = transcript(request.pairing_id, home_fingerprint, request.device_id, request.public_key)
@@ -238,6 +282,9 @@ class HomeServer:
         if isinstance(first, PairRequest):
             send_message(stream, self.desk.handle(first, self.identity.fingerprint))
             return
+        if isinstance(first, MoveBegin):
+            send_message(stream, self.desk.handle_move(first, self.identity.fingerprint, _SocketFile(stream)))
+            return
         if not isinstance(first, Authenticate):
             raise ProtocolError("UNAUTHORIZED", "Pair this PC first.")
         node = self._node_for(first.device_id)
@@ -341,6 +388,46 @@ def pair(endpoint: str, code: str, identity: DeviceIdentity) -> Paired:
     return Paired(reply, fingerprint, check_digits(data))
 
 
+@dataclass(frozen=True)
+class Moved:
+    done: MoveDone
+    fingerprint: str
+    digits: str
+
+
+def move_profile(endpoint: str, code: str, identity: DeviceIdentity, *, profile_id: str, profile_name: str,
+                 key_file: str, key_id: str, ledger_schema: int, ledger: str) -> Moved:
+    """Send this PC's profile to the phone showing `code`. `ledger` is the closed encrypted database file.
+    The phone's answer counts only when it proves the same code for the same certificate and file."""
+    import os
+    import uuid
+    from .copies import sha256_file
+    code = normalize_code(code)
+    size, digest = os.path.getsize(ledger), sha256_file(ledger)
+    stream = _open(endpoint)
+    try:
+        fingerprint = hashlib.sha256(stream.getpeercert(binary_form=True)).hexdigest()
+        _answer(stream, Hello)
+        request = MoveBegin(str(uuid.uuid4()), identity.device_id, identity.name, identity.public_key, profile_id,
+                            profile_name, key_file, key_id, ledger_schema, digest, size, "0" * 64)
+        data = move_transcript(request, fingerprint)
+        from dataclasses import replace
+        request = replace(request, proof=proof(code, "pc-move", data))
+        send_message(stream, request)
+        with open(ledger, "rb") as source:
+            _send_file(stream, source, size)
+        done = _answer(stream, MoveDone)
+    except (OSError, ConnectionError) as exc:
+        raise LinkDown("The connection to the phone dropped. Nothing moved; try again.") from exc
+    finally:
+        stream.close()
+    done_data = data + f"\n{done.home_id}\n{done.lineage_id}".encode("ascii")
+    if done.pairing_id != request.pairing_id or not secrets.compare_digest(proof(code, "phone-move", done_data),
+                                                                            done.proof):
+        raise ProtocolError("PAIRING_FAILED", "The device that answered is not the phone showing this code.")
+    return Moved(done, fingerprint, check_digits(data))
+
+
 class TlsLink:
     """A paired PC's `Link` to its phone, pinned to the phone's certificate."""
 
@@ -392,7 +479,7 @@ class TlsLink:
         return self._request(message, (Received, Accepted))
 
 
-__all__ = ["HomeServer", "PairingDesk", "Paired", "TlsLink", "pair", "show_code"]
+__all__ = ["HomeServer", "Moved", "PairingDesk", "Paired", "TlsLink", "move_profile", "pair", "show_code"]
 
 
 # ==================================================================== the PC: keeping a pairing

@@ -111,12 +111,8 @@ class HomeNode:
         node = cls(live_path=live_path, control_folder=control_folder, bridge=bridge)
         if node.store.role() == "home":
             return node
-        from .copies import profile_id_of, schema_version
-        profile_id = profile_id_of(db)
-        if profile_id is None:
-            profile_id = new_id()
-            with db.transaction():
-                db.execute("INSERT INTO profile_identity (singleton, profile_id) VALUES (1, ?)", (profile_id,))
+        from .copies import ensure_profile_id, schema_version
+        profile_id = ensure_profile_id(db)
         key = db.copy_key()
         node.store.create(HomeProtocolModel(
             profile_id=profile_id, home_id=home_id, lineage_id=new_id(), checkpoint_id=new_id(),

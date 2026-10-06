@@ -19,7 +19,7 @@ from lightning.ui.web import create_app, templates
 from .http import (MARKET_IMPORT_PATH, MAX_IMPORT_CONFIRM_BODY, MAX_IMPORT_CONFIRM_FIELDS, MAX_MARKET_IMPORT_BODY,
                    MAX_IMPORT_MAP_BODY, Credentials, Guard,
                    body_receiver, configure_memory_only_import_uploads, equal)
-from .devices import Devices, home_state_line
+from .devices import Devices, home_state_line, move_to_phone, open_move
 from .paths import choose_data_root, discover_profiles, resolve_profile
 from .roles import READ_ONLY_REFUSAL, SessionRole
 from .session import AttemptGuard, ProfileError, ProfileSession, validate_password
@@ -585,6 +585,64 @@ def profile_app(credentials: Credentials, root: Path | str | None = None, device
             return page(request, "borrowed", item=found, error=str(exc), status=400)
         except CopyRejected as exc:
             return page(request, "borrowed", item=found, error=str(exc), status=400)
+
+    # ------------------------------------------------------------ moving a profile's home to the phone
+    @app.get("/profiles/receive")
+    async def receive_page(request: Request):
+        pending = devices.desk.pending if devices.desk is not None else None
+        if pending is not None and pending.receive is None:
+            pending = None
+        return page(request, "receive", pending=pending,
+                    address=devices.address() if devices.server is not None else "",
+                    phone_name=devices.identity().name if devices.has_identity() else "My phone")
+
+    @app.post("/profiles/receive")
+    async def open_receive(request: Request):
+        if session.container:
+            return RedirectResponse("/profiles", 303)
+        form = await request.form()
+        name = " ".join(str(form.get("phone_name", "")).split())[:60]
+        if not name:
+            return page(request, "receive", error="Name this phone, so the PC can show it.", status=400,
+                        phone_name="", pending=None, address="")
+        try:
+            open_move(devices, session.root, name)
+        except OSError:
+            return page(request, "receive", error="Another app is using the port Lightning listens on. Close it "
+                                                  "and try again.", status=400, phone_name=name, pending=None,
+                        address="")
+        return RedirectResponse("/profiles/receive", 303)
+
+    @app.post("/profiles/move")
+    async def move(request: Request):
+        from lightning.security.keys import key_id
+        from lightning.sync.copies import ensure_profile_id, schema_version
+        from lightning.sync.identity import normalize_code
+        from lightning.sync.service import LinkDown
+        if session.container is None or session.borrowed is not None or not session.role.writable:
+            return RedirectResponse("/profiles", 303)
+        form = await request.form()
+        address, code = str(form.get("address", "")).strip(), str(form.get("code", ""))
+        pc_name = " ".join(str(form.get("pc_name", "")).split())[:60] or "This PC"
+        try:
+            normalize_code(code)
+        except ValueError as exc:
+            return page(request, "manage", error=str(exc), status=400)
+        db = session.container.db
+        profile_id = ensure_profile_id(db)
+        schema, kid, name, paths = schema_version(db), key_id(session.sync_key), session.name, session.paths
+        session.close()  # the file is closed before it moves; this request holds the gate, so nothing reopens it
+        app.state.container = None
+        try:
+            moved = await asyncio.to_thread(move_to_phone, devices, paths=paths, profile_id=profile_id, name=name,
+                                            key_id=kid, schema=schema, address=address, code=code, pc_name=pc_name)
+        except (LinkDown, ProtocolError, ValueError) as exc:
+            return page(request, "unlock", selected=str(paths.db_path), status=400,
+                        error=f"{exc} {name} stays on this PC; unlock it to try again.")
+        return page(request, "choose", profiles=discover_profiles(session.root), borrowed=devices.borrowed(),
+                    notice=f"{name} now lives on {moved.done.home_name}. Check that it shows {moved.digits[:3]} "
+                           f"{moved.digits[3:]}. Borrow it here under From your phone; the PC's old copy is kept "
+                           "as a backup.")
 
     @app.post("/profiles/hand-back")
     @app.post("/sync/hand-back")  # the finance pages' banner, which carries the session token

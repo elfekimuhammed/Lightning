@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 from lightning.sync import domain
-from lightning.sync.domain import (Accepted, Authenticate, Hello, BorrowActivated, BorrowCancel, BorrowRequest, Checkpoint, Compatibility,
+from lightning.sync.domain import (Accepted, Authenticate, Hello, MoveBegin, MoveDone, BorrowActivated, BorrowCancel, BorrowRequest, Checkpoint, Compatibility,
                                    Error, PairConfirm, PairReply, PairRequest, Prefetch, ReturnBegin, ReturnStatus,
                                    Status, StatusReply, decode_message, encode_message)
 from lightning.sync.state import (BorrowerModel, BorrowerState, HomeProtocolModel, HomeState, ProtocolError)
@@ -45,6 +45,9 @@ def examples():
         Error("UNLOCK_NEEDED", "Unlock Lightning on your phone."),
         Hello("12" * 32),
         Authenticate(u(2), "30" * 70),
+        MoveBegin(u(15), u(2), "Office PC", "02" + "ab" * 32, u(3), "Mohab", '{"version": 2}', "0123456789abcdef",
+                  45, "c" * 64, 4096, "cd" * 32),
+        MoveDone(u(15), u(4), "Mohab's phone", u(5), "ef" * 32),
     ]
 
 

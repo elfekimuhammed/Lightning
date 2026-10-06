@@ -40,6 +40,18 @@ def profile_id_of(db: Database) -> str | None:
     return row[0] if row else None
 
 
+def ensure_profile_id(db: Database) -> str:
+    """The ledger's stable ID, set once (migration 0045). Writes, so only on a writable home connection."""
+    found = profile_id_of(db)
+    if found is not None:
+        return found
+    import uuid
+    profile_id = str(uuid.uuid4())
+    with db.transaction():
+        db.execute("INSERT INTO profile_identity (singleton, profile_id) VALUES (1, ?)", (profile_id,))
+    return profile_id
+
+
 def schema_version(db: Database) -> int:
     return inspect_schema(db).current_version
 

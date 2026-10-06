@@ -246,3 +246,97 @@ def home_state_line(node: HomeNode | None) -> str:
     if home.state is HomeState.RETURN_RECEIVED:
         return f"{name} handed the ledger back. Checking it…"
     return f"Lent to {name} · read only"
+
+
+# ==================================================================== moving a profile's home to the phone (task 17)
+
+def _receive_move(devices: Devices, profile_root: Path, phone_name: str, message, source) -> tuple[str, str]:
+    """On the phone: keep the arriving ledger as a new profile here and record this phone as its home, with the
+    PC paired. The ledger stays locked until its owner unlocks it with the profile's password; the unlock checks
+    it like any profile."""
+    import os
+    from lightning.security.keys import validate_key_file
+    from lightning.sync.control import ControlStore, Peer, new_id
+    from lightning.sync.copies import sha256_file
+    from lightning.sync.domain import Compatibility
+    from lightning.sync.service import copy_stream
+    from lightning.sync.state import HomeProtocolModel
+    from .paths import create_profile
+    from .session import publish_keys
+
+    try:
+        key_file = json.loads(message.key_file)
+        validate_key_file(key_file)
+    except (TypeError, ValueError) as exc:
+        raise ProtocolError("BAD_REQUEST", "The profile's key file did not arrive intact.") from exc
+    identity = devices.identity(phone_name)
+    paths = create_profile(message.profile_name, root=profile_root)
+    paths.prepare()
+    partial = paths.db_path.with_suffix(".part")
+    try:
+        with open(partial, "xb") as handle:
+            copy_stream(source, handle, message.size)
+            handle.flush()
+            os.fsync(handle.fileno())
+        if sha256_file(partial) != message.sha256:
+            raise ProtocolError("BAD_REQUEST", "The ledger was damaged on the way. Nothing was kept; try again.")
+        publish_keys(paths, key_file, replace=False)
+        os.replace(partial, paths.db_path)
+    except BaseException:
+        partial.unlink(missing_ok=True)
+        raise
+    lineage = new_id()
+    folder = devices.home_folder(paths)
+    folder.mkdir(mode=0o700, parents=True, exist_ok=True)
+    store = ControlStore(folder)
+    store.create(HomeProtocolModel(
+        profile_id=message.profile_id, home_id=identity.device_id, lineage_id=lineage, checkpoint_id=new_id(),
+        checkpoint_sha256="0" * 64, compatibility=Compatibility(1, 1, message.ledger_schema, 1, message.key_id, 1),
+        paired_devices={message.device_id}))
+    store.save_peer(Peer(message.device_id, message.device_name, message.public_key, "", ""))
+    (folder / HOME_META).write_text(json.dumps({"live_path": str(paths.db_path)}), encoding="utf-8")
+    return identity.device_id, lineage
+
+
+def open_move(devices: Devices, profile_root: Path, phone_name: str):
+    """On the phone: show a code and wait for a PC to move a profile here."""
+    devices.identity(phone_name)
+    devices.ensure_listener()
+    return devices.desk.open_move(lambda message, source: _receive_move(devices, Path(profile_root), phone_name,
+                                                                        message, source), home_name=phone_name)
+
+
+def move_to_phone(devices: Devices, *, paths: ProfilePaths, profile_id: str, name: str, key_id: str, schema: int,
+                  address: str, code: str, pc_name: str):
+    """On the PC, with the profile closed: send it to the phone, then keep this PC as a paired borrower. The
+    PC's file is renamed first and stays as a backup (`<name>.moved-to-phone.db`), so there is never a second
+    writable home; if the phone does not take it, the name is put back."""
+    import os
+    import shutil
+    from lightning.sync.control import ControlStore, Peer
+    from lightning.sync.state import BorrowerModel
+    from lightning.sync.transport import move_profile
+    from .paths import borrowed_profile
+
+    identity = devices.identity(pc_name)
+    live = Path(paths.db_path)
+    moving = live.with_name(f"{live.stem}.moving.db")
+    os.rename(live, moving)
+    try:
+        moved = move_profile(address, code, identity, profile_id=profile_id, profile_name=name,
+                             key_file=paths.keys_path.read_text(encoding="utf-8"), key_id=key_id,
+                             ledger_schema=schema, ledger=str(moving))
+    except BaseException:
+        os.rename(moving, live)
+        raise
+    os.rename(moving, live.with_name(f"{live.stem}.moved-to-phone.db"))
+    borrowed = borrowed_profile(profile_id, root=devices.root)
+    borrowed.prepare()
+    shutil.copyfile(paths.keys_path, borrowed.keys_path)  # the same password opens it here
+    (borrowed.data_dir / "profile.json").write_text(json.dumps({"name": name}), encoding="utf-8")
+    store = ControlStore(borrowed.data_dir)
+    if store.role() is None:
+        store.create(BorrowerModel(profile_id=profile_id, home_id=moved.done.home_id,
+                                   lineage_id=moved.done.lineage_id, device_id=identity.device_id))
+    store.save_peer(Peer(moved.done.home_id, moved.done.home_name, "", address.strip(), moved.fingerprint))
+    return moved

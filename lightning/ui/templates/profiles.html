@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1{{ ', viewport-fit=cover' if on_phone }}">
   <meta name="color-scheme" content="light">
-  <title>{% if mode == 'choose' %}Choose a profile{% elif mode == 'setup' %}Create a profile{% elif mode == 'recovery-key' %}Save your recovery key{% elif mode == 'unlock' %}Unlock your profile{% elif mode == 'recover' %}Reset your password{% elif mode == 'restore' %}Restore a backup{% elif mode == 'resume-restore' %}Resume a restore{% elif mode == 'manage' %}Profile settings{% elif mode == 'devices' %}Devices{% elif mode in ['connect', 'connected'] %}Connect to your phone{% elif mode == 'borrowed' %}Open from your phone{% else %}Profiles{% endif %} · Lightning</title>
+  <title>{% if mode == 'choose' %}Choose a profile{% elif mode == 'setup' %}Create a profile{% elif mode == 'recovery-key' %}Save your recovery key{% elif mode == 'unlock' %}Unlock your profile{% elif mode == 'recover' %}Reset your password{% elif mode == 'restore' %}Restore a backup{% elif mode == 'resume-restore' %}Resume a restore{% elif mode == 'manage' %}Profile settings{% elif mode == 'devices' %}Devices{% elif mode in ['connect', 'connected'] %}Connect to your phone{% elif mode == 'borrowed' %}Open from your phone{% elif mode == 'receive' %}Bring a profile from your PC{% else %}Profiles{% endif %} · Lightning</title>
   <link rel="stylesheet" href="/static/fonts/fonts.css">
   <link rel="stylesheet" href="/static/profiles.css">
 </head>
@@ -48,6 +48,8 @@
           <h1 id="page-title">Connect to your phone</h1>
         {% elif mode == 'borrowed' %}
           <h1 id="page-title">{{ item.name }}</h1>
+        {% elif mode == 'receive' %}
+          <h1 id="page-title">Bring a profile from your PC</h1>
         {% elif mode == 'manage' %}
           <h1 id="page-title">Profile settings</h1>
           <p>Because this profile is open, each change needs one more proof: your security answer or your recovery key.</p>
@@ -75,6 +77,11 @@
           <a class="button button-primary" href="/profiles/new">Create a profile</a>
         </section>
 
+        {% if on_phone %}<section class="panel" aria-labelledby="from-pc-heading">
+          <h2 id="from-pc-heading">From your PC</h2>
+          <p>Already keep Lightning on a PC? Move that profile here. The phone becomes its home; the PC borrows it.</p>
+          <a class="button button-secondary" href="/profiles/receive">Bring a profile from your PC</a>
+        </section>{% endif %}
         {% if not on_phone %}<section class="panel" aria-labelledby="borrowed-heading">
           <div class="panel-heading"><div><h2 id="borrowed-heading">From your phone</h2></div></div>
           {% if borrowed %}
@@ -281,12 +288,48 @@
           </form>
         </section>
 
+      {% elif mode == 'receive' %}
+        <section class="panel form-panel" aria-labelledby="receive-heading">
+          {% if pending and pending.paired_name %}
+            <h2 id="receive-heading">{{ pending.profile_name }} is here</h2>
+            <p>It came from {{ pending.paired_name }}, which now borrows it from this phone. Check that the PC shows <strong class="suggestion-value">{{ pending.digits[:3] }} {{ pending.digits[3:] }}</strong>.</p>
+            <a class="button button-primary" href="/profiles">Unlock it</a>
+          {% elif pending %}
+            <h2 id="receive-heading">Type this on the PC</h2>
+            <p>On the PC: Profile settings, Move to your phone. Same Wi-Fi; keep this page open.</p>
+            <dl class="pair-values">
+              <dt>Phone address</dt><dd><strong class="suggestion-value">{{ address }}</strong></dd>
+              <dt>Code</dt><dd><strong class="suggestion-value">{{ pending.code[:4] }}-{{ pending.code[4:8] }}-{{ pending.code[8:] }}</strong></dd>
+            </dl>
+            <a class="button button-secondary" href="/profiles/receive">Check again</a>
+          {% else %}
+            <h2 id="receive-heading">This phone becomes its home</h2>
+            <p>The profile keeps its password. Afterwards the PC borrows it from here, one device editing at a time.</p>
+            <form method="post" action="/profiles/receive" class="form-stack">
+              <input type="hidden" name="csrf" value="{{ csrf }}">
+              <div class="field"><label for="receive-name">This phone's name</label><input id="receive-name" name="phone_name" type="text" required maxlength="60" value="{{ phone_name or 'My phone' }}" autocomplete="off"></div>
+              <div class="form-actions"><button class="button button-primary" type="submit">Show a code</button></div>
+            </form>
+          {% endif %}
+        </section>
+
       {% elif mode == 'manage' %}
         <section class="panel account-panel" aria-labelledby="active-heading">
           <div><p class="eyebrow">Unlocked profile</p><h2 id="active-heading">{{ active_name }}</h2></div>
           <div class="account-actions"><a class="button button-secondary" href="/">Open finance</a>{% if is_borrowed %}<form method="post" action="/profiles/hand-back"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="button button-primary" type="submit">Hand back</button></form>{% else %}<a class="button button-secondary" href="/profiles/devices">Devices</a><form method="post" action="/profiles/lock"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="button button-secondary" type="submit">Lock profile</button></form>{% endif %}</div>
         </section>
         {% if not is_borrowed %}
+        {% if not on_phone %}<section class="panel form-panel" aria-labelledby="move-heading">
+          <h2 id="move-heading">Move to your phone</h2>
+          <p>The phone becomes this profile's home and this PC borrows it from there. On the phone, open Lightning and choose Bring a profile from your PC.</p>
+          <form method="post" action="/profiles/move" class="form-stack">
+            <input type="hidden" name="csrf" value="{{ csrf }}">
+            <div class="field"><label for="move-address">Phone address</label><input id="move-address" name="address" type="text" required placeholder="192.168.1.20:47513" autocomplete="off" spellcheck="false"></div>
+            <div class="field"><label for="move-code">Code</label><input id="move-code" name="code" type="text" required autocomplete="off" spellcheck="false" autocapitalize="characters"></div>
+            <div class="field"><label for="move-pc-name">This PC's name</label><input id="move-pc-name" name="pc_name" type="text" required maxlength="60" value="This PC" autocomplete="off"></div>
+            <div class="form-actions"><button class="button button-secondary" type="submit">Move to the phone</button></div>
+          </form>
+        </section>{% endif %}
         {% if new_recovery %}
         <section class="panel form-panel" aria-labelledby="new-key-heading">
           <h2 id="new-key-heading">Your new recovery key</h2>
