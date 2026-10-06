@@ -45,3 +45,21 @@ def test_the_tab_bar_and_gears_lead_where_they_say(c):
                 assert re.search(rf'href="{re.escape(tab.href)}" aria-current="page">', page.text), tab.href
             if tab.gear:
                 assert f'aria-label="{tab.gear_label}"' in page.text and client.get(tab.gear).status_code == 200
+
+
+def test_the_stylesheet_has_no_stray_declarations():
+    # A rule split over two lines lost its first line on 2026-10-06; the orphan broke every rule after it
+    # (the Plan timeline drew over the page). Outside a block there must be selectors only, never "prop: value;".
+    from pathlib import Path
+    css = re.sub(r"/\*.*?\*/", "", (Path(__file__).parents[1] / "lightning/ui/static/style.css").read_text(), flags=re.S)
+    depth, outside = 0, []
+    for ch in css:
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            assert depth >= 0, "a } with no {"
+        elif depth == 0:
+            outside.append(ch)
+    assert depth == 0
+    assert ";" not in "".join(outside), "a declaration outside any rule"

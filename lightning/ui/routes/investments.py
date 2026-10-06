@@ -294,6 +294,7 @@ def _page_extras(c, period, p, prior, owned_rows, prior_custody, before_day, rep
         g["rows"].sort(key=lambda r: (-(r["value"] or ZERO), (r["h"].asset_name if r["h"] else r["name"]).casefold()))
         g["weight"] = g["value"] / holdings_total * 100 if holdings_total else ZERO
         g["gain"] = g["value"] - g["cost"]
+        g["gain_pct"] = g["gain"] / g["cost"] * 100 if g["cost"] else None
     holding_groups = sorted(groups.values(), key=lambda g: (-g["value"], g["name"].casefold()))
     biggest = charts.bars([{"label": r["name"], "value": r["value"], "note": f"{r['weight']:.1f}% · {g['name']}",
                             "href": f"/accounts/{r['account_id']}"} if r["h"] is None else
@@ -335,6 +336,8 @@ def _page_extras(c, period, p, prior, owned_rows, prior_custody, before_day, rep
                  + [{"label": name, "value": change, "group": "class"} for name, change in class_changes if change])
     return {"waffle": waffle,
             "growth": growth, "value_spark": spark, "holding_groups": holding_groups, "biggest": biggest,
+            # An Account column only when holdings sit in more than one account.
+            "holding_accounts": len({h.account_id for h, *_ in owned_rows}),
             "holdings_total": holdings_total, "ytd_dividends": dividends, "ytd_year": now.year,
             "horizons": horizons,
             "flows": charts.diverging(flow_rows)}

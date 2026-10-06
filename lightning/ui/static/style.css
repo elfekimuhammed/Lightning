@@ -2559,7 +2559,6 @@ a.chart-sankey-label:hover b { color:var(--azure); }
 .main .plan-tab[aria-current="page"] { background:var(--surface); color:var(--tab-ink); box-shadow:0 4px 12px -8px rgba(10,36,66,.5); }
 .main .tab-plan { --tab-ink:#08744A; --tab-tint:#D9F2E4; } .main .tab-recurring { --tab-ink:#0A5AB0; --tab-tint:#DCEBFB; }
 .main .tab-loans { --tab-ink:#8A5A00; --tab-tint:#FBEBD0; } .main .tab-reserves { --tab-ink:#00766A; --tab-tint:#D3F1EC; }
-  background:linear-gradient(100deg,var(--tab-tint) 0%,rgba(255,255,255,.75) 70%); border:1px solid rgba(255,255,255,.9); box-shadow:var(--shadow-card); }
 /* Plan · timeline of the next 30 days, columns of in and out each month ahead. */
 .main .timeline { position:relative; height:150px; margin:6px 0 10px; }
 .main .tl-axis { position:absolute; left:3%; right:3%; top:50%; border-top:2px solid var(--line-control); }
@@ -2995,3 +2994,8 @@ a.chart-sankey-label:hover b { color:var(--azure); }
 .main .section-gear:hover, .main .section-gear:focus-visible { color:var(--ink); background:rgba(10,36,66,.1); }
 .main .section-gear svg { width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
 .app-popup .section-bar { display:none; }
+/* Holdings: more columns, no lines under the names (owner, 2026-10-06). */
+.main .holdings-wide :is(th,td) { padding:8px 6px; white-space:nowrap; font-size:var(--fs-2); }
+.main .holdings-wide td:first-child, .main .holdings-wide th:first-child { white-space:normal; min-width:150px; padding-left:0; }
+.main .holdings-wide td:last-child, .main .holdings-wide th:last-child { padding-right:0; }
+.main .holdings-wide thead th { font:700 var(--fs-meta)/1.2 var(--body); color:var(--ink-2); }
