@@ -148,7 +148,7 @@ jobs:
           python -m cibuildwheel --platform android --archs arm64_v8a
           --output-dir /tmp/lightning-android-wheels
           "/tmp/lightning-android-source/${PROBE_PACKAGE}-${PROBE_VERSION}"
-      - name: Check every native module links libpython and uses 16 KB pages
+      - name: Check every native module links libpython (and report 16 KB pages)
         run: |
           set -euo pipefail
           readelf="${ANDROID_NDK_LATEST_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
@@ -161,7 +161,7 @@ jobs:
               echo "::error::$so uses Python symbols but does not link libpython3.13.so"; status=1
             fi
             if "$readelf" -l "$so" | awk '$1=="LOAD" && $NF!="0x4000"{bad=1} END{exit !bad}'; then
-              echo "::error::$so has a LOAD segment not aligned to 16 KB"; status=1
+              echo "::warning::$so has a LOAD segment not aligned to 16 KB (needed for Google Play, not for this probe)"
             fi
           done < <(find . -name '*.so')
           exit $status
