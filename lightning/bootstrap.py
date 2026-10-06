@@ -18,6 +18,7 @@ from lightning.planning.position import PositionService
 from lightning.planning.service import PlanningService
 from lightning.bank_imports import BankImportService
 from lightning.sms_imports import SmsImportService
+from lightning.rules.service import RuleService
 from lightning.categories.service import CategoryService
 from lightning.counterparties import CounterpartyService
 from lightning.database.audit import AuditLog
@@ -54,6 +55,7 @@ class Container:
     counterparties: CounterpartyService
     bank_imports: BankImportService
     sms_imports: SmsImportService
+    rules: RuleService
     accounts: AccountService
     transactions: TransactionService
     reporting: ReportingService
@@ -138,7 +140,9 @@ def build(db_path: str | Path | None = None, backup_on_start: bool = False, *,
     reserves = CashReserveService(db)
     money_from_others = MoneyFromOthersService(db, accounts, transactions)
     physical_items = PhysicalItemService(db, accounts, assets, audit)
-    bank_imports = BankImportService(db, accounts, categories, counterparties, transactions, money_from_others, reserves)
+    rules = RuleService(db, categories, accounts, transactions, settings)
+    bank_imports = BankImportService(db, accounts, categories, counterparties, transactions, money_from_others, reserves,
+                                     rules)
     reporting = ReportingService(db, accounts, assets, categories, base, money_from_others)
     budgets = BudgetService(db, categories, reporting)
     reevaluations = ReevaluationService(db, accounts, transactions, reporting)
@@ -162,6 +166,7 @@ def build(db_path: str | Path | None = None, backup_on_start: bool = False, *,
         categories=categories,
         counterparties=counterparties,
         bank_imports=bank_imports,
+        rules=rules,
         sms_imports=SmsImportService(db, settings, accounts, bank_imports),
         accounts=accounts,
         transactions=transactions,

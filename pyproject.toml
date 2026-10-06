@@ -31,7 +31,7 @@ layers = [
     "lightning.workflows",
     "lightning.planning",
     "lightning.budgeting",
-    "lightning.investments | lightning.deposits",
+    "lightning.investments | lightning.deposits | lightning.rules",
     "lightning.reporting",
     "lightning.transactions",
     "lightning.accounts",

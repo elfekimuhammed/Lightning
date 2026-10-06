@@ -66,7 +66,10 @@ def _lists(request: Request) -> dict:
         # Keep every saved Counterparty available to the register picker. Autofill uses the
         # category set on the counterparty, else the one it is usually filed under.
         counterparty_categories[name] = None
-        category_id = _category_for_party(party, usual, pickable)
+        # A rule on the name alone fills it too; one that also needs the amount decides when the row is saved.
+        category_id = c.rules.category_for_name(name)
+        if category_id not in pickable:
+            category_id = None if c.rules.depends_on_more_than_name(name) else _category_for_party(party, usual, pickable)
         if category_id:
             category = c.categories.get(category_id)
             counterparty_categories[name] = {"id": category.id, "name": category.name}
@@ -357,9 +360,16 @@ def _resolve(request: Request, row_account: int | None, values: dict, allow_miss
     category_choice = _int(values.get("category_choice"))
     if allow_missing_category and not category_text and category_choice is None:
         return None, None, canonical
-    if not category_text and category_choice is None and party:
-        category_choice = _category_for_party(party, c.transactions.usual_categories(),
-                                              {item.id for item in c.categories.pickable()})
+    if not category_text and category_choice is None:
+        pickable = {item.id for item in c.categories.pickable()}
+        try:
+            amount = to_decimal(values.get("amount", ""), "amount")
+        except ValidationError:
+            amount = None
+        ruled = c.rules.outcome([raw, party["name"] if party else ""], values.get("notes", ""), amount,
+                                row_account).category_id
+        category_choice = ruled if ruled in pickable else (
+            _category_for_party(party, c.transactions.usual_categories(), pickable) if party else None)
     if category_choice is not None:
         category = c.categories.get(category_choice)
         if category.id not in {item.id for item in c.categories.pickable()}:

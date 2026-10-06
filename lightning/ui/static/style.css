@@ -3044,3 +3044,11 @@ a.chart-sankey-label:hover b { color:var(--azure); }
 /* Multiple devices: where the ledger is, with the one action that changes it. */
 .flash.device-line { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .flash.device-line form { margin: 0; }
+
+/* Settings › Rules: the form's segments hug their choices (A10.2), two amount wells side by side; the undo
+   after "apply to past" is one line with its button. */
+.main .rule-form .planner-mode-seg:not(#_) { justify-self:start; }
+.main .rule-amounts { display:grid; grid-auto-flow:column; grid-auto-columns:1fr; gap:8px; }
+.main .rule-form [hidden] { display:none!important; }
+.main .rule-split > summary { cursor:pointer; font-weight:650; }
+.main .rule-undo { display:flex; align-items:center; justify-content:space-between; gap:12px; }

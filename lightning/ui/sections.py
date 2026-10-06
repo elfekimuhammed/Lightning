@@ -55,6 +55,7 @@ _I = {  # tab icons
     "categories": "M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z",
     "counterparties": "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.9",
     "checks": "M9 12l2 2 4-4M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z",
+    "rules": "M3 4h18l-7 8v6l-4 2v-8z",
 }
 
 SECTIONS: tuple[Section, ...] = (
@@ -93,6 +94,7 @@ SECTIONS: tuple[Section, ...] = (
         Tab("data", "Your data", "/settings", _I["data"], ("/settings", "/profiles"), settings=("general",)),
         Tab("categories", "Categories", "/categories", _I["categories"], ("/categories",)),
         Tab("counterparties", "Counterparties", "/counterparties", _I["counterparties"], ("/counterparties",)),
+        Tab("rules", "Rules", "/rules", _I["rules"], ("/rules",)),
         Tab("checks", "Data checks", "/checks", _I["checks"], ("/checks",)),
     )),
 )
