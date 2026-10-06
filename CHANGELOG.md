@@ -10,6 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-06 · Claude: owner decisions: sync before Google Play; three milestones (connected, daily phone use, bank SMS) reviewed by the owner; the phone gets its own brand guideline (Project Overview).
 - 2026-10-06 · Claude: 04c on the owner's phone: the shared pages render and work (profile chooser, unlock, Overview, an account). Owner: the phone needs its own layout (Project Overview). The probe now keeps pages clear of the status bar, navigation bar and keyboard.
 - 2026-10-06 · Claude: 04c: the Android probe renders every finance page of the dummy profile, then serves Lightning's own runtime on 127.0.0.1 to a locked-down WebView (no file, foreign-site or debugger access) and reports server guards, owning-thread shutdown and 16 KB alignment (`tests/test_android_probe.py`). Phone run pending.
 
