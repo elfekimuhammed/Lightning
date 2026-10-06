@@ -15,14 +15,14 @@ CHART = "https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
 
 
 def symbol_for(key: str) -> str | None:
-    """EG:COMI -> COMI.CA, US:BRK.B -> BRK-B, USD/EGP -> EGP=X; others have no Yahoo symbol."""
+    """EG:COMI -> COMI.CA, US:BRK.B -> BRK-B, USD/EGP -> EGP=X, XAU/USD -> GC=F (gold, an ounce); others have none."""
     if key.startswith("EG:") and ":FUND:" not in key:
         return key[3:] + ".CA"
     if key.startswith("US:"):
         return key[3:].replace(".", "-")
     if key.endswith("/EGP") and key[:3] == "USD":
         return "EGP=X"
-    return None
+    return {"XAU/USD": "GC=F", "XAG/USD": "SI=F"}.get(key)
 
 
 def parse(data: dict, key: str, zone: str = "Africa/Cairo") -> list[Quote]:
@@ -63,5 +63,5 @@ def fetch_history(session, key: str, since: str = "max") -> list[Quote]:
         return []
     data = session.get_json(CHART.format(symbol=quote(symbol, safe="")),
                             {"range": since, "interval": "1d", "events": "split"})
-    zone = "America/New_York" if key.startswith("US:") else "Africa/Cairo"
+    zone = "America/New_York" if key.startswith(("US:", "XAU/", "XAG/")) else "Africa/Cairo"
     return parse(data, key, zone)

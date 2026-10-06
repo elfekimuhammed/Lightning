@@ -100,7 +100,7 @@ def test_three_days_after_a_month_end_the_app_fetches_that_close(c, held):
     assert (latest.price, latest.price_date) == (D("77"), "2026-11-02")  # never today's moving price
     assert c.reporting.value_of(held["azs"].id, D(1), "2026-10-31").price == D("31")
     assert report.priced == ["CIB", "AZ Savings"] and report.other_currency == ["Apple"]
-    assert report.unknown == ["Nope fund"] and not report.missing
+    assert report.unmatched == ["Nope fund"] and not report.missing
     assert not c.reevaluations.pending_prices() or all(
         p["asset_id"] in (held["nope"].id, held["apple"].id) for p in c.reevaluations.pending_prices())
     # tried once today: opening again does not ask again, even though Nope fund still has no price
@@ -237,3 +237,57 @@ def test_buttons_that_wait_on_the_network_say_what_they_do(c, held):
     client = TestClient(create_app(c))
     assert 'data-busy="Fetching prices…">Update prices<' in client.get("/investments/prices").text
     assert 'data-busy="Testing sources…">Test price sources<' in client.get("/investments/prices/markets").text
+
+
+def test_a_fund_without_its_number_is_found_on_mubasher_by_its_name(c, held):
+    accounts = {a.name: a for a in c.accounts.list()}
+    twin = c.assets.create_investment("Twin", "FUND.EQUITY", "TWN")
+    c.investments.buy("2026-09-02", accounts["THNDR"].id, twin.id, "1", "50")
+    rows = [{"fundId": 4104, "name": "AZ Savings", "price": 32.1, "date": "31 December 2026"},
+            {"fundId": 5150, "name": "NOPE  Fund", "price": 12.5, "date": "31 December 2026"},  # case, spaces, "fund"
+            {"fundId": 7001, "name": "Twin Fund", "price": 1, "date": "31 December 2026"},
+            {"fundId": 7002, "name": "The Twin", "price": 2, "date": "31 December 2026"}]  # two such names: none
+    sources = Sources(funds=rows, fund_history="2026-09-30,10\n2026-10-29,11\n2026-11-30,12\n")
+    report = fetch_now(c, date(2026, 12, 31), sources, datetime(2026, 12, 31, 15, tzinfo=timezone.utc))
+    assert sources.asked.count("mubasher") == 1  # the one list both prices and names the funds
+    assert c.assets.get_asset(held["nope"].id).market_key == "EG:FUND:5150"
+    assert c.reporting.value_of(held["nope"].id, D(1), "2026-12-31").price == D("12.5")
+    assert c.reporting.value_of(held["nope"].id, D(1), "2026-11-30").price == D("12")  # its month-ends too
+    assert c.assets.get_asset(twin.id).market_key is None
+    text = report.summary()
+    assert "Found on Mubasher by name: Nope fund." in text
+    assert "No fund on Mubasher is named Twin; paste its Mubasher page in Edit investment." in text
+
+
+def test_a_funds_mubasher_page_is_pasted_on_edit_investment(c, held):
+    client = TestClient(create_app(c))
+    page = client.get(f"/investments/assets/{held['azs'].id}/edit").text
+    assert 'name="fund_page"' in page and 'value="4104"' in page
+    assert 'name="fund_page"' not in client.get(f"/investments/assets/{held['cib'].id}/edit").text  # funds only
+    form = {"name": "Nope fund", "class_code": "FUND.EQUITY", "symbol": "NOPE", "isin": "", "mic": "", "notes": "",
+            "active": "1"}
+    url = f"/investments/assets/{held['nope'].id}/edit"
+    client.post(url, data={**form, "fund_page": "https://english.mubasher.info/countries/eg/funds/5150/"})
+    assert c.assets.get_asset(held["nope"].id).market_key == "EG:FUND:5150"
+    refused = client.post(url, data={**form, "fund_page": "a fund I like"})
+    assert refused.status_code == 400 and "Paste the fund&#39;s page on Mubasher" in refused.text
+    client.post(url, data={**form, "fund_page": ""})
+    assert c.assets.get_asset(held["nope"].id).market_key is None  # matched by name again next time
+
+
+def test_gold_is_priced_from_the_world_price_for_each_purity(c, setup):
+    accounts, _ = setup
+    home = c.account_flows.open_account("Gold at home", "PHYSICAL_ASSET", "2026-09-01", "0")
+    ref = c.assets.get_asset_by_code("REF:GLD-21K")
+    ring = c.physical_items.create(home.id, "Ring", "Ring", "4", 21, ref.id)
+    c.investments.add_holding(home.id, ring, "1", "18,000", "2026-09-01", "Gift")
+    c.transactions.record_transfer("2026-09-01", accounts["cib"].id, accounts["wallet"].id, "100")
+    # an ounce of gold at 3,110.34768 dollars is 100 dollars a gram; the dollar is 50 pounds, then 48
+    sources = Sources(history={"GC%3DF": {"2026-09-30": 3110.34768, "2026-10-01": 3110.34768},
+                               "EGP%3DX": {"2026-09-29": 50, "2026-10-01": 48}})
+    report = fetch_now(c, date(2026, 10, 2), sources, datetime(2026, 10, 2, 9, tzinfo=timezone.utc))
+    month_end = c.reporting.value_of(ref.id, D(1), "2026-09-30")
+    assert (month_end.price, month_end.source) == (D("4375"), "ONLINE")  # 100 × 50 × 21/24, a pound rate a day older
+    assert c.reporting.value_of(ref.id, D(1), "2026-10-01").price == D("4200")  # 100 × 48 × 21/24
+    assert c.reporting.value_of(ring, D(1), "2026-10-01").value == D("16800")  # 4 grams
+    assert "Gold is an estimate from the world price" in report.summary()

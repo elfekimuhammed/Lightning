@@ -35,6 +35,9 @@
     </div>
     {{ field('isin', 'ISIN', values, error_field, help='Optional, 12 characters from your statement, e.g. EGS60121C018.', placeholder='e.g. EGS60121C018') }}
   </div>
+  {% if asset and values.class_code.startswith('FUND') %}
+  {{ field('fund_page', 'Mubasher page', values, error_field, help='Where its price comes from online. Lightning finds a fund by its name; if the name differs there, paste its page or number.', placeholder='e.g. english.mubasher.info/countries/eg/funds/4104') }}
+  {% endif %}
   {% if not asset %}
   <div id="karat-field" class="field" {% if values.class_code != 'GOLD' %}hidden{% endif %}>
     <label for="karat">Gold karat</label>

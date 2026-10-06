@@ -10,6 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-06 · Claude: online prices: a held fund without its Mubasher number is found by its name, or its Mubasher page is pasted on Edit investment; gold (18K, 21K, 24K references and gold by the gram) is priced as an estimate from the world price and the dollar's rate (`workflows/live_prices.py`).
 - 2026-10-06 · Claude: audit leftovers: the old Budget settings page (its tracking-suggestion fields saved to nothing) is gone, errors return to Settings › Budget; a new account says "Shown under Bank Balance" (no ›); account types lose "e.g. THNDR"; the USD refusals no longer say "M4".
 - 2026-10-06 · Claude: duplicates flagged: the import review now also flags a row whose date and amount wait in another review of the account; an SMS transfer between your own banks goes to review once as a transfer, its other side kept on From SMS.
 - 2026-10-06 · Claude: owner's test: the phone had no way to Devices (pairing). Settings on the phone now opens with *This phone*: Pair a PC, Bank SMS, Profile and lock.

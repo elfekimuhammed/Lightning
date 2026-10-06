@@ -7,6 +7,16 @@ for: open it three days after the month ends and it fetches that month-end's clo
 day by itself, so a source that is down never slows every start. Update prices fetches at any time: every
 held investment's latest close and every month-end it lacks.
 
+Funds: Mubasher names each fund by its own number (EG:FUND:4104). A held fund without one is matched by name
+against the fund list the app downloads anyway (only an exact match, case, punctuation and the word "fund"
+aside, and only when one fund has that name); the number is then kept. A fund whose name differs gets its
+number from its Mubasher page, pasted on Edit investment.
+
+Gold: an estimate from the world price, per gram of each purity: Yahoo's gold close in dollars an ounce
+(GC=F) ÷ 31.1034768 grams × the dollar's rate in pounds (EGP=X) × karat ÷ 24. It prices the gold price
+references your gold items use (18K, 21K, 24K) and gold held by the gram. Egyptian shops price above or below
+the world price; a price you type (your shop's) wins for its day.
+
 How: one request for a whole board's latest closes (EGX from TradingView, every Egyptian fund from Mubasher),
 so asking reveals nothing about what you hold; a month-end close comes from the instrument's history (Yahoo
 for stocks, Mubasher for funds). Only closes that are final are kept: during trading hours today's moving
@@ -22,6 +32,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import threading
 import time
 from dataclasses import dataclass, field
@@ -40,7 +51,8 @@ TRIED_SETTING = "prices_online_tried"   # the day the app last fetched by itself
 OFFLINE_ENV = "LIGHTNING_PRICES_OFFLINE"  # "1": never fetch (tests, and anyone who wants no network)
 FAILS_SETTING = "prices_online_fails"    # fetches in a row that left month-ends missing because a source failed
 NEAR_DAYS = 10                           # a close this close to a month-end stands for it (as revaluation reads it)
-CURRENCY = {"egx": "EGP", "eg-funds": "EGP", "us": "USD"}
+CURRENCY = {"egx": "EGP", "eg-funds": "EGP", "us": "USD", "gold": "EGP"}
+OUNCE = Decimal("31.1034768")              # grams in a troy ounce
 
 
 @dataclass
@@ -50,6 +62,7 @@ class Want:
     key: str            # the instrument: EG:COMI, EG:FUND:4104, US:AAPL
     pack: str
     month_ends: list[str] = field(default_factory=list)  # held month-ends without a price
+    purity: Decimal = Decimal(1)                          # gold: karat / 24
 
 
 @dataclass
@@ -58,9 +71,11 @@ class Plan:
     wants: list[Want] = field(default_factory=list)
     unknown: list[str] = field(default_factory=list)          # held, but no source can name it (type its price)
     other_currency: list[str] = field(default_factory=list)   # priced in another currency than the holding
+    unlinked: list[Want] = field(default_factory=list)        # held funds without a Mubasher number yet
+    linked: dict[int, str] = field(default_factory=dict)      # asset id -> the number its name matched
 
     def month_ends_missing(self) -> int:
-        return sum(len(w.month_ends) for w in self.wants)
+        return sum(len(w.month_ends) for w in self.wants + self.unlinked)
 
 
 @dataclass
@@ -71,6 +86,9 @@ class Report:
     missing: list[tuple[str, str]] = field(default_factory=list)  # (investment, month-end) still without a price
     unknown: list[str] = field(default_factory=list)
     other_currency: list[str] = field(default_factory=list)
+    gold: list[str] = field(default_factory=list)            # gold priced from the world price (an estimate)
+    linked: list[str] = field(default_factory=list)          # funds found on Mubasher by their name
+    unmatched: list[str] = field(default_factory=list)       # funds Mubasher has no such name for
 
     def summary(self) -> str:
         parts = [f"Fetched {self.saved} price{'s' if self.saved != 1 else ''} for {len(self.priced)} "
@@ -81,6 +99,14 @@ class Report:
             shown = ", ".join(f"{name} {day}" for name, day in self.missing[:3])
             parts.append(f"{len(self.missing)} month-end price{'s' if len(self.missing) != 1 else ''} still missing: "
                          f"{shown}{' and more' if len(self.missing) > 3 else ''}.")
+        if self.gold:
+            parts.append("Gold is an estimate from the world price and the dollar's rate; type your shop's price "
+                         "to use it instead.")
+        if self.linked:
+            parts.append(f"Found on Mubasher by name: {', '.join(self.linked[:3])}{' and more' if len(self.linked) > 3 else ''}.")
+        if self.unmatched:
+            parts.append(f"No fund on Mubasher is named {', '.join(self.unmatched[:3])}"
+                         f"{' and more' if len(self.unmatched) > 3 else ''}; paste its Mubasher page in Edit investment.")
         if self.unknown:
             parts.append(f"No online source for {', '.join(self.unknown[:3])}{' and more' if len(self.unknown) > 3 else ''}"
                          "; type their prices.")
@@ -106,6 +132,27 @@ def instrument_key(asset) -> tuple[str, str] | None:
     if key.startswith("US:"):
         return key, "us"
     return None
+
+
+def fund_name(text: str) -> str:
+    """A fund's name for matching: case, punctuation and the words every fund name shares set aside."""
+    words = re.sub(r"[^\w]+", " ", (text or "").casefold().replace("&", " and ")).split()
+    return " ".join(word for word in words if word not in {"fund", "funds", "the", "mutual"})
+
+
+def link_funds(work: Plan, instruments) -> list[Want]:
+    """Name each unlinked fund by the one Mubasher fund with the same name; the matched become wants."""
+    by_name: dict[str, list[str]] = {}
+    for instrument in instruments:
+        by_name.setdefault(fund_name(instrument.name), []).append(instrument.key)
+    matched = []
+    for want in work.unlinked:
+        keys = by_name.get(fund_name(want.name), [])
+        if len(keys) == 1 and want.asset_id not in work.linked:
+            want.key, work.linked[want.asset_id] = keys[0], keys[0]
+            work.wants.append(want)
+            matched.append(want)
+    return matched
 
 
 def final_day(pack: str, now: datetime) -> date:
@@ -136,19 +183,37 @@ def plan(c, on: date, now: datetime | None = None) -> Plan:
     result = Plan(fmt_date(on))
     first = c.reporting.first_activity_date()
     held: dict[int, list[str]] = {}
+    held_on: dict[int, list[str]] = {}  # every due month-end it was held on, priced or not (gold items)
     if first:
         for day in due_month_ends(on, date.fromisoformat(first[:10]), now):
             for holding in c.reporting.holdings(day)[0]:
-                if holding.quantity and holding.asset_id and not c.reevaluations.has_price(holding.asset_id, day):
-                    held.setdefault(holding.asset_id, []).append(day)
+                if holding.quantity and holding.asset_id:
+                    held_on.setdefault(holding.asset_id, []).append(day)
+                    if not c.reevaluations.has_price(holding.asset_id, day):
+                        held.setdefault(holding.asset_id, []).append(day)
     for holding in c.reporting.holdings(fmt_date(on))[0]:
         if holding.quantity and holding.asset_id:
             held.setdefault(holding.asset_id, [])
+    gold: dict[int, list[str]] = {}  # gold price references and gold held by the gram -> month-ends to price
     for asset_id, month_ends in sorted(held.items()):
         asset = c.assets.get_asset(asset_id)
-        if asset.is_cash or asset.code.startswith(("OTH:ITEM-", "REF:", "GLD:")):
+        if asset.code.startswith("OTH:ITEM-"):
+            item = c.reporting.q.physical_item(asset_id)
+            if item and item.get("reference_asset_id"):
+                ref = item["reference_asset_id"]
+                gold.setdefault(ref, [])
+                gold[ref] += [d for d in held_on.get(asset_id, [])
+                              if d not in gold[ref] and not c.reevaluations.has_price(ref, d)]
+            continue
+        if asset.code.startswith("GLD:") and asset.purity:
+            gold.setdefault(asset_id, []).extend(d for d in month_ends if d not in gold[asset_id])
+            continue
+        if asset.is_cash or asset.code.startswith(("REF:", "GLD:")):
             continue
         found = instrument_key(asset)
+        if found is None and asset.code.startswith("FND:"):
+            result.unlinked.append(Want(asset.id, asset.name, "", "eg-funds", month_ends))
+            continue
         if found is None:
             if month_ends:
                 result.unknown.append(asset.name)
@@ -158,7 +223,24 @@ def plan(c, on: date, now: datetime | None = None) -> Plan:
             result.other_currency.append(asset.name)
             continue
         result.wants.append(Want(asset.id, asset.name, key, pack, month_ends))
+    for asset_id, month_ends in sorted(gold.items()):
+        asset = c.assets.get_asset(asset_id)
+        if asset.purity and asset.currency == CURRENCY["gold"]:
+            result.wants.append(Want(asset.id, asset.name, "XAU/USD", "gold", sorted(month_ends), asset.purity))
     return result
+
+
+def per_gram(ounces: list[Quote], dollars: list[Quote]) -> list[Quote]:
+    """Pure gold in pounds a gram, each day both series have: dollars an ounce ÷ grams an ounce × the dollar's
+    rate on or before that day (rates are not published on every day gold trades)."""
+    rates = sorted((q.date, q.close) for q in dollars)
+    out = []
+    for q in sorted(ounces, key=lambda q: q.date):
+        prior = [(day, close) for day, close in rates if day <= q.date]
+        if prior and (date.fromisoformat(q.date) - date.fromisoformat(prior[-1][0])).days <= 5:
+            out.append(Quote("XAU", q.date, (q.close / OUNCE * prior[-1][1]).quantize(Decimal("0.000001")),
+                             "yahoo-history"))
+    return out
 
 
 def _range(oldest: date, on: date) -> str:
@@ -181,7 +263,21 @@ def gather(work: Plan, session=None, now: datetime | None = None, budget: float 
     on = date.fromisoformat(work.on)
 
     def last_final(want: Want) -> date:  # a fund's NAV is published once, already final, on its own date
+        if want.pack == "gold":  # gold trades round the clock: yesterday's close is the last final one
+            return min(now.astimezone(timezone.utc).date() - timedelta(days=1), on)
         return on if want.pack == "eg-funds" else min(final_day(want.pack, now), on)
+
+    def pick(want: Want, quotes, latest_known: bool) -> None:
+        """The last close on or before each missing month-end (within NEAR_DAYS), and the latest if none yet."""
+        picked: list[Quote] = []
+        ordered = sorted((q for q in quotes if date.fromisoformat(q.date) <= last_final(want)), key=lambda q: q.date)
+        for day in sorted(set(want.month_ends)):
+            before = [q for q in ordered if q.date <= day]
+            if before and (date.fromisoformat(day) - date.fromisoformat(before[-1].date)).days <= NEAR_DAYS:
+                picked.append(before[-1])
+        if ordered and not latest_known:
+            picked.append(ordered[-1])
+        keep(want, picked)
 
     def keep(want: Want, quotes) -> None:
         for quote in quotes:
@@ -202,17 +298,31 @@ def gather(work: Plan, session=None, now: datetime | None = None, budget: float 
                         keep(want, [closes[want.key]])
             except SourceError:
                 failed.append("TradingView")
-    if by_pack.get("eg-funds"):  # every Egyptian fund's latest NAV, one request
+    if by_pack.get("eg-funds") or work.unlinked:  # every Egyptian fund's latest NAV, one request
         try:
-            navs = {q.key: q for q in mubasher.fetch(session).quotes}
+            listing = mubasher.fetch(session)
+            navs = {q.key: q for q in listing.quotes}
+            by_pack.setdefault("eg-funds", []).extend(link_funds(work, listing.instruments))
             for want in by_pack["eg-funds"]:
                 if want.key in navs:
                     keep(want, [navs[want.key]])
         except SourceError:
             failed.append("Mubasher")
+    golds = by_pack.get("gold", [])
+    if golds and time.monotonic() <= deadline:  # two series price every purity: gold in dollars, the dollar in pounds
+        oldest = min([date.fromisoformat(d) for want in golds for d in want.month_ends] or [on])
+        try:
+            grams = per_gram(yahoo.fetch_history(session, "XAU/USD", _range(oldest, on)),
+                             yahoo.fetch_history(session, "USD/EGP", _range(oldest, on)))
+        except SourceError:
+            failed.append("Yahoo Finance")
+        else:
+            for want in golds:
+                pick(want, [Quote(want.key, q.date, (q.close * want.purity).quantize(Decimal("0.000001")), q.source)
+                            for q in grams], False)
     for want in work.wants:  # history: month-ends still missing, and a latest close the board did not give
         latest_known = bool(found.get(want.asset_id))
-        if (not want.month_ends and latest_known) or time.monotonic() > deadline:
+        if want.pack == "gold" or (not want.month_ends and latest_known) or time.monotonic() > deadline:
             continue
         oldest = date.fromisoformat(min(want.month_ends)) if want.month_ends else on
         try:
@@ -225,17 +335,7 @@ def gather(work: Plan, session=None, now: datetime | None = None, budget: float 
             if name not in failed:
                 failed.append(name)
             continue
-        wanted = set(want.month_ends)
-        picked: list[Quote] = []
-        ordered = sorted((q for q in quotes if date.fromisoformat(q.date) <= last_final(want)),
-                         key=lambda q: q.date)
-        for day in sorted(wanted):  # the last close on or before each month-end, within NEAR_DAYS
-            before = [q for q in ordered if q.date <= day]
-            if before and (date.fromisoformat(day) - date.fromisoformat(before[-1].date)).days <= NEAR_DAYS:
-                picked.append(before[-1])
-        if ordered and not latest_known:
-            picked.append(ordered[-1])
-        keep(want, picked)
+        pick(want, quotes, latest_known)
     return found, failed
 
 
@@ -244,6 +344,12 @@ def save(c, work: Plan, found: dict, failed: list[str]) -> Report:
     it allows, and remember what is still missing for Needs you."""
     report = Report(failed=list(failed), unknown=list(work.unknown), other_currency=list(work.other_currency))
     on = date.fromisoformat(work.on)
+    for want in work.unlinked:
+        if want.asset_id in work.linked:
+            c.assets.link_market(want.asset_id, work.linked[want.asset_id])
+            report.linked.append(want.name)
+        elif "Mubasher" not in failed:
+            report.unmatched.append(want.name)
     for want in work.wants:
         closes = found.get(want.asset_id, {})
         for day, close in sorted(closes.items()):
@@ -254,6 +360,8 @@ def save(c, work: Plan, found: dict, failed: list[str]) -> Report:
             report.saved += 1
         if closes:
             report.priced.append(want.name)
+            if want.pack == "gold":
+                report.gold.append(want.name)
     c.reevaluations.process_due()
     missing_ids = []
     for want in work.wants:
@@ -286,7 +394,7 @@ def failures(c) -> int:
 def fetch_now(c, on: date, session=None, now: datetime | None = None) -> Report:
     """Update prices: every held investment's latest close and every month-end it lacks, now."""
     work = plan(c, on, now)
-    found, failed = gather(work, session, now) if work.wants else ({}, [])
+    found, failed = gather(work, session, now) if work.wants or work.unlinked else ({}, [])
     return save(c, work, found, failed)
 
 

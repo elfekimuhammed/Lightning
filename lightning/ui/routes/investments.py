@@ -654,7 +654,8 @@ async def edit_asset(request: Request, asset_id: int):
     if asset.is_cash:
         raise NotFoundError("That is a currency, not an investment.")
     values = {"name": asset.name, "class_code": c.assets.get_class(asset.asset_class_id).code, "symbol": asset.ticker,
-              "isin": asset.isin or "", "mic": asset.mic or "", "notes": asset.notes, "active": "1" if asset.active else ""}
+              "isin": asset.isin or "", "mic": asset.mic or "", "notes": asset.notes, "active": "1" if asset.active else "",
+              "fund_page": (asset.market_key or "").removeprefix("EG:FUND:") if (asset.market_key or "").startswith("EG:FUND:") else ""}
     return _asset_form(request, values, asset=asset)
 
 
@@ -663,8 +664,11 @@ async def update_asset(request: Request, asset_id: int):
     c = container(request)
     asset = c.assets.get_asset(asset_id)
     form = await request.form()
-    values = {k: str(form.get(k, "")) for k in ("name", "class_code", "symbol", "isin", "mic", "notes", "active")}
+    values = {k: str(form.get(k, "")) for k in ("name", "class_code", "symbol", "isin", "mic", "notes", "active",
+                                                "fund_page")}
     try:
+        if "fund_page" in form:
+            c.assets.link_fund(asset_id, values["fund_page"])
         asset = c.assets.update_investment(asset_id, values["name"], values["class_code"], values["isin"],
                                            values["notes"], active=bool(values["active"]), ticker=values["symbol"],
                                            mic=values["mic"])
