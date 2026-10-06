@@ -43,21 +43,63 @@ jobs:
           python -m pip download --no-deps --no-binary=:all: \
             --dest /tmp/lightning-android-source "${PROBE_PACKAGE}==${PROBE_VERSION}"
           tar -xzf /tmp/lightning-android-source/*.tar.gz -C /tmp/lightning-android-source
-      - name: Supply SQLCipher Conan Android API setting for this experiment
+      - name: Give SQLCipher's Conan explicit Android host and Linux build profiles
         if: matrix.package == 'sqlcipher3'
         env:
           PROBE_VERSION: ${{ matrix.version }}
         run: |
+          # The upstream setup.py passes only os/arch, and Conan then guesses an Android *build* machine with no
+          # compiler. Two explicit profiles: OpenSSL cross-built by the NDK's Clang, Conan itself run on Linux.
+          test -d "${ANDROID_NDK_LATEST_HOME}"
+          cat > /tmp/lightning-conan-android <<PROFILE
+          [settings]
+          os=Android
+          os.api_level=24
+          arch=armv8
+          compiler=clang
+          compiler.version=18
+          compiler.libcxx=c++_static
+          build_type=Release
+          [conf]
+          tools.android:ndk_path=${ANDROID_NDK_LATEST_HOME}
+          tools.build:exelinkflags=["-Wl,-z,max-page-size=16384"]
+          tools.build:sharedlinkflags=["-Wl,-z,max-page-size=16384"]
+          PROFILE
+          cat > /tmp/lightning-conan-linux <<'PROFILE'
+          [settings]
+          os=Linux
+          arch=x86_64
+          compiler=gcc
+          compiler.version=13
+          compiler.libcxx=libstdc++11
+          build_type=Release
+          PROFILE
+          cat /tmp/lightning-conan-android
           python - <<'PY'
           import os
           from pathlib import Path
           source = Path('/tmp/lightning-android-source') / f"sqlcipher3-{os.environ['PROBE_VERSION']}" / 'setup.py'
           original = source.read_text(encoding='iso-8859-1')
-          needle = "    settings.append('arch=%s' % arch)"
+          needle = "        *[x for s in settings for x in ('-s', s)],"
           assert original.count(needle) == 1, 'upstream setup changed; review the Conan patch'
-          patched = original.replace(needle, needle + "\n    settings.append('os.api_level=24')")
+          patched = original.replace(needle, "        '-pr:h', '/tmp/lightning-conan-android', '-pr:b', '/tmp/lightning-conan-linux',")
           source.write_text(patched, encoding='iso-8859-1')
           PY
+      - name: Build a static OpenSSL for Android (cryptography links it)
+        if: matrix.package == 'cryptography'
+        run: |
+          set -euo pipefail
+          curl -fsSL -o /tmp/openssl.tar.gz https://github.com/openssl/openssl/releases/download/openssl-3.5.4/openssl-3.5.4.tar.gz
+          echo "967311f84955316969bdb1d8d4b983718ef42338639c621ec4c34fddef355e99  /tmp/openssl.tar.gz" | sha256sum -c -
+          tar -xzf /tmp/openssl.tar.gz -C /tmp
+          cd /tmp/openssl-3.5.4
+          export ANDROID_NDK_ROOT="${ANDROID_NDK_LATEST_HOME}"
+          export PATH="${ANDROID_NDK_ROOT}/toolchains/llvm/prebuilt/linux-x86_64/bin:${PATH}"
+          ./Configure android-arm64 -D__ANDROID_API__=24 no-shared no-tests no-docs \
+            -Wl,-z,max-page-size=16384 --prefix=/tmp/openssl-android --libdir=lib
+          make -j"$(nproc)" >/dev/null
+          make install_sw >/dev/null
+          ls /tmp/openssl-android/lib /tmp/openssl-android/include/openssl | head -5
       - name: Install isolated target-header locator
         run: cp android/find_target_python_include.py /tmp/lightning-find-target-python-include.py
       - name: Cross-build CPython 3.13 arm64 wheel
@@ -65,9 +107,13 @@ jobs:
           CIBW_BUILD: 'cp313-*'
           CIBW_ARCHS_ANDROID: arm64_v8a
           CIBW_TEST_SKIP: '*'
-          # cibuildwheel accepts Bash command substitution in its per-build
-          # environment. Locate the target Python headers, not host headers.
-          CIBW_ENVIRONMENT_ANDROID: 'CFLAGS="$CFLAGS -I$(python /tmp/lightning-find-target-python-include.py)"'
+          # cibuildwheel rewrites CFLAGS after this, but the Rust cc crate reads the target-specific
+          # variable first, so the full target flags (Python.h folder, Android OpenSSL) go there.
+          CIBW_ENVIRONMENT_ANDROID: >-
+            CFLAGS_aarch64_linux_android="-D__BIONIC_NO_PAGE_SIZE_MACRO -I$(python /tmp/lightning-find-target-python-include.py) -I/tmp/openssl-android/include -DNDEBUG -O3"
+            AARCH64_LINUX_ANDROID_OPENSSL_DIR=/tmp/openssl-android
+            OPENSSL_DIR=/tmp/openssl-android
+            OPENSSL_STATIC=1
           ANDROID_API_LEVEL: '24'
           PROBE_PACKAGE: ${{ matrix.package }}
           PROBE_VERSION: ${{ matrix.version }}
