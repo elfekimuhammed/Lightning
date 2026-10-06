@@ -7,7 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from lightning.core.errors import ValidationError
-from lightning.planning.domain import Frequency, PaymentStatus, PlanKind, PlannedItem
+from lightning.planning.domain import Frequency, PaymentStatus, PlanKind, PlannedItem, WeekendMove
 from lightning.planning.schedule import describe, payment_dates
 from lightning.ui.web import create_app
 
@@ -33,6 +33,41 @@ def test_payment_count_ends_a_loan_and_weekly_and_once_work():
     once = _item(frequency=Frequency.ONCE, start_date="2026-09-10")
     assert payment_dates(once, "2027-01-01") == [(1, "2026-09-10")]
     assert describe(loan) == "Monthly on day 5 · 3 payments"
+
+
+def test_weekend_dates_move_to_thursday_or_sunday_or_stay():
+    # 2026-10-02 is a Friday, 2026-10-03 a Saturday, 2026-07-31 a Friday at a month's end.
+    salary = _item(kind=PlanKind.INCOME, start_date="2026-10-02", weekend_move=WeekendMove.BEFORE)
+    assert payment_dates(salary, "2026-10-31") == [(1, "2026-10-01")]
+    rent = _item(start_date="2026-10-03", weekend_move=WeekendMove.AFTER)
+    assert payment_dates(rent, "2026-10-31") == [(1, "2026-10-04")]
+    assert payment_dates(_item(start_date="2026-10-02"), "2026-10-31") == [(1, "2026-10-02")]
+    # A Friday month-end moved after falls in the next month, and only a window that reaches it counts it.
+    late = _item(start_date="2026-07-31", weekend_move=WeekendMove.AFTER, payment_count=1)
+    assert payment_dates(late, "2026-07-31") == [] and payment_dates(late, "2026-08-02") == [(1, "2026-08-02")]
+    assert describe(salary) == "Monthly on day 2 · Thursday if on a weekend"
+
+
+def test_a_new_item_keeps_its_date_until_you_choose_and_a_paid_date_stays_paid(c, setup, monkeypatch):
+    monkeypatch.setenv("LIGHTNING_TODAY", "2026-10-06")
+    accounts, cats = setup
+    client = TestClient(create_app(c), base_url="http://127.0.0.1")
+    form = client.get("/plan/items/new?kind=INCOME").text
+    assert 'value="none" checked' in form and "On a weekend" in form and ">Day before<" in form
+    food = cats["EXP.PERSONAL.FOOD"]
+    item_id = c.planning.create(kind="BILL", name="Box", amount="400", frequency="MONTHLY", start_date="2026-10-02",
+                                category_id=str(food.id))
+    c.transactions.record_outflow("2026-10-02", accounts["cib"].id, "400", food.id, counterparty="Box")
+    assert c.planning.match_payments(date(2026, 10, 6)) == 1
+    item = c.planning.get(item_id)
+    c.planning.update(item_id, **{"kind": "BILL", "name": "Box", "amount": "400", "frequency": "MONTHLY",
+                                "start_date": "2026-10-02", "category_id": str(food.id), "weekend_move": "before"})
+    first = c.planning.payments(c.planning.get(item_id), "2026-10-31", date(2026, 10, 6))[0]
+    assert item.weekend_move == WeekendMove.NONE and first.due_date == "2026-10-01"
+    assert first.status == PaymentStatus.PAID  # settled under its old date, still paid after the move
+    with pytest.raises(ValidationError):
+        c.planning.create(kind="BILL", name="X", amount="1", frequency="MONTHLY", start_date="2026-10-02",
+                          weekend_move="sideways")
 
 
 # ------------------------------------------------------------ what you owe

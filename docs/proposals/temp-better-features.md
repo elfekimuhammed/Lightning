@@ -18,7 +18,7 @@
 | 1.4 | Finding the same transaction on import | Actual | **Owner decision** (one constant) | — |
 | 1.5 | Locking a month checked against the bank | Actual | Small | — |
 | 1.6 | Merging two transactions | Actual | Small | — |
-| 1.7 | Due dates that know the Egyptian weekend | Actual | Small | — |
+| 1.7 | Due dates that know the Egyptian weekend | Actual | **Built** 2026-10-06: [Architecture › Cash planning contract](../ARCHITECTURE.md); holidays still open | — |
 | 1.8 | Sums in amount fields | Actual | **Already built** (`core/money.py`, `tests/test_amount_sums.py`) | — |
 | 2.1 | Cost per purchase (lots) | GnuCash | Medium | — |
 | 2.2 | Bonus shares and stock splits | GnuCash | Medium | 2.1, 2.3 |
@@ -130,22 +130,6 @@
 **What to change:** `TransactionService.merge(keep_id, drop_id)` in one transaction (one undo step with 1.3): refuse if amounts or accounts differ; keep the one with `bank_reference`; copy category, notes, tags and counterparty where empty; void the other with reason "Merged into REF". A "Merge" action when exactly two rows are selected in the register.
 
 **Done when:** a test merges a typed and an imported row and the kept row has the bank reference and the typed category.
-
-### 1.7 Due dates that know the Egyptian weekend
-
-**They do better:** a bill due on a weekend moves to the working day before or after.
-
-**How they do it** (`loot-core/src/shared/schedules.ts`): each schedule has `skipWeekend` and `weekendSolve: before | after`; `getDateWithSkippedWeekend` (line 340) moves the date. But it uses date-fns `isWeekend`, **Saturday and Sunday**, which is wrong for Egypt.
-
-**Lightning today:** `planning/schedule.py` `payment_dates` has no weekend handling. Amount tolerance already exists (`planning/service.py` `MATCH_TOLERANCE`, `DEFAULT_TOLERANCE`), so nothing to add there.
-
-**What to change:**
-1. `WEEKEND = {4, 5}` (Friday, Saturday in `date.weekday()`) in `planning/schedule.py`.
-2. Planned items gain `weekend_move` (`none`, `before`, `after`); default `before` for salary (Egyptian payroll pays before the weekend) and `none` for the rest, so existing plans do not move.
-3. `payment_dates` applies it after computing each date.
-4. Later, optional: a dated public-holiday list shipped in the market data pack and applied the same way.
-
-**Done when:** tests: a salary due Friday falls on Thursday; a bill set to `after` due Friday falls on Sunday; `none` does not move.
 
 ---
 

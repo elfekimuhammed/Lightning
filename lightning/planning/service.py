@@ -12,9 +12,9 @@ from lightning.core.money import ZERO, from_e6, to_decimal
 from lightning.database.connection import Database
 from lightning.database.settings import SettingsStore
 
-from .domain import (Frequency, Payment, PaymentStatus, PlanKind, PlannedItem, WhatYouOwe, per_year)
+from .domain import (Frequency, Payment, PaymentStatus, PlanKind, PlannedItem, WeekendMove, WhatYouOwe, per_year)
 from .repository import PlanningRepository
-from .schedule import payment_dates
+from .schedule import payment_dates, scheduled_dates
 
 # A posted transaction settles a scheduled payment when it lands within this many days of the
 # due date and its amount is within the tolerance (loans are fixed instalments).
@@ -120,11 +120,12 @@ class PlanningService:
             skipped = sum(1 for (item_id, _), row in settled.items()
                           if item_id == item.id and row["status"] == PaymentStatus.SKIPPED.value)
             if skipped:
-                count = item.payment_count or len(payment_dates(item, item.end_date))
+                count = item.payment_count or len(payment_dates(item, "2999-12-31"))
                 item = replace(item, payment_count=count + skipped, end_date=None)
         out = []
-        for number, due in payment_dates(item, until):
-            row = settled.get((item.id, due))
+        for number, calendar_day, due in scheduled_dates(item, until):
+            # A payment settled before its weekend move changed stays settled under its old date.
+            row = settled.get((item.id, due)) or settled.get((item.id, calendar_day))
             if row:
                 status = PaymentStatus(row["status"])
             else:
@@ -414,10 +415,17 @@ class PlanningService:
         counterparty_id = self._id(values.get("counterparty_id"))
         if counterparty_id:
             self.counterparties.get(counterparty_id)
+        try:
+            weekend_move = WeekendMove(str(values.get("weekend_move") or "none").lower())
+        except ValueError:
+            raise ValidationError("Choose what happens when a payment falls on a weekend.", "weekend_move") from None
+        if frequency == Frequency.ONCE:
+            weekend_move = WeekendMove.NONE  # a one-off payment keeps the date you chose
         return {"kind": kind.value, "name": name, "amount": amount, "frequency": frequency.value,
                 "interval_count": interval, "start_date": start, "end_date": end, "payment_count": count,
                 "account_id": account_id, "category_id": category_id, "counterparty_id": counterparty_id,
-                "principal": principal, "notes": str(values.get("notes") or "").strip()}
+                "principal": principal, "notes": str(values.get("notes") or "").strip(),
+                "weekend_move": weekend_move.value}
 
     @staticmethod
     def _id(value) -> int | None:

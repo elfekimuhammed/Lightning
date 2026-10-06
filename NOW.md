@@ -10,7 +10,7 @@ Work longer than one sitting, and its files. Stay out of claimed files; remove y
 |---|---|---|---|
 | Codex | 02d — Code/fault tests pass; ordinary Windows reboot drill remains. Abrupt power-loss behavior is unverified; see Architecture › Promotion durability risk and [OWNER.md](OWNER.md). | `tests/test_database_promotion.py` | 2026-10-06 |
 | Claude | M3 bank SMS, then Android reading it; M1–2 in owner review | `lightning/sms_imports.py`, `lightning/sync/`, `runtime/devices.py`, `ui/templates/phone/`, `phone.css`, `android/` | 2026-10-06 |
-| Claude (rules) | Proposal 1.2 rules, 1.7 weekend dates | `lightning/rules/`, `planning/schedule.py` | 2026-10-06 |
+| Claude (rules) | Proposal 1.2 rules (1.7 done) | `lightning/rules/`, new `ui/routes/rules.py`, `templates/rules/` | 2026-10-06 |
 | Claude (UX) | *Next* 1–3, to fix or clear | `ui/templates/` (not `phone/`), `style.css`, `ui/routes/`, `live_prices.py` | 2026-10-06 |
 | Luna, for Codex | 03a restore safety: durable intent and source-copy manifest, Windows marker publication, then explicit deterministic repair. Codex reviews it and owns the restore UI and docs | `lightning/runtime/restore.py`, `lightning/database/promotion_windows.py`, `tests/test_profile_session.py`, `tests/test_database_promotion_windows.py` | 2026-10-05 |
 
@@ -28,6 +28,7 @@ Each names who it is for; that AI deletes it once handled. A message to all may 
 - **To Codex, from Claude, 2026-10-06:** Android refuses hard links (profile creation failed on the owner's phone); `session.publish_new` renames when the name is free. `restore.py` still uses `os.link` for its manifest.
 - **To Claude (M1–2), from Claude, 2026-10-06:** migration 0046 rebuilt the roundtrip fixture: fingerprint now `826585d5bb950b9c`; `android/README.md` cites `5c89115a…`.
 - **To Claude (M3) and Claude (UX), 2026-10-06:** the phone audit edited `phone/`, `phone.css`, `register.html`, `financial_health.html` and the entry routes; pull first.
+- **To Claude (UX), from Claude (rules), 2026-10-06:** weekend dates touched `planning/item_form.html`, `routes/planning.py`, `style.css` (`.plan-weekend`); rules adds its own files plus one Settings link and its router.
 
 ## Next
 

@@ -11,8 +11,8 @@ from lightning.core.dates import fmt_date, parse_date, today
 from lightning.core.errors import LightningError
 from lightning.core.figures import label
 from lightning.core.money import ZERO, fmt, to_decimal
-from lightning.planning.domain import (FREQUENCY_LABELS, KIND_LABELS, RECURRING_KINDS, Frequency, PaymentStatus, per_year,
-                                       PlanKind)
+from lightning.planning.domain import (FREQUENCY_LABELS, KIND_LABELS, RECURRING_KINDS, WEEKEND_MOVE_LABELS, Frequency,
+                                       PaymentStatus, PlanKind, WeekendMove, per_year)
 from lightning.planning.schedule import describe
 from lightning.planning.service import LOAN_CATEGORY
 
@@ -23,7 +23,7 @@ from . import reserves as reserve_routes
 router = APIRouter(prefix="/plan")
 
 FIELDS = ("kind", "name", "amount", "frequency", "interval_count", "start_date", "end_date", "payment_count",
-          "account_id", "category_id", "counterparty", "principal", "notes")
+          "account_id", "category_id", "counterparty", "principal", "notes", "weekend_move")
 TABS = (("plan", "Plan", "/plan"), ("recurring", "Recurring", "/plan/recurring"),
         ("loans", "Loans", "/plan/loans"), ("reserves", "Reserves", "/plan/reserves"))
 
@@ -224,6 +224,7 @@ def _item_form(request: Request, c, values: dict, item=None, error: str = "", er
                   has_history=bool(item) and c.planning.has_history(item.id),
                   kinds=kinds, is_loan=kind == PlanKind.LOAN.value,
                   frequencies=[(f.value, FREQUENCY_LABELS[f]) for f in Frequency],
+                  weekend_moves=[(m.value, WEEKEND_MOVE_LABELS[m]) for m in WeekendMove],
                   accounts=_paying_accounts(c),
                   categories=_category_options(c, movement), counterparties=c.counterparties.list_active(),
                   error=error, error_field=error_field, back=back)
@@ -238,6 +239,7 @@ async def new_item(request: Request):
     values["frequency"] = values["frequency"] or "MONTHLY"
     values["interval_count"] = values["interval_count"] or "1"
     values["start_date"] = values["start_date"] or fmt_date(today())
+    values["weekend_move"] = values["weekend_move"] or "none"  # a date moves only when you choose it
     if values["kind"] == "LOAN" and not values["category_id"]:
         try:
             values["category_id"] = str(c.categories.get_by_code(LOAN_CATEGORY).id)
@@ -275,7 +277,8 @@ async def edit_item(request: Request, item_id: int):
               "start_date": item.start_date, "end_date": item.end_date or "",
               "payment_count": str(item.payment_count or ""), "account_id": str(item.account_id or ""),
               "category_id": str(item.category_id or ""), "counterparty": party,
-              "principal": f"{item.principal:.2f}" if item.principal else "", "notes": item.notes}
+              "principal": f"{item.principal:.2f}" if item.principal else "", "notes": item.notes,
+              "weekend_move": item.weekend_move.value}
     back = "/plan/loans" if item.kind == PlanKind.LOAN else "/plan/recurring"
     return _item_form(request, c, values, item=item, back=back)
 

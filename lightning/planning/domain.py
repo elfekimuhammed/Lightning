@@ -31,6 +31,16 @@ FREQUENCY_LABELS = {Frequency.ONCE: "Once", Frequency.WEEKLY: "Weekly", Frequenc
                     Frequency.QUARTERLY: "Every 3 months", Frequency.YEARLY: "Yearly"}
 
 
+class WeekendMove(StrEnum):
+    """Where a payment that falls on Friday or Saturday goes."""
+    NONE = "none"
+    BEFORE = "before"   # Thursday: Egyptian payroll pays before the weekend
+    AFTER = "after"     # Sunday
+
+
+WEEKEND_MOVE_LABELS = {WeekendMove.NONE: "Keep", WeekendMove.BEFORE: "Day before", WeekendMove.AFTER: "Day after"}
+
+
 class PaymentStatus(StrEnum):
     PAID = "PAID"          # settled by a posted transaction
     SKIPPED = "SKIPPED"    # the user says this one will not happen
@@ -55,6 +65,7 @@ class PlannedItem:
     principal: Decimal | None
     active: bool
     notes: str
+    weekend_move: WeekendMove = WeekendMove.NONE
 
     @property
     def is_income(self) -> bool:
