@@ -97,3 +97,15 @@ It also prints each step's seconds (input for 04d). Linux and Windows gave the e
 Linux and Windows (fingerprint `a00fc4f576edb7c9`). Phone timings: unlock with password 0.54 s, open 0.06 s,
 write 0.06 s, unlock with recovery key 1.79 s, reopen 0.65 s. Lesson: name every Chaquopy source folder; CI now
 checks the APK carries the probe, the round-trip and the fixture.
+
+**04c: one shared page (2026-10-06, Claude).** At launch the probe also renders every finance page of the dummy
+profile on the owning thread, with no server (`runtime/selfcheck.finance_page_checks`). **Open Lightning (04c)**
+then runs the same loopback runtime as Windows (`Host`, `profile_app`) on a fresh copy of the profile in app-private
+storage and opens it in a WebView: no file or content access, no remote debugging, no extra windows, plain HTTP
+only to 127.0.0.1 (`res/xml/network_security_config.xml`), and every navigation or request off that origin
+blocked. From the Overview it tries to leave three ways (https, file, intent) and to fetch the internet; all
+must fail. Before the WebView opens, Python checks that the server refuses a missing cookie, a foreign Host or
+Origin and a wrong launch code. Back stops the server, and the profile must close on its own thread and release
+its lock. Last, it lists the app's loaded native libraries and fails any not aligned for 16 KB pages, and reports
+the phone's page size. A 4 KB-page phone shows alignment only; loading on a 16 KB-page device is still unverified.
+`tests/test_android_probe.py` runs the Python side on Linux. APK: [run 37469368422](https://github.com/elfekimuhammed/Lightning/actions/runs/37469368422).

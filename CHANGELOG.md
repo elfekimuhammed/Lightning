@@ -10,6 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-06 · Claude: 04c: the Android probe renders every finance page of the dummy profile, then serves Lightning's own runtime on 127.0.0.1 to a locked-down WebView (no file, foreign-site or debugger access) and reports server guards, owning-thread shutdown and 16 KB alignment (`tests/test_android_probe.py`). Phone run pending.
 
 - 2026-10-06 · Claude: the level-1 group "System" is now "Loans & held money" (migration `0044_loans_group_name.sql`; a renamed group keeps its name); samples and the round-trip fixture rebuilt (only its schema lines changed).
 - 2026-10-06 · Claude: 04b passed: on the owner's arm64 phone the encrypted round-trip (open, write, close, reopen, recovery key) gives the same figures, row counts and key checks as Linux and Windows (`android/README.md`). 04c is next.
