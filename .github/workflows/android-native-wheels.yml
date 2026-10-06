@@ -132,12 +132,14 @@ jobs:
           CIBW_ARCHS_ANDROID: arm64_v8a
           CIBW_TEST_SKIP: '*'
           # cibuildwheel rewrites CFLAGS after this, but the Rust cc crate reads the target-specific
-          # variable first, so the full target flags (Python.h folder, Android OpenSSL) go there.
+          # variable first, so the full target flags (Python.h folder, Android OpenSSL) go there. Android
+          # resolves no Python symbol for a module that does not link libpython (cryptography's abi3 _rust.so).
           CIBW_ENVIRONMENT_ANDROID: >-
             CFLAGS_aarch64_linux_android="-D__BIONIC_NO_PAGE_SIZE_MACRO -I$(python /tmp/lightning-find-target-python-include.py) -I/tmp/openssl-android/include -DNDEBUG -O3"
             AARCH64_LINUX_ANDROID_OPENSSL_DIR=/tmp/openssl-android
             OPENSSL_DIR=/tmp/openssl-android
             OPENSSL_STATIC=1
+            CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS="-C link-arg=-L$(python /tmp/lightning-find-target-python-include.py lib) -C link-arg=-lpython3.13"
             PKG_CONFIG_PATH=/tmp/libffi-android/lib/pkgconfig
           ANDROID_API_LEVEL: '24'
           PROBE_PACKAGE: ${{ matrix.package }}
@@ -146,6 +148,23 @@ jobs:
           python -m cibuildwheel --platform android --archs arm64_v8a
           --output-dir /tmp/lightning-android-wheels
           "/tmp/lightning-android-source/${PROBE_PACKAGE}-${PROBE_VERSION}"
+      - name: Check every native module links libpython and uses 16 KB pages
+        run: |
+          set -euo pipefail
+          readelf="${ANDROID_NDK_LATEST_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+          mkdir -p /tmp/wheel-check && cd /tmp/wheel-check
+          for wheel in /tmp/lightning-android-wheels/*.whl; do python -m zipfile -e "$wheel" .; done
+          status=0
+          while IFS= read -r so; do
+            # Android resolves Python symbols only through a declared libpython dependency.
+            if "$readelf" --dyn-syms "$so" | grep -q ' UND .*Py' && ! "$readelf" -d "$so" | grep -q 'libpython3.13.so'; then
+              echo "::error::$so uses Python symbols but does not link libpython3.13.so"; status=1
+            fi
+            if "$readelf" -l "$so" | awk '$1=="LOAD" && $NF!="0x4000"{bad=1} END{exit !bad}'; then
+              echo "::error::$so has a LOAD segment not aligned to 16 KB"; status=1
+            fi
+          done < <(find . -name '*.so')
+          exit $status
       - uses: actions/upload-artifact@v4
         if: success()
         with:
