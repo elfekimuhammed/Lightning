@@ -69,6 +69,15 @@ def copy_stream(source: BinaryIO, target: BinaryIO, size: int) -> None:
         left -= len(block)
 
 
+def promotion_files(folder: Path):
+    """This platform's durable file adapter for promotion (lightning.database.promotion)."""
+    if os.name == "nt":
+        from lightning.database.promotion_windows import WindowsPromotionFileOps
+        return WindowsPromotionFileOps(folder)
+    from lightning.database.promotion import PosixPromotionFileOps
+    return PosixPromotionFileOps(folder)
+
+
 # ==================================================================== home (the phone)
 
 class HomeBridge(Protocol):
@@ -293,7 +302,7 @@ class HomeNode:
     def accept_pending(self) -> Accepted | None:
         """Verify and promote the received copy (plan section 9). Called on receipt and on every unlock.
         A copy that fails verification leaves the ledger at NEEDS_REPAIR, with every file kept."""
-        from lightning.database.promotion import CandidatePromotionService, PosixPromotionFileOps
+        from lightning.database.promotion import CandidatePromotionService
         with self._lock:
             home = self.model
             pending = home.pending_return()
@@ -316,11 +325,7 @@ class HomeNode:
             checkpoint = self._checkpoint_path(new_checkpoint)
             if not checkpoint.exists():
                 shutil.copyfile(candidate, checkpoint)
-            if os.name == "nt":
-                from lightning.database.promotion_windows import WindowsPromotionFileOps as Files
-            else:
-                Files = PosixPromotionFileOps
-            with Files(self.live.parent) as files:
+            with promotion_files(self.live.parent) as files:
                 CandidatePromotionService(files, self.store).promote(
                     operation_id=derived_id("promote", pending.return_id),
                     old_checkpoint_id=accepted.checkpoint_id, new_checkpoint_id=new_checkpoint,
@@ -333,15 +338,12 @@ class HomeNode:
 
     def recover(self) -> None:
         """At unlock: finish an interrupted promotion, then accept a copy that arrived while locked."""
-        from lightning.database.promotion import CandidatePromotionService, PosixPromotionFileOps
+        from lightning.database.promotion import CandidatePromotionService
         with self._lock:
             if self.store.unresolved_promotion() is not None:
                 key = self._key()
                 profile_id = self.profile_id
-                Files = PosixPromotionFileOps
-                if os.name == "nt":
-                    from lightning.database.promotion_windows import WindowsPromotionFileOps as Files
-                with Files(self.live.parent) as files:
+                with promotion_files(self.live.parent) as files:
                     CandidatePromotionService(files, self.store).recover(
                         live_name=self.live.name, operation_gate=self._offline(),
                         verify_database=lambda name: verify_copy(self.live.parent / name, key, profile_id),

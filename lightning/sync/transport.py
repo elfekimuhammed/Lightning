@@ -207,16 +207,29 @@ class HomeServer:
                 try:
                     self._exchange(stream)
                 except ProtocolError as refused:
-                    send_message(stream, Error(refused.code, str(refused)[:300]))
+                    self._refuse(stream, Error(refused.code, str(refused)[:300]))
                 except CopyRejected as rejected:
-                    send_message(stream, Error("NEEDS_REPAIR", str(rejected)[:300]))
-                except (ValueError, KeyError) as bad:
-                    send_message(stream, Error("BAD_REQUEST", "The request was not understood."))
+                    self._refuse(stream, Error("NEEDS_REPAIR", str(rejected)[:300]))
+                except (ValueError, KeyError):
+                    self._refuse(stream, Error("BAD_REQUEST", "The request was not understood."))
         except (OSError, ssl.SSLError, ConnectionError):
             pass  # the PC sees LinkDown and retries
         finally:
             raw.close()
             self._slots.release()
+
+    @staticmethod
+    def _refuse(stream, error: Error) -> None:
+        """Answer, then read what the PC is still sending before closing: closing with unread data resets
+        the connection, and the PC would see "dropped" instead of the reason (seen on Windows)."""
+        send_message(stream, error)
+        stream.settimeout(2)
+        deadline = time.monotonic() + 10
+        try:
+            while time.monotonic() < deadline and stream.recv(CHUNK):
+                pass
+        except (OSError, ssl.SSLError):
+            pass
 
     def _exchange(self, stream) -> None:
         nonce = secrets.token_hex(32)

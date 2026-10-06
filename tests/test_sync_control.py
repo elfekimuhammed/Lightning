@@ -8,7 +8,8 @@ import uuid
 
 import pytest
 
-from lightning.database.promotion import CandidatePromotionService, PosixPromotionFileOps, PromotionPhase
+from lightning.database.promotion import CandidatePromotionService, PromotionPhase
+from lightning.sync.service import promotion_files
 from lightning.sync.control import ControlCorrupt, ControlStore, Peer, blocks_restore
 from lightning.sync.domain import BorrowActivated, BorrowRequest, Compatibility, ReturnBegin
 from lightning.sync.state import BorrowerModel, HomeProtocolModel, HomeState, ProtocolError
@@ -108,7 +109,7 @@ def test_promotion_p4_records_acceptance_in_the_same_store(tmp_path):
                         grant.base_checkpoint_id, sha(live_dir / "candidate.db"), 22)
     store.home(lambda h: h.receive_return(begin, authenticated_peer=borrower))
     activated = []
-    with PosixPromotionFileOps(live_dir) as files:
+    with promotion_files(live_dir) as files:
         result = CandidatePromotionService(files, store).promote(
             operation_id=new(), old_checkpoint_id=home.checkpoint_id, new_checkpoint_id=new(),
             live_name="live.db", candidate_name="candidate.db", previous_name="previous.db",
@@ -131,7 +132,7 @@ def test_p4_refuses_a_file_no_return_matches(tmp_path):
     (live_dir / "candidate.db").write_bytes(b"something nobody returned")
     home = store.read("home")
     store.rebase_accepted(home.checkpoint_id, sha(live_dir / "live.db"))
-    with PosixPromotionFileOps(live_dir) as files, pytest.raises(ProtocolError):
+    with promotion_files(live_dir) as files, pytest.raises(ProtocolError):
         CandidatePromotionService(files, store).promote(
             operation_id=new(), old_checkpoint_id=home.checkpoint_id, new_checkpoint_id=new(),
             live_name="live.db", candidate_name="candidate.db", previous_name="previous.db",
