@@ -3,9 +3,10 @@
 {% extends "base.html" %}
 {% block title %}Accounts{% endblock %}
 {% block heading %}<h1>Accounts</h1>
+<p>Total balance</p>
 <div class="phone-lead">{{ gross_total|money(False, 0) }} <small>{{ base }}</small></div>
 <p class="phone-note">{{ fig.what_you_own.label }} {{ net_worth.total|money(False, 0) }}</p>{% endblock %}
-{% block top_actions %}<a class="btn" href="/accounts/new">Add account</a><a class="btn" href="/sms">From SMS</a>{% endblock %}
+{% block top_actions %}{# C04.5: the everyday action as one Secondary, the rest behind ⋯ #}<a class="btn" href="/sms">From SMS</a><details class="action-menu phone-more-menu"><summary aria-label="More actions">⋯</summary><div><a href="/accounts/new">Add account</a><a href="/transactions/deleted">Deleted transactions</a></div></details>{% endblock %}
 {% block content %}
 <section class="card phone-card" aria-label="Your accounts">
   <div class="phone-rows is-list">

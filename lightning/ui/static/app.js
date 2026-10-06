@@ -1499,7 +1499,7 @@ document.querySelectorAll("[data-counterparty-filter]").forEach((search) => {
       form.querySelectorAll(".transfer-only").forEach((field) => field.hidden = kind !== "transfer");
       form.querySelectorAll(".money-only").forEach((field) => field.hidden = kind === "transfer");
       if (category) [...category.options].forEach((option) => {
-        option.hidden = option.value !== "" && option.dataset.movement !== (kind === "out" ? "OUTFLOW" : "INFLOW");
+        option.hidden = kind === "out" && option.value !== "" && option.dataset.movement !== "OUTFLOW";  // in: income, or a refund
         if (option.hidden && option.selected) category.value = "";
       });
       if (category) { category.disabled = kind === "transfer"; category.required = kind !== "transfer"; }
@@ -2252,4 +2252,26 @@ window.lightningPrivacy = (() => {
     };
     window.setTimeout(ask, 2000);
   }
+})();
+
+// C08.5 on a phone: press and hold a transaction to start selecting, with that row chosen.
+(() => {
+  document.querySelectorAll(".phone-txn[data-txn]").forEach((row) => {
+    let timer = 0, held = false, x = 0, y = 0;
+    const stop = () => window.clearTimeout(timer);
+    row.addEventListener("pointerdown", (event) => {
+      held = false; x = event.clientX; y = event.clientY;
+      timer = window.setTimeout(() => {
+        held = true;
+        const url = new URL(window.location.href);
+        url.searchParams.set("select", "1");
+        url.searchParams.set("pick", row.dataset.txn);
+        window.location.href = url.toString();
+      }, 550);
+    });
+    row.addEventListener("pointermove", (event) => { if (Math.abs(event.clientX - x) + Math.abs(event.clientY - y) > 10) stop(); });
+    ["pointerup", "pointerleave", "pointercancel"].forEach((name) => row.addEventListener(name, stop));
+    row.addEventListener("contextmenu", (event) => event.preventDefault());
+    row.addEventListener("click", (event) => { if (held) { event.preventDefault(); event.stopImmediatePropagation(); } }, true);
+  });
 })();

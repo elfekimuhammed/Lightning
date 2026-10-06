@@ -47,7 +47,8 @@ html.phone.keyboard-open .phone-tabbar, html.phone.sheet-open .phone-tabbar { di
 .phone-header h1 { margin: 0; font-size: 24px; line-height: 1.2; color: var(--c-ink); }
 .phone-header .muted, .phone-header p { margin: 4px 0 0; color: var(--c-muted); font-size: 13px; }
 .phone-header > div { display: block; }
-.phone-page-actions { display: flex; flex-direction: column; gap: 8px; margin: 12px 0 0; }
+.phone-page-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 12px 0 0; }
+.phone-page-actions > :not(.btn):not(.action-menu) { flex: 1 1 100%; }
 .phone-page-actions:empty { display: none; }
 .phone-page-actions > .btn { align-self: flex-start; min-height: 40px; }
 .phone .site-period-control { display: flex; flex-direction: column; gap: 8px; width: 100%; }
@@ -71,6 +72,10 @@ html.phone.keyboard-open .phone-tabbar, html.phone.sheet-open .phone-tabbar { di
 .phone .section-tabs .plan-tab { justify-content: center; min-height: 48px; min-width: 0; padding: 0 6px; white-space: nowrap; }
 .phone .section-tabs:has(.plan-tab:nth-child(4)) .plan-tab:not([aria-current]) { font-size: 0; gap: 0; }
 .phone .section-tabs:has(.plan-tab:nth-child(4)) .plan-tab svg { width: 22px; height: 22px; }
+/* The chosen tab takes the room its name needs; the icons share the rest, so "Data checks" is never cut (C03.3). */
+.phone .section-tabs:has(.plan-tab:nth-child(4)) { display: flex; }
+.phone .section-tabs:has(.plan-tab:nth-child(4)) .plan-tab { flex: 1 1 0; }
+.phone .section-tabs:has(.plan-tab:nth-child(4)) .plan-tab[aria-current] { flex: 0 0 auto; padding: 0 14px; }
 /* Two or three tabs: words only, wrapping to two lines rather than squeezing the icon to a dot or the last word
    against the edge (review, 2026-10-06). */
 .phone .section-tabs:not(:has(.plan-tab:nth-child(4))) .plan-tab svg { display: none; }
@@ -84,7 +89,8 @@ html.phone.keyboard-open .phone-tabbar, html.phone.sheet-open .phone-tabbar { di
 
 /* C06 cards: one column, 16 inside, 20px corners, 12 between. */
 .phone .card, .phone .overview-block { box-sizing: border-box; width: 100%; max-width: 100%; margin: 0 0 12px; padding: 16px; border-radius: 20px; }
-.phone .overview-split, .phone .grid, .phone [class*="-grid"] { grid-template-columns: minmax(0, 1fr) !important; }
+.phone .overview-split, .phone .grid, .phone [class*="-grid"]:not(.cal-grid) { grid-template-columns: minmax(0, 1fr) !important; }
+/* A calendar keeps its seven days across (C07): only layout grids fold to one column. */
 .phone .overview-split { display: grid; gap: 16px; }
 .phone .flash { margin: 12px 0; }
 .phone .flash.device-line { flex-direction: column; align-items: stretch; }
@@ -146,9 +152,9 @@ html.phone.keyboard-open .phone-tabbar, html.phone.sheet-open .phone-tabbar { di
 .phone-kpi { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 14px; border-radius: 20px; background: var(--c-surface);
   box-shadow: var(--shadow); color: var(--c-ink); text-decoration: none; box-sizing: border-box; }
 .phone-kpi:hover { text-decoration: none; }
-.phone-kpi-head { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+.phone-kpi-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px; }
 .phone-kpi-head .stat-chip { white-space: nowrap; }
-.phone-kpi-label { font-size: 13px; font-weight: 700; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.phone-kpi-label { font-size: 13px; font-weight: 700; line-height: 1.3; } /* wraps, never ends in "…" (C12) */
 .phone-kpi-value { font: 800 26px/1.1 var(--display, inherit); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .phone-kpi-value.is-long { font-size: 22px; }
 .phone-kpi-value small { font-size: 14px; margin-left: 2px; }
@@ -174,10 +180,11 @@ html.phone.keyboard-open .phone-tabbar, html.phone.sheet-open .phone-tabbar { di
 .phone-flow-bar { display: flex; height: 14px; border-radius: 99px; overflow: hidden; background: var(--c-track); }
 .phone-flow-bar i { display: block; height: 100%; border-right: 2px solid var(--c-surface); }
 .phone-flow-bar i:last-child { border-right: 0; }
-.tone-in { background: #14A874; }
-.tone-out, .tone-spend { background: #E68CA8; }
-.tone-kept, .tone-save { background: #14A874; }
-.tone-hold { background: #0B6DD6; }
+/* Only the flow bar's parts and their keys: a chart or meter elsewhere with a tone class keeps its own look. */
+:is(.phone-flow-bar i, .phone-key).tone-in { background: #14A874; }
+:is(.phone-flow-bar i, .phone-key):is(.tone-out, .tone-spend) { background: #E68CA8; }
+:is(.phone-flow-bar i, .phone-key):is(.tone-kept, .tone-save) { background: #14A874; }
+:is(.phone-flow-bar i, .phone-key).tone-hold { background: #0B6DD6; }
 
 /* C07.3.4: the year as 4 × 3 month tiles. */
 .phone-months { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin: 10px 0; }
@@ -236,7 +243,8 @@ html.phone.keyboard-open .phone-tabbar, html.phone.sheet-open .phone-tabbar { di
 .phone-txn-amount b.pos { color: #097852; }
 .phone-more-link { width: 100%; margin: 16px 0 0; justify-content: center; }
 
-/* C05.2: the add button, 56 Nile, 16 from the edge, 16 above the tab bar. */
+/* C05.2: the add button, 56 Nile, 16 from the edge, 16 above the tab bar; the page ends above it so it never covers a row. */
+.phone-content:has(> .phone-add) { padding-bottom: calc(var(--c-tabbar) + env(safe-area-inset-bottom) + 96px); }
 .phone-add { position: fixed; right: 16px; bottom: calc(var(--c-tabbar) + env(safe-area-inset-bottom) + 16px); z-index: 19;
   display: inline-flex; align-items: center; justify-content: center; width: 56px; height: 56px; border-radius: 999px;
   background: var(--c-nile); color: #fff; box-shadow: 0 6px 18px rgba(10, 36, 66, .3); }
@@ -306,3 +314,63 @@ a.phone-bar-row, a.phone-group-head { color: inherit; text-decoration: none; } /
 .sms-unread p { margin: 0 0 4px; overflow-wrap: anywhere; }
 .sms-unread-actions { display: flex; gap: 8px; margin-top: 8px; }
 .sms-unread-actions form { margin: 0; }
+
+/* C04.5 and C05.3: one Secondary, then ⋯ for the rest; the menu's rows are 48 to touch. */
+.phone .phone-more-menu { align-self: center; }
+.phone .phone-more-menu > summary { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 0;
+  border-radius: 999px; font-size: 20px; line-height: 1; }
+.phone .phone-page-actions .phone-more-menu:first-child > div { left: 0; right: auto; }
+.phone .phone-more-menu > div { min-width: 220px; padding: 6px; border-radius: 16px; }
+.phone .phone-more-menu > div > a, .phone .phone-more-menu > div form button { display: flex; align-items: center; min-height: 48px; padding: 0 12px; font-size: 15px; }
+.phone-limit input { flex: none; width: 128px; min-height: 44px; border: 0; border-radius: 12px; background: var(--c-well); padding: 0 12px;
+  text-align: right; font-variant-numeric: tabular-nums; }
+.phone-row > b.phone-row-action { color: var(--c-nile); font-weight: 700; } /* the row says what a tap does */
+.phone-limit .phone-row-link { flex: 1; min-width: 0; color: inherit; text-decoration: none; }
+.phone-limit .phone-row-link > span { display: flex; flex-direction: column; }
+.phone-limit em { font-style: normal; font-weight: 600; }
+.phone-limit form { flex: none; display: flex; flex-direction: column; align-items: flex-end; }
+.phone-limit form input[name="rule"] { width: 112px; }
+.phone-limit .save-state { font-size: 12px; color: var(--c-muted); }
+
+/* C08.5: selecting rows. Press and hold a row (or Select); a tinted row is chosen; the bar takes the tab bar's place. */
+main.phone-content { counter-reset: picked; }
+.phone-txn.is-pick { cursor: pointer; position: relative; margin: 0 -14px; padding-left: 14px; padding-right: 14px; }
+.phone-txn.is-pick input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.phone-txn.is-pick:has(input:checked) { background: #E3F4EA; box-shadow: inset 4px 0 0 #14A874; counter-increment: picked; }
+.phone-txn.is-pick:has(input:focus-visible) { outline: 2px solid #14A874; outline-offset: -2px; }
+.phone-body:has(.phone-select-bar) .phone-tabbar { display: none; }
+.phone-select-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 21; display: grid; gap: 8px; padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  background: var(--c-surface); border-top: 1px solid var(--c-line); box-shadow: 0 -6px 18px rgba(10, 36, 66, .08); }
+.phone-select-count { font-weight: 700; }
+.phone-select-count::before { content: counter(picked); }
+.phone-select-bar select { width: 100%; min-height: 48px; border: 0; border-radius: 12px; background: var(--c-well); padding: 0 14px; }
+.phone-select-actions { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.phone-content:has(.phone-select-bar) { padding-bottom: 200px; }
+
+/* Categories on a phone: each category is a short stack, never a cut-off table row (C12). Its name full width,
+   then its direction and the two pills, then its icons; no checkbox column (C05.3). */
+.phone .cat-toolbar { display: flex; flex-direction: column; align-items: stretch; gap: 8px; }
+.phone .cat-search input { width: 100%; }
+.phone .cat-bulk, .phone .cat-item .category-select, .phone .cat-spacer { display: none !important; }
+.phone .cat-grid { display: block !important; }
+.phone .cat-block { padding: 0; border: 0; }
+.phone .cat-l1 { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.phone .cat-item:not([hidden]) { display: flex !important; flex-wrap: wrap; align-items: center; gap: 8px; width: 100%; min-width: 0;
+  padding: 10px 0; border-top: 1px solid var(--c-line); box-sizing: border-box; grid-template-columns: none !important; }
+.phone .cat-item.level-3 { padding-left: 16px; }
+.phone .cat-item .cat-name-field { flex: 1 1 100%; width: 100%; min-width: 0; min-height: 48px; }
+.phone .cat-item select { flex: 1 1 120px; min-width: 0; min-height: 40px; }
+.phone .cat-item .cat-pill { min-height: 40px; }
+.phone .cat-item .cat-actions { display: flex; align-items: center; gap: 4px; margin-left: auto; }
+.phone .cat-item .cat-icon { width: 44px; height: 44px; }
+
+/* Financial health rows on a phone: name and value, the meter under them, the status, then "Show the numbers"
+   as a quiet link at the start (C05.1), never centred above the meter. */
+.phone .health-row { display: grid !important; grid-template-columns: minmax(0, 1fr) auto !important;
+  grid-template-areas: "name value" "meter meter" "status status" "numbers numbers"; gap: 6px 12px; padding: 14px 0; }
+.phone .health-row-name { grid-area: name; }
+.phone .health-row-value { grid-area: value; font-size: 17px; }
+.phone .health-meter { grid-area: meter; display: block; }
+.phone .health-row-status { grid-area: status; }
+.phone .health-row .health-numbers { grid-area: numbers; justify-self: start !important; }
+.phone .health-numbers > summary { min-height: 44px; display: inline-flex; align-items: center; font-weight: 700; color: var(--c-nile); }

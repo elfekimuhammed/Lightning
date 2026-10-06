@@ -3,6 +3,7 @@
    the PC's dialog (transactions/form_popup.html); the route does the work. #}
 {% extends "base.html" %}
 {% block title %}{{ title }}{% endblock %}
+{% block phone_back %}<a class="phone-back" href="{{ return_to or '/accounts/' ~ account.id }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><span>{{ account.name }}</span></a>{% endblock %}
 {% block heading %}{% endblock %}{# the sheet title below is the one title, as a page or a sheet #}
 {% block content %}
 <section class="card app-popup-content phone-entry" data-transaction-form data-account-name="{{ account.name }}" data-currency="{{ account.currency }}">
@@ -64,5 +65,7 @@
     <p class="small muted inline-save-status" data-popup-status aria-live="polite"></p>
     {% if not txn_id %}<button type="submit" class="btn primary phone-save">Save</button>{% endif %}
   <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
+  {% if txn_id %}<div class="phone-sheet-foot"><a class="phone-quiet" href="/transactions/{{ txn_id }}">All details</a>
+  <form method="post" action="/transactions/{{ txn_id }}/delete" data-confirm-delete><button class="btn danger phone-save">Delete</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form></div>{% endif %}
 </section>
 {% endblock %}

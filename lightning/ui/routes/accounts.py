@@ -163,8 +163,7 @@ async def save_transaction_popup(request: Request, account_id: int):
             if not category_id:
                 raise ValidationError("Choose a category.", "category")
             category = c.categories.get(category_id)
-            expected = "OUTFLOW" if kind == "out" else "INFLOW"
-            if category.movement.value != expected:
+            if kind == "out" and category.movement.value != "OUTFLOW":  # money in to an expense is a refund
                 raise ValidationError("Choose a category that matches this transaction type.", "category")
             counterparty = _popup_counterparty(c, values["counterparty"])
             if counterparty and any(a.name.casefold() == counterparty.casefold()

@@ -12,6 +12,7 @@ Who else helps people with their money, what their users love and hate, and what
 | What users hate | You want to know what never to build |
 | Local competitors | You are working on capture, Arabic or bank SMS |
 | International competitors | You are comparing a feature with the best apps |
+| Phone flow, words and icons | You design a phone screen, or choose between an icon and a word |
 | Where Lightning wins and loses | You write the website or plan the roadmap |
 | Watch list | Every few months, or before a release |
 | Open source | You want source code to inspect before designing a finance feature |
@@ -135,6 +136,18 @@ Each point names the apps where people say it and what Lightning does.
 **GnuCash.** **Free and open source (GNU GPL)** rather than a paid product; there is no software subscription price. It is double-entry accounting rather than a modern consumer budgeting app, but its security accounting is deep enough to matter as a technical benchmark. Its Investment Lots report tracks purchases, sales, remaining basis, realized and unrealized gains, short- and long-term gains, ROI and CAGR, with lot validation. **Against Lightning:** GnuCash is deeper where accounting and tax-lot mechanics matter, while Lightning deliberately hides accounting language and integrates investments with consumer budgeting, cash planning and Egyptian wealth. Copy the correctness discipline, not the interface.
 
 **Firefly III and Lunch Money.** Firefly III: self-hosted, rules and reports, manual only, no mobile app. Lunch Money: web, multi-currency, simple, praised support. Lesson: multi-currency and responsive support are loved by the people who find them.
+
+## Phone flow, words and icons
+
+How the best money apps lay out a phone, read 2026-10-06 (Claude) for the phone audit. Their tab bars: YNAB *Plan, Spending, Accounts, Reflect*; Copilot *Dashboard, Transactions, Investments, Accounts, Categories*; Monarch *Dashboard, Accounts, Transactions, Plan…*; Money Manager *Trans., Stats, Accounts, More*.
+
+- **Words beside every icon.** Every one of them names each tab under its icon. Apple and Material 3 say the same (Material: with four or five tabs, labels on the inactive ones "if space permits"; "should only be used when the icons have a clear meaning"). Nielsen Norman Group: "text labels are necessary to communicate the meaning and reduce ambiguity", and if a fitting icon takes more than five seconds to think of, use a word. Universal icons only stand alone: search, back, close, add (+), more (⋯), settings.
+- **Tabs move, they never act.** (Apple: "use a tab bar to support navigation, not to provide actions".) The everyday action, adding a transaction, sits one tap away on the main screens: YNAB puts *Add Transaction* on Plan and on Accounts; Money Manager a + on every list.
+- **Home is a short answer and a to-do list.** Copilot opens on what to review and the month's progress; YNAB on the plan. Detail lives one tab away, not further down the home screen.
+- **Rows say what a tap does.** A to-do row names its action (*Review*, *Pay*); segmented controls are words (Out, In, Transfer; Week, Month).
+- **Entry is a sheet:** type first as words, the amount with the number pad, category picked from recent ones, Save in reach; a long press selects rows for a bulk change.
+
+**For Lightning (audit 2026-10-06):** the tab bar already pairs icon and word. Section tabs with four tabs (Cash planning, Settings) show icons alone for all but the chosen one, as guideline C03.3 asks, and those icons (a bank for Loans, a shield for Reserves, a grid for Categories) are not universal; the phone Overview is about seven screens long against C11.1's one; the add button is only on Accounts and an account (C05.2). These three are owner questions in [OWNER.md](../OWNER.md). Sources: [Material 3 navigation bar](https://developer.android.com/reference/kotlin/androidx/compose/material3/NavigationBarItem.composable), [Apple tab bars](https://developer.apple.com/design/human-interface-guidelines/tab-bars), [NN/g via "every icon needs a label"](https://trevorcalabro.substack.com/p/every-icon-needs-a-label), [YNAB mobile tabs](https://support.ynab.com/en_us/spaces-in-the-mobile-app-S1iIZQoqgg.md), [Copilot tabs](https://www.macstories.net/?p=74917), [Copilot To review](https://help.copilot.money/en/articles/11157550-quick-start-guide).
 
 ## Where Lightning wins and loses
 

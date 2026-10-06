@@ -45,7 +45,7 @@
     <article class="card health-trend">
       <div class="health-trend-head"><h3>{{ title }}</h3><a href="/">Overview</a></div>
       {% if sm %}<p class="health-trend-figure"><b>{% if key == 'savings_rate' %}{{ '%.1f'|format(sm.last) }}%{% else %}{{ sm.last|money }} <small>{{ base }}</small>{% endif %}</b> <span class="muted">in {{ sm.last_month }}{% if key == 'savings_rate' %} · lowest {{ '%.1f'|format(sm.low) }}% in {{ sm.low_month }}{% endif %}</span></p>{% endif %}
-      {% if spark.points %}{{ sparkline(spark, tone, title ~ ' over six completed months') }}<div class="health-trend-axis muted" aria-hidden="true"><span>{{ trends[0].month }}</span><span>{{ trends[-1].month }}</span></div>{% else %}<p class="muted small">Not enough completed months to draw a line yet.</p>{% endif %}
+      {% if spark.points and values|reject('none')|list|length >= 2 %}{{ sparkline(spark, tone, title ~ ' over six completed months') }}<div class="health-trend-axis muted" aria-hidden="true"><span>{{ trends[0].month }}</span><span>{{ trends[-1].month }}</span></div>{% else %}<p class="muted small">Not enough completed months to draw a line yet.</p>{% endif %}
       <details class="health-numbers"><summary>Show the numbers</summary>
         <div class="table-wrap"><table><thead><tr><th>Completed month</th><th class="num">{{ title }}</th></tr></thead><tbody>
         {% for month in trends %}<tr><td>{{ month.month }}</td><td class="num">{% set val = month.savings_rate if key == 'savings_rate' else month.net_worth %}{% if key == 'savings_rate' and month.gap %}{{ month.gap }}{% elif val is none %}Unavailable{% elif key == 'savings_rate' %}{{ '%.1f'|format(val) }}%{% else %}{{ val|money }} {{ base }}{% endif %}</td></tr>{% endfor %}

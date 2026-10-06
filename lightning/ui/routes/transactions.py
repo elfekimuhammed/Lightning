@@ -81,8 +81,7 @@ async def save_transaction_popup(request: Request, txn_id: int):
         else:
             category_id = int(values["category_id"]) if values["category_id"].isdigit() else None
             if not category_id: raise ValidationError("Choose a category.", "category")
-            expected = "OUTFLOW" if values["kind"] == "out" else "INFLOW"
-            if c.categories.get(category_id).movement.value != expected:
+            if values["kind"] == "out" and c.categories.get(category_id).movement.value != "OUTFLOW":  # in: a refund
                 raise ValidationError("Choose a category that matches this transaction type.", "category")
             other = None
             signed = -amount if values["kind"] == "out" else amount

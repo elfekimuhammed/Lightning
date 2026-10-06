@@ -82,6 +82,23 @@ def _tagged(text) -> Markup:
 templates.env.filters["tagged"] = _tagged
 
 
+def _phone_chip(text) -> str:
+    """A KPI chip on a phone says its period in a few characters (guideline C06.1) and is never cut (C12):
+    "until 2026-11-01" -> "2026-11-01", "2026-07 to 2026-09" -> "3 months". Text that would still be cut
+    returns "", so the tile shows no chip rather than half a word."""
+    import re as _re
+    value = str(text or "").strip()
+    if found := _re.fullmatch(r"(?:until |to )(\d{4}-\d{2}-\d{2})", value):
+        return found.group(1)
+    if found := _re.fullmatch(r"(\d{4})-(\d{2})(?:-\d{2})? to (\d{4})-(\d{2})(?:-\d{2})?", value):
+        months = (int(found.group(3)) - int(found.group(1))) * 12 + int(found.group(4)) - int(found.group(2)) + 1
+        return f"{months} months" if months > 1 else f"{found.group(1)}-{found.group(2)}"
+    return value if len(value) <= 10 and not (" " in value and len(value) > 8) else ""
+
+
+templates.env.filters["phone_chip"] = _phone_chip
+
+
 def _signed_pct(value, places: int = 1) -> str:
     """A signed percentage to one decimal ("+6.2", "−1.5"); a value that rounds to zero reads "0.0",
     never "−0.0" or "+0.0" (audit 2026-10-05: a certificate's XIRR showed −0.0%)."""

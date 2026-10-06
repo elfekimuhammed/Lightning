@@ -1,0 +1,83 @@
+{# Buy, sell or a dividend in a brokerage account: the PC register and the phone account page (C11.2) share it. #}
+{% if can_invest and account.active %}
+<details class="card investment-entry-card context-detail" {{ 'open' if investment_error_field else '' }}><summary>Record an investment transaction</summary>
+  <div class="investment-entry-heading">
+    <b>Investment transaction</b>
+    <span class="muted small">Choose Buy, Sell, or Dividend. Units are always entered as a positive quantity.</span>
+  </div>
+  <form method="post" action="/accounts/{{ account.id }}/investment-entry" class="investment-entry-form" autocomplete="off">
+    <input type="hidden" name="instrument_key" value="{{ investment_entry.get('instrument_key', '') }}">
+    <input type="hidden" name="instrument_label" value="{{ investment_entry.get('instrument_label', '') }}">
+    <input type="hidden" name="price_basis" value="{{ investment_entry.get('price_basis', 'total') }}">
+    <div class="investment-entry-grid">
+      <div class="field {{ 'has-error' if investment_error_field == 'date' }}">
+        <label for="investment-date">Date</label>
+        <input id="investment-date" type="text" name="date" value="{{ investment_entry.get('date', '') }}" placeholder="yyyy-mm-dd" inputmode="numeric" data-smart-date title="yyyy-mm-dd, like 2026-01-31" required>
+      </div>
+      <div class="field instrument-picker {{ 'has-error' if investment_error_field == 'instrument' }}">
+        <label for="trade-instrument-search">Investment</label>
+        <input id="trade-instrument-search" type="search" value="{{ investment_entry.get('instrument_label', '') }}" placeholder="Type a name or ticker" autocomplete="off" aria-controls="trade-instrument-results" aria-expanded="false" required>
+        <div id="trade-instrument-results" class="instrument-results" role="listbox" hidden></div>
+        <div id="trade-position-hint" class="help" aria-live="polite"></div>
+      </div>
+      <div class="investment-action-control">
+        <span class="muted small">Type</span>
+        <input id="investment-action" type="hidden" name="trade_action" value="{{ investment_entry.get('trade_action', 'buy') }}">
+        <div class="investment-action-buttons" role="group" aria-label="Investment type">
+          {% for value, label in [('buy', 'Buy'), ('sell', 'Sell'), ('dividend', 'Dividend')] %}
+          <button type="button" class="investment-action-button action-{{ value }} {{ 'is-active' if investment_entry.get('trade_action', 'buy') == value }}" data-trade-action="{{ value }}" aria-pressed="{{ 'true' if investment_entry.get('trade_action', 'buy') == value else 'false' }}">{{ label }}</button>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="field {{ 'has-error' if investment_error_field == 'units' }}" id="investment-units-field">
+        <label for="investment-units">Units</label>
+        <input id="investment-units" type="text" name="units" value="{{ investment_entry.get('units', '') }}" placeholder="e.g. 100" inputmode="decimal" class="money-input">
+      </div>
+      <div class="field {{ 'has-error' if investment_error_field == 'total' }}">
+        <label id="investment-total-label" for="investment-total">Amount</label>
+        <input id="investment-total" type="text" name="total" value="{{ investment_entry.get('total', '') }}" placeholder="Including fees" inputmode="decimal" class="money-input">
+      </div>
+      <div class="field" id="investment-dividend-basis-field" hidden>
+        <label for="investment-dividend-basis">Dividend amount entered as</label>
+        <select id="investment-dividend-basis" name="dividend_basis">
+          <option value="total" {{ 'selected' if investment_entry.get('dividend_basis', 'total') == 'total' }}>Total dividend</option>
+          <option value="per_share" {{ 'selected' if investment_entry.get('dividend_basis') == 'per_share' }}>Dividend per share / unit</option>
+        </select>
+      </div>
+      <div class="field {{ 'has-error' if investment_error_field == 'unit_price' }}" id="investment-price-field">
+        <label for="investment-unit-price" id="investment-price-label">Price per unit</label>
+        <input id="investment-unit-price" type="text" name="unit_price" value="{{ investment_entry.get('unit_price', '') }}" placeholder="Or enter unit price" inputmode="decimal" class="money-input">
+      </div>
+      <div class="field investment-fees-toggle" id="investment-fees-toggle-field"><label><input id="investment-fees-included" type="checkbox" name="fees_included" value="0" data-fees-excluded {{ 'checked' if investment_entry.get('fees_included') == '0' }}> Fees are extra (not in the amount)</label></div>
+      <div class="field" id="investment-fees-field">
+        <label for="investment-fees">Fees</label>
+        <input id="investment-fees" type="text" name="fees" value="{{ investment_entry.get('fees', '') }}" placeholder="0.00" inputmode="decimal" class="money-input">
+      </div>
+      <button class="btn primary small investment-entry-submit">Add</button>
+    </div>
+    {% if cash_accounts %}
+    <div class="investment-cash-source field">
+      <label for="investment-cash-account">Cash account</label>
+      <select id="investment-cash-account" name="cash_account_id"><option value="">Choose cash account…</option>
+        {% for a in cash_accounts %}<option value="{{ a.id }}" {{ 'selected' if investment_entry.get('cash_account_id') == a.id|string }}>{{ a.name }} · {{ a.currency }}</option>{% endfor %}
+      </select>
+    </div>
+    {% endif %}
+  <div class="investment-entry-foot">
+      <div class="investment-ownership-area">
+        <label class="investment-owner-flag"><input type="checkbox" name="is_others" value="1" {{ 'checked' if investment_entry.get('is_others') }}> Held for someone else</label>
+        <div class="field investment-owner-field" {{ 'hidden' if not investment_entry.get('is_others') }}>
+          <label for="investment-whom">Held for</label>
+          <input id="investment-whom" type="text" name="whom" value="{{ investment_entry.get('whom', '') }}" list="counterparty-options" placeholder="Choose a saved name">
+        </div>
+      </div>
+      <div class="investment-notes-area">
+        <span id="investment-entry-hint" class="muted small">Enter fees separately. Choose whether your total includes or excludes them.</span>
+        <input type="text" name="notes" value="{{ investment_entry.get('notes', '') }}" placeholder="Notes (optional)">
+      </div>
+    </div>
+    <div class="small"><a href="/investments/new?kind=holding&account={{ account.id }}">Add an existing holding</a></div>
+  <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
+  <script nonce="{{ request.state.csp_nonce|default('') }}" id="trade-instrument-catalogue" type="application/json">{{ trade_choices | tojson }}</script>
+</details>
+{% endif %}

@@ -9,7 +9,7 @@
 <section class="plan-section" aria-labelledby="loans-total">
   <header class="overview-section-head"><h2 id="loans-total">Loans still to pay</h2></header>
   <article class="card plan-lead lead-card">
-    <div class="plan-figure">{{ still_to_pay|money }} <small>{{ base }}</small></div>
+    <div class="plan-figure">{{ still_to_pay|money(False, 0) }} <small>{{ base }}</small></div>
     <p class="muted small">Every unpaid payment, due or upcoming. Only payments already due come off free cash.</p>
   </article>
 </section>

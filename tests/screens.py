@@ -83,7 +83,7 @@ class _PageParser(HTMLParser):
         self.links: list[Link] = []
         self.forms: list[Form] = []
         self._by_id: dict[str, Form] = {}
-        self._pending: list[tuple[str, str, dict, str]] = []   # (form id, tag, attrs, text) seen before their form
+        self._for_later_form: list[tuple[str, str, dict, str]] = []   # (form id, tag, attrs, text) seen before their form
         self._link: list | None = None
         self._form: Form | None = None
         self._button: list | None = None
@@ -127,13 +127,13 @@ class _PageParser(HTMLParser):
         if isinstance(owner, Form):
             owner.fields[name] = value
         elif isinstance(owner, str):
-            self._pending.append((owner, "set", {"name": name}, value))
+            self._for_later_form.append((owner, "set", {"name": name}, value))
 
     def _control(self, owner, tag, a):
         if owner is None:
             return
         if isinstance(owner, str):
-            self._pending.append((owner, tag, a, ""))
+            self._for_later_form.append((owner, tag, a, ""))
             return
         name, kind = a.get("name"), a.get("type", "text").lower()
         if tag == "select":
@@ -167,7 +167,7 @@ class _PageParser(HTMLParser):
                 if isinstance(owner, Form):
                     owner.buttons.append(entry)
                 elif isinstance(owner, str):
-                    self._pending.append((owner, "button", a, entry[0]))
+                    self._for_later_form.append((owner, "button", a, entry[0]))
             self._button = None
         elif tag in ("option", "select") and self._option is not None:
             self._end_option()
@@ -186,7 +186,7 @@ class _PageParser(HTMLParser):
         if isinstance(owner, Form):
             owner.options.setdefault(name, []).append((value, label))
         elif isinstance(owner, str):
-            self._pending.append((owner, "option", {"name": name, "value": value}, label))
+            self._for_later_form.append((owner, "option", {"name": name, "value": value}, label))
         self._option = None
 
     def handle_data(self, data):
@@ -203,7 +203,7 @@ class _PageParser(HTMLParser):
 
     def close(self):
         super().close()
-        for form_id, tag, a, text in self._pending:
+        for form_id, tag, a, text in self._for_later_form:
             owner = self._by_id.get(form_id)
             if owner is None:
                 continue

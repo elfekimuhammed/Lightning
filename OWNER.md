@@ -17,7 +17,7 @@ What only the owner can do or decide. Any AI adds an item here, and removes it o
   5. Borrow again, turn the phone's Wi-Fi off, Hand back on the PC: the PC keeps your edits; hand back later.
   6. Accounts › From SMS: paste a few of your CIB or NBE messages (a blank line between them), say which account each ending is, then post them on the review.
   7. Optional: on the phone, Devices › Take the ledger back while the PC holds it; the PC then offers Borrow again and keeps its copy as a backup.
-  Known gaps: you type the phone's address; on the phone, a budget limit or a holding's horizon is still changed on the PC; SMS is pasted for now (the phone reading them by itself comes next).
+  Known gaps: you type the phone's address; on the phone, a holding's horizon is still changed on the PC; SMS is pasted for now (the phone reading them by itself comes next).
 - **For milestone 2: review the phone brand guideline.** Part C of the brand guideline (3.25, 2026-10-06) is the phone's own: bottom tab bar, 2 × 2 KPIs, phone forms of every chart. Check it, especially the five bottom sections (C03.1), then say it is final. Until then phone screens follow it as a draft.
 - **For milestone 3: more bank SMS.** CIB and NBE are in `tests/fixtures/bank_sms.json` (details changed). Send other banks, and from these two a refund, a declined payment and a purchase in English if you get them; paste them in chat and I change the details before they go in.
 - **GitHub spending limit (your choice, 2026-10-06):** GitHub › Settings › Billing and licensing › Budgets and alerts: set Actions to $0 (or the most you accept). CI then pauses until next month instead of charging you.
@@ -37,7 +37,11 @@ What only the owner can do or decide. Any AI adds an item here, and removes it o
    6. Check against bank offers "mark all checked up to this date" when the balances match.
    7. At phone width, the top menu and the accounts fit on screen.
    8. Loans still to pay and Check against bank show without opening a folded row.
-3. *Competition:* should Lightning get gam'eya (rotating savings) and zakat, as Qershnat has them? (Trial decided: 7 days free, never a lock; Project Overview › Product decisions.)
+3. *Phone: words or icons, and where to add (audit 2026-10-06; Competition › Phone flow, words and icons).* The best apps name every tab and keep adding one tap away. Three changes to guideline Part C, recommended in this order:
+   1. Section tabs show words, not icons, even with four tabs (C03.3): Cash planning's Plan, Recurring, Loans, Reserves and Settings' four tabs as a 2 × 2 of words, or words alone at 13px. Today only the chosen tab has its word.
+   2. The add button on every section's first page, not only Accounts and an account (C05.2): capture beats analysis (The compass, 1).
+   3. The phone Overview as in C11.1: Get set up, Needs you, the four KPIs and Your position; Cash flow, Investments, Month by month and the rest open from rows into their own tabs. Today it is about seven screens long.
+4. *Competition:* should Lightning get gam'eya (rotating savings) and zakat, as Qershnat has them? (Trial decided: 7 days free, never a lock; Project Overview › Product decisions.)
 4. *Routine audit (2026-10-05):* pain points to decide: Housing 22% vs 45%, "Kept 0", "Split · 0 categories", a certificate named twice, Reserves dropdowns (A16: type and pick).
 5. *Upcoming projects* (Project Overview): 17 ideas, each naming its source app. Financial health (#3) and the entry helpers (#9: sums, Ctrl-K, privacy mode, #tags) are built. New from you: multi-currency and FX revaluation (#15), US stocks (#16), reading PDF and Excel files (#17). Which enter *Next*, and where do US stock prices come from?
 6. *Restore, from Claude's review of 03a:* unlock re-verifies every retained copy (2.7 s for three 23.5 MB restores). Keep that, or drop it?

@@ -7,7 +7,7 @@
 <section class="phone-kpis" aria-label="This period">{% for s in stats[:4] %}
   {% set tag = 'a' if s.href else 'div' %}
   <{{ tag }} class="phone-kpi surface-{{ s.surface }}"{% if s.href %} href="{{ s.href }}"{% endif %}>
-    <span class="phone-kpi-head">{{ tone_icon(s.surface) }}{% if s.badge %}<span class="stat-chip is-{{ s.badge.tone }}">{{ s.badge.text }}</span>{% endif %}</span>
+    <span class="phone-kpi-head">{{ tone_icon(s.surface) }}{% set chip = s.badge.text|phone_chip if s.badge else '' %}{% if chip %}<span class="stat-chip is-{{ s.badge.tone }}" title="{{ s.badge.text }}">{{ chip }}</span>{% endif %}</span>
     <span class="phone-kpi-label">{{ s.label.split(' · ')[0] }}</span>{# the period shows in its chip #}
     {% set shown = (s.value|money(s.key == 'change' or s.signed is defined and s.signed)) if s.value is not none and s.kind != 'rate' else '' %}
     <span class="phone-kpi-value{{ ' is-long' if shown|length > 7 }}">{% if s.value is none %}{{ s.empty or '—' }}{% elif s.kind == 'rate' %}{{ rate(s.value) }}<small>%</small>{% else %}{{ shown }}{% endif %}</span>

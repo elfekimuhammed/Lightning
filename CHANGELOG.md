@@ -10,6 +10,10 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-06 · Claude: phone audit. Mohab's year now runs on the phone (`tests/test_mohab_phone.py`); its dead ends are fixed: View CDs, buy and sell, a refund, a first plan, typed budget limits, Delete in the sheet, Select or press and hold for several rows, bills to pay on the Overview, ⋯ for account actions.
+- 2026-10-06 · Claude: phone look: Day by day calendars keep seven days across (they had become 31 rows), Categories reflow, Health rows and chart, chips and labels never cut, no FAB over the last row, no file path, whole-EGP big figures (PC too), Needs you and Get set up say their action in words.
+- 2026-10-06 · Claude: Competition › Phone flow, words and icons (how the best apps use tabs, words and icons); three guideline questions in OWNER.md. `tests/screens.py` no longer clashes with Python's HTML parser.
+- 2026-10-06 · Claude: a logged-in phone had no way to Devices (pairing a PC): Settings now has *Profile and devices*, opening profile settings and its Devices button.
 - 2026-10-06 · Claude: test suite 405 s → 246 s: tests lock profile keys at the key file's cheapest Argon2 cost (`tests/conftest.py`; one `real_kdf` test keeps the shipped 128/256 MiB), `tests/screens.py` parses a page only when read, and the migrator splits SQL from `;` to `;` and caches it (every database open is faster).
 - 2026-10-06 · Claude: SMS that no bank pattern knows: a general rule reads amount, ending and direction and marks the row *Check this*; money nothing reads stays on From SMS until entered or dismissed. Phone and PC each have their own From SMS layout.
 - 2026-10-06 · Claude: milestone 3 starts: bank SMS (`lightning/sms_imports.py`, CIB and NBE in Arabic; samples in `tests/fixtures/bank_sms.json`). From SMS (`/sms`, on Accounts) takes pasted messages, asks once which account an ending is, and sends rows to the bank import's review.

@@ -59,7 +59,7 @@ def test_ratios_divide_what_other_figures_already_say(c, setup):
     assert "Loan payments to income" in loans and "4,000 a month of 40,000 income" in loans
     recurring = client.get("/plan/recurring").text
     assert "Fixed costs to income" in recurring and "14,500 a month of 40,000 income" in recurring
-    assert "10,500.00" in recurring  # Bills and subscriptions a month, the same total the ratio uses
+    assert "10,500 <small>" in recurring  # Bills and subscriptions a month in whole EGP (A16), the total the ratio uses
 
 
 def test_owing_more_than_you_own_is_said_not_divided(c, setup):

@@ -1,6 +1,7 @@
 {# The add button on Accounts: which account first, then that account's entry sheet (guideline C05.2, C09). #}
 {% extends "base.html" %}
 {% block title %}Add transaction{% endblock %}
+{% block phone_back %}<a class="phone-back" href="/accounts"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><span>Accounts</span></a>{% endblock %}
 {% block heading %}{% endblock %}{# the sheet title below is the one title, as a page or a sheet #}
 {% block content %}
 <section class="card app-popup-content">

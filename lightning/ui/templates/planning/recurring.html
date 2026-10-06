@@ -20,7 +20,7 @@
   <header class="overview-section-head"><h2 id="recurring-totals">Every month</h2></header>
   <article class="card">
     <div class="section-head"><div><h2>Bills and subscriptions</h2></div></div>
-    <div class="plan-figure plan-figure-small">{{ monthly_out|money }} <small>{{ base }} a month</small></div>
+    <div class="plan-figure plan-figure-small">{{ monthly_out|money(False, 0) }} <small>{{ base }} a month</small></div>
     {% from "partials/charts.html" import bars %}{{ bars(bill_bars, 'spend', 'No bills or subscriptions yet.') }}
   </article>
 </section>

@@ -138,3 +138,7 @@ input:focus { background: #E2EFE9; outline: 0; box-shadow: 0 0 0 2px #097852; }
 /* On the phone app (guideline C02, C09.6): clear of the status and gesture bars. */
 html.phone .profile-page { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
 html.phone input { font-size: 16px; }
+/* On a phone the profile's actions stack full width, the main one first (guideline C05.3, C09.5): never three
+   squeezed side by side with their words broken over two lines. */
+html.phone .account-actions { display: grid; grid-template-columns: 1fr; }
+html.phone .account-actions .button, html.phone .account-actions form button { width: 100%; min-height: 48px; }
