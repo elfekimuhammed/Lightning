@@ -2559,12 +2559,7 @@ a.chart-sankey-label:hover b { color:var(--azure); }
 .main .plan-tab[aria-current="page"] { background:var(--surface); color:var(--tab-ink); box-shadow:0 4px 12px -8px rgba(10,36,66,.5); }
 .main .tab-plan { --tab-ink:#08744A; --tab-tint:#D9F2E4; } .main .tab-recurring { --tab-ink:#0A5AB0; --tab-tint:#DCEBFB; }
 .main .tab-loans { --tab-ink:#8A5A00; --tab-tint:#FBEBD0; } .main .tab-reserves { --tab-ink:#00766A; --tab-tint:#D3F1EC; }
-.main .plan-tab-head { display:flex; align-items:center; gap:14px; margin:0 0 var(--gap-block); padding:16px 20px; border-radius:var(--r-card);
   background:linear-gradient(100deg,var(--tab-tint) 0%,rgba(255,255,255,.75) 70%); border:1px solid rgba(255,255,255,.9); box-shadow:var(--shadow-card); }
-.main .plan-tab-icon { display:grid; place-items:center; width:44px; height:44px; flex:none; border-radius:13px; background:var(--tab-ink); color:#fff; box-shadow:0 8px 16px -10px var(--tab-ink); }
-.main .plan-tab-icon svg { width:22px; height:22px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
-.main .plan-tab-head h2 { margin:0; font:800 var(--fs-section)/1.2 var(--display)!important; color:var(--ink); }
-.main .plan-tab-head p { margin:2px 0 0; font:500 var(--fs-2)/1.4 var(--body); color:var(--ink-2); }
 /* Plan · timeline of the next 30 days, columns of in and out each month ahead. */
 .main .timeline { position:relative; height:150px; margin:6px 0 10px; }
 .main .tl-axis { position:absolute; left:3%; right:3%; top:50%; border-top:2px solid var(--line-control); }
@@ -2877,8 +2872,6 @@ a.chart-sankey-label:hover b { color:var(--azure); }
    No tab colours: icons tell them apart. */
 .main :is(.tab-plan,.tab-recurring,.tab-loans,.tab-reserves) { --tab-ink:var(--nile, #0A2442); --tab-tint:transparent; }
 .main .plan-tab[aria-current="page"] { background:var(--nile, #0A2442); color:#FFFFFF; box-shadow:none; }
-.main .plan-tab-head { background:var(--paper, #F7FBF9); }
-.main .plan-tab-icon { background:var(--nile, #0A2442); box-shadow:none; }
 
 /* A11 · the register fits the window: no forced 1,120px width that clips the balance at 1,366px. */
 .main .register-table-scroll > table { min-width:0; }
@@ -2994,3 +2987,11 @@ a.chart-sankey-label:hover b { color:var(--azure); }
 .privacy .amt:hover { filter:none; }
 .privacy:not(.privacy-ready) :is(.main, .side-accounts) { filter:blur(6px); }
 .privacy :is(input.money-input, input[inputmode="decimal"]):not(:focus) { filter:blur(5px); }
+
+/* Two levels (lightning/ui/sections.py): the section's tabs, and the tab's settings behind its gear. */
+.main .section-bar { display:flex; align-items:center; gap:10px; margin:0 0 var(--gap-block, 18px); }
+.main .section-bar .plan-tabs-bar { margin:0; }
+.main .section-gear { display:inline-grid; place-items:center; width:38px; height:38px; margin-left:auto; flex:none; border-radius:999px; color:var(--ink-2); background:rgba(10,36,66,.05); text-decoration:none; }
+.main .section-gear:hover, .main .section-gear:focus-visible { color:var(--ink); background:rgba(10,36,66,.1); }
+.main .section-gear svg { width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+.app-popup .section-bar { display:none; }

@@ -2,7 +2,7 @@
 {% block title %}Categories{% endblock %}
 {% block heading %}<h1>Settings</h1><div class="muted">Categories · why money moved</div>{% endblock %}
 {% block content %}
-{% set settings_section = 'categories' %}{% include 'partials/settings_nav.html' %}
+
 {% set session = request.state.session_token|default('') %}
 {# One category: always in its edit look. Changes save in place; the buttons are always there. #}
 {% macro item(cat, level, has_children=False, add_parent=none) %}

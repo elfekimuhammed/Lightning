@@ -319,7 +319,7 @@ Bank sync and bill negotiation are not adopted. Any sync first needs a provider 
 
 ## UX plan (guideline 3.6)
 
-From a full UX review on 2026-10-03: Mohab's year at a 1,366 × 768 window (the PC app), every screen checked against Brand guideline 3.6 Part A. The structure (Overview, Budget, Investments, Expense analysis, Cash planning, Held for others, Settings, accounts in the sidebar) stays. Batch 1 is done; the rest is ranked by what a real user meets first.
+From a full UX review on 2026-10-03: Mohab's year at a 1,366 × 768 window (the PC app), every screen checked against Brand guideline 3.6 Part A. The structure is two levels since 2026-10-06 (Architecture › UI contract, *Two levels*). Batch 1 is done; the rest is ranked by what a real user meets first.
 
 **The user's route.** A salaried user opens Lightning to answer, in order: *Where do I start?* → *Is my money in?* → *How much can I spend before payday?* → *What is due?* → *Am I on plan?* → *Where did it go?* → *How are my investments?* → *Is my data right?* Each tab answers one of these first; the Overview's Needs you is the to-do list across them.
 
@@ -345,7 +345,6 @@ From a full UX review on 2026-10-03: Mohab's year at a 1,366 × 768 window (the 
 **Still open (asked again in plainer words):**
 
 - *Recurring suggestions.* Cash planning › Recurring has a "Looks recurring" list that offers to track things that repeated. It offers Carrefour and Talabat (shopping that changes every month, which belongs in the budget) and the NBE certificate's interest (already in the forecast, so tracking it counts it twice). Stop offering those, and add a "Not recurring" button to hide a suggestion?
-- *Menu.* The main menu has Overview, Budget, Investments, Expense analysis, Cash planning, Held for others and Settings. Your accounts list and "every transaction across all accounts" are reachable only from the account list in the left column. Add "Accounts" and "Transactions" to the main menu?
 
 ## Upcoming projects
 

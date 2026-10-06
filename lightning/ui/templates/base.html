@@ -8,7 +8,7 @@
   <link rel="icon" type="image/svg+xml" href="/static/lightning-mark.svg">
   <link rel="stylesheet" href="/static/fonts/fonts.css">
   {# Bricolage Grotesque and Manrope (guideline A06) are bundled in fonts.css: no outside request, in every mode. #}
-  <link rel="stylesheet" href="/static/style.css?v=74">
+  <link rel="stylesheet" href="/static/style.css?v=75">
 </head>
 <body data-base-currency="{{ base }}">
 <div class="shell">
@@ -22,9 +22,8 @@
       {% set hidden = privacy_on(request) %}<button type="button" class="side-privacy" data-privacy-toggle aria-pressed="{{ 'true' if hidden else 'false' }}" aria-label="{{ 'Show amounts' if hidden else 'Hide amounts' }}" title="{{ 'Show amounts' if hidden else 'Hide amounts' }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path class="side-privacy-off" d="M4 4l16 16"/></svg></button>
     </div>
     <nav class="nav" aria-label="Main navigation">
-      {% for href, label, icon in [('/', 'Overview', 'overview'), ('/financial-health', 'Financial health', 'health'), ('/budget', 'Budget', 'budget'), ('/investments', 'Investments', 'investments'), ('/birdview/expenses', 'Expense analysis', 'expenses'), ('/plan', 'Cash planning', 'reserves'), ('/money-from-others', 'Held for others', 'people'), ('/settings', 'Settings', 'settings')] %}
-        {% set active = (path == '/' if href == '/' else (path == '/birdview' if href == '/birdview' else path.startswith(href))) or (href == '/settings' and (path.startswith('/counterparties') or path.startswith('/categories') or path.startswith('/checks'))) %}
-        <a href="{{ href }}" class="{{ 'active' if active }}" {% if active %}aria-current="page"{% endif %}>
+      {% set here = sections_for(request) %}{% for item in here.sections %}{% set icon = item.icon %}{% set active = here.section and here.section.key == item.key %}
+        <a href="{{ item.href }}" class="{{ 'active' if active }}" {% if active %}aria-current="page"{% endif %}>
           <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24">
             {% if icon == 'overview' %}<path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M9 21v-7h6v7"/>
             {% elif icon == 'budget' %}<rect x="3" y="5" width="18" height="15" rx="3"/><path d="M3 9h18M16 14h3"/>
@@ -32,9 +31,10 @@
             {% elif icon == 'investments' %}<path d="M3 20V4M3 20h18M6 16l5-5 4 3 5-8"/><path d="M16 6h4v4"/>
             {% elif icon == 'expenses' %}<path d="M5 3h14v18l-3-2-4 2-4-2-3 2zM8 8h8M8 12h8M8 16h5"/>
             {% elif icon in ('reserves', 'health') %}<path d="M12 2 4 6v6c0 5 3.5 8 8 10 4.5-2 8-5 8-10V6z"/><path d="m9 12 2 2 4-4"/>
+            {% elif icon == 'accounts' %}<path d="M3 10h18M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 21h18M12 3l9 5H3z"/>
             {% elif icon == 'people' %}<circle cx="9" cy="8" r="3"/><path d="M3 20c0-3 2.5-5 6-5s6 2 6 5M17 5a3 3 0 0 1 0 6M18 15c2 .4 3 2 3 5"/>
             {% else %}<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1"/>{% endif %}
-          </svg></span><span>{{ label }}</span>
+          </svg></span><span>{{ item.label }}</span>
         </a>
       {% endfor %}
       {% if request.state.secure_profiles|default(false) %}<a href="/profiles">Profiles &amp; lock</a>{% endif %}
@@ -58,6 +58,7 @@
   </aside>
   <main class="main">
     <div class="topbar">{% set back = back_url(request) %}{% if back %}<a class="btn page-back" href="{{ back }}" aria-label="Back to the page you came from"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>Back</a>{% endif %}<div>{% block heading %}{% endblock %}</div><div class="actions">{% block top_actions %}{% endblock %}</div></div>
+    {% include "partials/section_tabs.html" %}
     {% if msg %}<div class="flash" role="status" aria-live="polite" aria-atomic="true">{{ msg }}</div>{% endif %}
     {% if error %}<div class="flash error" role="alert" aria-live="assertive" aria-atomic="true">{{ error }}</div>{% endif %}
     {% block content %}{% endblock %}

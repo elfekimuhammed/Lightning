@@ -274,7 +274,9 @@ class Screen:
 
     def link(self, text: str) -> Link:
         wanted = " ".join(text.split()).casefold()
+        # An icon link (the gear, a row's delete) is found by its accessible name, as a screen reader would.
         found = [l for l in self.links if l.text.casefold() == wanted] or \
+                [l for l in self.links if not l.text and str(l.attrs.get("aria-label", "")).casefold() == wanted] or \
                 [l for l in self.links if wanted in l.text.casefold()]
         assert found, f"No link {text!r} on {self.path}. Links: {sorted({l.text for l in self.links if l.text})}"
         return found[0]

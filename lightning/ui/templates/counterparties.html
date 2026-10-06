@@ -2,7 +2,7 @@
 {% block title %}Counterparties{% endblock %}
 {% block heading %}<h1>Settings</h1><div class="muted small">Counterparties · saved names, aliases, and suggested categories</div>{% endblock %}
 {% block content %}
-{% set settings_section = 'counterparties' %}{% include 'partials/settings_nav.html' %}
+
 {% if error %}<p class="flash error" role="alert">{{ error }}</p>{% endif %}
 <details class="card" {{ 'open' if error or review_required }}>
   <summary><b>Add a Counterparty</b><span class="muted small">Save a name and optional suggested category</span></summary>

@@ -10,6 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-06 · Claude: two levels (owner): six sections (Overview: Summary, Spending, Health; Budget; Cash planning; Investments: Holdings, Planner, Prices; Accounts: Accounts, Transactions, Held for others; Settings: Your data, Categories, Counterparties, Data checks); each tab's settings behind its gear; no tab descriptions (`ui/sections.py`, `tests/test_two_levels.py`).
 - 2026-10-06 · Claude: proposal `docs/proposals/two_level_layout.md` (owner request): two levels only, six sections and five tabs at most, each tab's settings behind its gear, icons for row actions, one choice one field; where Expense analysis, Financial health, Held for others and FX go. Not built; OWNER.md item 13.
 
 - 2026-10-06 · Claude: Working, not stuck (guideline A10.6, owner's choice): a pressed button becomes unavailable and shows a small Muted turning square; slow pages and the background month-end fetch show it in a note at the bottom right (`app.js`, `/investments/prices/online/status`).

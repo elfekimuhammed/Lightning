@@ -117,7 +117,7 @@ class Mohab:
                               "reference_asset_id": Choose("21K")}, button="Create item")
 
     def prices(self, when: str, typed: dict[str, str]) -> Screen:
-        screen = self.b.go("Settings", "Valuations", "Update prices")
+        screen = self.b.go("Investments", "Prices")
         fields = {}
         for name, price in typed.items():
             row = next(block for block in re.findall(r"(?s)<tr\b.*?</tr>", screen.html)
@@ -340,7 +340,7 @@ def _first_evening(o: Mohab) -> None:
     # THNDR: two shares with their fees, then a money market fund he adds himself.
     o.trade("buy", "11/8", "COMI", units="150", total="12,150", fees="35")
     o.trade("buy", "11/8", "FWRY", units="500", total="4,450", fees="18")
-    b.go("Settings", "Valuations", "Add an investment to the catalogue")  # funds outside the catalogue
+    b.go("Investments", "Financial assets", "Add an investment")  # funds outside the catalogue: Holdings' gear
     o.notes["new_fund"] = b.submit({"name": "Azimut money market fund", "class_code": Choose("Money Market"),
                                    "symbol": "AZMM"}, button="Save")
     o.trade("buy", "1/9", "Azimut", total="3,000", unit_price="120")
@@ -367,7 +367,7 @@ def _first_evening(o: Mohab) -> None:
         o.notes["prices_saved"] = o.prices(when, typed)
 
     o.ask("position", "How much do I have, and how much of it is really mine?")
-    o.ask("moms_money", "How much of Mom's money am I holding?", "Held for others")
+    o.ask("moms_money", "How much of Mom's money am I holding?", "Accounts", "Held for others")
 
     # The plan: a budget from his own spending, an emergency fund, his bills and the car loan.
     b.go("Set a plan for 2026-09")
@@ -385,7 +385,7 @@ def _first_evening(o: Mohab) -> None:
     o.ask("fixed_costs", "How much of my income is already promised?", "Cash planning", "Recurring")
     o.ask("safe", "How much can I spend before payday?", "Cash planning")
     o.ask("free_cash", "Why is my free cash lower than what I have?")
-    o.ask("where", "Where did my money go in September?", "Expense analysis")
+    o.ask("where", "Where did my money go in September?", "Spending")
     o.ask("plan", "Am I sticking to my plan?", "Budget")
     o.ask("investing", "How are my investments doing?", "Investments")
     o.ask("checks", "Is my data right?", "Settings", "Data checks")
@@ -422,8 +422,8 @@ def _live_the_year(o: Mohab) -> None:
     o.enter("CIB Payroll", "2026-10-18", "Al Mansour Service", "Personal › Transportation", "-6,500")
     o.to_reserve("CIB Payroll", "Al Mansour Service", "Emergency Fund")                         # paid from the emergency fund
 
-    o.ask("atm", "What did the ATM withdrawal cost me in October?", "Expense analysis")
-    o.ask("refund", "Amazon refunded me. Did my spending go down?", "Expense analysis")
+    o.ask("atm", "What did the ATM withdrawal cost me in October?", "Spending")
+    o.ask("refund", "Amazon refunded me. Did my spending go down?", "Spending")
     o.ask("emergency", "After the repair, how much is left in my emergency fund?", "Cash planning", "Reserves")
     o.ask("fixed", "Is the Carrefour mistake fixed, and the double Talabat gone?", "CIB Payroll")
     statement_balance = o.answers["fixed"].figure("In this account")
@@ -443,7 +443,7 @@ def _live_the_year(o: Mohab) -> None:
     o.enter("CIB Payroll", "2026-12-22", "ACME Egypt", "Work › Transportation", "1,200")
     o.enter("CIB Payroll", "2026-12-20", "ACME Egypt", "Bonus", "90,000")
     o.enter("CIB Payroll", "2026-12-24", "ACME Egypt", "Salary", "45,000", notes="January salary, paid early")
-    o.ask("work", "Did ACME pay back my work Uber?", "Expense analysis")
+    o.ask("work", "Did ACME pay back my work Uber?", "Spending")
     o.ask("bonus", "Where did my bonus go?")
 
     # ============================================================== January: no pay arrives; a yearly bill
@@ -469,7 +469,7 @@ def _live_the_year(o: Mohab) -> None:
     # Needs you notices the raise is not in his average yet; he keeps his plan and saves the 5,000.
     o.ask("income_up", "My pay went up. What should my plan do with it?", "Choose")
     o.notes["raise_saved"] = b.submit({}, button="Save it")
-    o.ask("raise_target", "Did my savings target go up?", "Settings", "Financial health")
+    o.ask("raise_target", "Did my savings target go up?", "Health")
 
     # ============================================================== March: Eid, and a phone on installments
     o.on("2027-03-31")
@@ -478,7 +478,7 @@ def _live_the_year(o: Mohab) -> None:
     o.enter("Cash wallet", "2027-03-10", "Uncle Hassan", "Gifts Received", "1,000", notes="#eid")
     o.add_loan("Phone installments", "valU", "2,000", "2027-04-15", "12", "24,000")
     o.ask("owe_more", "With the phone, what do I owe now?", "Loans still to pay")
-    o.ask("eid", "What did Eid cost me?", "Expense analysis")
+    o.ask("eid", "What did Eid cost me?", "Spending")
     o.ask("eid_tag", "And everything I tagged #eid?", "Cash wallet", "#Eid")
 
     # ============================================================== April: the insurance, and selling COMI
@@ -561,7 +561,7 @@ def _live_the_year(o: Mohab) -> None:
 
     # ============================================================== the year
     for key, question, page in (("year", "How did my year go?", ""),
-                                ("year_spending", "Where did the year's money go?", "Expense analysis"),
+                                ("year_spending", "Where did the year's money go?", "Spending"),
                                 ("year_investing", "How did my investments do this year?", "Investments")):
         screen = o.period(page, "2026-10-01", "2027-09-30")
         o.answers[key] = Answer(question, list(b.trail) + ["Custom 2026-10-01 to 2027-09-30"], screen)
@@ -637,7 +637,7 @@ def _the_feedback_round(o: Mohab) -> None:
     o.notes["moved"] = b.submit({}, button="Move it")
     o.ask("food_over_after", "And now?")
     o.ask("fund_value", "THNDR shows the fund's value, not its unit price. Can I type that?",
-          "Settings", "Valuations", "Update prices")
+          "Investments", "Prices")
 
     # His share of the family flat: he only knows what it is worth.
     o.account("Family flat (my share)", "Other", "400,000", when="2027-09-30")
@@ -730,7 +730,7 @@ def test_what_he_owns_leaves_out_moms_money(mohab):
     assert position.figure("What you own Excludes money held for others") == D("250565")  # reports show whole pounds
     assert position.figure("Gold") == D("57195")  # 8 g + 4.3 g of 21K at 4,650
     moms = mohab.answers["moms_money"]
-    assert route(mohab, "moms_money") == ["/", "/money-from-others"]
+    assert route(mohab, "moms_money") == ["/", "/accounts", "/money-from-others"]
     assert moms.shows("Mom CIB Payroll 10,000.00")
 
 

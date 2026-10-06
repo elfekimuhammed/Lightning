@@ -56,7 +56,7 @@ def test_analysis_navigation_selects_only_the_current_page(c):
     client = TestClient(create_app(c))
     for path, current in (
         ("/birdview", "/"),  # Birdview now lives in the Overview
-        ("/birdview/expenses", "/birdview/expenses"),
+        ("/birdview/expenses", "/"),  # Spending is a tab of the Overview (two levels, 2026-10-06)
         ("/settings", "/settings"),
         ("/counterparties", "/settings"),
     ):
@@ -102,7 +102,7 @@ def test_cash_planning_tabs_scroll_within_the_bar_on_narrow_viewports(c):
     client = TestClient(create_app(c))
     page = client.get("/plan")
     assert page.status_code == 200
-    assert 'class="plan-tabs-bar" aria-label="Cash planning"' in page.text
+    assert 'class="plan-tabs-bar section-tabs" aria-label="Cash planning"' in page.text
     for href in ("/plan", "/plan/recurring", "/plan/loans", "/plan/reserves"):
         assert f'href="{href}"' in page.text
     # With no income planned the forecast is an empty state, not a guess (guideline A01).

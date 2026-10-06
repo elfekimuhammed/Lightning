@@ -24,6 +24,7 @@ from lightning.core.figures import FIGURES
 from lightning.core.memo import request_cache
 from lightning.core.money import ZERO, fmt, to_decimal
 from lightning.workflows import live_prices
+from lightning.ui import sections
 
 UI_DIR = Path(__file__).parent
 templates = Jinja2Templates(directory=str(UI_DIR / "templates"))
@@ -160,6 +161,7 @@ def _back_url(request) -> str:
 
 
 templates.env.globals["back_url"] = _back_url
+templates.env.globals["sections_for"] = sections.for_request
 templates.env.globals["fig"] = FIGURES
 templates.env.globals["app_version"] = DISPLAY_VERSION
 

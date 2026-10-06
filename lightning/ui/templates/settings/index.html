@@ -5,7 +5,7 @@
 
 {% block content %}
 {% set settings_section = 'valuations' if section in ('valuations', 'assets-valuations') else section %}
-{% include 'partials/settings_nav.html' %}
+
 {% if section in ('valuations','assets-valuations') %}<section id="assets-valuations" class="card data-panel"><div class="section-head"><div><h2>Sale factors</h2><p class="muted small">The share of each class's value you would expect to get if you sold today. Used for {{ fig.holdings_after_sale.label|lower }} and {{ fig.if_you_sold_today.label|lower }}.</p></div></div><table class="factor-table"><colgroup><col><col class="c-num"><col class="c-factor"><col class="c-num"></colgroup>
 <thead><tr><th>Class</th><th class="num">Value you own</th><th>Sale factor</th><th class="num">After sale (estimate)</th></tr></thead>
 {% for g in factor_groups %}{% set r = g.root %}<tbody class="factor-group">
@@ -17,7 +17,7 @@
   <td class="num">{{ row.estimate|money }}</td></tr>{% endfor %}
 </tbody>{% else %}<tbody><tr><td colspan="4">No investment classes are configured.</td></tr></tbody>{% endfor %}
 </table><p class="muted small">Leave a kind empty to use its class’s factor. Clear a class to use the 95% default.</p>
-<p class="settings-links"><a href="/investments/prices">Update prices</a> · <a href="/investments/reevaluations">Reevaluation ledger</a> · <a href="/investments/assets/new">Add an investment to the catalogue</a> · <a href="/investments/targets" data-popup-open>Target allocation</a></p><details><summary>View configured classes and assets</summary><table>{% for c in classes %}<tr><td class="indent-{{ c.depth }}">{{ c.name }}</td><td class="code muted">{{ c.code }}</td></tr>{% endfor %}</table><h3>Financial assets</h3><table>{% for a in assets %}<tr><td>{{ a.name }}</td><td class="code muted">{{ a.code }}</td></tr>{% endfor %}</table></details></section>
+<details><summary>View configured classes and assets</summary><table>{% for c in classes %}<tr><td class="indent-{{ c.depth }}">{{ c.name }}</td><td class="code muted">{{ c.code }}</td></tr>{% endfor %}</table><h3>Financial assets</h3><table>{% for a in assets %}<tr><td>{{ a.name }}</td><td class="code muted">{{ a.code }}</td></tr>{% endfor %}</table></details></section>
 {% elif section=='budget' %}{% include 'settings/budget_section.html' %}
 {% elif section=='financial-health' %}{% include 'settings/financial_health_section.html' %}
 {% elif section=='targets' %}<section class="card"><div class="section-head"><div><h2>Target allocation</h2><p>The share you want in each asset class</p></div></div>{% include "investments/_targets.html" %}</section>

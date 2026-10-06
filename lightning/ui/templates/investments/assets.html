@@ -3,7 +3,7 @@
 {% block heading %}<div><h1>Settings</h1><p class="muted small page-subtitle">Financial assets · everything you can hold, where it trades, and its ISIN</p></div>{% endblock %}
 {% block top_actions %}<a class="btn primary" href="/investments/assets/new">Add an investment</a>{% endblock %}
 {% block content %}
-{% set settings_section = 'financial-assets' %}{% include 'partials/settings_nav.html' %}
+
 <section class="card data-panel">
   {% if rows %}<table class="asset-list">
     <thead><tr><th>Name</th><th>Ticker</th><th>Exchange</th><th>Type</th><th>ISIN</th><th>Shown</th><th></th></tr></thead>
