@@ -31,5 +31,5 @@ Unclaimed: add a *Claimed* row before you start. Each item's **Read:** names wha
 2. **UX plan 5, 6, 8, 9:** Claim UI templates and `style.css`. Checkbox/radio accent is Azure but A10 says Nile (only import review uses Nile). Read: Project Overview › UX plan; guideline A10.
 3. **Speed (optional):** stable window origin for CSS/JS caching; trim unused CSS. Read: Architecture › Page speed.
 4. **05a — Sync protocol:** compare schemas and in-memory state with protocol v1; add only missing messages, fixtures and duplicate/reordered/stale/restarted-flow tests. Freeze schemas on `main`; durable storage and transport remain later work. Claim `lightning/sync/` and `tests/test_sync_domain.py`. Read: [proposal section 15](docs/proposals/multiple_devices.md#15-implementation-work-packages) and its Read column.
-5. **Phone layout (owner: needs its own design):** wait for `OWNER.md` *To decide* 11, then a proposal before 18c builds it. Read: Project Overview › *Planned phone layout*; the 04c screenshots are described there.
+5. **Phone layout (owner: needs its own design):** wait for `OWNER.md` *To decide* 11, then a proposal before 18c builds it. Read: Project Overview › *Planned phone layout*.
 6. **Online prices for funds:** match held funds to Mubasher ids (`EG:FUND:<id>`) so online fetching covers them. Read: `lightning/workflows/live_prices.py` docstring.
