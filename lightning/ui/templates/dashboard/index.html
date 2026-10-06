@@ -40,6 +40,7 @@
         <section aria-labelledby="nw-trend-heading">
           <div class="overview-block-head"><div><h3 id="nw-trend-heading">Over time</h3><p>At the end of each month{% if networth_trend.labels %} · {{ networth_trend.labels[0].text }} to {{ networth_trend.labels[-1].text }}{% endif %}</p></div></div>
           {{ trend(networth_trend, fig[lead].label ~ ' at the end of each month', 'Plan', 230) }}
+          {% for month, amount in networth_trend.openings %}<p class="muted small">{{ month }} includes {{ amount|money }} of opening balances: yours before, so not a change.</p>{% endfor %}
         </section>
       </div>
     </article>

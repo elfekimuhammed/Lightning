@@ -240,8 +240,17 @@ def _portfolio_value_spark(c, end: date) -> dict:
         _, last = parse_month(first.strftime("%Y-%m"))
         # The Position's figure, as on the Overview: deposits are their own figure, not portfolio.
         values.append(c.position.portfolio_value_at(min(last, end)))
-    return {"spark": charts.sparkline(values), "values": values, "latest": values[-1] if values else None,
-            "first": next((v for v in values if v), None)}
+    start = next((i for i, v in enumerate(values) if v), None)
+    first = values[start] if start is not None else None
+    latest = values[-1] if values else None
+    added = change = None
+    if first is not None:
+        # Holdings recorded as already owned after that month end were not growth (audit 2026-10-05).
+        _, since = parse_month(list(reversed(months))[start].strftime("%Y-%m"))
+        added = c.reporting.holdings_opened_between(since + timedelta(days=1), end) if since < end else ZERO
+        change = latest - first - added
+    return {"spark": charts.sparkline(values), "values": values, "latest": latest, "first": first,
+            "change": change, "added": added}
 
 
 def _page_extras(c, period, p, prior, owned_rows, prior_custody, before_day, report) -> dict:

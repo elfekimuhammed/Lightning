@@ -304,6 +304,14 @@ class ReportingService:
         value) between two dates. Recording something you had is not a change in what you own."""
         return from_e6(self.q.opening_total(self._day(start), self._day(end)))
 
+    def opening_balances_by_month(self, start: date | str, end: date | str) -> dict[str, Decimal]:
+        """``opening_balances_between`` for each month (yyyy-mm) between two dates, months without any left out."""
+        return {month: from_e6(e6) for month, e6 in self.q.opening_by_month(self._day(start), self._day(end)).items() if e6}
+
+    def holdings_opened_between(self, start: date | str, end: date | str) -> Decimal:
+        """The holdings part of ``opening_balances_between``: investments recorded as already owned."""
+        return from_e6(self.q.holdings_opening_total(self._day(start), self._day(end)))
+
     def opening_by_holding(self, start: date | str, end: date | str) -> dict[tuple[int, int], Decimal]:
         """Opening balances recorded between two dates, per (account, asset): what you already had,
         so not a change in value when it is first recorded inside a period."""

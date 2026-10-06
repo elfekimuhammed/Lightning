@@ -30,7 +30,7 @@
     <span class="stat-tile-head">{{ tone_icon('hold') }}<span class="stat-tile-label">{{ fig.portfolio_value.label }}</span><span class="stat-chip">Last 6 months</span></span>
     {% if value_spark.spark.points %}<span class="stat-tile-visual" aria-hidden="true"><svg class="stat-tile-spark tone-hold" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="{{ value_spark.spark.area }}"/><polyline points="{{ value_spark.spark.points }}" vector-effect="non-scaling-stroke"/></svg><span class="stat-tile-dot tone-hold" style="left:{{ '%.2f'|format(value_spark.spark.last[0]) }}%;top:{{ '%.2f'|format(value_spark.spark.last[1]) }}%"></span></span>{% endif %}
     <span class="stat-tile-value">{% if value_spark.latest is not none %}{{ value_spark.latest|money }}<small>{{ base }}</small>{% else %}Unavailable{% endif %}</span>
-    <span class="stat-tile-sub">{% if value_spark.first is not none and value_spark.latest is not none %}<b class="{{ (value_spark.latest - value_spark.first)|tone }}">{{ (value_spark.latest - value_spark.first)|money(True) }}</b> since six months ago · today{% else %}Holdings · today{% endif %}</span>
+    <span class="stat-tile-sub">{% if value_spark.change is not none %}<b class="{{ value_spark.change|tone }}">{{ value_spark.change|money(True) }}</b> since six months ago{% if value_spark.added %}, not counting {{ value_spark.added|money }} of opening balances{% endif %} · today{% else %}Holdings · today{% endif %}</span>
   </a>
 </section>
 

@@ -645,6 +645,7 @@ def _the_feedback_round(o: Mohab) -> None:
     # His share of the family flat: he only knows what it is worth.
     o.account("Family flat (my share)", "Other", "400,000", when="2027-09-30")
     o.ask("flat", "Is my share of the flat in my investments?", "Investments")
+    o.ask("flat_jump", "My net worth jumped this month. Did I really gain 400,000?")
     o.notes["flat_page"] = b.go("Family flat (my share)")
 
     # What does the bank say? He counts his wallet 30 short; CIB's app shows 5,000 less than Lightning.
@@ -1209,6 +1210,9 @@ def test_a_fund_can_be_valued_by_its_total(mohab):
 def test_other_investments_are_in_the_investment_analysis(mohab):
     assert route(mohab, "flat") == ["/", "/investments"]
     assert mohab.answers["flat"].shows("Other Investments", "400,000")
+    # Recording the flat is not growth: the investments line and the net worth chart both say so.
+    assert re.search(r"since six months ago, not counting 400,000 of opening balances", mohab.answers["flat"].screen.text)
+    assert mohab.answers["flat_jump"].shows("2027-09 includes 400,000 of opening balances: yours before, so not a change.")
 
 
 def test_the_flat_can_be_given_a_new_value(mohab):

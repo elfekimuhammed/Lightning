@@ -275,6 +275,22 @@ class ReportQueries:
                               "WHERE t.type='OPN' AND le.owner_id IS NULL AND le.date BETWEEN ? AND ?",
                               (start, end)) or 0
 
+    def holdings_opening_total(self, start: str, end: str) -> int:
+        """Owned holdings recorded as already owned between two dates, in base e6: non-cash assets, and
+        an other-asset account's value (a flat is held as its value, in cash units)."""
+        return self.db.scalar(f"SELECT COALESCE(SUM(le.amount_base_e6),0) FROM ledger_entries le {POSTED} "
+                              "JOIN financial_assets fa ON fa.id=le.asset_id JOIN accounts a ON a.id=le.account_id "
+                              "WHERE t.type='OPN' AND le.owner_id IS NULL AND (fa.is_cash=0 OR a.account_type='OTHER_ASSET') "
+                              "AND le.date BETWEEN ? AND ?",
+                              (start, end)) or 0
+
+    def opening_by_month(self, start: str, end: str) -> dict[str, int]:
+        """Owned opening balances recorded between two dates, per yyyy-mm, in base e6."""
+        rows = self.db.all(f"SELECT substr(le.date,1,7) AS month, SUM(le.amount_base_e6) AS amount_e6 "
+                           f"FROM ledger_entries le {POSTED} WHERE t.type='OPN' AND le.owner_id IS NULL "
+                           "AND le.date BETWEEN ? AND ? GROUP BY month", (start, end))
+        return {row["month"]: row["amount_e6"] for row in rows}
+
     def opening_by_holding(self, start: str, end: str) -> list[dict]:
         """Owned opening balances recorded between two dates, per account and asset, in base e6."""
         return self.db.all(f"SELECT le.account_id, le.asset_id, SUM(le.amount_base_e6) AS amount_e6 "

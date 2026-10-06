@@ -12,6 +12,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 ## [Unreleased]
 - 2026-10-06 · Claude: 04b passed: on the owner's arm64 phone the encrypted round-trip (open, write, close, reopen, recovery key) gives the same figures, row counts and key checks as Linux and Windows (`android/README.md`). 04c is next.
 
+- 2026-10-06 · Claude: an account added as already owned is no longer read as growth: the net worth chart names the month and amount of opening balances, and the Investments line's change since six months ago leaves them out.
 - 2026-10-06 · Claude: Looks recurring leaves out everyday spending and investment income, and *Not recurring* hides a suggestion (`PlanningService.suggestions`, `POST /plan/suggestions/{id}/not-recurring`).
 - 2026-10-06 · Claude: Mohab review fixes. Budget and Reserves meters say left/over as the two rounded figures read (80 of 68 is 12 over, not 13); budget suggestions are whole EGP; Reserves shows whole EGP like the other Cash planning tabs; Overview Bills due reads 0, not 0.00; Spending's change reads 0%, never +0% or −0%.
 - 2026-10-06 · Claude: 04b: `lightning/runtime/roundtrip.py` opens a committed encrypted dummy profile (`tests/fixtures/roundtrip`), writes, reopens and recovers its key; Linux, Windows CI and the Android probe must give the same report (`expected.json`). Phone run pending.

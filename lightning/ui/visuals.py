@@ -189,12 +189,17 @@ def month_ends(end: date, count: int, first_activity: str | None) -> list[tuple[
 
 def net_worth_trend(c, end: date, count: int = 12) -> dict:
     """Net worth at each month end (the same Position as the Overview's cards)."""
-    points = [(key, c.position.at(day)) for key, day in month_ends(end, count, c.reporting.first_activity_date())]
+    ends = month_ends(end, count, c.reporting.first_activity_date())
+    points = [(key, c.position.at(day)) for key, day in ends]
     owes = any(pos.what_you_owe for _, pos in points)
     # One line: the breakdown right under the chart carries What you own and What you owe.
     series = [{"name": "Net worth" if owes else "What you own", "tone": "hold", "area": True,
                "values": [pos.net_worth if owes else pos.what_you_own for _, pos in points]}]
-    return charts.trend([k for k, _ in points], series)
+    out = charts.trend([k for k, _ in points], series)
+    # A month's rise can be an account added as already owned: say so, it is not a change (audit 2026-10-05).
+    opened = c.reporting.opening_balances_by_month(ends[1][1].replace(day=1), end) if len(ends) > 1 else {}
+    out["openings"] = [(key, opened[key]) for key, _ in ends[1:] if key in opened]
+    return out
 
 
 def free_cash_steps(position) -> dict | None:
