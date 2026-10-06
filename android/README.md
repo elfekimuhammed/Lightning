@@ -89,4 +89,6 @@ with the password, read figures, write one expense, close, check that plain SQLi
 open with the recovery key, set a new password, reopen, and list integrity, figures and row counts per table.
 `tests/test_device_roundtrip.py` checks the same lines on Linux and Windows CI against `expected.json`; the phone's
 `04b encrypted round-trip` line says OK only when every line is equal, and otherwise lists the lines that differ.
-It also prints each step's seconds (input for 04d). 04b passes when that line is OK on the owner's phone.
+It also prints each step's seconds (input for 04d). Linux and Windows gave the expected lines in
+[run 37460524735](https://github.com/elfekimuhammed/Lightning/actions/runs/37460524735); the APK is from
+[run 37460528401](https://github.com/elfekimuhammed/Lightning/actions/runs/37460528401). 04b passes when that line is OK on the owner's phone.
