@@ -266,7 +266,7 @@ def test_needs_you_lists_missing_month_ends_until_they_are_typed(c, holdings, tm
     fill_followed(c, date(2026, 12, 31))
     item = next(i for i in ReviewInbox(c).items(date(2026, 12, 31)) if "missing" in i["label"])
     assert item["label"] == "1 price missing" and item["detail"] == "CIB, November 2026."
-    assert (item["href"], item["action"]) == ("/investments/prices", "Enter prices")
+    assert (item["href"], item["action"]) == ("/investments/prices#missing", "Get prices")
     c.assets.set_price(holdings["cib"].id, "2026-11-30", "85")
     assert not any("missing" in i["label"] for i in ReviewInbox(c).items(date(2026, 12, 31)))
 

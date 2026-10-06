@@ -15,11 +15,14 @@ sources cannot give is listed for Needs you, never guessed. The shared price fil
 backup) stay one click away on Investment prices, and typing a price always works.
 
 The work is split so the network never holds the database: plan() reads, gather() only fetches, save() writes.
+Opening a profile starts gather() on its own thread and the profile opens at once; the next page saves what it
+found on the database's own thread (an encrypted profile is used from one thread only) and says so.
 """
 from __future__ import annotations
 
 import json
 import os
+import threading
 import time
 from dataclasses import dataclass, field
 from datetime import date, datetime, time as clock, timedelta, timezone
@@ -29,12 +32,13 @@ from lightning.core.dates import fmt_date
 from lightning.market.http import APP_AGENT, Polite
 from lightning.market.model import Quote, SourceError
 from lightning.market.packs import PACKS
-from lightning.market.sources import mubasher, tradingview, yahoo
+from lightning.market.sources import cbe, mubasher, tradingview, yahoo
 from lightning.workflows.market_prices import MISSING_SETTING, _month_ends
 
 SOURCE = "ONLINE"
 TRIED_SETTING = "prices_online_tried"   # the day the app last fetched by itself
 OFFLINE_ENV = "LIGHTNING_PRICES_OFFLINE"  # "1": never fetch (tests, and anyone who wants no network)
+FAILS_SETTING = "prices_online_fails"    # fetches in a row that left month-ends missing because a source failed
 NEAR_DAYS = 10                           # a close this close to a month-end stands for it (as revaluation reads it)
 CURRENCY = {"egx": "EGP", "eg-funds": "EGP", "us": "USD"}
 
@@ -264,7 +268,19 @@ def save(c, work: Plan, found: dict, failed: list[str]) -> Report:
     planned = {w.asset_id for w in work.wants}
     kept = [pair for pair in earlier if isinstance(pair, list) and len(pair) == 2 and pair[0] not in planned]
     c.settings.set(MISSING_SETTING, json.dumps((kept + missing_ids)[:200]))
+    if report.missing and report.failed:
+        c.settings.set(FAILS_SETTING, str(failures(c) + 1))
+    elif not report.missing:
+        c.settings.set(FAILS_SETTING, "0")
     return report
+
+
+def failures(c) -> int:
+    """Fetches in a row that a failing source left incomplete: after two, Lightning offers the shared files."""
+    try:
+        return int(c.settings.get(FAILS_SETTING) or 0)
+    except ValueError:
+        return 0
 
 
 def fetch_now(c, on: date, session=None, now: datetime | None = None) -> Report:
@@ -285,3 +301,87 @@ def fetch_if_due(c, on: date, session=None, now: datetime | None = None) -> Repo
     c.settings.set(TRIED_SETTING, fmt_date(on))
     found, failed = gather(work, session, now, budget=12.0)
     return save(c, work, found, failed)
+
+
+# ------------------------------------------------------------------ in the background, on opening a profile
+@dataclass
+class _Job:
+    container: object
+    work: Plan
+    done: threading.Event = field(default_factory=threading.Event)
+    found: dict = field(default_factory=dict)
+    failed: list = field(default_factory=list)
+
+
+_job: _Job | None = None  # one open profile per app, so at most one fetch in flight
+
+
+def start_if_due(c, on: date, session=None, now: datetime | None = None) -> bool:
+    """fetch_if_due without the wait: the sources are asked on another thread while the profile opens;
+    apply_finished() saves the answer on the next page. False when nothing was due (no request is made)."""
+    global _job
+    if c.db.read_only or not enabled() or c.settings.get(TRIED_SETTING) == fmt_date(on):
+        return False
+    work = plan(c, on, now)
+    if not work.month_ends_missing():
+        return False
+    c.settings.set(TRIED_SETTING, fmt_date(on))
+    job = _Job(c, work)
+
+    def run() -> None:
+        try:
+            job.found, job.failed = gather(work, session, now, budget=30.0)
+        except Exception:  # noqa: BLE001 - an unexpected answer leaves prices as they were
+            job.failed = ["the price sources"]
+        finally:
+            job.done.set()
+
+    _job = job
+    threading.Thread(target=run, name="online-prices", daemon=True).start()
+    return True
+
+
+def apply_finished(c) -> str:
+    """Save a finished background fetch for this profile, on the caller's (the database's) thread, and say
+    what it did, once. "" while it runs, or when there is nothing to save."""
+    global _job
+    job = _job
+    if job is None or not job.done.is_set():
+        return ""
+    _job = None
+    if job.container is not c or c.db.read_only:
+        return ""  # the profile it was for is closed, or reopened read-only
+    report = save(c, job.work, job.found, job.failed)
+    return f"Month-end prices: {report.summary()}"
+
+
+# ------------------------------------------------------------------ Settings › Price files › Test price sources
+def probe(session=None) -> list[tuple[str, bool, str]]:
+    """Ask each source once, as Update prices would, and say what came back: (source, works, what)."""
+    session = session or Polite(min_interval=0.3, retries=1, timeout=10.0, user_agent=APP_AGENT)
+    day = fmt_date(final_day("egx", datetime.now(timezone.utc)))
+    def count(n: int, one: str, many: str) -> str:
+        return f"{n} {one if n == 1 else many}"
+    checks = (
+        ("TradingView", lambda: count(len(tradingview.fetch(session, "egx", day).quotes), "Egyptian stock", "Egyptian stocks")),
+        ("Yahoo Finance", lambda: count(len(yahoo.fetch_history(session, "EG:COMI", "1mo")), "day", "days")
+         + " of CIB's history"),
+        ("Mubasher", lambda: count(len(mubasher.fetch(session).quotes), "Egyptian fund", "Egyptian funds")),
+        ("Central Bank of Egypt", lambda: count(len(cbe.fetch(session, fmt_date(date.today())).quotes),
+                                                "exchange rate", "exchange rates")),
+    )
+    results = []
+    for name, check in checks:
+        try:
+            results.append((name, True, check()))
+        except SourceError as exc:
+            results.append((name, False, str(exc)))
+        except Exception as exc:  # noqa: BLE001 - an unexpected answer is a failing source, said plainly
+            results.append((name, False, f"answered something Lightning cannot read ({exc.__class__.__name__})"))
+    return results
+
+
+def probe_summary(results) -> str:
+    return " · ".join(f"{name}: {'works, ' + what if works else 'not working (' + what + ')'}"
+                      for name, works, what in results)
+

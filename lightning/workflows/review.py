@@ -68,8 +68,8 @@ class ReviewInbox:
                               for name, months in list(by_name.items())[:2])
             more = f"; and {len(by_name) - 2} more" if len(by_name) > 2 else ""
             items.append({"label": _plural(len(missing), "price missing", "prices missing"),
-                          "detail": f"{named}{more}.", "href": "/investments/prices",
-                          "action": "Enter prices", "priority": 2})
+                          "detail": f"{named}{more}.", "href": "/investments/prices#missing",
+                          "action": "Get prices", "priority": 2})
         stale = c.reporting.stale_prices(on)
         if stale:
             named = ", ".join(f"{row['name']} ({row['price_date']})" for row in stale[:2])

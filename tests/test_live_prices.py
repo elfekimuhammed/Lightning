@@ -4,6 +4,7 @@ wins; and nothing is asked when nothing is due."""
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from datetime import date, datetime, timezone
 from decimal import Decimal as D
 
@@ -13,7 +14,8 @@ from fastapi.testclient import TestClient
 from lightning.market.model import SourceError
 from lightning.ui.web import create_app
 from lightning.workflows import live_prices, market_prices
-from lightning.workflows.live_prices import due_month_ends, fetch_if_due, fetch_now, final_day
+from lightning.workflows.live_prices import (apply_finished, due_month_ends, failures, fetch_if_due, fetch_now,
+                                             final_day, probe, probe_summary, start_if_due)
 
 
 def _stamp(day: str, hour: int = 12) -> int:
@@ -47,6 +49,9 @@ class Sources:
                                       "indicators": {"quote": [{"close": list(series.values())}]}}]}}
 
     def get_text(self, url, params=None):
+        if "cbe.org.eg" in url:
+            self._check("cbe")
+            return (Path(__file__).parent / "fixtures" / "market" / "cbe_rates.html").read_text(encoding="utf-8")
         self._check("mubasher-history")
         return self.fund_history
 
@@ -54,6 +59,7 @@ class Sources:
 @pytest.fixture(autouse=True)
 def online(monkeypatch, tmp_path):
     monkeypatch.delenv(live_prices.OFFLINE_ENV, raising=False)
+    monkeypatch.setattr(live_prices, "_job", None)
     monkeypatch.setattr(market_prices, "BUNDLED", tmp_path / "absent" / "market.zip")
 
 
@@ -150,3 +156,56 @@ def test_the_update_prices_button(c, held, monkeypatch):
     answer = client.post("/investments/prices/online", follow_redirects=False)
     assert answer.status_code == 303 and called
     assert "Not reachable now: TradingView." in client.get(answer.headers["location"]).text
+
+
+def _wait():
+    job = live_prices._job
+    assert job is not None and job.done.wait(5)
+
+
+def test_opening_a_profile_fetches_in_the_background_and_the_next_page_saves_it(c, held):
+    sources = Sources(history={"COMI.CA": {"2026-09-29": 70, "2026-10-29": 75, "2026-11-02": 77}},
+                      fund_history="2026-09-30,30.5\n2026-10-30,31\n")
+    assert start_if_due(c, date(2026, 11, 3), sources, datetime(2026, 11, 3, 9, tzinfo=timezone.utc))
+    _wait()
+    assert not c.reevaluations.has_price(held["cib"].id, "2026-10-31")  # nothing written off the database's thread
+    page = TestClient(create_app(c)).get("/investments/prices").text
+    assert "Month-end prices: Fetched " in page  # said once, on the next page
+    assert c.reporting.value_of(held["cib"].id, D(1), "2026-10-31").price == D("75")
+    assert apply_finished(c) == "" and live_prices._job is None
+    assert not start_if_due(c, date(2026, 11, 3), sources)  # once a day
+
+
+def test_a_background_fetch_for_a_closed_profile_is_dropped(c, held):
+    assert start_if_due(c, date(2026, 11, 3), Sources(), datetime(2026, 11, 3, 9, tzinfo=timezone.utc))
+    _wait()
+    assert apply_finished(object.__new__(type(c))) == "" and live_prices._job is None
+
+
+def test_after_two_failed_tries_the_shared_prices_are_offered(c, held):
+    down = Sources(fail={"tradingview", "yahoo:COMI.CA", "mubasher", "mubasher-history"})
+    client = TestClient(create_app(c))
+    fetch_now(c, date(2026, 12, 31), down, datetime(2026, 12, 31, 15, tzinfo=timezone.utc))
+    page = client.get("/investments/prices").text
+    assert 'id="missing"' in page and "Get prices" in page and "Use shared prices" not in page
+    fetch_now(c, date(2026, 12, 31), down, datetime(2026, 12, 31, 15, tzinfo=timezone.utc))
+    assert failures(c) == 2
+    assert "Use shared prices" in client.get("/investments/prices").text
+    for asset in held.values():
+        for day in ("2026-09-30", "2026-10-31", "2026-11-30", "2026-12-31"):
+            c.assets.set_price(asset.id, day, "60")
+    fetch_now(c, date(2026, 12, 31), down, datetime(2026, 12, 31, 15, tzinfo=timezone.utc))
+    assert failures(c) == 0  # nothing missing any more
+
+
+def test_testing_the_price_sources_names_the_one_that_fails(c, monkeypatch):
+    results = probe(Sources(board={"COMI": 80}, history={"COMI.CA": {"2026-10-01": 80}}, fail={"mubasher"}))
+    assert [(name, works) for name, works, _ in results] == [
+        ("TradingView", True), ("Yahoo Finance", True), ("Mubasher", False), ("Central Bank of Egypt", True)]
+    text = probe_summary(results)
+    assert "TradingView: works, 1 Egyptian stock" in text and "Mubasher: not working (mubasher is down)" in text
+    monkeypatch.setattr(live_prices, "probe", lambda: results)
+    client = TestClient(create_app(c))
+    assert "Test price sources" in client.get("/investments/prices/markets").text
+    answer = client.post("/investments/prices/markets/test", follow_redirects=False)
+    assert "Mubasher: not working" in client.get(answer.headers["location"]).text

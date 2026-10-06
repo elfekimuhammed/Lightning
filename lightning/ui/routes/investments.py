@@ -689,7 +689,7 @@ async def prices(request: Request, error: str = ""):
                      "price_date": valuation.price_date, "source": valuation.source})
     rows.sort(key=lambda r: (r["held"] is None, r["asset"].name))
     return render(request, "investments/prices.html", rows=rows, day=day, error=error,
-                  pending=c.reevaluations.pending_prices(), market=_followed(c))
+                  pending=c.reevaluations.pending_prices(), market=_followed(c), fails=live_prices.failures(c))
 
 
 def _followed(c) -> list[dict]:
@@ -789,6 +789,15 @@ async def price_files(request: Request):
     c = container(request)
     return render(request, "investments/price_files.html",
                   rows=pack_rows(c.data_dir, chosen(c.settings.get("market_packs"))))
+
+
+@router.post("/prices/markets/test")
+async def test_price_sources(request: Request):
+    """Ask each price source once and say what came back, so a failing one is found without guessing."""
+    if not live_prices.enabled():
+        return redirect("/investments/prices/markets", "Fetching prices online is off on this computer.")
+    results = await run_in_threadpool(live_prices.probe)
+    return redirect("/investments/prices/markets", live_prices.probe_summary(results))
 
 
 @router.post("/prices/markets")

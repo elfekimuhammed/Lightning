@@ -23,6 +23,7 @@ from lightning.core.errors import NotFoundError, ValidationError
 from lightning.core.figures import FIGURES
 from lightning.core.memo import request_cache
 from lightning.core.money import ZERO, fmt, to_decimal
+from lightning.workflows import live_prices
 
 UI_DIR = Path(__file__).parent
 templates = Jinja2Templates(directory=str(UI_DIR / "templates"))
@@ -189,6 +190,9 @@ templates.env.globals["privacy_on"] = privacy_on
 def render(request: Request, name: str, status_code: int = 200, **context) -> HTMLResponse:
     c = container(request)
     context.setdefault("msg", request.query_params.get("msg", ""))
+    note = live_prices.apply_finished(c)  # month-end prices fetched in the background since the profile opened
+    if note:
+        context["msg"] = f"{context['msg']} {note}".strip()
     context.setdefault("error", "")
     context.setdefault("error_field", "")
     total, owned_total, groups = c.reporting.sidebar(today())

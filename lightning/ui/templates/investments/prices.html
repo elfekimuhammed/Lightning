@@ -33,9 +33,10 @@
   </details>
 </section>
 {% if pending %}
-<form method="post" class="card" style="max-width:1000px;margin-bottom:16px" autocomplete="off">
+<form method="post" class="card" style="max-width:1000px;margin-bottom:16px" autocomplete="off" id="missing">
   <h2>Prices needed to complete reevaluations</h2>
-  <p class="muted">These month-end checkpoints are waiting for a price. Enter each missing price; its account return will then be posted to the main ledger.</p>
+  <p class="muted">These month-end checkpoints are waiting for a price. Get prices asks the sources again; {% if fails >= 2 and market %}they failed the last {{ fails }} times, so you can use the shared prices instead, or {% else %}or {% endif %}enter each price below. Its account return is then posted to the main ledger.</p>
+  <div class="actions" style="margin-bottom:12px"><button class="btn" formaction="/investments/prices/online" formnovalidate>Get prices</button>{% if fails >= 2 and market %}<button class="btn" formaction="/investments/prices/market/update" formnovalidate>Use shared prices</button>{% endif %}</div>
   <table class="budget"><thead><tr><th>Checkpoint</th><th>Investment</th><th>Price needed</th></tr></thead>
     {% for row in pending %}<tr><td>{{ row.date }}</td><td>{{ row.asset_name }} <span class="code muted small">{{ row.asset_code }}</span></td>
       <td><input name="rp_{{ row.asset_id }}_{{ row.date }}" class="num" inputmode="decimal" placeholder="Price per unit" required></td></tr>{% endfor %}

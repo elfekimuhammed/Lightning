@@ -11,6 +11,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 
 ## [Unreleased]
 
+- 2026-10-06 · Claude: Online prices never in the way: the month-end fetch on opening runs in the background and the next page saves it and says so; Get prices on missing month-ends, Use shared prices after two failed tries; Settings › Price files › Test price sources (`tests/test_live_prices.py`).
 - 2026-10-06 · Codex: Documented promotion's unverified power-loss risk, the ordinary Windows drill, and the explicit real-data release decision.
 - 2026-10-06 · Codex: Added 02d process-kill drills at every durable promotion phase and POSIX full-disk/flush fault tests; recorded the remaining physical reboot evidence separately.
 - 2026-10-06 · Codex: Fixed nine Mohab checks: dividend amounts, emergency-target warning, today position snapshot, long-period monthly spending, category sign key, persistent investing goal, total fund valuation, dated Other asset values, and multiple CSV selection.
