@@ -547,7 +547,7 @@ Claim these subtask IDs instead of claiming a large package for several sessions
 | 03b | 03a | Add explicit plaintext legacy import to a new encrypted destination; verify round-trip contents and recovery. | 3, 10 |
 | 04a | None | **Done 2026-10-06 (Claude): all native checks pass on the owner's arm64 phone (`android/README.md`).** Pin candidate SDK/Python/native build matrix; produce a reproducible arm64 app with critical dependencies loaded. | 3, 11 |
 | 04b | 04a | **Done 2026-10-06 (Claude): the owner's phone gives the same report as Linux and Windows (`android/README.md`).** Open/write/close the same encrypted fixture on Android and Windows; compare figures, inventory and key recovery. | 3, 11 |
-| 04c | 04b | Render one representative shared page; exercise WebView isolation, owning-thread shutdown and 16 KB device/native loading. | 11 |
+| 04c | 04b | **Built 2026-10-06 (Claude): pages render and work on the owner's phone; its guard, shutdown and 16 KB report is read at the first phone milestone.** Render one representative shared page; exercise WebView isolation, owning-thread shutdown and 16 KB device/native loading. | 11 |
 | 04d | 04c | Measure startup, unlock, page and snapshot costs; record go/no-go with the supported-device/build matrix. | 11, 14 |
 | 05a | 01, 02a | Define message schemas, IDs, epochs, states, idempotency and tombstones against an in-memory store; freeze the schemas and fixtures in main so protocol and transport can split. | 4–5, 13 |
 | 05b | 05a, 02d | Implement the durable device-local control store and join its authority records to the promotion journal; restart and reorder tests. | 4–5, 9 |

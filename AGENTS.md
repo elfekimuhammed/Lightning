@@ -37,6 +37,7 @@ Be as efficient with tokens as you can, in what you read, run and write. This ne
 - **Keep output short:** run the tests for what you changed with `-q`, and show only the failures. Run the full suite once, before you push.
 - **Skip unless your task needs it:** `OWNER.md`, old changelog sections, `docs/proposals/`, `user feedback/`, `Claude outputs/`, and the generated figures table in the Glossary (grep it).
 - **Write short:** a changelog entry is at most three lines, and `NOW.md` stays under 4,500 bytes. Put each fact in the one file that owns it and link to it from elsewhere.
+- **The owner reviews milestones, not steps** (owner's request, 2026-10-06): batch work into a milestone the owner can use end to end, and ask for a phone, PC or screen check only then. Small steps still pass CI and are pushed, without asking the owner to test them.
 - **Tell the owner only what helps them** (soft rule, owner's request): results, what they must decide or do, and real risks. Skip narrating steps, tool output and progress that changes nothing for them.
 
 ## 3. Every task, in this order

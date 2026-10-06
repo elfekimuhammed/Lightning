@@ -9,7 +9,6 @@ Work longer than one sitting, and its files. Stay out of claimed files; remove y
 | Who | Work | Files | Since |
 |---|---|---|---|
 | Codex | 02d — Code/fault tests pass; ordinary Windows reboot drill remains. Abrupt power-loss behavior is unverified; see Architecture › Promotion durability risk and [OWNER.md](OWNER.md). | `tests/test_database_promotion.py` | 2026-10-06 |
-| Claude | 04c — APK built (run 37469368422); waiting on the owner's phone run (`OWNER.md`) | `android/`, `.github/workflows/android-feasibility.yml`, `tests/test_android_probe.py` | 2026-10-06 |
 | Luna, for Codex | 03a restore safety: durable intent and source-copy manifest, Windows marker publication, then explicit deterministic repair. Codex reviews it and owns the restore UI and docs | `lightning/runtime/restore.py`, `lightning/database/promotion_windows.py`, `tests/test_profile_session.py`, `tests/test_database_promotion_windows.py` | 2026-10-05 |
 
 ## Messages
@@ -30,5 +29,5 @@ Unclaimed: add a *Claimed* row before you start. Each item's **Read:** names wha
 2. **UX plan 5, 6, 8, 9:** Claim UI templates and `style.css`. Checkbox/radio accent is Azure but A10 says Nile (only import review uses Nile). Read: Project Overview › UX plan; guideline A10.
 3. **Speed (optional):** stable window origin for CSS/JS caching; trim unused CSS. Read: Architecture › Page speed.
 4. **05a — Sync protocol:** compare schemas and in-memory state with protocol v1; add only missing messages, fixtures and duplicate/reordered/stale/restarted-flow tests. Freeze schemas on `main`; durable storage and transport remain later work. Claim `lightning/sync/` and `tests/test_sync_domain.py`. Read: [proposal section 15](docs/proposals/multiple_devices.md#15-implementation-work-packages) and its Read column.
-5. **Phone layout (owner: needs its own design):** wait for `OWNER.md` *To decide* 11, then a proposal before 18c builds it. Read: Project Overview › *Planned phone layout*.
+5. **Phone layout (owner: needs its own design):** wait for `OWNER.md` *To decide* 11–12 (04c: pages work on the phone; guard, shutdown and 16 KB report still to read at the milestone), then a proposal before 18c builds it. Read: Project Overview › *Planned phone layout*.
 6. **Online prices for funds:** match held funds to Mubasher ids (`EG:FUND:<id>`) so online fetching covers them. Read: `lightning/workflows/live_prices.py` docstring.
