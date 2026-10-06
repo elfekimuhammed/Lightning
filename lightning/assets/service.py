@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import replace
 from decimal import Decimal
 
@@ -285,12 +286,22 @@ class AssetService:
             self.repo.update_asset(updated)
         return self.get_asset(asset_id)
 
-    def link_market(self, asset_id: int, key: str) -> None:
+    def link_market(self, asset_id: int, key: str | None) -> None:
         """Remember which market-file instrument an asset is (EG:COMI, EG:FUND:4104)."""
         asset = self.get_asset(asset_id)
         if asset.market_key != key:
             with self.db.transaction():
                 self.repo.update_asset(replace(asset, market_key=key))
+
+    def link_fund(self, asset_id: int, page: str) -> None:
+        """A fund's Mubasher page (or its number) says where its prices come from online; blank forgets it,
+        so the next fetch matches the fund by name again."""
+        page = (page or "").strip()
+        found = re.search(r"/funds/(\d+)", page) or re.fullmatch(r"(\d+)", page)
+        if page and not found:
+            raise ValidationError("Paste the fund's page on Mubasher, e.g. english.mubasher.info/countries/eg/funds/4104, "
+                                  "or its number.", "fund_page")
+        self.link_market(asset_id, f"EG:FUND:{int(found.group(1))}" if found else None)
 
     # -- prices -------------------------------------------------------------
     def set_price(self, asset_id: int, date: str, price: object, source: str = "MANUAL") -> Price:

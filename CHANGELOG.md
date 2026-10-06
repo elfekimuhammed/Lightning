@@ -10,6 +10,8 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-06 · Claude: online prices: a held fund without its Mubasher number is found by its name, or its Mubasher page is pasted on Edit investment; gold (18K, 21K, 24K references and gold by the gram) is priced as an estimate from the world price and the dollar's rate (`workflows/live_prices.py`).
+- 2026-10-06 · Claude: audit leftovers: the old Budget settings page (its tracking-suggestion fields saved to nothing) is gone, errors return to Settings › Budget; a new account says "Shown under Bank Balance" (no ›); account types lose "e.g. THNDR"; the USD refusals no longer say "M4".
 - 2026-10-06 · Claude: phone audit. Mohab's year now runs on the phone (`tests/test_mohab_phone.py`); its dead ends are fixed: View CDs, buy and sell, a refund, a first plan, typed budget limits, Delete in the sheet, Select or press and hold for several rows, bills to pay on the Overview, ⋯ for account actions.
 - 2026-10-06 · Claude: phone look: Day by day calendars keep seven days across (they had become 31 rows), Categories reflow, Health rows and chart, chips and labels never cut, no FAB over the last row, no file path, whole-EGP big figures (PC too), Needs you and Get set up say their action in words.
 - 2026-10-06 · Claude: Competition › Phone flow, words and icons (how the best apps use tabs, words and icons); three guideline questions in OWNER.md. `tests/screens.py` no longer clashes with Python's HTML parser.

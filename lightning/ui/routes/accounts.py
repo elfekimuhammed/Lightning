@@ -22,8 +22,7 @@ def _form_context(request: Request, values: dict, account=None, error: Lightning
         account=account,
         types=sorted(((t.value, TYPE_LABELS[t]) for t in OFFERED_TYPES), key=lambda row: row[1].casefold()),
         # where each type shows up in "What your wealth is made of", in plain words
-        groups={t.value: c.assets.display_name(c.assets.get_class_by_code(DEFAULT_CASH_CLASS[t]).id)
-                for t in OFFERED_TYPES},
+        groups={t.value: c.assets.get_class_by_code(DEFAULT_CASH_CLASS[t]).name for t in OFFERED_TYPES},
         counterparties=c.counterparties.list_active(),
         error=error.message if error else "",
         error_field=(error.field or "") if error else "",

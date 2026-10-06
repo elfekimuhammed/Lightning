@@ -24,8 +24,8 @@ TYPE_LABELS: dict[AccountType, str] = {
     AccountType.CASH: "Cash wallet",
     AccountType.BANK: "Bank account (current or savings)",
     AccountType.DEPOSIT: "Certificates of deposit (CD portfolio)",
-    AccountType.BROKERAGE: "Brokerage / investment (e.g. THNDR)",
-    AccountType.PHYSICAL_ASSET: "Physical asset (e.g. gold at home)",
+    AccountType.BROKERAGE: "Brokerage (stocks and funds)",
+    AccountType.PHYSICAL_ASSET: "Physical asset (gold and things you own)",
     AccountType.OTHER_ASSET: "Other",
 }
 

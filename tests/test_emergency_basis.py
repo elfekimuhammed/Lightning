@@ -68,8 +68,9 @@ def test_the_setting_is_chosen_in_settings_and_read_on_reserves(household):
     assert "Counted in months of spending" in page and "Towards six months of spending" in page
     assert "2026-09 to 2026-11 · 3 months with spending" in page
 
-    # the older budget settings page has no such choice and leaves it alone
+    # a form without the choice leaves it alone
     client.post("/budget/settings/full", data={k: v for k, v in form.items() if k != "emergency_basis"})
     assert household.budgets.emergency_basis() == "spending"
-    assert client.post("/budget/settings/full", data={**form, "emergency_basis": "wealth"}).status_code == 400
+    refused = client.post("/budget/settings/full", data={**form, "emergency_basis": "wealth"})
+    assert "/settings?section=budget" in str(refused.url) and "months of income or of spending" in refused.text
     assert household.budgets.emergency_basis() == "spending"

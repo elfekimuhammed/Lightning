@@ -4,7 +4,7 @@
 {% block content %}
 <section class="card" style="max-width:860px;margin-bottom:16px" aria-labelledby="price-files">
   <h2 id="price-files">Update prices</h2>
-  <p class="muted small">Lightning asks the sources itself for the investments you hold: the latest close, and every month-end close it lacks. It does this by itself the first time you open it after a month ends, because month-end prices make your monthly returns. Sources: TradingView and Yahoo Finance for stocks, Mubasher for funds.</p>
+  <p class="muted small">Lightning asks the sources itself for the investments you hold: the latest close, and every month-end close it lacks. It does this by itself the first time you open it after a month ends, because month-end prices make your monthly returns. Sources: TradingView and Yahoo Finance for stocks, Mubasher for funds, and for gold an estimate from the world price and the dollar’s rate (Yahoo Finance).</p>
   <form method="post" class="actions" action="/investments/prices/online">
     <button class="btn primary" data-busy="Fetching prices…">Update prices</button>
   <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>

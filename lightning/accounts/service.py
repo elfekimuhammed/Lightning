@@ -100,7 +100,7 @@ class AccountService:
         self.assets.cash_asset(currency)  # currency must exist
         if currency != self.base_currency and not self.allow_foreign:
             raise ValidationError(
-                f"For now accounts must be in {self.base_currency}. Other currencies arrive with FX rates (M4).",
+                f"For now accounts must be in {self.base_currency}. Other currencies need exchange rates, which are not built yet.",
                 "currency",
             )
         institution = (institution or "").strip()
