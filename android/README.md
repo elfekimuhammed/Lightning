@@ -109,3 +109,11 @@ Origin and a wrong launch code. Back stops the server, and the profile must clos
 its lock. Last, it lists the app's loaded native libraries and fails any not aligned for 16 KB pages, and reports
 the phone's page size. A 4 KB-page phone shows alignment only; loading on a 16 KB-page device is still unverified.
 `tests/test_android_probe.py` runs the Python side on Linux. APK: [run 37469368422](https://github.com/elfekimuhammed/Lightning/actions/runs/37469368422).
+
+**Milestone 1: the Lightning app (2026-10-06, Claude).** The launcher now opens Lightning itself (`org.lightning.app`,
+`MainActivity`): the same profile app as Windows, served on 127.0.0.1 to the locked-down WebView of 04c, with
+profiles in app-private storage that Google backup and phone-to-phone transfer exclude
+(`res/xml/data_extraction_rules.xml`). Python's side is `src/main/python/lightning_android.py`. The phone listens for
+its paired PC on port 47513; while the ledger is lent or a pairing is open and the app is in the background,
+`SyncService` keeps it listening with a notification (Android limits this to about six hours a day). The 04a–04c
+checks remain as `ProbeActivity`, off the home screen. The layout is still the PC's (milestone 2 brings Part C).
