@@ -247,3 +247,14 @@ html.phone.keyboard-open .phone-tabbar, html.phone.sheet-open .phone-tabbar { di
 .phone-rows.is-list > .phone-row:first-child { border-top: 0; }
 .phone .phone-page-actions > .btn { width: auto; align-self: flex-start; min-height: 40px; padding: 0 18px; }
 .phone-form [hidden], .phone [hidden] { display: none !important; }
+
+/* C06.1 on every page: KPI tiles two by two, no sparkline, the figure at 26 (22 when long). */
+.phone .stat-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.phone .stat-tile { min-width: 0; padding: 14px; border-radius: 20px; }
+.phone .stat-tile-visual, .phone .stat-tile-spark, .phone .stat-tile-dot { display: none !important; }
+.phone .stat-tile-value { font-size: 26px; line-height: 1.1; white-space: nowrap; }
+.phone .stat-tile-value.is-long { font-size: 22px; }
+.phone .stat-tile-value small { font-size: 13px; }
+.phone .stat-tile-label { font-size: 13px; }
+.phone .stat-tile-sub { font-size: 12.5px; }
+.phone .stat-tile-head { flex-wrap: wrap; gap: 6px; }
