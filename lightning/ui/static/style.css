@@ -3004,3 +3004,7 @@ a.chart-sankey-label:hover b { color:var(--azure); }
 .main .reserve-create-form .reserve-match { grid-column:1 / -1; }
 .main .reserve-match { justify-self:start; display:inline-flex; align-items:center; gap:10px; }
 .main .reserve-match .planner-mode-seg { flex:none; flex-wrap:nowrap; width:auto; }
+
+/* Multiple devices: where the ledger is, with the one action that changes it. */
+.flash.device-line { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.flash.device-line form { margin: 0; }

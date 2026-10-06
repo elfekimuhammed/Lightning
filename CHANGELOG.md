@@ -10,6 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-06 · Claude: devices in the app (`lightning/runtime/devices.py`): the phone's Profile settings › Devices pairs a PC and can take the ledger back; the PC's profile list has From your phone and Connect to your phone; a line under the header says Borrowed from… (Hand back) or Lent to… · read only. Closing the PC hands back or seals. `tests/test_devices_app.py`.
 - 2026-10-06 · Claude: 09/10: pairing and the encrypted local link (`lightning/sync/identity.py`, `transport.py`): the phone shows a one-time code and its address; both screens show the same six check digits; TLS 1.3 pinned to the phone's certificate; every request signed by the PC. `tests/test_sync_transport.py` runs the whole cycle over real sockets.
 - 2026-10-06 · Claude: 07/08: lend and hand back with real encrypted files (`lightning/sync/service.py`): the phone checkpoints, refuses a stale copy, goes read-only while lent, verifies and promotes the returned copy (or waits for unlock), keeps its copy from before; the PC seals when the phone is away. `tests/test_sync_lend.py`.
 - 2026-10-06 · Claude: brand guideline 3.25 in `docs/BRAND_GUIDELINE.html`, the same file as the website's: new Part C · Phone (C01–C12: frame, tab bar, KPIs, charts, lists, sheets). AGENTS.md, README, Project Overview, OWNER.md and `tools/guideline.py` name Part C.

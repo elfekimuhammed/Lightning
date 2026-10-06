@@ -12,15 +12,17 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, PlainTextResponse, RedirectResponse, Response
 
 from lightning.database.backup import list_backups
+from lightning.sync.state import ProtocolError
 from lightning.security.keys import SUGGESTED_QUESTIONS, suggest_password
 from lightning.ui.web import create_app, templates
 
 from .http import (MARKET_IMPORT_PATH, MAX_IMPORT_CONFIRM_BODY, MAX_IMPORT_CONFIRM_FIELDS, MAX_MARKET_IMPORT_BODY,
                    MAX_IMPORT_MAP_BODY, Credentials, Guard,
                    body_receiver, configure_memory_only_import_uploads, equal)
+from .devices import Devices, home_state_line
 from .paths import choose_data_root, discover_profiles, resolve_profile
-from .roles import READ_ONLY_REFUSAL
-from .session import ProfileError, ProfileSession
+from .roles import READ_ONLY_REFUSAL, SessionRole
+from .session import AttemptGuard, ProfileError, ProfileSession, validate_password
 
 _DEFAULT_FORM_FIELDS = 2_000
 _IMPORT_CONFIRM_FORM_FIELDS = MAX_IMPORT_CONFIRM_FIELDS
@@ -60,6 +62,29 @@ class SessionGate:
         self.app, self.session = app, session
         self.mutex = asyncio.Lock()
 
+    async def set_mode(self, mode: str) -> None:
+        """Sync's mode change for the open profile (lightning.runtime.devices.AppBridge), between requests."""
+        async with self.mutex:
+            try:
+                self.session.set_mode(mode)
+            finally:
+                self.app.state.container = self.session.container
+
+    def device_line(self) -> tuple[str, str]:
+        """The status line under the header while a ledger is borrowed or lent, and its action."""
+        devices, session = getattr(self, "devices", None), self.session
+        if devices is None or session.paths is None:
+            return "", ""
+        if session.borrowed is not None:
+            if session.role.writable:
+                return f"Borrowed from {session.borrowed_home or 'your phone'}", "hand-back"
+            return "Read only on this PC: the ledger is going home or needs repair.", ""
+        try:
+            line = home_state_line(devices.home_node(session.paths))
+        except Exception:  # noqa: BLE001 - an unreadable record shows as needing the Devices page
+            line = "The ledger's lending record needs checking."
+        return line, ("take-back" if line else "")
+
     async def change_role(self, role) -> None:
         """Change the open profile's role between requests, never during one (multi-device task 06)."""
         async with self.mutex:
@@ -96,21 +121,26 @@ class SessionGate:
                     valid = False
                 if not valid:
                     return await PlainTextResponse("This form expired. Reload the page and try again.", 403)(scope, receive, send)
+            line, device_action = self.device_line()
             scope.setdefault("state", {}).update(secure_profiles=True, csrf=self.session.csrf,
                                                   session_token=self.session.token,
-                                                  read_only=not self.session.role.writable)
+                                                  read_only=not self.session.role.writable,
+                                                  device_line=line, device_action=device_action)
             self.app.state.container = self.session.container
             if self.session.container is not None and request.url.path != "/profiles/health" and not request.url.path.startswith("/static/"):
                 self.session.last_activity = time.monotonic()
             await self.app(scope, receive, send)
 
 
-def profile_app(credentials: Credentials, root: Path | str | None = None):
+def profile_app(credentials: Credentials, root: Path | str | None = None, devices: Devices | None = None):
     configure_memory_only_import_uploads()
     session = ProfileSession(root)
+    session.borrowed_home = ""
     app = create_app(None)
     app.state.profile_session = session
     gate = SessionGate(app, session)
+    devices = devices if devices is not None else Devices()
+    gate.devices = devices
 
     async def expire_sessions():
         while True:
@@ -119,11 +149,15 @@ def profile_app(credentials: Credentials, root: Path | str | None = None):
                 if session.pending and time.monotonic() >= session.pending.expires:
                     session.pending = None
                 if session.container and time.monotonic() - session.last_activity >= session.idle_seconds:
+                    borrowed = session.borrowed
                     session.close()
                     app.state.container = None
+                    if borrowed is not None:
+                        borrowed.seal()  # idle lock away from the phone: keep the lend; hand back next time
 
     @asynccontextmanager
     async def lifespan(_app):
+        devices.start(asyncio.get_running_loop(), session, gate)
         expiry = asyncio.create_task(expire_sessions())
         try:
             yield
@@ -131,8 +165,14 @@ def profile_app(credentials: Credentials, root: Path | str | None = None):
             expiry.cancel()
             with suppress(asyncio.CancelledError):
                 await expiry
+            borrowed = session.borrowed
             session.close()
             app.state.container = None
+            if borrowed is not None:
+                # Closing Lightning on the PC: hand back if the phone answers, else keep the lend sealed here.
+                with suppress(Exception):
+                    await asyncio.to_thread(devices.hand_back_or_seal, borrowed)
+            devices.stop()
 
     app.router.lifespan_context = lifespan
 
@@ -147,7 +187,8 @@ def profile_app(credentials: Credentials, root: Path | str | None = None):
         return Response(status_code=204)
 
     def page(request: Request, mode: str, *, error="", status=200, **context):
-        values = dict(mode=mode, csrf=session.csrf, error=error, root=str(session.root),
+        values = dict(mode=mode, csrf=session.csrf, error=error, root=str(session.root), borrowed=[],
+                      is_borrowed=session.borrowed is not None,
                       profiles=[], backups=[], selected="", backup="", name="", recovery="",
                       active_name=session.name, notice="", suggestion="", chosen_password="",
                       questions=SUGGESTED_QUESTIONS, question="", new_recovery="")
@@ -184,7 +225,7 @@ def profile_app(credentials: Credentials, root: Path | str | None = None):
                 backups.extend({"path": str(item.path), "label": item.path.name,
                                 "db": str(paths.db_path)}
                                for item in list_backups(paths.backups_dir, paths.db_path))
-            return page(request, "choose", profiles=found, backups=backups)
+            return page(request, "choose", profiles=found, backups=backups, borrowed=devices.borrowed())
         except (OSError, ValueError):
             return page(request, "choose", error="That folder could not be read. Choose another location.", status=400)
 
@@ -234,7 +275,12 @@ def profile_app(credentials: Credentials, root: Path | str | None = None):
     async def unlock(request: Request):
         form = await request.form()
         selected = str(form.get("db", ""))
-        return await action(request, "unlock", lambda: session.unlock(selected, str(form.get("password", ""))), selected=selected)
+        role = SessionRole.READER if devices.role_for(selected) == "reader" else SessionRole.HOME
+
+        def operation():
+            session.unlock(selected, str(form.get("password", "")), role=role)
+            devices.after_unlock(session.paths)
+        return await action(request, "unlock", operation, selected=selected)
 
     def known_question(selected: str) -> str:
         try:
@@ -347,7 +393,216 @@ def profile_app(credentials: Credentials, root: Path | str | None = None):
 
     @app.post("/profiles/lock")
     async def lock(request: Request):
+        if session.borrowed is not None:
+            return await hand_back(request)
         return await action(request, "manage", session.close)
+
+    # ------------------------------------------------------------ multiple devices: the phone's side
+    def device_page(request, **context):
+        node = devices.home_node(session.paths) if session.paths is not None else None
+        pending = devices.desk.pending if devices.desk is not None else None
+        if pending is not None and (node is None or pending.node is not node):
+            pending = None
+        peers = node.store.peers() if node is not None else []
+        home = node.model if node is not None else None
+        lent_to = home.active.grant.borrower_id if home is not None and home.active is not None else ""
+        return page(request, "devices", node=node, peers=peers, lent_to=lent_to, pending=pending,
+                    address=devices.address() if devices.server is not None else "",
+                    state_line=home_state_line(node), phone_name=devices.identity().name
+                    if devices.has_identity() else "", **context)
+
+    def home_only():
+        if session.container is None:
+            return RedirectResponse("/profiles", 303)
+        if session.borrowed is not None:
+            return RedirectResponse("/profiles", 303)
+        return None
+
+    @app.get("/profiles/devices")
+    async def devices_page(request: Request):
+        return home_only() or device_page(request)
+
+    @app.post("/profiles/devices/pair")
+    async def open_pairing(request: Request):
+        if (refused := home_only()) is not None:
+            return refused
+        form = await request.form()
+        name = " ".join(str(form.get("phone_name", "")).split())[:60]
+        if not name:
+            return device_page(request, error="Name this phone, so the PC can show it.", status=400)
+        try:
+            node = devices.home_node(session.paths) or devices.enable_home(session, name)
+            devices.identity(name)
+            devices.ensure_listener()
+        except OSError:
+            return device_page(request, error="Another app is using the port Lightning listens on. Close it and "
+                                              "try again.", status=400)
+        except (ProtocolError, ValueError) as exc:
+            return device_page(request, error=str(exc), status=400)
+        devices.desk.open(node, home_name=name, profile_name=session.name)
+        return RedirectResponse("/profiles/devices", 303)
+
+    @app.post("/profiles/devices/stop-pairing")
+    async def stop_pairing(request: Request):
+        if devices.desk is not None:
+            devices.desk.close()
+        return RedirectResponse("/profiles/devices", 303)
+
+    @app.post("/profiles/devices/revoke")
+    async def revoke(request: Request):
+        if (refused := home_only()) is not None:
+            return refused
+        form = await request.form()
+        node = devices.home_node(session.paths)
+        if node is not None:
+            node.revoke(str(form.get("device", "")))
+        return RedirectResponse("/profiles/devices", 303)
+
+    @app.post("/profiles/devices/take-back")
+    async def take_back(request: Request):
+        if (refused := home_only()) is not None:
+            return refused
+        form = await request.form()
+        node = devices.home_node(session.paths)
+        if node is None:
+            return RedirectResponse("/profiles/devices", 303)
+        if form.get("confirm") != "yes":
+            return device_page(request, error="Tick the box to confirm that the PC's edits since it borrowed "
+                                              "the ledger will not come back.", status=400)
+        try:
+            node.take_back(reopen=False)  # this request holds the gate: reopen here, not through it
+            session.set_mode("home")
+            app.state.container = session.container
+        except ProtocolError as exc:
+            return device_page(request, error=str(exc), status=400)
+        return device_page(request, notice="The ledger is back on this phone. That PC's copy can no longer be "
+                                           "handed back; it stays on the PC, read only.")
+
+    # ------------------------------------------------------------ multiple devices: the PC's side
+    @app.get("/profiles/connect")
+    async def connect_page(request: Request):
+        if session.container:
+            return RedirectResponse("/profiles", 303)
+        import socket as _socket
+        return page(request, "connect", pc_name=_socket.gethostname()[:60] or "This PC")
+
+    @app.post("/profiles/connect")
+    async def connect(request: Request):
+        from lightning.sync.identity import normalize_code
+        from lightning.sync.service import LinkDown
+        from lightning.sync.transport import join_home, pair
+        if session.container:
+            return RedirectResponse("/profiles", 303)
+        form = await request.form()
+        address, code = str(form.get("address", "")).strip(), str(form.get("code", ""))
+        pc_name = " ".join(str(form.get("pc_name", "")).split())[:60]
+        values = dict(address=address, pc_name=pc_name)
+        try:
+            validate_password(str(form.get("password", "")), str(form.get("confirm", "")))
+            normalize_code(code)
+            if not pc_name:
+                raise ValueError("Name this PC, so the phone can show it.")
+            identity = devices.identity(pc_name)
+            paired = await asyncio.to_thread(pair, address, code, identity)
+            node = await asyncio.to_thread(join_home, paired, endpoint=address, password=str(form.get("password")),
+                                           identity=identity, root=devices.root)
+        except (ProfileError, ValueError) as exc:
+            return page(request, "connect", error=str(exc), status=400, **values)
+        except (LinkDown, ProtocolError) as exc:
+            return page(request, "connect", error=str(exc), status=400, **values)
+        return page(request, "connected", digits=paired.digits, profile_name=paired.reply.profile_name,
+                    home_name=paired.reply.home_name, profile_id=node.model.profile_id)
+
+    @app.get("/profiles/borrowed")
+    async def borrowed_page(request: Request):
+        if session.container:
+            return RedirectResponse("/profiles", 303)
+        found = devices.find_borrowed(request.query_params.get("id", ""))
+        if found is None:
+            return RedirectResponse("/profiles", 303)
+        return page(request, "borrowed", item=found)
+
+    @app.post("/profiles/borrowed")
+    async def open_borrowed(request: Request):
+        import json as _json
+        from lightning.security.keys import unwrap_key
+        from lightning.sync.copies import CopyRejected
+        from lightning.sync.service import LinkDown
+        from lightning.sync.state import BorrowerState
+        if session.container:
+            return RedirectResponse("/profiles", 303)
+        form = await request.form()
+        found = devices.find_borrowed(str(form.get("id", "")))
+        if found is None:
+            return RedirectResponse("/profiles", 303)
+        node = found.node
+        attempts = AttemptGuard(node.paths.keys_path.with_name("attempts.json"))
+        try:
+            attempts.check()
+            try:
+                key = unwrap_key(_json.loads(node.paths.keys_path.read_text(encoding="utf-8")),
+                                 str(form.get("password", "")))
+            except ValueError as exc:
+                attempts.failed()
+                raise ProfileError("The password is incorrect. It is this PC's password for the phone's "
+                                   "ledger, set when you connected.") from exc
+            attempts.succeeded()
+            state = node.model.state
+            notice = ""
+            if state is BorrowerState.SEALED:
+                node.reopen()
+            elif state is BorrowerState.RETURNING:
+                result = await asyncio.to_thread(devices.hand_back_or_seal, node)
+                if result in ("accepted", "handed_back"):
+                    return page(request, "choose", notice=f"{found.name} is home on {found.home_name}. Open it "
+                                                          "again to borrow it.", profiles=discover_profiles(session.root),
+                                borrowed=devices.borrowed())
+                notice = "The phone has not taken the ledger back yet. This copy is read only until it does."
+            elif state is BorrowerState.NEEDS_REPAIR:
+                notice = "The phone took the ledger back. This copy is kept here, read only."
+            elif state is not BorrowerState.BORROWING:
+                link = devices.link(node)
+                if state is not BorrowerState.BORROW_PREPARED:
+                    await asyncio.to_thread(node.fetch, link, key)
+                await asyncio.to_thread(node.borrow, link, key)
+            session.open_borrowed(node, key, name=found.name, writable=node.writable)
+            session.borrowed_home = found.home_name
+            app.state.container = session.container
+            if notice:
+                return page(request, "manage", notice=notice)
+            return RedirectResponse("/", 303)
+        except ProfileError as exc:
+            return page(request, "borrowed", item=found, error=str(exc), status=400)
+        except LinkDown:
+            return page(request, "borrowed", item=found, status=400,
+                        error=f"{found.home_name} did not answer. Open Lightning on it, on the same Wi-Fi, and try "
+                              "again.")
+        except ProtocolError as exc:
+            return page(request, "borrowed", item=found, error=str(exc), status=400)
+        except CopyRejected as exc:
+            return page(request, "borrowed", item=found, error=str(exc), status=400)
+
+    @app.post("/profiles/hand-back")
+    @app.post("/sync/hand-back")  # the finance pages' banner, which carries the session token
+    async def hand_back(request: Request):
+        node = session.borrowed
+        if node is None:
+            return RedirectResponse("/profiles", 303)
+        name, home_name = session.name, session.borrowed_home or "your phone"
+        session.close()  # the working copy closes before it is frozen and sent
+        session.borrowed_home = ""
+        app.state.container = None
+        result = await asyncio.to_thread(devices.hand_back_or_seal, node)
+        notices = {
+            "accepted": f"{name} is back on {home_name}, with your changes.",
+            "received": f"{home_name} has your changes and takes them in when it is unlocked. Until then this PC "
+                        "keeps a read-only copy.",
+            "sealed": f"{home_name} did not answer. Your changes are saved on this PC; open {name} here to keep "
+                      "working, or hand it back when the phone is near.",
+            "returning": f"Sending to {home_name} stopped halfway. Open {name} here near the phone to finish.",
+        }
+        return page(request, "choose", notice=notices.get(result, ""), profiles=discover_profiles(session.root),
+                    borrowed=devices.borrowed())
 
     secured = Guard(gate, credentials)
     secured.session = session  # Lifecycle tests inspect synthetic state only.

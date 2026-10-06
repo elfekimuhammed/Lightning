@@ -274,10 +274,10 @@ def _split(endpoint: str) -> tuple[str, int]:
     return host.strip("[]"), int(port)
 
 
-def _open(endpoint: str):
+def _open(endpoint: str, timeout: float = TIMEOUT):
     host, port = _split(endpoint)
     try:
-        raw = socket.create_connection((host, port), timeout=TIMEOUT)
+        raw = socket.create_connection((host, port), timeout=timeout)
     except OSError as exc:
         raise LinkDown("The phone did not answer. Open Lightning on it, on the same Wi-Fi.") from exc
     try:
@@ -333,10 +333,11 @@ class TlsLink:
 
     def __init__(self, endpoint: str, fingerprint: str, identity: DeviceIdentity):
         self.endpoint, self.fingerprint, self.identity = endpoint, fingerprint, identity
+        self.timeout = TIMEOUT
 
     def _request(self, message: Message, expected: type | tuple, *, upload: tuple[BinaryIO, int] | None = None,
                  download: BinaryIO | None = None) -> Message:
-        stream = _open(self.endpoint)
+        stream = _open(self.endpoint, self.timeout)
         try:
             seen = hashlib.sha256(stream.getpeercert(binary_form=True)).hexdigest()
             if not secrets.compare_digest(seen, self.fingerprint):

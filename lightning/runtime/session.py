@@ -203,11 +203,16 @@ class ProfileSession:
         self.retry_at = 0.0
         self.last_activity = time.monotonic()
         self.idle_seconds = 15 * 60
+        self.sync_key: bytes | None = None   # for the sync thread while unlocked (multiple devices); wiped on close
+        self.label = ""                       # a borrowed profile's name (its working file has none)
+        self.borrowed = None                  # the BorrowerNode of an open borrowed profile, else None
 
     @property
     def name(self) -> str:
         if self.paths is None:
             return ""
+        if self.label:
+            return self.label
         return self.paths.profile.name if self.paths.profile else self.paths.db_path.stem
 
     def _locked(self) -> None:
@@ -282,6 +287,7 @@ class ProfileSession:
         if container.db.read_only == role.writable:
             raise ProfileError("The profile opened with the wrong kind of connection for its role.")
         self.paths, self.lock, self.container, self.role = paths, lock, container, role
+        self.sync_key = container.db.copy_key() if container.db.encrypted else None
         if role.writable:
             _fill_prices(container)
         self.token = secrets.token_urlsafe(32)
@@ -504,12 +510,57 @@ class ProfileSession:
         publish_keys(self.paths, pending.key_file)
         self.pending_recovery = None
 
+    def set_mode(self, mode: str) -> None:
+        """For sync (multiple devices): "home" writable, "reader" read-only, "closed" no connection at all
+        while keeping the profile's lock and key, so it can reopen without a password. The caller holds the
+        request gate, so no request is in flight."""
+        if self.paths is None or self.sync_key is None:
+            return  # the profile is locked: nothing is open to change
+        key = self.sync_key
+        if self.container is not None:
+            self.container.db.close()
+            self.container = None
+        if mode == "closed":
+            return
+        role = SessionRole.HOME if mode == "home" else SessionRole.READER
+        try:
+            container = build(self.paths.db_path, key=key, read_only=not role.writable)
+        except BaseException:
+            self.close()
+            raise
+        label, borrowed = self.label, self.borrowed
+        self._activate(self.paths, self.lock, container, role)
+        self.label, self.borrowed = label, borrowed
+
+    def open_borrowed(self, node, key: bytes, *, name: str, writable: bool) -> None:
+        """Open a borrowed profile's working copy on this PC: writable only under a permit (BORROWING)."""
+        self._locked()
+        paths = node.paths
+        if writable and not node.writable:
+            raise ProfileError("This PC does not hold the ledger now.")
+        profile_paths = ProfilePaths(None, paths.data_dir, paths.working_path, paths.keys_path,
+                                     paths.data_dir / "backups", paths.lock_path)
+        profile_paths.backups_dir.mkdir(mode=0o700, exist_ok=True)
+        lock = self._acquire(profile_paths)
+        try:
+            role = SessionRole.BORROWER if writable else SessionRole.READER
+            container = build(paths.working_path, key=key, backup_dir=profile_paths.backups_dir,
+                              read_only=not writable)
+            self._activate(profile_paths, lock, container, role)
+            self.label, self.borrowed = name, node
+        except BaseException:
+            lock.close()
+            raise
+
     def close(self) -> None:
         # Do not release the OS lock if closing the database fails.
         if self.container is not None:
             self.container.db.close()
         self.container = None
         self.role = SessionRole.HOME
+        self.sync_key = None
+        self.label = ""
+        self.borrowed = None
         self.paths = None
         if self.lock is not None:
             self.lock.close()

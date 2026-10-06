@@ -352,12 +352,13 @@ class HomeNode:
         """Whether the home may open its ledger for writing now."""
         return self.model.state is HomeState.AT_HOME and self.store.unresolved_promotion() is None
 
-    def take_back(self) -> None:
+    def take_back(self, *, reopen: bool = True) -> None:
         """Owner's choice when the PC is lost: the phone's last accepted copy becomes the ledger again under a
-        new lineage. That PC's later edits can never come back in (plan section 10)."""
+        new lineage. That PC's later edits can never come back in (plan section 10). `reopen=False` when the
+        caller already holds the request gate and reopens the session itself."""
         with self._lock:
             self.store.home(lambda h: h.take_back(new_id()))
-            if self.bridge.key() is not None:
+            if reopen and self.bridge.key() is not None:
                 self.bridge.set_mode("home")
 
 

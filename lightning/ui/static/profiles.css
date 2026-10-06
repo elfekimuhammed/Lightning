@@ -128,3 +128,9 @@ input:focus { background: #E2EFE9; outline: 0; box-shadow: 0 0 0 2px #097852; }
 @media (prefers-reduced-motion: no-preference) {
   .button { transition: background-color 120ms ease, border-color 120ms ease; }
 }
+
+/* Devices: the address and code the PC types, label above value. */
+.pair-values { display: grid; gap: 4px 0; margin: 0 0 16px; }
+.pair-values dt { color: var(--ink-2); font-size: 13px; font-weight: 700; }
+.pair-values dd { margin: 0 0 8px; }
+.backup-list form { margin: 0; }
