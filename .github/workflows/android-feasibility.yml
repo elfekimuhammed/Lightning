@@ -51,13 +51,13 @@ jobs:
         run: |
           ls wheels 2>/dev/null || true
           gradle --no-daemon :app:assembleDebug -PprobeMode=${{ matrix.mode }} ${WHEEL_RUN:+-PwheelDir=$PWD/wheels}
-      - name: The APK carries the probe, the round-trip and its fixture (04b)
+      - name: The APK carries the probe, the round-trip, its fixture and the pages (04b, 04c)
         working-directory: android/app/build/outputs/apk/debug
         run: |
           unzip -l app-debug.apk | grep chaquopy/ || true
           unzip -o -q app-debug.apk 'assets/chaquopy/app.*' -d carried
           for file in carried/assets/chaquopy/app.*; do unzip -l "$file"; done > carried.txt
-          for wanted in probe.py lightning/runtime/roundtrip.py lightning/database/migrations/ roundtrip_fixture/profile.db roundtrip_fixture/expected.json; do
+          for wanted in probe.py lightning/runtime/roundtrip.py lightning/database/migrations/ roundtrip_fixture/profile.db roundtrip_fixture/expected.json lightning/ui/static/app.js lightning/ui/templates/; do
             grep -q "$wanted" carried.txt || { echo "::error::$wanted is not in the APK"; exit 1; }
           done
       - uses: actions/upload-artifact@v4
