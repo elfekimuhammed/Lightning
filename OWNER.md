@@ -16,7 +16,7 @@ What only the owner can do or decide. Any AI adds an item here, and removes it o
   4. PC: open it under From your phone and add something; the phone says "Lent to … · read only". Hand back; the phone has it.
   5. Borrow again, turn the phone's Wi-Fi off, Hand back on the PC: the PC keeps your edits; hand back later.
   6. Optional: on the phone, Devices › Take the ledger back while the PC holds it; the PC then offers Borrow again and keeps its copy as a backup.
-  Known gaps: you type the phone's address; Budget, Cash planning and Investments have the phone frame but not yet their own phone design; no SMS yet (milestone 3).
+  Known gaps: you type the phone's address; on the phone, a budget limit or a holding's horizon is still changed on the PC; no SMS yet (milestone 3).
 - **For milestone 2: review the phone brand guideline.** Part C of the brand guideline (3.25, 2026-10-06) is the phone's own: bottom tab bar, 2 × 2 KPIs, phone forms of every chart. Check it, especially the five bottom sections (C03.1), then say it is final. Until then phone screens follow it as a draft.
 - **For milestone 3: bank SMS samples.** Sanitized real messages from each bank you use (purchase, transfer, salary, refund, declined, OTP), with names, card digits and balances changed. They stay out of Git; tell me where you put them.
 - **GitHub spending limit (your choice, 2026-10-06):** GitHub › Settings › Billing and licensing › Budgets and alerts: set Actions to $0 (or the most you accept). CI then pauses until next month instead of charging you.

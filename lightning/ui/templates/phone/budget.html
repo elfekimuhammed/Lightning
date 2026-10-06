@@ -1,0 +1,73 @@
+{# Budget on a phone (guideline Part C): header rows, then Left in plan as the lead card with its plan meter and
+   rows, each group as one row with its meter that opens its categories in place (C06.2, C07.3.5, C08). Same
+   figures as the PC's Budget; setting each category's rule stays on the PC's table for now. #}
+{% extends "base.html" %}
+{% from "partials/charts.html" import key_notes %}
+{% block title %}Budget{% endblock %}
+{% block heading %}<h1>Budget</h1><p>{{ period.start_text }} to {{ period.end_text }}</p>{% endblock %}
+{% block top_actions %}{% from "partials/macros.html" import period_control %}{{ period_control("/budget", period.key, month, this_month, period.start_text, period.end_text) }}{% endblock %}
+{% block content %}
+{% if error %}<p class="flash error" role="alert">{{ error }}</p>{% endif %}
+{% if bulk_undo %}<form method="post" action="/budget/bulk/undo" class="flash"><input type="hidden" name="token" value="{{ bulk_undo }}">Bulk rules applied. <button class="btn">Undo</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>{% endif %}
+
+{% if period.key == 'month' and not has_plan %}
+<section class="card phone-card" aria-labelledby="first-heading">
+  <h2 id="first-heading" class="phone-card-title">Set your first spending limits</h2>
+  <p class="phone-note">Lightning proposes a limit for each category from what you spent; you change any before saving.</p>
+  <a class="btn primary phone-save" href="/budget/fill?month={{ month }}">Fill this month</a>
+</section>
+{% endif %}
+
+{% if has_plan or period_budgeted or period_actual %}
+{% set over = period_left < 0 %}
+<article class="card phone-card" aria-labelledby="left-heading">
+  <h2 id="left-heading" class="phone-card-title">{{ 'Over plan by' if over else fig.left_in_plan.label }}</h2>
+  {% if left_note %}<p class="phone-note">{{ left_note }}</p>{% endif %}
+  <div class="phone-lead{{ ' is-negative' if over }}">{{ period_left|abs|money }} <small>{{ base }}</small></div>
+  <div class="phone-plan-bar{{ ' is-over' if plan_bar.is_over }}" role="img" aria-label="Spent {{ period_actual|money }} of {{ period_budgeted|money }} planned"><i class="spent" style="width:{{ '%.2f'|format(plan_bar.spent) }}%"></i>{% if plan_bar.over %}<i class="over" style="width:{{ '%.2f'|format(plan_bar.over) }}%"></i>{% endif %}</div>
+  <div class="phone-rows">
+    <div class="phone-row"><span>{{ fig.spent.label }}{% if period_income %}<small>{{ (period_actual/period_income*100)|round(0)|int }}% of {{ fig.average_monthly_income.label|lower }}</small>{% endif %}</span><b>{{ period_actual|money }}</b></div>
+    <div class="phone-row"><span>{{ fig.planned.label }}{% if period_carryover %}<small>Includes {{ period_carryover|money(True) }} carryover</small>{% endif %}</span><b>{{ period_budgeted|money }}</b></div>
+    {% if check and check.plan_saves is not none and check.planned_savings_rate is not none %}<div class="phone-row"><span>{{ fig.plan_leaves_to_save.label }}<small>Your target is {{ '%.0f'|format(check.target_percent) }}%</small></span><b>{{ check.plan_saves|money }}</b></div>{% endif %}
+  </div>
+  {% if period.key == 'month' %}<a class="phone-quiet" href="/budget/fill?month={{ month }}">Fill this month</a>{% endif %}
+</article>
+{% endif %}
+
+{{ key_notes(notes) }}
+{% if not period_income %}<p class="phone-note">Set your income categories to compare the plan with your income. <a href="/settings?section=budget">Budget settings</a></p>{% endif %}
+{% if ceiling_warning %}<p class="flash">{{ ceiling_warning }}</p>{% endif %}
+{% if view.one_off > 0 %}<p class="flash">{{ view.one_off|money }} {{ base }} of one-off spending stays in cash flow, out of the budget.</p>{% endif %}
+{% for warning in view.warnings %}<p class="flash">{{ warning }}</p>{% endfor %}
+
+<section class="phone-section" aria-labelledby="groups-heading">
+  <header class="phone-section-head"><h2 id="groups-heading">Spending by group</h2>{% if carryover %}<a href="/budget/carryover-bridge?month={{ month }}">Carryover</a>{% endif %}</header>
+  {% set shown = namespace(any=false) %}
+  <div class="card phone-card">
+  {% for category_id, row in group_rows if row.budgeted or row.spent %}{% set shown.any = true %}
+    {% set used = (row.spent / row.budgeted * 100) if row.budgeted > 0 else (100 if row.spent else 0) %}
+    <details class="phone-group"{{ ' open' if request.query_params.get('open_group') == category_id|string }}>
+      <summary><div class="phone-group-head">
+        <span class="phone-group-name"><b>{{ row.name }}</b><small>{{ row.spent|money }} of {{ row.budgeted|money }}</small></span>
+        <b class="phone-group-left {{ row.left|tone }}">{{ row.left|money(True) }}</b>
+        <span class="phone-bar-track{{ ' is-over' if row.left < 0 }}"><i style="width:{{ '%.1f'|format([used, 100]|min) }}%"></i></span>
+      </div></summary>
+      <div class="phone-rows is-inner">
+      {% for section in view.sections %}{% for line in section.lines if line.depth > 1 and line.category_id in (by_group.get(category_id, [])) and (line.category_id in tracked or line.category_id in category_periods) %}
+        {% set cp = category_periods.get(line.category_id, {}) %}{% set left = cp.get('left', line.remaining) %}
+        <a class="phone-row" href="/transactions?category_id={{ line.category_id }}&amp;date_from={{ period.start_text }}&amp;date_to={{ period.end_text }}"><span>{{ line.name }}<small>{% if line.category_id in tracked %}{{ cp.get('spent', line.actual)|money }} of {{ cp.get('current_budget', line.available or 0)|money }}{% else %}{{ cp.get('spent', line.actual)|money }} spent · not tracked{% endif %}</small></span><b class="{{ left|tone if line.category_id in tracked and left is not none }}">{{ left|money(True) if line.category_id in tracked and left is not none else '' }}</b></a>
+      {% endfor %}{% endfor %}
+      </div>
+    </details>
+  {% endfor %}
+  {% if unplanned_spending or plan_outside_groups %}{% set shown.any = true %}
+    <a class="phone-group-head is-link" href="/birdview/expenses?period={{ period.key }}&amp;month={{ month }}&amp;date_from={{ period.start_text }}&amp;date_to={{ period.end_text }}">
+      <span class="phone-group-name"><b>Outside listed groups</b><small>{{ unplanned_spending|money }} of {{ plan_outside_groups|money }}</small></span>
+      <b class="phone-group-left {{ (plan_outside_groups - unplanned_spending)|tone }}">{{ (plan_outside_groups - unplanned_spending)|money(True) }}</b>
+    </a>
+  {% endif %}
+  {% if not shown.any %}<p class="empty">No spending groups in this period yet. Record an expense or fill this month's plan.</p>{% endif %}
+  </div>
+  <p class="phone-note">Change a category's limit on the PC's Budget table for now.</p>
+</section>
+{% endblock %}

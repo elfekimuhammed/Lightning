@@ -72,6 +72,15 @@ def test_overview_uses_the_phone_forms(phone):
     assert re.search(r'class="phone-lead">[\d,]+ <small>EGP</small>', html)  # whole EGP on the big figure
 
 
+@pytest.mark.parametrize("path, marker", [("/budget", 'class="phone-plan-bar'), ("/plan", 'id="plan-build"'),
+                                          ("/investments", 'id="holdings-heading"')])
+def test_budget_cash_and_investments_have_phone_designs(phone, path, marker):
+    html = phone.get(path).text
+    assert marker in html and "<table" not in html  # C07.2: tables become rows
+    assert "stat-tile-spark" not in html and "btn-planner" not in html  # no sparkline; the tab is the way in
+    assert html.count('class="phone-kpi ') <= 4
+
+
 def test_an_account_is_a_day_list_and_the_sheet_saves(phone):
     page = phone.get("/accounts/1").text
     assert "<table" not in page and 'class="phone-day"' in page and 'class="phone-add"' in page  # C08, C05.2

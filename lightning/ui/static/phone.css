@@ -278,3 +278,25 @@ html.phone.keyboard-open .phone-tabbar, html.phone.sheet-open .phone-tabbar { di
 .phone-form .check-row input { width: 20px; min-height: 20px; height: 20px; flex: none; margin: 2px 0 0; padding: 0; accent-color: #14A874; }
 .phone-row form { margin: 0; }
 .phone-row form .btn { min-height: 40px; }
+
+/* Budget on a phone: the plan meter (Spent Azure, over plan Rose) and one row per group with its meter. */
+.phone-plan-bar { display: flex; height: 12px; margin: 4px 0 12px; border-radius: 99px; overflow: hidden; background: var(--c-track); }
+.phone-plan-bar i { display: block; height: 100%; }
+.phone-plan-bar .spent { background: #0B6DD6; }
+.phone-plan-bar .over { background: #C93D72; }
+.phone-group { border-top: 1px solid var(--c-line, rgba(10,36,66,.08)); }
+.phone-group:first-child { border-top: 0; }
+.phone-group > summary { display: block; width: 100%; list-style: none; cursor: pointer; }
+.phone-group > summary::after { display: none; }
+.phone-group > summary::-webkit-details-marker { display: none; }
+.phone-group-head { width: 100%; box-sizing: border-box; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; align-items: baseline; padding: 12px 0; color: inherit; text-decoration: none; }
+.phone-group-name { display: flex; flex-direction: column; min-width: 0; }
+.phone-group-name b { overflow-wrap: anywhere; }
+.phone-group-name small, .phone-row small { color: var(--c-muted); font-size: 13px; font-weight: 500; }
+.phone-group-left { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.phone-group-head .phone-bar-track { grid-column: 1 / -1; height: 8px; }
+.phone-plan-bar + .phone-rows .phone-row:first-child b { color: #0B6DD6; } /* Spent: the bar's colour */
+.phone-group-head .phone-bar-track.is-over i { background: #C93D72; }
+.phone-group-left.pos, .phone-row b.pos { color: #097852; } /* left in plan: good */
+.phone-group-left.neg, .phone-row b.neg { color: #C93D72; } /* over plan: bad */
+a.phone-bar-row, a.phone-group-head { color: inherit; text-decoration: none; } /* names stay Ink; the row is the link */
