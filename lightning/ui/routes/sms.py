@@ -22,6 +22,7 @@ def _page(request, c, **context):
     batches = [b | {"account": names.get(b["account_id"], "")} for b in c.bank_imports.waiting_all()
                if str(b["file_name"]).startswith("SMS ")]
     return render(request, "sms.html", waiting=c.sms_imports.waiting(), accounts=accounts, batches=batches,
+                  unread=c.sms_imports.unread(),
                   salary=SALARY_ENDING, **context)
 
 
@@ -46,9 +47,19 @@ async def paste(request: Request):
         parts.append(f"{found} ready to review")
     if result["waiting"]:
         parts.append(f"{result['waiting']} waiting for their account")
+    if result.get("unread"):
+        parts.append(f"{result['unread']} to read yourself")
     if result["skipped"]:
         parts.append(f"{result['skipped']} skipped (read before, or not a payment)")
     return redirect("/sms", "; ".join(parts).capitalize() + ".")
+
+
+@router.post("/dismiss")
+async def dismiss(request: Request):
+    c = container(request)
+    form = await request.form()
+    c.sms_imports.dismiss(str(form.get("id", "")))
+    return redirect("/sms")
 
 
 @router.post("/assign")

@@ -1,35 +1,43 @@
-{# From SMS (milestone 3): paste bank messages; the first message from an account ending asks which account it
-   is; the rows then wait on the bank import's review. #}
+{# From SMS on the PC (milestone 3): the phone's page (phone/sms.html) in the PC's cards. Paste bank messages;
+   the first message from an account ending asks which account it is; rows then wait on the import review. #}
 {% extends "base.html" %}
 {% block title %}From SMS{% endblock %}
-{% block heading %}<h1>From SMS</h1><p class="muted">Bank messages become transactions you check before they are posted</p>{% endblock %}
+{% block heading %}<div class="acct-title"><h1>From SMS</h1></div><p class="muted">Bank messages become transactions you check before they are posted</p>{% endblock %}
 {% block content %}
 {% if error %}<p class="flash error" role="alert">{{ error }}</p>{% endif %}
 {% for group in waiting %}
-<section class="card phone-card" aria-labelledby="ending-{{ group.ending }}">
-  <h2 id="ending-{{ group.ending }}" class="phone-card-title">{% if group.ending == salary %}Where is your salary paid?{% else %}Which account ends with {{ group.ending }}?{% endif %}</h2>
-  <p class="phone-note">{{ group.count }} message{{ 's' if group.count != 1 }} waiting. Lightning remembers your answer.</p>
-  <form method="post" action="/sms/assign" class="phone-form">
+<section class="card form-card" aria-labelledby="ending-{{ group.ending }}">
+  <h2 id="ending-{{ group.ending }}">{% if group.ending == salary %}Where is your salary paid?{% else %}Which account ends with {{ group.ending }}?{% endif %}</h2>
+  <p class="muted">{{ group.count }} message{{ 's' if group.count != 1 }} waiting. Lightning remembers your answer.</p>
+  <form method="post" action="/sms/assign">
     <input type="hidden" name="ending" value="{{ group.ending }}">
-    <div class="field"><label for="account-{{ group.ending }}">Account</label>
-      <select id="account-{{ group.ending }}" name="account_id" data-own-picker required><option value="">Choose an account</option>{% for a in accounts %}<option value="{{ a.id }}">{{ a.name }}</option>{% endfor %}</select></div>
-    <button class="btn primary phone-save" type="submit">Review these messages</button>
+    <label for="account-{{ group.ending }}">Account</label>
+    <select id="account-{{ group.ending }}" name="account_id" data-own-picker required><option value="">Choose an account</option>{% for a in accounts %}<option value="{{ a.id }}">{{ a.name }}</option>{% endfor %}</select>
+    <div class="actions"><button class="btn primary" type="submit">Review these messages</button></div>
     <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}">
   </form>
 </section>
 {% endfor %}
 {% if batches %}
-<section class="card phone-card" aria-labelledby="review-heading">
-  <h2 id="review-heading" class="phone-card-title">Waiting for your check</h2>
-  <div class="phone-rows">{% for b in batches %}<a class="phone-row" href="/accounts/{{ b.account_id }}/import/{{ b.batch_id }}"><span>{{ b.account }}<small>{{ b.file_name }}</small></span><b>{{ b.waiting }}</b></a>{% endfor %}</div>
+<section class="card" aria-labelledby="review-heading">
+  <h2 id="review-heading">Waiting for your check</h2>
+  <div class="compact-list">{% for b in batches %}<a class="compact-row" href="/accounts/{{ b.account_id }}/import/{{ b.batch_id }}"><span>{{ b.account }} <small class="muted">{{ b.file_name }}</small></span><b>{{ b.waiting }}</b></a>{% endfor %}</div>
 </section>
 {% endif %}
-<section class="card phone-card" aria-labelledby="paste-heading">
-  <h2 id="paste-heading" class="phone-card-title">Paste messages</h2>
-  <p class="phone-note">Copy them from your SMS app; leave a blank line between messages. CIB and NBE are read today; codes, declined payments and offers are skipped.</p>
-  <form method="post" action="/sms/paste" class="phone-form">
-    <div class="field"><label for="sms-messages">Messages</label><textarea id="sms-messages" name="messages" rows="8" required dir="auto"></textarea></div>
-    <button class="btn primary phone-save" type="submit">Read them</button>
+{% if unread %}
+<section class="card" aria-labelledby="unread-heading">
+  <h2 id="unread-heading">Lightning could not read these</h2>
+  <p class="muted">They mention money, so they are kept until you enter or dismiss them. Send them to be added as a new bank pattern.</p>
+  {% for m in unread %}<div class="compact-row"><span dir="auto">{{ m.text }} <small class="muted">{{ m.sender or 'Pasted' }} · {{ m.received|replace('T', ' ') }}</small></span>
+    <form method="post" action="/sms/dismiss"><input type="hidden" name="id" value="{{ m.id }}"><button class="btn small" type="submit">Dismiss</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form></div>{% endfor %}
+</section>
+{% endif %}
+<section class="card form-card" aria-labelledby="paste-heading">
+  <h2 id="paste-heading">Paste messages</h2>
+  <p class="muted">Copy them from your SMS app; leave a blank line between messages. CIB and NBE are read today, and other wordings by a general rule you check; codes, declined payments and offers are skipped.</p>
+  <form method="post" action="/sms/paste">
+    <label for="sms-messages">Messages</label><textarea id="sms-messages" name="messages" rows="8" required dir="auto"></textarea>
+    <div class="actions"><button class="btn primary" type="submit">Read them</button></div>
     <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}">
   </form>
 </section>

@@ -72,3 +72,29 @@ def test_paste_then_say_the_account_then_review(c, setup, tmp_path):
     assert "2 waiting for their account" in page.text and "Which account ends with 2093?" in page.text
     review = client.post("/sms/assign", data={"ending": "2093", "account_id": str(accounts["cib"].id)})
     assert "/import/" in str(review.url) and "Uber" in review.text
+
+
+@pytest.mark.parametrize("sample", SAMPLES["reworded"], ids=lambda s: s["why"])
+def test_a_reworded_message_is_still_read_and_flagged_to_check(sample):
+    found = parse_sms(sample["text"], received=datetime(2026, 10, 7, 13))
+    assert found is not None and found.inflow == (sample["direction"] == "inflow")
+    for key, value in sample["expect"].items():
+        got = getattr(found, key)
+        assert (got == Decimal(value)) if key == "amount" else (got == value), (key, got, value)
+
+
+def test_money_no_rule_reads_is_kept_for_the_owner_never_dropped(c, setup):
+    text = SAMPLES["unreadable"][0]
+    assert parse_sms(text) is None
+    result = c.sms_imports.read([("NBE", text, datetime(2026, 10, 7, 13))])
+    assert result["unread"] == 1 and c.sms_imports.unread()[0]["text"] == text
+    c.sms_imports.dismiss(c.sms_imports.unread()[0]["id"])
+    assert c.sms_imports.unread() == []
+
+
+def test_from_sms_shows_what_it_could_not_read(c, setup):
+    from fastapi.testclient import TestClient
+    from lightning.ui.web import create_app
+    client = TestClient(create_app(c))
+    page = client.post("/sms/paste", data={"messages": SAMPLES["unreadable"][0]})
+    assert "1 to read yourself" in page.text and "could not read these" in page.text

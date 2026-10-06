@@ -1,62 +1,288 @@
 {
-  "about": "Bank SMS samples, one entry per message, collected bank by bank from the owner's phone. Each says what it is: inflow or outflow, the kind, and what Lightning should read from it. Identifying details are changed before a sample goes in: people's names, card and account endings, references, balances and neighbourhoods. Amounts, merchants and the exact wording stay. tests/test_sms_imports.py reads every entry; add a bank by adding its messages here.",
-  "samples": [
-    {"bank": "CIB", "sender": "CIB", "direction": "outflow", "kind": "withdrawal", "received": "2026-10-04T19:29",
-     "text": "تم سحب مبلغ  EGP 5000.00  من بطاقة الخصم المباشر المنتهية بـ **7351 من CIB KZ IRAN ZAMALEK في 04/10/26 19:28 ، الرصيد المتاح EGP 12904.50",
-     "expect": {"amount": "5000.00", "ending": "7351", "when": "2026-10-04T19:28", "place": "CIB KZ IRAN ZAMALEK", "balance": "12904.50"}},
-    {"bank": "CIB", "sender": "CIB", "direction": "outflow", "kind": "transfer_out", "received": "2026-10-01T11:06",
-     "text": "يرجى العلم انه تم تنفيذ تحويل لحظي بمبلغ 2000.00 جم من حسابك المنتهي بـ ********4410 برقم مرجعي 3b7e90a1 بتاريخ 01-10-2026 11:05 للمزيد، برجاء الاتصال بـ 19666",
-     "expect": {"amount": "2000.00", "ending": "4410", "when": "2026-10-01T11:05", "reference": "3b7e90a1"}},
-    {"bank": "CIB", "sender": "CIB", "direction": "outflow", "kind": "transfer_out", "received": "2026-09-23T17:43",
-     "text": "يرجى العلم انه تم تنفيذ تحويل لحظي بمبلغ 19000.00 جم من حسابك المنتهي بـ ********4410 برقم مرجعي 8c21d0f4 بتاريخ 23-09-2026 17:42 للمزيد، برجاء الاتصال بـ 19666",
-     "expect": {"amount": "19000.00", "ending": "4410", "when": "2026-09-23T17:42", "reference": "8c21d0f4"}},
-    {"bank": "CIB", "sender": "CIB", "direction": "outflow", "kind": "transfer_out", "received": "2026-09-23T17:39",
-     "text": "يرجى العلم انه تم تنفيذ تحويل لحظي بمبلغ 1000.00 جم من حسابك المنتهي بـ ********4410 برقم مرجعي 2a9f6e17 بتاريخ 23-09-2026 17:38 للمزيد، برجاء الاتصال بـ 19666",
-     "expect": {"amount": "1000.00", "ending": "4410", "when": "2026-09-23T17:38", "reference": "2a9f6e17"}},
-    {"bank": "CIB", "sender": "CIB", "direction": "inflow", "kind": "salary", "received": "2026-09-25T09:15",
-     "text": "عميلنا العزيز لقد تم تحويل مبلغ EGP19,584.66 على حسابكم لدينا من جهة العمل",
-     "expect": {"amount": "19584.66", "ending": "salary", "when": "2026-09-25T09:15", "place": "Salary"}},
-    {"bank": "CIB", "sender": "CIB", "direction": "inflow", "kind": "transfer_in", "received": "2026-08-30T10:58",
-     "text": "يرجى العلم انه تم تنفيذ تحويل لحظي بمبلغ 100.00 جم إلى حسابك المنتهي بـ ********4410 من كريم سامي احمد حسن برقم مرجعي 5e04c2b8 بتاريخ 30-08-2026 10:57 للمزيد، برجاء الاتصال بـ 19666",
-     "expect": {"amount": "100.00", "ending": "4410", "when": "2026-08-30T10:57", "place": "كريم سامي احمد حسن", "reference": "5e04c2b8"}},
-
-    {"bank": "NBE", "sender": "NBE", "direction": "outflow", "kind": "purchase", "received": "2026-10-06T11:14",
-     "text": "تم خصم 147.87 EGP من بطاقة الخصم المباشر رقم 2093 عند Uber                  Dow يوم 06/10/26 الساعه 11:13 المتاح 3512.40EGP للمزيد إتصل ب ١٩٦٢٣",
-     "expect": {"amount": "147.87", "ending": "2093", "when": "2026-10-06T11:13", "place": "Uber", "balance": "3512.40"}},
-    {"bank": "NBE", "sender": "NBE", "direction": "outflow", "kind": "purchase", "received": "2026-10-06T09:48",
-     "text": "تم خصم 5 EGP من بطاقة الخصم المباشر رقم 2093 عند Uber                  Dow يوم 06/10/26 الساعه 09:47 المتاح 3660.27EGP للمزيد إتصل ب ١٩٦٢٣",
-     "expect": {"amount": "5", "ending": "2093", "when": "2026-10-06T09:47", "place": "Uber"}},
-    {"bank": "NBE", "sender": "NBE", "direction": "outflow", "kind": "purchase", "received": "2026-10-05T14:25",
-     "text": "تم خصم 188.54 EGP من بطاقة الخصم المباشر رقم 2093 عند Talabat               Maa يوم 05/10/26 الساعه 14:24 المتاح 3665.27EGP للمزيد إتصل ب ١٩٦٢٣",
-     "expect": {"amount": "188.54", "ending": "2093", "when": "2026-10-05T14:24", "place": "Talabat"}},
-    {"bank": "NBE", "sender": "NBE", "direction": "inflow", "kind": "transfer_in", "received": "2026-10-05T11:17",
-     "text": "تم إضافة تحويل لحظي لحسابكم رقم 6628 بمبلغ 30.00 جم من AHMED SAMIR HASSAN ALI رقم مرجعي 902114775318 يوم 10-05 الساعة 11:16 للمزيد اتصل بـ 19623",
-     "expect": {"amount": "30.00", "ending": "6628", "when": "2026-10-05T11:16", "place": "AHMED SAMIR HASSAN ALI", "reference": "902114775318"}},
-    {"bank": "NBE", "sender": "NBE", "direction": "outflow", "kind": "purchase", "received": "2026-09-30T14:29",
-     "text": "تم خصم 194.72 EGP من بطاقة الخصم المباشر رقم 2093 عند Talabat               Maa يوم 30/09/26 الساعه 14:28 المتاح 3884.64EGP للمزيد إتصل ب ١٩٦٢٣",
-     "expect": {"amount": "194.72", "ending": "2093", "when": "2026-09-30T14:28", "place": "Talabat"}},
-    {"bank": "NBE", "sender": "NBE", "direction": "outflow", "kind": "purchase", "received": "2026-09-30T11:42",
-     "text": "تم خصم 458.75 EGP  من بطاقة الخصم المباشر رقم 2093  عند SEOUDI ZAMALEK         GI  يوم 30/09/26  الساعه 11:41  المتاح 4079.36EGP  للمزيد إتصل ب ١٩٦٢٣",
-     "expect": {"amount": "458.75", "ending": "2093", "when": "2026-09-30T11:41", "place": "SEOUDI ZAMALEK"}},
-    {"bank": "NBE", "sender": "NBE", "direction": "outflow", "kind": "purchase", "received": "2026-09-17T11:47",
-     "text": "تم خصم 229.93 EGP من بطاقة الخصم المباشر رقم 2093 عند Uber                  Dow يوم 17/09/26 الساعه 11:46 المتاح 4355.11EGP للمزيد إتصل ب ١٩٦٢٣",
-     "expect": {"amount": "229.93", "ending": "2093", "when": "2026-09-17T11:46", "place": "Uber"}},
-    {"bank": "NBE", "sender": "NBE", "direction": "outflow", "kind": "purchase", "received": "2026-09-16T13:51",
-     "text": "تم خصم 4801.6 EGP من بطاقة الخصم المباشر رقم 2093 عند NOON                  Cai يوم 16/09/26 الساعه 13:50 المتاح 4585.04EGP للمزيد إتصل ب ١٩٦٢٣",
-     "expect": {"amount": "4801.6", "ending": "2093", "when": "2026-09-16T13:50", "place": "NOON"}},
-    {"bank": "NBE", "sender": "NBE", "direction": "outflow", "kind": "transfer_out", "received": "2026-09-15T10:07",
-     "text": "تم تنفيذ تحويل لحظي من حسابكم رقم 6628 بمبلغ 10000.00 جم إلى Thunder رقم مرجعي 517703926481 يوم 09-15 الساعة 10:06 للمزيد اتصل بـ 19623",
-     "expect": {"amount": "10000.00", "ending": "6628", "when": "2026-09-15T10:06", "place": "Thunder", "reference": "517703926481"}},
-    {"bank": "NBE", "sender": "NBE", "direction": "inflow", "kind": "transfer_in", "received": "2026-09-14T12:33",
-     "text": "تم إضافة تحويل لحظي لحسابكم رقم 6628 بمبلغ 700.00 جم من منى حسن علي رقم مرجعي 268430157942 يوم 09-14 الساعة 12:32 للمزيد اتصل بـ 19623",
-     "expect": {"amount": "700.00", "ending": "6628", "when": "2026-09-14T12:32", "place": "منى حسن علي", "reference": "268430157942"}},
-    {"bank": "NBE", "sender": "NBE", "direction": "inflow", "kind": "transfer_in", "received": "2026-09-12T14:27",
-     "text": "تم إضافة تحويل لحظي لحسابكم رقم 6628 بمبلغ 4000.00 جم من منى حسن علي رقم مرجعي 731259604867 يوم 09-12 الساعة 14:26 للمزيد اتصل بـ 19623",
-     "expect": {"amount": "4000.00", "ending": "6628", "when": "2026-09-12T14:26", "place": "منى حسن علي", "reference": "731259604867"}}
-  ],
-  "not_money": [
-    "رمز التحقق الخاص بك هو 482913 لا تشاركه مع احد",
-    "تم رفض عملية بمبلغ 250.00 EGP على بطاقة الخصم المباشر رقم 2093 عند Uber يوم 06/10/26 لعدم كفاية الرصيد",
-    "استمتع بخصم 20% على مشترياتك من NOON باستخدام بطاقتك حتى 31/10"
-  ]
+ "about": "Bank SMS samples, one entry per message, collected bank by bank from the owner's phone. Each says what it is: inflow or outflow, the kind, and what Lightning should read from it. Identifying details are changed before a sample goes in: people's names, card and account endings, references, balances and neighbourhoods. Amounts, merchants and the exact wording stay. tests/test_sms_imports.py reads every entry; add a bank by adding its messages here.",
+ "samples": [
+  {
+   "bank": "CIB",
+   "sender": "CIB",
+   "direction": "outflow",
+   "kind": "withdrawal",
+   "received": "2026-10-04T19:29",
+   "text": "تم سحب مبلغ  EGP 5000.00  من بطاقة الخصم المباشر المنتهية بـ **7351 من CIB KZ IRAN ZAMALEK في 04/10/26 19:28 ، الرصيد المتاح EGP 12904.50",
+   "expect": {
+    "amount": "5000.00",
+    "ending": "7351",
+    "when": "2026-10-04T19:28",
+    "place": "CIB KZ IRAN ZAMALEK",
+    "balance": "12904.50"
+   }
+  },
+  {
+   "bank": "CIB",
+   "sender": "CIB",
+   "direction": "outflow",
+   "kind": "transfer_out",
+   "received": "2026-10-01T11:06",
+   "text": "يرجى العلم انه تم تنفيذ تحويل لحظي بمبلغ 2000.00 جم من حسابك المنتهي بـ ********4410 برقم مرجعي 3b7e90a1 بتاريخ 01-10-2026 11:05 للمزيد، برجاء الاتصال بـ 19666",
+   "expect": {
+    "amount": "2000.00",
+    "ending": "4410",
+    "when": "2026-10-01T11:05",
+    "reference": "3b7e90a1"
+   }
+  },
+  {
+   "bank": "CIB",
+   "sender": "CIB",
+   "direction": "outflow",
+   "kind": "transfer_out",
+   "received": "2026-09-23T17:43",
+   "text": "يرجى العلم انه تم تنفيذ تحويل لحظي بمبلغ 19000.00 جم من حسابك المنتهي بـ ********4410 برقم مرجعي 8c21d0f4 بتاريخ 23-09-2026 17:42 للمزيد، برجاء الاتصال بـ 19666",
+   "expect": {
+    "amount": "19000.00",
+    "ending": "4410",
+    "when": "2026-09-23T17:42",
+    "reference": "8c21d0f4"
+   }
+  },
+  {
+   "bank": "CIB",
+   "sender": "CIB",
+   "direction": "outflow",
+   "kind": "transfer_out",
+   "received": "2026-09-23T17:39",
+   "text": "يرجى العلم انه تم تنفيذ تحويل لحظي بمبلغ 1000.00 جم من حسابك المنتهي بـ ********4410 برقم مرجعي 2a9f6e17 بتاريخ 23-09-2026 17:38 للمزيد، برجاء الاتصال بـ 19666",
+   "expect": {
+    "amount": "1000.00",
+    "ending": "4410",
+    "when": "2026-09-23T17:38",
+    "reference": "2a9f6e17"
+   }
+  },
+  {
+   "bank": "CIB",
+   "sender": "CIB",
+   "direction": "inflow",
+   "kind": "salary",
+   "received": "2026-09-25T09:15",
+   "text": "عميلنا العزيز لقد تم تحويل مبلغ EGP19,584.66 على حسابكم لدينا من جهة العمل",
+   "expect": {
+    "amount": "19584.66",
+    "ending": "salary",
+    "when": "2026-09-25T09:15",
+    "place": "Salary"
+   }
+  },
+  {
+   "bank": "CIB",
+   "sender": "CIB",
+   "direction": "inflow",
+   "kind": "transfer_in",
+   "received": "2026-08-30T10:58",
+   "text": "يرجى العلم انه تم تنفيذ تحويل لحظي بمبلغ 100.00 جم إلى حسابك المنتهي بـ ********4410 من كريم سامي احمد حسن برقم مرجعي 5e04c2b8 بتاريخ 30-08-2026 10:57 للمزيد، برجاء الاتصال بـ 19666",
+   "expect": {
+    "amount": "100.00",
+    "ending": "4410",
+    "when": "2026-08-30T10:57",
+    "place": "كريم سامي احمد حسن",
+    "reference": "5e04c2b8"
+   }
+  },
+  {
+   "bank": "NBE",
+   "sender": "NBE",
+   "direction": "outflow",
+   "kind": "purchase",
+   "received": "2026-10-06T11:14",
+   "text": "تم خصم 147.87 EGP من بطاقة الخصم المباشر رقم 2093 عند Uber                  Dow يوم 06/10/26 الساعه 11:13 المتاح 3512.40EGP للمزيد إتصل ب ١٩٦٢٣",
+   "expect": {
+    "amount": "147.87",
+    "ending": "2093",
+    "when": "2026-10-06T11:13",
+    "place": "Uber",
+    "balance": "3512.40"
+   }
+  },
+  {
+   "bank": "NBE",
+   "sender": "NBE",
+   "direction": "outflow",
+   "kind": "purchase",
+   "received": "2026-10-06T09:48",
+   "text": "تم خصم 5 EGP من بطاقة الخصم المباشر رقم 2093 عند Uber                  Dow يوم 06/10/26 الساعه 09:47 المتاح 3660.27EGP للمزيد إتصل ب ١٩٦٢٣",
+   "expect": {
+    "amount": "5",
+    "ending": "2093",
+    "when": "2026-10-06T09:47",
+    "place": "Uber"
+   }
+  },
+  {
+   "bank": "NBE",
+   "sender": "NBE",
+   "direction": "outflow",
+   "kind": "purchase",
+   "received": "2026-10-05T14:25",
+   "text": "تم خصم 188.54 EGP من بطاقة الخصم المباشر رقم 2093 عند Talabat               Maa يوم 05/10/26 الساعه 14:24 المتاح 3665.27EGP للمزيد إتصل ب ١٩٦٢٣",
+   "expect": {
+    "amount": "188.54",
+    "ending": "2093",
+    "when": "2026-10-05T14:24",
+    "place": "Talabat"
+   }
+  },
+  {
+   "bank": "NBE",
+   "sender": "NBE",
+   "direction": "inflow",
+   "kind": "transfer_in",
+   "received": "2026-10-05T11:17",
+   "text": "تم إضافة تحويل لحظي لحسابكم رقم 6628 بمبلغ 30.00 جم من AHMED SAMIR HASSAN ALI رقم مرجعي 902114775318 يوم 10-05 الساعة 11:16 للمزيد اتصل بـ 19623",
+   "expect": {
+    "amount": "30.00",
+    "ending": "6628",
+    "when": "2026-10-05T11:16",
+    "place": "AHMED SAMIR HASSAN ALI",
+    "reference": "902114775318"
+   }
+  },
+  {
+   "bank": "NBE",
+   "sender": "NBE",
+   "direction": "outflow",
+   "kind": "purchase",
+   "received": "2026-09-30T14:29",
+   "text": "تم خصم 194.72 EGP من بطاقة الخصم المباشر رقم 2093 عند Talabat               Maa يوم 30/09/26 الساعه 14:28 المتاح 3884.64EGP للمزيد إتصل ب ١٩٦٢٣",
+   "expect": {
+    "amount": "194.72",
+    "ending": "2093",
+    "when": "2026-09-30T14:28",
+    "place": "Talabat"
+   }
+  },
+  {
+   "bank": "NBE",
+   "sender": "NBE",
+   "direction": "outflow",
+   "kind": "purchase",
+   "received": "2026-09-30T11:42",
+   "text": "تم خصم 458.75 EGP  من بطاقة الخصم المباشر رقم 2093  عند SEOUDI ZAMALEK         GI  يوم 30/09/26  الساعه 11:41  المتاح 4079.36EGP  للمزيد إتصل ب ١٩٦٢٣",
+   "expect": {
+    "amount": "458.75",
+    "ending": "2093",
+    "when": "2026-09-30T11:41",
+    "place": "SEOUDI ZAMALEK"
+   }
+  },
+  {
+   "bank": "NBE",
+   "sender": "NBE",
+   "direction": "outflow",
+   "kind": "purchase",
+   "received": "2026-09-17T11:47",
+   "text": "تم خصم 229.93 EGP من بطاقة الخصم المباشر رقم 2093 عند Uber                  Dow يوم 17/09/26 الساعه 11:46 المتاح 4355.11EGP للمزيد إتصل ب ١٩٦٢٣",
+   "expect": {
+    "amount": "229.93",
+    "ending": "2093",
+    "when": "2026-09-17T11:46",
+    "place": "Uber"
+   }
+  },
+  {
+   "bank": "NBE",
+   "sender": "NBE",
+   "direction": "outflow",
+   "kind": "purchase",
+   "received": "2026-09-16T13:51",
+   "text": "تم خصم 4801.6 EGP من بطاقة الخصم المباشر رقم 2093 عند NOON                  Cai يوم 16/09/26 الساعه 13:50 المتاح 4585.04EGP للمزيد إتصل ب ١٩٦٢٣",
+   "expect": {
+    "amount": "4801.6",
+    "ending": "2093",
+    "when": "2026-09-16T13:50",
+    "place": "NOON"
+   }
+  },
+  {
+   "bank": "NBE",
+   "sender": "NBE",
+   "direction": "outflow",
+   "kind": "transfer_out",
+   "received": "2026-09-15T10:07",
+   "text": "تم تنفيذ تحويل لحظي من حسابكم رقم 6628 بمبلغ 10000.00 جم إلى Thunder رقم مرجعي 517703926481 يوم 09-15 الساعة 10:06 للمزيد اتصل بـ 19623",
+   "expect": {
+    "amount": "10000.00",
+    "ending": "6628",
+    "when": "2026-09-15T10:06",
+    "place": "Thunder",
+    "reference": "517703926481"
+   }
+  },
+  {
+   "bank": "NBE",
+   "sender": "NBE",
+   "direction": "inflow",
+   "kind": "transfer_in",
+   "received": "2026-09-14T12:33",
+   "text": "تم إضافة تحويل لحظي لحسابكم رقم 6628 بمبلغ 700.00 جم من منى حسن علي رقم مرجعي 268430157942 يوم 09-14 الساعة 12:32 للمزيد اتصل بـ 19623",
+   "expect": {
+    "amount": "700.00",
+    "ending": "6628",
+    "when": "2026-09-14T12:32",
+    "place": "منى حسن علي",
+    "reference": "268430157942"
+   }
+  },
+  {
+   "bank": "NBE",
+   "sender": "NBE",
+   "direction": "inflow",
+   "kind": "transfer_in",
+   "received": "2026-09-12T14:27",
+   "text": "تم إضافة تحويل لحظي لحسابكم رقم 6628 بمبلغ 4000.00 جم من منى حسن علي رقم مرجعي 731259604867 يوم 09-12 الساعة 14:26 للمزيد اتصل بـ 19623",
+   "expect": {
+    "amount": "4000.00",
+    "ending": "6628",
+    "when": "2026-09-12T14:26",
+    "place": "منى حسن علي",
+    "reference": "731259604867"
+   }
+  }
+ ],
+ "not_money": [
+  "رمز التحقق الخاص بك هو 482913 لا تشاركه مع احد",
+  "تم رفض عملية بمبلغ 250.00 EGP على بطاقة الخصم المباشر رقم 2093 عند Uber يوم 06/10/26 لعدم كفاية الرصيد",
+  "استمتع بخصم 20% على مشترياتك من NOON باستخدام بطاقتك حتى 31/10"
+ ],
+ "reworded": [
+  {
+   "why": "a wording no pattern knows: the general rule reads it and asks to check",
+   "direction": "outflow",
+   "text": "تم سداد مبلغ 320.50 جم باستخدام بطاقتكم رقم 2093 لدى VODAFONE يوم 07/10/26",
+   "expect": {
+    "amount": "320.50",
+    "ending": "2093",
+    "place": "VODAFONE"
+   }
+  },
+  {
+   "why": "an English credit",
+   "direction": "inflow",
+   "text": "Your account ending with 4410 was credited with EGP 1,250.00 on 07/10/2026 12:05",
+   "expect": {
+    "amount": "1250.00",
+    "ending": "4410"
+   }
+  },
+  {
+   "why": "reordered NBE purchase: the date first",
+   "direction": "outflow",
+   "text": "يوم 06/10/26 الساعه 11:13 تم خصم 147.87 EGP من بطاقة الخصم المباشر رقم 2093 عند Uber",
+   "expect": {
+    "amount": "147.87",
+    "ending": "2093"
+   }
+  }
+ ],
+ "unreadable": [
+  "تم تنفيذ عملية بمبلغ 900.00 جم على حسابكم، للاستفسار اتصل بـ 19623"
+ ]
 }

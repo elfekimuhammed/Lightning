@@ -26,6 +26,8 @@ from lightning.core.errors import ValidationError
 ENDINGS_KEY = "sms_account_endings"   # {"0285": account_id}
 SEEN_KEY = "sms_seen"                  # fingerprints of messages already read, newest last
 WAITING_KEY = "sms_waiting"            # parsed messages whose account ending is not known yet
+UNREAD_KEY = "sms_unread"              # messages with an amount that no rule could read: never dropped unseen
+MAX_UNREAD = 200
 SALARY_ENDING = "salary"               # the salary message names no account: its own remembered choice
 MAX_SEEN = 5000
 MAX_TEXT = 1000
@@ -43,7 +45,8 @@ BANK_PHONES = {"19666": "CIB", "19623": "NBE"}
 
 @dataclass(frozen=True)
 class SmsTransaction:
-    kind: str            # "withdrawal" (cash), "purchase", "transfer_out", "transfer_in", "salary"
+    kind: str            # "withdrawal" (cash), "purchase", "transfer_out", "transfer_in", "salary"; "money_out" or
+                         # "money_in" when only the general rule read it
     amount: Decimal      # positive; `signed` gives the ledger's sign
     ending: str          # the account's or card's last four digits, or SALARY_ENDING
     when: str            # ISO date and time, from the message or when it arrived
@@ -51,10 +54,11 @@ class SmsTransaction:
     reference: str = ""
     balance: Decimal | None = None
     bank: str = ""
+    sure: bool = True    # False when only the general rule read it: the review says to check it
 
     @property
     def inflow(self) -> bool:
-        return self.kind in ("transfer_in", "salary")
+        return self.kind in ("transfer_in", "salary", "money_in")
 
     @property
     def signed(self) -> Decimal:
@@ -166,7 +170,37 @@ def parse_sms(text: str, *, sender: str = "", received: datetime | None = None) 
         if amount is None:
             return None
         return SmsTransaction("salary", amount, SALARY_ENDING, _when(None, None, received), "Salary", bank=bank)
-    return None
+    return _general(flat, received, balance, bank)
+
+
+_OUT_WORDS = r"(خصم|سحب|شراء|سداد|دفع|مدفوعات|تحويل\s*لحظي\s*من|تحويل\s*من\s*حساب|debited|withdraw\w*|purchase|paid|spent|sent)"
+_IN_WORDS = r"(إضافة|اضافة|إيداع|ايداع|استلام|استرداد|لحسابكم|إلى\s*حسابك|الى\s*حسابك|credited|received|deposit\w*|refund\w*)"
+
+
+def looks_like_money(text: str) -> bool:
+    """An amount with a currency: a message the owner should see even when no rule reads it."""
+    flat = _clean(text or "")
+    return bool(re.search(_CUR + r"\s*" + _NUM + r"|" + _NUM + r"\s*" + _CUR, flat)) and not _IGNORE.search(flat)
+
+
+def _general(flat: str, received: datetime, balance: Decimal | None, bank: str) -> SmsTransaction | None:
+    """The general rule, for a wording no bank pattern knows yet: an amount with its currency, an account or
+    card ending, and words that say which way the money went. All three, or nothing."""
+    money = re.search(_CUR + r"\s*" + _NUM + r"|" + _NUM + r"\s*" + _CUR, flat)
+    ending = re.search(r"(?:رقم|المنتهي\S*\s*ب[ـ]?|ending(?:\s*(?:with|in))?|[*xX•]{2,})\s*[*xX•]*\s*(\d{4})\b", flat,
+                       re.IGNORECASE)
+    out_word = re.search(_OUT_WORDS, flat, re.IGNORECASE)
+    in_word = re.search(_IN_WORDS, flat, re.IGNORECASE)
+    if not money or not ending or bool(out_word) == bool(in_word):
+        return None
+    amount = _amount(money.group(1) or money.group(2))
+    if amount is None:
+        return None
+    day = re.search(r"(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})(?:\D{0,12}?(\d{1,2}:\d{2}))?", flat)
+    place = re.search(r"(?:عند|لدى|\bat)\s+(.+?)(?=\s+(?:يوم|في|on|بتاريخ|\d)|$)", flat)
+    return SmsTransaction("money_in" if in_word else "money_out", amount, ending.group(1),
+                          _when(day.group(1) if day else None, day.group(2) if day else None, received),
+                          place.group(1).strip() if place else "", balance=balance, bank=bank, sure=False)
 
 
 def fingerprint(text: str) -> str:
@@ -174,7 +208,7 @@ def fingerprint(text: str) -> str:
 
 
 KIND_NOTES = {"withdrawal": "Cash withdrawal", "purchase": "Card purchase", "transfer_out": "InstaPay sent",
-              "transfer_in": "InstaPay received", "salary": "Salary"}
+              "transfer_in": "InstaPay received", "salary": "Salary", "money_out": "Money out", "money_in": "Money in"}
 
 
 class SmsImportService:
@@ -211,6 +245,7 @@ class SmsImportService:
         waiting = self._json(WAITING_KEY, [])
         by_account: dict[int, list[SmsTransaction]] = {}
         skipped = 0
+        unread = self._json(UNREAD_KEY, [])
         for sender, text, received in messages:
             mark = fingerprint(text)
             if mark in known:
@@ -220,7 +255,11 @@ class SmsImportService:
             seen.append(mark)
             found = parse_sms(text, sender=sender, received=received)
             if found is None:
-                skipped += 1
+                if looks_like_money(text):  # never dropped unseen: kept for the owner to enter or dismiss
+                    unread.append({"id": mark, "sender": sender[:40], "text": text[:MAX_TEXT],
+                                   "received": received.isoformat(timespec="minutes")})
+                else:
+                    skipped += 1
                 continue
             account_id = endings.get(found.ending)  # never guessed: the first message of an ending asks once
             if account_id is None:
@@ -231,7 +270,17 @@ class SmsImportService:
         with self.db.transaction():
             self.settings.set(SEEN_KEY, json.dumps(seen[-MAX_SEEN:]))
             self.settings.set(WAITING_KEY, json.dumps(waiting))
-        return {"staged": staged, "waiting": len(waiting), "skipped": skipped}
+            self.settings.set(UNREAD_KEY, json.dumps(unread[-MAX_UNREAD:]))
+        return {"staged": staged, "waiting": len(waiting), "skipped": skipped, "unread": len(unread)}
+
+    def unread(self) -> list[dict]:
+        """Messages with an amount that no rule could read, newest first."""
+        return list(reversed(self._json(UNREAD_KEY, [])))
+
+    def dismiss(self, message_id: str) -> None:
+        with self.db.transaction():
+            self.settings.set(UNREAD_KEY, json.dumps([m for m in self._json(UNREAD_KEY, [])
+                                                      if m.get("id") != message_id]))
 
     def assign(self, ending: str, account_id: int) -> int | None:
         """The owner says which account an ending is: remember it and send its waiting messages to review."""
@@ -259,7 +308,9 @@ class SmsImportService:
         cash = self._cash_account_name()
         for row in sorted(rows, key=lambda r: r.when):
             notes = KIND_NOTES[row.kind] + (f" · {row.place}" if row.place and row.kind != "salary" else "")
-            category, counterparty = "", row.place if row.kind in ("purchase", "transfer_in") else ""
+            if not row.sure:
+                notes = "Check this: read by the general rule · " + notes
+            category, counterparty = "", row.place if row.kind in ("purchase", "transfer_in", "money_out", "money_in") else ""
             if row.kind == "withdrawal":
                 category = "Transfer"
                 notes += f" · transfer to {cash}" if cash else ""
