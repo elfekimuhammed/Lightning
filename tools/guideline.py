@@ -1,7 +1,7 @@
 """Print one brand guideline section as plain text, so an AI never has to read the whole HTML file.
 
     python tools/guideline.py            # list the sections: number, title, size as text
-    python tools/guideline.py A16        # one section (A01-A16 the app, B01-B11 the website)
+    python tools/guideline.py A16        # one section (A01-A16 the PC app, B01-B11 the website, C01-C12 the phone)
     python tools/guideline.py A03 A12    # several sections
     python tools/guideline.py --file ../Lightning_website/brand-guidelines.html B05
 

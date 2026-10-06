@@ -15,14 +15,14 @@ not know it.
 | [Architecture](docs/ARCHITECTURE.md) | Module boundaries, financial rules, data model, UI contract, desktop app and encrypted profiles | You change how something is built or calculated |
 | [Glossary](docs/GLOSSARY.md) | One name and one meaning for every term and figure | You add or rename a term or figure |
 | [Competition](docs/COMPETITION.md) | The compass: every competitor, what their users love and hate, where Lightning wins and loses | You learn something new about a competitor, or before choosing between two designs |
-| [Brand guideline](docs/BRAND_GUIDELINE.html) | How every screen looks and reads. Part A is the app, Part B the website | The owner gives a new version. The website repo has the same file as `brand-guidelines.html`: change both together |
+| [Brand guideline](docs/BRAND_GUIDELINE.html) | How every screen looks and reads. Part A is the app on a PC, Part B the website, Part C the app on a phone | The owner gives a new version. The website repo has the same file as `brand-guidelines.html`: change both together |
 | [Changelog](CHANGELOG.md) | Every change, newest first, under `Unreleased` at the top | Every change you push |
 | `docs/proposals/` | Designs not built yet (one file each) | You propose a design. When it is built, move what holds into Architecture and delete the proposal |
 
 - Do not add other files under `docs/`. Each fact lives in one file; link to it, never copy it.
 - Old changelog entries are history, not the current specification.
 
-**The brand guideline is strict, not a suggestion.** Every visual follows it exactly: colours and what they mean, headers, type and numbers, cards and KPI cards, controls and fields, lists, every chart, words, spacing and icons. If the app's CSS differs from the guideline, the guideline wins and the CSS is fixed. If something the screen needs is not in the guideline, do not invent a new style: use the closest rule and ask the owner in `OWNER.md`.
+**The brand guideline is strict, not a suggestion.** Every visual follows it exactly: colours and what they mean, headers, type and numbers, cards and KPI cards, controls and fields, lists, every chart, words, spacing and icons. If the app's CSS differs from the guideline, the guideline wins and the CSS is fixed. If something the screen needs is not in the guideline, do not invent a new style: use the closest rule and ask the owner in `OWNER.md`. Phone screens follow Part C (it wins over Part A on a phone); a phone layout never reuses the PC's.
 
 **Before it ships (guideline A16).** A screen with any of these is not done: All caps: Anywhere. · Coloured headers: Headers are Ink. · A colour off its meaning: Check A03. · Vivid gradient card: Brand only. · KPI by position: Tone by meaning. · Chip by direction: Good or bad. · Decimals on big figures: Whole EGP. · "L1 › L2": Header, then list. · Five or more names: Four, then Other. · White or boxed fields: Soft wells. · Dropdown for your data: Type and pick. · Card in a card: Never. · A line that repeats its label: Cut it. `tests/test_docs_structure.py` keeps this list the same as the guideline's.
 
@@ -32,7 +32,7 @@ Be as efficient with tokens as you can, in what you read, run and write. This ne
 
 - **Start small:** read `NOW.md` and `git log --oneline -15`; that is all most tasks need to begin. A *Next* item's **Read:** line names everything else it needs.
 - **Read sections, not files.** The long docs start with a contents list that says when to read each section. Find the heading (`grep -n '^## ' <file>`) and read from that line to the next heading.
-- **Never open the brand guideline whole** (about 95,000 tokens, mostly drawings). Run `python tools/guideline.py` to list its sections and `python tools/guideline.py A12` to print one as text.
+- **Never open the brand guideline whole** (about 95,000 tokens, mostly drawings). Run `python tools/guideline.py` to list its sections and `python tools/guideline.py A12` to print one as text (A the PC app, B the website, C the phone).
 - **Search before you read:** grep for the name, then read only the lines around it. Do not re-read a file you have just edited, or read code you are not changing.
 - **Keep output short:** run the tests for what you changed with `-q`, and show only the failures. Run the full suite once, before you push.
 - **Skip unless your task needs it:** `OWNER.md`, old changelog sections, `docs/proposals/`, `user feedback/`, `Claude outputs/`, and the generated figures table in the Glossary (grep it).

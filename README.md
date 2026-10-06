@@ -98,5 +98,5 @@ lint-imports              # architecture contracts
 - [docs/PROJECT_OVERVIEW.md](docs/PROJECT_OVERVIEW.md) — start here: what Lightning is, what it answers, the roadmap
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — structure, rules, data model
 - [docs/GLOSSARY.md](docs/GLOSSARY.md) — what every term and code means
-- [docs/BRAND_GUIDELINE.html](docs/BRAND_GUIDELINE.html) — the brand guideline (3.8): Part A the app, Part B the website; open it in a browser (AIs: `python tools/guideline.py A03` prints one section)
+- [docs/BRAND_GUIDELINE.html](docs/BRAND_GUIDELINE.html) — the brand guideline (3.25): Part A the app on a PC, Part B the website, Part C the app on a phone; open it in a browser (AIs: `python tools/guideline.py A03` prints one section)
 - [CHANGELOG.md](CHANGELOG.md) — every change, every time
