@@ -26,6 +26,7 @@ import java.io.ByteArrayInputStream;
 public final class MainActivity extends Activity {
     private WebView web;
     private Uri origin;
+    private boolean openSms;  // a message was shared in before the pages were ready
 
     static void fitSystemBars(View view) {
         if (Build.VERSION.SDK_INT >= 30) {
@@ -48,6 +49,8 @@ public final class MainActivity extends Activity {
     @Override
     public void onCreate(Bundle state) {
         super.onCreate(state);
+        SmsBridge.activity = this;
+        takeShare(getIntent());
         WebView.setWebContentsDebuggingEnabled(false);
         FrameLayout frame = new FrameLayout(this);
         fitSystemBars(frame);
@@ -103,6 +106,35 @@ public final class MainActivity extends Activity {
         frame.removeAllViews();
         frame.addView(web);
         web.loadUrl(url);
+        if (openSms) {
+            openSms = false;
+            web.postDelayed(() -> web.loadUrl(origin.buildUpon().path("/sms").build().toString()), 1500);
+        }
+    }
+
+    /** "Share" from the SMS app: the text waits for the Python side, and From SMS opens to read it. */
+    private void takeShare(Intent intent) {
+        if (intent == null || !Intent.ACTION_SEND.equals(intent.getAction())) return;
+        CharSequence text = intent.getCharSequenceExtra(Intent.EXTRA_TEXT);
+        if (text == null) return;
+        SmsBridge.share(text.toString());
+        if (web != null && origin != null) web.loadUrl(origin.buildUpon().path("/sms").build().toString());
+        else openSms = true;
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        takeShare(intent);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int code, String[] permissions, int[] results) {
+        super.onRequestPermissionsResult(code, permissions, results);
+        if (code == SmsBridge.REQUEST_SMS && web != null && origin != null) {
+            web.loadUrl(origin.buildUpon().path("/sms").build().toString());  // read right away, or say why not
+        }
     }
 
     @Override

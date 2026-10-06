@@ -5,6 +5,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Bank SMS become transactions to review (milestone 3); asked for on From SMS, after saying why. -->
+    <uses-permission android:name="android.permission.READ_SMS" />
     <application
         android:allowBackup="false"
         android:fullBackupContent="false"
@@ -20,6 +22,12 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- Share a bank message from the SMS app to Lightning: it opens From SMS. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
             </intent-filter>
         </activity>
         <!-- The dependency and page checks of tasks 04a–04c; not on the home screen. -->

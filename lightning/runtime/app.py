@@ -135,13 +135,15 @@ class SessionGate:
 
 
 def profile_app(credentials: Credentials, root: Path | str | None = None, devices: Devices | None = None,
-                *, phone: bool = False):
-    """`phone`: the Android app, whose pages use the phone frame and screens (guideline Part C)."""
+                *, phone: bool = False, sms=None):
+    """`phone`: the Android app, whose pages use the phone frame and screens (guideline Part C). `sms`: where
+    bank messages come from on that phone (`lightning.sms_imports.SmsSource`), or None."""
     configure_memory_only_import_uploads()
     session = ProfileSession(root)
     session.borrowed_home = ""
     app = create_app(None)
     app.state.profile_session = session
+    app.state.sms_source = sms
     gate = SessionGate(app, session)
     devices = devices if devices is not None else Devices()
     gate.devices = devices

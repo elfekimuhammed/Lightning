@@ -18,8 +18,9 @@ import io
 import json
 import re
 from dataclasses import asdict, dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
+from typing import Protocol
 
 from lightning.core.errors import ValidationError
 
@@ -27,7 +28,10 @@ ENDINGS_KEY = "sms_account_endings"   # {"0285": account_id}
 SEEN_KEY = "sms_seen"                  # fingerprints of messages already read, newest last
 WAITING_KEY = "sms_waiting"            # parsed messages whose account ending is not known yet
 UNREAD_KEY = "sms_unread"              # messages with an amount that no rule could read: never dropped unseen
+LAST_READ_KEY = "sms_last_read_ms"     # the phone's inbox is read from here on
 MAX_UNREAD = 200
+FIRST_LOOK_DAYS = 30                   # the first read goes this far back
+PERSON = re.compile(r"^\+?\d{7,}$")     # a phone number: a person, not a bank's sender name or short code
 SALARY_ENDING = "salary"               # the salary message names no account: its own remembered choice
 MAX_SEEN = 5000
 MAX_TEXT = 1000
@@ -211,6 +215,15 @@ KIND_NOTES = {"withdrawal": "Cash withdrawal", "purchase": "Card purchase", "tra
               "transfer_in": "InstaPay received", "salary": "Salary", "money_out": "Money out", "money_in": "Money in"}
 
 
+class SmsSource(Protocol):
+    """Where bank messages come from on a phone (the Android app's `SmsBridge`); tests use a fake."""
+
+    def permission(self) -> str: ...            # "granted", "not_granted" or "unavailable"
+    def request(self) -> None: ...              # show the system's permission question
+    def since(self, after_ms: int) -> list[tuple[str, str, int]]: ...  # (sender, body, received ms), oldest first
+    def take_shared(self) -> list[str]: ...     # texts shared into Lightning since last asked
+
+
 class SmsImportService:
     """Reads bank messages into the bank import's review, one batch per account."""
 
@@ -272,6 +285,44 @@ class SmsImportService:
             self.settings.set(WAITING_KEY, json.dumps(waiting))
             self.settings.set(UNREAD_KEY, json.dumps(unread[-MAX_UNREAD:]))
         return {"staged": staged, "waiting": len(waiting), "skipped": skipped, "unread": len(unread)}
+
+    def read_source(self, source: SmsSource, now: datetime | None = None) -> dict | None:
+        """New messages from the phone: shared ones, and the inbox since the last read when allowed. Messages
+        from phone numbers are people, never read. Returns `read`'s counts, or None when there was nothing."""
+        now = now or datetime.now()
+        messages = [("Shared", text, now) for text in source.take_shared() if text and text.strip()]
+        newest = None
+        if source.permission() == "granted":
+            stored = self.settings.get(LAST_READ_KEY)
+            after = int(stored) if stored.isdigit() else int((now - timedelta(days=FIRST_LOOK_DAYS)).timestamp() * 1000)
+            for sender, body, received_ms in source.since(after):
+                newest = max(newest or 0, int(received_ms))
+                if not PERSON.match((sender or "").replace(" ", "")):
+                    messages.append((sender or "", body or "", datetime.fromtimestamp(int(received_ms) / 1000)))
+            if newest is None and not stored.isdigit():
+                newest = after  # the first look found nothing: start from there next time
+        result = self.read(messages) if messages else None
+        if newest is not None:
+            with self.db.transaction():
+                self.settings.set(LAST_READ_KEY, str(newest))
+        return result
+
+    def last_read(self) -> datetime | None:
+        stored = self.settings.get(LAST_READ_KEY)
+        return datetime.fromtimestamp(int(stored) / 1000) if stored.isdigit() else None
+
+    def pending(self) -> tuple[int, int]:
+        """(messages waiting for their account, messages no rule could read), in one query, for Needs you."""
+        rows = {row[0]: row[1] for row in self.db.all("SELECT key, value FROM settings WHERE key IN (?, ?)",
+                                                      (WAITING_KEY, UNREAD_KEY))}
+        counts = []
+        for key in (WAITING_KEY, UNREAD_KEY):
+            try:
+                value = json.loads(rows.get(key) or "[]")
+            except ValueError:
+                value = []
+            counts.append(len(value) if isinstance(value, list) else 0)
+        return counts[0], counts[1]
 
     def unread(self) -> list[dict]:
         """Messages with an amount that no rule could read, newest first."""

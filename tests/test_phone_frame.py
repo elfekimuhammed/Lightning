@@ -121,3 +121,9 @@ def test_a_profile_can_be_created_where_hard_links_are_refused(tmp_path, monkeyp
         browser.get("/__launch", params={"code": cfg.launch_code})
         create(browser)
         assert app.session.container is not None and app.session.paths.db_path.exists()
+
+
+def test_settings_on_the_phone_leads_to_pairing_sms_and_the_profile(phone):
+    html = phone.get("/settings").text
+    assert 'href="/profiles/devices"' in html and 'href="/sms"' in html and 'href="/profiles"' in html
+    assert "Pair a PC" in phone.get("/profiles/devices").text

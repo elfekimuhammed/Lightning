@@ -39,6 +39,7 @@ class ReviewInbox:
         items = [{"label": "Missing valuation", "detail": item, "href": "/investments/prices", "priority": 0}
                  for item in c.reporting.net_worth(on).unvalued]
         items.extend(self._statements())
+        items.extend(self._sms())
         items.extend(self._uncategorized())
         for reserve in c.reserves.list_active():
             if reserve.get("due_date") and reserve["due_date"] < fmt_date(on) and reserve["effective_allocated"] > ZERO:
@@ -148,6 +149,20 @@ class ReviewInbox:
                 found.append({"label": f"{row['name']} over plan two months running",
                               "detail": f"{detail} Raise its plan, or plan less elsewhere.",
                               "href": f"/budget?month={month}", "action": "Change the plan", "priority": 2})
+        return found
+
+    def _sms(self) -> list[dict]:
+        """Bank SMS waiting on the owner before they reach a review: an account to choose, or words to read."""
+        found = []
+        count, unread = self.c.sms_imports.pending()
+        if count:
+            found.append({"label": "Bank SMS need their account",
+                          "detail": f"{_plural(count, 'message waits', 'messages wait')} until you say which account "
+                                    "they belong to.", "href": "/sms", "action": "Choose the account", "priority": 1})
+        if unread:
+            found.append({"label": "Bank SMS Lightning could not read",
+                          "detail": f"{_plural(unread, 'message mentions', 'messages mention')} money. Enter or "
+                                    "dismiss.", "href": "/sms", "action": "Look at them", "priority": 2})
         return found
 
     def _statements(self) -> list[dict]:
