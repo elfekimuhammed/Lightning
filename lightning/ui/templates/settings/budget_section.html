@@ -1,5 +1,5 @@
 <form class="card settings-compact" method="post" action="/budget/settings/full"><input type="hidden" name="return_to" value="{{ budget_return_to }}">
-  <div class="section-head"><div><h2>Budget</h2><p class="muted small">How plans carry over, which income they use, how suggestions are made, and what the emergency fund is counted in</p></div><button class="btn primary">Save budget settings</button></div>
+  <div class="section-head"><div><h2>Budget</h2></div><button class="btn primary">Save budget settings</button></div>
   <div class="sc-groups">
     <fieldset class="sc-group"><legend>Carryover</legend>
       <label class="sc-check"><input type="checkbox" name="carryover" value="1" {{ 'checked' if carryover }}> Carry unused room and overspending into tracked categories</label>

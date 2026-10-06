@@ -32,7 +32,7 @@
 
 <header class="overview-section-head inv-head"><h2>How bumpy has it been?</h2><span>Month-to-month price moves</span></header>
 <section class="card wide-card"><div class="overview-split">
-  <section><div class="overview-block-head"><div><h3>Monthly price change</h3><p>Each month against the one before</p></div></div>
+  <section><div class="overview-block-head"><div><h3>Monthly price change</h3></div></div>
     {{ diverging(j.returns, 'Monthly price change', 'pct', 'growth') if j.returns else '' }}
     <div class="vol-stats">
       <div><span>Best month</span><b class="pos">{% if j.best %}{{ (j.best[1])|signed_pct }}%{% else %}—{% endif %}</b><small>{{ j.best[0] if j.best }}</small></div>
@@ -48,7 +48,7 @@
 <section class="card wide-card"><div class="overview-split">
   <section><div class="overview-block-head"><div><h3>Value against cost</h3><p>Month-end value and what you paid for the units you held</p></div></div>
     {{ trend(j.value_cost, 'Value against cost', 'Plan', 210) if j.value_cost else '' }}</section>
-  <section><div class="overview-block-head"><div><h3>Trades and payouts</h3><p>Newest first · units held after each</p></div></div>
+  <section><div class="overview-block-head"><div><h3>Trades and payouts</h3></div></div>
     <table class="journey-table"><thead><tr><th>Date</th><th>What</th><th class="num">Units</th><th class="num">Price</th><th class="num">Amount</th><th class="num">Held</th></tr></thead><tbody>
     {% for t in j.trades[:12] %}<tr><td class="code">{{ t.date }}</td><td>{{ t.kind }}</td><td class="num">{{ (('+' if t.units > 0 else '') ~ (t.units|units)) if t.units else '—' }}</td><td class="num">{{ t.price|money(False,2 if t.price < 10 else 0) if t.price is not none else '—' }}</td><td class="num">{{ t.amount|money }}</td><td class="num">{{ t.held|units }}</td></tr>{% else %}<tr><td colspan="6" class="empty">No trades yet.</td></tr>{% endfor %}
     </tbody></table>{% if j.trades|length > 12 %}<p class="muted small">{{ j.trades|length - 12 }} earlier entries</p>{% endif %}</section>

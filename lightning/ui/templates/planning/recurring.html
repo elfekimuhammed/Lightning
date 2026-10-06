@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% from "planning/_macros.html" import status %}
 {% block title %}Recurring · Cash planning{% endblock %}
-{% block heading %}<div><h1>Cash planning</h1><p class="muted small page-subtitle">Bills, subscriptions and income that repeat.</p></div>{% endblock %}
+{% block heading %}<div><h1>Cash planning</h1></div>{% endblock %}
 {% block top_actions %}<a class="btn primary" data-popup-open href="/plan/items/new?kind=BILL">Add recurring item</a>{% endblock %}
 {% block content %}
 {% from "partials/charts.html" import key_notes, stat_tiles %}
@@ -19,7 +19,7 @@
 <section class="plan-section" aria-labelledby="recurring-totals">
   <header class="overview-section-head"><h2 id="recurring-totals">Every month</h2></header>
   <article class="card">
-    <div class="section-head"><div><h2>Bills and subscriptions</h2><p>Largest first</p></div></div>
+    <div class="section-head"><div><h2>Bills and subscriptions</h2></div></div>
     <div class="plan-figure plan-figure-small">{{ monthly_out|money }} <small>{{ base }} a month</small></div>
     {% from "partials/charts.html" import bars %}{{ bars(bill_bars, 'spend', 'No bills or subscriptions yet.') }}
   </article>

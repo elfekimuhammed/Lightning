@@ -35,7 +35,7 @@
   </div>
 </section>
 <section class="health-group" aria-labelledby="health-commitments-heading">
-  <div class="section-head"><div><h2 id="health-commitments-heading">Monthly commitments</h2><p>Uses your current plan and selected average monthly income.</p></div></div>
+  <div class="section-head"><div><h2 id="health-commitments-heading">Monthly commitments</h2></div></div>
   <div class="health-grid health-grid-two">
   {% for item in ns.commitments %}
     <article class="metric-card health-card {{ 'health-outside' if item.status == 'outside your limit' else ('health-within' if item.status == 'within your limit' else '') }}">

@@ -1,6 +1,6 @@
 <section class="card data-panel health-settings">
   <div class="section-head">
-    <div><h2>Financial health limits</h2><p>These personal comparisons do not change your transactions, plans or figures.</p></div>
+    <div><h2>Financial health limits</h2></div>
   </div>
   <div class="health-limit-list">
     {% for limit in health_limits %}
@@ -17,7 +17,7 @@
 </section>
 
 <section class="card data-panel health-settings-emergency">
-  <div class="section-head"><div><h2>Emergency fund</h2><p>Health uses the same target and basis as Reserves.</p></div></div>
+  <div class="section-head"><div><h2>Emergency fund</h2></div></div>
   <div class="health-target-summary">
     <div><span class="muted small">Health limit</span><b>At least 6 months</b></div>
     <div><span class="muted small">Basis</span><b>{{ fig[health_fund.figure].label }}</b></div>
