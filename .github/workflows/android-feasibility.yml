@@ -2,9 +2,15 @@ name: Android dependency probe
 
 on:
   workflow_dispatch:
+    inputs:
+      wheel_run:
+        description: Run id of "Android native wheel experiment" whose arm64 wheels to install
+        required: false
+        default: ''
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   arm64-build:
@@ -30,9 +36,21 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
+      - uses: actions/download-artifact@v4
+        if: inputs.wheel_run != ''
+        with:
+          run-id: ${{ inputs.wheel_run }}
+          github-token: ${{ github.token }}
+          pattern: android-*-wheel
+          merge-multiple: true
+          path: android/wheels
       - name: Build arm64 dependency probe
         working-directory: android
-        run: gradle --no-daemon :app:assembleDebug -PprobeMode=${{ matrix.mode }}
+        env:
+          WHEEL_RUN: ${{ inputs.wheel_run }}
+        run: |
+          ls wheels 2>/dev/null || true
+          gradle --no-daemon :app:assembleDebug -PprobeMode=${{ matrix.mode }} ${WHEEL_RUN:+-PwheelDir=$PWD/wheels}
       - uses: actions/upload-artifact@v4
         if: success() && matrix.mode == 'full'
         with:
