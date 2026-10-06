@@ -20,11 +20,43 @@ def start(files_dir):
 
         files = Path(files_dir)
         _devices = Devices(files / "appdata")
-        _host = Host(lambda credentials: profile_app(credentials, files / "Lightning", devices=_devices, phone=True)).start()
+        _host = Host(lambda credentials: profile_app(credentials, files / "Lightning", devices=_devices, phone=True,
+                                                     sms=AndroidSms.create())).start()
     if not _launched:
         _launched = True
         return _host.launch_url
     return _host.origin + "/"
+
+
+class AndroidSms:
+    """`lightning.sms_imports.SmsSource` over the Java `SmsBridge`."""
+
+    def __init__(self, bridge):
+        self.bridge = bridge
+
+    @classmethod
+    def create(cls):
+        """None off the phone (the probe's tests run this module on a PC)."""
+        try:
+            from java import jclass
+        except ImportError:
+            return None
+        return cls(jclass("org.lightning.app.SmsBridge"))
+
+    def permission(self):
+        return str(self.bridge.permission())
+
+    def request(self):
+        self.bridge.request()
+
+    def since(self, after_ms):
+        import json
+        return [(str(sender), str(body), int(received)) for sender, body, received in
+                json.loads(str(self.bridge.since(int(after_ms))))]
+
+    def take_shared(self):
+        import json
+        return [str(text) for text in json.loads(str(self.bridge.takeShared()))]
 
 
 def background_note():

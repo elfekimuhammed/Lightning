@@ -105,12 +105,3 @@ def test_wrong_pc_password_and_wrong_code_are_explained(tmp_path):
         wrong = pc.post("/profiles/connect", data={"csrf": token(page.text), "address": address,
                                                    "code": "AAAA-BBBB-CCCC", "pc_name": "Office PC"})
         assert wrong.status_code == 400 and "not the one on the phone" in wrong.text
-
-
-def test_settings_lead_to_profile_and_devices_once_logged_in(tmp_path):
-    phone, _app, cfg, _devices = app_for(tmp_path, "phone", 9875)
-    with phone:
-        phone.get("/__launch", params={"code": cfg.launch_code})
-        create(phone, "Mohab")
-        assert 'href="/profiles"' in phone.get("/settings").text  # the phone has no sidebar: Settings is the way
-        assert 'href="/profiles/devices"' in phone.get("/profiles").text

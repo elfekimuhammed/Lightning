@@ -24,6 +24,7 @@ from ..web import container, render
 from ..web import redirect
 from ..periods import Period, parse_period
 from .. import keynotes, visuals
+from .sms import read_phone_sms
 
 router = APIRouter()
 
@@ -114,6 +115,7 @@ async def dashboard(request: Request):
     cash_accounts.extend({**row, "type": "Brokerage cash"}
                          for row in c.reporting.owned_brokerage_cash_by_account(today()))
     owe = position.owe
+    read_phone_sms(request, c)  # new bank messages join the review before Needs you is counted
     # One review inbox: every decision waiting on the user (lightning/workflows/review.py).
     attention = ReviewInbox(c).items(today())
     setup = _setup_steps(c, accounts)

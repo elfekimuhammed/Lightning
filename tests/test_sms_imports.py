@@ -97,4 +97,101 @@ def test_from_sms_shows_what_it_could_not_read(c, setup):
     from lightning.ui.web import create_app
     client = TestClient(create_app(c))
     page = client.post("/sms/paste", data={"messages": SAMPLES["unreadable"][0]})
-    assert "1 to read yourself" in page.text and "could not read these" in page.text
+    assert "1 to read yourself" in page.text and "Messages kept for you" in page.text
+
+
+class FakeSource:
+    """The phone's inbox, as lightning_android.AndroidSms gives it."""
+
+    def __init__(self, inbox, permission="granted"):
+        self.inbox, self.state, self.asked, self.shared = inbox, permission, 0, []
+
+    def permission(self):
+        return self.state
+
+    def request(self):
+        self.asked += 1
+
+    def since(self, after_ms):
+        return [m for m in self.inbox if m[2] > after_ms]
+
+    def take_shared(self):
+        texts, self.shared = self.shared, []
+        return texts
+
+
+def _ms(text):
+    return int(datetime.fromisoformat(text).timestamp() * 1000)
+
+
+def test_the_phone_inbox_is_read_once_and_people_are_never_read(c, setup):
+    nbe = [s for s in SAMPLES["samples"] if s["bank"] == "NBE"]
+    inbox = [("NBE", s["text"], _ms(s["received"])) for s in nbe]
+    inbox.append(("+201001234567", nbe[0]["text"].replace("147.87", "60.00"), _ms("2026-10-06T12:00")))  # a person
+    source = FakeSource(inbox)
+    first = c.sms_imports.read_source(source, now=datetime(2026, 10, 7, 9))
+    assert first["waiting"] == len(nbe)  # within 30 days, people's numbers skipped
+    assert c.sms_imports.read_source(source, now=datetime(2026, 10, 7, 10)) is None  # nothing new since
+    source.inbox.append(("NBE", nbe[0]["text"].replace("147.87", "77.00"), _ms("2026-10-07T09:30")))
+    source.shared.append(SAMPLES["samples"][0]["text"])
+    later = c.sms_imports.read_source(source, now=datetime(2026, 10, 7, 11))
+    assert later["waiting"] == len(nbe) + 2
+
+
+def test_without_permission_only_shared_messages_are_read(c, setup):
+    source = FakeSource([("NBE", SAMPLES["samples"][6]["text"], _ms("2026-10-06T11:14"))], permission="not_granted")
+    assert c.sms_imports.read_source(source) is None
+    source.shared.append(SAMPLES["samples"][6]["text"])
+    assert c.sms_imports.read_source(source)["waiting"] == 1
+
+
+def test_the_phone_app_asks_then_reads_on_overview(tmp_path):
+    from fastapi.testclient import TestClient
+    from lightning.runtime.app import profile_app
+    from lightning.runtime.devices import Devices
+    from lightning.runtime.http import Credentials
+    from test_profile_app import create, token
+    nbe = [s for s in SAMPLES["samples"] if s["bank"] == "NBE"][:3]
+    source = FakeSource([("NBE", s["text"], int(datetime.now().timestamp() * 1000) - i) for i, s in enumerate(nbe)],
+                        permission="not_granted")
+    cfg = Credentials("http://127.0.0.1:9851")
+    app = profile_app(cfg, tmp_path / "docs", devices=Devices(tmp_path / "app", port=0), phone=True, sms=source)
+    with TestClient(app, base_url=cfg.origin, headers={"Origin": cfg.origin}) as phone:
+        phone.get("/__launch", params={"code": cfg.launch_code})
+        create(phone)
+        from test_devices_app import add_account
+        add_account(phone, "NBE current")
+        page = phone.get("/sms").text
+        assert "Allow reading SMS" in page and "never from people" in page
+        phone.post("/sms/allow", data={"__session": token(page, "__session")})
+        assert source.asked == 1
+        source.state = "granted"
+        overview = phone.get("/").text
+        assert "Bank SMS need their account" in overview
+
+
+def test_a_duplicate_waiting_in_another_review_is_flagged(c, setup):
+    accounts, _ = setup
+    uber = SAMPLES["samples"][6]
+    c.bank_imports.stage(accounts["cib"].id, "statement.csv",
+                         b"Date,Counterparty,Amount\n2026-10-06,Uber,-147.87\n")
+    c.sms_imports.read([(uber["sender"], uber["text"], datetime.fromisoformat(uber["received"]))])
+    _, rows = c.bank_imports.preview(c.sms_imports.assign("2093", accounts["cib"].id))
+    assert rows[0]["_pending_elsewhere"] == "statement.csv" and rows[0]["_default_match"] == "skip"
+
+
+def test_a_transfer_between_your_banks_goes_to_review_once(c, setup):
+    accounts, _ = setup
+    nbe = c.account_flows.open_account("NBE Current", "BANK", "2026-09-01", "0", institution="NBE")
+    c.sms_imports.assign("4410", accounts["cib"].id)
+    c.sms_imports.assign("6628", nbe.id)
+    sent = [s for s in SAMPLES["samples"] if s["bank"] == "CIB" and s["kind"] == "transfer_out"][0]
+    arrived = ("تم إضافة تحويل لحظي لحسابكم رقم 6628 بمبلغ 2000.00 جم من MOHAB رقم مرجعي 4411 يوم 10-01 "
+               "الساعة 11:06 للمزيد اتصل بـ 19623")
+    result = c.sms_imports.read([("CIB", sent["text"], datetime(2026, 10, 1, 11, 6)),
+                                 ("NBE", arrived, datetime(2026, 10, 1, 11, 7))])
+    assert list(result["staged"]) == [accounts["cib"].id]  # one review row, not income on NBE as well
+    _, rows = c.bank_imports.preview(result["staged"][accounts["cib"].id])
+    assert rows[0]["Category"] == "Transfer" and rows[0]["_transfer_target"] == "NBE Current"
+    kept = c.sms_imports.unread()
+    assert len(kept) == 1 and "other side of the transfer from CIB Current" in kept[0]["reason"]

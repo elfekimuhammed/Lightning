@@ -16,19 +16,54 @@ router = APIRouter(prefix="/sms")
 MAX_PASTE = 50  # messages in one paste
 
 
+def phone_source(request):
+    """The phone's SMS source, when this is the phone app and the ledger is writable here."""
+    source = getattr(request.app.state, "sms_source", None)
+    if source is None or getattr(request.state, "read_only", False):
+        return None
+    return source
+
+
+def read_phone_sms(request, c) -> dict | None:
+    """Read what arrived since last time (and what was shared in). Never breaks the page that asked."""
+    source = phone_source(request)
+    if source is None:
+        return None
+    try:
+        return c.sms_imports.read_source(source)
+    except Exception:  # noqa: BLE001 - the phone's inbox is a convenience: the page still opens
+        return None
+
+
 def _page(request, c, **context):
+    source = phone_source(request)
+    try:
+        permission = source.permission() if source is not None else "unavailable"
+    except Exception:  # noqa: BLE001
+        permission = "unavailable"
     accounts = [a for a in c.accounts.list(active_only=True) if a.account_type.value in ("BANK", "CASH")]
     names = {a.id: a.name for a in c.accounts.list()}
     batches = [b | {"account": names.get(b["account_id"], "")} for b in c.bank_imports.waiting_all()
                if str(b["file_name"]).startswith("SMS ")]
     return render(request, "sms.html", waiting=c.sms_imports.waiting(), accounts=accounts, batches=batches,
-                  unread=c.sms_imports.unread(),
+                  unread=c.sms_imports.unread(), permission=permission, last_read=c.sms_imports.last_read(),
                   salary=SALARY_ENDING, **context)
 
 
 @router.get("")
 async def sms_page(request: Request):
-    return _page(request, container(request))
+    c = container(request)
+    read_phone_sms(request, c)
+    return _page(request, c)
+
+
+@router.post("/allow")
+async def allow(request: Request):
+    """After the owner read what is read and why: the phone's own permission question."""
+    source = phone_source(request)
+    if source is not None:
+        source.request()
+    return redirect("/sms", "Answer the phone's question, then come back here.")
 
 
 @router.post("/paste")
