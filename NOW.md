@@ -10,6 +10,7 @@ Work longer than one sitting, and its files. Stay out of claimed files; remove y
 |---|---|---|---|
 | Codex | 02d — Code/fault tests pass; ordinary Windows reboot drill remains. Abrupt power-loss behavior is unverified; see Architecture › Promotion durability risk and [OWNER.md](OWNER.md). | `tests/test_database_promotion.py` | 2026-10-06 |
 | Claude | 04b — APK with round-trip built (run 37460528401); waiting on the owner's phone run (`OWNER.md`) | `android/`, `lightning/runtime/roundtrip.py`, `tests/fixtures/roundtrip/` | 2026-10-06 |
+| Claude (Mohab leftovers) | Recurring suggestions, the "System" name, opening-balance jumps in charts, certificate interest in its return | `lightning/planning/`, `lightning/ui/templates/planning/`, `lightning/investments/`, category seed/migration | 2026-10-06 |
 | Luna, for Codex | 03a restore safety: durable intent and source-copy manifest, Windows marker publication, then explicit deterministic repair. Codex reviews it and owns the restore UI and docs | `lightning/runtime/restore.py`, `lightning/database/promotion_windows.py`, `tests/test_profile_session.py`, `tests/test_database_promotion_windows.py` | 2026-10-05 |
 
 ## Messages
