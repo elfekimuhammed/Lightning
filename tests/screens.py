@@ -8,6 +8,7 @@ from __future__ import annotations
 import html
 import re
 import asyncio
+import functools
 from dataclasses import dataclass, field
 from html.parser import HTMLParser
 from urllib.parse import urljoin, urlsplit
@@ -231,11 +232,26 @@ class Screen:
         self.url = str(response.url)
         self.path = urlsplit(self.url).path + (f"?{urlsplit(self.url).query}" if urlsplit(self.url).query else "")
         self.html = response.text
-        self.text = visible_text(self.html)
+
+    # Parsed when first read: most pages after a save are never looked at.
+    @functools.cached_property
+    def text(self) -> str:
+        return visible_text(self.html)
+
+    @functools.cached_property
+    def _parsed(self) -> _PageParser:
         parser = _PageParser()
         parser.feed(self.html)
         parser.close()
-        self.links, self.forms = parser.links, parser.forms
+        return parser
+
+    @property
+    def links(self) -> list:
+        return self._parsed.links
+
+    @property
+    def forms(self) -> list:
+        return self._parsed.forms
 
     def shows(self, *texts: str) -> bool:
         return all(" ".join(t.split()) in self.text for t in texts)

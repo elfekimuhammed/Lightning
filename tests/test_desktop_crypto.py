@@ -56,9 +56,13 @@ def test_the_key_file_has_two_locks_and_neither_secret_alone_opens_lock_two():
         open_with_recovery(swapped, recovery, "El Orman")
 
 
+@pytest.mark.real_kdf
 def test_lock_two_is_the_slower_one():
+    # The one test that pays the shipped costs (every other test runs on the cheap ones, tests/conftest.py).
     _, _, document = _key_file()
     password, recovery = document["password"], document["recovery"]
+    assert (password["memory_kib"], password["iterations"]) == (131072, 4)
+    assert (recovery["memory_kib"], recovery["iterations"]) == (262144, 8)
     assert recovery["memory_kib"] * recovery["iterations"] > password["memory_kib"] * password["iterations"]
 
 
