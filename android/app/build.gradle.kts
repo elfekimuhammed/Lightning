@@ -34,8 +34,8 @@ chaquopy {
                 pinned("sqlcipher3", "sqlcipher3==0.6.2")
             }
             pinned("cryptography", "cryptography==50.0.2")
-            // Its native dependency (cffi >= 2.0) comes from the same run when the index lacks it.
-            wheels.filter { it.name.startsWith("cffi-") && it.name.endsWith(".whl") }.forEach { install(it.absolutePath) }
+            // Native dependencies the index lacks (cffi >= 2.0, pydantic-core) come from the same run.
+            wheels.filter { (it.name.startsWith("cffi-") || it.name.startsWith("pydantic_core-")) && it.name.endsWith(".whl") }.forEach { install(it.absolutePath) }
             install("fastapi==0.141.1")
             install("uvicorn==0.54.0")
             install("jinja2==3.1.6")
