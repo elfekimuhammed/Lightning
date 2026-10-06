@@ -67,6 +67,7 @@ Every number comes from one of three layers, and each screen says which:
   - Without the phone, the PC can still show a dated, read-only saved copy for analysis.
   - Sometimes, for example after Android closed the app, the phone asks for its password before lending, and says why.
 - **Two levels, few settings** (owner, 2026-10-06; Architecture › UI contract, *Two levels*): six sections, at most five tabs each, never a third level; a tab's settings behind its gear; a default before a setting; icons for row actions; one choice, one field; no line describing what its label already says. Tracking suggestions and the carryover start month become defaults.
+- **Planned phone layout (owner, 2026-10-06).** The phone gets its own design and layout, not the PC pages narrowed. On the owner's phone (task 04c) the shared pages work but read as a squeezed desktop: wrapping tab rows, a transactions table whose headers overlap, PC wording ("on this computer", "Ctrl K"). Same pages, figures and services; a separate phone layout, designed before task 18c builds it.
 - **Planned bank SMS.** The phone reads bank SMS only after the ledger has been accepted home and unlocked, including messages received during a lend. Known formats follow the import and category rules; unclear ones wait for review and later bank CSVs must not duplicate them. Learn formats bank by bank from sanitized examples. The full design and its limits are in [Multiple devices](proposals/multiple_devices.md).
 
 ## What you can do today

@@ -4,7 +4,10 @@ import android.app.Activity;
 import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
+import android.os.Build;
 import android.view.View;
+import android.view.WindowInsets;
+import android.widget.FrameLayout;
 import android.webkit.CookieManager;
 import android.webkit.RenderProcessGoneDetail;
 import android.webkit.WebResourceRequest;
@@ -41,6 +44,20 @@ public final class ProbeActivity extends Activity {
         return Python.getInstance().getModule("probe");
     }
 
+    /** Android 15 draws apps edge to edge: keep content clear of the status bar, navigation bar and keyboard. */
+    private static void fitSystemBars(View view) {
+        if (Build.VERSION.SDK_INT >= 30) {
+            view.setOnApplyWindowInsetsListener((v, insets) -> {
+                android.graphics.Insets bars = insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.ime()
+                        | WindowInsets.Type.displayCutout());
+                v.setPadding(bars.left, bars.top, bars.right, bars.bottom);
+                return WindowInsets.CONSUMED;
+            });
+        } else {
+            view.setFitsSystemWindows(true);
+        }
+    }
+
     private static String failure(String what, Throwable error) {
         return what + " failed:\n" + Log.getStackTraceString(error);  // the Python traceback or the Java causes
     }
@@ -61,7 +78,7 @@ public final class ProbeActivity extends Activity {
         scroll.addView(result);
         main = new LinearLayout(this);
         main.setOrientation(LinearLayout.VERTICAL);
-        main.setPadding(0, 128, 0, 0);  // below the status bar
+        fitSystemBars(main);
         main.addView(open);
         main.addView(scroll);
         setContentView(main);
@@ -159,7 +176,10 @@ public final class ProbeActivity extends Activity {
                 return true;
             }
         });
-        setContentView(web);
+        FrameLayout frame = new FrameLayout(this);  // padded, so the page sits between the status and navigation bars
+        frame.addView(web);
+        fitSystemBars(frame);
+        setContentView(frame);
         web.loadUrl(launch);
     }
 
