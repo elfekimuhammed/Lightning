@@ -307,3 +307,14 @@ def test_one_device_cannot_take_every_connection(tmp_path):
         for sock in held:
             sock.close()
         phone.server.stop()
+
+
+def test_hand_back_to_a_phone_that_forgot_this_pc_says_so(tmp_path):
+    from lightning.runtime.devices import Devices
+    pair = Pair(tmp_path)
+    pair.pc.fetch(pair.link, KEY)
+    pair.pc.borrow(pair.link, KEY)
+    pair.home.revoke(pair.device)
+    devices = Devices(tmp_path / "appdata")
+    devices.link = lambda node, timeout=None: pair.link
+    assert devices.hand_back_or_seal(pair.pc) == "unpaired" and pair.pc.model.state is BorrowerState.SEALED

@@ -725,6 +725,8 @@ def profile_app(credentials: Credentials, root: Path | str | None = None, device
             "sealed": f"{home_name} did not answer. Your changes are saved on this PC; open {name} here to keep "
                       "working, or hand it back when the phone is near.",
             "returning": f"Sending to {home_name} stopped halfway. Open {name} here near the phone to finish.",
+            "unpaired": f"{home_name} no longer knows this PC. Your changes are saved here; pair this PC again on "
+                        f"the phone (Devices), then open {name} here.",
             "refused": f"{home_name} took the ledger back, so this copy stays on this PC, read only. Open {name} "
                        "here to borrow again; the copy is kept as a backup.",
         }

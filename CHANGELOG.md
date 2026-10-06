@@ -10,6 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-06 · Claude: a PC handing back to a phone that no longer knows it (revoked, or its record kept anew) now says to pair again, not "did not answer". `android/README.md` names the current fixture fingerprint.
 - 2026-10-06 · Claude: phone layout notes: account rows drop picker hints and repeated names; one title on Add transaction; ‹ month › inside the period row (C04.2); a transfer once in every-account lists; green "Nothing needs you"; tabs never squeeze; Devices in the phone frame.
 - 2026-10-06 · Claude: hand-over review fixed (`tests/test_sync_review.py`): a lost lending record opens read only (Keep this copy); restore refused while lent; two-phase move; take back/borrow wait for a copy going in; PC can borrow again after a take back; listener limits per address; space check.
 - 2026-10-06 · Claude: brand guideline 3.26 split into three documents in `guideline/` (`app.html` A01–A16, `website.html` B01–B11, `phone.html` C01–C12), each with a note naming the other two; same folder in the website repo. `tools/guideline.py` reads all three (`--dir`); `docs/BRAND_GUIDELINE.html` and `brand-guidelines.html` are gone.

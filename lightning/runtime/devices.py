@@ -318,9 +318,12 @@ class Devices:
         try:
             if state is not BorrowerState.RETURNING:
                 self.link(node, timeout=STATUS_TIMEOUT).status(Status(node.model.device_id))
-        except (LinkDown, ProtocolError):
+        except LinkDown:
             node.seal()
             return "sealed"
+        except ProtocolError as refused:  # the phone answered but no longer knows this PC: say so
+            node.seal()
+            return "unpaired" if refused.code == "UNAUTHORIZED" else "sealed"
         try:
             receipt = node.hand_back(self.link(node)) if state is not BorrowerState.RETURNING \
                 else node.check_return(self.link(node))
