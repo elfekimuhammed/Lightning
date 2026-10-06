@@ -5,7 +5,7 @@
 {% block heading %}<h1>Accounts</h1>
 <div class="phone-lead">{{ gross_total|money(False, 0) }} <small>{{ base }}</small></div>
 <p class="phone-note">{{ fig.what_you_own.label }} {{ net_worth.total|money(False, 0) }}</p>{% endblock %}
-{% block top_actions %}<a class="btn" href="/accounts/new">Add account</a>{% endblock %}
+{% block top_actions %}<a class="btn" href="/accounts/new">Add account</a><a class="btn" href="/sms">From SMS</a>{% endblock %}
 {% block content %}
 <section class="card phone-card" aria-label="Your accounts">
   <div class="phone-rows is-list">

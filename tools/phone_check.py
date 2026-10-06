@@ -15,7 +15,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 PAGES = ("/", "/birdview/expenses", "/financial-health", "/budget", "/plan", "/plan/recurring", "/plan/loans",
          "/plan/reserves", "/investments", "/investments/planner", "/investments/prices", "/accounts", "/transactions",
          "/money-from-others", "/settings", "/categories", "/counterparties", "/checks", "/profiles",
-         "/profiles/devices", "/accounts/1", "/accounts/1/transaction/new", "/accounts/add-transaction")
+         "/profiles/devices", "/accounts/1", "/accounts/1/transaction/new", "/accounts/add-transaction", "/sms")
+SMS = ("تم خصم 147.87 EGP من بطاقة الخصم المباشر رقم 2093 عند Uber                  Dow يوم 06/10/26 الساعه 11:13 "
+       "المتاح 3512.40EGP للمزيد إتصل ب ١٩٦٢٣")
 WIDEST = """() => { const w = innerWidth; let worst = null, right = w;
   for (const el of document.querySelectorAll('body *')) { const r = el.getBoundingClientRect();
     if (r.width && r.right > right + 0.5) { right = r.right; worst = el; } }
@@ -56,9 +58,14 @@ def run(shots: Path | None = None) -> list[str]:
                 page.goto(host.origin + "/")
                 page.evaluate("""async () => { const t = document.querySelector('meta[name=lightning-session]').content;
                     await fetch('/demo', {method: 'POST', body: new URLSearchParams({__session: t})}); }""")
+                review = page.evaluate("""async (sms) => { const t = document.querySelector('meta[name=lightning-session]').content;
+                    await fetch('/sms/paste', {method: 'POST', body: new URLSearchParams({__session: t, messages: sms})});
+                    const r = await fetch('/sms/assign', {method: 'POST', body: new URLSearchParams({__session: t, ending: '2093', account_id: '1'})});
+                    return new URL(r.url).pathname; }""", SMS)
+                pages = (*PAGES, review)  # the bank import's review, as an SMS reaches it
                 for width in (360, 320):
                     page.set_viewport_size({"width": width, "height": 800})
-                    for path in PAGES:
+                    for path in pages:
                         response = page.goto(host.origin + path)
                         if response is None or response.status >= 400:
                             problems.append(f"{width} {path}: HTTP {response.status if response else '?'}")

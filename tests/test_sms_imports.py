@@ -1,0 +1,74 @@
+"""Milestone 3: bank SMS read into the reviewed bank import (`lightning/sms_imports.py`).
+
+Every sample in tests/fixtures/bank_sms.json is read and checked: inflow or outflow, kind, amount, the account's
+ending, the date and time, and who or where. Then a batch goes through the bank import's review like a CSV."""
+from __future__ import annotations
+
+import json
+from datetime import datetime
+from decimal import Decimal
+from pathlib import Path
+
+import pytest
+
+from lightning.sms_imports import SALARY_ENDING, parse_sms
+
+SAMPLES = json.loads((Path(__file__).parent / "fixtures" / "bank_sms.json").read_text(encoding="utf-8"))
+
+
+@pytest.mark.parametrize("sample", SAMPLES["samples"], ids=lambda s: f"{s['bank']}-{s['kind']}-{s['received']}")
+def test_every_sample_reads_as_labelled(sample):
+    found = parse_sms(sample["text"], sender=sample["sender"], received=datetime.fromisoformat(sample["received"]))
+    assert found is not None, sample["text"]
+    assert found.kind == sample["kind"] and found.bank == sample["bank"]
+    assert found.inflow == (sample["direction"] == "inflow")
+    for key, value in sample["expect"].items():
+        got = getattr(found, key)
+        assert (got == Decimal(value)) if key in ("amount", "balance") else (got == value), (key, got, value)
+
+
+@pytest.mark.parametrize("text", SAMPLES["not_money"])
+def test_codes_declines_and_offers_are_not_transactions(text):
+    assert parse_sms(text) is None
+
+
+def test_messages_go_to_review_once_and_each_ending_is_asked_once(c, setup):
+    accounts, _ = setup
+    picked = [s for s in SAMPLES["samples"] if s["bank"] == "NBE"]
+    messages = [(s["sender"], s["text"], datetime.fromisoformat(s["received"])) for s in picked]
+    first = c.sms_imports.read(messages)
+    assert first["staged"] == {} and first["waiting"] == len(picked)  # endings unknown: nothing guessed
+    endings = {group["ending"] for group in c.sms_imports.waiting()}
+    assert endings == {"2093", "6628"}
+    batch = c.sms_imports.assign("6628", accounts["cib"].id)
+    _, rows = c.bank_imports.preview(batch)
+    assert sorted(Decimal(r["Amount"]) for r in rows) == [Decimal("-10000.00"), Decimal("30.00"),
+                                                          Decimal("700.00"), Decimal("4000.00")]
+    assert {r["Reference"] for r in rows} >= {"517703926481"}
+    again = c.sms_imports.read(messages)  # the inbox read again: nothing new
+    assert again["staged"] == {} and again["skipped"] == len(picked)
+    later = picked[0] | {"text": picked[0]["text"].replace("147.87", "99.10"), "received": "2026-10-07T08:00"}
+    assert c.sms_imports.read([(later["sender"], later["text"], datetime(2026, 10, 7, 8))])["waiting"] == 8  # still asks for 2093
+
+
+def test_cash_withdrawal_is_a_transfer_and_salary_has_its_own_choice(c, setup):
+    accounts, _ = setup
+    cib = [s for s in SAMPLES["samples"] if s["bank"] == "CIB"]
+    c.sms_imports.read([(s["sender"], s["text"], datetime.fromisoformat(s["received"])) for s in cib])
+    assert {g["ending"] for g in c.sms_imports.waiting()} == {"7351", "4410", SALARY_ENDING}
+    _, rows = c.bank_imports.preview(c.sms_imports.assign("7351", accounts["cib"].id))
+    assert rows[0]["Category"] == "Transfer" and "transfer to Wallet" in rows[0]["Notes"]
+    _, rows = c.bank_imports.preview(c.sms_imports.assign(SALARY_ENDING, accounts["cib"].id))
+    assert rows[0]["Amount"] == "19584.66" and rows[0]["Category"] == "Salary"
+
+
+def test_paste_then_say_the_account_then_review(c, setup, tmp_path):
+    from fastapi.testclient import TestClient
+    from lightning.ui.web import create_app
+    accounts, _ = setup
+    client = TestClient(create_app(c))
+    nbe = [s["text"] for s in SAMPLES["samples"] if s["bank"] == "NBE" and s["kind"] == "purchase"][:2]
+    page = client.post("/sms/paste", data={"messages": "\n\n".join(nbe)})
+    assert "2 waiting for their account" in page.text and "Which account ends with 2093?" in page.text
+    review = client.post("/sms/assign", data={"ending": "2093", "account_id": str(accounts["cib"].id)})
+    assert "/import/" in str(review.url) and "Uber" in review.text

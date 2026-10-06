@@ -18,7 +18,7 @@ What only the owner can do or decide. Any AI adds an item here, and removes it o
   6. Optional: on the phone, Devices › Take the ledger back while the PC holds it; the PC then offers Borrow again and keeps its copy as a backup.
   Known gaps: you type the phone's address; on the phone, a budget limit or a holding's horizon is still changed on the PC; no SMS yet (milestone 3).
 - **For milestone 2: review the phone brand guideline.** Part C of the brand guideline (3.25, 2026-10-06) is the phone's own: bottom tab bar, 2 × 2 KPIs, phone forms of every chart. Check it, especially the five bottom sections (C03.1), then say it is final. Until then phone screens follow it as a draft.
-- **For milestone 3: bank SMS samples.** Sanitized real messages from each bank you use (purchase, transfer, salary, refund, declined, OTP), with names, card digits and balances changed. They stay out of Git; tell me where you put them.
+- **For milestone 3: more bank SMS.** CIB and NBE are in `tests/fixtures/bank_sms.json` (details changed). Send other banks, and from these two a refund, a declined payment and a purchase in English if you get them; paste them in chat and I change the details before they go in.
 - **GitHub spending limit (your choice, 2026-10-06):** GitHub › Settings › Billing and licensing › Budgets and alerts: set Actions to $0 (or the most you accept). CI then pauses until next month instead of charging you.
 - **Website search:** add `lightningeg.com` to Google Search Console and Bing Webmaster Tools; submit `/sitemap.xml`.
 - **Retest:** on the PC whose window failed to start, try a ZIP downloaded in a browser. Builds from `f4e1603` on include the fix.

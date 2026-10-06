@@ -34,6 +34,7 @@ PAGES = (
     ("Loans", "/plan/loans", "debt installments owe"),
     ("Reserves", "/plan/reserves", "emergency fund goals savings"),
     ("Held for others", "/money-from-others", "custody family people their money"),
+    ("From SMS", "/sms", "sms bank messages paste text instapay card"),
     ("All transactions", "/transactions", "register ledger history"),
     ("Accounts", "/accounts", "banks wallets manage accounts"),
     ("Categories", "/categories", "income spending one-off recurring"),

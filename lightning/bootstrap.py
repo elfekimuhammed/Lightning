@@ -17,6 +17,7 @@ from lightning.planning.health import HealthService
 from lightning.planning.position import PositionService
 from lightning.planning.service import PlanningService
 from lightning.bank_imports import BankImportService
+from lightning.sms_imports import SmsImportService
 from lightning.categories.service import CategoryService
 from lightning.counterparties import CounterpartyService
 from lightning.database.audit import AuditLog
@@ -52,6 +53,7 @@ class Container:
     categories: CategoryService
     counterparties: CounterpartyService
     bank_imports: BankImportService
+    sms_imports: SmsImportService
     accounts: AccountService
     transactions: TransactionService
     reporting: ReportingService
@@ -160,6 +162,7 @@ def build(db_path: str | Path | None = None, backup_on_start: bool = False, *,
         categories=categories,
         counterparties=counterparties,
         bank_imports=bank_imports,
+        sms_imports=SmsImportService(db, settings, accounts, bank_imports),
         accounts=accounts,
         transactions=transactions,
         reporting=reporting,

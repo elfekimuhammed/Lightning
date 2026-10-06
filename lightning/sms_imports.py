@@ -1,0 +1,283 @@
+"""Bank SMS into the ledger, reviewed (milestone 3).
+
+`parse_sms` reads one bank message into a proposed transaction, or None when it is not one (a one-time code, a
+declined payment, an offer). `SmsImportService.read` turns new messages into rows of the reviewed bank import
+(`bank_imports.BankImportService.stage`), one batch per account, so the owner confirms every row on the same
+review screen as a CSV statement, with its duplicate checks. Nothing is posted without that review.
+
+An account is found by the last four digits the bank names ("…0285"); the first time, the owner says which
+account they belong to and Lightning remembers. Messages read before are skipped by their fingerprint. The
+patterns follow the owner's CIB and NBE messages (Arabic, `tests/fixtures/bank_sms.json`); each bank is added
+from its samples.
+"""
+from __future__ import annotations
+
+import csv
+import hashlib
+import io
+import json
+import re
+from dataclasses import asdict, dataclass
+from datetime import datetime
+from decimal import Decimal, InvalidOperation
+
+from lightning.core.errors import ValidationError
+
+ENDINGS_KEY = "sms_account_endings"   # {"0285": account_id}
+SEEN_KEY = "sms_seen"                  # fingerprints of messages already read, newest last
+WAITING_KEY = "sms_waiting"            # parsed messages whose account ending is not known yet
+SALARY_ENDING = "salary"               # the salary message names no account: its own remembered choice
+MAX_SEEN = 5000
+MAX_TEXT = 1000
+
+_DIGITS = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "01234567890123456789")
+_NUM = r"([\d,]+(?:\.\d{1,2})?)"
+_CUR = r"(?:EGP|جم|ج\.م\.?|جنيه)"
+_AMOUNT = _CUR + r"?\s*" + _NUM + r"\s*" + _CUR + r"?"
+_ENDING = r"(?:(?:المنتهية|المنتهي)\s*ب[ـ]?|رقم)\s*[*•xX]*\s*(\d{4})"
+_CLOCK = r"(?:\s*(?:الساع[هة])?\s*(\d{1,2}:\d{2}))?"
+_IGNORE = re.compile(r"(OTP|one[- ]time|رمز\s*(?:التحقق|التفعيل|المرور)|كلمة\s*(?:السر|المرور)|"
+                     r"رفض|مرفوض|لم\s*تتم|declined|was not|unsuccessful|غير\s*ناجح)", re.IGNORECASE)
+BANK_PHONES = {"19666": "CIB", "19623": "NBE"}
+
+
+@dataclass(frozen=True)
+class SmsTransaction:
+    kind: str            # "withdrawal" (cash), "purchase", "transfer_out", "transfer_in", "salary"
+    amount: Decimal      # positive; `signed` gives the ledger's sign
+    ending: str          # the account's or card's last four digits, or SALARY_ENDING
+    when: str            # ISO date and time, from the message or when it arrived
+    place: str = ""      # merchant, ATM, or who sent or received a transfer
+    reference: str = ""
+    balance: Decimal | None = None
+    bank: str = ""
+
+    @property
+    def inflow(self) -> bool:
+        return self.kind in ("transfer_in", "salary")
+
+    @property
+    def signed(self) -> Decimal:
+        return self.amount if self.inflow else -self.amount
+
+
+def _amount(text: str | None) -> Decimal | None:
+    try:
+        value = Decimal((text or "").replace(",", ""))
+    except InvalidOperation:
+        return None
+    return value if value > 0 else None
+
+
+def _when(day: str | None, clock: str | None, received: datetime, *, month_first: bool = False) -> str:
+    """dd/mm/yy, dd-mm-yyyy, or mm-dd without a year (NBE's InstaPay), and hh:mm; the arrival time when the
+    message has none. A date without a year is the latest one not after the message arrived."""
+    hour, minute = received.hour, received.minute
+    if clock:
+        hour, minute = (int(p) for p in clock.split(":"))
+    if day:
+        parts = [int(p) for p in re.split(r"[/-]", day)]
+        try:
+            if len(parts) == 3:
+                d, m, y = parts
+                return datetime(y + 2000 if y < 100 else y, m, d, hour, minute).isoformat(timespec="minutes")
+            if len(parts) == 2:
+                m, d = parts if month_first else parts[::-1]
+                moment = datetime(received.year, m, d, hour, minute)
+                if moment.date() > received.date():
+                    moment = moment.replace(year=received.year - 1)
+                return moment.isoformat(timespec="minutes")
+        except ValueError:
+            pass
+    return received.replace(hour=hour, minute=minute, second=0, microsecond=0).isoformat(timespec="minutes")
+
+
+def _place(raw: str | None) -> str:
+    """A merchant as the bank pads it ("Uber                  Dow"): the name, without the city code."""
+    parts = [p for p in re.split(r"\s{2,}", (raw or "").strip(" ,")) if p]
+    if len(parts) > 1 and len(parts[-1]) <= 4:
+        parts = parts[:-1]
+    return " ".join(" ".join(parts).split())
+
+
+def _clean(text: str) -> str:
+    return " ".join(text.translate(_DIGITS).replace("،", ",").split())
+
+
+def parse_sms(text: str, *, sender: str = "", received: datetime | None = None) -> SmsTransaction | None:
+    """One bank message as a proposed transaction, or None when it moves no money (a code, a declined payment,
+    an offer). Patterns: CIB and NBE in Arabic (`tests/fixtures/bank_sms.json` holds a sample of each)."""
+    received = received or datetime.now()
+    body = (text or "").translate(_DIGITS).replace("،", ",")[:MAX_TEXT]  # spaces kept: they bound merchants
+    flat = " ".join(body.split())
+    if not flat or _IGNORE.search(flat):
+        return None
+    bank = next((name for phone, name in BANK_PHONES.items() if phone in flat), "")
+    bank = bank or next((name for name in BANK_PHONES.values() if sender.upper().startswith(name)), "") \
+        or ("CIB" if "CIB" in flat.upper() else sender)
+    balance_match = re.search(r"(?:الرصيد\s*المتاح|المتاح)\s*" + _AMOUNT, flat)
+    balance = _amount(balance_match.group(1)) if balance_match else None
+    on = r"(?:في|بتاريخ|يوم)\s*(\d{1,2}[/-]\d{1,2}(?:[/-]\d{2,4})?)" + _CLOCK
+
+    # A debit card. CIB: "تم سحب مبلغ EGP 5000.00 من بطاقة الخصم المباشر المنتهية بـ **1234 من <ATM> في
+    # 04/10/26 19:28" (cash). NBE: "تم خصم 147.87 EGP من بطاقة الخصم المباشر رقم 1234 عند <merchant> يوم
+    # 06/10/26 الساعه 11:13 المتاح 3792.36EGP" (a purchase).
+    card = re.search(r"تم\s*(سحب|خصم|شراء)\s*(?:مبلغ)?\s*" + _AMOUNT + r"\s*من\s*بطاقة.*?" + _ENDING +
+                     r"\s*(?:(?:من|لدى|في|عند)\s+(.+?))?\s*" + on, body, re.S)
+    if card:
+        verb, raw, ending, place, day, clock = card.groups()
+        amount = _amount(raw)
+        if amount is None:
+            return None
+        return SmsTransaction("withdrawal" if verb == "سحب" else "purchase", amount, ending,
+                              _when(day, clock, received), _place(place), balance=balance, bank=bank)
+
+    # InstaPay, CIB: "تم تنفيذ تحويل لحظي بمبلغ 2000.00 جم من حسابك المنتهي بـ ****1234 برقم مرجعي ab12 بتاريخ
+    # 01-10-2026 11:05" (out), "… إلى حسابك المنتهي بـ ****1234 من <name> برقم مرجعي …" (in).
+    cib = re.search(r"تحويل\s*لحظي\s*بمبلغ\s*" + _AMOUNT + r"\s*(من|إلى|الى)\s*حسابك\s*" + _ENDING +
+                    r"\s*(?:من\s+(.+?)\s+)?(?:برقم\s*مرجعي\s*([0-9A-Za-z]+))?\s*" + on, flat)
+    if cib:
+        raw, direction, ending, who, reference, day, clock = cib.groups()
+        amount = _amount(raw)
+        if amount is None:
+            return None
+        return SmsTransaction("transfer_out" if direction == "من" else "transfer_in", amount, ending,
+                              _when(day, clock, received), (who or "").strip(), reference or "",
+                              balance, bank)
+
+    # InstaPay, NBE: "تم إضافة تحويل لحظي لحسابكم رقم 1234 بمبلغ 30.00 جم من <name> رقم مرجعي 1586 يوم 10-05
+    # الساعة 11:16" (in; the date is month-day), "تم تنفيذ تحويل لحظي من حسابكم رقم 1234 بمبلغ … جم إلى <name> …"
+    nbe = re.search(r"تم\s*(إضافة|اضافة|تنفيذ)\s*تحويل\s*لحظي\s*(?:لحساب\S*|من\s*حساب\S*)\s*" + _ENDING +
+                    r"\s*بمبلغ\s*" + _AMOUNT + r"\s*(?:من|إلى|الى)\s+(.+?)\s+(?:ب?رقم\s*مرجعي\s*([0-9A-Za-z]+))?\s*"
+                    + on, flat)
+    if nbe:
+        verb, ending, raw, who, reference, day, clock = nbe.groups()
+        amount = _amount(raw)
+        if amount is None:
+            return None
+        return SmsTransaction("transfer_out" if verb == "تنفيذ" else "transfer_in", amount, ending,
+                              _when(day, clock, received, month_first=True), who.strip(), reference or "",
+                              balance, bank)
+
+    # Salary, CIB: "عميلنا العزيز لقد تم تحويل مبلغ EGP19,584.66 على حسابكم لدينا من جهة العمل"
+    salary = re.search(r"تحويل\s*مبلغ\s*" + _AMOUNT + r"\s*(?:على|الى|إلى)\s*حساب\S*.*?جهة\s*العمل", flat)
+    if salary:
+        amount = _amount(salary.group(1))
+        if amount is None:
+            return None
+        return SmsTransaction("salary", amount, SALARY_ENDING, _when(None, None, received), "Salary", bank=bank)
+    return None
+
+
+def fingerprint(text: str) -> str:
+    return hashlib.sha256(_clean(text or "").encode("utf-8")).hexdigest()[:32]
+
+
+KIND_NOTES = {"withdrawal": "Cash withdrawal", "purchase": "Card purchase", "transfer_out": "InstaPay sent",
+              "transfer_in": "InstaPay received", "salary": "Salary"}
+
+
+class SmsImportService:
+    """Reads bank messages into the bank import's review, one batch per account."""
+
+    def __init__(self, db, settings, accounts, bank_imports):
+        self.db, self.settings, self.accounts, self.bank_imports = db, settings, accounts, bank_imports
+
+    def _json(self, key: str, empty):
+        try:
+            value = json.loads(self.settings.get(key) or "null")
+        except ValueError:
+            return empty
+        return value if isinstance(value, type(empty)) else empty
+
+    def endings(self) -> dict[str, int]:
+        return {str(k): int(v) for k, v in self._json(ENDINGS_KEY, {}).items()}
+
+    def waiting(self) -> list[dict]:
+        """Messages read whose account is not known yet, grouped by ending: [{"ending", "count", "total"}]."""
+        groups: dict[str, dict] = {}
+        for item in self._json(WAITING_KEY, []):
+            group = groups.setdefault(item["ending"], {"ending": item["ending"], "count": 0, "kinds": set()})
+            group["count"] += 1
+            group["kinds"].add(item["kind"])
+        return [dict(g, kinds=sorted(g["kinds"])) for g in groups.values()]
+
+    def read(self, messages: list[tuple[str, str, datetime]]) -> dict:
+        """New messages (sender, text, received) into review. Returns counts: staged rows by account, waiting,
+        skipped (not money, or read before)."""
+        seen = self._json(SEEN_KEY, [])
+        known = set(seen)
+        endings = self.endings()
+        waiting = self._json(WAITING_KEY, [])
+        by_account: dict[int, list[SmsTransaction]] = {}
+        skipped = 0
+        for sender, text, received in messages:
+            mark = fingerprint(text)
+            if mark in known:
+                skipped += 1
+                continue
+            known.add(mark)
+            seen.append(mark)
+            found = parse_sms(text, sender=sender, received=received)
+            if found is None:
+                skipped += 1
+                continue
+            account_id = endings.get(found.ending)  # never guessed: the first message of an ending asks once
+            if account_id is None:
+                waiting.append(_to_json(found))
+            else:
+                by_account.setdefault(account_id, []).append(found)
+        staged = {account_id: self._stage(account_id, rows) for account_id, rows in by_account.items()}
+        with self.db.transaction():
+            self.settings.set(SEEN_KEY, json.dumps(seen[-MAX_SEEN:]))
+            self.settings.set(WAITING_KEY, json.dumps(waiting))
+        return {"staged": staged, "waiting": len(waiting), "skipped": skipped}
+
+    def assign(self, ending: str, account_id: int) -> int | None:
+        """The owner says which account an ending is: remember it and send its waiting messages to review."""
+        if not (re.fullmatch(r"\d{4}", ending) or ending == SALARY_ENDING):
+            raise ValidationError("Choose the account for these messages.", "ending")
+        account = self.accounts.require_usable(account_id)
+        endings = self.endings() | {ending: int(account.id)}
+        waiting = self._json(WAITING_KEY, [])
+        mine = [_from_json(item) for item in waiting if item["ending"] == ending]
+        rest = [item for item in waiting if item["ending"] != ending]
+        batch = self._stage(int(account.id), mine) if mine else None
+        with self.db.transaction():
+            self.settings.set(ENDINGS_KEY, json.dumps(endings))
+            self.settings.set(WAITING_KEY, json.dumps(rest))
+        return batch
+
+    def _cash_account_name(self) -> str:
+        cash = [a for a in self.accounts.list(active_only=True) if a.account_type.value == "CASH"]
+        return cash[0].name if len(cash) == 1 else ""
+
+    def _stage(self, account_id: int, rows: list[SmsTransaction]) -> int:
+        out = io.StringIO()
+        writer = csv.writer(out)
+        writer.writerow(["Date", "Amount", "Counterparty", "Category", "Notes", "Reference"])
+        cash = self._cash_account_name()
+        for row in sorted(rows, key=lambda r: r.when):
+            notes = KIND_NOTES[row.kind] + (f" · {row.place}" if row.place and row.kind != "salary" else "")
+            category, counterparty = "", row.place if row.kind in ("purchase", "transfer_in") else ""
+            if row.kind == "withdrawal":
+                category = "Transfer"
+                notes += f" · transfer to {cash}" if cash else ""
+            elif row.kind == "salary":
+                category = "Salary"
+            writer.writerow([row.when[:10], format(row.signed, "f"), counterparty, category, notes, row.reference])
+        batch_id, _ = self.bank_imports.stage(account_id, f"SMS {datetime.now():%Y-%m-%d %H:%M}",
+                                              out.getvalue().encode("utf-8"))
+        return batch_id
+
+
+def _to_json(found: SmsTransaction) -> dict:
+    data = asdict(found)
+    data["amount"] = format(found.amount, "f")
+    data["balance"] = format(found.balance, "f") if found.balance is not None else None
+    return data
+
+
+def _from_json(data: dict) -> SmsTransaction:
+    return SmsTransaction(**(data | {"amount": Decimal(data["amount"]),
+                                     "balance": Decimal(data["balance"]) if data.get("balance") else None}))
