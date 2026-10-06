@@ -1,0 +1,48 @@
+{# An account, or every transaction, on a phone (guideline C08, C11.2): the balance, search and a month chip,
+   then the list grouped by day. No table, no checkbox column, no typing row; the add button opens the sheet. #}
+{% extends "base.html" %}
+{% block title %}{{ account.name if account else 'Transactions' }}{% endblock %}
+{% block phone_back %}<a class="phone-back" href="/accounts"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><span>Accounts</span></a>{% endblock %}
+{% block heading %}
+{% if account %}<h1>{{ account.name }}</h1><p>{{ account.type_label }}</p>
+<div class="phone-lead">{{ (account_value if account_value is not none else account_balance)|money(False, 0) }} <small>{{ account.currency }}</small></div>
+{% if account_held_value %}<p class="phone-note">{{ account_owned_value|money(False, 0) }} yours · {{ account_held_value|money(False, 0) }} held for others</p>{% endif %}
+{% else %}<h1>Transactions</h1><p>Every account</p>{% endif %}
+{% endblock %}
+{% block content %}
+{% set this = month or today[:7] %}{% set y, m = this[:4]|int, this[5:7]|int %}
+{% set prev = ('%04d-%02d'|format(y - 1, 12)) if m == 1 else ('%04d-%02d'|format(y, m - 1)) %}
+{% set next = ('%04d-%02d'|format(y + 1, 1)) if m == 12 else ('%04d-%02d'|format(y, m + 1)) %}
+<form class="phone-search" method="get" action="{{ base_url }}" role="search">
+  <input type="search" name="q" value="{{ q }}" placeholder="Search transactions" aria-label="Search transactions" autocomplete="off">
+  {% if month %}<input type="hidden" name="month" value="{{ month }}">{% endif %}
+</form>
+<nav class="phone-chips" aria-label="Filter">
+  <a class="phone-chip{{ ' is-chosen' if not month }}" href="{{ base_url }}{{ '?q=' ~ q|urlencode if q }}">All</a>
+  <span class="phone-chip phone-month-chip{{ ' is-chosen' if month }}">
+    <a href="{{ base_url }}?month={{ prev }}{{ '&q=' ~ q|urlencode if q }}" aria-label="Previous month">‹</a>
+    <a href="{{ base_url }}?month={{ this }}{{ '&q=' ~ q|urlencode if q }}">{{ this }}</a>
+    <a href="{{ base_url }}?month={{ next }}{{ '&q=' ~ q|urlencode if q }}" aria-label="Next month">›</a>
+  </span>
+</nav>
+{% if filter_category %}<p class="phone-note">Category: {{ filter_category }}</p>{% endif %}
+<section class="phone-list" aria-label="Transactions">
+{% set ns = namespace(day='') %}
+{% for r in rows %}
+  {% if r.date != ns.day %}{% if not loop.first %}</div>{% endif %}<h2 class="phone-day">{{ r.date }}</h2><div class="phone-day-rows">{% set ns.day = r.date %}{% endif %}
+  {% set editable = r.type in ('IN', 'OUT', 'TRF') %}
+  {% set who = ('From ' if r.amount > 0 else 'To ') ~ r.other_account_label if r.type == 'TRF' else (r.counterparty or r.description or r.type_label) %}
+  {% set cat = 'Transfer' if r.type == 'TRF' else (r.type_label if r.type in ('BUY', 'SEL', 'DIV', 'OPN') or r.type_label == 'Ownership change' else r.category_label.split(' › ')[-1]) %}
+  <a class="phone-txn" href="{{ ('/transactions/' ~ r.txn_id ~ '/edit-popup?return_to=' ~ (base_url ~ ('?' ~ keep_qs if keep_qs else ''))|urlencode) if editable else '/transactions/' ~ r.txn_id }}"{% if editable %} data-popup-open{% endif %}>
+    <span class="phone-txn-who"><b>{{ who }}</b><small>{{ cat if cat != who else '' }}{% if show_account %}{{ ' · ' if cat != who }}{{ r.account_label }}{% endif %}</small></span>
+    <span class="phone-txn-amount"><b class="{{ '' if r.type == 'TRF' else ('pos' if r.amount > 0 else '') }}">{{ r.amount|abs|money if r.type == 'TRF' else r.amount|money(True) }}</b>{% if not show_account and r.balance is not none %}<small>{{ r.balance|money }}</small>{% endif %}</span>
+  </a>
+  {% if loop.last %}</div>{% endif %}
+{% else %}
+  <p class="empty">{{ 'Nothing matches.' if q or month else 'No transactions yet.' }}</p>
+{% endfor %}
+</section>
+{% if page_number < total_pages %}<a class="btn phone-more-link" href="{{ base_url }}?{{ page_base_qs ~ '&' if page_base_qs else '' }}page={{ page_number + 1 }}">Show older</a>{% endif %}
+{% if page_number > 1 %}<a class="phone-quiet" href="{{ base_url }}?{{ page_base_qs ~ '&' if page_base_qs else '' }}page={{ page_number - 1 }}">Show newer</a>{% endif %}
+{% endblock %}
+{% block phone_add %}{% if account and account.active and account.account_type.value not in ('PHYSICAL_ASSET', 'OTHER_ASSET') %}<a class="phone-add" href="/accounts/{{ account.id }}/transaction/new?return_to={{ ('/accounts/' ~ account.id)|urlencode }}" data-popup-open aria-label="Add transaction"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></a>{% endif %}{% endblock %}

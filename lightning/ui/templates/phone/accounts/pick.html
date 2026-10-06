@@ -1,0 +1,11 @@
+{# The add button on Accounts: which account first, then that account's entry sheet (guideline C05.2, C09). #}
+{% extends "base.html" %}
+{% block title %}Add transaction{% endblock %}
+{% block heading %}<h1>Add transaction</h1>{% endblock %}
+{% block content %}
+<section class="card app-popup-content">
+  <h2 data-popup-title class="phone-sheet-title">Add transaction</h2>
+  <p class="phone-note">To which account?</p>
+  <div class="phone-rows">{% for a in accounts %}<a class="phone-row" href="/accounts/{{ a.id }}/transaction/new?return_to={{ ('/accounts/' ~ a.id)|urlencode }}" data-popup-open><span>{{ a.name }}<small>{{ a.type_label }}</small></span><b>›</b></a>{% endfor %}</div>
+</section>
+{% endblock %}

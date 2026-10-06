@@ -15,8 +15,9 @@
 <body data-base-currency="{{ base }}" class="phone-body">
 {% set here = sections_for(request) %}{% set back = back_url(request) %}
 <header class="phone-appbar">
-  {% if back %}<a class="phone-back" href="{{ back }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><span>{{ here.section.label if here.section else 'Back' }}</span></a>
-  {% else %}<a class="phone-mark" href="/" aria-label="Overview"><img src="/static/lightning-mark.svg" alt="" width="20" height="28"></a>{% endif %}
+  {# C03.2: the mark alone, or on an inner page ‹ and the page it returns to. A page sets phone_back. #}
+  {% block phone_back %}{% if back %}<a class="phone-back" href="{{ back }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><span>{{ here.section.label if here.section else 'Back' }}</span></a>
+  {% else %}<a class="phone-mark" href="/" aria-label="Overview"><img src="/static/lightning-mark.svg" alt="" width="20" height="28"></a>{% endif %}{% endblock %}
   <span class="phone-appbar-title" aria-hidden="true"></span>
   <nav class="phone-appbar-icons" aria-label="Tools">
     <a class="phone-icon" href="/search" aria-label="Search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg></a>

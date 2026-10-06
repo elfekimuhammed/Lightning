@@ -70,3 +70,30 @@ def test_overview_uses_the_phone_forms(phone):
     assert "chart-cfall" not in html and "scheme-flow" in html  # C07.3.2: the waterfall as rows
     assert 'class="mcal"' not in html and 'class="phone-months"' in html  # C07.3.4
     assert re.search(r'class="phone-lead">[\d,]+ <small>EGP</small>', html)  # whole EGP on the big figure
+
+
+def test_an_account_is_a_day_list_and_the_sheet_saves(phone):
+    page = phone.get("/accounts/1").text
+    assert "<table" not in page and 'class="phone-day"' in page and 'class="phone-add"' in page  # C08, C05.2
+    assert 'type="checkbox"' not in page  # no checkbox column
+    sheet = phone.get("/accounts/1/transaction/new").text
+    assert 'inputmode="decimal"' in sheet and 'type="date"' in sheet and 'class="btn primary phone-save"' in sheet
+    assert "Cancel" not in sheet  # C12: no two buttons side by side; back or swipe closes the sheet
+    category = re.search(r'<option value="(\d+)" data-movement="OUTFLOW"', sheet).group(1)
+    saved = phone.post("/accounts/1/transaction/new", data={
+        "__session": token(sheet, "__session"), "kind": "out", "amount": "12.50", "category_id": category,
+        "counterparty": "Phone kiosk", "date": "2026-10-06", "return_to": "/accounts/1"})
+    assert saved.status_code == 200 and saved.url.path == "/accounts/1"
+    assert "Phone kiosk" in phone.get("/accounts/1").text
+
+
+def test_accounts_add_button_asks_which_account(phone):
+    assert 'href="/accounts/add-transaction"' in phone.get("/accounts").text
+    pick = phone.get("/accounts/add-transaction").text
+    assert "To which account?" in pick and "/accounts/1/transaction/new" in pick
+
+
+def test_profile_pages_on_the_phone_name_no_folders(phone):
+    html = phone.get("/profiles").text  # unlocked: settings; locked: the chooser
+    assert "on this phone" in html and "on this computer" not in html
+    assert "Use another profile location" not in html and "Full database path" not in html

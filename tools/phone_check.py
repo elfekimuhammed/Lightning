@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 PAGES = ("/", "/birdview/expenses", "/financial-health", "/budget", "/plan", "/plan/recurring", "/plan/loans",
          "/plan/reserves", "/investments", "/investments/planner", "/investments/prices", "/accounts", "/transactions",
          "/money-from-others", "/settings", "/categories", "/counterparties", "/checks", "/profiles",
-         "/profiles/devices")
+         "/profiles/devices", "/accounts/1", "/accounts/1/transaction/new", "/accounts/add-transaction")
 WIDEST = """() => { const w = innerWidth; let worst = null, right = w;
   for (const el of document.querySelectorAll('body *')) { const r = el.getBoundingClientRect();
     if (r.width && r.right > right + 0.5) { right = r.right; worst = el; } }

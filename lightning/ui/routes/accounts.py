@@ -43,6 +43,15 @@ async def list_accounts(request: Request):
     return render(request, "accounts/list.html", rows=rows, net_worth=net_worth, gross_total=gross_total)
 
 
+@router.get("/add-transaction")
+async def pick_account_for_entry(request: Request):
+    """The phone's add button on Accounts: choose the account, then its entry sheet (guideline C05.2)."""
+    c = container(request)
+    accounts = [a for a in c.accounts.list(active_only=True)
+                if a.account_type.value not in ("PHYSICAL_ASSET", "OTHER_ASSET")]
+    return render(request, "phone/accounts/pick.html", accounts=accounts)
+
+
 @router.get("/new")
 async def new_account(request: Request):
     values = {"account_type": request.query_params.get("type", "BANK"), "opening_balance": "",

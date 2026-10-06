@@ -10,6 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-06 · Claude: milestone 2, step 3: on the phone an account is its balance, search, a month chip and a list grouped by day (C08, C11.2); the add button opens the entry sheet (C09: Out, In, Transfer; amount first; Save full width); Accounts lists rows and asks which account; profile pages show no folders (C09.6).
 - 2026-10-06 · Claude: milestone 2, step 2: the Overview on the phone (C11.1): four KPI tiles two by two, lead then support cards, Free cash and net flow as bars with the name above, where money in went as two bars and rows, the year as twelve month tiles (`templates/phone/`).
 - 2026-10-06 · Claude: milestone 2, step 1: on the phone app every page renders in the phone frame (guideline C02–C05): app bar with Search, Hide amounts and Settings; five sections in a tab bar at the bottom; full-width period and tabs; no sideways scroll at 360 or 320 (`tools/phone_check.py`, `tests/test_phone_frame.py`).
 - 2026-10-06 · Claude: CI minutes (owner): a push to main runs only the Linux suite; the Windows app builds daily when the app changed, on a tag or by hand (`packaging/ci_scope.py`). AGENTS.md: run Windows or Android builds by hand only when needed.

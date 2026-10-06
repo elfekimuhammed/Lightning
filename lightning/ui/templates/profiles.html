@@ -1,8 +1,8 @@
 <!doctype html>
-<html lang="en">
+{% set on_phone = request.state.phone|default(false) %}<html lang="en"{% if on_phone %} class="phone"{% endif %}>
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1{{ ', viewport-fit=cover' if on_phone }}">
   <meta name="color-scheme" content="light">
   <title>{% if mode == 'choose' %}Choose a profile{% elif mode == 'setup' %}Create a profile{% elif mode == 'recovery-key' %}Save your recovery key{% elif mode == 'unlock' %}Unlock your profile{% elif mode == 'recover' %}Reset your password{% elif mode == 'restore' %}Restore a backup{% elif mode == 'resume-restore' %}Resume a restore{% elif mode == 'manage' %}Profile settings{% elif mode == 'devices' %}Devices{% elif mode in ['connect', 'connected'] %}Connect to your phone{% elif mode == 'borrowed' %}Open from your phone{% else %}Profiles{% endif %} · Lightning</title>
   <link rel="stylesheet" href="/static/fonts/fonts.css">
@@ -20,7 +20,7 @@
 
     <div class="content-wrap">
       <section class="intro" aria-labelledby="page-title">
-        <p class="eyebrow">Your data, on this computer</p>
+        <p class="eyebrow">Your data, on this {{ 'phone' if on_phone else 'computer' }}</p>
         {% if mode == 'choose' %}
           <h1 id="page-title">Choose a profile</h1>
           <p>Each profile keeps its financial data in a separate database.</p>
@@ -58,7 +58,7 @@
       {% if error and selected and mode in ['unlock', 'restore'] and 'restore' in error|lower %}<p><a class="text-link" href="/profiles/restore/resume?db={{ selected|urlencode }}">Check interrupted restore →</a></p>{% endif %}
       {% if notice %}<div class="alert alert-notice" role="status">{{ notice }}</div>{% endif %}
       {% if mode == 'devices' %}<p><a class="text-link" href="/profiles">← Back to profile settings</a></p>{% elif mode != 'choose' and mode != 'manage' %}<p><a class="text-link" href="/profiles">← Back to profiles</a></p>{% endif %}
-      {% if selected %}<p class="selected-database">Selected database: <code>{{ selected }}</code></p>{% endif %}
+      {% if selected and not on_phone %}<p class="selected-database">Selected database: <code>{{ selected }}</code></p>{% endif %}
 
       {% if mode == 'choose' %}
         <section class="panel" aria-labelledby="profiles-heading">
@@ -66,7 +66,7 @@
           {% if profiles %}
             <ul class="profile-list">
               {% for profile in profiles %}
-                <li><a class="profile-choice" href="/profiles/unlock?db={{ profile.db_path|urlencode }}"><span class="profile-mark" aria-hidden="true">{{ profile.name[:1]|upper }}</span><span class="profile-copy"><strong>{{ profile.name }}</strong><small>{{ profile.path }}</small></span><span class="choice-arrow" aria-hidden="true">›</span></a></li>
+                <li><a class="profile-choice" href="/profiles/unlock?db={{ profile.db_path|urlencode }}"><span class="profile-mark" aria-hidden="true">{{ profile.name[:1]|upper }}</span><span class="profile-copy"><strong>{{ profile.name }}</strong>{% if not on_phone %}<small>{{ profile.path }}</small>{% endif %}</span><span class="choice-arrow" aria-hidden="true">›</span></a></li>
               {% endfor %}
             </ul>
           {% else %}
@@ -75,7 +75,7 @@
           <a class="button button-primary" href="/profiles/new">Create a profile</a>
         </section>
 
-        <section class="panel" aria-labelledby="borrowed-heading">
+        {% if not on_phone %}<section class="panel" aria-labelledby="borrowed-heading">
           <div class="panel-heading"><div><h2 id="borrowed-heading">From your phone</h2></div></div>
           {% if borrowed %}
             <ul class="profile-list">
@@ -88,9 +88,9 @@
             <p class="empty-note">Keep your ledger on your phone and borrow it here when you work on the PC.</p>
           {% endif %}
           <a class="button button-secondary" href="/profiles/connect">Connect to your phone</a>
-        </section>
+        </section>{% endif %}
 
-        <section class="panel panel-secondary" aria-labelledby="other-location-heading">
+        {% if not on_phone %}<section class="panel panel-secondary" aria-labelledby="other-location-heading">
           <h2 id="other-location-heading">Use another profile location</h2>
           <form method="get" action="/profiles" class="form-stack">
             <label for="profile-root">Profiles folder</label>
@@ -100,7 +100,7 @@
             <label for="database-path">Open a database file</label>
             <div class="inline-field"><input id="database-path" name="db" type="text" placeholder="Full database path" autocomplete="off"><button class="button button-secondary" type="submit">Continue</button></div>
           </form>
-        </section>
+        </section>{% endif %}
 
         {% if backups %}
           <section class="backup-note" aria-labelledby="backup-heading">
@@ -331,11 +331,11 @@
       {% endif %}
     </div>
 
-    <footer class="site-footer">
+    {% if not on_phone %}<footer class="site-footer">
       <p>Documents may sync between your devices. Do not open the same database on two computers at once.</p>
       <p>Profile data is stored separately from the Lightning application ZIP.</p>
       <p>Profile names and filenames are visible without a password; financial contents are encrypted. Profiles lock after 15 minutes of inactivity. Save your edits before leaving.</p>
-    </footer>
+    </footer>{% endif %}
   </main>
   <script src="/static/session.js" defer></script>
 </body>

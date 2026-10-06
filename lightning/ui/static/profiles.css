@@ -134,3 +134,7 @@ input:focus { background: #E2EFE9; outline: 0; box-shadow: 0 0 0 2px #097852; }
 .pair-values dt { color: var(--ink-2); font-size: 13px; font-weight: 700; }
 .pair-values dd { margin: 0 0 8px; }
 .backup-list form { margin: 0; }
+
+/* On the phone app (guideline C02, C09.6): clear of the status and gesture bars. */
+html.phone .profile-page { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+html.phone input { font-size: 16px; }

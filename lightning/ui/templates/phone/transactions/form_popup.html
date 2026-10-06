@@ -1,0 +1,68 @@
+{# The entry sheet on a phone (guideline C09): a verb for the title, one column, the amount first with the
+   number pad, type-and-pick for your own data, Save full width as the last thing. Same fields and checks as
+   the PC's dialog (transactions/form_popup.html); the route does the work. #}
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block heading %}<h1>{{ title }}</h1><p>{{ account.label }}</p>{% endblock %}
+{% block content %}
+<section class="card app-popup-content phone-entry" data-transaction-form data-account-name="{{ account.name }}" data-currency="{{ account.currency }}">
+  <h2 data-popup-title class="phone-sheet-title">{{ title }}</h2>
+  <p class="phone-note">{{ account.label }}</p>
+  {% if error %}<div class="flash error" role="alert">{{ error }}</div>{% endif %}
+  <form method="post" action="{{ action }}" class="phone-form" {% if txn_id %}data-popup-autosave{% endif %}>
+    <input type="hidden" name="return_to" value="{{ return_to }}">
+    {% if txn_id %}<input type="hidden" name="account_id" value="{{ values.account_id }}">{% endif %}
+    {% if split_categories %}<input type="hidden" name="kind" value="{{ values.kind }}"><p class="phone-note">Split across {{ split_categories|join(', ') }}; the full amount and its split are kept.</p>
+    {% else %}<div class="phone-segment" role="group" aria-label="Transaction type">
+      {% for value, label in [('out','Out'),('in','In'),('transfer','Transfer')] %}
+      <label><input type="radio" name="kind" value="{{ value }}" {{ 'checked' if values.kind == value }} required><span>{{ label }}</span></label>
+      {% endfor %}
+    </div>{% endif %}
+    <div class="field phone-amount {{ 'has-error' if error_field == 'amount' }}">
+      <label for="popup-amount">Amount</label>
+      <input id="popup-amount" name="amount" type="text" value="{{ values.amount }}" inputmode="decimal" placeholder="0.00" required autocomplete="off" {{ 'readonly' if split_categories }}>
+      {% if error_field == 'amount' %}<small class="field-error">{{ error }}</small>{% endif %}
+    </div>
+    <div class="field money-only {{ 'has-error' if error_field == 'counterparty' }}" {{ 'hidden' if values.kind == 'transfer' }}>
+      <label for="popup-counterparty">Counterparty</label>
+      <input id="popup-counterparty" name="counterparty" value="{{ values.counterparty }}" list="popup-counterparties" data-own-suggestions placeholder="Who you paid or who paid you" autocomplete="off">
+      <datalist id="popup-counterparties">{% for person in counterparties %}<option value="{{ person.name }}">{% endfor %}</datalist>
+      {% if error_field == 'counterparty' %}<small class="field-error">Choose a saved counterparty.</small>{% endif %}
+    </div>
+    <div class="field money-only {{ 'has-error' if error_field == 'category' }}" {{ 'hidden' if values.kind == 'transfer' }}>
+      <label for="popup-category">Category</label>
+      {% if split_categories %}<input id="popup-category" value="Split · {{ split_categories|join(', ') }}" readonly>
+      {% else %}<select id="popup-category" name="category_id" data-own-picker>
+        <option value="">Choose a category</option>
+        {% from "partials/macros.html" import category_options %}{{ category_options(category_groups(categories), values.category_id) }}
+      </select>{% endif %}
+      {% if error_field == 'category' %}<small class="field-error">Choose a category.</small>{% endif %}
+    </div>
+    <div class="field transfer-only" {{ 'hidden' if values.kind != 'transfer' }}>
+      <label for="popup-to-account">Transfer to</label>
+      <select id="popup-to-account" name="to_account_id" data-own-picker>
+        <option value="">Choose an account</option>
+        {% for a in accounts if a.id != account.id and a.account_type.value in ('CASH','BANK','DEPOSIT','BROKERAGE') and a.currency == account.currency %}<option value="{{ a.id }}" {{ 'selected' if values.to_account_id == a.id|string }}>{{ a.label }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="field {{ 'has-error' if error_field == 'date' }}">
+      <label for="popup-date">Date</label>
+      <input id="popup-date" name="date" type="date" value="{{ values.date }}" required>
+      {% if error_field == 'date' %}<small class="field-error">Check the date.</small>{% endif %}
+    </div>
+    <details class="phone-more"{% if values.owner_id or values.notes %} open{% endif %}>
+      <summary>Notes and held for</summary>
+      <div class="field"><label for="popup-notes">Notes</label><input id="popup-notes" name="notes" value="{{ values.notes }}"></div>
+      <div class="field">
+        <label for="popup-owner">Held for</label>
+        <select id="popup-owner" name="owner_id" data-own-picker><option value="">You</option>
+          {% for person in owners %}<option value="{{ person.id }}" {{ 'selected' if values.owner_id == person.id|string }}>{{ person.name }}</option>{% endfor %}
+        </select>
+      </div>
+    </details>
+    <div class="transaction-effect" data-transaction-effect role="status" aria-live="polite"></div>
+    <p class="small muted inline-save-status" data-popup-status aria-live="polite"></p>
+    {% if not txn_id %}<button type="submit" class="btn primary phone-save">Save</button>{% endif %}
+  <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
+</section>
+{% endblock %}
