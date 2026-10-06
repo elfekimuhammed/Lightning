@@ -19,7 +19,7 @@
         <td class="small">{{ row.account_label }}{% if row.to_account_label %} → {{ row.to_account_label }}{% endif %}</td>
         <td class="small">{{ row.category_label or row.type_label }}</td>
         <td class="num">{{ row.amount|money(True) }} {{ row.currency }}</td>
-        <td><form method="post" action="/transactions/{{ row.id }}/restore"><button class="btn small">Restore</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form></td>
+        <td><form method="post" action="/transactions/{{ row.id }}/restore"><button class="cat-icon" title="Restore" aria-label="Restore {{ row.ref }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5"/></svg></button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form></td>
       </tr>
     {% endfor %}
     </tbody>
