@@ -10,6 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-06 · Claude: 04b passed: on the owner's arm64 phone the encrypted round-trip (open, write, close, reopen, recovery key) gives the same figures, row counts and key checks as Linux and Windows (`android/README.md`). 04c is next.
 
 - 2026-10-06 · Claude: Looks recurring leaves out everyday spending and investment income, and *Not recurring* hides a suggestion (`PlanningService.suggestions`, `POST /plan/suggestions/{id}/not-recurring`).
 - 2026-10-06 · Claude: Mohab review fixes. Budget and Reserves meters say left/over as the two rounded figures read (80 of 68 is 12 over, not 13); budget suggestions are whole EGP; Reserves shows whole EGP like the other Cash planning tabs; Overview Bills due reads 0, not 0.00; Spending's change reads 0%, never +0% or −0%.

@@ -92,3 +92,8 @@ open with the recovery key, set a new password, reopen, and list integrity, figu
 It also prints each step's seconds (input for 04d). Linux and Windows gave the expected lines in
 [run 37460524735](https://github.com/elfekimuhammed/Lightning/actions/runs/37460524735); the first APK failed on the phone with no detail; the current one, from
 [run 37467660638](https://github.com/elfekimuhammed/Lightning/actions/runs/37467660638), shows the whole error and CI checks it carries the probe, the round-trip and the fixture. 04b passes when that line is OK on the owner's phone.
+
+**04b passed (2026-10-06).** On the owner's arm64 phone the probe from run 37467660638 reported the same lines as
+Linux and Windows (fingerprint `a00fc4f576edb7c9`). Phone timings: unlock with password 0.54 s, open 0.06 s,
+write 0.06 s, unlock with recovery key 1.79 s, reopen 0.65 s. Lesson: name every Chaquopy source folder; CI now
+checks the APK carries the probe, the round-trip and the fixture.
