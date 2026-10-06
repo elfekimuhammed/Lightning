@@ -3,10 +3,11 @@
     python tools/guideline.py            # list the sections: number, title, size as text
     python tools/guideline.py A16        # one section (A01-A16 the PC app, B01-B11 the website, C01-C12 the phone)
     python tools/guideline.py A03 A12    # several sections
-    python tools/guideline.py --file ../Lightning_website/brand-guidelines.html B05
+    python tools/guideline.py --dir ../Lightning_website/guideline B05
 
-docs/BRAND_GUIDELINE.html is about 340 KB (roughly 95,000 tokens), mostly inline drawings; its words are
-about a tenth of that. A section printed here is a few hundred tokens. Standard library only.
+The guideline is three documents in guideline/: app.html (A01-A16), website.html (B01-B11), phone.html (C01-C12).
+Together they are about 540 KB (roughly 95,000 tokens), mostly inline drawings; the words are about a tenth of that.
+A section printed here is a few hundred tokens. The letter picks the file. Standard library only.
 """
 from __future__ import annotations
 
@@ -17,7 +18,8 @@ from html import unescape
 from html.parser import HTMLParser
 from pathlib import Path
 
-GUIDELINE = Path(__file__).resolve().parent.parent / "docs" / "BRAND_GUIDELINE.html"
+GUIDELINE_DIR = Path(__file__).resolve().parent.parent / "guideline"
+DOCUMENTS = {"A": "app.html", "B": "website.html", "C": "phone.html"}
 _SKIP = {"svg", "style", "script", "head"}
 _BREAK = {"p", "div", "li", "tr", "h1", "h2", "h3", "h4", "section", "br", "table", "ul", "ol", "pre"}
 
@@ -72,6 +74,11 @@ def sections(html: str) -> list[tuple[str, str, str]]:
     return found
 
 
+def all_sections(folder: Path) -> list[tuple[str, str, str]]:
+    """Sections of the three documents, A then B then C."""
+    return [item for name in DOCUMENTS.values() for item in sections((folder / name).read_text(encoding="utf-8"))]
+
+
 def as_text(section_html: str) -> str:
     parser = _Text()
     parser.feed(section_html)
@@ -81,9 +88,9 @@ def as_text(section_html: str) -> str:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("numbers", nargs="*", help="section numbers such as A16 or B05; none lists them")
-    parser.add_argument("--file", type=Path, default=GUIDELINE)
+    parser.add_argument("--dir", type=Path, default=GUIDELINE_DIR, help="the folder holding the three documents")
     args = parser.parse_args(argv)
-    found = sections(args.file.read_text(encoding="utf-8"))
+    found = all_sections(args.dir)
     if not args.numbers:
         for number, title, block in found:
             if number:

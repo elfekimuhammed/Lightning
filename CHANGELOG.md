@@ -10,6 +10,8 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+
+- 2026-10-06 · Claude: brand guideline 3.26 split into three documents in `guideline/` (`app.html` A01–A16, `website.html` B01–B11, `phone.html` C01–C12), each with a note naming the other two; same folder in the website repo. `tools/guideline.py` reads all three (`--dir`); `docs/BRAND_GUIDELINE.html` and `brand-guidelines.html` are gone.
 - 2026-10-06 · Claude: tab-by-tab UX audit (Project Overview › UX plan 10). Health redesigned: four KPI cards, every figure on a meter against its limit, trends that draw. Header settings buttons removed (gear only; old `?section=investments` redirects); Settings › Your data lists every tab's settings.
 - 2026-10-06 · Claude: fixed squashed icons in page headers (icon buttons and date pickers kept 20px padding) and the Holdings table cut off at 1,366px.
 - 2026-10-06 · Claude: owner's phone test: creating a profile failed on Android (hard links refused; `session.publish_new` now renames when the name is free). The recovery key is confirmed with a press, not typed back. Pairing sends the locked key file, so a PC opens a profile with its own password: no second password. A code from the wrong screen says which screen to use.

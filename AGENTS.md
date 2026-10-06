@@ -15,7 +15,7 @@ not know it.
 | [Architecture](docs/ARCHITECTURE.md) | Module boundaries, financial rules, data model, UI contract, desktop app and encrypted profiles | You change how something is built or calculated |
 | [Glossary](docs/GLOSSARY.md) | One name and one meaning for every term and figure | You add or rename a term or figure |
 | [Competition](docs/COMPETITION.md) | The compass: every competitor, what their users love and hate, where Lightning wins and loses | You learn something new about a competitor, or before choosing between two designs |
-| [Brand guideline](docs/BRAND_GUIDELINE.html) | How every screen looks and reads. Part A is the app on a PC, Part B the website, Part C the app on a phone | The owner gives a new version. The website repo has the same file as `brand-guidelines.html`: change both together |
+| [Brand guideline](guideline/) | How every screen looks and reads, in three documents: [app.html](guideline/app.html) (Part A, the PC app), [website.html](guideline/website.html) (Part B), [phone.html](guideline/phone.html) (Part C) | The owner gives a new version. The website repo has the same `guideline/` folder: change both together |
 | [Changelog](CHANGELOG.md) | Every change, newest first, under `Unreleased` at the top | Every change you push |
 | `docs/proposals/` | Designs not built yet (one file each) | You propose a design. When it is built, move what holds into Architecture and delete the proposal |
 
@@ -32,7 +32,7 @@ Be as efficient with tokens as you can, in what you read, run and write. This ne
 
 - **Start small:** read `NOW.md` and `git log --oneline -15`; that is all most tasks need to begin. A *Next* item's **Read:** line names everything else it needs.
 - **Read sections, not files.** The long docs start with a contents list that says when to read each section. Find the heading (`grep -n '^## ' <file>`) and read from that line to the next heading.
-- **Never open the brand guideline whole** (about 95,000 tokens, mostly drawings). Run `python tools/guideline.py` to list its sections and `python tools/guideline.py A12` to print one as text (A the PC app, B the website, C the phone).
+- **Never open the brand guideline whole** (about 95,000 tokens, mostly drawings). Run `python tools/guideline.py` to list its sections and `python tools/guideline.py A12` to print one as text (A is guideline/app.html, B guideline/website.html, C guideline/phone.html).
 - **Search before you read:** grep for the name, then read only the lines around it. Do not re-read a file you have just edited, or read code you are not changing.
 - **Keep output short:** run the tests for what you changed with `-q`, and show only the failures. Run the full suite once, before you push.
 - **Skip unless your task needs it:** `OWNER.md`, old changelog sections, `docs/proposals/`, `user feedback/`, `Claude outputs/`, and the generated figures table in the Glossary (grep it).

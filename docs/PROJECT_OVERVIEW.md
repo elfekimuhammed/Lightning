@@ -2,7 +2,7 @@
 
 **Last updated 2026-10-05 · app 0.5.0b1.**
 
-This file tells the story: what Lightning is, who it is for, what it answers and where it goes next. [Architecture](ARCHITECTURE.md) holds the technical side. The [Brand guideline](BRAND_GUIDELINE.html) holds the visual side. The [Glossary](GLOSSARY.md) defines every term and figure. Shipped changes go in `CHANGELOG.md`; the hand-off is in `NOW.md`.
+This file tells the story: what Lightning is, who it is for, what it answers and where it goes next. [Architecture](ARCHITECTURE.md) holds the technical side. The [Brand guideline](../guideline/) (`app.html`, `website.html`, `phone.html`) holds the visual side. The [Glossary](GLOSSARY.md) defines every term and figure. Shipped changes go in `CHANGELOG.md`; the hand-off is in `NOW.md`.
 
 ## Contents
 

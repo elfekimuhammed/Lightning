@@ -8,6 +8,8 @@ import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 DOCS = ROOT / "docs"
+GUIDELINE = ROOT / "guideline"
+DOCUMENTS = {"A": "app.html", "B": "website.html", "C": "phone.html"}
 
 
 def _guideline_tool():
@@ -44,7 +46,7 @@ def test_owner_items_live_in_owner_md():
 
 
 def test_docs_holds_only_the_carrying_files_and_proposals():
-    allowed = {"PROJECT_OVERVIEW.md", "ARCHITECTURE.md", "GLOSSARY.md", "COMPETITION.md", "BRAND_GUIDELINE.html", "proposals"}
+    allowed = {"PROJECT_OVERVIEW.md", "ARCHITECTURE.md", "GLOSSARY.md", "COMPETITION.md", "proposals"}
     extra = {path.name for path in DOCS.iterdir()} - allowed
     assert not extra, f"new files under docs/ (AGENTS.md section 1): {sorted(extra)}"
     assert all(path.suffix == ".md" for path in (DOCS / "proposals").iterdir())
@@ -69,8 +71,7 @@ def test_unreleased_comes_first_newest_first():
 
 def test_agents_md_carries_the_guidelines_a16_checklist():
     tool = _guideline_tool()
-    html = (DOCS / "BRAND_GUIDELINE.html").read_text(encoding="utf-8")
-    section = next(block for number, _, block in tool.sections(html) if number == "A16")
+    section = next(block for number, _, block in tool.all_sections(GUIDELINE) if number == "A16")
     items = re.findall(r"<div><b>([^<]+)</b>([^<]+)</div>", section)
     assert len(items) >= 10, "could not read A16's items; update this test with the guideline's markup"
     agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
@@ -81,9 +82,9 @@ def test_agents_md_carries_the_guidelines_a16_checklist():
 
 def test_the_guideline_tool_prints_one_section_as_text():
     tool = _guideline_tool()
-    html = (DOCS / "BRAND_GUIDELINE.html").read_text(encoding="utf-8")
-    found = tool.sections(html)
+    found = tool.all_sections(GUIDELINE)
     assert [n for n, _, _ in found if n.startswith("A")][-1] == "A16"
+    assert [n for n, _, _ in found if n.startswith("B")][-1] == "B11" and [n for n, _, _ in found if n.startswith("C")][-1] == "C12"
     a16 = tool.as_text(next(block for number, _, block in found if number == "A16"))
     assert "Before it ships" in a16 and "<" not in a16 and len(a16) < 2000
 
@@ -92,13 +93,25 @@ def _title(path: Path) -> str:
     return re.search(r"<title>([^<]*)</title>", path.read_text(encoding="utf-8")).group(1)
 
 
-def test_the_app_and_website_guidelines_are_one_file():
+def test_each_guideline_document_holds_only_its_part_and_names_the_others():
+    for letter, name in DOCUMENTS.items():
+        html = (GUIDELINE / name).read_text(encoding="utf-8")
+        numbers = [n for n, _, _ in _guideline_tool().sections(html)]
+        assert numbers and all(n.startswith(letter) for n in numbers), f"{name} holds sections of another part: {numbers}"
+        assert "AI AGENTS: this is ONE of THREE guideline documents" in html, f"{name} lost its hint to the other documents"
+        for other in set(DOCUMENTS.values()) - {name}:
+            assert f'href="{other}"' in html, f"{name} does not link to {other}"
+    versions = {_title(GUIDELINE / name).split(" · ")[0] for name in DOCUMENTS.values()}
+    assert len(versions) == 1, f"the three documents carry different versions: {versions}"
+
+
+def test_the_app_and_website_guidelines_are_the_same_three_files():
     """AGENTS.md section 1: change both copies together. Checked when the website repo sits beside this one."""
-    beside = [ROOT.parent / name / "brand-guidelines.html" for name in ("Lightning_website", "lightning_website")]
-    website = next((path for path in beside if path.is_file()), None)
+    beside = [ROOT.parent / name / "guideline" for name in ("Lightning_website", "lightning_website")]
+    website = next((path for path in beside if path.is_dir()), None)
     if website is None:
         pytest.skip("the website repository is not checked out next to this one")
-    app = DOCS / "BRAND_GUIDELINE.html"
-    same = app.read_bytes().replace(b"\r\n", b"\n") == website.read_bytes().replace(b"\r\n", b"\n")
-    assert same, (f"docs/BRAND_GUIDELINE.html ({_title(app)}) differs from the website's brand-guidelines.html "
-                  f"({_title(website)}): pull both repos, copy the newer over the older, and push both")
+    for name in DOCUMENTS.values():
+        same = (GUIDELINE / name).read_bytes().replace(b"\r\n", b"\n") == (website / name).read_bytes().replace(b"\r\n", b"\n")
+        assert same, (f"guideline/{name} ({_title(GUIDELINE / name)}) differs from the website's copy "
+                      f"({_title(website / name)}): pull both repos, copy the newer over the older, and push both")

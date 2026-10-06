@@ -1,0 +1,942 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex,follow">
+<meta name="description" content="Lightning brand guideline, Phone document: the app on a phone. The other two documents are app.html, website.html and phone.html in the same folder.">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lightning guideline 3.26 · Phone</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ===== Tokens: the only values in the system ===== */
+:root{
+  --ink:#0D2233;--ink2:#304A5C;--muted:#5C7483;
+  --nile:#0A2442;--on-nile:#FFFFFF;
+  --green:#14A874;--green-text:#097852;
+  --azure:#0B6DD6;
+  --rose:#E68CA8;--rose-strong:#C93D72;
+  --t-green:#EAF8F0;--t-azure:#EAF3FD;--t-rose:#FCEEF3;
+  --canvas:linear-gradient(160deg,#E3F6EC 0%,#E6F4F1 50%,#E1EEFB 100%);
+  --lead:linear-gradient(135deg,#E0F5E9,#DCF1F0 52%,#D7ECF7);
+  --wide:linear-gradient(100deg,#E0F5E9 0%,#E3F4EF 26%,#F7FCF9 52%,#FFF 72%);
+  --vivid:linear-gradient(135deg,#00995C 0%,#0B6DD6 100%);
+  --paper:#F8FCFA;--white:#FFFFFF;--rowfield:#F2F8F6;
+  --line:#DDE9E6;--line-ctl:#7E96A0;--track:#E6EFEC;--neutral:#C5D3D0;--field:#EEF6F3;--field-focus:#E6F2EC;
+  --shadow:0 14px 34px -24px rgba(10,36,66,.42);
+  --display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
+  --body:Manrope,"Segoe UI",system-ui,sans-serif;
+  --r-card:20px;--r-field:16px;--r-tile:10px;
+  --angle:26deg;
+  color-scheme:light dark;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --ink:#EAF4F1;--ink2:#B8CAD2;--muted:#8FA6B2;--nile:#E3F6EC;--on-nile:#0A2442;
+  --green:#3FCB93;--green-text:#5FD9A6;--azure:#5AA9FF;--rose:#F2A2BC;--rose-strong:#F27AA5;
+  --t-green:#123A35;--t-azure:#13304E;--t-rose:#3A2236;
+  --canvas:linear-gradient(160deg,#071C1C 0%,#08192A 50%,#0A1830 100%);
+  --lead:linear-gradient(135deg,#123A33,#11343B 52%,#12304A);--wide:linear-gradient(100deg,#123A33 0%,#0F2233 72%);
+  --paper:#0F2233;--white:#15293B;--rowfield:#15293B;--line:#243A4C;--line-ctl:#4F6878;--track:#1E3446;--neutral:#3A5163;--field:#15293B;--field-focus:#1B3246;
+  --shadow:0 14px 34px -24px rgba(0,0,0,.7);
+}}
+:root[data-theme="dark"]{
+  --ink:#EAF4F1;--ink2:#B8CAD2;--muted:#8FA6B2;--nile:#E3F6EC;--on-nile:#0A2442;
+  --green:#3FCB93;--green-text:#5FD9A6;--azure:#5AA9FF;--rose:#F2A2BC;--rose-strong:#F27AA5;
+  --t-green:#123A35;--t-azure:#13304E;--t-rose:#3A2236;
+  --canvas:linear-gradient(160deg,#071C1C 0%,#08192A 50%,#0A1830 100%);
+  --lead:linear-gradient(135deg,#123A33,#11343B 52%,#12304A);--wide:linear-gradient(100deg,#123A33 0%,#0F2233 72%);
+  --paper:#0F2233;--white:#15293B;--rowfield:#15293B;--line:#243A4C;--line-ctl:#4F6878;--track:#1E3446;--neutral:#3A5163;--field:#15293B;--field-focus:#1B3246;
+  --shadow:0 14px 34px -24px rgba(0,0,0,.7);
+}
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px);scroll-behavior:smooth}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--canvas) fixed;background-color:#E3F6EC;color:var(--ink);font:500 14px/1.55 var(--body);-webkit-font-smoothing:antialiased}
+@media (prefers-color-scheme:dark){body{background-color:#08192A}}
+h1,h2,h3,h4,p{margin:0}
+a{color:var(--ink);text-decoration-color:var(--line-ctl);text-underline-offset:3px}
+:focus-visible{outline:3px solid var(--green);outline-offset:3px}
+.num{font-family:var(--display);font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.unit{font:600 13px/1 var(--body);color:var(--muted);margin-left:5px;letter-spacing:0}
+.tab{font-variant-numeric:tabular-nums}
+
+/* ===== Layout ===== */
+.wrap{display:grid;grid-template-columns:240px minmax(0,1fr);max-width:1360px;margin:0 auto}
+nav.side{position:sticky;top:0;height:100vh;overflow:auto;padding:26px 14px;border-right:1px solid var(--line)}
+nav.side .brand{display:flex;align-items:center;gap:10px;margin:0 10px 4px;font:800 19px/1 var(--display)}
+nav.side .brand img{height:30px;width:auto}
+nav.side small{display:block;margin:6px 10px 20px;color:var(--muted);font-size:12px}
+nav.side a{position:relative;display:block;padding:7px 12px;border-radius:999px;color:var(--ink2);text-decoration:none;font-weight:600;font-size:13px}
+nav.side a:hover{background:var(--t-green);color:var(--ink)}
+main{padding:36px 36px 96px;min-width:0}
+.hero{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:28px;align-items:center;margin-bottom:12px}
+.hero h1{font:800 40px/1.06 var(--display);letter-spacing:-.035em}
+.hero p{color:var(--ink2);margin-top:12px;max-width:62ch;font-size:15px}
+.hero .meta{margin-top:14px;color:var(--muted);font-size:12px;font-weight:600}
+section.g{margin-top:64px}
+.g-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;padding-bottom:12px;border-bottom:1px solid var(--line);margin-bottom:20px}
+.g-head h2{font:700 26px/1.15 var(--display);letter-spacing:-.025em;display:flex;align-items:center;gap:12px}
+.g-head h2::before{content:"";flex:none;width:9px;height:24px;border-radius:5px;background:var(--vivid);transform:skewX(calc(var(--angle) * -1))}
+.g-head p{color:var(--ink2);max-width:62ch;margin-top:6px}
+h3.sub{font:700 18px/1.3 var(--display);margin:32px 0 12px}
+.note{color:var(--ink2);max-width:72ch}
+.note+.note{margin-top:8px}
+.muted{color:var(--muted)}
+ul.rules{margin:10px 0 0;padding-left:18px;max-width:78ch;color:var(--ink2)}ul.rules li{margin:6px 0}ul.rules b{color:var(--ink)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.grid4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+.scroll{overflow-x:auto}
+table.t{border-collapse:collapse;width:100%;background:var(--white);border-radius:16px;overflow:hidden;box-shadow:var(--shadow)}
+table.t th,table.t td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+table.t th{font-size:12px;color:var(--muted);font-weight:700}
+table.t tr:last-child td{border-bottom:0}
+table.t td b{color:var(--ink)}
+table.t td.r{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+code{font:600 12px/1.4 ui-monospace,Consolas,monospace;background:var(--rowfield);padding:1px 6px;border-radius:6px;color:var(--ink2)}
+
+/* ===== Cards: four tiers ===== */
+.card{position:relative;border-radius:var(--r-card);padding:24px;min-width:0}
+.card.lead{background:var(--lead);box-shadow:var(--shadow)}
+.card.support{align-self:stretch;background:var(--paper);border:1px solid var(--line);box-shadow:var(--shadow)}
+.card.wide{background:var(--wide);box-shadow:var(--shadow)}
+.card.entry{background:var(--white);border:1px solid var(--line)}
+.chead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding-bottom:12px;border-bottom:1px solid var(--line);margin-bottom:14px}
+.chead h4{font:700 17px/1.3 var(--display)}
+.chead p{margin-top:2px;color:var(--ink2);font-size:13px}
+.quiet{color:var(--ink2);font-weight:700;font-size:13px;text-decoration:underline;text-decoration-color:var(--line-ctl);text-underline-offset:3px;background:none;border:0;padding:0;cursor:pointer;font-family:var(--body)}
+.lead-num{font-size:52px;line-height:1.05;margin:4px 0 6px}
+.lead-sub{color:var(--ink2);font-size:13px}
+.trow{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
+.trow:first-of-type{border-top:0}
+.trow span{color:var(--ink2)}.trow b{font-variant-numeric:tabular-nums;white-space:nowrap}
+.trow.result{background:color-mix(in srgb,var(--green) 9%,transparent);border-radius:12px;padding:10px 12px;margin-top:6px;border-top:0}
+.trow.result b{color:var(--green-text)}
+.cap{margin-top:10px;font-size:12px;color:var(--muted);font-weight:600}
+
+/* ===== KPI card: the one small card, toned by meaning ===== */
+.kpi{--tone:var(--green);--tint:var(--t-green);
+  position:relative;overflow:hidden;isolation:isolate;display:flex;flex-direction:column;gap:12px;
+  min-height:176px;padding:18px 18px 16px;border-radius:var(--r-card);
+  background:linear-gradient(165deg,var(--white) 0%,var(--white) 38%,var(--tint) 100%);
+  border:1px solid color-mix(in srgb,var(--tone) 26%,var(--line));box-shadow:var(--shadow);color:var(--ink);text-decoration:none}
+.kpi::before{content:"";position:absolute;z-index:-1;top:-56px;right:20px;width:46px;height:190px;border-radius:23px;
+  background:linear-gradient(180deg,var(--tone),transparent 85%);opacity:.18;transform:rotate(var(--angle))}
+.kpi::after{content:"";position:absolute;z-index:-1;top:-30px;right:-18px;width:46px;height:150px;border-radius:23px;
+  background:linear-gradient(180deg,var(--tone),transparent 85%);opacity:.10;transform:rotate(var(--angle))}
+.kpi.azure{--tone:var(--azure);--tint:var(--t-azure)}
+.kpi.rose{--tone:var(--rose);--tint:var(--t-rose)}
+.kpi.alert{--tone:var(--rose-strong);--tint:var(--t-rose);background:linear-gradient(165deg,var(--white) 0%,var(--tint) 70%);border-color:color-mix(in srgb,var(--rose-strong) 45%,var(--line))}
+.kpi .top{display:flex;align-items:center;gap:10px}
+.kpi .ico{flex:none;width:34px;height:34px;border-radius:var(--r-tile);display:grid;place-items:center;background:var(--tone);color:#fff;box-shadow:0 6px 14px -8px var(--tone)}
+.kpi.rose .ico{background:linear-gradient(135deg,#E68CA8,#D7678F)}
+.kpi .ico svg{width:18px;height:18px}
+.kpi .lbl{font:700 14px/1.3 var(--body);color:var(--ink2);margin-top:-2px}
+.kpi .top .chip{margin-left:auto}
+.chip{flex:none;display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 9px;border-radius:999px;font:700 12px/1 var(--body);background:color-mix(in srgb,var(--white) 70%,transparent);color:var(--ink2);border:1px solid var(--line)}
+.chip.up{background:var(--t-green);color:var(--green-text);border-color:transparent}
+.chip.down{background:var(--t-rose);color:var(--ink2);border-color:transparent}
+.chip.good{background:var(--t-green);color:var(--green-text);border-color:transparent}
+.chip.bad{background:var(--t-rose);color:var(--rose-strong);border-color:transparent}
+.chip.over{background:var(--rose-strong);color:#fff;border-color:transparent}
+.kpi .fig{font-size:38px;line-height:1;margin-top:auto}
+.kpi .fig.long{font-size:32px}
+.kpi.alert .fig{color:var(--rose-strong)}
+.kpi .foot{font-size:13px;color:var(--ink2);line-height:1.4}
+.kpi .foot b{color:var(--ink);font-variant-numeric:tabular-nums}
+.kpi .foot b.g{color:var(--green-text)}
+.kpi svg.spark{display:block;width:100%;height:34px;overflow:visible}
+.kpi .meter{height:8px;border-radius:99px;background:var(--track);overflow:hidden}
+.kpi .meter i{display:block;height:100%;border-radius:99px;background:var(--tone)}
+.kpi .act{align-self:flex-start;height:32px;padding:0 14px;border-radius:999px;border:0;background:var(--rose-strong);color:#fff;font:700 13px/32px var(--body);text-decoration:none}
+
+/* old stat card, for comparison only */
+.oldkpi{border-radius:20px;padding:16px 18px;min-height:164px;display:flex;flex-direction:column;justify-content:space-between;background:#fff;border:1px solid var(--line);box-shadow:var(--shadow);color:#0D2233}
+.oldkpi.g{background:linear-gradient(135deg,#E0F5E9,#DCF1F0 52%,#D7ECF7)}
+.oldkpi .l{font:700 15px/1.2 var(--display)}.oldkpi .n{font:800 34px/1 var(--display);font-variant-numeric:tabular-nums}
+.oldkpi .s{font-size:13px;color:#304A5C}
+
+/* ===== Meaning swatches ===== */
+.mean{border-radius:var(--r-card);padding:18px;background:var(--white);box-shadow:var(--shadow);display:flex;flex-direction:column;gap:10px;border-top:5px solid var(--c)}
+.mean h4{font:700 17px/1.2 var(--display)}
+.mean p{color:var(--ink2);font-size:13px}
+.mean .demo{margin-top:auto;padding-top:10px;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px}
+.mean code{background:none;padding:0;color:var(--muted)}
+.sw{display:flex;gap:12px;align-items:center;background:var(--white);border-radius:14px;padding:10px;box-shadow:var(--shadow)}
+.sw i{flex:none;width:48px;height:40px;border-radius:10px;border:1px solid rgba(13,34,51,.08);background:var(--c)}
+.sw b{display:block;font-size:13px}.sw small{display:block;color:var(--muted);font-size:12px;line-height:1.35}
+.sws{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+
+/* ===== Logo ===== */
+.logo-tile{border-radius:var(--r-card);min-height:200px;display:grid;place-items:center;padding:24px;position:relative;box-shadow:var(--shadow)}
+.logo-tile img{max-height:120px;max-width:80%}
+.logo-tile.lock img{max-height:56px}
+.logo-tile figcaption{position:absolute;left:16px;bottom:12px;font-size:12px;font-weight:600}
+.on-canvas{background:linear-gradient(160deg,#E3F6EC,#E1EEFB)}.on-canvas figcaption{color:#5C7483}
+.on-white{background:#fff}.on-white figcaption{color:#5C7483}
+.on-nile{background:#0A2442}.on-nile figcaption{color:#B8CAD2}
+figure{margin:0}
+.dont{border-radius:16px;background:var(--white);padding:14px;box-shadow:var(--shadow);font-size:13px;color:var(--ink2)}
+.dont .stage{height:110px;border-radius:12px;display:grid;place-items:center;margin-bottom:10px;background:linear-gradient(160deg,#E3F6EC,#E1EEFB);overflow:hidden}
+.dont .stage img{height:80px}
+.dont b{color:var(--rose-strong)}
+
+.cdef td:first-child{white-space:nowrap}.cd{display:inline-block;width:22px;height:22px;border-radius:7px;background:var(--c);vertical-align:-6px;margin-right:10px;border:1px solid rgba(13,34,51,.08)}
+.aclass{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+.fam{display:flex;gap:12px;align-items:flex-start;background:var(--white);border-radius:16px;padding:12px;box-shadow:var(--shadow)}
+.fam>span{flex:none;width:40px;height:40px;border-radius:12px;background:var(--c)}
+.fam.pair>span{width:28px}
+.fam b{display:block;font-size:13px}.fam code{background:none;padding:0;font-size:11px;color:var(--muted)}.fam small{display:block;color:var(--ink2);font-size:12px;margin-top:3px}
+.aorder{display:flex;gap:2px;height:40px;border-radius:12px;overflow:hidden}
+.aorder i{background:var(--c);color:#fff;font:700 11px/40px var(--body);font-style:normal;padding-left:8px;white-space:nowrap;overflow:hidden;min-width:0}
+/* ===== Type ===== */
+.ty td:first-child{white-space:nowrap}
+
+/* ===== Controls ===== */
+.btn{display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 22px;border-radius:999px;font:700 14px/1 var(--body);border:1px solid transparent;cursor:pointer}
+.btn.primary{background:var(--nile);color:var(--on-nile)}
+.btn.secondary{background:var(--white);color:var(--ink);border-color:var(--line-ctl)}
+.btn.danger{background:var(--rose-strong);color:#fff}
+.btn.vivid{background:var(--vivid);color:#fff}
+.btn.sm{height:36px;padding:0 16px;font-size:13px}
+.seg{display:inline-flex;padding:4px;border-radius:999px;background:var(--track);gap:2px}
+.seg span{height:36px;padding:0 16px;border-radius:999px;display:grid;place-items:center;font-weight:700;font-size:13px;color:var(--ink2)}
+.seg span.on{background:var(--nile);color:var(--on-nile)}
+.chiprow{display:flex;flex-wrap:wrap;gap:8px}
+.chiprow span{height:36px;padding:0 14px;border-radius:999px;display:grid;place-items:center;background:var(--white);border:1px solid var(--line-ctl);font-weight:700;font-size:13px;color:var(--ink2)}
+.chiprow span.on{background:var(--nile);color:var(--on-nile);border-color:var(--nile)}
+.field{display:flex;flex-direction:column;gap:5px;max-width:320px}
+.field label{font-weight:700;font-size:12px;color:var(--ink2)}
+.field .in{height:44px;border-radius:12px;border:0;background:var(--field);padding:0 14px;display:flex;align-items:center;font-variant-numeric:tabular-nums;color:var(--ink)}
+.field .in.ph{color:var(--muted)}
+.field .in.focus{background:var(--field-focus);box-shadow:inset 0 0 0 1.5px var(--green)}
+.field .in.err{background:var(--t-rose);box-shadow:inset 0 0 0 1.5px var(--rose-strong)}
+.field .in.amount{height:56px;font:800 26px/1 var(--display);background:var(--lead)}
+.field small{color:var(--muted);font-size:12px}
+.field small.e{color:var(--rose-strong);font-weight:700}
+.pick{max-width:320px;background:var(--white);border-radius:14px;box-shadow:0 18px 40px -22px rgba(10,36,66,.45);padding:6px;margin-top:6px}
+.pick div{padding:8px 10px;border-radius:9px;font-size:13px;color:var(--ink2)}.pick div.on{background:var(--field)}.pick small{display:block;padding:6px 10px 2px;color:var(--muted);font-size:11px;font-weight:700}
+.vizgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px}
+.viz{--tone:var(--green);--tint:var(--t-green);position:relative;overflow:hidden;isolation:isolate;
+  background:linear-gradient(165deg,var(--white) 0%,var(--white) 42%,var(--tint) 100%);
+  border:1px solid color-mix(in srgb,var(--tone) 24%,var(--line));border-radius:var(--r-card);padding:16px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:10px}
+.viz::before{content:"";position:absolute;z-index:-1;top:-60px;right:26px;width:44px;height:190px;border-radius:22px;background:linear-gradient(180deg,var(--tone),transparent 85%);opacity:.14;transform:rotate(var(--angle))}
+.viz::after{content:"";position:absolute;z-index:-1;top:-34px;right:-16px;width:44px;height:150px;border-radius:22px;background:linear-gradient(180deg,var(--tone),transparent 85%);opacity:.08;transform:rotate(var(--angle))}
+.t-azure{--tone:var(--azure);--tint:var(--t-azure)}.t-rose{--tone:var(--rose);--tint:var(--t-rose)}.t-alert{--tone:var(--rose-strong);--tint:var(--t-rose)}
+.t-neutral{--tone:var(--neutral);--tint:var(--track)}.t-class{--tone:#00907F;--tint:color-mix(in srgb,#00907F 9%,var(--white))}
+.viz header{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.viz h4{font:700 15px/1.25 var(--display);color:var(--ink2)}
+.viz .st{flex:none;height:22px;padding:0 9px;border-radius:999px;font:700 11px/22px var(--body)}
+.st-app .st{background:var(--t-green);color:var(--green-text)}
+.st-ready .st{background:var(--t-azure);color:var(--ink2)}
+.st-stash .st{background:var(--track);color:var(--ink2)}
+.st-avoid .st{background:var(--t-rose);color:var(--rose-strong)}
+.st-avoid .well{opacity:.55;filter:grayscale(1)}
+.vhead .num{font-size:28px;line-height:1}.vhead .num.neg{color:var(--rose-strong)}
+.vhead p{font-size:12.5px;color:var(--ink2);margin-top:3px}
+.viz .well{background:color-mix(in srgb,var(--white) 72%,transparent);border-radius:14px;padding:10px 10px 6px;backdrop-filter:blur(2px)}
+.viz-svg{display:block;width:100%;height:auto;overflow:visible}
+.viz dl{margin:4px 0 0;padding-top:10px;border-top:1px solid color-mix(in srgb,var(--tone) 18%,var(--line));display:grid;grid-template-columns:62px 1fr;gap:6px 10px;font-size:12.5px;line-height:1.45}
+.viz dt{color:var(--muted);font-weight:700}.viz dd{margin:0;color:var(--ink2)}
+.legend{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 4px}.legend .viz{display:contents}
+.never{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px}
+.never div{background:var(--white);border-radius:14px;padding:12px 14px;box-shadow:var(--shadow);font-size:13px;color:var(--ink2)}
+.never b{display:block;color:var(--rose-strong);font-size:13px;margin-bottom:2px}
+.demo-row{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:12px 0}
+
+/* ===== Lists ===== */
+.row{display:flex;justify-content:space-between;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
+.row:first-child{border-top:0}
+.row .who b{display:block}.row .who small{color:var(--muted);font-size:12px}
+.row .amt{text-align:right;font-variant-numeric:tabular-nums}.row .amt b{display:block}.row .amt small{color:var(--muted);font-size:12px}
+.in-amt{color:var(--green-text)}
+.cat-l1{display:flex;justify-content:space-between;padding:12px 0 8px;border-top:1px solid var(--line);font-weight:800}.cat-l1:first-child{border-top:0;padding-top:0}.cat-l1 span{font-weight:800}
+.cat-l2{display:flex;justify-content:space-between;padding:6px 0 6px 14px;color:var(--ink2)}
+.dot{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--ink2)}
+.dot::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--c)}
+
+/* ===== Charts (demo) ===== */
+.bars .b{display:grid;grid-template-columns:110px 1fr 90px;align-items:center;gap:10px;margin:8px 0;font-size:13px}
+.bars .b i{display:block;height:12px;border-radius:0 6px 6px 0;background:var(--c)}
+.bars .b span:last-child{text-align:right;font-variant-numeric:tabular-nums;font-weight:700}
+.bars .b.l1{margin-top:12px}.bars .b.l1:first-child{margin-top:0}.bars .b.l1 span:first-child{font-weight:800;color:var(--ink)}.bars .b.l2 span:first-child{padding-left:14px;color:var(--ink2)}.bars .b.l2 i{height:8px;opacity:.75}.bars .b.other span:first-child{color:var(--muted)}
+
+/* ===== Mock screen ===== */
+.screen{border-radius:24px;padding:24px;background:var(--canvas);border:1px solid var(--line);box-shadow:var(--shadow)}
+.screen .ph{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+.screen .ph h3{font:700 28px/1.15 var(--display);letter-spacing:-.03em}
+.screen .ph p{color:var(--ink2)}
+.sec-line{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding-bottom:12px;border-bottom:1px solid var(--line);margin:32px 0 16px}
+.sec-line h4{font:700 20px/1.3 var(--display)}.sec-line span{color:var(--muted);font-size:12px;font-weight:600}
+.pagestrip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.pagestrip .pg{display:flex;flex-direction:column;gap:8px}
+.pagestrip .pg>span{font-size:12px;font-weight:700;color:var(--muted)}
+
+.diff td:nth-child(4){color:var(--ink)}
+.diff td:nth-child(4) b{color:var(--green-text)}
+.anat{display:grid;grid-template-columns:minmax(0,320px) minmax(0,1fr);gap:28px;align-items:start}
+.anat ol{margin:0;padding-left:20px;color:var(--ink2)}.anat ol li{margin:7px 0}.anat ol b{color:var(--ink)}
+
+.pyr{display:grid;gap:10px}
+.pyr .lv{display:grid;grid-template-columns:160px 1fr;gap:16px;align-items:center;padding:14px 16px;border-radius:16px;box-shadow:var(--shadow)}
+.pyr .lv b{font:700 16px/1.2 var(--display)}.pyr .lv span{color:var(--ink2);font-size:13px}
+
+@media (max-width:1100px){.grid4{grid-template-columns:repeat(2,minmax(0,1fr))}.grid3{grid-template-columns:1fr 1fr}.hero{grid-template-columns:1fr}}
+@media (max-width:860px){.wrap{grid-template-columns:1fr}nav.side{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line);display:flex;flex-wrap:nowrap;overflow-x:auto;padding:12px}nav.side .brand,nav.side small{display:none}nav.side a{white-space:nowrap}main{padding:24px 16px 80px}.grid2,.anat,.pagestrip{grid-template-columns:1fr}.hero h1{font-size:32px}}
+@media (max-width:560px){.grid4,.grid3{grid-template-columns:1fr}.pyr .lv{grid-template-columns:1fr}.lead-num{font-size:42px}.bars .b{grid-template-columns:90px 1fr 80px}}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+/* ===== 3.6: two parts, visual rules ===== */
+.parts{display:inline-flex;padding:4px;border-radius:999px;background:var(--track);gap:2px;margin-top:18px}
+.parts button{height:44px;padding:0 22px;border:0;border-radius:999px;background:none;font:800 14px/1 var(--body);color:var(--ink2);cursor:pointer}
+body[data-part="a"] [data-part="b"],body[data-part="a"] [data-part="c"],body[data-part="b"] [data-part="a"],body[data-part="b"] [data-part="c"],body[data-part="c"] [data-part="a"],body[data-part="c"] [data-part="b"]{display:none!important}
+.pf-sprite[data-part]{display:block!important}
+nav.side .grp{margin:14px 10px 6px;font:800 12px/1 var(--body);color:var(--muted)}
+.secnum{font:800 13px/1 var(--display);color:var(--on-nile);background:var(--nile);border-radius:999px;padding:6px 9px;font-variant-numeric:tabular-nums;letter-spacing:0}
+.g-head h2::before{display:none}
+.subnum{font:800 .82em/1 var(--display);color:var(--muted);margin-right:10px;font-variant-numeric:tabular-nums}
+.navnum{display:inline-block;width:34px;color:var(--muted);font-weight:800;font-variant-numeric:tabular-nums}
+.g-head p{max-width:56ch}
+/* rule tiles */
+.rtiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.rt{background:var(--white);border-radius:18px;padding:16px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:10px}
+.rt .vis{height:64px;border-radius:12px;background:var(--paper);display:flex;align-items:center;justify-content:center;gap:6px;padding:0 10px;overflow:hidden}
+.rt b{font:700 15px/1.25 var(--display)}
+.rt span{font-size:12.5px;color:var(--ink2)}
+/* do / don't */
+.dd{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+.dd>div{border-radius:16px;padding:14px;background:var(--white);box-shadow:var(--shadow);position:relative}
+.dd>div::before{position:absolute;top:12px;right:14px;font:800 14px/1 var(--body)}
+.dd .y{border-top:4px solid var(--green)}.dd .y::before{content:"✓";color:var(--green-text)}
+.dd .n{border-top:4px solid var(--rose-strong)}.dd .n::before{content:"✕";color:var(--rose-strong)}
+.dd small{display:block;margin-top:8px;font-size:12px;color:var(--muted);font-weight:700}
+.ddrows{display:grid;gap:10px}
+.ddrow{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.ddrow>div{border-radius:12px;padding:10px 14px;background:var(--white);box-shadow:var(--shadow);font-size:14px}
+.ddrow .y{border-left:4px solid var(--green)}.ddrow .n{border-left:4px solid var(--rose-strong);color:var(--muted)}
+.short{margin:10px 0 0;padding:0;list-style:none;display:grid;gap:6px;max-width:70ch}
+.short li{padding-left:18px;position:relative;color:var(--ink2)}
+.short li::before{content:"";position:absolute;left:0;top:.55em;width:8px;height:8px;border-radius:3px;background:var(--line-ctl);transform:rotate(var(--angle))}
+.short b{color:var(--ink)}
+/* header specimens */
+.hspec{display:grid;gap:12px}
+.hs{display:grid;grid-template-columns:150px 1fr;gap:16px;align-items:center;background:var(--white);border-radius:18px;padding:16px 18px;box-shadow:var(--shadow)}
+.hs>b{font:800 13px/1.3 var(--body);color:var(--muted)}
+.hs .spec{font-size:12px;color:var(--muted);margin-top:8px;font-weight:600}
+.ph-demo{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.ph-demo h3{font:700 28px/1.15 var(--display);letter-spacing:-.03em;margin:0}.ph-demo p{color:var(--ink2);margin:2px 0 0}
+/* A05 page header (3.22): title and the dates it covers, one period control, at most one action */
+.phx{display:flex;justify-content:space-between;align-items:center;gap:16px 24px;flex-wrap:wrap;padding-bottom:16px;border-bottom:1px solid var(--line)}
+.phx h3{font:700 28px/1.15 var(--display);letter-spacing:-.03em;margin:0;color:var(--ink)}
+.phx-range{margin:4px 0 0;color:var(--ink2);font-size:14px;font-weight:600;font-variant-numeric:tabular-nums}
+.phx-range b{color:var(--ink);font-weight:800}
+.phx-range span{color:var(--muted)}
+.phx-end{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.period{display:inline-flex;align-items:center;gap:2px;padding:4px;border-radius:999px;background:var(--track)}
+.period>span{height:36px;padding:0 14px;border-radius:999px;display:inline-flex;align-items:center;gap:4px;font-weight:700;font-size:13px;color:var(--ink2);white-space:nowrap}
+.period>span.on{background:var(--nile);color:var(--on-nile)}
+.period>span.step{padding:0 4px;font-variant-numeric:tabular-nums}
+.period>span.step b{padding:0 6px;font-weight:800}
+.period i{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;font-style:normal;font-size:15px;line-height:1;background:color-mix(in srgb,var(--on-nile) 14%,transparent)}
+.period i.off{opacity:.35}
+.phx-phone{max-width:360px;padding:16px;border-radius:22px;background:var(--canvas);box-shadow:var(--shadow)}
+.phx-phone .phx{flex-direction:column;align-items:stretch;gap:12px}
+.phx-phone .phx-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.phx-phone .period{display:flex}
+.phx-phone .period>span{flex:1;justify-content:center;padding:0 8px}
+.phx-phone .period>span.step{flex:2.2}
+.phx-states{display:grid;gap:14px;margin-top:14px;padding:18px;border-radius:18px;background:var(--white);box-shadow:var(--shadow)}
+.phx-states>div{display:grid;grid-template-columns:150px 1fr;gap:16px;align-items:center}
+.phx-states>div>small{font:800 12px/1.3 var(--body);color:var(--muted)}
+.phx-states>div>*,.phx>div,.hs>div{min-width:0}
+@media (max-width:700px){.phx-states>div{grid-template-columns:1fr;gap:6px}.phx-states{padding:14px}.phx .phx-end,.phx .period{width:100%}.phx .period{display:flex}.phx .period>span{flex:1;justify-content:center;padding:0 6px}.phx .period>span.step{flex:2}.phx-phone{max-width:none}}
+.tabhead{display:flex;gap:12px;align-items:center;padding:12px 14px;border-radius:14px;background:var(--paper);border:1px solid var(--line)}
+.tabhead .ico2{width:36px;height:36px;border-radius:10px;background:var(--nile);color:var(--on-nile);display:grid;place-items:center}
+.tabhead b{display:block;font:700 17px/1.2 var(--display)}.tabhead span{font-size:13px;color:var(--ink2)}
+/* site mocks */
+.sitebar{display:flex;align-items:center;justify-content:space-between;gap:16px;height:64px;padding:0 20px;border-radius:16px;background:rgba(232,247,241,.92);border:1px solid var(--line)}
+.sitebar .lk{display:flex;align-items:center;gap:8px;font:800 18px/1 var(--display)}.sitebar .lk img{height:26px}
+.sitebar nav{display:flex;gap:18px;font-size:13px;font-weight:700;color:var(--ink2)}
+.sitehero{border-radius:18px;padding:28px;background:var(--canvas);border:1px solid var(--line)}
+.sitehero h1{font:800 44px/1.03 var(--display);letter-spacing:-.035em;margin:0;max-width:16ch}
+.sitehero p{color:var(--ink2);font-size:16px;margin:12px 0 0;max-width:46ch}
+.sitesec h2{font:800 32px/1.08 var(--display);letter-spacing:-.035em;margin:0;max-width:22ch}
+.sitesec p{color:var(--ink2);font-size:16px;margin:8px 0 0;max-width:52ch}
+.pagemap{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
+.pm{background:var(--white);border-radius:18px;padding:16px;box-shadow:var(--shadow)}
+.pm b{display:block;font:700 16px/1.2 var(--display)}.pm span{display:block;color:var(--ink2);font-size:13px;margin-top:4px}
+.pm .q{margin-top:10px;font-weight:800;font-size:13px;color:var(--green-text)}
+.allowed{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px}
+.al{border-radius:14px;background:var(--white);box-shadow:var(--shadow);overflow:hidden}
+.al i{display:block;height:54px;background:var(--c)}.al div{padding:10px 12px}.al b{display:block;font-size:13px}.al span{font-size:12px;color:var(--ink2)}
+.al.no{opacity:.75}.al.no i{position:relative}.al.no i::after{content:"✕";position:absolute;inset:0;display:grid;place-items:center;color:#fff;font:800 22px/1 var(--body);text-shadow:0 1px 3px rgba(0,0,0,.4)}
+.skel{display:grid;gap:8px;max-width:520px}
+.skel div{border-radius:10px;background:var(--white);box-shadow:var(--shadow);padding:10px 14px;font-size:13px;color:var(--ink2);display:flex;justify-content:space-between}
+.skel div b{color:var(--ink)}
+@media (max-width:860px){.pagemap{grid-template-columns:1fr 1fr}.dd,.ddrow{grid-template-columns:1fr}.hs{grid-template-columns:1fr}}
+/* ===== 3.25: Part C · Phone ===== */
+.pf-sprite{position:absolute;width:0;height:0;overflow:hidden}
+.ic{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.pf{width:100%;max-width:360px;border-radius:34px;background:var(--canvas);border:1px solid var(--line);box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column;position:relative;font-size:14px;color:var(--ink)}
+.pf-status{height:30px;padding:0 24px;display:flex;justify-content:space-between;align-items:center;font:700 11px/1 var(--body);color:var(--ink2);font-variant-numeric:tabular-nums}
+.pf-bar{height:56px;display:flex;align-items:center;gap:2px;padding:0 6px 0 16px}
+.pf-bar .pf-mark{height:28px;width:auto;margin-right:auto}
+.pf-bar .back{display:flex;align-items:center;gap:2px;margin-right:auto;font-weight:700;color:var(--ink2);margin-left:-8px}
+.pf-icon{width:44px;height:44px;display:grid;place-items:center;border-radius:999px;color:var(--ink2)}
+.pf-body{padding:4px 16px 18px;display:flex;flex-direction:column;gap:12px;flex:1}
+.pf-title h3{font:700 24px/1.15 var(--display);letter-spacing:-.03em;margin:0}
+.pf-title p{margin:3px 0 0;font-size:13px;font-weight:600;color:var(--ink2);font-variant-numeric:tabular-nums}
+.pf-title p span{color:var(--muted)}
+.pf-period{display:flex;gap:2px;padding:4px;border-radius:999px;background:var(--track)}
+.pf-period>span{flex:1;height:40px;border-radius:999px;display:flex;align-items:center;justify-content:center;gap:2px;font-weight:700;font-size:13px;color:var(--ink2);white-space:nowrap}
+.pf-period>span.on{background:var(--nile);color:var(--on-nile)}
+.pf-period>span.step{flex:2.1;justify-content:space-between;padding:0 2px}
+.pf-period i{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;font-style:normal;font-size:16px;background:color-mix(in srgb,var(--on-nile) 14%,transparent)}
+.pf-seg{display:flex;gap:2px;padding:4px;border-radius:999px;background:var(--track)}
+.pf-seg>span{flex:1;height:40px;border-radius:999px;display:flex;align-items:center;justify-content:center;gap:6px;font-weight:700;font-size:13px;color:var(--ink2);white-space:nowrap;min-width:0}
+.pf-seg>span .ic{width:18px;height:18px}
+.pf-seg>span.on{background:var(--nile);color:var(--on-nile)}
+.pf-seg.icons>span.on{flex:2.4}
+.pf-need{display:flex;align-items:center;gap:10px;height:56px;padding:0 8px 0 16px;border-radius:16px;background:var(--white);border:1px solid var(--line);font-weight:800}
+.pf-need::before{content:"";width:9px;height:9px;border-radius:50%;background:var(--rose-strong)}
+.pf-need em{font-style:normal;margin-left:auto;height:26px;min-width:30px;padding:0 9px;border-radius:999px;background:var(--t-rose);color:var(--rose-strong);display:grid;place-items:center;font-size:13px}
+.pf-need .ic{color:var(--muted)}
+.kt-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.kt{--tone:var(--green);--tint:var(--t-green);position:relative;overflow:hidden;isolation:isolate;display:flex;flex-direction:column;gap:6px;min-height:142px;padding:12px;border-radius:18px;background:linear-gradient(165deg,var(--white) 0%,var(--white) 40%,var(--tint) 100%);border:1px solid color-mix(in srgb,var(--tone) 26%,var(--line));box-shadow:var(--shadow);min-width:0}
+.kt::before{content:"";position:absolute;z-index:-1;top:-50px;right:10px;width:30px;height:140px;border-radius:15px;background:linear-gradient(180deg,var(--tone),transparent 85%);opacity:.16;transform:rotate(var(--angle))}
+.kt.azure{--tone:var(--azure);--tint:var(--t-azure)}.kt.rose{--tone:var(--rose);--tint:var(--t-rose)}
+.kt .top{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.kt .ico{width:28px;height:28px;border-radius:9px;display:grid;place-items:center;background:var(--tone);color:#fff}
+.kt .ico .ic{width:16px;height:16px}
+.kt.rose .ico{background:linear-gradient(135deg,#E68CA8,#D7678F)}
+.kt .chip{height:22px;padding:0 7px;font-size:11px}
+.kt .lbl{font:700 13px/1.25 var(--body);color:var(--ink2)}
+.kt .fig{margin-top:auto;font-size:26px;line-height:1}
+.kt .fig small{font:600 12px/1 var(--body);color:var(--muted);margin-left:3px;letter-spacing:0}
+.kt .foot{font-size:12px;color:var(--ink2);white-space:nowrap;overflow:hidden}
+.kt .foot b{color:var(--ink);font-variant-numeric:tabular-nums}
+.kt .meter{height:5px;border-radius:99px;background:var(--track);overflow:hidden}.kt .meter i{display:block;height:100%;background:var(--tone);border-radius:99px}
+.pf-card{border-radius:20px;padding:16px;background:var(--paper);border:1px solid var(--line);box-shadow:var(--shadow);min-width:0}
+.pf-card.lead{background:var(--lead);border:0}
+.pf-card h4{font:700 16px/1.3 var(--display);margin:0}
+.pf-card .sub{font-size:13px;color:var(--ink2);margin-top:2px}
+.pf-card .big{font-size:40px;line-height:1.05;margin:10px 0 4px}
+.pf-card .big small{font:600 13px/1 var(--body);color:var(--muted);margin-left:5px;letter-spacing:0}
+.pf-rows>div{display:flex;justify-content:space-between;align-items:center;gap:12px;min-height:48px;border-top:1px solid var(--line);font-size:14px}
+.pf-rows>div span{color:var(--ink2)}.pf-rows>div b{font-variant-numeric:tabular-nums;white-space:nowrap}
+.pf-sec{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding-bottom:10px;border-bottom:1px solid var(--line);margin-top:12px}
+.pf-sec h4{font:700 18px/1.3 var(--display);margin:0}.pf-sec span{font-size:12px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
+.pf-nav{display:grid;grid-template-columns:repeat(5,1fr);padding:6px 4px 0;background:color-mix(in srgb,var(--paper) 92%,transparent);border-top:1px solid var(--line);backdrop-filter:blur(8px)}
+.pf-nav>span{height:64px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font:700 11px/1 var(--body);color:var(--muted);min-width:0}
+.pf-nav>span i{width:56px;height:30px;border-radius:999px;display:grid;place-items:center;font-style:normal}
+.pf-nav>span.on{color:var(--ink)}.pf-nav>span.on i{background:var(--nile);color:var(--on-nile)}
+.pf-gest{height:22px;display:grid;place-items:center;background:color-mix(in srgb,var(--paper) 92%,transparent)}
+.pf-gest::after{content:"";width:110px;height:4px;border-radius:99px;background:var(--line-ctl);opacity:.6}
+.pf-fab{position:absolute;right:16px;bottom:112px;width:56px;height:56px;border-radius:18px;background:var(--nile);color:var(--on-nile);display:grid;place-items:center;box-shadow:0 14px 26px -12px rgba(10,36,66,.6)}
+.pf-fab .ic{width:24px;height:24px}
+.pf-acts{display:flex;gap:8px}.pf-acts .btn{height:40px;font-size:13px;padding:0 16px}
+.pf-acts .more{width:40px;height:40px;border-radius:999px;border:1px solid var(--line-ctl);display:grid;place-items:center;background:var(--white);color:var(--ink2)}
+.pf-search{height:48px;border-radius:14px;background:var(--field);display:flex;align-items:center;gap:10px;padding:0 14px;color:var(--muted);font-size:15px}
+.pf-search .ic{width:20px;height:20px}
+.pf-chips{display:flex;gap:8px}
+.pf-chips>span{height:40px;padding:0 14px;border-radius:999px;display:flex;align-items:center;gap:4px;background:var(--white);border:1px solid var(--line-ctl);font-weight:700;font-size:13px;color:var(--ink2);white-space:nowrap}
+.pf-chips>span.on{background:var(--nile);color:var(--on-nile);border-color:var(--nile)}
+.pf-list{border-radius:20px;background:var(--white);border:1px solid var(--line);padding:0 14px}
+.pf-day{font:800 12px/1 var(--body);color:var(--muted);padding:14px 0 6px;font-variant-numeric:tabular-nums}
+.pf-tx{display:flex;justify-content:space-between;gap:12px;min-height:60px;align-items:center;border-top:1px solid var(--line)}
+.pf-day+.pf-tx{border-top:0}
+.pf-tx b{display:block;font-size:15px}.pf-tx small{display:block;color:var(--muted);font-size:12.5px;margin-top:2px}
+.pf-tx .a{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}.pf-tx .a b.in{color:var(--green-text)}
+/* frame diagram */
+.zones{display:grid;grid-template-columns:minmax(0,300px) minmax(0,1fr);gap:28px;align-items:start}
+.zf{border-radius:30px;overflow:hidden;border:1px solid var(--line);box-shadow:var(--shadow);background:var(--canvas);font-size:12px;font-weight:700}
+.zf>div{display:flex;align-items:center;justify-content:space-between;padding:0 14px;border-bottom:1px dashed var(--line-ctl);color:var(--ink2)}
+.zf>div:last-child{border-bottom:0}
+.zf>div span{color:var(--muted);font-weight:600;font-variant-numeric:tabular-nums}
+.zf .z-safe{height:30px;background:repeating-linear-gradient(135deg,var(--t-rose) 0 6px,transparent 6px 12px)}
+.zf .z-bar{height:56px;background:var(--paper)}
+.zf .z-body{height:300px;flex-direction:column;align-items:stretch;justify-content:center;gap:10px;padding:14px}
+.zf .z-body i{display:block;height:46px;border-radius:14px;background:var(--white);border:1px solid var(--line)}
+.zf .z-body i.k{height:70px;background:var(--lead);border:0}
+.zf .z-nav{height:64px;background:var(--paper)}
+.zf .z-gest{height:22px;background:repeating-linear-gradient(135deg,var(--t-rose) 0 6px,transparent 6px 12px)}
+.zf .z-pad{display:flex;gap:6px}
+/* phone chart specimens */
+.pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;align-items:start}
+.pv{max-width:360px}
+.pv .well{padding:8px 8px 4px}
+.hbars>div{margin:10px 0}
+.hbars>div>p{display:flex;justify-content:space-between;gap:10px;margin:0 0 5px;font-size:13px;color:var(--ink2)}
+.hbars>div>p b{color:var(--ink);font-variant-numeric:tabular-nums}
+.hbars>div>i{display:block;height:10px;border-radius:5px;background:var(--c)}
+.wf>div{display:grid;grid-template-columns:1fr;margin:9px 0}
+.wf>div>p{display:flex;justify-content:space-between;margin:0 0 5px;font-size:13px;color:var(--ink2)}
+.wf>div>p b{color:var(--ink);font-variant-numeric:tabular-nums}
+.wf .tr{height:14px;position:relative}
+.wf .tr i{position:absolute;top:0;bottom:0;border-radius:4px;background:var(--c)}
+.stk{display:flex;height:14px;border-radius:7px;overflow:hidden;gap:2px;margin:6px 0 4px}
+.stk i{display:block;background:var(--c)}
+.stk-l{font-size:12px;font-weight:700;color:var(--muted);display:flex;justify-content:space-between;margin-top:10px}
+.stk-l b{color:var(--ink);font-variant-numeric:tabular-nums}
+.lrows>div{display:flex;align-items:center;gap:10px;min-height:40px;border-top:1px solid var(--line);font-size:13.5px}
+.lrows>div:first-child{border-top:0}
+.lrows>div::before{content:"";width:10px;height:10px;border-radius:3px;background:var(--c);flex:none}
+.lrows>div span{color:var(--ink2)}.lrows>div b{margin-left:auto;font-variant-numeric:tabular-nums}.lrows>div small{width:42px;text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
+.hm{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.hm>span{height:52px;min-width:0;border-radius:12px;padding:7px 7px;display:flex;flex-direction:column;justify-content:space-between;font:700 11px/1 var(--body);color:var(--ink2);background:var(--c,var(--track))}
+.hm>span b{font:800 12.5px/1 var(--display);font-variant-numeric:tabular-nums;color:var(--ink)}
+.hm>span.dk{color:#fff}.hm>span.dk b{color:#fff}
+.hm>span.fut{background:none;border:1px dashed var(--line-ctl)}
+.hm>span.none b{color:var(--muted)}
+.cmock{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,360px));gap:24px;justify-content:start;align-items:start}
+.cmock figcaption{font:800 12px/1.3 var(--body);color:var(--muted);margin-bottom:8px}
+@media (max-width:860px){.zones{grid-template-columns:1fr}.zf{max-width:300px}}
+/* ===== 3.26: three documents ===== */
+.parts a{display:inline-flex;align-items:center;height:44px;padding:0 22px;border-radius:999px;font:800 14px/1 var(--body);color:var(--ink2);text-decoration:none}
+.parts a.on{background:var(--nile);color:var(--on-nile)}
+.pickdoc{margin-top:16px;padding:14px 16px;border-radius:16px;background:var(--track);font-size:14px;color:var(--ink2);max-width:62ch}
+.pickdoc b{color:var(--ink)}
+.pickdoc a{color:var(--ink);font-weight:800}
+</style>
+</head>
+<!-- AI AGENTS: this is ONE of THREE guideline documents, all in this folder: app.html (Part A, the app on a PC, A01-A16), website.html (Part B, lightningeg.com, B01-B11), phone.html (Part C, the app on a phone, C01-C12). This file is phone.html. For anything about another surface, open that file; do not guess. Do not read a file whole (about 95,000 tokens in all): run `python tools/guideline.py` in the app repo to list sections and `python tools/guideline.py C05` to print one. -->
+<body data-part="c">
+<div class="wrap">
+<nav class="side" aria-label="Sections">
+  <div class="brand"><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9Ii00IC00IDIwOCAyODgiID48ZGVmcz4KPGxpbmVhckdyYWRpZW50IGlkPSJhekIiIHgxPSIwIiB5MT0iMCIgeDI9IjAuMzUiIHkyPSIxIj48c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiMzNkI0RjIiLz48c3RvcCBvZmZzZXQ9Ii41IiBzdG9wLWNvbG9yPSIjMEI2REQ2Ii8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjMEEzRDhGIi8+PC9saW5lYXJHcmFkaWVudD4KPGxpbmVhckdyYWRpZW50IGlkPSJhelQiIHgxPSIwIiB5MT0iMSIgeDI9IjEiIHkyPSIwIj48c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiM1Q0M4RjciLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiMxQTdGRTAiLz48L2xpbmVhckdyYWRpZW50Pgo8bGluZWFyR3JhZGllbnQgaWQ9Im1kQiIgeDE9IjAiIHkxPSIwIiB4Mj0iMC4zNSIgeTI9IjEiPjxzdG9wIG9mZnNldD0iMCIgc3RvcC1jb2xvcj0iIzJGRDY5QSIvPjxzdG9wIG9mZnNldD0iLjUiIHN0b3AtY29sb3I9IiMxNEE4NzQiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiMwQTVFNDciLz48L2xpbmVhckdyYWRpZW50Pgo8bGluZWFyR3JhZGllbnQgaWQ9Im1kVCIgeDE9IjAiIHkxPSIxIiB4Mj0iMSIgeTI9IjAiPjxzdG9wIG9mZnNldD0iMCIgc3RvcC1jb2xvcj0iIzhCRTZCNiIvPjxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iIzFGQjU3RSIvPjwvbGluZWFyR3JhZGllbnQ+PC9kZWZzPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDAgMCkiPjxwYXRoIGQ9Ik0xMDAgMTAgQzEwMCAzIDk0IC0xIDg4IDIuNSBMNTAgMjIgQzE5IDM3LjUgMCA2NiAwIDEwNSBMMCAxOTYgQzAgMjIxIDIwIDIzMSA0MSAyMTkgTDEwMCAxOTAgWiIgZmlsbD0idXJsKCNhekIpIi8+PHBhdGggZD0iTTAgMTM4LjUgTDEwMCA5MCBMMTAwIDE5MCBMNDEgMjE5IEMyMCAyMzEgMCAyMjEgMCAxOTYgWiIgZmlsbD0idXJsKCNhelQpIi8+PC9nPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDAgMCkgcm90YXRlKDE4MCAxMDAgMTQwKSI+PHBhdGggZD0iTTEwMCAxMCBDMTAwIDMgOTQgLTEgODggMi41IEw1MCAyMiBDMTkgMzcuNSAwIDY2IDAgMTA1IEwwIDE5NiBDMCAyMjEgMjAgMjMxIDQxIDIxOSBMMTAwIDE5MCBaIiBmaWxsPSJ1cmwoI21kQikiLz48cGF0aCBkPSJNMCAxMzguNSBMMTAwIDkwIEwxMDAgMTkwIEw0MSAyMTkgQzIwIDIzMSAwIDIyMSAwIDE5NiBaIiBmaWxsPSJ1cmwoI21kVCkiLz48L2c+PC9zdmc+" alt="">Lightning</div>
+  <small>Guideline 3.26 · 2026-10-06</small>
+  <div class="grp">C · Phone</div>
+  <a href="#c-rules"><span class="navnum">C01</span>Rules</a>
+  <a href="#c-frame"><span class="navnum">C02</span>Frame and safe areas</a>
+  <a href="#c-nav"><span class="navnum">C03</span>Navigation</a>
+  <a href="#c-header"><span class="navnum">C04</span>Page header</a>
+  <a href="#c-touch"><span class="navnum">C05</span>Touch and buttons</a>
+  <a href="#c-cards"><span class="navnum">C06</span>Cards and KPIs</a>
+  <a href="#c-charts"><span class="navnum">C07</span>Charts</a>
+  <a href="#c-lists"><span class="navnum">C08</span>Lists and transactions</a>
+  <a href="#c-sheets"><span class="navnum">C09</span>Forms and sheets</a>
+  <a href="#c-type"><span class="navnum">C10</span>Type and numbers</a>
+  <a href="#c-screens"><span class="navnum">C11</span>Screens</a>
+  <a href="#c-ship"><span class="navnum">C12</span>Before it ships</a>
+  <div class="grp">Other documents</div>
+  <a href="app.html">A · App</a>
+  <a href="website.html">B · Website</a>
+</nav>
+<main>
+
+<header class="hero">
+  <div>
+    <h1>Lightning guideline · Phone</h1>
+    <p>Part C is the app on a phone: frame and safe areas, navigation, header, touch targets, cards, charts, lists, sheets, type and screens. On a phone, C wins over A.</p>
+    <div class="parts"><a href="app.html">A · App</a><a href="website.html">B · Website</a><a href="phone.html" class="on">C · Phone</a></div>
+    <p class="pickdoc"><b>Three documents, one folder.</b> This is the phone document (the app on a phone). For the app on a PC open <a href="app.html">app.html</a>, for the website <a href="website.html">website.html</a>, for the phone <a href="phone.html">phone.html</a>. They share one logo, colours, type and numbers; where they differ, use the document for the surface you are building.</p>
+    <p class="meta">Version 3.26 · 2026-10-06 · Sample figures are illustrative and do not reconcile</p>
+  </div>
+  <figure class="logo-tile on-canvas lock" style="min-height:200px"><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1NjUgMTQwIj48ZGVmcz4KPGxpbmVhckdyYWRpZW50IGlkPSJhekIiIHgxPSIwIiB5MT0iMCIgeDI9IjAuMzUiIHkyPSIxIj48c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiMzNkI0RjIiLz48c3RvcCBvZmZzZXQ9Ii41IiBzdG9wLWNvbG9yPSIjMEI2REQ2Ii8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjMEEzRDhGIi8+PC9saW5lYXJHcmFkaWVudD4KPGxpbmVhckdyYWRpZW50IGlkPSJhelQiIHgxPSIwIiB5MT0iMSIgeDI9IjEiIHkyPSIwIj48c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiM1Q0M4RjciLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiMxQTdGRTAiLz48L2xpbmVhckdyYWRpZW50Pgo8bGluZWFyR3JhZGllbnQgaWQ9Im1kQiIgeDE9IjAiIHkxPSIwIiB4Mj0iMC4zNSIgeTI9IjEiPjxzdG9wIG9mZnNldD0iMCIgc3RvcC1jb2xvcj0iIzJGRDY5QSIvPjxzdG9wIG9mZnNldD0iLjUiIHN0b3AtY29sb3I9IiMxNEE4NzQiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiMwQTVFNDciLz48L2xpbmVhckdyYWRpZW50Pgo8bGluZWFyR3JhZGllbnQgaWQ9Im1kVCIgeDE9IjAiIHkxPSIxIiB4Mj0iMSIgeTI9IjAiPjxzdG9wIG9mZnNldD0iMCIgc3RvcC1jb2xvcj0iIzhCRTZCNiIvPjxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iIzFGQjU3RSIvPjwvbGluZWFyR3JhZGllbnQ+PC9kZWZzPjxnIHRyYW5zZm9ybT0ic2NhbGUoMC40ODYxMTExMTExMTExMTExKSB0cmFuc2xhdGUoNCA0KSI+PGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMCAwKSI+PHBhdGggZD0iTTEwMCAxMCBDMTAwIDMgOTQgLTEgODggMi41IEw1MCAyMiBDMTkgMzcuNSAwIDY2IDAgMTA1IEwwIDE5NiBDMCAyMjEgMjAgMjMxIDQxIDIxOSBMMTAwIDE5MCBaIiBmaWxsPSJ1cmwoI2F6QikiLz48cGF0aCBkPSJNMCAxMzguNSBMMTAwIDkwIEwxMDAgMTkwIEw0MSAyMTkgQzIwIDIzMSAwIDIyMSAwIDE5NiBaIiBmaWxsPSJ1cmwoI2F6VCkiLz48L2c+PGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMCAwKSByb3RhdGUoMTgwIDEwMCAxNDApIj48cGF0aCBkPSJNMTAwIDEwIEMxMDAgMyA5NCAtMSA4OCAyLjUgTDUwIDIyIEMxOSAzNy41IDAgNjYgMCAxMDUgTDAgMTk2IEMwIDIyMSAyMCAyMzEgNDEgMjE5IEwxMDAgMTkwIFoiIGZpbGw9InVybCgjbWRCKSIvPjxwYXRoIGQ9Ik0wIDEzOC41IEwxMDAgOTAgTDEwMCAxOTAgTDQxIDIxOSBDMjAgMjMxIDAgMjIxIDAgMTk2IFoiIGZpbGw9InVybCgjbWRUKSIvPjwvZz48L2c+PHBhdGggdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMTM1LjExMTExMTExMTExMTExIDEwNCkiIGQ9Ik01LjcxNDIzMzM5ODQzNzUgMC4wVi02Ni4wSDIxLjg1NzA5MjI4NTE1NjI1MlYwLjBaTTguNTcxMzc0NTExNzE4NzUgMC4wVi0xMy42Mjg1NzY2NjAxNTYyNUg0Ny45ODU2MzIzMjQyMTg3NTZWMC4wWk01Mi4wNDI4MTAwNTg1OTM3NiAwLjBWLTUyLjgwMDAwMDAwMDAwMDAwNEg2OC4xODU2Njg5NDUzMTI1VjAuMFpNNjAuMDk5OTUxMTcxODc1MDA2IC01OC43MTQyMjExOTE0MDYyNVE1NS40OTk5NTExNzE4NzUwMDQgLTU4LjcxNDIyMTE5MTQwNjI1IDUzLjA0OTk1MTE3MTg3NTAxIC02MC42NTQ0NDcwNTM2MDgxNDVRNTAuNTk5OTUxMTcxODc1MDA2IC02Mi41OTQ2NzI5MTU4MTAwNCA1MC41OTk5NTExNzE4NzUwMDYgLTY2LjI3NjEyNzExNTg4NTQyUTUwLjU5OTk1MTE3MTg3NTAwNiAtNzAuMDU3MDgwMDc4MTI1IDUzLjA0OTk1MTE3MTg3NTAxIC03Mi4wMDcwODAwNzgxMjVRNTUuNDk5OTUxMTcxODc1MDA0IC03My45NTcwODAwNzgxMjUgNjAuMDk5OTUxMTcxODc1MDA2IC03My45NTcwODAwNzgxMjVRNjQuNzk5OTUxMTcxODc1MDEgLTczLjk1NzA4MDA3ODEyNSA2Ny4yNDk5NTExNzE4NzUwMSAtNzEuOTg1NjUwNjM0NzY1NjJRNjkuNjk5OTUxMTcxODc1IC03MC4wMTQyMjExOTE0MDYyNSA2OS42OTk5NTExNzE4NzUgLTY2LjI4NTI1OTI1NzI3NzRRNjkuNjk5OTUxMTcxODc1IC02Mi42NTcwODAwNzgxMjUwMDYgNjcuMjQ5OTUxMTcxODc1MDEgLTYwLjY4NTY1MDYzNDc2NTYzUTY0Ljc5OTk1MTE3MTg3NTAxIC01OC43MTQyMjExOTE0MDYyNSA2MC4wOTk5NTExNzE4NzUwMDYgLTU4LjcxNDIyMTE5MTQwNjI1Wk05Ny41NzEzNzQ1MTE3MTg3NiAxNy4zOTk5NTExNzE4NzVRODguNzI4NTE1NjI1MDAwMDEgMTcuMzk5OTUxMTcxODc1IDgzLjI3MTM4MDYxNTIzNDM5IDE2LjAyODUyMTcyODUxNTYyNFE3Ny44MTQyNDU2MDU0Njg3NiAxNC42NTcwOTIyODUxNTYyNTEgNzUuMzU3MTEwNTk1NzAzMTMgMTIuMDkyODEwMDU4NTkzNzVRNzIuODk5OTc1NTg1OTM3NTEgOS41Mjg1Mjc4MzIwMzEyNSA3Mi44OTk5NzU1ODU5Mzc1MSA1LjkyODU0MDAzOTA2MjUwMVE3Mi44OTk5NzU1ODU5Mzc1MSAxLjQxNDI1NzgxMjUgNzYuNDg1Njg3MjU1ODU5MzkgLTEuMzc4NTk0OTcwNzAzMTI1UTgwLjA3MTM5ODkyNTc4MTI3IC00LjE3MTQ0Nzc1MzkwNjI1IDg2Ljk5OTk2MzM3ODkwNjI2IC00LjgyODYwMTA3NDIxODc1Vi02LjI0Mjg1ODg4NjcxODc1UTgxLjY3MTM5ODkyNTc4MTI2IC02LjI0Mjg1ODg4NjcxODc1IDc4Ljc0MjgyODM2OTE0MDY0IC03LjYyMTQ0MTY1MDM5MDYyNVE3NS44MTQyNTc4MTI1MDAwMiAtOS4wMDAwMjQ0MTQwNjI1IDc1LjgxNDI1NzgxMjUwMDAyIC0xMi4wNDI4ODMzMDA3ODEyNVE3NS44MTQyNTc4MTI1MDAwMiAtMTQuODg1NzQyMTg3NSA3OC42MDcxMTA1OTU3MDMxNSAtMTcuMTg1NzQyMTg3NVE4MS4zOTk5NjMzNzg5MDYyNiAtMTkuNDg1NzQyMTg3NSA4Ny44NTcwOTIyODUxNTYyNiAtMjAuMjI4NTc2NjYwMTU2MjVWLTIxLjcyODU1MjI0NjA5Mzc1MlE4MS45OTk5NjMzNzg5MDYyNiAtMjIuNTcxNDIzMzM5ODQzNzUgNzguNTcxMzk4OTI1NzgxMjcgLTI2LjE4NTcxMTY2OTkyMTg3NlE3NS4xNDI4MzQ0NzI2NTYyNiAtMjkuOCA3NS4xNDI4MzQ0NzI2NTYyNiAtMzUuNjQyODU4ODg2NzE4NzVRNzUuMTQyODM0NDcyNjU2MjYgLTQwLjY3MTQzNTU0Njg3NSA3Ny44Nzg1NDYxNDI1NzgxMyAtNDQuNjE0Mjg4MzMwMDc4MTI1UTgwLjYxNDI1NzgxMjUwMDAxIC00OC41NTcxNDExMTMyODEyNTQgODYuMDI4NTMzOTM1NTQ2ODkgLTUwLjg3ODU2NDQ1MzEyNTAxUTkxLjQ0MjgxMDA1ODU5Mzc2IC01My4xOTk5ODc3OTI5Njg3NTYgOTkuMzcxMzYyMzA0Njg3NTEgLTUzLjE5OTk4Nzc5Mjk2ODc1NkgxMjYuMjk5OTE0NTUwNzgxMjdWLTQwLjk3MTQxMTEzMjgxMjUwNkwxMDguOTk5ODkwMTM2NzE4NzYgLTQzLjIxNDI3MDAxOTUzMTI1NlYtNDEuNTAwMDEyMjA3MDMxMjU0UTExNi4yNzEzNTAwOTc2NTYyNyAtNDAuNTE0Mjk0NDMzNTkzNzU0IDExOS4xMzU2Mzg0Mjc3MzQzOSAtMzguMTc4NTcwNTU2NjQwNjNRMTIxLjk5OTkyNjc1NzgxMjUyIC0zNS44NDI4NDY2Nzk2ODc1MDQgMTIxLjk5OTkyNjc1NzgxMjUyIC0zMi4wODU3MDU1NjY0MDYyNTRRMTIxLjk5OTkyNjc1NzgxMjUyIC0yOC4yMTQyODIyMjY1NjI1MDMgMTE5LjQ2NDIyMTE5MTQwNjI3IC0yNS4yMDAwMDAwMDAwMDAwMDNRMTE2LjkyODUxNTYyNTAwMDAyIC0yMi4xODU3MTc3NzM0Mzc1MDMgMTEyLjA1NzA5MjI4NTE1NjI3IC0yMC40Nzg1NzY2NjAxNTYyNVExMDcuMTg1NjY4OTQ1MzEyNTEgLTE4Ljc3MTQzNTU0Njg3NSAxMDAuMTU3MDkyMjg1MTU2MjcgLTE4Ljc3MTQzNTU0Njg3NVE5OC41Mjg1MDM0MTc5Njg3NiAtMTguNzcxNDM1NTQ2ODc1IDk2LjczNTYzMjMyNDIxODc2IC0xOC45MTQyOTQ0MzM1OTM3NTNROTQuOTQyNzYxMjMwNDY4NzYgLTE5LjA1NzE1MzMyMDMxMjUgOTIuMDI4NTE1NjI1MDAwMDEgLTE5LjQ1NzE1MzMyMDMxMjVROTAuMzg1NjU2NzM4MjgxMjYgLTE4LjM1NzE2NTUyNzM0Mzc1IDg5LjQ2NDIyNzI5NDkyMTg4IC0xNy40OTI4ODMzMDA3ODEyNVE4OC41NDI3OTc4NTE1NjI1MSAtMTYuNjI4NjAxMDc0MjE4NzUgODguNTQyNzk3ODUxNTYyNTEgLTE1LjgyODYwMTA3NDIxODc1MVE4OC41NDI3OTc4NTE1NjI1MSAtMTUuMjcxNDU5OTYwOTM3NSA4OC45OTk5Mzg5NjQ4NDM3NiAtMTQuOTM1NzQ4MjkxMDE1NjI0UTg5LjQ1NzA4MDA3ODEyNTAyIC0xNC42MDAwMzY2MjEwOTM3NSA5MC4zMjEzNjIzMDQ2ODc1MSAtMTQuNDQyODk1NTA3ODEyNTAxUTkxLjE4NTY0NDUzMTI1IC0xNC4yODU3NTQzOTQ1MzEyNTEgOTIuMjQyNzg1NjQ0NTMxMjcgLTE0LjI4NTc1NDM5NDUzMTI1MUgxMDguMjk5OTI2NzU3ODEyNTFRMTEwLjM0Mjc4NTY0NDUzMTI2IC0xNC4yODU3NTQzOTQ1MzEyNTEgMTEzLjU0OTkyNjc1NzgxMjUxIC0xNC4wMzU3NTQzOTQ1MzEyNTFRMTE2Ljc1NzA2Nzg3MTA5Mzc3IC0xMy43ODU3NTQzOTQ1MzEyNTEgMTE5Ljk2NDIwODk4NDM3NTAyIC0xMi41MDcxODM4Mzc4OTA2MjZRMTIzLjE3MTM1MDA5NzY1NjI3IC0xMS4yMjg2MTMyODEyNSAxMjUuMzU3MDYxNzY3NTc4MTQgLTguMzI4NjEzMjgxMjVRMTI3LjU0Mjc3MzQzNzUwMDAyIC01LjQyODYxMzI4MTI1MDAwMDUgMTI3LjU0Mjc3MzQzNzUwMDAyIC0wLjA3MTQ3MjE2Nzk2ODc1UTEyNy41NDI3NzM0Mzc1MDAwMiA1Ljg3MTM4NjcxODc1IDEyNC4zMDcwNjE3Njc1NzgxNSA5Ljc1NzA5ODM4ODY3MTg3NlExMjEuMDcxMzUwMDk3NjU2MjYgMTMuNjQyODEwMDU4NTkzNzUxIDExNC40NDI3ODU2NDQ1MzEyNiAxNS41MjEzODA2MTUyMzQzNzRRMTA3LjgxNDIyMTE5MTQwNjI2IDE3LjM5OTk1MTE3MTg3NSA5Ny41NzEzNzQ1MTE3MTg3NiAxNy4zOTk5NTExNzE4NzVaTTk4Ljc3MTMzNzg5MDYyNSAzLjk5OTkyNjc1NzgxMjVRMTA0Ljk1NzA2Nzg3MTA5Mzc2IDMuOTk5OTI2NzU3ODEyNSAxMDguMTU3MDY3ODcxMDkzNzYgMy40NjQyMTUwODc4OTA2MjUzUTExMS4zNTcwNjc4NzEwOTM3NiAyLjkyODUwMzQxNzk2ODc1MDQgMTEyLjQ5OTkyMDY1NDI5Njg5IDEuODQyNzk3ODUxNTYyNVExMTMuNjQyNzczNDM3NTAwMDEgMC43NTcwOTIyODUxNTYyNSAxMTMuNjQyNzczNDM3NTAwMDEgLTAuODE0MzE4ODQ3NjU2MjUwMVExMTMuNjQyNzczNDM3NTAwMDEgLTIuNDQyODgzMzAwNzgxMjUwMyAxMTIuODk5OTE0NTUwNzgxMjYgLTMuMzg1NzM2MDgzOTg0Mzc1NVExMTIuMTU3MDU1NjY0MDYyNTEgLTQuMzI4NTg4ODY3MTg3NSAxMTEuMDE0MTk2Nzc3MzQzNzYgLTQuNzA3MTU5NDIzODI4MTI1UTEwOS44NzEzMzc4OTA2MjUwMSAtNS4wODU3Mjk5ODA0Njg3NSAxMDguNzIxMzM3ODkwNjI1MDIgLTUuMTY0MzAwNTM3MTA5Mzc1NVExMDcuNTcxMzM3ODkwNjI1MDIgLTUuMjQyODcxMDkzNzUwMDAxIDEwNi44MTQxOTY3NzczNDM3NyAtNS4yNDI4NzEwOTM3NTAwMDFIOTMuNjU3MDQzNDU3MDMxMjZROTAuMTcxMzM3ODkwNjI1MDEgLTQuNzcxNDIzMzM5ODQzNzUgODguNjc4NDkxMjEwOTM3NTEgLTMuMzY0Mjk0NDMzNTkzNzVRODcuMTg1NjQ0NTMxMjUgLTEuOTU3MTY1NTI3MzQzNzUgODcuMTg1NjQ0NTMxMjUgLTAuMDcxNDcyMTY3OTY4NzVRODcuMTg1NjQ0NTMxMjUgMS42MTQyMzMzOTg0Mzc1MDAxIDg4LjQ0OTkzMjg2MTMyODE0IDIuNDkyNzk3ODUxNTYyNVE4OS43MTQyMjExOTE0MDYyNyAzLjM3MTM2MjMwNDY4NzUgOTIuMjc4NTAzNDE3OTY4NzYgMy42ODU2NDQ1MzEyNTAwMDA0UTk0Ljg0Mjc4NTY0NDUzMTI2IDMuOTk5OTI2NzU3ODEyNSA5OC43NzEzMzc4OTA2MjUgMy45OTk5MjY3NTc4MTI1Wk05OS4wOTk5NTExNzE4NzUgLTI3LjExNDMwNjY0MDYyNTAwM1ExMDIuOTI4NTAzNDE3OTY4NzYgLTI3LjExNDMwNjY0MDYyNTAwMyAxMDQuOTA3MDY3ODcxMDkzNzYgLTI5LjI4NTcyOTk4MDQ2ODc1UTEwNi44ODU2MzIzMjQyMTg3NiAtMzEuNDU3MTUzMzIwMzEyNSAxMDYuODg1NjMyMzI0MjE4NzYgLTM0Ljk1NzE1MzMyMDMxMjVRMTA2Ljg4NTYzMjMyNDIxODc2IC0zOC42Mjg1NzY2NjAxNTYyNTYgMTA0Ljg1NzA2Nzg3MTA5Mzc2IC00MC45NVExMDIuODI4NTAzNDE3OTY4NzYgLTQzLjI3MTQyMzMzOTg0Mzc1IDk5LjExNDIzMzM5ODQzNzUgLTQzLjI3MTQyMzMzOTg0Mzc1UTk1LjM4NTY4MTE1MjM0Mzc2IC00My4yNzE0MjMzMzk4NDM3NSA5My4yNzg1NDYxNDI1NzgxNCAtNDAuOTVROTEuMTcxNDExMTMyODEyNTEgLTM4LjYyODU3NjY2MDE1NjI1NiA5MS4xNzE0MTExMzI4MTI1MSAtMzQuOTU3MTUzMzIwMzEyNVE5MS4xNzE0MTExMzI4MTI1MSAtMzIuNjU3MTUzMzIwMzEyNSA5Mi4wODU2OTMzNTkzNzUgLTMwLjg3MTQ0MTY1MDM5MDYzUTkyLjk5OTk3NTU4NTkzNzUgLTI5LjA4NTcyOTk4MDQ2ODc1MiA5NC43Nzg1NDAwMzkwNjI1IC0yOC4xMDAwMTgzMTA1NDY4OFE5Ni41NTcxMDQ0OTIxODc1IC0yNy4xMTQzMDY2NDA2MjUwMDMgOTkuMDk5OTUxMTcxODc1IC0yNy4xMTQzMDY2NDA2MjUwMDNaTTEzMi43NDI4MTAwNTg1OTM3NiAwLjBWLTMxLjIxNDE4NDU3MDMxMjVWLTcxLjE0MjgyMjI2NTYyNUgxNDguODg1NjY4OTQ1MzEyNTJWLTU2LjA1NzE2NTUyNzM0Mzc1NlExNDguODg1NjY4OTQ1MzEyNTIgLTU0LjAxNDMwNjY0MDYyNSAxNDguNjkyODEwMDU4NTkzNzUgLTUxLjMwNzE0MTExMzI4MTI1UTE0OC40OTk5NTExNzE4NzUgLTQ4LjU5OTk3NTU4NTkzNzUgMTQ4LjEwNzA5MjI4NTE1NjI4IC00NS42NzEzNzQ1MTE3MTg3NVExNDcuNzE0MjMzMzk4NDM3NTMgLTQyLjc0Mjc3MzQzNzUwMDAwNiAxNDcuMzIxMzc0NTExNzE4NzcgLTM5LjkzNTYwNzkxMDE1NjI1UTE0Ni45Mjg1MTU2MjUwMDAwMiAtMzcuMTI4NDQyMzgyODEyNSAxNDYuNTE0MjMzMzk4NDM3NSAtMzQuODQyNzI0NjA5Mzc1MDA0SDE0OC4yNzEzNTAwOTc2NTYyN1ExNDkuNDU3MDU1NjY0MDYyNTIgLTQxLjE0Mjc4NTY0NDUzMTI1IDE1MS41OTk5MTQ1NTA3ODEyOCAtNDUuNDQ5OTU3Mjc1MzkwNjNRMTUzLjc0Mjc3MzQzNzUwMDAzIC00OS43NTcxMjg5MDYyNSAxNTcuMzE0MjA4OTg0Mzc1MDMgLTUxLjk3ODU2NDQ1MzEyNVExNjAuODg1NjQ0NTMxMjUwMDIgLTU0LjIgMTY2LjIyODUwMzQxNzk2ODc3IC01NC4yUTE3NS4yNDI3NzM0Mzc1MDAwMyAtNTQuMiAxNzkuNjU3MDQ5NTYwNTQ2OSAtNDcuODY0Mjk0NDMzNTkzNzU2UTE4NC4wNzEzMjU2ODM1OTM3OCAtNDEuNTI4NTg4ODY3MTg3NSAxODQuMDcxMzI1NjgzNTkzNzggLTI4LjQ3MTQ3MjE2Nzk2ODc1MlYwLjBIMTY3Ljg3MTMyNTY4MzU5Mzc3Vi0yNi42Mjg2NDk5MDIzNDM3NTNRMTY3Ljg3MTMyNTY4MzU5Mzc3IC0zMy43MTQzMTg4NDc2NTYyNSAxNjUuODg1NjI2MjIwNzAzMTYgLTM3LjE0Mjg2NDk5MDIzNDM3UTE2My44OTk5MjY3NTc4MTI1MiAtNDAuNTcxNDExMTMyODEyNSAxNTkuNjk5OTUxMTcxODc1MDMgLTQwLjU3MTQxMTEzMjgxMjVRMTU2LjI0MjgyMjI2NTYyNTAyIC00MC41NzE0MTExMzI4MTI1IDE1My44NDI4MjIyNjU2MjUwMiAtMzguMjkyODQwNTc2MTcxODc2UTE1MS40NDI4MjIyNjU2MjUgLTM2LjAxNDI3MDAxOTUzMTI1IDE1MC4xNjQyNDU2MDU0Njg3NSAtMzEuNzQyODIyMjY1NjI1UTE0OC44ODU2Njg5NDUzMTI1MiAtMjcuNDcxMzc0NTExNzE4NzUgMTQ4Ljg4NTY2ODk0NTMxMjUyIC0yMS40NDI3NDkwMjM0Mzc1VjAuMFpNMjEyLjQ1NzEwNDQ5MjE4NzU0IDEuMjU3MTQxMTEzMjgxMjVRMjAzLjA5OTk2MzM3ODkwNjI3IDEuMjU3MTQxMTEzMjgxMjUgMTk4LjY2NDI0NTYwNTQ2ODc4IC0zLjYwNzE0MTExMzI4MTI1MDVRMTk0LjIyODUyNzgzMjAzMTMgLTguNDcxNDIzMzM5ODQzNzUxIDE5NC4yMjg1Mjc4MzIwMzEzIC0xOC45ODU2OTMzNTkzNzUwMDJWLTQwLjJIMTg3LjM5OTk4Nzc5Mjk2ODc3TDE4Ny41NzE0MTExMzI4MTI1MyAtNTEuNzcxMzg2NzE4NzVIMTkwLjg0Mjc0OTAyMzQzNzUzUTE5NS4zMjg1MTU2MjUwMDAwMiAtNTIuMTE0MjU3ODEyNSAxOTcuMzU3MTA0NDkyMTg3NTUgLTU0LjAzNTcyOTk4MDQ2ODc1UTE5OS4zODU2OTMzNTkzNzUwNCAtNTUuOTU3MjAyMTQ4NDM3NSAxOTkuODcxNDExMTMyODEyNTQgLTYwLjI0Mjk5MzE2NDA2MjUwNEwyMDAuNjcxMzg2NzE4NzUwMDMgLTY0LjY3MTQzNTU0Njg3NUgyMDkuODg1NjgxMTUyMzQzNzhWLTUyLjgwMDAwMDAwMDAwMDAwNEgyMjIuMzg1NjY4OTQ1MzEyNTVWLTM5Ljc0Mjg1ODg4NjcxODc1SDIwOS44ODU2ODExNTIzNDM3OFYtMjAuMDI4NTY0NDUzMTI1UTIwOS44ODU2ODExNTIzNDM3OCAtMTYuNDU3MTI4OTA2MjUwMDAyIDIxMS42MjEzOTg5MjU3ODEyOCAtMTQuODU3MTI4OTA2MjVRMjEzLjM1NzExNjY5OTIxODc4IC0xMy4yNTcxMjg5MDYyNTAwMDEgMjE2LjUxNDI0NTYwNTQ2ODc3IC0xMy4yNTcxMjg5MDYyNTAwMDFRMjE4LjE5OTk1MTE3MTg3NTAzIC0xMy4yNTcxMjg5MDYyNTAwMDEgMjE5LjgxNDIzMzM5ODQzNzUyIC0xMy42NTcxMjg5MDYyNTAwMDFRMjIxLjQyODUxNTYyNTAwMDA1IC0xNC4wNTcxMjg5MDYyNSAyMjIuNjE0MjMzMzk4NDM3NTMgLTE0Ljc1NzEyODkwNjI1MDAwMVYtMC4yUTIxOS40NTcwOTIyODUxNTYyOCAwLjc1NzE0MTExMzI4MTI1IDIxNi45MTQyMzk1MDE5NTMxNSAxLjAwNzE0MTExMzI4MTI1UTIxNC4zNzEzODY3MTg3NTAwNSAxLjI1NzE0MTExMzI4MTI1IDIxMi40NTcxMDQ0OTIxODc1NCAxLjI1NzE0MTExMzI4MTI1Wk0yMjguNjQyODEwMDU4NTkzNzcgMC4wVi0zMC45ODU2ODExNTIzNDM3NVYtNTIuODAwMDAwMDAwMDAwMDA0SDI0MS44ODU2ODExNTIzNDM3OEwyNDEuOTk5OTYzMzc4OTA2MjcgLTM0Ljc4NTYwNzkxMDE1NjI1SDI0My41NDI3OTc4NTE1NjI1NFEyNDQuNTQyNzg1NjQ0NTMxMjggLTQxLjMyODUwMzQxNzk2ODc1NCAyNDYuNzcxMzUwMDk3NjU2MyAtNDUuNjM1NjY4OTQ1MzEyNVEyNDguOTk5OTE0NTUwNzgxMjggLTQ5Ljk0MjgzNDQ3MjY1NjI1IDI1Mi42OTk5MTQ1NTA3ODEyNyAtNTIuMDcxNDE3MjM2MzI4MTNRMjU2LjM5OTkxNDU1MDc4MTI2IC01NC4yIDI2MS42OTk5MjY3NTc4MTI1MyAtNTQuMlEyNzAuNjk5OTE0NTUwNzgxMyAtNTQuMiAyNzUuMzM1NjIwMTE3MTg3NTUgLTQ4LjA0Mjg3MTA5Mzc1UTI3OS45NzEzMjU2ODM1OTM3NiAtNDEuODg1NzQyMTg3NSAyNzkuOTcxMzI1NjgzNTkzNzYgLTI4Ljg3MTUwODc4OTA2MjUwM1YwLjBIMjYzLjc3MTMyNTY4MzU5MzhWLTI2Ljk0MjkzMjEyODkwNjI1UTI2My43NzEzMjU2ODM1OTM4IC0zNC4wMDAwMjQ0MTQwNjI1IDI2MS43MjEzMzc4OTA2MjUgLTM3LjMwMDAwNjEwMzUxNTYzUTI1OS42NzEzNTAwOTc2NTYzIC00MC41OTk5ODc3OTI5Njg3NTQgMjU1LjQ5OTkzODk2NDg0Mzc4IC00MC41OTk5ODc3OTI5Njg3NTRRMjUyLjA0MjgxMDA1ODU5Mzc3IC00MC41OTk5ODc3OTI5Njg3NTQgMjQ5LjY1NzA5ODM4ODY3MTkgLTM4LjM4NTcwNTU2NjQwNjI1UTI0Ny4yNzEzODY3MTg3NTAwMiAtMzYuMTcxNDIzMzM5ODQzNzUgMjQ2LjAyODUyNzgzMjAzMTI3IC0zMS45ODU2OTMzNTkzNzVRMjQ0Ljc4NTY2ODk0NTMxMjUyIC0yNy43OTk5NjMzNzg5MDYyNTIgMjQ0Ljc4NTY2ODk0NTMxMjUyIC0yMS43ODU2MjAxMTcxODc1MDJWMC4wWk0yODcuNTQyODEwMDU4NTkzOCAwLjBWLTUyLjgwMDAwMDAwMDAwMDAwNEgzMDMuNjg1NjY4OTQ1MzEyNTZWMC4wWk0yOTUuNTk5OTUxMTcxODc1MDMgLTU4LjcxNDIyMTE5MTQwNjI1UTI5MC45OTk5NTExNzE4NzUgLTU4LjcxNDIyMTE5MTQwNjI1IDI4OC41NDk5NTExNzE4NzUgLTYwLjY1NDQ0NzA1MzYwODE0NVEyODYuMDk5OTUxMTcxODc1MDMgLTYyLjU5NDY3MjkxNTgxMDA0IDI4Ni4wOTk5NTExNzE4NzUwMyAtNjYuMjc2MTI3MTE1ODg1NDJRMjg2LjA5OTk1MTE3MTg3NTAzIC03MC4wNTcwODAwNzgxMjUgMjg4LjU0OTk1MTE3MTg3NSAtNzIuMDA3MDgwMDc4MTI1UTI5MC45OTk5NTExNzE4NzUgLTczLjk1NzA4MDA3ODEyNSAyOTUuNTk5OTUxMTcxODc1MDMgLTczLjk1NzA4MDA3ODEyNVEzMDAuMjk5OTUxMTcxODc1IC03My45NTcwODAwNzgxMjUgMzAyLjc0OTk1MTE3MTg3NTA3IC03MS45ODU2NTA2MzQ3NjU2MlEzMDUuMTk5OTUxMTcxODc1MDYgLTcwLjAxNDIyMTE5MTQwNjI1IDMwNS4xOTk5NTExNzE4NzUwNiAtNjYuMjg1MjU5MjU3Mjc3NFEzMDUuMTk5OTUxMTcxODc1MDYgLTYyLjY1NzA4MDA3ODEyNTAwNiAzMDIuNzQ5OTUxMTcxODc1MDcgLTYwLjY4NTY1MDYzNDc2NTYzUTMwMC4yOTk5NTExNzE4NzUgLTU4LjcxNDIyMTE5MTQwNjI1IDI5NS41OTk5NTExNzE4NzUwMyAtNTguNzE0MjIxMTkxNDA2MjVaTTMxMS45NDI4MTAwNTg1OTM3NSAwLjBWLTMwLjk4NTY4MTE1MjM0Mzc1Vi01Mi44MDAwMDAwMDAwMDAwMDRIMzI1LjE4NTY4MTE1MjM0Mzc2TDMyNS4yOTk5NjMzNzg5MDYzIC0zNC43ODU2MDc5MTAxNTYyNUgzMjYuODQyNzk3ODUxNTYyNVEzMjcuODQyNzg1NjQ0NTMxMjYgLTQxLjMyODUwMzQxNzk2ODc1NCAzMzAuMDcxMzUwMDk3NjU2MjUgLTQ1LjYzNTY2ODk0NTMxMjVRMzMyLjI5OTkxNDU1MDc4MTI0IC00OS45NDI4MzQ0NzI2NTYyNSAzMzUuOTk5OTE0NTUwNzgxMiAtNTIuMDcxNDE3MjM2MzI4MTNRMzM5LjY5OTkxNDU1MDc4MTMgLTU0LjIgMzQ0Ljk5OTkyNjc1NzgxMjUgLTU0LjJRMzUzLjk5OTkxNDU1MDc4MTMgLTU0LjIgMzU4LjYzNTYyMDExNzE4NzUgLTQ4LjA0Mjg3MTA5Mzc1UTM2My4yNzEzMjU2ODM1OTM4IC00MS44ODU3NDIxODc1IDM2My4yNzEzMjU2ODM1OTM4IC0yOC44NzE1MDg3ODkwNjI1MDNWMC4wSDM0Ny4wNzEzMjU2ODM1OTM4Vi0yNi45NDI5MzIxMjg5MDYyNVEzNDcuMDcxMzI1NjgzNTkzOCAtMzQuMDAwMDI0NDE0MDYyNSAzNDUuMDIxMzM3ODkwNjI1MDMgLTM3LjMwMDAwNjEwMzUxNTYzUTM0Mi45NzEzNTAwOTc2NTYzIC00MC41OTk5ODc3OTI5Njg3NTQgMzM4Ljc5OTkzODk2NDg0Mzc2IC00MC41OTk5ODc3OTI5Njg3NTRRMzM1LjM0MjgxMDA1ODU5MzggLTQwLjU5OTk4Nzc5Mjk2ODc1NCAzMzIuOTU3MDk4Mzg4NjcxOSAtMzguMzg1NzA1NTY2NDA2MjVRMzMwLjU3MTM4NjcxODc1MDAzIC0zNi4xNzE0MjMzMzk4NDM3NSAzMjkuMzI4NTI3ODMyMDMxMyAtMzEuOTg1NjkzMzU5Mzc1UTMyOC4wODU2Njg5NDUzMTI1MyAtMjcuNzk5OTYzMzc4OTA2MjUyIDMyOC4wODU2Njg5NDUzMTI1MyAtMjEuNzg1NjIwMTE3MTg3NTAyVjAuMFpNMzkxLjk3MTM3NDUxMTcxODggMTcuMzk5OTUxMTcxODc1UTM4My4xMjg1MTU2MjUwMDAwMyAxNy4zOTk5NTExNzE4NzUgMzc3LjY3MTM4MDYxNTIzNDQgMTYuMDI4NTIxNzI4NTE1NjI0UTM3Mi4yMTQyNDU2MDU0Njg4IDE0LjY1NzA5MjI4NTE1NjI1MSAzNjkuNzU3MTEwNTk1NzAzMiAxMi4wOTI4MTAwNTg1OTM3NVEzNjcuMjk5OTc1NTg1OTM3NTUgOS41Mjg1Mjc4MzIwMzEyNSAzNjcuMjk5OTc1NTg1OTM3NTUgNS45Mjg1NDAwMzkwNjI1MDFRMzY3LjI5OTk3NTU4NTkzNzU1IDEuNDE0MjU3ODEyNSAzNzAuODg1Njg3MjU1ODU5NCAtMS4zNzg1OTQ5NzA3MDMxMjVRMzc0LjQ3MTM5ODkyNTc4MTMgLTQuMTcxNDQ3NzUzOTA2MjUgMzgxLjM5OTk2MzM3ODkwNjMgLTQuODI4NjAxMDc0MjE4NzVWLTYuMjQyODU4ODg2NzE4NzVRMzc2LjA3MTM5ODkyNTc4MTMgLTYuMjQyODU4ODg2NzE4NzUgMzczLjE0MjgyODM2OTE0MDY2IC03LjYyMTQ0MTY1MDM5MDYyNVEzNzAuMjE0MjU3ODEyNSAtOS4wMDAwMjQ0MTQwNjI1IDM3MC4yMTQyNTc4MTI1IC0xMi4wNDI4ODMzMDA3ODEyNVEzNzAuMjE0MjU3ODEyNSAtMTQuODg1NzQyMTg3NSAzNzMuMDA3MTEwNTk1NzAzMSAtMTcuMTg1NzQyMTg3NVEzNzUuNzk5OTYzMzc4OTA2MyAtMTkuNDg1NzQyMTg3NSAzODIuMjU3MDkyMjg1MTU2MyAtMjAuMjI4NTc2NjYwMTU2MjVWLTIxLjcyODU1MjI0NjA5Mzc1MlEzNzYuMzk5OTYzMzc4OTA2MyAtMjIuNTcxNDIzMzM5ODQzNzUgMzcyLjk3MTM5ODkyNTc4MTMgLTI2LjE4NTcxMTY2OTkyMTg3NlEzNjkuNTQyODM0NDcyNjU2MyAtMjkuOCAzNjkuNTQyODM0NDcyNjU2MyAtMzUuNjQyODU4ODg2NzE4NzVRMzY5LjU0MjgzNDQ3MjY1NjMgLTQwLjY3MTQzNTU0Njg3NSAzNzIuMjc4NTQ2MTQyNTc4MiAtNDQuNjE0Mjg4MzMwMDc4MTI1UTM3NS4wMTQyNTc4MTI1MDAwMyAtNDguNTU3MTQxMTEzMjgxMjU0IDM4MC40Mjg1MzM5MzU1NDY5IC01MC44Nzg1NjQ0NTMxMjUwMVEzODUuODQyODEwMDU4NTkzOCAtNTMuMTk5OTg3NzkyOTY4NzU2IDM5My43NzEzNjIzMDQ2ODc1NiAtNTMuMTk5OTg3NzkyOTY4NzU2SDQyMC42OTk5MTQ1NTA3ODEzVi00MC45NzE0MTExMzI4MTI1MDZMNDAzLjM5OTg5MDEzNjcxODggLTQzLjIxNDI3MDAxOTUzMTI1NlYtNDEuNTAwMDEyMjA3MDMxMjU0UTQxMC42NzEzNTAwOTc2NTYzIC00MC41MTQyOTQ0MzM1OTM3NTQgNDEzLjUzNTYzODQyNzczNDQgLTM4LjE3ODU3MDU1NjY0MDYzUTQxNi4zOTk5MjY3NTc4MTI1IC0zNS44NDI4NDY2Nzk2ODc1MDQgNDE2LjM5OTkyNjc1NzgxMjUgLTMyLjA4NTcwNTU2NjQwNjI1NFE0MTYuMzk5OTI2NzU3ODEyNSAtMjguMjE0MjgyMjI2NTYyNTAzIDQxMy44NjQyMjExOTE0MDYzIC0yNS4yMDAwMDAwMDAwMDAwMDNRNDExLjMyODUxNTYyNSAtMjIuMTg1NzE3NzczNDM3NTAzIDQwNi40NTcwOTIyODUxNTYyNSAtMjAuNDc4NTc2NjYwMTU2MjVRNDAxLjU4NTY2ODk0NTMxMjUzIC0xOC43NzE0MzU1NDY4NzUgMzk0LjU1NzA5MjI4NTE1NjMgLTE4Ljc3MTQzNTU0Njg3NVEzOTIuOTI4NTAzNDE3OTY4OCAtMTguNzcxNDM1NTQ2ODc1IDM5MS4xMzU2MzIzMjQyMTg4IC0xOC45MTQyOTQ0MzM1OTM3NTNRMzg5LjM0Mjc2MTIzMDQ2ODggLTE5LjA1NzE1MzMyMDMxMjUgMzg2LjQyODUxNTYyNTAwMDA1IC0xOS40NTcxNTMzMjAzMTI1UTM4NC43ODU2NTY3MzgyODEzIC0xOC4zNTcxNjU1MjczNDM3NSAzODMuODY0MjI3Mjk0OTIxOTMgLTE3LjQ5Mjg4MzMwMDc4MTI1UTM4Mi45NDI3OTc4NTE1NjI1NSAtMTYuNjI4NjAxMDc0MjE4NzUgMzgyLjk0Mjc5Nzg1MTU2MjU1IC0xNS44Mjg2MDEwNzQyMTg3NTFRMzgyLjk0Mjc5Nzg1MTU2MjU1IC0xNS4yNzE0NTk5NjA5Mzc1IDM4My4zOTk5Mzg5NjQ4NDM4IC0xNC45MzU3NDgyOTEwMTU2MjRRMzgzLjg1NzA4MDA3ODEyNSAtMTQuNjAwMDM2NjIxMDkzNzUgMzg0LjcyMTM2MjMwNDY4NzU1IC0xNC40NDI4OTU1MDc4MTI1MDFRMzg1LjU4NTY0NDUzMTI1MDA3IC0xNC4yODU3NTQzOTQ1MzEyNTEgMzg2LjY0Mjc4NTY0NDUzMTMgLTE0LjI4NTc1NDM5NDUzMTI1MUg0MDIuNjk5OTI2NzU3ODEyNTNRNDA0Ljc0Mjc4NTY0NDUzMTMgLTE0LjI4NTc1NDM5NDUzMTI1MSA0MDcuOTQ5OTI2NzU3ODEyNTMgLTE0LjAzNTc1NDM5NDUzMTI1MVE0MTEuMTU3MDY3ODcxMDkzOCAtMTMuNzg1NzU0Mzk0NTMxMjUxIDQxNC4zNjQyMDg5ODQzNzUwNyAtMTIuNTA3MTgzODM3ODkwNjI2UTQxNy41NzEzNTAwOTc2NTYzIC0xMS4yMjg2MTMyODEyNSA0MTkuNzU3MDYxNzY3NTc4MiAtOC4zMjg2MTMyODEyNVE0MjEuOTQyNzczNDM3NSAtNS40Mjg2MTMyODEyNTAwMDA1IDQyMS45NDI3NzM0Mzc1IC0wLjA3MTQ3MjE2Nzk2ODc1UTQyMS45NDI3NzM0Mzc1IDUuODcxMzg2NzE4NzUgNDE4LjcwNzA2MTc2NzU3ODEgOS43NTcwOTgzODg2NzE4NzZRNDE1LjQ3MTM1MDA5NzY1NjMgMTMuNjQyODEwMDU4NTkzNzUxIDQwOC44NDI3ODU2NDQ1MzEzIDE1LjUyMTM4MDYxNTIzNDM3NFE0MDIuMjE0MjIxMTkxNDA2MyAxNy4zOTk5NTExNzE4NzUgMzkxLjk3MTM3NDUxMTcxODggMTcuMzk5OTUxMTcxODc1Wk0zOTMuMTcxMzM3ODkwNjI1MDcgMy45OTk5MjY3NTc4MTI1UTM5OS4zNTcwNjc4NzEwOTM4IDMuOTk5OTI2NzU3ODEyNSA0MDIuNTU3MDY3ODcxMDkzOCAzLjQ2NDIxNTA4Nzg5MDYyNTNRNDA1Ljc1NzA2Nzg3MTA5MzggMi45Mjg1MDM0MTc5Njg3NTA0IDQwNi44OTk5MjA2NTQyOTY5IDEuODQyNzk3ODUxNTYyNVE0MDguMDQyNzczNDM3NTAwMDUgMC43NTcwOTIyODUxNTYyNSA0MDguMDQyNzczNDM3NTAwMDUgLTAuODE0MzE4ODQ3NjU2MjUwMVE0MDguMDQyNzczNDM3NTAwMDUgLTIuNDQyODgzMzAwNzgxMjUwMyA0MDcuMjk5OTE0NTUwNzgxMyAtMy4zODU3MzYwODM5ODQzNzU1UTQwNi41NTcwNTU2NjQwNjI1NSAtNC4zMjg1ODg4NjcxODc1IDQwNS40MTQxOTY3NzczNDM4IC00LjcwNzE1OTQyMzgyODEyNVE0MDQuMjcxMzM3ODkwNjI1MDMgLTUuMDg1NzI5OTgwNDY4NzUgNDAzLjEyMTMzNzg5MDYyNSAtNS4xNjQzMDA1MzcxMDkzNzU1UTQwMS45NzEzMzc4OTA2MjUgLTUuMjQyODcxMDkzNzUwMDAxIDQwMS4yMTQxOTY3NzczNDM4IC01LjI0Mjg3MTA5Mzc1MDAwMUgzODguMDU3MDQzNDU3MDMxM1EzODQuNTcxMzM3ODkwNjI1MDUgLTQuNzcxNDIzMzM5ODQzNzUgMzgzLjA3ODQ5MTIxMDkzNzU2IC0zLjM2NDI5NDQzMzU5Mzc1UTM4MS41ODU2NDQ1MzEyNTAwNyAtMS45NTcxNjU1MjczNDM3NSAzODEuNTg1NjQ0NTMxMjUwMDcgLTAuMDcxNDcyMTY3OTY4NzVRMzgxLjU4NTY0NDUzMTI1MDA3IDEuNjE0MjMzMzk4NDM3NTAwMSAzODIuODQ5OTMyODYxMzI4MTcgMi40OTI3OTc4NTE1NjI1UTM4NC4xMTQyMjExOTE0MDYzIDMuMzcxMzYyMzA0Njg3NSAzODYuNjc4NTAzNDE3OTY4OCAzLjY4NTY0NDUzMTI1MDAwMDRRMzg5LjI0Mjc4NTY0NDUzMTMgMy45OTk5MjY3NTc4MTI1IDM5My4xNzEzMzc4OTA2MjUwNyAzLjk5OTkyNjc1NzgxMjVaTTM5My40OTk5NTExNzE4NzUwNyAtMjcuMTE0MzA2NjQwNjI1MDAzUTM5Ny4zMjg1MDM0MTc5Njg4IC0yNy4xMTQzMDY2NDA2MjUwMDMgMzk5LjMwNzA2Nzg3MTA5MzggLTI5LjI4NTcyOTk4MDQ2ODc1UTQwMS4yODU2MzIzMjQyMTg4IC0zMS40NTcxNTMzMjAzMTI1IDQwMS4yODU2MzIzMjQyMTg4IC0zNC45NTcxNTMzMjAzMTI1UTQwMS4yODU2MzIzMjQyMTg4IC0zOC42Mjg1NzY2NjAxNTYyNTYgMzk5LjI1NzA2Nzg3MTA5MzggLTQwLjk1UTM5Ny4yMjg1MDM0MTc5Njg4IC00My4yNzE0MjMzMzk4NDM3NSAzOTMuNTE0MjMzMzk4NDM3NTcgLTQzLjI3MTQyMzMzOTg0Mzc1UTM4OS43ODU2ODExNTIzNDM4IC00My4yNzE0MjMzMzk4NDM3NSAzODcuNjc4NTQ2MTQyNTc4MTcgLTQwLjk1UTM4NS41NzE0MTExMzI4MTI1NiAtMzguNjI4NTc2NjYwMTU2MjU2IDM4NS41NzE0MTExMzI4MTI1NiAtMzQuOTU3MTUzMzIwMzEyNVEzODUuNTcxNDExMTMyODEyNTYgLTMyLjY1NzE1MzMyMDMxMjUgMzg2LjQ4NTY5MzM1OTM3NTEgLTMwLjg3MTQ0MTY1MDM5MDYzUTM4Ny4zOTk5NzU1ODU5Mzc1NyAtMjkuMDg1NzI5OTgwNDY4NzUyIDM4OS4xNzg1NDAwMzkwNjI1NyAtMjguMTAwMDE4MzEwNTQ2ODhRMzkwLjk1NzEwNDQ5MjE4NzU3IC0yNy4xMTQzMDY2NDA2MjUwMDMgMzkzLjQ5OTk1MTE3MTg3NTA3IC0yNy4xMTQzMDY2NDA2MjUwMDNaIiBmaWxsPSIjMEQyMjMzIi8+PC9zdmc+" alt="Lightning logo"></figure>
+</header>
+
+<!-- ================= PART C · PHONE (3.25) ================= -->
+<svg class="pf-sprite" aria-hidden="true" data-part="c">
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+  <symbol id="i-wallet" viewBox="0 0 24 24"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="m19 9-5 5-4-4-3 3"/></symbol>
+  <symbol id="i-bank" viewBox="0 0 24 24"><path d="M3 22h18"/><path d="M6 18v-7"/><path d="M10 18v-7"/><path d="M14 18v-7"/><path d="M18 18v-7"/><path d="M12 2 20 7H4z"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/></symbol>
+  <symbol id="i-heart" viewBox="0 0 24 24"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+  <symbol id="i-trend" viewBox="0 0 24 24"><path d="M16 7h6v6"/><path d="m22 7-8.5 8.5-5-5L2 17"/></symbol>
+  <symbol id="i-pie" viewBox="0 0 24 24"><path d="M21 12c.552 0 1.005-.449.95-.998a10 10 0 0 0-8.953-8.951c-.55-.055-.998.398-.998.95v8a1 1 0 0 0 1 1z"/><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/></symbol>
+</svg>
+
+<section class="g" id="c-rules" data-part="c">
+  <div class="g-head"><div><h2><span class="secnum">C01</span>Rules</h2><p>The app on a phone. Same logo, colours, type and numbers as Part A; where they differ on a phone, Part C wins. Anything not named here follows Part A.</p></div></div>
+  <div class="rtiles">
+    <div class="rt"><div class="vis"><span class="num" style="font-size:22px">360 × 800</span></div><b>Design at 360</b><span>One column. Check it at 320; nothing breaks.</span></div>
+    <div class="rt"><div class="vis" style="justify-content:flex-start"><span class="chip">Summary</span><span class="chip">Spending</span><span class="chip" style="opacity:.4">H…</span></div><b>Nothing scrolls sideways</b><span>Not tabs, not tables, not charts. Never a cut word.</span></div>
+    <div class="rt"><div class="vis"><svg class="ic" style="width:26px;height:26px;color:var(--nile)"><use href="#i-home"/></svg><svg class="ic" style="width:26px;height:26px;color:var(--muted)"><use href="#i-wallet"/></svg><svg class="ic" style="width:26px;height:26px;color:var(--muted)"><use href="#i-shield"/></svg></div><b>Thumbs at the bottom</b><span>Sections in the tab bar, the main action in reach.</span></div>
+    <div class="rt"><div class="vis"><span class="num" style="font-size:26px">48</span><span class="unit">× 48</span></div><b>48 to touch</b><span>Every target, even a small icon or a row.</span></div>
+    <div class="rt"><div class="vis" style="flex-direction:column;gap:4px;justify-content:center"><i style="display:block;width:100%;height:10px;border-radius:4px;background:repeating-linear-gradient(135deg,var(--t-rose) 0 5px,transparent 5px 10px)"></i><i style="display:block;width:100%;height:22px;border-radius:6px;background:var(--white);border:1px solid var(--line)"></i></div><b>Clear of the bars</b><span>Nothing under the clock, the notch or the gesture bar.</span></div>
+    <div class="rt"><div class="vis"><svg viewBox="0 0 120 40" width="120" height="40"><path d="M4 34 L40 18 L64 10 L116 22" fill="none" stroke="var(--azure)" stroke-width="2.5"/><circle cx="116" cy="22" r="4" fill="var(--azure)"/></svg></div><b>Redraw, don't shrink</b><span>A desktop chart is rebuilt for the phone, never scaled down.</span></div>
+    <div class="rt"><div class="vis"><span class="chip up">Tap</span><span class="chip" style="text-decoration:line-through">Hover</span></div><b>No hover</b><span>What a tooltip says is on screen or one tap away.</span></div>
+  </div>
+</section>
+
+<section class="g" id="c-frame" data-part="c">
+  <div class="g-head"><div><h2><span class="secnum">C02</span>Frame and safe areas</h2><p>Five bands, top to bottom. Only the content band scrolls.</p></div></div>
+  <div class="zones">
+    <div class="zf">
+      <div class="z-safe">C02.1 Status bar <span>inset</span></div>
+      <div class="z-bar">C02.2 App bar <span>56</span></div>
+      <div class="z-body"><div style="border:0;padding:0;display:flex;justify-content:space-between">C02.3 Content <span>scrolls</span></div><i class="k"></i><i></i><i></i><div class="z-pad" style="border:0;padding:0"><span>16 sides · 12 between cards</span></div></div>
+      <div class="z-nav">C02.4 Tab bar <span>64</span></div>
+      <div class="z-gest">C02.5 Gesture bar <span>inset</span></div>
+    </div>
+    <div>
+      <ol class="anat" style="display:block;margin:0;padding-left:20px;color:var(--ink2)">
+        <li style="margin:8px 0"><b>Status bar:</b> the phone's. Our page starts under it: <code>padding-top: env(safe-area-inset-top)</code>. The logo never sits under the clock.</li>
+        <li style="margin:8px 0"><b>App bar, 56:</b> the mark on the left, up to three icons on the right (C03.2). Stays on top; after the page title scrolls away, the title moves into it at 17px.</li>
+        <li style="margin:8px 0"><b>Content:</b> 16 at the sides, 12 between cards, 32 between sections. One column. Its last card stops above the tab bar, never behind it.</li>
+        <li style="margin:8px 0"><b>Tab bar, 64:</b> the five sections (C03.1). Hidden while the keyboard or a sheet is open.</li>
+        <li style="margin:8px 0"><b>Gesture bar:</b> the phone's. The tab bar adds <code>padding-bottom: env(safe-area-inset-bottom)</code> so nothing sits on it.</li>
+      </ol>
+      <div class="dd">
+        <div class="y">One thing fixed at the top, one at the bottom. Content scrolls between them.<small>App bar and tab bar only</small></div>
+        <div class="n">A sticky chip or card that slides under the tab bar and shows through it.<small>Seen on Overview, 2026-10-06</small></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="g" id="c-nav" data-part="c">
+  <div class="g-head"><div><h2><span class="secnum">C03</span>Navigation</h2><p>The sidebar becomes a tab bar at the bottom. Two levels still: a section, then a tab.</p></div></div>
+  <h3 class="sub"><span class="subnum">C03.1</span>Tab bar: the five sections</h3>
+  <div style="max-width:360px;border-radius:20px;overflow:hidden;border:1px solid var(--line);box-shadow:var(--shadow)">
+    <div class="pf-nav"><span class="on"><i><svg class="ic"><use href="#i-home"/></svg></i>Overview</span><span><i><svg class="ic"><use href="#i-wallet"/></svg></i>Budget</span><span><i><svg class="ic"><use href="#i-shield"/></svg></i>Cash</span><span><i><svg class="ic"><use href="#i-chart"/></svg></i>Investments</span><span><i><svg class="ic"><use href="#i-bank"/></svg></i>Accounts</span></div>
+    <div class="pf-gest"></div>
+  </div>
+  <ul class="short">
+    <li><b>Five slots:</b> Overview, Budget, Cash (Cash planning), Investments, Accounts. A sixth section never gets a slot; it opens from Settings.</li>
+    <li><b>Each slot:</b> a 24px Lucide icon over an 11px name. Chosen: a Nile pill behind the icon and an Ink name. Others: Muted.</li>
+    <li><b>Accounts is a section:</b> the desktop's Accounts bar under the menu leaves the top of every page. Its total opens the Accounts tab, in whole EGP.</li>
+  </ul>
+
+  <h3 class="sub"><span class="subnum">C03.2</span>App bar</h3>
+  <div style="max-width:360px" class="pf"><div class="pf-bar"><img class="pf-mark" alt="Lightning"><span class="pf-icon" title="Search"><svg class="ic"><use href="#i-search"/></svg></span><span class="pf-icon" title="Hide amounts"><svg class="ic"><use href="#i-eye"/></svg></span><span class="pf-icon" title="Settings"><svg class="ic"><use href="#i-gear"/></svg></span></div></div>
+  <ul class="short">
+    <li><b>Left:</b> the mark alone, 28px, no wordmark. On an inner page, ‹ and the page it returns to (“‹ Accounts”).</li>
+    <li><b>Right, in this order:</b> Search, Hide amounts, Settings. 44px targets, 22px icons. Search opens full screen; no “Ctrl K” on a phone.</li>
+    <li><b>The tab's gear</b> moves here from the end of the tab bar (A10.4): Settings opens the current tab's settings first.</li>
+  </ul>
+
+  <h3 class="sub"><span class="subnum">C03.3</span>Tabs inside a section</h3>
+  <div class="grid2" style="max-width:740px">
+    <div><div class="pf-seg"><span class="on"><svg class="ic"><use href="#i-home"/></svg>Summary</span><span><svg class="ic"><use href="#i-list"/></svg>Spending</span><span><svg class="ic"><use href="#i-heart"/></svg>Health</span></div><p class="cap">Up to three tabs: icon and name, equal widths</p></div>
+    <div><div class="pf-seg icons"><span class="on"><svg class="ic"><use href="#i-list"/></svg>Plan</span><span title="Recurring"><svg class="ic"><use href="#i-trend"/></svg></span><span title="Loans"><svg class="ic"><use href="#i-bank"/></svg></span><span title="Reserves"><svg class="ic"><use href="#i-shield"/></svg></span></div><p class="cap">Four or five: icons, and the chosen tab also shows its name</p></div>
+  </div>
+  <ul class="short">
+    <li>Full width under the period control, 48 tall. The track never scrolls and no name is cut.</li>
+    <li>Swiping the content left or right does not change tabs: charts and rows need the swipe.</li>
+  </ul>
+
+  <h3 class="sub"><span class="subnum">C03.4</span>Going deeper and back</h3>
+  <ul class="short">
+    <li>An account, a holding or a category opens as a full page with ‹ in the app bar. The tab bar stays, its section still chosen.</li>
+    <li>The phone's back gesture does what ‹ does. From a section's first page it goes to Overview, then leaves the app.</li>
+  </ul>
+</section>
+
+<section class="g" id="c-header" data-part="c">
+  <div class="g-head"><div><h2><span class="secnum">C04</span>Page header</h2><p>A05 on a phone: the title, its dates, the period control, then the tabs. Four rows, nothing beside them.</p></div></div>
+  <div class="grid2" style="max-width:760px;align-items:start">
+    <div class="pf" style="padding:16px;gap:12px">
+      <div class="pf-title"><h3>Overview</h3><p>2026-01-01 to 2026-10-06 <span>year to date</span></p></div>
+      <div class="pf-period"><span>All</span><span class="on">YTD</span><span class="step"><i>‹</i>2026-10<i>›</i></span><span>Custom</span></div>
+      <div class="pf-seg"><span class="on"><svg class="ic"><use href="#i-home"/></svg>Summary</span><span><svg class="ic"><use href="#i-list"/></svg>Spending</span><span><svg class="ic"><use href="#i-heart"/></svg>Health</span></div>
+      <div class="pf-need">Needs you <em>18</em><svg class="ic"><use href="#i-down"/></svg></div>
+    </div>
+    <ol style="margin:0;padding-left:20px;color:var(--ink2)">
+      <li style="margin:6px 0"><b style="color:var(--ink)">C04.1 Title,</b> 24px, and under it the exact dates with their Muted note.</li>
+      <li style="margin:6px 0"><b style="color:var(--ink)">C04.2 Period control,</b> full width: All, YTD, ‹ month ›, Custom. Never “Monthly”, never a word cut at the edge. Custom opens a sheet with two date pickers.</li>
+      <li style="margin:6px 0"><b style="color:var(--ink)">C04.3 Tabs</b> (C03.3).</li>
+      <li style="margin:6px 0"><b style="color:var(--ink)">C04.4 Needs you,</b> one 56px row: dot, name, count. It opens a sheet with the items. The first item's text never squeezes into the row.</li>
+      <li style="margin:6px 0"><b style="color:var(--ink)">C04.5 One page action</b> sits beside the title as a 40px Secondary, or becomes the add button (C05.2). Anything more goes behind ⋯.</li>
+    </ol>
+  </div>
+</section>
+
+<section class="g" id="c-touch" data-part="c">
+  <div class="g-head"><div><h2><span class="secnum">C05</span>Touch and buttons</h2><p>A10 with bigger targets and no hover.</p></div></div>
+  <h3 class="sub"><span class="subnum">C05.1</span>Sizes</h3>
+  <div class="scroll"><table class="t" style="max-width:760px">
+    <tr><th>Control</th><th>Desktop (A)</th><th>Phone (C)</th><th>Where</th></tr>
+    <tr><td><b>Primary, Secondary</b></td><td class="r">44</td><td class="r">48</td><td>Page and sheet; full width at the bottom of a sheet</td></tr>
+    <tr><td><b>In a card</b></td><td class="r">36</td><td class="r">40</td><td>Card actions, segments, chips</td></tr>
+    <tr><td><b>Row</b></td><td class="r">30</td><td class="r">56 min</td><td>The whole row is the target</td></tr>
+    <tr><td><b>Icon button</b></td><td class="r">36</td><td class="r">44</td><td>22px icon in a 44 circle</td></tr>
+    <tr><td><b>Quiet link</b></td><td class="r">text</td><td class="r">44 tall</td><td>“See spending”, “Show the numbers”</td></tr>
+    <tr><td><b>Field</b></td><td class="r">44</td><td class="r">48</td><td>Amount 56. Text 16px so the phone does not zoom</td></tr>
+  </table></div>
+
+  <h3 class="sub"><span class="subnum">C05.2</span>The add button</h3>
+  <div class="demo-row"><span style="width:56px;height:56px;border-radius:18px;background:var(--nile);color:var(--on-nile);display:grid;place-items:center;box-shadow:0 14px 26px -12px rgba(10,36,66,.6)"><svg class="ic" style="width:24px;height:24px"><use href="#i-plus"/></svg></span><span class="note">56px, Nile, 16 from the right edge and 16 above the tab bar. Only on pages whose main job is adding: Accounts and an account. It opens the entry sheet (C09). Its name, “Add transaction”, is its accessible label.</span></div>
+
+  <h3 class="sub"><span class="subnum">C05.3</span>Pairs, rows and icons</h3>
+  <div class="ddrows" style="max-width:760px">
+    <div class="ddrow"><div class="y">One Secondary, then ⋯ for the rest</div><div class="n">Two Secondaries side by side (Change ownership, More actions)</div></div>
+    <div class="ddrow"><div class="y">Tap a row to open it; its actions are in the sheet</div><div class="n">Delete and restore icons on each row</div></div>
+    <div class="ddrow"><div class="y">Press and hold a row to select; a bar shows the count and actions</div><div class="n">A checkbox column</div></div>
+    <div class="ddrow"><div class="y">An icon alone only in the app bar and tab bar</div><div class="n">An icon that needs a tooltip to be understood</div></div>
+  </div>
+</section>
+
+<section class="g" id="c-cards" data-part="c">
+  <div class="g-head"><div><h2><span class="secnum">C06</span>Cards and KPIs</h2><p>The four cards keep their jobs. They get shorter, and KPIs share a row.</p></div></div>
+  <h3 class="sub"><span class="subnum">C06.1</span>KPI tiles, two by two</h3>
+  <div style="max-width:360px" class="kt-grid">
+    <div class="kt"><div class="top"><span class="ico"><svg class="ic"><use href="#i-trend"/></svg></span><span class="chip up">↑ YTD</span></div><div class="lbl">Change in net worth</div><div class="fig num">+37,884</div><div class="foot">Net worth <b>156,084</b></div></div>
+    <div class="kt"><div class="top"><span class="ico"><svg class="ic"><use href="#i-pie"/></svg></span><span class="chip up">↑ YTD</span></div><div class="lbl">Savings rate</div><div class="fig num">49.1<small>%</small></div><div class="foot">Kept <b>69,013</b></div></div>
+    <div class="kt azure"><div class="top"><span class="ico"><svg class="ic"><use href="#i-chart"/></svg></span><span class="chip up">↑ YTD</span></div><div class="lbl">Investing rate</div><div class="fig num">49.1<small>%</small></div><div class="meter"><i style="width:49%"></i></div></div>
+    <div class="kt rose"><div class="top"><span class="ico"><svg class="ic"><use href="#i-wallet"/></svg></span><span class="chip">2026-10</span></div><div class="lbl">Left in plan</div><div class="fig num">24,698</div><div class="meter"><i style="width:2%"></i></div></div>
+  </div>
+  <ul class="short">
+    <li><b>Up to four, in a 2 × 2 grid,</b> at the top of the page. Same tones and chips as A08; the chip says the period in five characters or fewer.</li>
+    <li><b>Inside a tile:</b> icon and chip, the label (two lines at most), the figure at 26px (22 when long), then one line or a meter. No sparkline: the trend lives in its own card below.</li>
+    <li><b>Tap the tile</b> to open the page it sums up. The tile has no button.</li>
+  </ul>
+
+  <h3 class="sub"><span class="subnum">C06.2</span>Lead and support, stacked</h3>
+  <div class="grid2" style="max-width:760px">
+    <div class="pf-card lead"><h4>Net worth</h4><p class="sub">Excludes money held for others</p><div class="big num">156,084<small>EGP</small></div><div class="pf-rows"><div><span>What you own</span><b>261,024</b></div><div><span>What you owe</span><b>−104,940</b></div></div></div>
+    <ul class="short" style="margin:0">
+      <li>Lead first, its support card under it. Never side by side.</li>
+      <li>16 inside, 20px corners, 12 between. The figure 40px, 34 when long.</li>
+      <li>Rows 48 tall. A row with › opens its parts in place.</li>
+      <li>“Show the numbers” opens a sheet of rows, never a table in the card.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="g" id="c-charts" data-part="c">
+  <div class="g-head"><div><h2><span class="secnum">C07</span>Charts</h2><p>Every chart in A12 has one phone form. Most are redrawn; a few become rows.</p></div></div>
+  <h3 class="sub"><span class="subnum">C07.1</span>Rules for every chart</h3>
+  <ul class="short">
+    <li><b>Full card width,</b> 140 to 180 tall. One chart per card.</li>
+    <li><b>Three labels on a time axis at most:</b> first, middle, last. No y-axis labels; one line at zero.</li>
+    <li><b>Never a cut label.</b> If a name does not fit on the mark, the mark loses its label and the name goes in the rows under the chart.</li>
+    <li><b>Tap or drag to read:</b> the card's figure shows the value under the finger, and returns when you let go. No tooltips.</li>
+    <li><b>No legend sentence.</b> Colour is explained by the rows, or by one word on each end of a scale.</li>
+  </ul>
+
+  <h3 class="sub"><span class="subnum">C07.2</span>From desktop to phone</h3>
+  <div class="scroll"><table class="t" style="max-width:900px">
+    <tr><th>Desktop (A12)</th><th>On a phone</th><th>Why</th></tr>
+    <tr><td><b>Area trend, line trend</b></td><td>Same chart, 160 tall, three dates, end value on the line</td><td>Reads at any width</td></tr>
+    <tr><td><b>Sparkline in a KPI</b></td><td>Removed from the tile</td><td>Too small to read at 150px</td></tr>
+    <tr><td><b>Waterfall (money in to net flow)</b></td><td>Horizontal waterfall: one row per step, bar under its name (C07.3.2)</td><td>Four columns leave no room for names</td></tr>
+    <tr><td><b>Flow (where money in went)</b></td><td>Two stacked bars, in and out, on one scale, then rows (C07.3.3)</td><td>Flow labels end up cut (“Housi…”)</td></tr>
+    <tr><td><b>Donut</b></td><td>Same, 168 wide, total in the hole; rows under it, four then Other</td><td>Already one column</td></tr>
+    <tr><td><b>Month grid (12 columns)</b></td><td>4 × 3 grid of month tiles with the amount in each (C07.3.4)</td><td>12 columns are 22px each</td></tr>
+    <tr><td><b>Bars with names on the left</b></td><td>Name and amount on one line, the bar under them (C07.3.5)</td><td>A name column takes a third of the width</td></tr>
+    <tr><td><b>Stacked area</b></td><td>Same, 180 tall, legend as rows under it</td><td>Legend above wraps into lines</td></tr>
+    <tr><td><b>Forecast with range</b></td><td>Same, 180 tall, “Today” line kept</td><td>Reads at any width</td></tr>
+    <tr><td><b>Any table of figures</b></td><td>Rows: name left, amount right; more columns go in the row's sheet</td><td>Tables scroll sideways</td></tr>
+  </table></div>
+
+  <h3 class="sub"><span class="subnum">C07.3</span>Specimens at 360</h3>
+  <div class="pgrid">
+    <article class="viz t-azure st-app pv"><header><h4>C07.3.1 Area trend</h4><span class="st">Phone</span></header>
+      <div class="vhead"><div class="num">156,084<span class="unit">EGP</span></div><p>Net worth, end of each month</p></div>
+      <div class="well"><svg class="viz-svg" viewBox="0 0 300 150"><path d="M8 104 L56 86 L104 50 L152 51 L200 56 L248 59 L284 54 L284 140 L8 140Z" fill="var(--azure)" opacity=".12"/><path d="M8 104 L56 86 L104 50 L152 51 L200 56 L248 59 L284 54" fill="none" stroke="var(--azure)" stroke-width="2.5" stroke-linejoin="round"/><line x1="8" y1="140" x2="292" y2="140" stroke="var(--line)"/><circle cx="284" cy="54" r="5" fill="var(--azure)" stroke="var(--white)" stroke-width="2"/><text x="284" y="38" text-anchor="end" font-size="12" font-weight="800" fill="var(--ink)">156,084</text><g font-size="11" fill="var(--muted)" font-weight="600"><text x="8" y="149">2026-04</text><text x="146" y="149" text-anchor="middle">2026-07</text><text x="292" y="149" text-anchor="end">2026-10</text></g></svg></div>
+    </article>
+
+    <article class="viz st-app pv"><header><h4>C07.3.2 Horizontal waterfall</h4><span class="st">Phone</span></header>
+      <div class="vhead"><div class="num">+69,013<span class="unit">EGP</span></div><p>Net flow, year to date</p></div>
+      <div class="well wf">
+        <div><p>Money in <b>140,500</b></p><div class="tr"><i style="left:0;width:100%;--c:var(--green)"></i></div></div>
+        <div><p>Personal <b>−63,987</b></p><div class="tr"><i style="left:54.5%;width:45.5%;--c:var(--rose)"></i></div></div>
+        <div><p>System <b>−7,500</b></p><div class="tr"><i style="left:49.1%;width:5.4%;--c:var(--rose)"></i></div></div>
+        <div><p><span style="color:var(--ink);font-weight:800">Net flow</span> <b>69,013</b></p><div class="tr"><i style="left:0;width:49.1%;--c:var(--azure)"></i></div></div>
+      </div>
+    </article>
+
+    <article class="viz t-rose st-app pv"><header><h4>C07.3.3 Where money in went</h4><span class="st">Phone</span></header>
+      <div class="vhead"><div class="num">140,500<span class="unit">EGP</span></div><p>Money in, year to date</p></div>
+      <div class="well">
+        <div class="stk-l"><span>In</span></div>
+        <div class="stk"><i style="flex:135000;--c:var(--green)"></i><i style="flex:5500;--c:color-mix(in srgb,var(--green) 50%,var(--white))"></i></div>
+        <div class="stk-l"><span>Out and kept</span></div>
+        <div class="stk"><i style="flex:36000;--c:var(--rose-strong)"></i><i style="flex:14002;--c:var(--rose)"></i><i style="flex:7500;--c:color-mix(in srgb,var(--rose) 55%,var(--white))"></i><i style="flex:13985;--c:var(--neutral)"></i><i style="flex:69013;--c:var(--green)"></i></div>
+        <div class="lrows" style="margin-top:8px">
+          <div style="--c:var(--green)"><span>Salary</span><b>135,000</b><small>96%</small></div>
+          <div style="--c:color-mix(in srgb,var(--green) 50%,var(--white))"><span>Interest</span><b>5,500</b><small>4%</small></div>
+          <div style="--c:var(--rose-strong)"><span>Housing</span><b>36,000</b><small>26%</small></div>
+          <div style="--c:var(--rose)"><span>Food</span><b>14,002</b><small>10%</small></div>
+          <div style="--c:color-mix(in srgb,var(--rose) 55%,var(--white))"><span>Loan</span><b>7,500</b><small>5%</small></div>
+          <div style="--c:var(--neutral)"><span>Other</span><b>13,985</b><small>10%</small></div>
+          <div style="--c:var(--green)"><span style="color:var(--ink);font-weight:800">Kept</span><b>69,013</b><small>49%</small></div>
+        </div>
+      </div>
+    </article>
+
+    <article class="viz t-rose st-app pv"><header><h4>C07.3.4 Month grid</h4><span class="st">Phone</span></header>
+      <div class="vhead"><div class="num">24,754<span class="unit">EGP</span></div><p>Most spent, 2026-05</p></div>
+      <div class="well">
+        <div class="hm">
+          <span class="none">Jan<b>–</b></span><span class="none">Feb<b>–</b></span><span class="none">Mar<b>–</b></span><span style="--c:color-mix(in srgb,var(--rose) 35%,var(--white))">Apr<b>18,240</b></span>
+          <span class="dk" style="--c:var(--rose-strong)">May<b>24,754</b></span><span style="--c:var(--rose)">Jun<b>21,020</b></span><span style="--c:color-mix(in srgb,var(--rose) 55%,var(--white))">Jul<b>19,480</b></span><span style="--c:color-mix(in srgb,var(--rose) 55%,var(--white))">Aug<b>20,110</b></span>
+          <span style="--c:var(--rose)">Sep<b>22,300</b></span><span style="--c:var(--t-rose)">Oct<b>6,120</b></span><span class="fut">Nov<b></b></span><span class="fut">Dec<b></b></span>
+        </div>
+        <div class="stk-l" style="margin:10px 0 4px"><span>Less</span><span>More</span></div>
+      </div>
+    </article>
+
+    <article class="viz t-neutral st-app pv"><header><h4>C07.3.5 Bars, name above</h4><span class="st">Phone</span></header>
+      <div class="vhead"><div class="num">9,777<span class="unit">EGP</span></div><p>Free cash</p></div>
+      <div class="well hbars">
+        <div><p>Cash you own <b>72,663</b></p><i style="width:100%;--c:var(--azure)"></i></div>
+        <div><p>Reserves <b>−20,000</b></p><i style="width:27.5%;--c:var(--rose)"></i></div>
+        <div><p>Bills due <b>−62,440</b></p><i style="width:85.9%;--c:var(--rose)"></i></div>
+        <div><p><span style="color:var(--ink);font-weight:800">Free cash</span> <b>9,777</b></p><i style="width:13.5%;--c:var(--green)"></i></div>
+      </div>
+    </article>
+  </div>
+</section>
+
+<section class="g" id="c-lists" data-part="c">
+  <div class="g-head"><div><h2><span class="secnum">C08</span>Lists and transactions</h2><p>The register becomes a list grouped by day. No table, no checkbox column, no row for typing.</p></div></div>
+  <div class="grid2" style="max-width:780px;align-items:start">
+    <div style="display:flex;flex-direction:column;gap:12px;max-width:360px">
+      <div class="pf-search"><svg class="ic"><use href="#i-search"/></svg>Search transactions</div>
+      <div class="pf-chips"><span class="on">‹ 2026-06 ›</span><span>Category<svg class="ic" style="width:16px;height:16px"><use href="#i-down"/></svg></span></div>
+      <div class="pf-list">
+        <div class="pf-day">2026-06-16</div>
+        <div class="pf-tx"><div><b>Kiosk</b><small>Groceries</small></div><div class="a"><b>−165.00</b><small>10,220.00</small></div></div>
+        <div class="pf-day">2026-06-12</div>
+        <div class="pf-tx"><div><b>Uber</b><small>Transport</small></div><div class="a"><b>−90.00</b><small>10,385.00</small></div></div>
+        <div class="pf-day">2026-06-05</div>
+        <div class="pf-tx"><div><b>From CIB current</b><small>Transfer</small></div><div class="a"><b>3,000.00</b><small>10,475.00</small></div></div>
+        <div class="pf-tx"><div><b>Refund</b><small>Personal</small></div><div class="a"><b class="in">+200.00</b><small>7,475.00</small></div></div>
+      </div>
+    </div>
+    <ul class="short" style="margin:0">
+      <li><b>C08.1 Day headers:</b> the date once, Muted, above that day's rows. Not repeated on each row.</li>
+      <li><b>C08.2 Row:</b> counterparty and category on the left, amount and balance after it on the right. 60 tall. In: green with +. Out: ink with −. Transfers: no sign (A11).</li>
+      <li><b>C08.3 Filters:</b> search full width, then chips. The month is a chip with ‹ › and opens the month picker; it is never typed as yyyy-mm.</li>
+      <li><b>C08.4 Adding:</b> the add button (C05.2) opens the entry sheet. No “New” row at the top of the list.</li>
+      <li><b>C08.5 Selecting:</b> press and hold. A bar replaces the tab bar with the count, Change category and Delete.</li>
+      <li><b>C08.6 Categories:</b> L1 as header with its total, L2s under it, four then Other (A11). Never “L1 › L2”.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="g" id="c-sheets" data-part="c">
+  <div class="g-head"><div><h2><span class="secnum">C09</span>Forms and sheets</h2><p>Input happens in a sheet from the bottom. One column, Save in reach.</p></div></div>
+  <div class="grid2" style="max-width:780px;align-items:start">
+    <div class="pf" style="border-radius:28px 28px 34px 34px;padding:10px 16px 16px;gap:12px">
+      <span style="align-self:center;width:40px;height:4px;border-radius:99px;background:var(--line-ctl)"></span>
+      <h4 style="font:700 18px/1.3 var(--display);margin:4px 0 0">Add transaction</h4>
+      <div class="pf-seg"><span class="on">Out</span><span>In</span><span>Transfer</span></div>
+      <div class="field" style="max-width:none"><label>Amount</label><div class="in amount" style="height:56px">−1,250.00</div></div>
+      <div class="field" style="max-width:none"><label>Counterparty</label><div class="in" style="height:48px;font-size:16px">Carrefour</div></div>
+      <div class="field" style="max-width:none"><label>Date</label><div class="in" style="height:48px;font-size:16px">2026-10-06</div></div>
+      <span class="btn primary" style="height:48px;justify-content:center">Save</span>
+    </div>
+    <ul class="short" style="margin:0">
+      <li><b>C09.1 Sheet:</b> a grabber, the title (a verb), then fields. Swipe down or back to close; if something was typed, ask “Discard your changes?” first.</li>
+      <li><b>C09.2 Fields:</b> soft wells as A10.3, 48 tall, the amount 56. Label above, one column, 16px text.</li>
+      <li><b>C09.3 Keyboards:</b> amount opens the number pad with a dot; dates and months open their pickers; counterparty is type and pick, its matches shown above the keyboard.</li>
+      <li><b>C09.4 Save:</b> Primary, full width, the last thing in the sheet, above the keyboard when it is open.</li>
+      <li><b>C09.5 Confirm:</b> a short sheet. The action full width on top (Danger to delete), Cancel full width under it.</li>
+      <li><b>C09.6 Profiles:</b> list the profiles and Create a profile. “Import a profile” opens the phone's file picker. No folder paths, no typed database path, no notes under the cards. The line under the title says “on this phone”.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="g" id="c-type" data-part="c">
+  <div class="g-head"><div><h2><span class="secnum">C10</span>Type and numbers</h2><p>Two faces, as A06. The scale steps down; numbers keep every rule.</p></div></div>
+  <div class="scroll"><table class="t ty" style="max-width:760px">
+    <tr><th>Role</th><th>Desktop (A)</th><th>Phone (C)</th><th>Sample</th></tr>
+    <tr><td><b>Page title</b></td><td class="r">28</td><td class="r">24</td><td><span style="font:700 24px/1.15 var(--display);letter-spacing:-.03em">Overview</span></td></tr>
+    <tr><td><b>Section header</b></td><td class="r">20</td><td class="r">18</td><td><span style="font:700 18px/1.3 var(--display)">Your position</span></td></tr>
+    <tr><td><b>Card title</b></td><td class="r">17</td><td class="r">16</td><td><span style="font:700 16px/1.3 var(--display)">Free cash</span></td></tr>
+    <tr><td><b>Lead figure</b></td><td class="r">52</td><td class="r">40 · 34 long</td><td><span class="num" style="font-size:40px;line-height:1">156,084</span></td></tr>
+    <tr><td><b>KPI figure</b></td><td class="r">38</td><td class="r">26 · 22 long</td><td><span class="num" style="font-size:26px">+37,884</span></td></tr>
+    <tr><td><b>Row amount</b></td><td class="r">14</td><td class="r">15</td><td><b style="font-variant-numeric:tabular-nums">−1,250.00</b></td></tr>
+    <tr><td><b>Body, fields</b></td><td class="r">14</td><td class="r">15 · fields 16</td><td>Cash you own</td></tr>
+    <tr><td><b>Small</b></td><td class="r">12</td><td class="r">12.5 · never under 12</td><td><span class="muted" style="font-size:12.5px">Groceries</span></td></tr>
+  </table></div>
+  <ul class="short">
+    <li><b>Big figures are whole EGP,</b> the Accounts total included (271,024, not 271,024.29). Decimals only in rows.</li>
+    <li><b>A long figure shrinks a step;</b> it never wraps or ends in “…”.</li>
+    <li><b>EGP once,</b> beside the big figure. Rows are bare numbers.</li>
+  </ul>
+</section>
+
+<section class="g" id="c-screens" data-part="c">
+  <div class="g-head"><div><h2><span class="secnum">C11</span>Screens</h2><p>Two pages built only from C02 to C10.</p></div></div>
+  <div class="cmock">
+    <figure><figcaption>C11.1 Overview</figcaption>
+      <div class="pf">
+        <div class="pf-status"><span>4:32</span><span>47%</span></div>
+        <div class="pf-bar"><img class="pf-mark" alt="Lightning"><span class="pf-icon"><svg class="ic"><use href="#i-search"/></svg></span><span class="pf-icon"><svg class="ic"><use href="#i-eye"/></svg></span><span class="pf-icon"><svg class="ic"><use href="#i-gear"/></svg></span></div>
+        <div class="pf-body">
+          <div class="pf-title"><h3>Overview</h3><p>2026-01-01 to 2026-10-06 <span>year to date</span></p></div>
+          <div class="pf-period"><span>All</span><span class="on">YTD</span><span class="step"><i>‹</i>2026-10<i>›</i></span><span>Custom</span></div>
+          <div class="pf-seg"><span class="on"><svg class="ic"><use href="#i-home"/></svg>Summary</span><span><svg class="ic"><use href="#i-list"/></svg>Spending</span><span><svg class="ic"><use href="#i-heart"/></svg>Health</span></div>
+          <div class="pf-need">Needs you <em>18</em><svg class="ic"><use href="#i-down"/></svg></div>
+          <div class="kt-grid">
+            <div class="kt"><div class="top"><span class="ico"><svg class="ic"><use href="#i-trend"/></svg></span><span class="chip up">↑ YTD</span></div><div class="lbl">Change in net worth</div><div class="fig num">+37,884</div><div class="foot">Net worth <b>156,084</b></div></div>
+            <div class="kt"><div class="top"><span class="ico"><svg class="ic"><use href="#i-pie"/></svg></span><span class="chip up">↑ YTD</span></div><div class="lbl">Savings rate</div><div class="fig num">49.1<small>%</small></div><div class="foot">Kept <b>69,013</b></div></div>
+            <div class="kt azure"><div class="top"><span class="ico"><svg class="ic"><use href="#i-chart"/></svg></span><span class="chip up">↑ YTD</span></div><div class="lbl">Investing rate</div><div class="fig num">49.1<small>%</small></div><div class="meter"><i style="width:49%"></i></div></div>
+            <div class="kt rose"><div class="top"><span class="ico"><svg class="ic"><use href="#i-wallet"/></svg></span><span class="chip">2026-10</span></div><div class="lbl">Left in plan</div><div class="fig num">24,698</div><div class="meter"><i style="width:2%"></i></div></div>
+          </div>
+          <div class="pf-sec"><h4>Your position</h4><span>As of 2026-10-06</span></div>
+          <div class="pf-card lead"><h4>Net worth</h4><div class="big num">156,084<small>EGP</small></div><div class="pf-rows"><div><span>What you own</span><b>261,024</b></div><div><span>What you owe</span><b>−104,940</b></div></div></div>
+        </div>
+        <div class="pf-nav"><span class="on"><i><svg class="ic"><use href="#i-home"/></svg></i>Overview</span><span><i><svg class="ic"><use href="#i-wallet"/></svg></i>Budget</span><span><i><svg class="ic"><use href="#i-shield"/></svg></i>Cash</span><span><i><svg class="ic"><use href="#i-chart"/></svg></i>Investments</span><span><i><svg class="ic"><use href="#i-bank"/></svg></i>Accounts</span></div>
+        <div class="pf-gest"></div>
+      </div>
+    </figure>
+    <figure><figcaption>C11.2 An account</figcaption>
+      <div class="pf">
+        <div class="pf-status"><span>4:32</span><span>47%</span></div>
+        <div class="pf-bar"><span class="back"><svg class="ic"><use href="#i-left"/></svg>Accounts</span><span class="pf-icon"><svg class="ic"><use href="#i-search"/></svg></span><span class="pf-icon"><svg class="ic"><use href="#i-eye"/></svg></span><span class="pf-icon"><svg class="ic"><use href="#i-gear"/></svg></span></div>
+        <div class="pf-body">
+          <div class="pf-card lead"><h4>Cash wallet</h4><p class="sub">Cash</p><div class="big num">10,220<small>EGP</small></div><div class="pf-acts"><span class="btn secondary">Change ownership</span><span class="more"><svg class="ic" style="width:20px;height:20px"><use href="#i-more"/></svg></span></div></div>
+          <div class="pf-search"><svg class="ic"><use href="#i-search"/></svg>Search transactions</div>
+          <div class="pf-chips"><span class="on">‹ 2026-06 ›</span><span>Category<svg class="ic" style="width:16px;height:16px"><use href="#i-down"/></svg></span></div>
+          <div class="pf-list">
+            <div class="pf-day">2026-06-16</div>
+            <div class="pf-tx"><div><b>Kiosk</b><small>Groceries</small></div><div class="a"><b>−165.00</b><small>10,220.00</small></div></div>
+            <div class="pf-day">2026-06-12</div>
+            <div class="pf-tx"><div><b>Uber</b><small>Transport</small></div><div class="a"><b>−90.00</b><small>10,385.00</small></div></div>
+            <div class="pf-day">2026-06-05</div>
+            <div class="pf-tx"><div><b>From CIB current</b><small>Transfer</small></div><div class="a"><b>3,000.00</b><small>10,475.00</small></div></div>
+            <div class="pf-day">2026-05-16</div>
+            <div class="pf-tx"><div><b>Kiosk</b><small>Groceries</small></div><div class="a"><b>−210.00</b><small>7,475.00</small></div></div>
+          </div>
+        </div>
+        <span class="pf-fab" title="Add transaction"><svg class="ic"><use href="#i-plus"/></svg></span>
+        <div class="pf-nav"><span><i><svg class="ic"><use href="#i-home"/></svg></i>Overview</span><span><i><svg class="ic"><use href="#i-wallet"/></svg></i>Budget</span><span><i><svg class="ic"><use href="#i-shield"/></svg></i>Cash</span><span><i><svg class="ic"><use href="#i-chart"/></svg></i>Investments</span><span class="on"><i><svg class="ic"><use href="#i-bank"/></svg></i>Accounts</span></div>
+        <div class="pf-gest"></div>
+      </div>
+    </figure>
+  </div>
+</section>
+
+<section class="g" id="c-ship" data-part="c">
+  <div class="g-head"><div><h2><span class="secnum">C12</span>Before it ships</h2><p>Check every screen at 360 and 320. If it has any of these, it is not done. A16 applies too.</p></div></div>
+  <div class="never">
+    <div><b>Anything scrolling sideways</b>Tabs, periods, tables, charts.</div>
+    <div><b>A cut word or “…”</b>Shorten, wrap or move it to a row.</div>
+    <div><b>Content under the clock</b>Start below the status bar.</div>
+    <div><b>Content under the tab bar</b>Stop above it; nothing shows through.</div>
+    <div><b>A target under 48</b>Rows, chips and icons included.</div>
+    <div><b>Hover or tooltip only</b>Show it, or put it a tap away.</div>
+    <div><b>A table</b>Rows, with the rest in a sheet.</div>
+    <div><b>A typed month, date or path</b>Pickers only.</div>
+    <div><b>Keyboard hints</b>No “Ctrl K” on a phone.</div>
+    <div><b>Two charts in one card</b>One chart, one card.</div>
+    <div><b>A legend sentence</b>Rows explain colour.</div>
+    <div><b>Desktop words</b>“Computer”, “click”, “right-click”.</div>
+    <div><b>Two buttons side by side</b>One Secondary, then ⋯.</div>
+    <div><b>Decimals on a big figure</b>Whole EGP, the Accounts total too.</div>
+  </div>
+</section>
+
+</main>
+</div>
+<script>
+(function(){
+  var mk=document.querySelector('nav.side .brand img');if(mk)document.querySelectorAll('img.pf-mark').forEach(function(i){i.src=mk.src});
+})();
+</script>
+</body>
+</html>

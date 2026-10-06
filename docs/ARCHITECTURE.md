@@ -2,7 +2,7 @@
 
 **Last updated 2026-10-06 · app 0.5.0b1** (`lightning/__init__.py`, matched by `pyproject.toml`).
 
-This file holds the technical side: stack, module boundaries, data model and every calculation contract. The product story is in [Project Overview](PROJECT_OVERVIEW.md), the visual system in the [Brand guideline](BRAND_GUIDELINE.html), and term definitions in the [Glossary](GLOSSARY.md).
+This file holds the technical side: stack, module boundaries, data model and every calculation contract. The product story is in [Project Overview](PROJECT_OVERVIEW.md), the visual system in the [Brand guideline](../guideline/) (`app.html`, `website.html`, `phone.html`), and term definitions in the [Glossary](GLOSSARY.md).
 
 Lightning is a local-first, single-user **modular monolith**: one Python process, one SQLite database, and a server-rendered browser UI. The architecture puts correctness first, then clear ownership of data, then adding new financial-asset types without duplicating transaction logic.
 

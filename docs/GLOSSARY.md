@@ -1,6 +1,6 @@
 # Glossary and taxonomy
 
-Canonical product and technical terms. The product story is in [Project Overview](PROJECT_OVERVIEW.md), calculation contracts in [Architecture](ARCHITECTURE.md), and the visual system in the [Brand guideline](BRAND_GUIDELINE.html). The figures table under "Reported figures" is generated from `lightning/core/figures.py` (`python -m lightning.core.figures`), and `tests/test_figures.py` keeps the two in step: change a figure there, never here.
+Canonical product and technical terms. The product story is in [Project Overview](PROJECT_OVERVIEW.md), calculation contracts in [Architecture](ARCHITECTURE.md), and the visual system in the [Brand guideline](../guideline/) (`app.html`, `website.html`, `phone.html`). The figures table under "Reported figures" is generated from `lightning/core/figures.py` (`python -m lightning.core.figures`), and `tests/test_figures.py` keeps the two in step: change a figure there, never here.
 
 ## Contents
 
