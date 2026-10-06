@@ -80,7 +80,8 @@ class SessionGate:
                 return f"Borrowed from {session.borrowed_home or 'your phone'}", "hand-back"
             return "Read only on this PC: the ledger is going home or needs repair.", ""
         try:
-            line = home_state_line(devices.home_node(session.paths))
+            lending = devices.lending_state(session.paths)
+            line = home_state_line(devices.home_node(session.paths) if lending == "ok" else None, lending)
         except Exception:  # noqa: BLE001 - an unreadable record shows as needing the Devices page
             line = "The ledger's lending record needs checking."
         return line, ("take-back" if line else "")
@@ -156,8 +157,8 @@ def profile_app(credentials: Credentials, root: Path | str | None = None, device
                     borrowed = session.borrowed
                     session.close()
                     app.state.container = None
-                    if borrowed is not None:
-                        borrowed.seal()  # idle lock away from the phone: keep the lend; hand back next time
+                    if borrowed is not None:  # idle lock: hand back if the phone answers, else seal (review L13)
+                        asyncio.get_running_loop().run_in_executor(None, devices.hand_back_or_seal, borrowed)
 
     @asynccontextmanager
     async def lifespan(_app):
@@ -326,6 +327,10 @@ def profile_app(credentials: Credentials, root: Path | str | None = None, device
         form = await request.form()
         selected = str(form.get("db", ""))
         backup_path = str(form.get("backup", ""))
+        if devices.blocks_restore(selected):  # review H2: an old backup would fork a lent ledger
+            return page(request, "restore", status=400, selected=selected, backup=backup_path,
+                        error="This profile is lent to a PC or has a hand-back to finish. Bring the ledger home "
+                              "first (Devices), then restore.")
         if form.get("confirm") != "yes":
             return page(request, "restore", status=400, selected=selected, backup=backup_path,
                         error="Confirm that this backup will replace the current profile.")
@@ -352,6 +357,10 @@ def profile_app(credentials: Credentials, root: Path | str | None = None, device
     async def resume_restore(request: Request):
         form = await request.form()
         selected = str(form.get("db", ""))
+        if devices.blocks_restore(selected):
+            return page(request, "resume-restore", status=400, selected=selected,
+                        error="This profile is lent to a PC or has a hand-back to finish. Bring the ledger home "
+                              "first (Devices).")
         if form.get("confirm") != "yes":
             return page(request, "resume-restore", status=400, selected=selected,
                         error="Confirm that Lightning should check and resume this restore.")
@@ -406,6 +415,25 @@ def profile_app(credentials: Credentials, root: Path | str | None = None, device
 
     # ------------------------------------------------------------ multiple devices: the phone's side
     def device_page(request, **context):
+        if gate.phone and session.container is not None and session.borrowed is None:
+            return phone_device_page(request, **context)
+        return pc_device_page(request, **context)
+
+    def phone_device_page(request, *, status=200, error="", notice="", **context):
+        """Inside the phone frame (review, 2026-10-06): the same figures as below, the phone's own layout."""
+        from lightning.ui import web
+        response = pc_device_page(request, status=status, error=error, notice=notice, **context)
+        keys = ("csrf", "error", "notice", "state_line", "lending", "pending", "peers", "lent_to", "address",
+                "phone_name")
+        return web.render(request, "phone/devices.html", status,
+                          **{key: response.context.get(key) for key in keys})
+
+    def pc_device_page(request, **context):
+        lending = devices.lending_state(session.paths) if session.paths is not None else "none"
+        if lending in ("missing", "damaged"):
+            return page(request, "devices", node=None, peers=[], lent_to="", pending=None, address="",
+                        state_line=home_state_line(None, lending), lending=lending,
+                        phone_name=devices.identity().name if devices.has_identity() else "", **context)
         node = devices.home_node(session.paths) if session.paths is not None else None
         pending = devices.desk.pending if devices.desk is not None else None
         if pending is not None and (node is None or pending.node is not node):
@@ -415,18 +443,22 @@ def profile_app(credentials: Credentials, root: Path | str | None = None, device
         lent_to = home.active.grant.borrower_id if home is not None and home.active is not None else ""
         return page(request, "devices", node=node, peers=peers, lent_to=lent_to, pending=pending,
                     address=devices.address() if devices.server is not None else "",
-                    state_line=home_state_line(node), phone_name=devices.identity().name
+                    state_line=home_state_line(node), lending=lending, phone_name=devices.identity().name
                     if devices.has_identity() else "", **context)
 
     def home_only():
         if session.container is None:
             return RedirectResponse("/profiles", 303)
+        if devices.lending_state(session.paths) in ("missing", "damaged"):
+            return RedirectResponse("/profiles/devices", 303)
         if session.borrowed is not None:
             return RedirectResponse("/profiles", 303)
         return None
 
     @app.get("/profiles/devices")
     async def devices_page(request: Request):
+        if session.container is not None and session.borrowed is None:
+            return device_page(request)  # also where a missing or damaged lending record is repaired
         return home_only() or device_page(request)
 
     @app.post("/profiles/devices/pair")
@@ -449,6 +481,23 @@ def profile_app(credentials: Credentials, root: Path | str | None = None, device
         devices.desk.open(node, home_name=name, profile_name=session.name)
         return RedirectResponse("/profiles/devices", 303)
 
+    @app.post("/profiles/devices/keep-home")
+    async def keep_home(request: Request):
+        if session.container is None or session.borrowed is not None:
+            return RedirectResponse("/profiles", 303)
+        form = await request.form()
+        if form.get("confirm") != "yes":
+            return device_page(request, error="Tick the box to confirm that a PC's copy from before will not "
+                                              "come back.", status=400)
+        try:
+            devices.keep_as_home(session, devices.identity().name if devices.has_identity() else "My phone")
+            session.set_mode("home")
+            app.state.container = session.container
+        except (ProtocolError, OSError, ValueError) as exc:
+            return device_page(request, error=str(exc), status=400)
+        return device_page(request, notice="This copy is the ledger again and opens for editing. Pair your PC "
+                                           "again; its copy from before stays on it, read only.")
+
     @app.post("/profiles/devices/stop-pairing")
     async def stop_pairing(request: Request):
         if devices.desk is not None:
@@ -462,7 +511,10 @@ def profile_app(credentials: Credentials, root: Path | str | None = None, device
         form = await request.form()
         node = devices.home_node(session.paths)
         if node is not None:
-            node.revoke(str(form.get("device", "")))
+            try:
+                node.revoke(str(form.get("device", "")))
+            except ProtocolError as exc:
+                return device_page(request, error=str(exc), status=400)
         return RedirectResponse("/profiles/devices", 303)
 
     @app.post("/profiles/devices/take-back")
@@ -555,7 +607,10 @@ def profile_app(credentials: Credentials, root: Path | str | None = None, device
             state = node.model.state
             notice = ""
             if state is BorrowerState.SEALED:
-                node.reopen()
+                if await asyncio.to_thread(devices.taken_back, node):
+                    notice = "The phone took the ledger back. This copy is kept here, read only."
+                else:
+                    node.reopen()
             elif state is BorrowerState.RETURNING:
                 result = await asyncio.to_thread(devices.hand_back_or_seal, node)
                 if result in ("accepted", "handed_back"):
@@ -563,6 +618,13 @@ def profile_app(credentials: Credentials, root: Path | str | None = None, device
                                                           "again to borrow it.", profiles=discover_profiles(session.root),
                                 borrowed=devices.borrowed())
                 notice = "The phone has not taken the ledger back yet. This copy is read only until it does."
+            elif state is BorrowerState.NEEDS_REPAIR and form.get("start_over") == "yes":
+                kept = await asyncio.to_thread(node.start_over)
+                link = devices.link(node)
+                await asyncio.to_thread(node.fetch, link, key)
+                await asyncio.to_thread(node.borrow, link, key)
+                notice = (f"You now edit the phone's ledger. This PC's earlier copy is kept as {kept.name}."
+                          if kept is not None else "")
             elif state is BorrowerState.NEEDS_REPAIR:
                 notice = "The phone took the ledger back. This copy is kept here, read only."
             elif state is not BorrowerState.BORROWING:
@@ -593,7 +655,7 @@ def profile_app(credentials: Credentials, root: Path | str | None = None, device
         pending = devices.desk.pending if devices.desk is not None else None
         if pending is not None and pending.receive is None:
             pending = None
-        return page(request, "receive", pending=pending,
+        return page(request, "receive", pending=pending, arrived=devices.arrived(),
                     address=devices.address() if devices.server is not None else "",
                     phone_name=devices.identity().name if devices.has_identity() else "My phone")
 
@@ -663,6 +725,8 @@ def profile_app(credentials: Credentials, root: Path | str | None = None, device
             "sealed": f"{home_name} did not answer. Your changes are saved on this PC; open {name} here to keep "
                       "working, or hand it back when the phone is near.",
             "returning": f"Sending to {home_name} stopped halfway. Open {name} here near the phone to finish.",
+            "refused": f"{home_name} took the ledger back, so this copy stays on this PC, read only. Open {name} "
+                       "here to borrow again; the copy is kept as a backup.",
         }
         return page(request, "choose", notice=notices.get(result, ""), profiles=discover_profiles(session.root),
                     borrowed=devices.borrowed())

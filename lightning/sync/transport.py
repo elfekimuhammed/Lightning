@@ -21,7 +21,7 @@ import socket
 import ssl
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import BinaryIO, Callable, Iterable
 
 from .copies import CHUNK, CopyRejected
@@ -35,7 +35,10 @@ from .service import HomeNode, LinkDown, copy_stream
 from .state import ProtocolError
 
 TIMEOUT = 30
-MAX_CONNECTIONS = 4
+FIRST_TIMEOUT = 5        # seconds to finish the handshake and say who it is (review S1)
+MAX_CONNECTIONS = 16
+MAX_PER_ADDRESS = 4      # one device on the Wi-Fi cannot take every slot (review S1)
+PAIRING_TOTAL = 20       # wrong codes from all devices before the code closes (review S2)
 PAIRING_MINUTES = 10
 PAIRING_TRIES = 3
 
@@ -107,7 +110,9 @@ class PendingPairing:
     home_name: str
     profile_name: str
     expires: float
-    tries: int = 0
+    tries: int = 0             # wrong codes from every address
+    misses: dict = field(default_factory=dict)  # wrong codes per address: three, then that address is refused
+    busy: bool = False         # a move is being received
     paired_name: str = ""      # set when a PC paired: what the phone shows
     digits: str = ""
     receive: Callable | None = None  # for a move: stores the ledger, returns (home_id, lineage_id)
@@ -137,33 +142,48 @@ class PairingDesk:
         with self._lock:
             self.pending = None
 
-    def _check_code(self, pending: PendingPairing | None, proof_sent: str, role: str, data: bytes) -> PendingPairing:
-        if pending is None or pending.paired_name or time.monotonic() >= pending.expires:
+    def _check_code(self, pending: PendingPairing | None, proof_sent: str, role: str, data: bytes,
+                    address: str = "") -> PendingPairing:
+        if pending is None or pending.paired_name or pending.busy or time.monotonic() >= pending.expires:
             raise ProtocolError("PAIRING_FAILED", "Open the phone's code screen again and use the code it shows.")
+        if pending.misses.get(address, 0) >= PAIRING_TRIES:
+            raise ProtocolError("PAIRING_FAILED", "Three wrong codes from this PC. Open the code screen on the phone "
+                                "again for a new code.")
         if not secrets.compare_digest(proof(pending.code, role, data), proof_sent):
-            pending.tries += 1
-            if pending.tries >= PAIRING_TRIES:
-                self.pending = None
+            self._wrong(pending, address)
             raise ProtocolError("PAIRING_FAILED", "That code is not the one on the phone.")
         return pending
 
-    def handle_move(self, request: MoveBegin, home_fingerprint: str, source) -> MoveDone:
-        """Check the code against the file's hash, keep the ledger, and answer with this phone as its home."""
+    def _wrong(self, pending: PendingPairing, address: str) -> None:
+        """Wrong codes count per address, so another device on the Wi-Fi cannot close the owner's code."""
+        pending.misses[address] = pending.misses.get(address, 0) + 1
+        pending.tries += 1
+        if pending.tries >= PAIRING_TOTAL:
+            self.pending = None
+
+    def handle_move(self, request: MoveBegin, home_fingerprint: str, source, address: str = "") -> MoveDone:
+        """Check the code against the file's hash, keep the ledger, and answer with this phone as its home. The
+        desk is not held while the file arrives (review S3)."""
         with self._lock:
             pending = self.pending
             if pending is not None and pending.receive is None:
                 raise ProtocolError("PAIRING_FAILED", "The phone is pairing a PC, not waiting for a profile. On the "
                                     "phone, choose Bring a profile from your PC.")
             data = move_transcript(request, home_fingerprint)
-            pending = self._check_code(pending, request.proof, "pc-move", data)
+            pending = self._check_code(pending, request.proof, "pc-move", data, address)
+            pending.busy = True
+        try:
             home_id, lineage_id = pending.receive(request, source)
+        finally:
+            pending.busy = False
+        with self._lock:
             pending.paired_name, pending.profile_name = request.device_name, request.profile_name
             pending.digits = check_digits(data)
             done_data = data + f"\n{home_id}\n{lineage_id}".encode("ascii")
             return MoveDone(request.pairing_id, home_id, pending.home_name, lineage_id,
                             proof(pending.code, "phone-move", done_data))
 
-    def handle(self, request: PairRequest, home_fingerprint: str) -> PairReply:
+    def handle(self, request: PairRequest, home_fingerprint: str, address: str = "") -> PairReply:
         from .control import Peer
         with self._lock:
             pending = self.pending
@@ -173,11 +193,7 @@ class PairingDesk:
             if pending is None or pending.paired_name or time.monotonic() >= pending.expires:
                 raise ProtocolError("PAIRING_FAILED", "Open Pair a PC on the phone and use the code it shows.")
             data = transcript(request.pairing_id, home_fingerprint, request.device_id, request.public_key)
-            if not secrets.compare_digest(proof(pending.code, "pc", data), request.proof):
-                pending.tries += 1
-                if pending.tries >= PAIRING_TRIES:
-                    self.pending = None
-                raise ProtocolError("PAIRING_FAILED", "That code is not the one on the phone.")
+            pending = self._check_code(pending, request.proof, "pc", data, address)
             key = pending.node.bridge.key()
             if key is None:
                 raise ProtocolError("UNLOCK_NEEDED", "Unlock Lightning on your phone.")
@@ -196,8 +212,11 @@ class HomeServer:
     """Listens for paired PCs. `nodes` lists the home nodes this phone serves (one per profile)."""
 
     def __init__(self, identity: DeviceIdentity, nodes: Callable[[], Iterable[HomeNode]], desk: PairingDesk, *,
-                 host: str = "0.0.0.0", port: int = DEFAULT_PORT):
+                 host: str = "0.0.0.0", port: int = DEFAULT_PORT,
+                 on_authenticated: Callable[[HomeNode], None] | None = None,
+                 arriving: Callable[[HomeNode], bool] = lambda node: False):
         self.identity, self.nodes, self.desk = identity, nodes, desk
+        self.on_authenticated, self.arriving = on_authenticated, arriving
         self.context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         self.context.minimum_version = ssl.TLSVersion.TLSv1_3
         self.context.load_cert_chain(identity.cert_path, identity.key_path)
@@ -214,6 +233,8 @@ class HomeServer:
             raise
         self.port = self.listener.getsockname()[1]
         self._slots = threading.BoundedSemaphore(MAX_CONNECTIONS)
+        self._per_address: dict[str, int] = {}
+        self._count_lock = threading.Lock()
         self._stopping = threading.Event()
         self.thread = threading.Thread(target=self._serve, name="lightning-sync-listener", daemon=True)
 
@@ -234,29 +255,54 @@ class HomeServer:
         self.listener.settimeout(1.0)  # also notice stop() where shutdown does not wake accept()
         while not self._stopping.is_set():
             try:
-                raw, _address = self.listener.accept()
+                raw, peer_address = self.listener.accept()
             except TimeoutError:
                 continue
             except OSError:
                 return
+            address = str(peer_address[0])
+            with self._count_lock:
+                crowded = self._per_address.get(address, 0) >= MAX_PER_ADDRESS
+                if not crowded:
+                    self._per_address[address] = self._per_address.get(address, 0) + 1
+            if crowded:
+                raw.close()
+                continue
             if not self._slots.acquire(blocking=False):
+                self._leave(address)
                 raw.close()  # busy: the PC retries
                 continue
-            threading.Thread(target=self._connection, args=(raw,), name="lightning-sync-peer", daemon=True).start()
+            threading.Thread(target=self._connection, args=(raw, address), name="lightning-sync-peer",
+                             daemon=True).start()
+
+    def _leave(self, address: str) -> None:
+        with self._count_lock:
+            left = self._per_address.get(address, 1) - 1
+            if left > 0:
+                self._per_address[address] = left
+            else:
+                self._per_address.pop(address, None)
 
     def _node_for(self, device_id: str) -> HomeNode | None:
+        """The profile this PC borrows. A profile still arriving by a move counts only when it is the PC's only
+        one here: the PC that moved it confirms it by connecting (review H3)."""
+        found = []
         for node in self.nodes():
-            peer = node.store.peer(device_id)
-            if peer is not None and not peer.revoked and device_id in node.model.paired_devices:
-                return node
-        return None
+            try:
+                peer = node.store.peer(device_id)
+                if peer is not None and not peer.revoked and device_id in node.model.paired_devices:
+                    found.append(node)
+            except Exception:  # noqa: BLE001 - one damaged record must not cut off the other profiles (review M9)
+                continue
+        settled = [node for node in found if not self.arriving(node)]
+        return (settled or found or [None])[0]
 
-    def _connection(self, raw: socket.socket) -> None:
+    def _connection(self, raw: socket.socket, address: str = "") -> None:
         try:
-            raw.settimeout(TIMEOUT)
+            raw.settimeout(FIRST_TIMEOUT)  # a silent client lets its slot go quickly (review S1)
             with self.context.wrap_socket(raw, server_side=True) as stream:
                 try:
-                    self._exchange(stream)
+                    self._exchange(stream, address)
                 except ProtocolError as refused:
                     self._refuse(stream, Error(refused.code, str(refused)[:300]))
                 except CopyRejected as rejected:
@@ -268,6 +314,7 @@ class HomeServer:
         finally:
             raw.close()
             self._slots.release()
+            self._leave(address)
 
     @staticmethod
     def _refuse(stream, error: Error) -> None:
@@ -282,15 +329,17 @@ class HomeServer:
         except (OSError, ssl.SSLError):
             pass
 
-    def _exchange(self, stream) -> None:
+    def _exchange(self, stream, address: str = "") -> None:
         nonce = secrets.token_hex(32)
         send_message(stream, Hello(nonce))
         first = receive_message(stream)
+        stream.settimeout(TIMEOUT)
         if isinstance(first, PairRequest):
-            send_message(stream, self.desk.handle(first, self.identity.fingerprint))
+            send_message(stream, self.desk.handle(first, self.identity.fingerprint, address))
             return
         if isinstance(first, MoveBegin):
-            send_message(stream, self.desk.handle_move(first, self.identity.fingerprint, _SocketFile(stream)))
+            send_message(stream, self.desk.handle_move(first, self.identity.fingerprint, _SocketFile(stream),
+                                                       address))
             return
         if not isinstance(first, Authenticate):
             raise ProtocolError("UNAUTHORIZED", "Pair this PC first.")
@@ -300,6 +349,8 @@ class HomeServer:
                                                 first.signature):
             raise ProtocolError("UNAUTHORIZED", "This PC is not paired with the phone.")
         device = first.device_id
+        if self.on_authenticated is not None:
+            self.on_authenticated(node)
         request = receive_message(stream)
         if isinstance(request, Status):
             send_message(stream, node.status(request, peer=device))

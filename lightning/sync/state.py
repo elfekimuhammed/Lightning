@@ -473,6 +473,23 @@ class BorrowerModel:
         self.checkpoint_id, self.checkpoint_sha256 = receipt.checkpoint_id, receipt.candidate_sha256
         return receipt
 
+    def adopt_lineage(self, lineage_id: str) -> None:
+        """The phone's ledger is under a new lineage (taken back, or kept again after its record was lost). A PC
+        that holds no edits simply follows it (review M6)."""
+        _id(lineage_id, "lineage_id")
+        self._require(BorrowerState.HANDED_BACK, BorrowerState.ABORTED, BorrowerState.PREFETCHED)
+        self.lineage_id, self.state = lineage_id, BorrowerState.HANDED_BACK
+        self.checkpoint_id = self.checkpoint_sha256 = None
+        self.request = self.grant = self.returning = self.accepted = self.cancel = None
+
+    def start_over(self) -> None:
+        """After the phone took the ledger back: this PC's copy is kept as a backup by the caller and the PC
+        borrows afresh (review M6)."""
+        self._require(BorrowerState.NEEDS_REPAIR)
+        self.state = BorrowerState.HANDED_BACK
+        self.checkpoint_id = self.checkpoint_sha256 = None
+        self.request = self.grant = self.returning = self.accepted = self.cancel = None
+
     def needs_repair(self) -> None:
         if self.state in _IDLE:
             return

@@ -205,6 +205,17 @@
 
       {% elif mode == 'devices' %}
         {% if state_line %}<div class="alert alert-notice" role="status">{{ state_line }}</div>{% endif %}
+        {% if lending in ['missing', 'damaged'] %}
+          <section class="panel form-panel" aria-labelledby="keep-heading">
+            <h2 id="keep-heading">Keep this copy as the ledger</h2>
+            <p>Only if no PC holds the ledger now, or you accept losing what was changed there since it borrowed it. Afterwards pair your PCs again.</p>
+            <form method="post" action="/profiles/devices/keep-home" class="form-stack">
+              <input type="hidden" name="csrf" value="{{ csrf }}">
+              <label class="check-row"><input type="checkbox" name="confirm" value="yes"> A PC's copy from before will not come back</label>
+              <div class="form-actions"><button class="button button-secondary" type="submit">Keep this copy</button></div>
+            </form>
+          </section>
+        {% else %}
         {% if pending %}
           <section class="panel form-panel" aria-labelledby="pair-heading">
             <h2 id="pair-heading">{% if pending.paired_name %}Paired with {{ pending.paired_name }}{% else %}Pair a PC{% endif %}</h2>
@@ -253,6 +264,8 @@
           </section>
         {% endif %}
 
+        {% endif %}
+
       {% elif mode == 'connect' %}
         <section class="panel form-panel" aria-labelledby="connect-heading">
           <h2 id="connect-heading">Your phone keeps the ledger</h2>
@@ -278,17 +291,22 @@
         <section class="panel form-panel" aria-labelledby="borrowed-unlock-heading">
           <h2 id="borrowed-unlock-heading">{% if item.state.value in ['BORROWING', 'SEALED'] %}On this PC{% elif item.state.value == 'RETURNING' %}Going home to {{ item.home_name }}{% elif item.state.value == 'NEEDS_REPAIR' %}Taken back by {{ item.home_name }}{% else %}Borrow it from {{ item.home_name }}{% endif %}</h2>
           {% if item.state.value not in ['BORROWING', 'SEALED', 'RETURNING', 'NEEDS_REPAIR'] %}<p>Open Lightning on the phone, on the same Wi-Fi. While you work here, the phone only reads.</p>{% endif %}
+          {% if item.state.value == 'NEEDS_REPAIR' %}<p>Edits made here since then did not go to the phone. Borrow again to work on the phone's ledger; this copy stays on this PC as a backup.</p>{% endif %}
           <form method="post" action="/profiles/borrowed" class="form-stack">
             <input type="hidden" name="csrf" value="{{ csrf }}">
             <input type="hidden" name="id" value="{{ item.profile_id }}">
             <div class="field"><label for="borrowed-password">Password</label><input id="borrowed-password" name="password" type="password" required autocomplete="current-password"></div>
-            <div class="form-actions"><button class="button button-primary" type="submit">{% if item.state.value in ['BORROWING', 'SEALED'] %}Open{% elif item.state.value == 'RETURNING' %}Finish handing back{% elif item.state.value == 'NEEDS_REPAIR' %}Open read only{% else %}Borrow{% endif %}</button></div>
+            <div class="form-actions">{% if item.state.value == 'NEEDS_REPAIR' %}<button class="button button-primary" type="submit" name="start_over" value="yes">Borrow again</button><button class="button button-secondary" type="submit">Open the copy read only</button>{% else %}<button class="button button-primary" type="submit">{% if item.state.value in ['BORROWING', 'SEALED'] %}Open{% elif item.state.value == 'RETURNING' %}Finish handing back{% else %}Borrow{% endif %}</button>{% endif %}</div>
           </form>
         </section>
 
       {% elif mode == 'receive' %}
         <section class="panel form-panel" aria-labelledby="receive-heading">
-          {% if pending and pending.paired_name %}
+          {% if pending and pending.paired_name and not arrived %}
+            <h2 id="receive-heading">Waiting for {{ pending.paired_name }}</h2>
+            <p>{{ pending.profile_name }} arrived. It shows here once the PC confirms it kept its copy read only; keep Lightning open on the PC.</p>
+            <a class="button button-secondary" href="/profiles/receive">Check again</a>
+          {% elif pending and pending.paired_name %}
             <h2 id="receive-heading">{{ pending.profile_name }} is here</h2>
             <p>It came from {{ pending.paired_name }}, which now borrows it from this phone. Check that the PC shows <strong class="suggestion-value">{{ pending.digits[:3] }} {{ pending.digits[3:] }}</strong>.</p>
             <a class="button button-primary" href="/profiles">Unlock it</a>

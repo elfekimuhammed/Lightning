@@ -29,6 +29,16 @@ TYPE_LABELS: dict[AccountType, str] = {
     AccountType.OTHER_ASSET: "Other",
 }
 
+# For lists, where the picker's hints would only repeat (review, 2026-10-06).
+TYPE_SHORT: dict[AccountType, str] = {
+    AccountType.CASH: "Cash",
+    AccountType.BANK: "Bank account",
+    AccountType.DEPOSIT: "Certificates",
+    AccountType.BROKERAGE: "Brokerage",
+    AccountType.PHYSICAL_ASSET: "Physical asset",
+    AccountType.OTHER_ASSET: "Other",
+}
+
 TYPE_ABBR: dict[AccountType, str] = {
     AccountType.CASH: "CSH",
     AccountType.BANK: "CUR",
@@ -96,6 +106,10 @@ class Account:
     @property
     def type_label(self) -> str:
         return TYPE_LABELS[self.account_type]
+
+    @property
+    def type_short(self) -> str:
+        return TYPE_SHORT[self.account_type]
 
 
 def suggest_code(institution: str, name: str, account_type: AccountType, currency: str) -> str:

@@ -52,6 +52,15 @@ html.phone.keyboard-open .phone-tabbar, html.phone.sheet-open .phone-tabbar { di
 .phone-page-actions > .btn { align-self: flex-start; min-height: 40px; }
 .phone .site-period-control { display: flex; flex-direction: column; gap: 8px; width: 100%; }
 .phone .period-buttons { display: grid; grid-template-columns: repeat(4, 1fr); width: 100%; }
+.phone .period-buttons:has(.period-month-seg) { grid-template-columns: auto auto 1fr auto; }
+.phone .period-month-seg { display: flex; align-items: center; justify-content: space-between; gap: 0; padding: 0 2px; }
+.phone .period-month-seg .period-step:not(#_):not(.x_) { width: 26px; height: 36px; min-width: 0; min-height: 36px; padding: 0; background: none; border: 0; box-shadow: none; color: inherit; }
+.phone .period-month-seg .period-step svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; }
+.phone .site-period-control .period-month-seg { background: var(--action); color: var(--on-action); }
+.phone .site-period-control .month-stepper > .period-month-value:not(#_):not(.x_) { width: 7.5ch; height: 36px; min-height: 36px; padding: 0; background: none; box-shadow: none; color: inherit; font: 700 14px/36px var(--body); }
+.phone .period-month-seg .period-step:disabled { opacity: .35; }
+.phone .period-buttons:has(.period-month-seg) .period-button:not(.period-month-seg) { padding: 0 10px; }
+.phone .period-buttons:has(.period-month-seg) .period-month-seg { min-width: 0; }
 .phone .period-button { min-height: 40px; padding: 0 4px; white-space: nowrap; font-size: 14px; }
 .phone .period-month-picker, .phone .period-date-range { width: 100%; display: flex; flex-wrap: wrap; gap: 8px; }
 
@@ -62,6 +71,10 @@ html.phone.keyboard-open .phone-tabbar, html.phone.sheet-open .phone-tabbar { di
 .phone .section-tabs .plan-tab { justify-content: center; min-height: 48px; min-width: 0; padding: 0 6px; white-space: nowrap; }
 .phone .section-tabs:has(.plan-tab:nth-child(4)) .plan-tab:not([aria-current]) { font-size: 0; gap: 0; }
 .phone .section-tabs:has(.plan-tab:nth-child(4)) .plan-tab svg { width: 22px; height: 22px; }
+/* Two or three tabs: words only, wrapping to two lines rather than squeezing the icon to a dot or the last word
+   against the edge (review, 2026-10-06). */
+.phone .section-tabs:not(:has(.plan-tab:nth-child(4))) .plan-tab svg { display: none; }
+.phone .section-tabs:not(:has(.plan-tab:nth-child(4))) .plan-tab { white-space: normal; text-align: center; line-height: 1.2; padding: 4px 8px; }
 
 /* C05 touch: 48 to press, fields 48 with 16px text so the phone does not zoom. */
 .phone .btn { min-height: 48px; }
@@ -126,6 +139,7 @@ html.phone.keyboard-open .phone-tabbar, html.phone.sheet-open .phone-tabbar { di
 .phone-needs > summary { display: flex; align-items: center; gap: 10px; min-height: 56px; list-style: none; cursor: pointer; }
 .phone-needs > summary::-webkit-details-marker { display: none; }
 .phone-needs.is-empty { display: flex; align-items: center; gap: 10px; min-height: 56px; }
+.phone-needs.is-empty .needs-you-dot { background: var(--meadow); } /* nothing waits: good, never rose */
 .phone-needs { padding: 0 16px; }
 
 .phone-kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 12px 0 0; }
@@ -258,3 +272,9 @@ html.phone.keyboard-open .phone-tabbar, html.phone.sheet-open .phone-tabbar { di
 .phone .stat-tile-label { font-size: 13px; }
 .phone .stat-tile-sub { font-size: 12.5px; }
 .phone .stat-tile-head { flex-wrap: wrap; gap: 6px; }
+
+/* Devices in the phone frame: a confirming tick beside its words, not a well. */
+.phone-form .check-row { display: flex; align-items: flex-start; gap: 10px; font-weight: 600; color: var(--c-ink); }
+.phone-form .check-row input { width: 20px; min-height: 20px; height: 20px; flex: none; margin: 2px 0 0; padding: 0; accent-color: #14A874; }
+.phone-row form { margin: 0; }
+.phone-row form .btn { min-height: 40px; }

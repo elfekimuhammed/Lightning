@@ -50,7 +50,8 @@ def run(shots: Path | None = None) -> list[str]:
                     page.fill("input[name=question]", "Dummy question?")
                 page.click("button[type=submit]")
                 key = re.search(r"\d{4}-\d{4}-\d{4}", page.content()).group(0)
-                page.fill("input[name=recovery]", key)
+                if page.locator("form[action='/profiles/confirm'] input[name=recovery][type=text]").count():
+                    page.fill("input[name=recovery]", key)
                 page.click("form[action='/profiles/confirm'] button[type=submit]")
                 page.goto(host.origin + "/")
                 page.evaluate("""async () => { const t = document.querySelector('meta[name=lightning-session]').content;

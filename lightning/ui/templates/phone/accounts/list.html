@@ -10,7 +10,7 @@
 <section class="card phone-card" aria-label="Your accounts">
   <div class="phone-rows is-list">
   {% for acc, balance, owned, count in rows if acc.active %}
-    <a class="phone-row" href="/accounts/{{ acc.id }}"><span>{{ acc.name }}<small>{{ acc.type_label }}</small></span><b>{{ balance|money(False, 0) }}</b></a>
+    <a class="phone-row" href="/accounts/{{ acc.id }}"><span>{{ acc.name }}{% if acc.type_short|lower not in acc.name|lower %}<small>{{ acc.type_short }}</small>{% endif %}</span><b>{{ balance|money(False, 0) }}</b></a>
   {% else %}<p class="empty">No accounts yet. Add your first one.</p>{% endfor %}
   </div>
 </section>

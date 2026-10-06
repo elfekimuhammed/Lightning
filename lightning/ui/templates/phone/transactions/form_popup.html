@@ -3,7 +3,7 @@
    the PC's dialog (transactions/form_popup.html); the route does the work. #}
 {% extends "base.html" %}
 {% block title %}{{ title }}{% endblock %}
-{% block heading %}<h1>{{ title }}</h1><p>{{ account.label }}</p>{% endblock %}
+{% block heading %}{% endblock %}{# the sheet title below is the one title, as a page or a sheet #}
 {% block content %}
 <section class="card app-popup-content phone-entry" data-transaction-form data-account-name="{{ account.name }}" data-currency="{{ account.currency }}">
   <h2 data-popup-title class="phone-sheet-title">{{ title }}</h2>

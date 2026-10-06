@@ -14,6 +14,7 @@ from __future__ import annotations
 import asyncio
 import json
 import threading
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -25,7 +26,21 @@ from lightning.sync.state import BorrowerState, HomeState, ProtocolError
 from .paths import ProfilePaths, app_data_root, resolve_profile
 
 HOME_META = "home.json"
+LENDING_MARK = "lending.json"   # beside the ledger: it has a lending record on this device (review H1)
+MOVING_MARK = "moving.json"     # on the PC, while a profile is moving to the phone (review H3, M10)
+
+
+def arriving_path(live: Path) -> Path:
+    """On the phone, a moved ledger waits here, hidden from the profile list, until the PC that sent it confirms
+    it kept its copy read only (review H3)."""
+    return Path(live).with_suffix(".arriving")
 STATUS_TIMEOUT = 5
+
+
+def mark_lending(paths: ProfilePaths, profile_id: str) -> None:
+    mark = Path(paths.data_dir) / LENDING_MARK
+    if not mark.exists():
+        mark.write_text(json.dumps({"profile_id": profile_id}), encoding="utf-8")
 
 
 class AppBridge:
@@ -74,6 +89,7 @@ class Devices:
         self.desk = None
         self._lock = threading.RLock()
         self._nodes: dict[Path, HomeNode] = {}
+        self.last_arrival: Path | None = None  # the profile the last move into this phone stored
 
     # ------------------------------------------------------------ identity
     def identity(self, name: str | None = None) -> DeviceIdentity:
@@ -111,7 +127,7 @@ class Devices:
         for meta in sorted((self.root / "home").glob(f"*/{HOME_META}")):
             try:
                 live = Path(json.loads(meta.read_text(encoding="utf-8"))["live_path"])
-                if live.exists() and (meta.parent / "control.db").exists():
+                if (live.exists() or arriving_path(live).exists()) and (meta.parent / "control.db").exists():
                     nodes.append(self._node(meta.parent, live))
             except (OSError, ValueError, KeyError):
                 continue
@@ -128,24 +144,90 @@ class Devices:
         HomeNode.enable(session.container.db, live_path=paths.db_path, control_folder=folder,
                         home_id=identity.device_id, bridge=AppBridge(self, paths.db_path))
         (folder / HOME_META).write_text(json.dumps({"live_path": str(paths.db_path)}), encoding="utf-8")
+        mark_lending(paths, self.home_node(paths).profile_id)
         return self._node(folder, Path(paths.db_path))
 
+    def lending_state(self, paths: ProfilePaths) -> str:
+        """"none" (never lent), "ok", or "missing"/"damaged": the ledger was set up for lending but its record on
+        this device is gone or unreadable (cleared app data, a copied profile). Then it must not open writable:
+        a PC may hold it (review H1)."""
+        if self.home_folder(paths) is None:
+            return "none"
+        marked = (Path(paths.data_dir) / LENDING_MARK).exists()
+        try:
+            node = self.home_node(paths)
+            if node is None:
+                return "missing" if marked else "none"
+            node.model  # reads and checks the record
+            return "ok"
+        except Exception:  # noqa: BLE001 - ControlCorrupt, sqlite errors: never a fresh "at home"
+            return "damaged"
+
     def role_for(self, selected: str) -> str:
-        """How a profile kept here may open: "home" (writable) or "reader" (lent away, or a hand-back to
-        finish first). Decided before any connection opens."""
+        """How a profile kept here may open: "home" (writable) or "reader" (lent away, a hand-back to finish,
+        or a lending record missing or damaged). Decided before any connection opens."""
         try:
             paths = resolve_profile(db_path=selected)
         except (OSError, ValueError):
             return "home"
-        node = self.home_node(paths)
-        if node is None:
+        state = self.lending_state(paths)
+        if state == "none":
             return "home"
-        return "home" if node.writable() else "reader"
+        if state != "ok":
+            return "reader"
+        try:
+            return "home" if self.home_node(paths).writable() else "reader"
+        except Exception:  # noqa: BLE001 - unreadable: read-only (review M9)
+            return "reader"
+
+    def keep_as_home(self, session, phone_name: str) -> HomeNode:
+        """The owner's repair when the lending record is missing or damaged: this copy becomes the ledger under a
+        new lineage, so no PC copy from before can come back. PCs pair again. On the owning thread."""
+        paths = session.paths
+        folder = self.home_folder(paths)
+        if folder is None:
+            raise ProtocolError("BAD_REQUEST", "Only a profile kept on this device can be lent.")
+        if folder.exists():
+            folder.rename(folder.with_name(f"{folder.name}.damaged-{int(time.time())}"))
+        with self._lock:
+            self._nodes.pop(folder, None)
+        identity = self.identity(phone_name)
+        folder.mkdir(mode=0o700, parents=True)
+        from lightning.sync.control import ControlStore, new_id
+        from lightning.sync.copies import profile_id_of, schema_version
+        from lightning.sync.service import compatibility
+        from lightning.sync.state import HomeProtocolModel
+        db = session.container.db
+        profile_id = profile_id_of(db) or json.loads((Path(paths.data_dir) / LENDING_MARK).read_text())["profile_id"]
+        ControlStore(folder).create(HomeProtocolModel(
+            profile_id=profile_id, home_id=identity.device_id, lineage_id=new_id(), checkpoint_id=new_id(),
+            checkpoint_sha256="0" * 64, compatibility=compatibility(db.copy_key(), schema_version(db)),
+            paired_devices=set()))
+        (folder / HOME_META).write_text(json.dumps({"live_path": str(paths.db_path)}), encoding="utf-8")
+        mark_lending(paths, profile_id)
+        return self._node(folder, Path(paths.db_path))
+
+    def blocks_restore(self, selected: str) -> bool:
+        """Restore must wait while the ledger is lent, mid hand-back, or its lending record is not readable."""
+        from lightning.sync.control import blocks_restore
+        try:
+            paths = resolve_profile(db_path=selected)
+        except (OSError, ValueError):
+            return False
+        state = self.lending_state(paths)
+        if state == "none":
+            return False
+        if state != "ok":
+            return True
+        return blocks_restore(self.home_folder(paths))
 
     def after_unlock(self, paths: ProfilePaths) -> None:
         """Finish an interrupted hand-back and accept a copy that arrived while locked: on a worker thread,
         because it changes the session's mode through the gate."""
-        node = self.home_node(paths)
+        try:
+            node = self.home_node(paths) if self.lending_state(paths) == "ok" else None
+        except Exception:  # noqa: BLE001 - a damaged record: the Devices page offers the repair (review M9)
+            node = None
         if node is None:
             return
 
@@ -163,11 +245,26 @@ class Devices:
             if self.server is not None:
                 return
             self.desk = self.desk or PairingDesk()
-            self.server = HomeServer(self.identity(), self.home_nodes, self.desk, host=self.host,
-                                     port=self.port).start()
+            self.server = HomeServer(self.identity(), self.home_nodes, self.desk, host=self.host, port=self.port,
+                                     on_authenticated=self._finish_arrival,
+                                     arriving=lambda node: not node.live.exists()).start()
+
+    def _finish_arrival(self, node: HomeNode) -> None:
+        """The PC that moved this ledger here connected as its borrower: it kept its copy read only, so the
+        ledger becomes a profile on this phone."""
+        import os
+        arriving = arriving_path(node.live)
+        if arriving.exists() and not node.live.exists():
+            os.replace(arriving, node.live)
+
+    def arrived(self) -> bool:
+        """The last move into this phone is confirmed by its PC (the receive page's "is here")."""
+        return self.last_arrival is not None and self.last_arrival.exists()
 
     def start(self, loop, session, gate) -> None:
         self.loop, self.session, self.gate = loop, session, gate
+        if getattr(session, "root", None) is not None:
+            recover_moves(self, Path(session.root))
         if self.home_nodes():
             try:
                 self.ensure_listener()
@@ -229,11 +326,32 @@ class Devices:
                 else node.check_return(self.link(node))
         except LinkDown:
             return "returning"
+        except ProtocolError:  # taken back, or refused: the copy stays here, read only (review M7)
+            return "refused"
         return "accepted" if isinstance(receipt, Accepted) else "received"
 
+    def taken_back(self, node: BorrowerNode) -> bool:
+        """Before reopening a sealed copy: whether the phone took the ledger back meanwhile (review L13). Out of
+        reach counts as not: the PC keeps working offline, as sealing promises."""
+        from lightning.sync.domain import Status
+        model = node.model
+        try:
+            reply = self.link(node, timeout=STATUS_TIMEOUT).status(Status(model.device_id))
+        except (LinkDown, OSError):
+            return False
+        except ProtocolError:
+            return False
+        if reply.lineage_id != model.lineage_id or reply.lent_to != model.device_id:
+            node.store.borrower(lambda m: m.needs_repair())
+            return True
+        return False
 
-def home_state_line(node: HomeNode | None) -> str:
+
+def home_state_line(node: HomeNode | None, lending: str = "ok") -> str:
     """What the phone's banner says while its ledger is away, or "" at home."""
+    if lending in ("missing", "damaged"):
+        return ("This profile's lending record is missing or damaged, so it opens read only: a PC may hold the "
+                "ledger. See Devices.")
     if node is None:
         return ""
     home = node.model
@@ -269,9 +387,13 @@ def _receive_move(devices: Devices, profile_root: Path, phone_name: str, message
         validate_key_file(key_file)
     except (TypeError, ValueError) as exc:
         raise ProtocolError("BAD_REQUEST", "The profile's key file did not arrive intact.") from exc
+    from lightning.sync.service import require_space
+    profile_root.mkdir(parents=True, exist_ok=True)
+    require_space(profile_root, message.size)
     identity = devices.identity(phone_name)
     paths = create_profile(message.profile_name, root=profile_root)
     paths.prepare()
+    _drop_stale_arrivals(devices, message.profile_id)
     partial = paths.db_path.with_suffix(".part")
     try:
         with open(partial, "xb") as handle:
@@ -281,7 +403,7 @@ def _receive_move(devices: Devices, profile_root: Path, phone_name: str, message
         if sha256_file(partial) != message.sha256:
             raise ProtocolError("BAD_REQUEST", "The ledger was damaged on the way. Nothing was kept; try again.")
         publish_keys(paths, key_file, replace=False)
-        os.replace(partial, paths.db_path)
+        os.replace(partial, arriving_path(paths.db_path))
     except BaseException:
         partial.unlink(missing_ok=True)
         raise
@@ -295,7 +417,25 @@ def _receive_move(devices: Devices, profile_root: Path, phone_name: str, message
         paired_devices={message.device_id}))
     store.save_peer(Peer(message.device_id, message.device_name, message.public_key, "", ""))
     (folder / HOME_META).write_text(json.dumps({"live_path": str(paths.db_path)}), encoding="utf-8")
+    mark_lending(paths, message.profile_id)
+    devices.last_arrival = Path(paths.db_path)
     return identity.device_id, lineage
+
+
+def _drop_stale_arrivals(devices: Devices, profile_id: str) -> None:
+    """The PC moves this profile again, so an earlier arrival it never confirmed is stale: remove it."""
+    import shutil
+    for node in devices.home_nodes():
+        try:
+            if node.live.exists() or node.profile_id != profile_id:
+                continue
+        except Exception:  # noqa: BLE001 - not this profile's record
+            continue
+        folder = node.checkpoints.parent
+        with devices._lock:
+            devices._nodes.pop(folder, None)
+        shutil.rmtree(node.live.parent, ignore_errors=True)
+        shutil.rmtree(folder, ignore_errors=True)
 
 
 def open_move(devices: Devices, profile_root: Path, phone_name: str):
@@ -321,15 +461,17 @@ def move_to_phone(devices: Devices, *, paths: ProfilePaths, profile_id: str, nam
     identity = devices.identity(pc_name)
     live = Path(paths.db_path)
     moving = live.with_name(f"{live.stem}.moving.db")
+    marker = Path(paths.data_dir) / MOVING_MARK
+    marker.write_text(json.dumps({"profile_id": profile_id}), encoding="utf-8")
     os.rename(live, moving)
     try:
         moved = move_profile(address, code, identity, profile_id=profile_id, profile_name=name,
                              key_file=paths.keys_path.read_text(encoding="utf-8"), key_id=key_id,
                              ledger_schema=schema, ledger=str(moving))
     except BaseException:
-        os.rename(moving, live)
+        os.rename(moving, live)  # the phone keeps nothing it can open until this PC confirms (review H3)
+        marker.unlink(missing_ok=True)
         raise
-    os.rename(moving, live.with_name(f"{live.stem}.moved-to-phone.db"))
     borrowed = borrowed_profile(profile_id, root=devices.root)
     borrowed.prepare()
     shutil.copyfile(paths.keys_path, borrowed.keys_path)  # the same password opens it here
@@ -339,4 +481,41 @@ def move_to_phone(devices: Devices, *, paths: ProfilePaths, profile_id: str, nam
         store.create(BorrowerModel(profile_id=profile_id, home_id=moved.done.home_id,
                                    lineage_id=moved.done.lineage_id, device_id=identity.device_id))
     store.save_peer(Peer(moved.done.home_id, moved.done.home_name, "", address.strip(), moved.fingerprint))
+    os.rename(moving, live.with_name(f"{live.stem}.moved-to-phone.db"))
+    marker.unlink(missing_ok=True)
+    confirm_move(devices, BorrowerNode(borrowed))
     return moved
+
+
+def confirm_move(devices: Devices, node: BorrowerNode) -> bool:
+    """Tell the phone this PC kept the moved profile as a borrower: any authenticated request does. If the phone
+    is out of reach now, the next Borrow does it."""
+    from lightning.sync.domain import Status
+    try:
+        devices.link(node, timeout=STATUS_TIMEOUT).status(Status(node.model.device_id))
+        return True
+    except (LinkDown, ProtocolError, OSError):
+        return False
+
+
+def recover_moves(devices: Devices, profile_root: Path) -> None:
+    """On the PC at start: finish a move cut off by a crash (review M10). With this PC's borrower record the
+    phone has the ledger, so the PC's file stays a backup; without it the phone never kept it, so the file
+    is this PC's profile again."""
+    import os
+    from .paths import borrowed_profile
+    for marker in Path(profile_root).glob(f"*/{MOVING_MARK}"):
+        try:
+            profile_id = json.loads(marker.read_text(encoding="utf-8"))["profile_id"]
+            folder = marker.parent
+            live = folder / f"{folder.name}.db"
+            moving = folder / f"{folder.name}.moving.db"
+            if moving.exists():
+                borrowed = borrowed_profile(profile_id, root=devices.root)
+                kept = (borrowed.data_dir / "control.db").exists() and ControlStore(borrowed.data_dir).role()
+                target = live.with_name(f"{folder.name}.moved-to-phone.db") if kept else live
+                if not target.exists():
+                    os.rename(moving, target)
+            marker.unlink(missing_ok=True)
+        except (OSError, ValueError, KeyError):
+            continue

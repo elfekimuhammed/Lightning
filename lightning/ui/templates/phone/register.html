@@ -4,7 +4,7 @@
 {% block title %}{{ account.name if account else 'Transactions' }}{% endblock %}
 {% block phone_back %}<a class="phone-back" href="/accounts"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><span>Accounts</span></a>{% endblock %}
 {% block heading %}
-{% if account %}<h1>{{ account.name }}</h1><p>{{ account.type_label }}</p>
+{% if account %}<h1>{{ account.name }}</h1>{% if account.type_short|lower not in account.name|lower %}<p>{{ account.type_short }}</p>{% endif %}
 <div class="phone-lead">{{ (account_value if account_value is not none else account_balance)|money(False, 0) }} <small>{{ account.currency }}</small></div>
 {% if account_held_value %}<p class="phone-note">{{ account_owned_value|money(False, 0) }} yours · {{ account_held_value|money(False, 0) }} held for others</p>{% endif %}
 {% else %}<h1>Transactions</h1><p>Every account</p>{% endif %}
@@ -28,14 +28,14 @@
 {% if filter_category %}<p class="phone-note">Category: {{ filter_category }}</p>{% endif %}
 <section class="phone-list" aria-label="Transactions">
 {% set ns = namespace(day='') %}
-{% for r in rows %}
+{% for r in rows if not (show_account and r.type == 'TRF' and r.amount > 0) %}{# every account: a transfer once, from its paying side #}
   {% if r.date != ns.day %}{% if not loop.first %}</div>{% endif %}<h2 class="phone-day">{{ r.date }}</h2><div class="phone-day-rows">{% set ns.day = r.date %}{% endif %}
   {% set editable = r.type in ('IN', 'OUT', 'TRF') %}
-  {% set who = ('From ' if r.amount > 0 else 'To ') ~ r.other_account_label if r.type == 'TRF' else (r.counterparty or r.description or r.type_label) %}
+  {% set who = (r.account_label ~ ' → ' ~ r.other_account_label if show_account else ('From ' if r.amount > 0 else 'To ') ~ r.other_account_label) if r.type == 'TRF' else (r.counterparty or r.description or r.type_label) %}
   {% set cat = 'Transfer' if r.type == 'TRF' else (r.type_label if r.type in ('BUY', 'SEL', 'DIV', 'OPN') or r.type_label == 'Ownership change' else r.category_label.split(' › ')[-1]) %}
   <a class="phone-txn" href="{{ ('/transactions/' ~ r.txn_id ~ '/edit-popup?return_to=' ~ (base_url ~ ('?' ~ keep_qs if keep_qs else ''))|urlencode) if editable else '/transactions/' ~ r.txn_id }}"{% if editable %} data-popup-open{% endif %}>
-    <span class="phone-txn-who"><b>{{ who }}</b><small>{{ cat if cat != who else '' }}{% if show_account %}{{ ' · ' if cat != who }}{{ r.account_label }}{% endif %}</small></span>
-    <span class="phone-txn-amount"><b class="{{ '' if r.type == 'TRF' else ('pos' if r.amount > 0 else '') }}">{{ r.amount|abs|money if r.type == 'TRF' else r.amount|money(True) }}</b>{% if not show_account and r.balance is not none %}<small>{{ r.balance|money }}</small>{% endif %}</span>
+    <span class="phone-txn-who"><b>{{ who }}</b><small>{{ cat if cat != who else '' }}{% if show_account and r.type != 'TRF' %}{{ ' · ' if cat != who }}{{ r.account_label }}{% endif %}</small></span>
+    <span class="phone-txn-amount"><b class="{{ '' if r.type == 'TRF' else ('pos' if r.amount > 0 else '') }}">{{ r.amount|abs|money if r.type == 'TRF' and show_account else r.amount|money(True) }}</b>{% if not show_account and r.balance is not none %}<small>{{ r.balance|money }}</small>{% endif %}</span>
   </a>
   {% if loop.last %}</div>{% endif %}
 {% else %}

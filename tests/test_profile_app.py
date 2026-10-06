@@ -230,7 +230,9 @@ def test_finance_templates_include_form_tokens_and_no_inline_handlers():
             assert 'nonce="{{ request.state.csp_nonce' in opening, path
         for form in re.findall(r'<form\b.*?</form>', source, re.S):
             if re.search(r'<form\b[^>]*method="post"', form, re.I):
-                assert 'name="__session"' in form, path
+                # Profile routes (the phone's Devices page) carry the profile CSRF token instead.
+                expected = 'name="csrf"' if re.search(r'<form\b[^>]*action="/profiles/', form) else 'name="__session"'
+                assert expected in form, path
 
 
 def test_setup_confirmation_cannot_acknowledge_another_tabs_key(tmp_path):

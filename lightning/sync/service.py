@@ -44,6 +44,7 @@ PROTOCOL = 1
 CIPHER_FORMAT = 1          # SQLCipher 4 defaults
 WRITE_CAPABILITY = 1
 KEEP_CHECKPOINTS = 3
+OWNER_WAIT = 2.0  # seconds an owner's button waits for a transfer to finish before saying "busy"
 
 
 class LinkDown(ConnectionError):
@@ -67,6 +68,16 @@ def copy_stream(source: BinaryIO, target: BinaryIO, size: int) -> None:
             raise ProtocolError("BAD_REQUEST", "The copy ended early")
         target.write(block)
         left -= len(block)
+
+
+SPARE_BYTES = 64 * 1024 * 1024  # left free after a copy arrives, so the phone keeps working (review S3)
+
+
+def require_space(folder: Path, size: int) -> None:
+    """Refuse a copy the device has no room for, before any byte is written."""
+    if shutil.disk_usage(folder).free < size + SPARE_BYTES:
+        raise ProtocolError("NO_SPACE", "The phone does not have enough free space for the ledger. Free some "
+                            "space on it and try again.")
 
 
 def promotion_files(folder: Path):
@@ -150,8 +161,18 @@ class HomeNode:
             self.store.save_peer(peer)
             self.store.home(lambda home: home.pair(peer.device_id))
 
+    @contextmanager
+    def _owner_step(self) -> Iterator[None]:
+        """The owner's buttons wait at most a moment for a transfer in progress, never minutes (review M8)."""
+        if not self._lock.acquire(timeout=OWNER_WAIT):
+            raise ProtocolError("BUSY", "A PC is sending or fetching the ledger right now. Try again in a minute.")
+        try:
+            yield
+        finally:
+            self._lock.release()
+
     def revoke(self, device_id: str) -> None:
-        with self._lock:
+        with self._owner_step():
             peer = self.store.peer(device_id)
             if peer is not None:
                 self.store.save_peer(Peer(peer.device_id, peer.name, peer.public_key, peer.endpoint,
@@ -218,6 +239,8 @@ class HomeNode:
             if request.checkout_id in {c.grant.checkout_id for c in [home.active] if c is not None} \
                     or home.state is not HomeState.AT_HOME:
                 return self.store.home(lambda h: h.borrow(request, authenticated_peer=peer))  # replay or refusal
+            if self.store.unresolved_promotion() is not None:  # review M5: still taking in the last copy
+                raise ProtocolError("BUSY", "The phone is still taking in the last copy. Try again in a minute.")
             self._dry_run(lambda h: h.borrow(request, authenticated_peer=peer))
             key = self._key()
             base = self._checkpoint_path(request.base_checkpoint_id)
@@ -228,7 +251,7 @@ class HomeNode:
                 self.store.rebase_accepted(request.base_checkpoint_id, sha256_file(self.live))
                 return self.store.home(lambda h: h.borrow(request, authenticated_peer=peer))
             except BaseException:
-                self.bridge.set_mode("home")
+                self.bridge.set_mode("home" if self.writable() else "reader")
                 raise
 
     def activate(self, message: BorrowActivated, *, peer: str) -> BorrowGrant:
@@ -239,7 +262,7 @@ class HomeNode:
         with self._lock:
             was_lent = self.model.state is HomeState.LENT
             receipt = self.store.home(lambda h: h.cancel(message, authenticated_peer=peer))
-            if was_lent and self.model.state is HomeState.AT_HOME and self.bridge.key() is not None:
+            if was_lent and self.writable() and self.bridge.key() is not None:
                 self.bridge.set_mode("home")
             return receipt
 
@@ -255,6 +278,7 @@ class HomeNode:
                     copy_stream(source, discard, begin.candidate_size)
                 return self.store.home(lambda h: h.receive_return(begin, authenticated_peer=peer))
             self._dry_run(lambda h: h.receive_return(begin, authenticated_peer=peer))
+            require_space(self.live.parent, begin.candidate_size)
             target = self._incoming(begin.return_id)
             partial = target.with_suffix(".part")
             partial.unlink(missing_ok=True)
@@ -277,9 +301,13 @@ class HomeNode:
     def return_status(self, message: ReturnStatus, *, peer: str) -> Received | Accepted:
         with self._lock:
             self._require_paired(peer)
-            receipt = self.model.receipt_for(message.return_id)
+            home = self.model
+            receipt = home.receipt_for(message.return_id)
             if receipt is None:
                 raise ProtocolError("UNKNOWN_RETURN", "The phone has not received that copy.")
+            pending = home.pending_return()
+            if isinstance(receipt, Received) and (pending is None or pending.return_id != message.return_id):
+                raise ProtocolError("STALE_AUTHORITY", "The phone took the ledger back; this copy will not go in.")
             return receipt
 
     # ------------------------------------------------------------ the home's own steps
@@ -298,7 +326,7 @@ class HomeNode:
     def accept_pending(self) -> Accepted | None:
         """Verify and promote the received copy (plan section 9). Called on receipt and on every unlock.
         A copy that fails verification leaves the ledger at NEEDS_REPAIR, with every file kept."""
-        from lightning.database.promotion import CandidatePromotionService
+        from lightning.database.promotion import CandidatePromotionService, PromotionBlocked
         with self._lock:
             home = self.model
             pending = home.pending_return()
@@ -321,15 +349,21 @@ class HomeNode:
             checkpoint = self._checkpoint_path(new_checkpoint)
             if not checkpoint.exists():
                 shutil.copyfile(candidate, checkpoint)
-            with promotion_files(self.live.parent) as files:
-                CandidatePromotionService(files, self.store).promote(
-                    operation_id=derived_id("promote", pending.return_id),
-                    old_checkpoint_id=accepted.checkpoint_id, new_checkpoint_id=new_checkpoint,
-                    live_name=self.live.name, candidate_name=candidate.name,
-                    previous_name=f"{self.live.stem}.before-{pending.return_id}.db",
-                    operation_gate=self._offline(),
-                    verify_database=lambda name: verify_copy(self.live.parent / name, key, home.profile_id),
-                    activate=lambda checkpoint, name: None)
+            try:
+                with promotion_files(self.live.parent) as files:
+                    CandidatePromotionService(files, self.store).promote(
+                        operation_id=derived_id("promote", pending.return_id),
+                        old_checkpoint_id=accepted.checkpoint_id, new_checkpoint_id=new_checkpoint,
+                        live_name=self.live.name, candidate_name=candidate.name,
+                        previous_name=f"{self.live.stem}.before-{pending.return_id}.db",
+                        operation_gate=self._offline(),
+                        verify_database=lambda name: verify_copy(self.live.parent / name, key, home.profile_id),
+                        activate=lambda checkpoint, name: None)
+            except PromotionBlocked:
+                if self.store.unresolved_promotion() is None:  # refused before it began: never retry (review L11)
+                    self.store.home(lambda h: h.mark_needs_repair())
+                raise
+            self._prune_previous()
             return self.model.receipt_for(pending.return_id)
 
     def recover(self) -> None:
@@ -346,6 +380,13 @@ class HomeNode:
                         activate=lambda checkpoint, name: None)
             self.accept_pending()
 
+    def _prune_previous(self) -> None:
+        """Keep the last few ledgers replaced by a hand-back, as backups; older ones go (review L12)."""
+        previous = sorted(self.live.parent.glob(f"{self.live.stem}.before-*.db"), key=lambda p: p.stat().st_mtime,
+                          reverse=True)
+        for path in previous[KEEP_CHECKPOINTS:]:
+            path.unlink(missing_ok=True)
+
     def writable(self) -> bool:
         """Whether the home may open its ledger for writing now."""
         return self.model.state is HomeState.AT_HOME and self.store.unresolved_promotion() is None
@@ -354,7 +395,13 @@ class HomeNode:
         """Owner's choice when the PC is lost: the phone's last accepted copy becomes the ledger again under a
         new lineage. That PC's later edits can never come back in (plan section 10). `reopen=False` when the
         caller already holds the request gate and reopens the session itself."""
-        with self._lock:
+        with self._owner_step():
+            if self.store.unresolved_promotion() is not None:
+                raise ProtocolError("BUSY", "The phone is taking in the PC's copy. Lock and unlock Lightning to "
+                                    "finish, then the ledger is home with the PC's changes.")
+            if self.model.state is not HomeState.NEEDS_REPAIR and self.model.pending_return() is not None:
+                raise ProtocolError("BUSY", "The PC's copy has arrived. Unlock Lightning on this phone to take it in; "
+                                    "no need to take the ledger back.")
             self.store.home(lambda h: h.take_back(new_id()))
             if reopen and self.bridge.key() is not None:
                 self.bridge.set_mode("home")
@@ -404,6 +451,9 @@ class BorrowerNode:
             pc = self.model
             if pc.state not in (BorrowerState.HANDED_BACK, BorrowerState.ABORTED, BorrowerState.PREFETCHED):
                 raise ProtocolError("STALE_AUTHORITY", "This PC already holds the ledger.")
+            reply = link.status(Status(pc.device_id))
+            if reply.lineage_id != pc.lineage_id:  # taken back or kept again on the phone: follow it
+                pc = self.store.borrower(lambda m: (m.adopt_lineage(reply.lineage_id), m)[1])
             partial = self.paths.prefetch_dir / f"incoming-{new_id()}.part"
             try:
                 with open(partial, "xb") as sink:
@@ -479,6 +529,18 @@ class BorrowerNode:
             if self.model.state is BorrowerState.BORROWING:
                 self.store.borrower(lambda m: m.seal())
 
+    def start_over(self) -> Path | None:
+        """The phone took the ledger back: keep this PC's copy as a backup beside it and borrow afresh next.
+        Returns the backup's path."""
+        with self._lock:
+            working = self.paths.working_path
+            kept = None
+            if working.exists():
+                kept = working.with_name(f"{working.stem}.taken-back-{new_id()[:8]}.db")
+                os.replace(working, kept)
+            self.store.borrower(lambda m: m.start_over())
+            return kept
+
     def reopen(self) -> None:
         """Opening Lightning again before the sealed copy went home: keep editing."""
         with self._lock:
@@ -526,6 +588,8 @@ class BorrowerNode:
             except ProtocolError as refused:
                 if refused.code == "UNKNOWN_RETURN":
                     return self.hand_back(link)  # the copy never arrived: send it again
+                if refused.code == "STALE_AUTHORITY":
+                    self.store.borrower(lambda m: m.needs_repair())  # taken back meanwhile: keep this copy
                 raise
             return self._settle(receipt)
 
