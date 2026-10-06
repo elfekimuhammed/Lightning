@@ -66,6 +66,7 @@ Every number comes from one of three layers, and each screen says which:
   - Next time you unlock the phone, it checks the returned copy, then reads the bank SMS that arrived meanwhile.
   - Without the phone, the PC can still show a dated, read-only saved copy for analysis.
   - Sometimes, for example after Android closed the app, the phone asks for its password before lending, and says why.
+- **Two levels, few settings** (owner, 2026-10-06; [proposal](proposals/two_level_layout.md) until built): six sections, at most five tabs each, never a third level; a tab's settings behind its gear; a default before a setting; icons for row actions; one choice, one field; no line describing what its label already says. Tracking suggestions and the carryover start month become defaults.
 - **Planned bank SMS.** The phone reads bank SMS only after the ledger has been accepted home and unlocked, including messages received during a lend. Known formats follow the import and category rules; unclear ones wait for review and later bank CSVs must not duplicate them. Learn formats bank by bank from sanitized examples. The full design and its limits are in [Multiple devices](proposals/multiple_devices.md).
 
 ## What you can do today

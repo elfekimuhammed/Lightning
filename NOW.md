@@ -10,6 +10,7 @@ Work longer than one sitting, and its files. Stay out of claimed files; remove y
 |---|---|---|---|
 | Codex | 02d — Code/fault tests pass; ordinary Windows reboot drill remains. Abrupt power-loss behavior is unverified; see Architecture › Promotion durability risk and [OWNER.md](OWNER.md). | `tests/test_database_promotion.py` | 2026-10-06 |
 | Luna, for Codex | 03a restore safety: durable intent and source-copy manifest, Windows marker publication, then explicit deterministic repair. Codex reviews it and owns the restore UI and docs | `lightning/runtime/restore.py`, `lightning/database/promotion_windows.py`, `tests/test_profile_session.py`, `tests/test_database_promotion_windows.py` | 2026-10-05 |
+| Claude (layout) | Two-level layout, all seven steps | `lightning/ui/` (templates, routes, `style.css`, `app.js`), `tests/test_mohab_year.py`, `tests/screens.py` | 2026-10-06 |
 
 ## Messages
 
@@ -30,4 +31,3 @@ Unclaimed: add a *Claimed* row before you start. Each item's **Read:** names wha
 4. **04a — Android build feasibility, after 03a:** resolve the pinned cryptography and SQLCipher blockers. Claim `android/` and Android workflows. Exit evidence: a reproducible arm64 APK loads both native dependencies on a real phone and reports the SQLCipher version; otherwise record the exact blocker and build evidence and leave it open. Read: `android/README.md`; [proposal section 15](docs/proposals/multiple_devices.md#15-implementation-work-packages) and its Read column.
 5. **05a — Sync protocol, after 04a:** compare schemas and in-memory state with protocol v1; add only missing messages, fixtures and duplicate/reordered/stale/restarted-flow tests. Freeze schemas on `main`; durable storage and transport remain later work. Claim `lightning/sync/` and `tests/test_sync_domain.py`. Read: [proposal section 15](docs/proposals/multiple_devices.md#15-implementation-work-packages) and its Read column.
 6. **Online prices for funds:** match held funds to Mubasher fund ids (`EG:FUND:<id>`, reviewed Thndr names) so Update prices and the month-end fetch cover them; today only stocks and funds with a saved key are fetched. Read: [proposal › How the app gets prices](docs/proposals/market_data.md); `lightning/workflows/live_prices.py` docstring.
-6. **Two-level layout, after the owner decides `OWNER.md` item 13:** six sections, five tabs at most, gears for tab settings. Claim UI templates, `style.css` and `tests/test_mohab_year.py`. Read: [proposal](docs/proposals/two_level_layout.md).
