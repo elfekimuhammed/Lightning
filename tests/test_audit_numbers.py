@@ -165,9 +165,8 @@ def test_13_14_a_flat_recorded_this_month_is_a_holding_not_growth(c, monkeypatch
     c.account_flows.open_account("Flat", "OTHER_ASSET", "2026-10-10", "400000")
 
     html = TestClient(create_app(c)).get("/investments?period=month&month=2026-10").text
-    legend = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ",
-                    re.search(r'class="horizon-legend">(.*?)</div></section>', html, re.S).group(1)))
-    assert "Unassigned 100.0% · 410,000" in legend
+    assert "410,000" in html  # the flat counts in holdings value
+    assert "Intended investment horizon" not in html  # all of it unassigned: no section to say so (UX plan 10)
     marker = "Money in and out, and change in value by asset class"
     flows = html[html.index(marker):html.index(marker) + 3000]
     assert "400,000" not in flows  # the flat's opening balance is not a change in its value

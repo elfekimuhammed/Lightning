@@ -340,8 +340,8 @@ def _page_extras(c, period, p, prior, owned_rows, prior_custody, before_day, rep
     end_values = {g["name"]: g["value"] for g in holding_groups}
     class_changes = sorted(((name, end_values.get(name, ZERO) - start_values.get(name, ZERO))
                             for name in set(start_values) | set(end_values)), key=lambda item: -abs(item[1]))
-    flow_rows = ([{"label": "Money in", "value": report["new_money"], "group": "money"},
-                  {"label": "Money out", "value": -report["withdrawn"], "group": "money"}]
+    flow_rows = ([row for row in ({"label": "Money in", "value": report["new_money"], "group": "money"},
+                                  {"label": "Money out", "value": -report["withdrawn"], "group": "money"}) if row["value"]]
                  + [{"label": name, "value": change, "group": "class"} for name, change in class_changes if change])
     return {"waffle": waffle,
             "growth": growth, "value_spark": spark, "holding_groups": holding_groups, "biggest": biggest,

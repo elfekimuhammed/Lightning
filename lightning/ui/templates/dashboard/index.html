@@ -69,7 +69,7 @@
           <div class="overview-headline">{% if pos.if_you_sold_today is not none %}{{ pos.if_you_sold_today|money }} <small>{{ base }}</small>{% else %}Unavailable{% endif %}</div>
           <div class="overview-inline-list">
             <div class="overview-static-row"><span>{{ fig.free_cash.label }}</span><b>{{ pos.free_cash|money if pos.free_cash is not none else 'Unavailable' }}</b></div>
-            {% for cls in pos.classes if cls.value %}<a class="overview-static-row" data-popup-open href="/birdview/class/{{ cls.id }}?as_of={{ as_of }}"><span>{{ cls.name }} <small>{{ cls.value|money }} × {{ '%g'|format(cls.factor) }}%</small></span><b>{{ cls.after_sale|money }}</b></a>{% endfor %}
+            {% for cls in pos.classes if cls.value %}<a class="overview-static-row" data-popup-open href="/birdview/class/{{ cls.id }}?as_of={{ as_of }}"><span>{{ cls.name }} <small>{{ cls.value|money }}{% if cls.locked_until %} · locked until {{ cls.locked_until }}{% else %} × {{ '%g'|format(cls.factor) }}%{% endif %}</small></span><b>{{ cls.after_sale|money }}</b></a>{% endfor %}
             <div class="overview-static-row overview-subtotal"><span>{{ fig.holdings_after_sale.label }}</span><b>{{ pos.holdings_after_sale|money }}</b></div>
           </div>
           {% if pos.if_you_sold_today is none %}<p class="muted small">{{ pos.unavailable_reason }}</p>{% endif %}
@@ -81,8 +81,6 @@
   <section class="overview-section" aria-labelledby="cashflow-analysis-heading">
     <header class="overview-section-head"><h2 id="cashflow-analysis-heading">Cash flow</h2><span>{{ date_from }} to {{ date_to }}</span></header>
     <article class="overview-block wide-card overview-flow-card" aria-labelledby="flow-heading">
-      <div class="overview-split">
-        <section>
           <div class="overview-block-head"><div><h3 id="flow-heading">{{ fig.net_flow.label }}</h3><p>{{ fig.net_flow.formula }}</p></div><a class="quiet-link" href="/transactions?date_from={{ date_from }}&amp;date_to={{ date_to }}">Transactions</a></div>
           <div class="overview-headline overview-flow-net{{ ' is-negative' if cash_flow.net < 0 }}">{{ cash_flow.net|money(True) }} <small>{{ base }}</small></div>
           <div class="overview-inline-list">
@@ -90,12 +88,6 @@
             <details class="overview-disclosure"><summary><span>{{ fig.money_out.label }}</span><b>{{ ('−' ~ (cash_flow.outflows|money)) if cash_flow.outflows > 0 else cash_flow.outflows|money }}</b></summary><div class="overview-disclosure-body">{% for r in money_out_rows %}<a href="{{ r.href }}"><span>{{ r.label }}</span><b>{{ r.value|money }}</b></a>{% else %}<p class="muted small">No money out was recorded in this period.</p>{% endfor %}</div></details>
             <div class="overview-static-row overview-subtotal"><span>{{ fig.net_flow.label }}</span><b>{{ cash_flow.net|money(True) }}</b></div>
           </div>
-        </section>
-        <section aria-labelledby="flow-steps-heading">
-          <div class="overview-block-head"><div><h3 id="flow-steps-heading">From money in to net flow</h3></div></div>
-          {% if cash_flow.inflows or cash_flow.outflows %}{{ column_waterfall(flow_columns, 'From money in to net flow') }}{% else %}<p class="chart-empty">No money moved in this period.</p>{% endif %}
-        </section>
-      </div>
     </article>
     <article class="overview-block wide-card overview-sankey-card" aria-labelledby="sankey-heading">
       <div class="overview-block-head"><div><h3 id="sankey-heading">Where money in went</h3></div><a class="quiet-link" href="/birdview/expenses?{{ period_query }}">See spending</a></div>
@@ -125,7 +117,7 @@
       <section><div class="overview-block-head"><div><h3>Total expenses</h3><p>{% if mc.biggest and mc.biggest.spend %}Most in {{ mc.biggest.key }} · {{ mc.biggest.spend|money }}{% else %}No spending yet{% endif %}</p></div></div>
         {{ month_cal(mc, 'spend') }}
         <p class="muted small heat-key"><span class="heat-1"></span><span class="heat-2"></span><span class="heat-3"></span><span class="heat-4"></span> less to more spent · the biggest month darkest</p></section>
-      <section><div class="overview-block-head"><div><h3>Net cash flow</h3><p>{{ mc.kept }} of {{ mc.count }} months kept money{% if mc.best and mc.best.net > 0 %} · best {{ mc.best.key }} · {{ mc.best.net|money(True) }}{% endif %}</p></div></div>
+      <section><div class="overview-block-head"><div><h3>Net cash flow</h3><p>{{ mc.kept }} of {{ mc.count }} month{{ '' if mc.count == 1 else 's' }} kept money{% if mc.best and mc.best.net > 0 %} · best {{ mc.best.key }} · {{ mc.best.net|money(True) }}{% endif %}</p></div></div>
         {{ month_cal(mc, 'net') }}
         <p class="muted small heat-key"><span class="flow-in-2"></span><span class="flow-in-4"></span> kept <span class="flow-out-2"></span><span class="flow-out-4"></span> short · darker is more</p></section>
     </div></article>

@@ -4,9 +4,8 @@
 {% block heading %}<div><h1>Cash planning</h1></div>{% endblock %}
 {% block top_actions %}<a class="btn primary" data-popup-open href="/plan/items/new?kind=BILL">Add recurring item</a>{% endblock %}
 {% block content %}
-{% from "partials/charts.html" import key_notes, stat_tiles %}
+{% from "partials/charts.html" import stat_tiles %}
 {{ stat_tiles(fixed_tiles, base, 'Your fixed costs') }}
-{{ key_notes(notes) }}
 {% for r in rows %}{% if r.last_paid and r.last_paid.paid_amount is not none and r.last_paid.paid_amount != r.item.amount and r.item.frequency.value != 'ONCE' %}
 <section class="card stack" aria-label="Review changed recurring amount">
   <h2>Review {{ r.item.name }} amount</h2>
@@ -21,6 +20,7 @@
   <article class="card">
     <div class="section-head"><div><h2>Bills and subscriptions</h2></div></div>
     <div class="plan-figure plan-figure-small">{{ monthly_out|money(False, 0) }} <small>{{ base }} a month</small></div>
+    {% if subscriptions_per_year %}<p class="muted small">Subscriptions come to {{ subscriptions_per_year|money(places=0) }} a year.</p>{% endif %}
     {% from "partials/charts.html" import bars %}{{ bars(bill_bars, 'spend', 'No bills or subscriptions yet.') }}
   </article>
 </section>

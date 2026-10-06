@@ -625,7 +625,7 @@ def _the_feedback_round(o: Mohab) -> None:
     o.ask("looks_recurring", "What does Lightning think repeats?", "Cash planning", "Recurring")
     o.notes["not_recurring"] = b.submit({}, action=b.page.action_after("<b>Mom</b>", "not-recurring"))
     o.ask("categories", "Which categories are income, which are spending, and which repeat?", "Settings", "Categories")
-    o.ask("invest_monthly", "Can I keep a goal of investing 3,000 every month?", "Investments", "Investment planner")
+    o.ask("invest_monthly", "Can I keep a goal of investing 3,000 every month?", "Investments", "Planner")
     o.ask("bulk", "I selected six Talabat rows. Can I change their category together?", "CIB Payroll")
     # He types Talabat in CIB Payroll's search box, ticks every row and gives them one category.
     found = b.open(f"{b.go('CIB Payroll').path.split('?')[0]}?q=Talabat")

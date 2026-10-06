@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% from "partials/charts.html" import tone_icon %}
 {% block title %}Investments{% endblock %}
-{% block heading %}<div class="birdview-title"><div><h1>Investments</h1><div class="muted">Valued as of {{ period.end_display }}</div></div>{% if not phone_mode() %}<a class="btn btn-planner" data-popup-open href="/investments/planner"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 20h18M6 16l4-5 4 3 6-8"/><path d="M16 6h4v4"/></svg>Investment planner</a>{% endif %}{# on a phone the Planner tab is the way in #}</div>{% endblock %}
+{% block heading %}<div class="birdview-title"><div><h1>Investments</h1><div class="muted">Valued as of {{ period.end_display }}</div></div>{# the Planner tab is the way in #}</div>{% endblock %}
 {% block top_actions %}{% from "partials/macros.html" import period_control %}{{ period_control("/investments", period.key, period.start_text[:7], this_month, period.start_text, period.end_text) }}{% endblock %}
 {% block content %}
 {% if period_error %}<p class="flash error">{{ period_error }}</p>{% endif %}
@@ -91,7 +91,7 @@ document.querySelectorAll('[data-horizon-edit]').forEach(b=>b.addEventListener('
   </div>
 </section>
 
-<header class="overview-section-head inv-head"><h2>Intended investment horizon</h2><span>Today</span></header>
-<section class="card wide-card analysis-card"><div class="horizon-stack" role="img" aria-label="Portfolio value by intended investment horizon">{% for label in ['Short','Medium','Long','Unassigned'] %}{% set v=horizons.get(label,0) %}{% set pct=(v/holdings_total*100) if holdings_total else 0 %}<button type="button" class="horizon-segment horizon-{{ label|lower }}" style="width:{{ pct }}%" title="{{ label }} {{ v|money }} · {{ pct|round(1) }}%" data-horizon-filter="{{ label }}">{% if pct>8 %}{{ label }} · {{ pct|round(1) }}%{% endif %}</button>{% endfor %}</div><div class="horizon-legend">{% for label in ['Short','Medium','Long','Unassigned'] %}{% set v=horizons.get(label,0) %}<button type="button" data-horizon-filter="{{ label }}"><i class="dot horizon-dot-{{ label|lower }}"></i><span>{{ label }}<small>{{ ((v/holdings_total*100) if holdings_total else 0)|round(1) }}% · {{ v|money }}</small></span></button>{% endfor %}</div></section>
+{% if horizons.get('Unassigned', 0) < holdings_total %}<header class="overview-section-head inv-head"><h2>Intended investment horizon</h2><span>Today</span></header>
+<section class="card wide-card analysis-card"><div class="horizon-stack" role="img" aria-label="Portfolio value by intended investment horizon">{% for label in ['Short','Medium','Long','Unassigned'] %}{% set v=horizons.get(label,0) %}{% set pct=(v/holdings_total*100) if holdings_total else 0 %}<button type="button" class="horizon-segment horizon-{{ label|lower }}" style="width:{{ pct }}%" title="{{ label }} {{ v|money }} · {{ pct|round(1) }}%" data-horizon-filter="{{ label }}">{% if pct>8 %}{{ label }} · {{ pct|round(1) }}%{% endif %}</button>{% endfor %}</div><div class="horizon-legend">{% for label in ['Short','Medium','Long','Unassigned'] %}{% set v=horizons.get(label,0) %}<button type="button" data-horizon-filter="{{ label }}"><i class="dot horizon-dot-{{ label|lower }}"></i><span>{{ label }}<small>{{ ((v/holdings_total*100) if holdings_total else 0)|round(1) }}% · {{ v|money }}</small></span></button>{% endfor %}</div></section>{% endif %}
 
 {% endif %}{% endif %}{% endblock %}

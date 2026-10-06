@@ -66,6 +66,12 @@ class ClassValue:
                         for item in self.items), ZERO)
         return self.value * self.factor / 100
 
+    @property
+    def locked_until(self) -> str | None:
+        """When every item is locked (a certificate in its lock-up), the last day it stays locked."""
+        days = [getattr(item, "_locked_until", None) for item in self.items]
+        return max(days) if days and all(days) else None
+
     def __getitem__(self, key):
         return getattr(self, key)
 
@@ -218,6 +224,7 @@ class PositionService:
                     terms = certificate.terms
                 if day < parse_date(terms.lockup_end_date):
                     item._realization_factor = ZERO
+                    item._locked_until = terms.lockup_end_date
                 elif day >= parse_date(terms.maturity_date):
                     item._realization_factor = Decimal(100)
         by_code = {cls.code: cls for cls in self.assets.list_classes()}

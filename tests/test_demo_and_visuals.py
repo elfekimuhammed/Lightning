@@ -107,11 +107,7 @@ def test_needs_you_leads_with_the_first_item_and_counts_the_rest():
     assert calm["title"] == "1,500 safe to spend until 2026-10-01" and calm["tone"] == "info"
 
 
-def test_recurring_and_loan_notes_answer_share_and_end_date():
-    heavy = keynotes.recurring_summary(D(12000), D(20000), D(0))
-    assert heavy["title"] == "Bills take 60% of your 20,000 income" and heavy["tone"] == "attention"
-    assert keynotes.recurring_summary(D(500), D(0), D(0))["title"] == "Add your income to see its share"
-
+def test_loan_notes_answer_the_end_date():  # Recurring's share of income is its Fixed costs card now
     class Payment:
         amount, due_date = D(2500), "2026-10-05"
     progress = {"still_to_pay": D(52500), "last_date": "2028-06-05", "due": [], "paid": 3, "total": 24, "next": Payment()}
@@ -174,12 +170,15 @@ def test_every_tab_of_the_demo_opens_with_its_key_notes(demo):
         elif url == "/plan":  # safe to spend, free cash, what's due and the lowest point ahead
             assert page.text.count('class="stat-tile surface-') == 4 and "chart-waterfall" in page.text, url
             assert "timeline" in page.text and "section-tabs" in page.text, url
+        elif url == "/plan/recurring":  # its Fixed costs card says the share of income, once (UX plan 10)
+            assert page.text.count('class="stat-tile surface-') == 1 and 'class="key-note' not in page.text, url
         elif url == "/investments":  # the period's waffle, result and six-month value line
             assert page.text.count('class="stat-tile surface-') == 3 and 'class="key-note' not in page.text, url
         elif url in with_notes:
             assert 'class="key-note' in page.text or 'class="stat-card key-note' in page.text, url
     overview = client.get("/").text
-    assert "chart-donut" in overview and "chart-sankey-plot" in overview and "chart-cfall-plot" in overview
+    assert "chart-donut" in overview and "chart-sankey-plot" in overview
+    assert "chart-cfall-plot" not in overview  # the Net flow list says it; no column waterfall repeats it (UX plan 5)
     assert "overview-month-toggle" not in overview and "investment-toggle" not in overview  # no chart hides behind a toggle
     assert "chart-trend" in client.get("/birdview").text  # month by month lives on Birdview
 

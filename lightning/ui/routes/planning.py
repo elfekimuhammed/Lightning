@@ -182,12 +182,11 @@ async def recurring_page(request: Request):
                                "Set your income categories to measure it" if fixed.part else "No bills, subscriptions or loans yet",
                                "#recurring-totals")]
     monthly_in = sum((r["per_year"] for r in rows if r["item"].is_income), ZERO) / 12
-    notes = [n for n in (keynotes.recurring_summary(monthly_out, monthly_in, subscriptions),) if n]
     bill_bars = charts.bars([{"label": r["item"].name, "value": r["per_year"] / 12,
                               "note": r["item"].kind_label + (" · " + r["category"] if r["category"] else "")}
                              for r in rows if not r["item"].is_income])
     return render(request, "planning/recurring.html", tabs=TABS, plan_tab="recurring", rows=rows, stopped=stopped,
-                  notes=notes, bill_bars=bill_bars, fixed_tiles=fixed_tiles,
+                  bill_bars=bill_bars, fixed_tiles=fixed_tiles,
                   suggestions=c.planning.suggestions(day), subscriptions_per_year=subscriptions,
                   monthly_out=monthly_out, monthly_in=monthly_in, labels=labels, as_of=fmt_date(day))
 

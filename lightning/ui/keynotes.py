@@ -233,17 +233,6 @@ def cash_share(position) -> dict | None:
                 label="Cash · share of what you own", figure=f"{share:.0f}%")
 
 
-def recurring_summary(monthly_out: Decimal, monthly_in: Decimal, subscriptions_per_year: Decimal) -> dict | None:
-    if not monthly_out:
-        return None
-    subs = f"Subscriptions come to {fmt(subscriptions_per_year)} a year." if subscriptions_per_year else ""
-    if not monthly_in:
-        return note("info", "Add your income to see its share", "Bills are measured against scheduled income. " + subs)
-    share = monthly_out / monthly_in * 100
-    return note("attention" if share > 50 else "info", f"Bills take {share:.0f}% of your {fmt(monthly_in)} income",
-                f"Of {fmt(monthly_in)} a month. {subs}".strip(), label="Bills · share of income", figure=f"{share:.0f}%")
-
-
 def loans_summary(loans: list[dict]) -> dict | None:
     if not loans:
         return None

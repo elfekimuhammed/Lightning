@@ -30,11 +30,11 @@
   <section><div class="overview-block-head"><div><h3>Free cash, then the forecast</h3><p>Solid: what it was · dashed: the forecast{% if f.lowest %} · lowest {{ f.lowest.closing|money }} in {{ f.lowest.month }}{% endif %}</p></div></div>
     {{ trend(p.heading, 'Free cash at past month ends, then the forecast', 'Plan', 230) }}</section>
   <section><div class="overview-block-head"><div><h3>In and out each month ahead</h3><p>Money in includes income and CD proceeds · projected values are estimates</p></div><span class="bullet-key"><span><i class="k in"></i>In</span><span><i class="k outflow"></i>Out</span></span></div>
-    <div class="flow-cols">{% for r in p.flows %}<div class="flow-col"><div class="flow-bars"><span class="flow-bar-col"><small>{{ r.in|compact }}</small><i class="in" style="height:{{ '%.1f'|format(r.in_h * 0.84) }}%"></i></span><span class="flow-bar-col"><small>{{ r.out|compact }}</small><i class="out" style="height:{{ '%.1f'|format(r.out_h * 0.84) }}%"></i></span></div><span class="flow-month">{{ r.month }}</span><em class="{{ 'pos' if r.net > 0 else ('neg' if r.net < 0 else '') }}">{{ r.net|money(True) }}</em>{% if r.estimated %}<small class="muted">income: average</small>{% endif %}</div>{% endfor %}</div>
+    <div class="flow-cols">{% for r in p.flows %}<div class="flow-col"><div class="flow-bars"><span class="flow-bar-col"><small>{{ r.in|compact }}</small><i class="in" style="height:{{ '%.1f'|format(r.in_h * 0.84) }}%"></i></span><span class="flow-bar-col"><small>{{ r.out|compact }}</small><i class="out" style="height:{{ '%.1f'|format(r.out_h * 0.84) }}%"></i></span></div><span class="flow-month">{{ ('Rest of ' ~ r.month) if r.rest else r.month }}</span><em class="{{ 'pos' if r.net > 0 else ('neg' if r.net < 0 else '') }}">{{ r.net|money(True) }}</em>{% if r.estimated %}<small class="muted">income: average</small>{% endif %}</div>{% endfor %}</div>
     <details class="chart-table"><summary>Show the numbers</summary><div class="table-scroll"><table class="plan-forecast-table">
       {% set has_deposits = f.months|selectattr("deposit_cash")|list %}
       <thead><tr><th>Month</th><th class="num">Income (estimate)</th>{% if has_deposits %}<th class="num">CD proceeds (estimate)</th>{% endif %}<th class="num">Out (estimate)</th><th class="num">Ends with (estimate)</th></tr></thead>
-      <tbody>{% for m in f.months %}<tr class="{{ 'plan-low' if f.lowest and m.month == f.lowest.month }}"><td>{{ m.month }}</td><td class="num">{{ m.income|money }}{% if m.income_estimated %} <small class="muted">average</small>{% endif %}</td>{% if has_deposits %}<td class="num">{{ m.deposit_cash|money }}</td>{% endif %}<td class="num"><details><summary>{{ m.money_out|money }}</summary><small>Bills and loan payments {{ m.commitments|money }} · {{ fig.left_in_plan_after_bills.label }} {{ m.budget_spending|money }} · {{ fig.saving_for_goals.label }} {{ m.goal_saving|money }}{% if m.emergency_saving %} · {{ fig.emergency_top_up.label }} {{ m.emergency_saving|money }}{% endif %}{% if m.target_saving %} · {{ fig.savings_target_rest.label }} {{ m.target_saving|money }}{% endif %}</small></details></td><td class="num">{{ m.closing|money }}</td></tr>{% endfor %}</tbody>
+      <tbody>{% for m in f.months %}<tr class="{{ 'plan-low' if f.lowest and m.month == f.lowest.month }}"><td>{{ ('Rest of ' ~ m.month) if loop.first and p.flows and p.flows[0].rest else m.month }}</td><td class="num">{{ m.income|money }}{% if m.income_estimated %} <small class="muted">average</small>{% endif %}</td>{% if has_deposits %}<td class="num">{{ m.deposit_cash|money }}</td>{% endif %}<td class="num"><details><summary>{{ m.money_out|money }}</summary><small>Bills and loan payments {{ m.commitments|money }} · {{ fig.left_in_plan_after_bills.label }} {{ m.budget_spending|money }} · {{ fig.saving_for_goals.label }} {{ m.goal_saving|money }}{% if m.emergency_saving %} · {{ fig.emergency_top_up.label }} {{ m.emergency_saving|money }}{% endif %}{% if m.target_saving %} · {{ fig.savings_target_rest.label }} {{ m.target_saving|money }}{% endif %}</small></details></td><td class="num">{{ m.closing|money }}</td></tr>{% endfor %}</tbody>
     </table></div></details></section>
 </div></section>
 
@@ -44,12 +44,13 @@
 
 {% endif %}
 <header class="overview-section-head inv-head"><h2>What is promised?</h2><span>Today</span></header>
-<section class="card wide-card"><div class="overview-split">
-  <section><div class="overview-block-head"><div><h3>{{ fig.what_you_owe.label }}</h3><p>Bills already due and loans</p></div></div>
+{% set by_loan = p.loan_bars.rows|length > 1 %}
+<section class="card wide-card"><div class="{{ 'overview-split' if by_loan }}">
+  <section><div class="overview-block-head"><div><h3>{{ fig.what_you_owe.label }}</h3><p>Bills already due and loans</p></div><a class="quiet-link" href="/plan/loans">Loans</a></div>
     <div class="overview-headline">{{ owe.total|money }} <small>{{ base }}</small></div>
     <div class="overview-inline-list"><div class="overview-static-row"><span>{{ fig.bills_due.label }} <small>other than loan payments</small></span><b>{{ owe.other_bills_due|money }}</b></div>
       <div class="overview-static-row"><span>{{ fig.loans_still_to_pay.label }}</span><b>{{ owe.loans_still_to_pay|money }}</b></div></div></section>
-  <section><div class="overview-block-head"><div><h3>Loans still to pay</h3></div><a class="quiet-link" href="/plan/loans">Loans</a></div>
-    {{ bars(p.loan_bars, 'hold', 'No loans to pay.') }}</section>
+  {% if by_loan %}<section><div class="overview-block-head"><div><h3>By loan</h3></div></div>
+    {{ bars(p.loan_bars, 'hold', 'No loans to pay.') }}</section>{% endif %}
 </div></section>
 {% endblock %}

@@ -16,12 +16,7 @@
 {% from "partials/charts.html" import key_notes, meter %}
 {{ key_notes(notes) }}
 {% if error %}<p class="flash error">{{ error }}</p>{% endif %}
-<section class="metric-grid reserve-overview" aria-label="{{ fig.free_cash.label }}">
-  <div class="metric-card"><div class="metric-label">{{ fig.cash_you_own.label }}</div><div class="metric-value">{{ pos.cash_you_own|money }} <small>{{ base }}</small></div></div>
-  <div class="metric-card"><div class="metric-label">{{ fig.reserves.label }}</div><div class="metric-value">{{ pos.reserves|money }} <small>{{ base }}</small></div></div>
-  <a class="metric-card" href="/plan"><div class="metric-label">{{ fig.bills_due.label }}</div><div class="metric-value">{{ pos.bills_due|money }} <small>{{ base }}</small></div></a>
-  <div class="metric-card metric-card--focal"><div class="metric-label">{{ fig.free_cash.label }}</div><div class="metric-value {{ pos.free_cash|tone }}">{{ pos.free_cash|money }} <small>{{ base }}</small></div></div>
-</section>
+<p class="reserve-overview muted">{{ pos.reserves|money }} {{ base }} set aside in reserves; {{ fig.free_cash.label|lower }} is {{ pos.free_cash|money }} {{ base }} after them and bills due. <a href="/plan">How free cash is built</a></p>
 
 <section class="card emergency-fund">
   <div class="section-head"><div><h2>Emergency fund</h2></div></div>

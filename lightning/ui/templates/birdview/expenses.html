@@ -45,12 +45,12 @@
 <header class="overview-section-head inv-head"><h2>{{ 'Month by month' if calendar.long_period else 'Day by day' }}</h2><span>{{ date_from }} to {{ date_to }}</span></header>
 {% from 'partials/charts.html' import day_calendar %}
 <section class="card wide-card"><div class="overview-split">
-  <section><div class="overview-block-head"><div><h3>Total expenses</h3><p>{% if calendar.busiest %}Most on {{ calendar.busiest[0] }} · {{ calendar.busiest[1]|money }} · nothing spent on {{ calendar.quiet_days }} of {{ calendar.days }} days{% else %}No spending in this period{% endif %}</p></div></div>
+  <section><div class="overview-block-head"><div><h3>Total expenses</h3><p>{% if calendar.busiest %}Most on {{ calendar.busiest[0] }} · {{ calendar.busiest[1]|money }} · nothing spent on {{ calendar.quiet_days }} of {{ calendar.days }} day{{ '' if calendar.days == 1 else 's' }}{% else %}No spending in this period{% endif %}</p></div></div>
     {% if calendar.long_period %}<div class="table-wrap"><table><thead><tr><th>Month</th><th class="num">Money out</th><th class="num">Net cash flow</th></tr></thead><tbody>{% for month in calendar.monthly %}<tr><td><a href="/birdview/expenses?period=month&month={{ month.key }}">{{ month.key }}</a></td><td class="num">{{ month.spend|money }}</td><td class="num {{ month.net|tone }}">{{ month.net|money(True) }}</td></tr>{% endfor %}</tbody></table></div>
     {% else %}
     {{ day_calendar(calendar, 'spend') }}
     <p class="muted small heat-key"><span class="heat-1"></span><span class="heat-2"></span><span class="heat-3"></span><span class="heat-4"></span> less to more spent · the biggest day darkest</p>{% endif %}</section>
-{% if not category_filter and not calendar.long_period %}  <section><div class="overview-block-head"><div><h3>Net cash flow</h3><p>{{ calendar.kept_days }} days kept money · {{ calendar.short_days }} days took more than came in</p></div></div>
+{% if not category_filter and not calendar.long_period %}  <section><div class="overview-block-head"><div><h3>Net cash flow</h3><p>{{ calendar.kept_days }} day{{ '' if calendar.kept_days == 1 else 's' }} kept money · {{ calendar.short_days }} day{{ '' if calendar.short_days == 1 else 's' }} took more than came in</p></div></div>
     {{ day_calendar(calendar, 'net') }}
     <p class="muted small heat-key"><span class="flow-in-2"></span><span class="flow-in-4"></span> kept <span class="flow-out-2"></span><span class="flow-out-4"></span> short · darker is more</p></section>{% elif category_filter %}<section><div class="overview-block-head"><div><h3>Net cash flow</h3><p>For all your money · clear the category filter to see it</p></div></div></section>{% endif %}
 </div></section>

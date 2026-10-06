@@ -225,6 +225,7 @@ tr.total td { font-weight: 650; border-top: 2px solid var(--border); }
 .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .neg { color: var(--neg); }
 .pos { color: var(--pos); }
+.held { color: var(--azure); } .held.neg { color: var(--rose); }
 .pill { display: inline-block; padding: 1px 8px; border-radius: 99px; font-size: 12px; background: var(--surface-2); color: var(--muted); }
 .pill.void { background: var(--warn-bg); color: var(--warn); }
 .pill.OUT { color: var(--neg); } .pill.IN { color: var(--pos); } .pill.TRF { color: var(--accent); }
@@ -1486,6 +1487,7 @@ summary > b + .muted { margin-left:8px; }
 .chart-legend span { display:inline-flex; align-items:center; gap:6px; }
 .chart-key { display:inline-block; width:12px; height:12px; border-radius:4px; background:var(--tone); flex:none; }
 .chart-key-plan { height:0; width:16px; border-top:2px dashed var(--tone-plan); border-radius:0; background:none; }
+.chart-key.is-dashed { height:0; width:16px; border-top:2px dashed var(--tone); border-radius:0; background:none; }
 
 /* Trend: line + wash, hairline grid, month labels, value at the end. */
 .chart-plot { position:relative; margin:4px 0 0 44px; }

@@ -8,7 +8,7 @@
   {% if t.too_short %}
   <p class="chart-empty">Not enough history yet — check back next month.</p>
   {% else %}
-  {% if t.series|length > 1 or t.plan %}<div class="chart-legend">{% for s in t.series %}<span><i class="chart-key tone-{{ s.tone }}"></i>{{ s.name }}</span>{% endfor %}{% if t.plan %}<span><i class="chart-key chart-key-plan"></i>{{ plan_label }} {{ t.plan.value|money }}</span>{% endif %}</div>{% endif %}
+  {% if t.series|length > 1 or t.plan %}<div class="chart-legend">{% for s in t.series %}<span><i class="chart-key tone-{{ s.tone }}{{ ' is-dashed' if s.dashed }}"></i>{{ s.name }}</span>{% endfor %}{% if t.plan %}<span><i class="chart-key chart-key-plan"></i>{{ plan_label }} {{ t.plan.value|money }}</span>{% endif %}</div>{% endif %}
   <div class="chart-plot" style="height:{{ height }}px">
     {% for tick in t.ticks %}<div class="chart-grid{{ ' chart-grid-zero' if tick.value == 0 }}" style="top:{{ '%.2f'|format(tick.y) }}%"><span>{{ '{:,.0f}'.format(tick.value) }}</span></div>{% endfor %}
     <svg class="chart-marks" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
