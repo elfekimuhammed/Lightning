@@ -1,4 +1,4 @@
-"""Task 04c: the Android probe's Python side, run on Linux before it goes to the phone.
+"""The Android probe's Python side, run on Linux before it goes to the phone.
 
 The probe serves the shared runtime (`Host`, `profile_app`) on a copy of the dummy profile; the phone's WebView then
 unlocks it through the real form. Here an HTTP client takes the WebView's place."""

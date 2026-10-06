@@ -1,3 +1,5 @@
+"""Money held for others: an owner's cash and holdings are never spent by someone else, and every ownership
+change is a zero-sum posting that leaves the account total alone."""
 from datetime import date
 from decimal import Decimal
 

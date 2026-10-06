@@ -1,8 +1,7 @@
-"""Multi-device task 06a: a reader session opens a real read-only connection and changes nothing.
+"""A reader session opens a real read-only connection and changes nothing.
 
 Plan section 5, rule 10: no migration, seed, backup, payment matching or form bypasses the role gate,
-and readers use actual read-only SQLCipher connections. Task 01's two-node fixture
-(`tests/test_sync_write_inventory.py`) opened its borrower directly; these open it through the session.
+and readers use actual read-only SQLCipher connections, opened through the session.
 """
 from __future__ import annotations
 

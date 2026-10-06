@@ -8,7 +8,6 @@ from .connection import Database
 
 DEFAULTS = {
     "base_currency": "EGP",
-    "app_name": "Lightning",
 }
 
 

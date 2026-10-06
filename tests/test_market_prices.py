@@ -236,7 +236,7 @@ def test_the_desktop_window_takes_one_bounded_market_file():
     assert runtime_app._form_file_limit("/investments/prices") == 0
 
 
-# ------------------------------------------------------------------ phase 2: filling without being asked
+# ------------------------------------------------------------------ filling without being asked
 def _bundle(tmp_path, monkeypatch, created_at="2026-12-31T22:30:00Z"):
     """The default packs as a release carries them (lightning/market/market.zip)."""
     root = publish(tmp_path / f"published-{created_at[:10]}", created_at)

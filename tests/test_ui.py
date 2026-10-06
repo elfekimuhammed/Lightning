@@ -376,3 +376,17 @@ def test_start_fresh_sets_the_database_aside_and_opens_an_empty_one(client, c, s
     assert sqlite3.connect(kept[0]).execute("SELECT COUNT(*) FROM transactions").fetchone()[0] >= 1
     assert c.backup_files()  # and a backup was taken first
     fresh.db.close()
+
+
+# The period picked in a page header is remembered, but "this month" moves on with the calendar (review 2026-10-04).
+def test_this_month_moves_on_and_a_past_month_stays(c, setup, monkeypatch):
+    from fastapi.testclient import TestClient
+    from lightning.ui.web import create_app
+    client = TestClient(create_app(c))
+    monkeypatch.setenv("LIGHTNING_TODAY", "2026-10-31")
+    client.get("/budget?period=month&month=2026-10")                      # the current month
+    monkeypatch.setenv("LIGHTNING_TODAY", "2026-11-01")
+    assert client.get("/budget", follow_redirects=False).headers["location"].endswith("month=2026-11")
+    client.get("/budget?period=month&month=2026-08")                      # a past month on purpose
+    monkeypatch.setenv("LIGHTNING_TODAY", "2026-12-01")
+    assert client.get("/budget", follow_redirects=False).headers["location"].endswith("month=2026-08")

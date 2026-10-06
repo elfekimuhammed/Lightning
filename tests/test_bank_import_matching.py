@@ -1,4 +1,4 @@
-"""Task 20: a statement row can be linked to a transaction you already recorded.
+"""A statement row can be linked to a transaction you already recorded.
 
 A link moves no money and changes nothing on the existing transaction. Two equal
 purchases stay distinct, a repeated import links once, a voided earlier import is

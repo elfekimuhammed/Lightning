@@ -154,7 +154,6 @@ async def save_legacy_settings(request: Request):
     except LightningError as exc:
         return Response(exc.message, status_code=400, media_type="text/plain")
     c.investments.set_all_liquidation_factors(factor)
-    c.settings.set("investment_liquidation_factor", str(factor))
     return Response(status_code=204)
 
 

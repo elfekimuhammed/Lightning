@@ -73,3 +73,15 @@ def test_rollback_keeps_database_clean(c):
     except RuntimeError:
         pass
     assert c.db.scalar("SELECT 1 FROM settings WHERE key = 'tmp'") is None
+
+
+def test_a_new_profile_stores_only_settings_the_app_reads(c):
+    assert {row["key"] for row in c.db.all("SELECT key FROM settings")} == {"base_currency", "category_seed_version"}
+
+
+def test_settings_nothing_reads_are_removed_from_older_profiles(c):
+    for key in ("app_name", "investment_liquidation_factor"):
+        c.db.execute("INSERT INTO settings(key,value,updated_at) VALUES (?, 'x', '2026-01-01')", (key,))
+    c.db.execute("DELETE FROM schema_migrations WHERE version = 46")
+    assert migrate(c.db) == ["0046_unused_settings (APPLIED)"]
+    assert c.db.scalar("SELECT COUNT(*) FROM settings WHERE key IN ('app_name','investment_liquidation_factor')") == 0

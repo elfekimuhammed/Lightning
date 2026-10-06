@@ -57,7 +57,7 @@ def test_the_setting_is_chosen_in_settings_and_read_on_reserves(household):
 
     settings = client.get("/settings?section=budget").text
     assert 'name="emergency_basis" value="income" checked' in settings and 'value="spending">' in settings
-    form = {"income_months": "3", "ceiling_percent": "100", "carryover_month": "2026-12",
+    form = {"income_months": "3", "carryover_month": "2026-12",
             "income_category": str(household.categories.get_by_code("EXP.WORK.SALARY").id), "emergency_basis": "spending",
             "exclusion_category": [str(i) for i in household.budgets.one_off_ids(with_children=False)]}
     assert client.post("/budget/settings/full", data=form).status_code == 200

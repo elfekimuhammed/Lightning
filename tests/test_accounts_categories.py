@@ -79,8 +79,8 @@ class TestAccounts:
         with pytest.raises(ValidationError, match="inactive"):
             c.transactions.record_transfer("2026-09-10", accounts["cib"].id, accounts["thndr"].id, "10")
 
-    def test_foreign_currency_waits_for_m4(self, c):
-        with pytest.raises(ValidationError, match="M4"):
+    def test_foreign_currency_accounts_are_refused_for_now(self, c):
+        with pytest.raises(ValidationError, match="accounts must be in EGP"):
             c.account_flows.open_account("USD", "BANK", "2026-09-01", currency="USD")
 
     def test_last4_only(self, c):

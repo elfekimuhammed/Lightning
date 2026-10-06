@@ -1,4 +1,4 @@
-"""Milestone 2, step 1: on the phone app every page renders in the phone frame (guideline Part C).
+"""On the phone app every page renders in the phone frame (guideline Part C).
 
 What a browser must measure (nothing scrolls sideways at 360 and 320, C12) is in `tools/phone_check.py`; it
 needs Playwright and runs locally. This test needs no browser: the frame, its five sections and no desktop

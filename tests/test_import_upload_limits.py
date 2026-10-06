@@ -1,6 +1,9 @@
 import asyncio
 import base64
+from urllib.parse import urlencode
 
+import pytest
+from starlette.exceptions import HTTPException
 from starlette.requests import Request
 from starlette.responses import Response
 
@@ -17,9 +20,10 @@ from lightning.runtime.http import (
     configure_memory_only_import_uploads,
     request_body_limit,
 )
-from lightning.runtime.app import _form_part_limit
+from lightning.runtime.app import _form_field_limit, _form_part_limit
 from lightning.bank_imports import decode_csv
 from lightning.core.errors import ValidationError
+from lightning.ui.routes.bank_imports import _review_form_max_fields
 
 
 def _request(body: bytes, content_type: str) -> Request:
@@ -171,3 +175,56 @@ def test_oversized_csv_decoder_returns_readable_mib_limit():
         assert exc.message == "CSV files must be 5 MiB or smaller."
     else:
         raise AssertionError("an oversized CSV was accepted")
+
+
+# Field limits: the import review's confirm route takes a large form, every other form stays small.
+def _form_request(body, path):
+    async def receive():
+        return {"type": "http.request", "body": body, "more_body": False}
+
+    return Request({
+        "type": "http", "http_version": "1.1", "method": "POST", "scheme": "http",
+        "path": path, "raw_path": path.encode(), "query_string": b"", "root_path": "",
+        "headers": [(b"host", b"testserver"),
+                    (b"content-type", b"application/x-www-form-urlencoded")],
+        "server": ("testserver", 80), "client": ("testclient", 50000), "app": None,
+    }, receive)
+
+
+async def _read_form(request, **limits):
+    # Starlette's form() returns an awaitable wrapper, not a coroutine that asyncio.run accepts.
+    return await request.form(**limits)
+
+
+def test_the_confirm_route_takes_a_large_review_and_other_forms_stay_at_2000_fields():
+    # Eleven controls per row mirrors the review form; ordinary forms remain
+    # limited to 2,000 fields while large imports receive a bounded larger cap.
+    row_count = 4_001  # 44,011 fields: far past the ordinary limit.
+    values = {
+        f"{field}_{row}": "value"
+        for row in range(row_count)
+        for field in (
+            "date", "counterparty", "counterparty_choice", "category",
+            "transfer_account_id", "owner_choice", "whom", "notes", "amount",
+            "remember_category", "skip",
+        )
+    }
+    body = urlencode(values).encode()
+    path = "/accounts/1/import/1/confirm"
+
+    with pytest.raises(HTTPException) as rejected:
+        asyncio.run(_read_form(_form_request(body, path), max_fields=2_000))
+    assert rejected.value.status_code == 400
+
+    parsed = asyncio.run(_read_form(_form_request(body, path), max_fields=_form_field_limit(path)))
+    assert len(parsed) == row_count * 11
+    assert _form_field_limit("/accounts/1/import") == 2_000
+
+
+def test_bounded_confirmation_limits_cover_about_fifty_thousand_rows():
+    # The review template submits at most twelve controls per row. A 5 MiB
+    # statement averaging about 105 bytes/row can therefore fit this budget.
+    maximum_rows = (MAX_IMPORT_CONFIRM_FIELDS - 100) // 12
+    assert _review_form_max_fields(maximum_rows) <= MAX_IMPORT_CONFIRM_FIELDS
+    assert _review_form_max_fields(maximum_rows + 1) > MAX_IMPORT_CONFIRM_FIELDS
+    assert MAX_IMPORT_CONFIRM_BODY == 32 * 1024 * 1024

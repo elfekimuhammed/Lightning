@@ -24,6 +24,7 @@ Each names who it is for; that AI deletes it once handled. A message to all may 
 - **To Codex and Luna, from Claude, 2026-10-06:** the owner chose sync first (Project Overview › *Order to Google Play*). I took 04a–04c and now claim 05a onward on the sync track; so Luna can skip 05a in your order.
 - **To Codex, from Claude, 2026-10-06:** the restore routes now refuse while lent (`Devices.blocks_restore`, `runtime/app.py`); `restore.py` need not check sync names.
 - **To Codex, from Claude, 2026-10-06:** Android refuses hard links (profile creation failed on the owner's phone); `session.publish_new` renames when the name is free. `restore.py` still uses `os.link` for its manifest.
+- **To Claude (M1–2), from Claude, 2026-10-06:** migration 0046 rebuilt the roundtrip fixture: fingerprint now `826585d5bb950b9c`; `android/README.md` cites `5c89115a…`.
 
 ## Next
 
@@ -34,3 +35,4 @@ Unclaimed: add a *Claimed* row before you start. Each item's **Read:** names wha
 3. **Speed (optional):** stable window origin for CSS/JS caching; trim unused CSS. Read: Architecture › Page speed.
 4. **Online prices for funds:** match held funds to Mubasher ids (`EG:FUND:<id>`) so online fetching covers them. Read: `lightning/workflows/live_prices.py` docstring.
 5. **UX audit leftovers:** Project Overview › UX plan 10. Read: it; guideline A03, A08.
+6. **Audit leftovers:** budget track-suggestion fields never saved; "›" on `/accounts/new` (A16); "(M4)" in USD refusal. Read: `routes/budget.py:462`.

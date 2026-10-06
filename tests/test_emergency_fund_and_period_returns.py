@@ -1,3 +1,5 @@
+"""The emergency fund averages income over the months that had income, and period returns keep holdings
+sold out inside the period."""
 from __future__ import annotations
 
 from fastapi.testclient import TestClient
