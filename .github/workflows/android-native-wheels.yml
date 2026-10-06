@@ -20,6 +20,9 @@ jobs:
             version: 50.0.2
           - package: sqlcipher3
             version: 0.6.2
+          # cryptography 50 needs cffi >= 2.0 at run time; Chaquopy's index stops at 1.17.1.
+          - package: cffi
+            version: 2.0.0
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - uses: actions/setup-java@v4
