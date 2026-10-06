@@ -10,6 +10,7 @@ from lightning.core.money import ZERO
 from lightning.budgeting.domain import INCOME_FROM_RECURRING
 from lightning.core.dates import fmt_date, today
 
+from ..sections import SECTIONS
 from ..web import container, redirect, render
 from lightning.categories.domain import Movement, CategoryFamily
 from lightning.core.dates import month_of
@@ -22,6 +23,10 @@ router = APIRouter(prefix="/settings")
 @router.get("")
 async def settings_page(request: Request):
     c = container(request)
+    # Old addresses for settings that live on their own tab's page now.
+    moved = {"investments": "/investments/assets", "reserves": "/plan/reserves", "imports": "/accounts"}
+    if request.query_params.get("section") in moved:
+        return redirect(moved[request.query_params["section"]])
     backups = c.backup_files()[:10]
     try:
         return_to = request.query_params.get("return_to", "/")
@@ -91,7 +96,11 @@ async def settings_page(request: Request):
                   ai_period=ai_period, ai_preview=ai_preview, ai_prompt=ai_prompt,
                   ai_month=month_of(ai_period.end) if ai_period else month_of(today()),
                   current_month=month_of(today()), health_limits=health_limits,
-                  health_fund=health_fund)
+                  health_fund=health_fund,
+                  # Every tab's gear, so each tab's settings can be reached from Settings too.
+                  tab_settings=[{"label": tab.gear_label, "href": tab.gear, "where": section.label
+                                 if len(section.tabs) == 1 else f"{section.label} · {tab.label}"}
+                                for section in SECTIONS for tab in section.tabs if tab.gear])
 
 
 @router.post("/financial-health-limit")

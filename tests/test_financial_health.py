@@ -11,8 +11,8 @@ def test_financial_health_page_is_directly_reachable_and_shows_missing_values(c,
     response = browser.get("/financial-health")
     assert response.status_code == 200
     assert "Financial health" in response.text
-    assert "Your cushion" in response.text
-    assert "Monthly commitments" in response.text
+    assert "Against your limits" in response.text
+    assert "Debt and monthly commitments" in response.text
     assert "Over time" in response.text
     assert "Net worth" in response.text
     assert response.text.count("Show the numbers") >= 8

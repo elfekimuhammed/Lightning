@@ -1,67 +1,51 @@
 {% extends "base.html" %}
-{% from 'partials/charts.html' import sparkline %}
+{% from 'partials/charts.html' import sparkline, stat_tiles %}
 {% block title %}Financial health{% endblock %}
-{% block heading %}<h1>Financial health</h1>{% endblock %}
-{% block top_actions %}<a class="btn" href="/settings?section=financial-health">Change limits</a>{% endblock %}
-{% block content %}
-<section class="health-intro">
-  <p>A read-only profile of your financial figures and the limits you set.</p>
-  <form class="health-as-of" method="get" action="/financial-health">
-    <label for="health-as-of">Balances as of</label><input id="health-as-of" name="as_of" type="date" value="{{ as_of_iso }}" max="{{ today_iso }}">
+{# Answers "Am I financially healthy?": four headline figures, every figure against the limit you set
+   (grouped as cushion, saving, then debt), and how saving and net worth moved. Limits sit behind the gear. #}
+{% block heading %}<h1>Financial health</h1><div class="muted">Balances as of {{ as_of }} · savings rate from {{ savings_month }}</div>{% endblock %}
+{% block top_actions %}<form class="health-as-of" method="get" action="/financial-health">
+    <label for="health-as-of">As of</label><input id="health-as-of" name="as_of" type="date" value="{{ as_of_iso }}" max="{{ today_iso }}">
     <button class="btn small" type="submit">Show</button>
-  </form>
-</section>
+  </form>{% endblock %}
+{% block content %}
 {% if error %}<p class="flash error" role="alert">{{ error }}</p>{% endif %}
-{% set ns = namespace(cushion=[], commitments=[]) %}
-{% for item in figures %}{% if item.key in ('net_worth','emergency_fund','savings_rate','planned_savings_rate','debt_to_cash','debt_to_net_worth') %}{% set ns.cushion = ns.cushion + [item] %}{% else %}{% set ns.commitments = ns.commitments + [item] %}{% endif %}{% endfor %}
-<section class="health-group" aria-labelledby="health-cushion-heading">
-  <div class="section-head"><div><h2 id="health-cushion-heading">Your cushion</h2><p>Balances use {{ as_of }}. Savings rate uses the last completed month, {{ savings_month }}; Planned savings rate uses this month's budget.</p></div></div>
-  <div class="health-grid">
-  {% for item in ns.cushion %}
-    {% set label = 'Emergency fund' if item.key == 'emergency_fund' else fig[item.key].label %}
-    <article class="metric-card health-card {{ 'health-outside' if item.status == 'outside your limit' else ('health-within' if item.status == 'within your limit' else '') }}">
-      <span class="metric-label">{{ label }}</span>
-      <b class="metric-value">{% if item.gap %}—{% elif item.value is none %}Unavailable{% elif item.unit == '%' %}{{ '%.1f'|format(item.value) }}%{% elif item.unit == 'months' %}{{ '%.1f'|format(item.value) }} months{% else %}{{ item.value|money }} {{ base }}{% endif %}</b>
-      {% if item.status == 'within your limit' %}<span class="health-status">Within your limit</span>{% elif item.status == 'outside your limit' %}<span class="health-status">{{ 'Below' if item.direction == 'minimum' else 'Above' }} your limit</span>{% elif item.limit is none %}<span class="health-status muted">No limit</span>{% else %}<span class="health-status muted">No comparison available</span>{% endif %}
-      {% if item.gap %}<small class="metric-note">{{ item.gap }}</small>{% endif %}<small class="metric-note">{{ item.period }}</small>
+{{ stat_tiles(kpis, base, 'Your financial health') }}
+
+<section class="health-group" aria-labelledby="health-limits-heading">
+  <div class="section-head"><div><h2 id="health-limits-heading">Against your limits</h2></div>{% if judged %}<span class="muted">{{ within }} of {{ judged }} within your limits</span>{% endif %}</div>
+  <div class="card health-board">
+  {% for group in groups %}
+    <h3 class="health-board-head">{{ group.title }}</h3>
+    {% for row in group['items'] %}{% set item = row.item %}{% set label = labels[item.key] %}
+    <div class="health-row {{ 'health-outside' if item.status == 'outside your limit' else ('health-within' if item.status == 'within your limit' else '') }}">
+      <a class="health-row-name" href="{{ item.href }}">{{ label }}</a>
+      <span class="health-meter" aria-hidden="true">{% if row.meter %}<span class="health-meter-track"><i class="tone-{{ row.meter.tone }}" style="width:{{ '%.1f'|format(row.meter.fill) }}%"></i>{% if row.meter.tick is not none %}<b style="left:{{ '%.1f'|format(row.meter.tick) }}%"></b>{% endif %}</span>{% endif %}</span>
+      <b class="health-row-value">{% if item.gap %}—{% elif item.value is none %}Unavailable{% elif item.unit == '%' %}{{ '%.1f'|format(item.value) }}%{% elif item.unit == 'months' %}{{ '%.1f'|format(item.value) }} months{% else %}{{ item.value|money }} {{ base }}{% endif %}</b>
+      <span class="health-row-status">{% if item.status == 'within your limit' %}<span class="health-status">Within your limit</span>{% elif item.status == 'outside your limit' %}<span class="health-status">{{ 'Below' if item.direction == 'minimum' else 'Above' }} your limit</span>{% elif item.limit is none %}<span class="health-status muted">No limit</span>{% else %}<span class="health-status muted">No comparison available</span>{% endif %}
+        {% if item.gap %}<small>{{ item.gap }}</small>{% endif %} <small>{{ item.period }}</small></span>
       <details class="health-numbers"><summary>Show the numbers</summary><dl>
         {% for name, value in item.support %}<div><dt>{{ name }}</dt><dd>{{ value|money ~ ' ' ~ base if value is not none else 'Unavailable' }}</dd></div>{% endfor %}
         {% if item.limit is not none %}<div><dt>Your limit</dt><dd>{{ 'At least' if item.direction == 'minimum' else 'At most' }} {% if item.unit == '%' %}{{ '%.1f'|format(item.limit) }}%{% else %}{{ '%.0f'|format(item.limit) }} months{% endif %}</dd></div>{% else %}<div><dt>Your limit</dt><dd>No limit</dd></div>{% endif %}
         {% if item.key == 'emergency_fund' %}<div><dt>Target</dt><dd>{{ fund.target|money if fund.target is not none else 'Unavailable' }}{% if fund.target is not none %} {{ base }}{% endif %}</dd></div>{% endif %}
       </dl></details>
-      <a class="health-link" href="{{ item.href }}">View {{ label|lower }}</a>
-    </article>
+    </div>
+    {% endfor %}
   {% endfor %}
   </div>
 </section>
-<section class="health-group" aria-labelledby="health-commitments-heading">
-  <div class="section-head"><div><h2 id="health-commitments-heading">Monthly commitments</h2></div></div>
-  <div class="health-grid health-grid-two">
-  {% for item in ns.commitments %}
-    <article class="metric-card health-card {{ 'health-outside' if item.status == 'outside your limit' else ('health-within' if item.status == 'within your limit' else '') }}">
-      <span class="metric-label">{{ fig[item.key].label }}</span>
-      <b class="metric-value">{{ '%.1f'|format(item.value) ~ '%' if item.value is not none else 'Unavailable' }}</b>
-      {% if item.status %}<span class="health-status">{{ item.status|capitalize }}</span>{% else %}<span class="health-status muted">No comparison available</span>{% endif %}
-      <small class="metric-note">{{ item.period }}</small>
-      <details class="health-numbers"><summary>Show the numbers</summary><dl>
-        {% for name, value in item.support %}<div><dt>{{ name }}</dt><dd>{{ value|money ~ ' ' ~ base if value is not none else 'Unavailable' }}</dd></div>{% endfor %}
-        <div><dt>Your limit</dt><dd>{% if item.limit is not none %}{{ 'At least' if item.direction == 'minimum' else 'At most' }} {{ '%.1f'|format(item.limit) }}%{% else %}No limit{% endif %}</dd></div>
-      </dl></details>
-      <a class="health-link" href="{{ item.href }}">View {{ fig[item.key].label|lower }}</a>
-    </article>
-  {% endfor %}
-  </div>
-</section>
+
 <section class="health-group" aria-labelledby="health-over-time-heading">
-  <div class="section-head"><div><h2 id="health-over-time-heading">Over time</h2><p>Six completed months before {{ savings_month }}. Missing figures stay unavailable.</p></div></div>
+  <div class="section-head"><div><h2 id="health-over-time-heading">Over time</h2></div><span class="muted">{{ trends[0].month }} to {{ savings_month }} · completed months</span></div>
   <div class="health-trend-grid">
-    {% for key, title, unit, values, link, spark, tone in [
-      ('savings_rate', fig.savings_rate.label, '%', trends|map(attribute='savings_rate')|list, '/', savings_spark, 'good'),
-      ('net_worth', fig.net_worth.label, base, trends|map(attribute='net_worth')|list, '/', worth_spark, 'hold')
+    {% for key, title, values, spark, tone, sm in [
+      ('savings_rate', fig.savings_rate.label, trends|map(attribute='savings_rate')|list, savings_spark, 'in', savings_summary),
+      ('net_worth', fig.net_worth.label, trends|map(attribute='net_worth')|list, worth_spark, 'hold', worth_summary)
     ] %}
     <article class="card health-trend">
-      <div class="health-trend-head"><h3>{{ title }}</h3><a href="{{ link }}">View figure</a></div>
-      {{ sparkline(spark, tone, title ~ ' over six completed months') }}
+      <div class="health-trend-head"><h3>{{ title }}</h3><a href="/">Overview</a></div>
+      {% if sm %}<p class="health-trend-figure"><b>{% if key == 'savings_rate' %}{{ '%.1f'|format(sm.last) }}%{% else %}{{ sm.last|money }} <small>{{ base }}</small>{% endif %}</b> <span class="muted">in {{ sm.last_month }}{% if key == 'savings_rate' %} · lowest {{ '%.1f'|format(sm.low) }}% in {{ sm.low_month }}{% endif %}</span></p>{% endif %}
+      {% if spark.points %}{{ sparkline(spark, tone, title ~ ' over six completed months') }}<div class="health-trend-axis muted" aria-hidden="true"><span>{{ trends[0].month }}</span><span>{{ trends[-1].month }}</span></div>{% else %}<p class="muted small">Not enough completed months to draw a line yet.</p>{% endif %}
       <details class="health-numbers"><summary>Show the numbers</summary>
         <div class="table-wrap"><table><thead><tr><th>Completed month</th><th class="num">{{ title }}</th></tr></thead><tbody>
         {% for month in trends %}<tr><td>{{ month.month }}</td><td class="num">{% set val = month.savings_rate if key == 'savings_rate' else month.net_worth %}{% if key == 'savings_rate' and month.gap %}{{ month.gap }}{% elif val is none %}Unavailable{% elif key == 'savings_rate' %}{{ '%.1f'|format(val) }}%{% else %}{{ val|money }} {{ base }}{% endif %}</td></tr>{% endfor %}
@@ -71,5 +55,5 @@
     {% endfor %}
   </div>
 </section>
-<p class="muted small health-limit-note">Limits compare these existing figures only. They do not change transactions, plans or reports. <a href="/settings?section=financial-health">Review your limits</a>.</p>
+<p class="muted small health-limit-note">Limits only compare figures you already have; they change no transactions, plans or reports. Change them behind the gear.</p>
 {% endblock %}

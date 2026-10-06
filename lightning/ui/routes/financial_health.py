@@ -1,14 +1,92 @@
 from __future__ import annotations
 
+from decimal import Decimal
+
 from fastapi import APIRouter, Request
 
 from lightning.core.dates import parse_date, today
+from lightning.core.figures import FIGURES
 from lightning.core.errors import ValidationError
 
 from .. import charts
 from ..web import container, render
 
 router = APIRouter()
+
+# What each figure's colour means when it is inside its limit (guideline A03, A08): a cushion is money you
+# hold, a savings rate is money kept, debt and fixed costs are money out. Outside its limit it needs you.
+_TONE = {"emergency_fund": "hold", "net_worth": "hold", "savings_rate": "in", "planned_savings_rate": "in",
+         "debt_to_cash": "out", "debt_to_net_worth": "out", "fixed_costs_to_income": "out",
+         "loan_payments_to_income": "out"}
+# The page answers "Am I financially healthy?": four headline figures, then every figure against its limit.
+KPI_KEYS = ("emergency_fund", "savings_rate", "debt_to_net_worth", "fixed_costs_to_income")
+GROUPS = (("Cushion", ("emergency_fund",)),
+          ("Saving", ("savings_rate", "planned_savings_rate")),
+          ("Debt and monthly commitments", ("debt_to_cash", "debt_to_net_worth", "fixed_costs_to_income",
+                                            "loan_payments_to_income")))
+
+
+def _tone(item) -> str:
+    return "over" if item.status == "outside your limit" else _TONE.get(item.key, "hold")
+
+
+def _meter(item) -> dict | None:
+    """The figure on a track that reaches a little past the larger of the figure and its limit; the
+    limit is a tick. Percentages use 0–100% unless a figure or limit goes past it."""
+    if item.value is None or item.gap:
+        return None
+    value = max(Decimal(item.value), Decimal(0))
+    limit = Decimal(item.limit) if item.limit is not None else None
+    if item.unit == "%":
+        top = max(Decimal(100), value * Decimal("1.1"), (limit or 0) * Decimal("1.1"))
+    else:
+        top = max((limit or 0) * Decimal("1.25"), value * Decimal("1.1"), Decimal(1))
+    return {"fill": float(min(value / top * 100, Decimal(100))),
+            "tick": float(limit / top * 100) if limit is not None else None,
+            "tone": {"out": "spend"}.get(_tone(item), _tone(item))}  # the chart tone names (style.css)
+
+
+def _limit_words(item) -> str:
+    if item.limit is None:
+        return "No limit set"
+    side = "at least" if item.direction == "minimum" else "at most"
+    amount = f"{item.limit:.1f}%" if item.unit == "%" else f"{item.limit:.0f} months"
+    if item.status == "within your limit":
+        return f"Within your limit of {side} {amount}"
+    if item.status == "outside your limit":
+        word = "Below" if item.direction == "minimum" else "Above"
+        return f"{word} your limit of {side} {amount}"
+    return f"Your limit is {side} {amount}"
+
+
+def _chip(period: str) -> str:
+    """The period in a few characters: "As of 2026-10-06 · months of …" → "2026-10-06",
+    "Monthly · 2026-07 to 2026-09" → "2026-07 to 2026-09"."""
+    parts = period.split(" · ")
+    text = parts[1] if parts[0] == "Monthly" and len(parts) > 1 else parts[0]
+    return text.removeprefix("As of ")
+
+
+def _kpi(item, label: str) -> dict:
+    """One headline card (stat_tile): coloured by what the figure means, its chip says good or bad."""
+    tone = _tone(item)
+    chip_tone = {"within your limit": "up", "outside your limit": "over"}.get(item.status or "", "")
+    meter = _meter(item)
+    return {"key": item.key, "label": label, "href": item.href, "surface": tone,
+            "value": None if item.gap else item.value, "empty": "—",
+            "kind": "months" if item.unit == "months" else "rate",
+            "badge": {"text": _chip(item.period), "tone": chip_tone, "arrow": ""},
+            "sub": item.gap or _limit_words(item),
+            "meter": {"tone": meter["tone"], "width": meter["fill"]} if meter else None}
+
+
+def _trend_summary(trends, attr: str) -> dict:
+    known = [(m.month, getattr(m, attr)) for m in trends if getattr(m, attr) is not None]
+    if not known:
+        return {}
+    low = min(known, key=lambda x: x[1])
+    return {"first": trends[0].month, "last_month": known[-1][0], "last": known[-1][1],
+            "low_month": low[0], "low": low[1]}
 
 
 @router.get("/financial-health")
@@ -26,10 +104,21 @@ async def financial_health(request: Request):
         error = ""
     overview = c.health.overview(as_of)
     trends = overview["trends"]
+    labels = {key: ("Emergency fund" if key == "emergency_fund" else FIGURES[key].label) for key in _TONE}
+    by_key = {item.key: item for item in overview["figures"]}
+    rows = [{"title": title, "items": [{"item": by_key[k], "meter": _meter(by_key[k]),
+                                        "limit_words": _limit_words(by_key[k])} for k in keys if k in by_key]}
+            for title, keys in GROUPS]
+    judged = [item for item in overview["figures"] if item.status in ("within your limit", "outside your limit")]
     savings_values = [month.savings_rate for month in trends]
     worth_values = [month.net_worth for month in trends]
     return render(request, "financial_health.html", **overview,
                   limits=c.health.limit_settings(),
+                  kpis=[_kpi(by_key[k], labels[k]) for k in KPI_KEYS if k in by_key],
+                  groups=rows, labels=labels,
+                  within=sum(1 for item in judged if item.status == "within your limit"), judged=len(judged),
+                  savings_summary=_trend_summary(trends, "savings_rate"),
+                  worth_summary=_trend_summary(trends, "net_worth"),
                   as_of_iso=as_of.isoformat(),
                   today_iso=today().isoformat(),
                   # A month that says its gap in words is left out of the line (it skips missing points).

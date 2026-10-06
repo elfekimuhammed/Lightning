@@ -338,6 +338,12 @@ From a full UX review on 2026-10-03: Mohab's year at a 1,366 × 768 window (the 
 7. ~~**Honest prices.**~~ Done 2026-10-03: Needs you says "Prices are out of date" (older than about two months) and links to Update prices; the holding page flags its own price.
 8. **Reserves table** as two-line rows with a meter; the emergency fund shows "13,500 left of 20,000 · 6,500 used · Refill"; paid reserves move to completed.
 9. **Words and numbers sweep:** whole EGP on big figures everywhere; no jargon ("custody subledger", "M4", "5 MiB", internal codes on Prices); sentence-case "counterparty"; segments for 2–4 choices; the app's own dialog for Deactivate.
+10. **Tab-by-tab audit, 2026-10-06** (Mohab's sample at 1,366px). Done: Health redesigned; header settings buttons removed (the gear is the one way in, and Settings lists every gear's page); squashed header icons; Holdings table cut off. Still open:
+    - *One name, one number:* Savings rate is 93.2% for a 6-day month (Overview, Budget, Investments) and 44.4% on Health; Budget says plan 6,554 less for the emergency fund, Reserves says top up 11,667 a month; Loans shows 37,500 three times; Recurring's Fixed costs 32.9% card and "Bills · share of income 28%" banner.
+    - *Empty or one-item visuals:* Investments' Money and value by class (all 0) and Intended horizon (100% unassigned) take whole sections; Spending's four KPIs all say 3,410 with one payment, and one-category charts leave half-empty cards; Loans' banner hero is the count "1".
+    - *Charts:* Plan's 30-day timeline labels collide; its forecast legend shows two identical blue squares; In and out each month ahead shows October as 0 in, −38,644 after the salary landed.
+    - *Colour and words:* Accounts colours every balance green (A03: held money is Azure); Type says "(e.g. THNDR)"; Counterparties shows "Personal › Eating Out" (A16) cut off; If you sold today shows CDs "100,000 × 95%" as 0 without saying why; Prices asks a month-end price for a CD; Prices cards differ in width; "1 days".
+    - *Investments header:* the Investment planner button repeats the Planner tab; the Planner's "Set targets on Investments" should open the gear.
 
 **Owner decisions (2026-10-03):**
 

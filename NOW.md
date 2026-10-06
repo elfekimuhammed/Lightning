@@ -33,3 +33,4 @@ Unclaimed: add a *Claimed* row before you start. Each item's **Read:** names wha
 2. **UX plan 5, 6, 8, 9:** Claim UI templates and `style.css`. Checkbox/radio accent is Azure but A10 says Nile (only import review uses Nile). Read: Project Overview › UX plan; guideline A10.
 3. **Speed (optional):** stable window origin for CSS/JS caching; trim unused CSS. Read: Architecture › Page speed.
 4. **Online prices for funds:** match held funds to Mubasher ids (`EG:FUND:<id>`) so online fetching covers them. Read: `lightning/workflows/live_prices.py` docstring.
+5. **UX audit leftovers:** the open items of Project Overview › UX plan 10 (one name, one number; empty visuals; Plan charts; colours and words). Claim UI templates and `style.css`. Read: that item; guideline A03, A08, A12.

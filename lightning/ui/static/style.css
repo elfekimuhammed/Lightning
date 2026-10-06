@@ -664,32 +664,40 @@ body.popup-open { overflow: hidden; }
 @media(max-width:760px){.budget-summary-grid>div:last-child{padding:0 0 12px;border-right:0;border-bottom:1px solid var(--border)}.action-menu>div{right:auto;left:0}}
 @media(max-width:760px){.account-list-summary .budget-summary-grid{grid-template-columns:1fr}}
 @media(max-width:1100px){.birdview-detail{grid-template-columns:1fr}}
-.health-intro{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin:0 0 18px;color:var(--muted)}
-.health-intro p{margin:0}
-.health-as-of{display:flex;align-items:center;gap:8px;flex-wrap:wrap;color:var(--text);font-size:13px}
-.health-as-of input{min-height:var(--control-h,40px);padding:7px 10px;border:1px solid var(--border);border-radius:var(--control-radius,8px);background:var(--surface);color:var(--text)}
+.health-as-of{display:flex;align-items:center;gap:8px;flex-wrap:nowrap;color:var(--muted);font-size:13px}
+.health-as-of input{width:150px}
 .health-group{margin:22px 0}
-.health-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
-.health-grid-two{grid-template-columns:repeat(2,minmax(0,1fr))}
-.health-card{min-height:190px}
-.health-status{font-size:12px;font-weight:650;color:var(--pos)}
+.health-board{display:grid;gap:0;padding:6px 22px 14px}
+.health-board-head{margin:16px 0 4px;font-size:13px;font-weight:650;color:var(--muted)}
+.health-row{display:grid;grid-template-columns:minmax(150px,1.1fr) minmax(140px,1.4fr) minmax(90px,auto) minmax(170px,1.2fr) minmax(130px,auto);align-items:center;gap:16px;padding:12px 0;border-bottom:1px solid var(--border)}
+.health-row-name{font-weight:650;color:var(--text)}
+.health-row-value{font-size:18px;font-weight:700;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.health-row-status{display:grid;gap:2px;font-size:12px;color:var(--muted)}
+.health-row-status small{font-size:12px}
+.health-row .health-numbers{margin:0;justify-self:end}
+.health-row .health-numbers[open]{grid-column:1/-1;justify-self:stretch}
+.health-meter-track{position:relative;display:block;height:8px;border-radius:4px;background:var(--track)}
+.health-meter-track i{display:block;height:100%;border-radius:4px;background:var(--tone)}
+.health-meter-track b{position:absolute;top:-4px;width:2px;height:16px;border-radius:1px;background:var(--ink,#0D2233)}
+.health-status{font-size:12px;font-weight:650;color:var(--positive,var(--pos))}
 .health-status.muted{color:var(--muted)}
-.health-outside .health-status{color:var(--neg)}
-.health-outside{border-inline-start:3px solid var(--neg)}
-.health-within{border-inline-start:3px solid var(--pos)}
+.health-outside .health-status{color:var(--rose,var(--neg))}
 .health-numbers{margin:5px 0;color:var(--muted);font-size:12px}
-.health-numbers summary{cursor:pointer;color:var(--accent);font-weight:600}
+.health-numbers summary{cursor:pointer;color:var(--text);font-weight:600}
 .health-numbers dl{margin:8px 0 0}
 .health-numbers dl>div{display:flex;justify-content:space-between;gap:12px;padding:5px 0;border-bottom:1px solid var(--border)}
 .health-numbers dt{color:var(--muted)}
 .health-numbers dd{margin:0;text-align:right;color:var(--text);font-variant-numeric:tabular-nums}
-.health-link{margin-top:auto;font-size:12px;font-weight:650}
 .health-trend-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .health-trend{min-width:0}
 .health-trend-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
-.health-trend-head h3{margin:0;font-size:16px}
+.health-trend-head h3{margin:0;font-size:17px}
 .health-trend-head a{font-size:12px}
-.health-trend .chart-spark{height:86px;width:100%;margin:10px 0}
+.health-trend-figure{margin:8px 0 0;font-size:13px}
+.health-trend-figure b{font-size:22px;font-variant-numeric:tabular-nums}
+.health-trend-figure b small{font-size:12px;font-weight:500;color:var(--muted)}
+.health-trend .chart-spark{height:96px;width:100%;margin:12px 0 4px}
+.health-trend-axis{display:flex;justify-content:space-between;font-size:11px}
 .health-limit-note{margin:22px 0}
 .health-limit-list{display:grid;gap:8px}
 .health-limit-row{display:grid;grid-template-columns:minmax(180px,1fr) minmax(130px,180px) auto minmax(200px,auto);align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
@@ -703,8 +711,8 @@ body.popup-open { overflow: hidden; }
 .health-target-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
 .health-target-summary>div{display:grid;gap:4px}
 .health-target-summary b{font-variant-numeric:tabular-nums}
-@media(max-width:1050px){.health-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.health-limit-row{grid-template-columns:minmax(0,1fr) minmax(120px,180px) auto}.health-limit-actions{grid-column:1/-1}}
-@media(max-width:760px){.health-grid,.health-grid-two,.health-trend-grid{grid-template-columns:1fr}.health-limit-row{grid-template-columns:1fr 1fr;gap:8px}.health-limit-name{grid-column:1/-1}.health-limit-actions{grid-column:1/-1}.health-target-summary{grid-template-columns:1fr}.health-card{min-height:0}}
+@media(max-width:1050px){.health-row{grid-template-columns:minmax(0,1fr) auto;gap:6px 14px}.health-meter{grid-column:1/-1;order:5}.health-row-status{grid-column:1/-1}.health-limit-row{grid-template-columns:minmax(0,1fr) minmax(120px,180px) auto}.health-limit-actions{grid-column:1/-1}}
+@media(max-width:760px){.health-trend-grid{grid-template-columns:1fr}.health-limit-row{grid-template-columns:1fr 1fr;gap:8px}.health-limit-name{grid-column:1/-1}.health-limit-actions{grid-column:1/-1}.health-target-summary{grid-template-columns:1fr}}
 /* Shared product workspace: compact, comparable facts and clear next steps. */
 body { background: var(--surface-2); }
 .side { background: var(--surface); border-right-color: var(--border); backdrop-filter: none; padding: 22px 16px; }
@@ -1385,7 +1393,9 @@ summary > b + .muted { margin-left:8px; }
   display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box;
   height:var(--control-h); min-height:var(--control-h); padding:0 20px; border-radius:999px; font-size:14px;
 }
-.topbar .icon-btn:not(#_):not(.x_) { width:var(--control-h); padding:0; font-size:18px; }
+/* Round icon buttons keep their icon: the rule above counts ".action-menu > summary" in its weight, so
+   this one needs one more class or its 20px padding leaves the icon 6px wide. */
+.topbar :is(.icon-btn, .date-picker-button):not(#_):not(.x_):not(.y_) { width:var(--control-h); min-width:var(--control-h); padding:0; font-size:18px; }
 
 /* ── Cash planning ───────────────────────────────────────────────────────── */
 .plan-tabs { margin-bottom:24px; }
@@ -2997,6 +3007,8 @@ a.chart-sankey-label:hover b { color:var(--azure); }
 /* Holdings: more columns, no lines under the names (owner, 2026-10-06). */
 .main .holdings-wide :is(th,td) { padding:8px 6px; white-space:nowrap; font-size:var(--fs-2); }
 .main .holdings-wide td:first-child, .main .holdings-wide th:first-child { white-space:normal; min-width:150px; padding-left:0; }
+/* At 1,366px the wide table must fit its card: the grouped table's 250px name column pushed Horizon out of view. */
+.main .holdings-wide tr[data-search] td:first-child { min-width:160px; }
 .main .holdings-wide td:last-child, .main .holdings-wide th:last-child { padding-right:0; }
 .main .holdings-wide thead th { font:700 var(--fs-meta)/1.2 var(--body); color:var(--ink-2); }
 /* One choice, one field (owner, 2026-10-06): Match by picks the kind, only that field shows. */
