@@ -6,10 +6,10 @@ from lightning.core.memo import request_cached
 from lightning.core.money import from_e6, to_e6
 from lightning.database.connection import Database
 
-from .domain import Frequency, PlanKind, PlannedItem
+from .domain import Frequency, PlanKind, PlannedItem, WeekendMove
 
 _COLUMNS = ("kind", "name", "amount_e6", "frequency", "interval_count", "start_date", "end_date",
-            "payment_count", "account_id", "category_id", "counterparty_id", "principal_e6", "notes")
+            "payment_count", "account_id", "category_id", "counterparty_id", "principal_e6", "notes", "weekend_move")
 
 
 def _item(row) -> PlannedItem:
@@ -19,7 +19,8 @@ def _item(row) -> PlannedItem:
         start_date=row["start_date"], end_date=row["end_date"], payment_count=row["payment_count"],
         account_id=row["account_id"], category_id=row["category_id"], counterparty_id=row["counterparty_id"],
         principal=from_e6(row["principal_e6"]) if row["principal_e6"] is not None else None,
-        active=bool(row["active"]), notes=row["notes"])
+        active=bool(row["active"]), notes=row["notes"],
+        weekend_move=WeekendMove(row["weekend_move"]))
 
 
 class PlanningRepository:
@@ -165,4 +166,4 @@ class PlanningRepository:
                 values["interval_count"], values["start_date"], values.get("end_date"), values.get("payment_count"),
                 values.get("account_id"), values.get("category_id"), values.get("counterparty_id"),
                 to_e6(values["principal"]) if values.get("principal") is not None else None,
-                values.get("notes", ""))
+                values.get("notes", ""), values.get("weekend_move", "none"))

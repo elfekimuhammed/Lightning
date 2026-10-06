@@ -4,7 +4,7 @@ from __future__ import annotations
 import calendar
 from datetime import date, timedelta
 
-from .domain import Frequency, PlannedItem
+from .domain import Frequency, PlannedItem, WeekendMove
 
 _MONTH_STEP = {Frequency.MONTHLY: 1, Frequency.QUARTERLY: 3, Frequency.YEARLY: 12}
 
@@ -17,14 +17,29 @@ def _add_months(anchor: date, months: int) -> date:
     return date(year, month + 1, min(anchor.day, last))
 
 
-def payment_dates(item: PlannedItem, until: str | date) -> list[tuple[int, str]]:
-    """(payment number, date) for every payment from the first date up to ``until`` inclusive."""
+WEEKEND = {4, 5}  # Friday and Saturday in date.weekday()
+
+
+def on_working_day(day: date, move: WeekendMove) -> date:
+    """Move a Friday or Saturday to Thursday (before) or Sunday (after); other days stay."""
+    if move == WeekendMove.NONE or day.weekday() not in WEEKEND:
+        return day
+    step = timedelta(days=-1 if move == WeekendMove.BEFORE else 1)
+    while day.weekday() in WEEKEND:
+        day += step
+    return day
+
+
+def scheduled_dates(item: PlannedItem, until: str | date) -> list[tuple[int, str, str]]:
+    """(payment number, date on the calendar, due date after the weekend move) up to ``until``.
+
+    The item's own end date and payment count apply to the calendar date; ``until`` to the due date,
+    so a payment moved past a month's end falls in the next month."""
     end = until if isinstance(until, date) else date.fromisoformat(until)
-    if item.end_date:
-        end = min(end, date.fromisoformat(item.end_date))
+    last = date.fromisoformat(item.end_date) if item.end_date else None
     start = date.fromisoformat(item.start_date)
     limit = item.payment_count
-    out: list[tuple[int, str]] = []
+    out: list[tuple[int, str, str]] = []
     number = 0
     while True:
         if item.frequency == Frequency.ONCE:
@@ -33,10 +48,18 @@ def payment_dates(item: PlannedItem, until: str | date) -> list[tuple[int, str]]
             day = start + timedelta(weeks=item.interval_count * number)
         else:
             day = _add_months(start, _MONTH_STEP[item.frequency] * item.interval_count * number)
-        if day is None or day > end or (limit is not None and number >= limit):
+        if day is None or (last and day > last) or (limit is not None and number >= limit):
+            return out
+        due = on_working_day(day, item.weekend_move)
+        if due > end:
             return out
         number += 1
-        out.append((number, day.isoformat()))
+        out.append((number, day.isoformat(), due.isoformat()))
+
+
+def payment_dates(item: PlannedItem, until: str | date) -> list[tuple[int, str]]:
+    """(payment number, due date) for every payment from the first date up to ``until`` inclusive."""
+    return [(number, due) for number, _, due in scheduled_dates(item, until)]
 
 
 def last_payment_date(item: PlannedItem) -> str | None:
@@ -45,8 +68,7 @@ def last_payment_date(item: PlannedItem) -> str | None:
         return None
     if item.frequency == Frequency.ONCE:
         return item.start_date
-    horizon = item.end_date or "9999-12-31"
-    dates = payment_dates(item, horizon if item.end_date else "2999-12-31")
+    dates = payment_dates(item, "2999-12-31")  # the item's own end date or count stops the schedule
     return dates[-1][1] if dates else None
 
 
@@ -64,6 +86,8 @@ def describe(item: PlannedItem) -> str:
         text = ("Every 3 months" if every == 1 else f"Every {3 * every} months") + f" on day {start.day}"
     else:
         text = ("Yearly" if every == 1 else f"Every {every} years") + f" on {start:%m-%d}"
+    if item.weekend_move != WeekendMove.NONE:
+        text += " · " + ("Thursday" if item.weekend_move == WeekendMove.BEFORE else "Sunday") + " if on a weekend"
     if item.payment_count:
         text += f" · {item.payment_count} payments"
     elif item.end_date:
