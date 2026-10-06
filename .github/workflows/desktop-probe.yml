@@ -89,7 +89,7 @@ jobs:
           tests/test_runtime_paths.py tests/test_runtime_instance.py
           tests/test_encrypted_database.py tests/test_database_staging.py
           tests/test_database_promotion.py tests/test_database_promotion_windows.py
-          tests/test_migration_safety.py tests/test_database.py
+          tests/test_migration_safety.py tests/test_database.py tests/test_device_roundtrip.py
           tests/test_figures.py tests/test_ui.py
       - name: Price files the app carries (market.zip; required for a tagged release)
         run: python -m tools.market release ${{ github.ref_type == 'tag' && '--required' || '' }}

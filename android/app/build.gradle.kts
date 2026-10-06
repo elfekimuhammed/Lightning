@@ -19,9 +19,24 @@ android {
     }
 }
 
+// 04b: the probe runs the shared encrypted round-trip, so it carries Lightning's own package and the committed
+// dummy fixture (as package `roundtrip_fixture`, read with pkgutil). Copied at configuration, so every build
+// uses the checked-out sources.
+val sharedPython = layout.buildDirectory.dir("shared-python").get().asFile
+sync {
+    from("../../lightning") { into("lightning"); exclude("**/__pycache__/**") }
+    from("../../tests/fixtures/roundtrip") { into("roundtrip_fixture") }
+    into(sharedPython)
+}
+file("$sharedPython/roundtrip_fixture/__init__.py").writeText("")
+
 chaquopy {
+    sourceSets {
+        getByName("main") { srcDir(sharedPython) }
+    }
     defaultConfig {
         version = "3.13"
+        extractPackages("lightning")  // migrations, seed files and the catalogue are read from disk
         pip {
             // CI resolves cryptography alone too, so SQLCipher's missing wheel
             // cannot conceal a second independent native-package failure.

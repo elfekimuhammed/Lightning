@@ -82,3 +82,11 @@ cffi 2.0.0, cryptography 50.0.2 (Argon2id and AES-GCM work), pydantic-core 2.46.
 3.1.6, uvicorn 0.54.0 and SQLCipher 4.12.0 community. Lesson: on Android a native module must declare its
 libpython dependency (`-lpython3.13`); the wheel job now refuses one that does not. Open for Google Play:
 16 KB page alignment of the Rust modules (linked with it from `24cfb0d`; the job reports any that is not).
+
+**04b: encrypted round-trip (2026-10-06, Claude).** The probe now also runs `lightning/runtime/roundtrip.py` on the
+committed dummy profile `tests/fixtures/roundtrip` (the build copies Lightning's package and the fixture in): unlock
+with the password, read figures, write one expense, close, check that plain SQLite and a wrong key are refused,
+open with the recovery key, set a new password, reopen, and list integrity, figures and row counts per table.
+`tests/test_device_roundtrip.py` checks the same lines on Linux and Windows CI against `expected.json`; the phone's
+`04b encrypted round-trip` line says OK only when every line is equal, and otherwise lists the lines that differ.
+It also prints each step's seconds (input for 04d). 04b passes when that line is OK on the owner's phone.
