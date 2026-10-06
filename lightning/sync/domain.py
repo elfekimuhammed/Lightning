@@ -74,6 +74,8 @@ class MessageKind(StrEnum):
     CHECKPOINT = "Checkpoint"
     RETURN_STATUS = "ReturnStatus"
     ERROR = "Error"
+    HELLO = "Hello"
+    AUTHENTICATE = "Authenticate"
 
 
 @dataclass(frozen=True)
@@ -229,14 +231,16 @@ class PairRequest:
     pairing_id: str
     device_id: str
     device_name: str
-    public_key: str        # Ed25519, 32 bytes as hex: signs later connections
+    public_key: str        # ECDSA P-256, compressed point (33 bytes) as hex: verifies later connections
     proof: str             # HMAC-SHA256(secret, transcript) as hex
 
     def __post_init__(self) -> None:
         _id(self.pairing_id, "pairing_id")
         _id(self.device_id, "device_id")
         _name(self.device_name, "device_name")
-        _hex32(self.public_key, "public_key")
+        if (not isinstance(self.public_key, str) or len(self.public_key) != 66 or self.public_key[:2] not in ("02", "03")
+                or any(c not in "0123456789abcdef" for c in self.public_key)):
+            raise ValueError("Invalid public_key")
         _hex32(self.proof, "proof")
 
 
@@ -342,6 +346,28 @@ class ReturnStatus:
         _id(self.device_id, "device_id")
 
 
+@dataclass(frozen=True)
+class Hello:
+    """The home's first frame on every connection: a fresh challenge for the PC to sign."""
+    nonce: str
+
+    def __post_init__(self) -> None:
+        _hex32(self.nonce, "nonce")
+
+
+@dataclass(frozen=True)
+class Authenticate:
+    """A paired PC's answer: its ECDSA signature over the challenge and the home certificate it sees."""
+    device_id: str
+    signature: str
+
+    def __post_init__(self) -> None:
+        _id(self.device_id, "device_id")
+        if (not isinstance(self.signature, str) or not 16 <= len(self.signature) <= 160
+                or len(self.signature) % 2 or any(c not in "0123456789abcdef" for c in self.signature)):
+            raise ValueError("Invalid signature")
+
+
 ERROR_CODES = frozenset({
     "UNAUTHORIZED", "REPLAY_CONFLICT", "STALE_AUTHORITY", "INCOMPATIBLE", "CANCELLED", "ALREADY_LENT",
     "STALE_BASE", "ACTIVE_CHECKOUT", "NOT_PUBLISHED", "UNLOCK_NEEDED", "UPDATE_NEEDED", "NO_SPACE",
@@ -362,7 +388,8 @@ class Error:
 
 
 Message = (BorrowRequest | BorrowGrant | BorrowActivated | BorrowCancel | Cancelled | ReturnBegin | Received | Accepted
-           | PairRequest | PairReply | PairConfirm | Status | StatusReply | Prefetch | Checkpoint | ReturnStatus | Error)
+           | PairRequest | PairReply | PairConfirm | Status | StatusReply | Prefetch | Checkpoint | ReturnStatus | Error
+           | Hello | Authenticate)
 _TYPES: dict[MessageKind, type] = {
     MessageKind.BORROW_REQUEST: BorrowRequest,
     MessageKind.BORROW_GRANT: BorrowGrant,
@@ -381,6 +408,8 @@ _TYPES: dict[MessageKind, type] = {
     MessageKind.CHECKPOINT: Checkpoint,
     MessageKind.RETURN_STATUS: ReturnStatus,
     MessageKind.ERROR: Error,
+    MessageKind.HELLO: Hello,
+    MessageKind.AUTHENTICATE: Authenticate,
 }
 _KINDS = {value: key for key, value in _TYPES.items()}
 

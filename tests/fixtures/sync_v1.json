@@ -1,5 +1,5 @@
 [
- "{\"device_id\":\"00000000-0000-4000-8000-000000000002\",\"device_name\":\"Office PC\",\"kind\":\"PairRequest\",\"pairing_id\":\"00000000-0000-4000-8000-000000000001\",\"proof\":\"cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd\",\"protocol\":1,\"public_key\":\"abababababababababababababababababababababababababababababababab\"}",
+ "{\"device_id\":\"00000000-0000-4000-8000-000000000002\",\"device_name\":\"Office PC\",\"kind\":\"PairRequest\",\"pairing_id\":\"00000000-0000-4000-8000-000000000001\",\"proof\":\"cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd\",\"protocol\":1,\"public_key\":\"02abababababababababababababababababababababababababababababababab\"}",
  "{\"data_key\":\"1111111111111111111111111111111111111111111111111111111111111111\",\"home_id\":\"00000000-0000-4000-8000-000000000004\",\"home_name\":\"Mohab's phone\",\"key_id\":\"0123456789abcdef\",\"kind\":\"PairReply\",\"lineage_id\":\"00000000-0000-4000-8000-000000000005\",\"pairing_id\":\"00000000-0000-4000-8000-000000000001\",\"profile_id\":\"00000000-0000-4000-8000-000000000003\",\"profile_name\":\"Mohab\",\"proof\":\"efefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefef\",\"protocol\":1}",
  "{\"device_id\":\"00000000-0000-4000-8000-000000000002\",\"kind\":\"PairConfirm\",\"pairing_id\":\"00000000-0000-4000-8000-000000000001\",\"protocol\":1}",
  "{\"device_id\":\"00000000-0000-4000-8000-000000000002\",\"kind\":\"Status\",\"protocol\":1}",
@@ -12,5 +12,7 @@
  "{\"borrower_id\":\"00000000-0000-4000-8000-000000000002\",\"candidate_sha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"candidate_size\":8192,\"checkout_id\":\"00000000-0000-4000-8000-000000000009\",\"epoch\":3,\"kind\":\"ReturnBegin\",\"lineage_id\":\"00000000-0000-4000-8000-000000000005\",\"operation_id\":\"00000000-0000-4000-8000-00000000000c\",\"parent_checkpoint_id\":\"00000000-0000-4000-8000-000000000006\",\"protocol\":1,\"return_id\":\"00000000-0000-4000-8000-00000000000d\"}",
  "{\"device_id\":\"00000000-0000-4000-8000-000000000002\",\"kind\":\"ReturnStatus\",\"protocol\":1,\"return_id\":\"00000000-0000-4000-8000-00000000000d\"}",
  "{\"candidate_sha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"checkout_id\":\"00000000-0000-4000-8000-000000000009\",\"checkpoint_id\":\"00000000-0000-4000-8000-00000000000e\",\"epoch\":3,\"kind\":\"Accepted\",\"lineage_id\":\"00000000-0000-4000-8000-000000000005\",\"protocol\":1,\"return_id\":\"00000000-0000-4000-8000-00000000000d\"}",
- "{\"code\":\"UNLOCK_NEEDED\",\"kind\":\"Error\",\"message\":\"Unlock Lightning on your phone.\",\"protocol\":1}"
+ "{\"code\":\"UNLOCK_NEEDED\",\"kind\":\"Error\",\"message\":\"Unlock Lightning on your phone.\",\"protocol\":1}",
+ "{\"kind\":\"Hello\",\"nonce\":\"1212121212121212121212121212121212121212121212121212121212121212\",\"protocol\":1}",
+ "{\"device_id\":\"00000000-0000-4000-8000-000000000002\",\"kind\":\"Authenticate\",\"protocol\":1,\"signature\":\"30303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030\"}"
 ]

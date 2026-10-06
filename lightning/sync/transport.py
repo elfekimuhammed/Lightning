@@ -1,0 +1,420 @@
+"""The encrypted local link between a PC and its phone (multiple devices, tasks 09 and 10).
+
+The phone (home) listens on the local network over TLS 1.3 with its device certificate. A PC pins that
+certificate's SHA-256 at pairing and refuses any other. Every connection starts with the phone's `Hello`
+challenge; a paired PC answers with `Authenticate`, its signature over the challenge and the certificate it
+sees, so a relay or a replayed answer fails. Then one request, one answer (plus the ledger bytes after
+`Checkpoint` or `ReturnBegin`), and the connection closes.
+
+Pairing is the one request without a signature: the PC proves it knows the code shown on the phone, bound to
+the certificate it sees (`identity.transcript`), and the phone proves the same back before the PC trusts the
+data key in its reply. Both screens show six check digits from the same transcript.
+
+Bounded everywhere: 16 KB per message, the declared file size, 30 s per read, four connections at once.
+Nothing about the ledger is logged.
+"""
+from __future__ import annotations
+
+import hashlib
+import secrets
+import socket
+import ssl
+import threading
+import time
+from dataclasses import dataclass
+from typing import BinaryIO, Callable, Iterable
+
+from .copies import CHUNK, CopyRejected
+from .domain import (MAX_MESSAGE_BYTES, Accepted, Authenticate, BorrowActivated, BorrowCancel, BorrowGrant,
+                     BorrowRequest, Cancelled, Checkpoint, Error, Hello, Message, PairReply, PairRequest, Prefetch,
+                     Received, ReturnBegin, ReturnStatus, Status, StatusReply, decode_message, encode_message)
+from .identity import (DEFAULT_PORT, DeviceIdentity, check_digits, new_pairing_code, normalize_code, proof,
+                       show_code, transcript, verify_signature)
+from .service import HomeNode, LinkDown, copy_stream
+from .state import ProtocolError
+
+TIMEOUT = 30
+MAX_CONNECTIONS = 4
+PAIRING_MINUTES = 10
+PAIRING_TRIES = 3
+
+
+def _auth_data(nonce: str, home_fingerprint: str) -> bytes:
+    return f"lightning-auth-v1\n{nonce}\n{home_fingerprint}".encode("ascii")
+
+
+def _exact(stream, size: int) -> bytes:
+    data = bytearray()
+    while len(data) < size:
+        block = stream.recv(min(CHUNK, size - len(data)))
+        if not block:
+            raise ConnectionError("The connection closed early")
+        data += block
+    return bytes(data)
+
+
+def send_message(stream, message: Message) -> None:
+    data = encode_message(message)
+    stream.sendall(len(data).to_bytes(4, "big") + data)
+
+
+def receive_message(stream) -> Message:
+    size = int.from_bytes(_exact(stream, 4), "big")
+    if size > MAX_MESSAGE_BYTES:
+        raise ProtocolError("BAD_REQUEST", "Message too large")
+    return decode_message(_exact(stream, size))
+
+
+class _SocketFile:
+    """A socket read as a file of known length, for copy_stream."""
+
+    def __init__(self, stream):
+        self.stream = stream
+
+    def read(self, size: int) -> bytes:
+        return self.stream.recv(size)
+
+
+def _send_file(stream, source: BinaryIO, size: int) -> None:
+    left = size
+    while left:
+        block = source.read(min(CHUNK, left))
+        if not block:
+            raise ConnectionError("The file is shorter than declared")
+        stream.sendall(block)
+        left -= len(block)
+
+
+# ==================================================================== the phone: pairing desk and server
+
+@dataclass
+class PendingPairing:
+    node: HomeNode
+    code: str
+    home_name: str
+    profile_name: str
+    expires: float
+    tries: int = 0
+    paired_name: str = ""      # set when a PC paired: what the phone shows
+    digits: str = ""
+
+
+class PairingDesk:
+    """At most one open pairing on the phone, for ten minutes, three wrong codes at most, used once."""
+
+    def __init__(self):
+        self.pending: PendingPairing | None = None
+        self._lock = threading.Lock()
+
+    def open(self, node: HomeNode, *, home_name: str, profile_name: str) -> PendingPairing:
+        with self._lock:
+            self.pending = PendingPairing(node, new_pairing_code(), home_name, profile_name,
+                                          time.monotonic() + PAIRING_MINUTES * 60)
+            return self.pending
+
+    def close(self) -> None:
+        with self._lock:
+            self.pending = None
+
+    def handle(self, request: PairRequest, home_fingerprint: str) -> PairReply:
+        from .control import Peer
+        with self._lock:
+            pending = self.pending
+            if pending is None or pending.paired_name or time.monotonic() >= pending.expires:
+                raise ProtocolError("PAIRING_FAILED", "Open Pair a PC on the phone and use the code it shows.")
+            data = transcript(request.pairing_id, home_fingerprint, request.device_id, request.public_key)
+            if not secrets.compare_digest(proof(pending.code, "pc", data), request.proof):
+                pending.tries += 1
+                if pending.tries >= PAIRING_TRIES:
+                    self.pending = None
+                raise ProtocolError("PAIRING_FAILED", "That code is not the one on the phone.")
+            key = pending.node.bridge.key()
+            if key is None:
+                raise ProtocolError("UNLOCK_NEEDED", "Unlock Lightning on your phone.")
+            node = pending.node
+            node.pair(Peer(request.device_id, request.device_name, request.public_key, "", ""))
+            home = node.model
+            pending.paired_name, pending.digits = request.device_name, check_digits(data)
+            reply_data = data + f"\n{home.profile_id}\n{key.hex()}".encode("ascii")
+            return PairReply(request.pairing_id, home.profile_id, pending.profile_name, home.home_id,
+                             pending.home_name, home.lineage_id, key.hex(), home.compatibility.key_id,
+                             proof(pending.code, "phone", reply_data))
+
+
+class HomeServer:
+    """Listens for paired PCs. `nodes` lists the home nodes this phone serves (one per profile)."""
+
+    def __init__(self, identity: DeviceIdentity, nodes: Callable[[], Iterable[HomeNode]], desk: PairingDesk, *,
+                 host: str = "0.0.0.0", port: int = DEFAULT_PORT):
+        self.identity, self.nodes, self.desk = identity, nodes, desk
+        self.context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        self.context.minimum_version = ssl.TLSVersion.TLSv1_3
+        self.context.load_cert_chain(identity.cert_path, identity.key_path)
+        self.listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        if hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
+            self.listener.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+        else:
+            self.listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            self.listener.bind((host, port))
+            self.listener.listen(8)
+        except OSError:
+            self.listener.close()
+            raise
+        self.port = self.listener.getsockname()[1]
+        self._slots = threading.BoundedSemaphore(MAX_CONNECTIONS)
+        self._stopping = threading.Event()
+        self.thread = threading.Thread(target=self._serve, name="lightning-sync-listener", daemon=True)
+
+    def start(self) -> "HomeServer":
+        self.thread.start()
+        return self
+
+    def stop(self) -> None:
+        self._stopping.set()
+        try:
+            self.listener.shutdown(socket.SHUT_RDWR)  # wakes accept() on Linux and Android
+        except OSError:
+            pass
+        self.listener.close()
+        self.thread.join(5)
+
+    def _serve(self) -> None:
+        self.listener.settimeout(1.0)  # also notice stop() where shutdown does not wake accept()
+        while not self._stopping.is_set():
+            try:
+                raw, _address = self.listener.accept()
+            except TimeoutError:
+                continue
+            except OSError:
+                return
+            if not self._slots.acquire(blocking=False):
+                raw.close()  # busy: the PC retries
+                continue
+            threading.Thread(target=self._connection, args=(raw,), name="lightning-sync-peer", daemon=True).start()
+
+    def _node_for(self, device_id: str) -> HomeNode | None:
+        for node in self.nodes():
+            peer = node.store.peer(device_id)
+            if peer is not None and not peer.revoked and device_id in node.model.paired_devices:
+                return node
+        return None
+
+    def _connection(self, raw: socket.socket) -> None:
+        try:
+            raw.settimeout(TIMEOUT)
+            with self.context.wrap_socket(raw, server_side=True) as stream:
+                try:
+                    self._exchange(stream)
+                except ProtocolError as refused:
+                    send_message(stream, Error(refused.code, str(refused)[:300]))
+                except CopyRejected as rejected:
+                    send_message(stream, Error("NEEDS_REPAIR", str(rejected)[:300]))
+                except (ValueError, KeyError) as bad:
+                    send_message(stream, Error("BAD_REQUEST", "The request was not understood."))
+        except (OSError, ssl.SSLError, ConnectionError):
+            pass  # the PC sees LinkDown and retries
+        finally:
+            raw.close()
+            self._slots.release()
+
+    def _exchange(self, stream) -> None:
+        nonce = secrets.token_hex(32)
+        send_message(stream, Hello(nonce))
+        first = receive_message(stream)
+        if isinstance(first, PairRequest):
+            send_message(stream, self.desk.handle(first, self.identity.fingerprint))
+            return
+        if not isinstance(first, Authenticate):
+            raise ProtocolError("UNAUTHORIZED", "Pair this PC first.")
+        node = self._node_for(first.device_id)
+        peer = node.store.peer(first.device_id) if node is not None else None
+        if peer is None or not verify_signature(peer.public_key, _auth_data(nonce, self.identity.fingerprint),
+                                                first.signature):
+            raise ProtocolError("UNAUTHORIZED", "This PC is not paired with the phone.")
+        device = first.device_id
+        request = receive_message(stream)
+        if isinstance(request, Status):
+            send_message(stream, node.status(request, peer=device))
+        elif isinstance(request, Prefetch):
+            header, path = node.prefetch(request, peer=device)
+            with open(path, "rb") as source:
+                send_message(stream, header)
+                _send_file(stream, source, header.size)
+        elif isinstance(request, BorrowRequest):
+            send_message(stream, node.borrow(request, peer=device))
+        elif isinstance(request, BorrowActivated):
+            send_message(stream, node.activate(request, peer=device))
+        elif isinstance(request, BorrowCancel):
+            send_message(stream, node.cancel(request, peer=device))
+        elif isinstance(request, ReturnBegin):
+            send_message(stream, node.receive_return(request, _SocketFile(stream), peer=device))
+        elif isinstance(request, ReturnStatus):
+            send_message(stream, node.return_status(request, peer=device))
+        else:
+            raise ProtocolError("BAD_REQUEST", "Unexpected request")
+
+
+# ==================================================================== the PC: link and pairing
+
+def _client_context() -> ssl.SSLContext:
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    context.minimum_version = ssl.TLSVersion.TLSv1_3
+    context.check_hostname = False
+    context.verify_mode = ssl.CERT_NONE  # trust comes from the pinned fingerprint, checked below
+    return context
+
+
+def _split(endpoint: str) -> tuple[str, int]:
+    host, _, port = endpoint.strip().rpartition(":")
+    if not host:
+        host, port = endpoint.strip(), str(DEFAULT_PORT)
+    if not port.isdecimal() or not 0 < int(port) < 65536 or not host or len(host) > 253:
+        raise ValueError("Type the phone's address as shown, like 192.168.1.20:47513.")
+    return host.strip("[]"), int(port)
+
+
+def _open(endpoint: str):
+    host, port = _split(endpoint)
+    try:
+        raw = socket.create_connection((host, port), timeout=TIMEOUT)
+    except OSError as exc:
+        raise LinkDown("The phone did not answer. Open Lightning on it, on the same Wi-Fi.") from exc
+    try:
+        stream = _client_context().wrap_socket(raw)
+    except (OSError, ssl.SSLError) as exc:
+        raw.close()
+        raise LinkDown("The phone did not answer securely.") from exc
+    return stream
+
+
+def _answer(stream, expected: type) -> Message:
+    reply = receive_message(stream)
+    if isinstance(reply, Error):
+        raise ProtocolError(reply.code, reply.message)
+    if not isinstance(reply, expected):
+        raise ProtocolError("BAD_REQUEST", "The phone gave an unexpected answer.")
+    return reply
+
+
+@dataclass(frozen=True)
+class Paired:
+    reply: PairReply
+    fingerprint: str
+    digits: str
+
+
+def pair(endpoint: str, code: str, identity: DeviceIdentity) -> Paired:
+    """Pair this PC with the phone that shows `code`. The data key in the reply is trusted only after the
+    phone proved it knows the same code for the same certificate."""
+    code = normalize_code(code)
+    stream = _open(endpoint)
+    try:
+        fingerprint = hashlib.sha256(stream.getpeercert(binary_form=True)).hexdigest()
+        _answer(stream, Hello)
+        import uuid
+        pairing_id = str(uuid.uuid4())
+        data = transcript(pairing_id, fingerprint, identity.device_id, identity.public_key)
+        send_message(stream, PairRequest(pairing_id, identity.device_id, identity.name, identity.public_key,
+                                         proof(code, "pc", data)))
+        reply = _answer(stream, PairReply)
+    except (OSError, ConnectionError) as exc:
+        raise LinkDown("The connection to the phone dropped. Try again.") from exc
+    finally:
+        stream.close()
+    reply_data = data + f"\n{reply.profile_id}\n{reply.data_key}".encode("ascii")
+    if reply.pairing_id != pairing_id or not secrets.compare_digest(proof(code, "phone", reply_data), reply.proof):
+        raise ProtocolError("PAIRING_FAILED", "The device that answered is not the phone showing this code.")
+    return Paired(reply, fingerprint, check_digits(data))
+
+
+class TlsLink:
+    """A paired PC's `Link` to its phone, pinned to the phone's certificate."""
+
+    def __init__(self, endpoint: str, fingerprint: str, identity: DeviceIdentity):
+        self.endpoint, self.fingerprint, self.identity = endpoint, fingerprint, identity
+
+    def _request(self, message: Message, expected: type | tuple, *, upload: tuple[BinaryIO, int] | None = None,
+                 download: BinaryIO | None = None) -> Message:
+        stream = _open(self.endpoint)
+        try:
+            seen = hashlib.sha256(stream.getpeercert(binary_form=True)).hexdigest()
+            if not secrets.compare_digest(seen, self.fingerprint):
+                raise ProtocolError("UNAUTHORIZED", "Another device answered at the phone's address.")
+            hello = _answer(stream, Hello)
+            send_message(stream, Authenticate(self.identity.device_id,
+                                              self.identity.sign(_auth_data(hello.nonce, seen))))
+            send_message(stream, message)
+            if upload is not None:
+                _send_file(stream, *upload)
+            reply = _answer(stream, expected)
+            if download is not None:
+                copy_stream(_SocketFile(stream), download, reply.size)
+            return reply
+        except (OSError, ConnectionError) as exc:
+            raise LinkDown("The connection to the phone dropped. It will try again.") from exc
+        finally:
+            stream.close()
+
+    def status(self, message: Status) -> StatusReply:
+        return self._request(message, StatusReply)
+
+    def prefetch(self, message: Prefetch, sink: BinaryIO) -> Checkpoint:
+        return self._request(message, Checkpoint, download=sink)
+
+    def borrow(self, request: BorrowRequest) -> BorrowGrant:
+        return self._request(request, BorrowGrant)
+
+    def activate(self, message: BorrowActivated) -> BorrowGrant:
+        return self._request(message, BorrowGrant)
+
+    def cancel(self, message: BorrowCancel) -> Cancelled:
+        return self._request(message, Cancelled)
+
+    def send_return(self, begin: ReturnBegin, source: BinaryIO) -> Received | Accepted:
+        return self._request(begin, (Received, Accepted), upload=(source, begin.candidate_size))
+
+    def return_status(self, message: ReturnStatus) -> Received | Accepted:
+        return self._request(message, (Received, Accepted))
+
+
+__all__ = ["HomeServer", "PairingDesk", "Paired", "TlsLink", "pair", "show_code"]
+
+
+# ==================================================================== the PC: keeping a pairing
+
+def join_home(paired: Paired, *, endpoint: str, password: str, identity: DeviceIdentity, root=None):
+    """Keep a new pairing on this PC: the borrowed profile's folder, the data key wrapped under this PC's own
+    password, the phone's pinned certificate and address, and a borrower record. Returns its BorrowerNode."""
+    import json
+    from lightning.runtime.paths import borrowed_profile
+    from lightning.security.keys import key_id, wrap_key
+    from .control import ControlStore, Peer
+    from .service import BorrowerNode
+    from .state import BorrowerModel
+
+    reply = paired.reply
+    key = bytes.fromhex(reply.data_key)
+    if key_id(key) != reply.key_id:
+        raise ProtocolError("PAIRING_FAILED", "The phone sent a key that does not match its profile.")
+    paths = borrowed_profile(reply.profile_id, root=root)
+    paths.prepare()
+    slot = paths.keys_path.with_suffix(".part")
+    slot.write_text(json.dumps(wrap_key(key, password)), encoding="utf-8")
+    slot.replace(paths.keys_path)
+    (paths.data_dir / "profile.json").write_text(json.dumps({"name": reply.profile_name}), encoding="utf-8")
+    store = ControlStore(paths.data_dir)
+    if store.role() is None:
+        store.create(BorrowerModel(profile_id=reply.profile_id, home_id=reply.home_id, lineage_id=reply.lineage_id,
+                                   device_id=identity.device_id))
+    store.save_peer(Peer(reply.home_id, reply.home_name, "", endpoint, paired.fingerprint))
+    return BorrowerNode(paths)
+
+
+def link_to_home(node, identity: DeviceIdentity) -> TlsLink:
+    """The pinned link to the phone this borrowed profile belongs to."""
+    model = node.model
+    home = node.store.peer(model.home_id)
+    if home is None or home.revoked:
+        raise ProtocolError("UNAUTHORIZED", "Pair this PC with the phone again.")
+    return TlsLink(home.endpoint, home.certificate_sha256, identity)

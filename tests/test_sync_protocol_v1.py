@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 from lightning.sync import domain
-from lightning.sync.domain import (Accepted, BorrowActivated, BorrowCancel, BorrowRequest, Checkpoint, Compatibility,
+from lightning.sync.domain import (Accepted, Authenticate, Hello, BorrowActivated, BorrowCancel, BorrowRequest, Checkpoint, Compatibility,
                                    Error, PairConfirm, PairReply, PairRequest, Prefetch, ReturnBegin, ReturnStatus,
                                    Status, StatusReply, decode_message, encode_message)
 from lightning.sync.state import (BorrowerModel, BorrowerState, HomeProtocolModel, HomeState, ProtocolError)
@@ -29,7 +29,7 @@ COMPAT = Compatibility(1, 1, 45, 1, "0123456789abcdef", 1)
 
 def examples():
     return [
-        PairRequest(u(1), u(2), "Office PC", "ab" * 32, "cd" * 32),
+        PairRequest(u(1), u(2), "Office PC", "02" + "ab" * 32, "cd" * 32),
         PairReply(u(1), u(3), "Mohab", u(4), "Mohab's phone", u(5), "11" * 32, "0123456789abcdef", "ef" * 32),
         PairConfirm(u(1), u(2)),
         Status(u(2)),
@@ -43,6 +43,8 @@ def examples():
         ReturnStatus(u(13), u(2)),
         Accepted(u(13), u(9), u(14), "b" * 64, u(5), 3),
         Error("UNLOCK_NEEDED", "Unlock Lightning on your phone."),
+        Hello("12" * 32),
+        Authenticate(u(2), "30" * 70),
     ]
 
 
@@ -58,9 +60,9 @@ def test_every_message_round_trips(message):
 
 
 @pytest.mark.parametrize("bad", [
-    lambda: PairRequest(u(1), u(2), " padded", "ab" * 32, "cd" * 32),
-    lambda: PairRequest(u(1), u(2), "x" * 61, "ab" * 32, "cd" * 32),
-    lambda: PairRequest(u(1), u(2), "PC", "AB" * 32, "cd" * 32),
+    lambda: PairRequest(u(1), u(2), " padded", "02" + "ab" * 32, "cd" * 32),
+    lambda: PairRequest(u(1), u(2), "x" * 61, "02" + "ab" * 32, "cd" * 32),
+    lambda: PairRequest(u(1), u(2), "PC", "04" + "ab" * 32, "cd" * 32),
     lambda: PairReply(u(1), u(3), "M", u(4), "P", u(5), "11" * 31, "0123456789abcdef", "ef" * 32),
     lambda: StatusReply(u(3), u(5), "SOMEWHERE", u(6), "a" * 64, 0, "", True),
     lambda: StatusReply(u(3), u(5), "AT_HOME", u(6), "a" * 64, 0, "", 1),
