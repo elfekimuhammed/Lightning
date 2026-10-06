@@ -10,6 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-06 · Claude: the Android workflow's `wheel_run` defaults to the run with the sqlcipher3 arm64 wheel (37449625570), so a build started by hand no longer stops at pip.
 - 2026-10-06 · Claude: phone designs for Budget (Left in plan with its meter, groups as rows opening their categories), Cash planning (safe to spend as rows, next 30 days as a list, months as rows) and Investments (two tiles, allocation, holdings as rows by class). Charts' *Show the numbers* are rows on a phone.
 - 2026-10-06 · Claude: a PC handing back to a phone that no longer knows it (revoked, or its record kept anew) now says to pair again, not "did not answer". `android/README.md` names the current fixture fingerprint.
 - 2026-10-06 · Claude: phone layout notes: account rows drop picker hints and repeated names; one title on Add transaction; ‹ month › inside the period row (C04.2); a transfer once in every-account lists; green "Nothing needs you"; tabs never squeeze; Devices in the phone frame.

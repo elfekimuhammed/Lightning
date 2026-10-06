@@ -6,7 +6,7 @@ on:
       wheel_run:
         description: Run id of "Android native wheel experiment" whose arm64 wheels to install
         required: false
-        default: ''
+        default: '37449625570'  # the sqlcipher3 arm64 wheel the app needs; without it the build stops at pip
 
 permissions:
   contents: read
