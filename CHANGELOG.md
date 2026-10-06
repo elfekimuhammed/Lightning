@@ -10,9 +10,10 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+
+- 2026-10-06 · Claude: Working, not stuck (guideline A10.6, owner's choice): a pressed button becomes unavailable and shows a small Muted turning square; slow pages and the background month-end fetch show it in a note at the bottom right (`app.js`, `/investments/prices/online/status`).
 - 2026-10-06 · Claude: Financial health says a month with far more out than in in words, as the Overview does ("21,582 more went out than the 1,833 that came in", still below your limit), in the card and the six-month table, instead of −1177.2% (`CashFlow.rate_says_nothing`).
 - 2026-10-06 · Claude: Mohab meets the smarter plan (steps 20, 22, 24, 29–31): the raise offer, loans and rent planned below their bills, Safe to spend's rest of target, a late laptop goal, moving room to Food. Fixed what he found: "move 0", a −1,177% short month, a move offer that stayed, editing a reserve crashed.
-
 - 2026-10-06 · Claude: Online prices never in the way: the month-end fetch on opening runs in the background and the next page saves it and says so; Get prices on missing month-ends, Use shared prices after two failed tries; Settings › Price files › Test price sources (`tests/test_live_prices.py`).
 - 2026-10-06 · Codex: Documented promotion's unverified power-loss risk, the ordinary Windows drill, and the explicit real-data release decision.
 - 2026-10-06 · Codex: Added 02d process-kill drills at every durable promotion phase and POSIX full-disk/flush fault tests; recorded the remaining physical reboot evidence separately.
@@ -171,17 +172,14 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - Added `user feedback/user-feedback-batch-001.md`, a polished and grouped compilation of the 27 current App Feedback submissions, with source-ticket traceability and prioritisation.
 - Replace the app's former bolt mark with the supplied blue-and-teal ribbon logo in the main and profile headers and favicon; use its ICO conversion for the Windows executable. Package workflow artifacts now contain the named distributable ZIP and its SHA-256 file rather than only the loose app folder.
 - Update Mohab's demo CD to use a real portfolio purchase rather than a cash opening balance, keeping the sample aligned with the no-cash CD rule.
-
 ### Export selected records · 2026-10-02
 - Transaction registers, Categories, and the reevaluation ledger now offer **Export selected** after checking rows.
 - Downloads are CSV files containing only the chosen records. Transactions include their ledger lines; categories include hierarchy and flags; reevaluations include checkpoint detail and the main-journal link.
 - CSV text is protected from spreadsheet formulas, amounts keep their stored precision, and exports are capped at 1,000 selected records.
-
 ### CD purchase, maturity term and account navigation · 2026-10-02
 - CD purchases now validate available user-owned cash in the selected bank/cash account on the recorded purchase date, then replay later posted cash movements so the CD cannot make a later balance negative. Unrelated negative history before the purchase date no longer blocks the purchase; a real shortage reports its date and amount.
 - Maturity can be entered as a date or as a term in years (three-month increments). The two fields stay in sync, and a term calculates a calendar maturity date from the purchase date.
 - **View CDs** sits in the account page's right-side actions, alongside other account actions.
-
 ### Settings: start fresh · 2026-10-02
 - Settings › Your data has a **Start fresh** card.
 - **Desktop app:** **Start a new profile** locks the current profile and opens the new-profile setup, with its own password and recovery key. The old profile stays exactly as it is and can be opened again from Profiles.
@@ -189,32 +187,25 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
   - backs up the current database;
   - sets it aside next to itself as `<name>_before-fresh_<date-time>.db`;
   - opens an empty database at the usual path.
-
   Nothing is deleted. If the file can't be moved (another program has it open), nothing changes.
-
 ### Budget: saved and invested, for the period · 2026-10-02
 - The Budget's Savings rate card becomes **Saved and invested**, the same card as on Investments:
   - money in as 100 squares: invested in blue, kept in green, spent in rose;
   - the savings rate and the investing rate, which is part of it.
-
   It always covers the period chosen in the header.
 - The split is worked out once in `investments.report.saved_and_invested()`, so Budget and Investments always agree. Before, it was calculated in the Investments page code.
-
 ### CD portfolios grouped by bank · 2026-10-02
 - A `DEPOSIT` account is a bank-specific CD portfolio identified by its Institution field; it cannot hold cash.
 - Each certificate is a separate non-cash `DEPOSIT.CD` asset with its own name and terms. Buying it creates a `BUY` ledger transaction funded from a bank/cash account the user selects.
 - Interest and maturity proceeds remain forecast estimates. Interest is never posted automatically; users record it manually from bank statements. Actual redemption records the principal proceeds entered by the user.
 - Migration `0039_cd_portfolios.sql` preserves old account-level `cd_terms` as legacy without destroying or automatically converting them. Cash left in old `DEPOSIT` accounts must be moved out; legacy terms remain until a history-safe conversion workflow exists.
-
 ### Our own calendar on every date field · 2026-10-02
 - The calendar button on every date field (register rows, forms, popups) now opens Lightning's calendar instead of the browser's:
   - weeks run Monday to Sunday;
   - today is ringed and the chosen day filled;
   - Today and Clear sit at the bottom.
-
   It works from the keyboard and opens inside popups.
 - The button shows a calendar icon instead of ▦.
-
 ### Calendar heatmaps, even range bars, every stat card fuller, the planner restyled · 2026-10-02
 - Expense analysis ends with **Day by day**: the period as a calendar, total expenses on the left and net
   cash flow on the right (green kept, rose short). One month shows each day's date and amount; a longer
@@ -233,10 +224,8 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
   colours instead of a rotating palette, and the labels match the guideline.
 - Cash planning's tab bar scrolls on one line on phones instead of widening the page.
 - App guideline 2.10 · Juniper.
-
 ### Dropdowns open inside popups again · 2026-10-02
 - Select boxes in a popup, such as Account type when adding an account, opened their list behind the popup, where it couldn't be seen or clicked. The list now opens inside the popup.
-
 ### CD terms, interest projections and Mohab workflow fixes · 2026-10-02
 - `0038_cd_terms.sql` — store certificate terms separately from ledger balances and preserve the estimated schedule across restarts.
 - Add terms for each funded certificate account: principal, start, separate earliest-withdrawal and maturity dates, annual percentage rate, simple or compound interest, simple payout and compound capitalization frequency, and a bank/cash destination. Terms never create ledger entries; actual interest and principal transfers are recorded separately.
@@ -244,17 +233,14 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - Treat a CD as unavailable in *If you sold today* before its earliest withdrawal date. Use the CD class sale factor as an early-redemption estimate until maturity, then full remaining principal; Net worth and Free cash do not change. Bank fees and payout figures remain estimates, not bank quotes.
 - Suggest early or changed recurring payments for explicit confirmation, store the transaction's actual paid amount, attribute linked recurring salary to its scheduled month in the income average, and prompt a later-plan and reserve review after a changed amount. No plan or reserve amount changes automatically.
 - Bring Investments holdings down to five table columns with secondary details in an expandable row, and add progressively enhanced type-and-pick controls for reviewed own-data fields, retaining native form fallback.
-
 ### Release-readiness and finance audit · 2026-10-01
 - Verified UI fixes: Budget overlap near 941px; Cash planning's tab strip and the shared period pill at 390px; Settings data-card overflow; account and all-transactions registers scrolling inside their cards.
 - Updated Project Overview for the live net-worth history and income audit: Bonus is excluded from the average by default; early January salary booked in December drives the step 17 inflation. Four finance xfails remain open, and no-pay-month averaging has no dedicated assertion. Investments' nine holdings columns versus the guide's five and the own-data dropdown mismatch await owner choices.
 - The profile selfcheck passed all six checks on synthetic data, and the full suite passed with four xfails and two skips. Ordinary Windows PC acceptance is still outstanding; no ZIP has been released. These results do not establish every finance case or an interactive click-through of every control.
-
 ### Shared Codex project context · 2026-10-01
 - Add a short root `AGENTS.md` that routes repository tasks to the current
   product, architecture, visual, glossary and changelog sources without
   copying full documents into every task.
-
 ### Investments: calmer holdings, the waffle back, fuller cards; the month stepper · 2026-10-01
 - Holdings: the total and class rows lose their bands; a thin hairline separates each class instead. Names are
   ink, only the gain percentage carries a colour, and the horizon is a quiet word (Short, Medium, Long, or Set)
@@ -266,11 +252,9 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - The month stepper is one pill like the period buttons beside it: round chevrons and the month in a white
   pill. The month picker's year arrows match.
 - App guideline 2.9 · Yarrow: grouped tables, the split waffle, numbers that fill their card, the month stepper.
-
 ### The period you pick stays picked · 2026-10-01
 - The period chosen in a page header (All time, YTD, a month, or a custom range) now carries over to Overview, Budget, Expense analysis and Investments as you move between them.
 - It stays until you pick another. A pick that shows an error is not remembered.
-
 ### Cash planning, tab headers and the Ask dialog · 2026-10-01
 - Cash planning's Plan tab opens with four stat cards: Safe to spend (with about how much a day until your next
   income), Free cash, Due before your next income and Lowest point ahead. Then three questions: How is safe to
@@ -288,7 +272,6 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - The App guideline is 2.8 · Clover: the timeline, forecast trend and flow columns are now in the app, with
   rules for tab headers and the Ask dialog. Its visual page is also written to
   `docs/APPLICATION_BRAND_GUIDE.html` by `tools/brand_guide/build.py`.
-
 ### Investment planner: biggest gaps first · 2026-10-01
 - The planner has two ways to split new money: **Spread across gaps** (as before: every class below target
   gets the same share of its gap) and **Biggest gaps first** (the class furthest below its target, in
@@ -296,7 +279,6 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
   money covers every gap both give the same split. The choice is remembered.
 - Rounding cents now go to the largest suggestion, so a split always adds up and never shows a negative amount.
 - One split function (`suggest_contributions`) serves the planner; the unused copy on the Investments page is gone.
-
 ### Investments and report pages, lighter · 2026-10-01
 - Saved and invested is one light bar of money in: invested inside saved, then kept, then spent. Investing rate
   now counts only what came out of this period's savings, so it is never more than the savings rate; money
@@ -308,20 +290,17 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - The Reconcile portfolio value card is gone from the middle of the page.
 - In the net cash flow heatmap only Net flow is coloured (green kept, rose short); money in and out are grey.
 - Unit prices round to the unit too, except prices under 10.
-
 ### Expense analysis: five then Others · 2026-10-01
 - Every item chart shows the five biggest categories, then everything else as one "Others".
 - Small multiples sit beside the treemap. Month by month is two heatmaps side by side: money out by category,
   and net cash flow (money in, money out, what was left); the second needs no category filter.
 - Each visual keeps a "Show the numbers" table.
-
 ### Whole units on reporting pages · 2026-10-01
 - Overview, Budget, Expense analysis, Investments (with each holding and Target allocation), Cash planning's
   Plan and the Settings tables show money rounded to the nearest unit, key notes included. Values are still
   stored with their decimals, and registers, entry fields and their messages keep cents.
 - Clustered columns put each value on top of its bar, the name right under the bars and the change against
   usual under the name.
-
 ### Counterparties learn their category and their spellings · 2026-10-01
 - **Usual category:** each counterparty is filed under the category picked most often in its last 20 transactions, or the most recent one on a tie. Aliases count with their counterparty.
   - It fills in as soon as you pick the counterparty in the register, and when you save with no category.
@@ -333,7 +312,6 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
   - Only close spellings that match nothing yet are learned. Picking a different name ("Uber" → Careem) is not.
   - A full alias list never stops the save.
 - A counterparty can now hold **20 aliases** (was 10).
-
 ### Expense analysis cards · 2026-10-01
 - Money out and the comparisons are one wider card: the amount and a six-month sparkline, then against the
   period before and against your usual month underneath.
@@ -341,7 +319,6 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - Largest payment says how many times the average it is. Stat cards get depth: a top light, a lift on hover.
 - Where did it go is half treemap, half ranked list of the big categories with each one's change against
   its usual month.
-
 ### Our dropdowns, percent steppers and table rows · 2026-10-01
 - Every select box opens our own list: group headers, details indented, the current choice marked and a search
   on long lists (phones keep their native picker).
@@ -350,24 +327,20 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - Counterparties is a table of rows: inline row fields, the name takes the room, Delete is an icon.
 - Cards stacked on a page keep a 20px gap.
 - Target allocation can set a target on every class it lists, deposits included.
-
 ### Target allocation adds up to 100% · 2026-10-01
 - A target that would take the total past 100% is refused, and the message says how much is left.
 - Value to adjust is how much to buy (or sell) of that one class to reach its share with every other class
   left as it is: (target × total − value) ÷ (1 − target), because buying grows the total too.
-
 ### Categories, two by two · 2026-10-01
 - Two categories side by side, each always editable: name, + / − / ±, Recurring and One-off as on/off pills,
   and add detail, archive and delete always visible. Changes save as you make them.
 - An empty top-level group other than Personal, Work, Investment and System no longer shows.
 - The "?" tips on Target allocation open to the right of the "?" and are no longer cut off.
-
 ### Docs: back to four files · 2026-10-01
 - `docs/` holds only Project Overview (the story), Architecture (the technical side), the App brand guideline (the visual side) and the Glossary.
 - The desktop build spec, review and plan, build status, work log and profile preview are folded into Architecture › Desktop app and encrypted profiles, describing what is built today. The milestone is now on the Overview roadmap.
 - The research prototypes in `docs/desktop/reference/` (`encryption_prototype.patch`, `keyvault_sketch.py`) are removed: `lightning/security` and `lightning/database` now implement them. They remain in Git history.
 - The brand guide's visual page and its generator moved to `tools/brand_guide/` (`python tools/brand_guide/build.py`).
-
 ### Expense analysis · 2026-10-01
 - Four KPI cards give the gist of the period: money out against the period before, against your usual
   month, the biggest category with its share, and the largest payment.
@@ -375,7 +348,6 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
   categories"): a treemap of where it went; now against your usual month as clustered columns beside each
   category's usual range; small multiples on one scale; and a category-by-month heatmap that ends with
   every month of the period you chose.
-
 ### Investments · 2026-10-01
 - The page opens with three tiles: a waffle of what you kept and invested in the period, the period's
   Net gain or loss with Growth and XIRR, and Portfolio value with a sparkline that always covers the last
@@ -389,13 +361,11 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
   came from), how bumpy has it been (monthly moves, best and worst month, typical move, fall from its high)
   and its journey (value against cost, every trade and payout).
 - New figures: Average cost and Growth.
-
 ### Category lists without breadcrumbs · 2026-10-01
 - Every category picker (counterparties, bills and loans, bank imports, reserves, splits, the transaction
   form and the register's type-to-pick list) groups categories under their L1 as a header, each by its
   own name; an L2 with L3 detail reads as a header with its details indented under it. "Personal › Food"
   no longer appears anywhere, including tooltips and messages ("Added Groceries under Food & Groceries").
-
 ### Budget · 2026-10-01
 - The top is a savings-rate waffle beside one plan bar: spent in azure, what is left in green, over plan in
   strong rose past the plan. The three cards are gone; their figures sit under the bar.
@@ -405,11 +375,9 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
   One-off categories are left out of the budget's totals.
 - The first-plan form groups categories under their L1 with compact row fields; the bulk-rules toolbar and
   rule fields match the row style; select boxes use the app's own style everywhere.
-
 ### Page width · 2026-10-01
 - Every screen uses 90% of the space beside the sidebar, centred, and never less than the 1,120px content
   width (or the whole space on smaller screens).
-
 ### Valuations and target allocation · 2026-10-01
 - Sale factors are grouped by asset class and compact. A factor on a class (Funds) applies to every
   kind left empty (Equity Fund, Gold Fund…); a kind's own factor overrides it, and clearing it goes back
@@ -419,7 +387,6 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
   in %, not pts. Each class has a "?" with a one-line definition. An empty field clears the target.
 - Fields inside table rows use one inline style: a light green shade of the row, no border until you
   are in it.
-
 ### Categories overhaul · 2026-10-01
 - Categories go one level deeper: an L2 can hold L3 detail (Food & Groceries › Groceries). L3 can be chosen
   on a transaction and rolls up into its L2 everywhere.
@@ -434,14 +401,12 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - The Categories page is one table: L1 as a header, an L2 with detail as a sub-header, L3 indented. Click a
   row to edit it in place. Archived categories are hidden behind an Archived link.
 - Settings › Budget is compact: fields side by side in groups, choices as chips grouped under their L1.
-
 ### Overview 2.5 · 2026-10-01
 - Net worth, Free cash and Net flow are wide split cards: numbers and toggle list left, the visual right.
 - Where money in went is a Sankey; Cash flow has a column waterfall; Investments is its own section.
 - No chart sits behind a toggle; Month by month is stashed (App guideline § 16).
 - Four stat cards: Change in net worth, Savings rate, Investing rate and Left in plan. New figures
   Change in net worth and Investing rate.
-
 ### Mohab's workflow covers a salaried year · 2026-10-01
 - **Steps 11–28 of the reference workflow** now carry Mohab from October 2026 to September 2027. They are dated, and each step has the figures it must show. The year includes an ATM fee, a refund, a repair paid from the emergency fund, a dividend, a reimbursed work expense, a bonus, an early payday, a raise, Eid, phone installments, a share sale, a rent rise, a holiday goal, and a job change with a month between jobs.
   - Each step says what is true today.

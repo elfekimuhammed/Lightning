@@ -341,6 +341,12 @@ def start_if_due(c, on: date, session=None, now: datetime | None = None) -> bool
     return True
 
 
+def running(c) -> bool:
+    """Whether a background fetch for this profile is still asking the sources (pages show it in a corner)."""
+    job = _job
+    return job is not None and job.container is c and not job.done.is_set()
+
+
 def apply_finished(c) -> str:
     """Save a finished background fetch for this profile, on the caller's (the database's) thread, and say
     what it did, once. "" while it runs, or when there is nothing to save."""

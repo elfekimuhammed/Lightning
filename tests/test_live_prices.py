@@ -209,3 +209,31 @@ def test_testing_the_price_sources_names_the_one_that_fails(c, monkeypatch):
     assert "Test price sources" in client.get("/investments/prices/markets").text
     answer = client.post("/investments/prices/markets/test", follow_redirects=False)
     assert "Mubasher: not working" in client.get(answer.headers["location"]).text
+
+
+def test_pages_show_the_background_fetch_and_then_what_it_did(c, held):
+    gate = __import__("threading").Event()
+
+    class Slow(Sources):
+        def get_json(self, url, params=None):
+            gate.wait(5)
+            return super().get_json(url, params)
+
+    sources = Slow(history={"COMI.CA": {"2026-10-29": 75}}, fund_history="2026-10-30,31\n")
+    client = TestClient(create_app(c))
+    assert 'data-watch=' not in client.get("/investments").text  # nothing running: no corner note
+    assert start_if_due(c, date(2026, 11, 3), sources, datetime(2026, 11, 3, 9, tzinfo=timezone.utc))
+    page = client.get("/investments").text
+    assert 'data-watch="/investments/prices/online/status"' in page and "Fetching month-end prices…" in page
+    assert client.get("/investments/prices/online/status").json() == {"running": True, "note": ""}
+    gate.set()
+    _wait()
+    state = client.get("/investments/prices/online/status").json()
+    assert state["running"] is False and state["note"].startswith("Month-end prices: Fetched ")
+    assert c.reporting.value_of(held["cib"].id, D(1), "2026-10-31").price == D("75")
+
+
+def test_buttons_that_wait_on_the_network_say_what_they_do(c, held):
+    client = TestClient(create_app(c))
+    assert 'data-busy="Fetching prices…">Update prices<' in client.get("/investments/prices").text
+    assert 'data-busy="Testing sources…">Test price sources<' in client.get("/investments/prices/markets").text

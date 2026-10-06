@@ -219,6 +219,7 @@ def _render(request, name, status_code, c, total, owned_total, groups, context) 
             "session_epoch": getattr(request.state, "session_epoch", ""),
             "session_token": getattr(request.state, "session_token", ""),
             "category_groups": c.categories.select_groups,
+            "prices_running": live_prices.running(c),
             **context,
         },
         status_code=status_code,

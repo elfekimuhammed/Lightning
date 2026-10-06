@@ -6,7 +6,7 @@
   <h2 id="price-files">Update prices</h2>
   <p class="muted small">Lightning asks the sources itself for the investments you hold: the latest close, and every month-end close it lacks. It does this by itself the first time you open it after a month ends, because month-end prices make your monthly returns. Sources: TradingView and Yahoo Finance for stocks, Mubasher for funds.</p>
   <form method="post" class="actions" action="/investments/prices/online">
-    <button class="btn primary">Update prices</button>
+    <button class="btn primary" data-busy="Fetching prices…">Update prices</button>
   <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
   <h3 style="margin-top:16px">Shared price files</h3>
   {% if market %}
@@ -20,7 +20,7 @@
   <p class="muted">You follow no markets. <a href="/investments/prices/markets">Choose markets</a> to use the shared price files.</p>
   {% endif %}
   {% if market %}<form method="post" class="actions" action="/investments/prices/market/fill">
-    <button class="btn" formaction="/investments/prices/market/update">Download shared prices</button>
+    <button class="btn" formaction="/investments/prices/market/update" data-busy="Downloading…">Download shared prices</button>
     {% if market | selectattr('have') | list %}<button class="btn">Fill from price files</button>{% endif %}
   <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>{% endif %}
   <details style="margin-top:12px">
@@ -36,7 +36,7 @@
 <form method="post" class="card" style="max-width:1000px;margin-bottom:16px" autocomplete="off" id="missing">
   <h2>Prices needed to complete reevaluations</h2>
   <p class="muted">These month-end checkpoints are waiting for a price. Get prices asks the sources again; {% if fails >= 2 and market %}they failed the last {{ fails }} times, so you can use the shared prices instead, or {% else %}or {% endif %}enter each price below. Its account return is then posted to the main ledger.</p>
-  <div class="actions" style="margin-bottom:12px"><button class="btn" formaction="/investments/prices/online" formnovalidate>Get prices</button>{% if fails >= 2 and market %}<button class="btn" formaction="/investments/prices/market/update" formnovalidate>Use shared prices</button>{% endif %}</div>
+  <div class="actions" style="margin-bottom:12px"><button class="btn" formaction="/investments/prices/online" formnovalidate data-busy="Fetching prices…">Get prices</button>{% if fails >= 2 and market %}<button class="btn" formaction="/investments/prices/market/update" formnovalidate data-busy="Downloading…">Use shared prices</button>{% endif %}</div>
   <table class="budget"><thead><tr><th>Checkpoint</th><th>Investment</th><th>Price needed</th></tr></thead>
     {% for row in pending %}<tr><td>{{ row.date }}</td><td>{{ row.asset_name }} <span class="code muted small">{{ row.asset_code }}</span></td>
       <td><input name="rp_{{ row.asset_id }}_{{ row.date }}" class="num" inputmode="decimal" placeholder="Price per unit" required></td></tr>{% endfor %}

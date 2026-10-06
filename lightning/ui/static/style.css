@@ -2829,6 +2829,19 @@ a.chart-sankey-label:hover b { color:var(--azure); }
 .main .budget-savings .budget-top-head span { white-space:nowrap; }
 .main .budget-savings .inv-saved-body { margin-top:10px; }
 
+/* Working, not stuck (guideline A10.6): a small Muted square that turns, shown after a moment so quick
+   actions never flicker; in a pressed button, or in a note at the bottom right for slow pages and
+   background work. Still for anyone who asks for less motion. */
+.busy-square { display:inline-block; width:8px; height:8px; margin-left:8px; border-radius:2px; background:var(--muted); vertical-align:middle; opacity:0; animation:busy-appear 1ms 300ms forwards, busy-turn 1.2s 300ms ease-in-out infinite; }
+@keyframes busy-appear { to { opacity:1; } }
+@keyframes busy-turn { 0% { transform:rotate(0) scale(1); } 50% { transform:rotate(90deg) scale(.7); } 100% { transform:rotate(180deg) scale(1); } }
+.busy-toast { position:fixed; right:16px; bottom:16px; z-index:60; display:flex; align-items:center; gap:10px; max-width:min(420px, calc(100vw - 32px)); padding:10px 14px; border-radius:12px; background:var(--surface); border:1px solid var(--border); box-shadow:var(--shadow); color:var(--text); font-size:13px; }
+.busy-toast[hidden] { display:none; }
+.busy-toast .busy-square { margin-left:0; flex:none; }
+.busy-toast.done .busy-square { display:none; }
+.busy-toast .busy-link { white-space:nowrap; }
+@media (prefers-reduced-motion: reduce) { .busy-square { animation:busy-appear 1ms 300ms forwards; } }
+
 /* ===================================================================================
    Guideline 3.6 (docs/BRAND_GUIDELINE.html, Part A). Last in the file so it wins.
    =================================================================================== */

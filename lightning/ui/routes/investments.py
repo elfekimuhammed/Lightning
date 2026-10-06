@@ -6,6 +6,7 @@ from collections import defaultdict
 from datetime import date, timedelta
 
 from fastapi import APIRouter, Request, Response
+from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
 from lightning.accounts.domain import AccountType
@@ -789,6 +790,15 @@ async def price_files(request: Request):
     c = container(request)
     return render(request, "investments/price_files.html",
                   rows=pack_rows(c.data_dir, chosen(c.settings.get("market_packs"))))
+
+
+@router.get("/prices/online/status")
+async def online_status(request: Request):
+    """For the corner note while month-end prices are fetched in the background: still running, or what the
+    finished fetch saved (saving here, on the database's own thread, as a page render would)."""
+    c = container(request)
+    note = live_prices.apply_finished(c)
+    return JSONResponse({"running": live_prices.running(c), "note": note})
 
 
 @router.post("/prices/markets/test")

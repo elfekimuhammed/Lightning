@@ -2212,3 +2212,74 @@ window.lightningPrivacy = (() => {
   });
   bar.addEventListener("click", (event) => { if (event.target === bar) bar.close(); });
 })();
+
+// Show that the app is working, never stuck (brand guideline A10.6). A pressed button becomes unavailable and,
+// if the next page takes more than a moment, shows a small turning square (and its data-busy words). A slow
+// page, and work running in the background (month-end prices after opening a profile), show the same square
+// in a note at the bottom right. Downloads never leave the page, so they are left alone.
+(() => {
+  const toast = document.getElementById("busy-toast");
+  if (!toast) return;
+  const text = toast.querySelector(".busy-text"), link = toast.querySelector(".busy-link");
+  let slow = 0, safety = 0, fade = 0;
+  const show = (words, done = false) => {
+    window.clearTimeout(fade);
+    text.textContent = words;
+    toast.classList.toggle("done", done);
+    link.hidden = !done;
+    toast.hidden = false;
+  };
+  const hide = () => { toast.hidden = true; };
+  const reset = () => {
+    window.clearTimeout(slow);
+    window.clearTimeout(safety);
+    hide();
+    document.querySelectorAll("button[data-busy-on]").forEach((button) => {
+      button.disabled = false;
+      button.removeAttribute("data-busy-on");
+      button.removeAttribute("aria-busy");
+      if (button.dataset.busyWas !== undefined) button.textContent = button.dataset.busyWas;
+      button.querySelector(".busy-square")?.remove();
+    });
+  };
+  const leaves = (url) => url.origin === location.origin && !/^\/(exports|samples)\//.test(url.pathname);
+  document.addEventListener("submit", (event) => {
+    const form = event.target, button = event.submitter;
+    const target = new URL(button?.formAction || form.action || location.href, location.href);
+    if ((button?.formTarget || form.target) === "_blank" || form.matches("[data-no-busy]") || !leaves(target)) return;
+    window.setTimeout(() => {  // after the form's own handlers and its data are taken: disabling now loses nothing
+      if (event.defaultPrevented || !button) return;
+      button.dataset.busyOn = "1";
+      button.setAttribute("aria-busy", "true");
+      button.disabled = true;
+      if (button.dataset.busy) { button.dataset.busyWas = button.textContent; button.textContent = button.dataset.busy; }
+      button.insertAdjacentHTML("beforeend", '<span class="busy-square" aria-hidden="true"></span>');
+      safety = window.setTimeout(reset, 20000);  // a page that never comes: give the button back
+    }, 0);
+  });
+  document.addEventListener("click", (event) => {
+    const anchor = event.target.closest?.("a[href]");
+    if (!anchor || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey
+        || anchor.target || anchor.hasAttribute("download") || anchor.matches("[data-popup-open]")) return;
+    const url = new URL(anchor.href, location.href);
+    if (!leaves(url) || (url.pathname === location.pathname && url.search === location.search)) return;
+    window.setTimeout(() => {
+      if (event.defaultPrevented) return;
+      slow = window.setTimeout(() => show("Opening…"), 500);
+      safety = window.setTimeout(reset, 20000);
+    }, 0);
+  });
+  window.addEventListener("pageshow", (event) => { if (event.persisted) reset(); });
+  const watch = toast.dataset.watch;
+  if (watch) {
+    show(toast.dataset.watchLabel || "Working…");
+    const ask = async () => {
+      try {
+        const state = await (await fetch(watch, { headers: { "X-Requested-With": "fetch" } })).json();
+        if (state.running) { window.setTimeout(ask, 2000); return; }
+        if (state.note) { show(state.note, true); fade = window.setTimeout(hide, 8000); } else hide();
+      } catch (error) { hide(); }
+    };
+    window.setTimeout(ask, 2000);
+  }
+})();
