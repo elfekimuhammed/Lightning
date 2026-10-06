@@ -20,6 +20,9 @@ MAX_MESSAGE_BYTES = 16 * 1024
 MAX_CANDIDATE_BYTES = 1024 * 1024 * 1024
 _HASH = re.compile(r"[0-9a-f]{64}\Z")
 _KEY_ID = re.compile(r"[0-9a-f]{16}\Z")
+_HEX32 = re.compile(r"[0-9a-f]{64}\Z")
+_NAME = re.compile(r"[^\x00-\x1f\x7f]{1,60}\Z")
+_CODE = re.compile(r"[A-Z_]{3,40}\Z")
 
 
 def _id(value: str, name: str) -> None:
@@ -38,6 +41,16 @@ def _hash(value: str, name: str) -> None:
         raise ValueError(f"Invalid {name}")
 
 
+def _hex32(value: str, name: str) -> None:
+    if not isinstance(value, str) or _HEX32.fullmatch(value) is None:
+        raise ValueError(f"Invalid {name}")
+
+
+def _name(value: str, name: str) -> None:
+    if not isinstance(value, str) or _NAME.fullmatch(value) is None or value != value.strip():
+        raise ValueError(f"Invalid {name}")
+
+
 def _natural(value: int, name: str, *, minimum: int = 0, maximum: int = 2**63 - 1) -> None:
     if type(value) is not int or not minimum <= value <= maximum:
         raise ValueError(f"Invalid {name}")
@@ -52,6 +65,15 @@ class MessageKind(StrEnum):
     RETURN_BEGIN = "ReturnBegin"
     RECEIVED = "Received"
     ACCEPTED = "Accepted"
+    PAIR_REQUEST = "PairRequest"
+    PAIR_REPLY = "PairReply"
+    PAIR_CONFIRM = "PairConfirm"
+    STATUS = "Status"
+    STATUS_REPLY = "StatusReply"
+    PREFETCH = "Prefetch"
+    CHECKPOINT = "Checkpoint"
+    RETURN_STATUS = "ReturnStatus"
+    ERROR = "Error"
 
 
 @dataclass(frozen=True)
@@ -197,7 +219,150 @@ class Accepted:
         _natural(self.epoch, "epoch", minimum=1)
 
 
-Message = BorrowRequest | BorrowGrant | BorrowActivated | BorrowCancel | Cancelled | ReturnBegin | Received | Accepted
+# ---------------------------------------------------------------- pairing, status and transfer (task 05a)
+# Pairing runs over TLS to the phone's pinned-on-first-use certificate. Each side proves it knows the one-time
+# pairing secret with an HMAC over both certificate fingerprints, so a relay that presents another certificate
+# fails. The phone sends the data key only in PairReply, only while its profile is unlocked.
+
+@dataclass(frozen=True)
+class PairRequest:
+    pairing_id: str
+    device_id: str
+    device_name: str
+    public_key: str        # Ed25519, 32 bytes as hex: signs later connections
+    proof: str             # HMAC-SHA256(secret, transcript) as hex
+
+    def __post_init__(self) -> None:
+        _id(self.pairing_id, "pairing_id")
+        _id(self.device_id, "device_id")
+        _name(self.device_name, "device_name")
+        _hex32(self.public_key, "public_key")
+        _hex32(self.proof, "proof")
+
+
+@dataclass(frozen=True)
+class PairReply:
+    pairing_id: str
+    profile_id: str
+    profile_name: str
+    home_id: str
+    home_name: str
+    lineage_id: str
+    data_key: str          # the profile's SQLCipher key as hex; the PC wraps it under its own password at once
+    key_id: str
+    proof: str
+
+    def __post_init__(self) -> None:
+        for name in ("pairing_id", "profile_id", "home_id", "lineage_id"):
+            _id(getattr(self, name), name)
+        _name(self.profile_name, "profile_name")
+        _name(self.home_name, "home_name")
+        _hex32(self.data_key, "data_key")
+        if not isinstance(self.key_id, str) or _KEY_ID.fullmatch(self.key_id) is None:
+            raise ValueError("Invalid key_id")
+        _hex32(self.proof, "proof")
+
+
+@dataclass(frozen=True)
+class PairConfirm:
+    pairing_id: str
+    device_id: str
+
+    def __post_init__(self) -> None:
+        _id(self.pairing_id, "pairing_id")
+        _id(self.device_id, "device_id")
+
+
+@dataclass(frozen=True)
+class Status:
+    device_id: str
+
+    def __post_init__(self) -> None:
+        _id(self.device_id, "device_id")
+
+
+@dataclass(frozen=True)
+class StatusReply:
+    profile_id: str
+    lineage_id: str
+    state: str                     # a HomeState value
+    checkpoint_id: str
+    checkpoint_sha256: str
+    epoch: int
+    lent_to: str                   # device ID of the active borrower, or "" when none
+    unlocked: bool
+
+    def __post_init__(self) -> None:
+        for name in ("profile_id", "lineage_id", "checkpoint_id"):
+            _id(getattr(self, name), name)
+        if self.state not in {"AT_HOME", "PREPARING_LEND", "LENT", "RETURN_RECEIVED", "PROMOTING", "NEEDS_REPAIR"}:
+            raise ValueError("Invalid state")
+        _hash(self.checkpoint_sha256, "checkpoint_sha256")
+        _natural(self.epoch, "epoch")
+        if self.lent_to:
+            _id(self.lent_to, "lent_to")
+        if type(self.unlocked) is not bool:
+            raise ValueError("Invalid unlocked")
+
+
+@dataclass(frozen=True)
+class Prefetch:
+    operation_id: str
+    device_id: str
+
+    def __post_init__(self) -> None:
+        _id(self.operation_id, "operation_id")
+        _id(self.device_id, "device_id")
+
+
+@dataclass(frozen=True)
+class Checkpoint:
+    """Precedes exactly `size` bytes of the immutable encrypted checkpoint on the same stream."""
+    checkpoint_id: str
+    lineage_id: str
+    sha256: str
+    size: int
+    ledger_schema: int
+
+    def __post_init__(self) -> None:
+        _id(self.checkpoint_id, "checkpoint_id")
+        _id(self.lineage_id, "lineage_id")
+        _hash(self.sha256, "sha256")
+        _natural(self.size, "size", minimum=1, maximum=MAX_CANDIDATE_BYTES)
+        _natural(self.ledger_schema, "ledger_schema", minimum=1, maximum=65535)
+
+
+@dataclass(frozen=True)
+class ReturnStatus:
+    return_id: str
+    device_id: str
+
+    def __post_init__(self) -> None:
+        _id(self.return_id, "return_id")
+        _id(self.device_id, "device_id")
+
+
+ERROR_CODES = frozenset({
+    "UNAUTHORIZED", "REPLAY_CONFLICT", "STALE_AUTHORITY", "INCOMPATIBLE", "CANCELLED", "ALREADY_LENT",
+    "STALE_BASE", "ACTIVE_CHECKOUT", "NOT_PUBLISHED", "UNLOCK_NEEDED", "UPDATE_NEEDED", "NO_SPACE",
+    "NEEDS_REPAIR", "BAD_REQUEST", "PAIRING_FAILED", "UNKNOWN_RETURN", "BUSY",
+})
+
+
+@dataclass(frozen=True)
+class Error:
+    code: str
+    message: str
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.code, str) or _CODE.fullmatch(self.code) is None or self.code not in ERROR_CODES:
+            raise ValueError("Invalid error code")
+        if not isinstance(self.message, str) or len(self.message) > 300:
+            raise ValueError("Invalid error message")
+
+
+Message = (BorrowRequest | BorrowGrant | BorrowActivated | BorrowCancel | Cancelled | ReturnBegin | Received | Accepted
+           | PairRequest | PairReply | PairConfirm | Status | StatusReply | Prefetch | Checkpoint | ReturnStatus | Error)
 _TYPES: dict[MessageKind, type] = {
     MessageKind.BORROW_REQUEST: BorrowRequest,
     MessageKind.BORROW_GRANT: BorrowGrant,
@@ -207,6 +372,15 @@ _TYPES: dict[MessageKind, type] = {
     MessageKind.RETURN_BEGIN: ReturnBegin,
     MessageKind.RECEIVED: Received,
     MessageKind.ACCEPTED: Accepted,
+    MessageKind.PAIR_REQUEST: PairRequest,
+    MessageKind.PAIR_REPLY: PairReply,
+    MessageKind.PAIR_CONFIRM: PairConfirm,
+    MessageKind.STATUS: Status,
+    MessageKind.STATUS_REPLY: StatusReply,
+    MessageKind.PREFETCH: Prefetch,
+    MessageKind.CHECKPOINT: Checkpoint,
+    MessageKind.RETURN_STATUS: ReturnStatus,
+    MessageKind.ERROR: Error,
 }
 _KINDS = {value: key for key, value in _TYPES.items()}
 
@@ -246,10 +420,21 @@ def decode_message(blob: bytes) -> Message:
         raise ValueError("Unknown protocol message kind") from exc
     data.pop("protocol")
     cls = _TYPES[kind]
+    return from_fields(cls, data)
+
+
+def to_fields(message: Message) -> dict[str, Any]:
+    """A message as a plain dict (no kind or protocol), e.g. to keep it in the control store."""
+    return asdict(message)
+
+
+def from_fields(cls: type, data: dict[str, Any]) -> Message:
+    """Rebuild one message type from `to_fields` output, with the same strict schema as the wire."""
+    data = dict(data)
     expected = set(cls.__dataclass_fields__)
     if set(data) != expected:
         raise ValueError("Protocol message fields do not match schema")
-    if kind is MessageKind.BORROW_REQUEST:
+    if cls is BorrowRequest:
         compat = data["compatibility"]
         if not isinstance(compat, dict) or set(compat) != set(Compatibility.__dataclass_fields__):
             raise ValueError("Compatibility fields do not match schema")
