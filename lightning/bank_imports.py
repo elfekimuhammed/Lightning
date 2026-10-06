@@ -266,6 +266,17 @@ class BankImportService:
             if not staged.get("_errors"):
                 key = (staged["Date"], staged["Amount"])
                 amount_dates[key] = amount_dates.get(key, 0) + 1
+        # The same date and amount waiting in another review of this account (an SMS and a statement, or two
+        # copies of one message): flagged like a posted look-alike, so neither posts twice unnoticed.
+        pending_elsewhere = {}
+        for other in self.db.all(
+                "SELECT r.raw_json, b.file_name FROM bank_import_rows r JOIN bank_import_batches b ON b.id=r.batch_id "
+                "WHERE b.account_id=? AND b.id<>? AND r.status='REVIEW'", (batch["account_id"], batch_id)):
+            try:
+                staged = json.loads(other["raw_json"])["parsed"]
+                pending_elsewhere.setdefault((staged["Date"], staged["Amount"]), other["file_name"])
+            except (TypeError, ValueError, KeyError):
+                continue
         seen_refs = set()
         for row in rows:
             record = json.loads(row["raw_json"])
@@ -281,8 +292,9 @@ class BankImportService:
             parsed["_counterparty_id"] = cp["id"] if cp else None
             parsed["_suggestions"] = self.counterparties.suggestions(parsed["Counterparty"])
             parsed["_reference_duplicate"] = ref_duplicate
+            parsed["_pending_elsewhere"] = pending_elsewhere.get((parsed.get("Date"), parsed.get("Amount")), "")
             parsed["_similarity_warning"] = (self._similarity_warning(batch["account_id"], parsed)
-                or amount_dates.get((parsed["Date"], parsed["Amount"]), 0) > 1)
+                or amount_dates.get((parsed["Date"], parsed["Amount"]), 0) > 1 or bool(parsed["_pending_elsewhere"]))
             parsed["_voided_earlier"] = not ref_duplicate and self._voided_earlier(batch["account_id"], batch_id,
                                                                                 row["bank_reference"], parsed)
             parsed["_link_candidates"] = ([] if ref_duplicate or row["status"] != "REVIEW"

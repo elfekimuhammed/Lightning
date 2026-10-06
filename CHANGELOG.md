@@ -10,6 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-06 · Claude: duplicates flagged: the import review now also flags a row whose date and amount wait in another review of the account; an SMS transfer between your own banks goes to review once as a transfer, its other side kept on From SMS.
 - 2026-10-06 · Claude: owner's test: the phone had no way to Devices (pairing). Settings on the phone now opens with *This phone*: Pair a PC, Bank SMS, Profile and lock.
 - 2026-10-06 · Claude: the phone reads bank SMS by itself: From SMS explains what is read and asks for `READ_SMS`; Overview and From SMS then read new bank messages (not people's numbers) into review. Share a message from the SMS app to Lightning. Needs you lists SMS waiting for an account or unreadable.
 - 2026-10-06 · Claude: test suite 405 s → 246 s: tests lock profile keys at the key file's cheapest Argon2 cost (`tests/conftest.py`; one `real_kdf` test keeps the shipped 128/256 MiB), `tests/screens.py` parses a page only when read, and the migrator splits SQL from `;` to `;` and caches it (every database open is faster).

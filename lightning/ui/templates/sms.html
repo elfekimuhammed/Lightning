@@ -26,9 +26,9 @@
 {% endif %}
 {% if unread %}
 <section class="card" aria-labelledby="unread-heading">
-  <h2 id="unread-heading">Lightning could not read these</h2>
-  <p class="muted">They mention money, so they are kept until you enter or dismiss them. Send them to be added as a new bank pattern.</p>
-  {% for m in unread %}<div class="compact-row"><span dir="auto">{{ m.text }} <small class="muted">{{ m.sender or 'Pasted' }} · {{ m.received|replace('T', ' ') }}</small></span>
+  <h2 id="unread-heading">Messages kept for you</h2>
+  <p class="muted">Ones Lightning could not read, and the other side of a transfer it sent to review once. Each stays until you enter or dismiss it. Send the unread ones to be added as a bank pattern.</p>
+  {% for m in unread %}<div class="compact-row"><span dir="auto">{{ m.text }} <small class="muted">{{ m.sender or 'Pasted' }} · {{ m.received|replace('T', ' ') }}</small>{% if m.reason %}<small class="muted"> · {{ m.reason }}</small>{% endif %}</span>
     <form method="post" action="/sms/dismiss"><input type="hidden" name="id" value="{{ m.id }}"><button class="btn small" type="submit">Dismiss</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form></div>{% endfor %}
 </section>
 {% endif %}

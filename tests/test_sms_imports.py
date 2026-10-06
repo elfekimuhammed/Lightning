@@ -97,7 +97,7 @@ def test_from_sms_shows_what_it_could_not_read(c, setup):
     from lightning.ui.web import create_app
     client = TestClient(create_app(c))
     page = client.post("/sms/paste", data={"messages": SAMPLES["unreadable"][0]})
-    assert "1 to read yourself" in page.text and "could not read these" in page.text
+    assert "1 to read yourself" in page.text and "Messages kept for you" in page.text
 
 
 class FakeSource:
@@ -168,3 +168,30 @@ def test_the_phone_app_asks_then_reads_on_overview(tmp_path):
         source.state = "granted"
         overview = phone.get("/").text
         assert "Bank SMS need their account" in overview
+
+
+def test_a_duplicate_waiting_in_another_review_is_flagged(c, setup):
+    accounts, _ = setup
+    uber = SAMPLES["samples"][6]
+    c.bank_imports.stage(accounts["cib"].id, "statement.csv",
+                         b"Date,Counterparty,Amount\n2026-10-06,Uber,-147.87\n")
+    c.sms_imports.read([(uber["sender"], uber["text"], datetime.fromisoformat(uber["received"]))])
+    _, rows = c.bank_imports.preview(c.sms_imports.assign("2093", accounts["cib"].id))
+    assert rows[0]["_pending_elsewhere"] == "statement.csv" and rows[0]["_default_match"] == "skip"
+
+
+def test_a_transfer_between_your_banks_goes_to_review_once(c, setup):
+    accounts, _ = setup
+    nbe = c.account_flows.open_account("NBE Current", "BANK", "2026-09-01", "0", institution="NBE")
+    c.sms_imports.assign("4410", accounts["cib"].id)
+    c.sms_imports.assign("6628", nbe.id)
+    sent = [s for s in SAMPLES["samples"] if s["bank"] == "CIB" and s["kind"] == "transfer_out"][0]
+    arrived = ("تم إضافة تحويل لحظي لحسابكم رقم 6628 بمبلغ 2000.00 جم من MOHAB رقم مرجعي 4411 يوم 10-01 "
+               "الساعة 11:06 للمزيد اتصل بـ 19623")
+    result = c.sms_imports.read([("CIB", sent["text"], datetime(2026, 10, 1, 11, 6)),
+                                 ("NBE", arrived, datetime(2026, 10, 1, 11, 7))])
+    assert list(result["staged"]) == [accounts["cib"].id]  # one review row, not income on NBE as well
+    _, rows = c.bank_imports.preview(result["staged"][accounts["cib"].id])
+    assert rows[0]["Category"] == "Transfer" and rows[0]["_transfer_target"] == "NBE Current"
+    kept = c.sms_imports.unread()
+    assert len(kept) == 1 and "other side of the transfer from CIB Current" in kept[0]["reason"]

@@ -160,9 +160,9 @@ class ReviewInbox:
                           "detail": f"{_plural(count, 'message waits', 'messages wait')} until you say which account "
                                     "they belong to.", "href": "/sms", "action": "Choose the account", "priority": 1})
         if unread:
-            found.append({"label": "Bank SMS Lightning could not read",
-                          "detail": f"{_plural(unread, 'message mentions', 'messages mention')} money. Enter or "
-                                    "dismiss.", "href": "/sms", "action": "Look at them", "priority": 2})
+            found.append({"label": "Bank SMS kept for you",
+                          "detail": f"{_plural(unread, 'message waits', 'messages wait')}: unread, or the other side "
+                                    "of a transfer. Enter or dismiss.", "href": "/sms", "action": "Look at them", "priority": 2})
         return found
 
     def _statements(self) -> list[dict]:
