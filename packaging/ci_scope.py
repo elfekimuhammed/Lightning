@@ -1,13 +1,19 @@
 """CI helpers for the Windows app workflow (.github/workflows/desktop-probe.yml). Standard library only.
 
-    python packaging/ci_scope.py                      # sets build_windows=true|false for this push
+    python packaging/ci_scope.py                      # sets build_windows, suite, phone, reuse_run, reuse_artifact
     python packaging/ci_scope.py --check-release-tag  # a tag must match the source version and sit on main
 
 Whether to build (owner, 2026-10-06: Actions minutes are limited and Windows minutes count double): a push
-to main runs only the Linux suite. Tags and manual runs always build. The daily scheduled run builds unless
-every file changed since the last commit whose Windows build SUCCEEDED is one that cannot reach the app
-(documentation, feedback notes, Linux launchers), or nothing changed at all. Comparing with that commit means
-code whose build was cancelled or failed is never skipped; anything uncertain builds.
+to main runs only the Linux suite. Tags always build. The daily scheduled run builds unless every file
+changed since the last commit whose Windows build SUCCEEDED is one that cannot reach the app (documentation,
+feedback notes, Linux launchers), or nothing changed at all. Comparing with that commit means code whose
+build was cancelled or failed is never skipped; anything uncertain builds.
+
+A manual run on main makes the matched PC and phone test builds (docs/proposals/milestone_builds.md) and
+does nothing twice: if an earlier run of this workflow built and tested the Windows app of this exact commit
+and its artifact has not expired, that ZIP is reused (reuse_run, reuse_artifact) and Windows is not built;
+if an earlier run passed the Linux suite on this commit, the suite is skipped. A manual run elsewhere builds
+Windows only, as before.
 """
 from __future__ import annotations
 
@@ -44,6 +50,8 @@ def _git(*args: str) -> subprocess.CompletedProcess:
 
 # The Windows job's name now, and before 2026-10-03.
 WINDOWS_JOBS = {"Build and test the Windows app", "windows-probe"}
+SUITE_JOB = "Full test suite (Linux)"
+WINDOWS_ARTIFACT = re.compile(r"Lightning-v\S+-dev-\S+-Windows-x64")  # a development build's ZIP artifact
 
 
 def github_api(path: str) -> dict:
@@ -55,11 +63,18 @@ def github_api(path: str) -> dict:
         return json.load(response)
 
 
+def _workflow() -> tuple[str, str]:
+    """This repository and this workflow's file name, or empty strings outside GitHub Actions."""
+    if not os.environ.get("GH_TOKEN"):
+        return "", ""
+    return (os.environ.get("GITHUB_REPOSITORY", ""),
+            os.environ.get("GITHUB_WORKFLOW_REF", "").split("@")[0].rsplit("/", 1)[-1])
+
+
 def last_windows_build(api=github_api) -> str | None:
     """The commit of the newest run on main whose Windows job succeeded, or None if unknown."""
-    repo = os.environ.get("GITHUB_REPOSITORY", "")
-    workflow = os.environ.get("GITHUB_WORKFLOW_REF", "").split("@")[0].rsplit("/", 1)[-1]
-    if not repo or not workflow or not os.environ.get("GH_TOKEN"):
+    repo, workflow = _workflow()
+    if not repo or not workflow:
         return None
     try:
         runs = api(f"/repos/{repo}/actions/workflows/{workflow}/runs?branch=main&status=completed&per_page=30")
@@ -71,6 +86,37 @@ def last_windows_build(api=github_api) -> str | None:
     except Exception as exc:  # no answer means no baseline, and no baseline means build
         print(f"Could not read earlier runs ({type(exc).__name__}); building to be safe.")
     return None
+
+
+def earlier_runs(sha: str, api=github_api) -> dict[str, str]:
+    """What earlier runs of this workflow already did for this exact commit: the newest run whose Windows
+    build succeeded and whose ZIP artifact has not expired (reuse_run, reuse_artifact), and whether the
+    Linux suite passed on it (suite=skip). An unknown answer means build and test."""
+    nothing = {"reuse_run": "", "reuse_artifact": "", "suite": "run"}
+    repo, workflow = _workflow()
+    if not repo or not workflow or not re.fullmatch(r"[0-9a-f]{40}", sha):
+        return nothing
+    found = dict(nothing)
+    current = os.environ.get("GITHUB_RUN_ID", "")
+    try:
+        runs = api(f"/repos/{repo}/actions/workflows/{workflow}/runs?head_sha={sha}&status=completed&per_page=30")
+        for run in runs.get("workflow_runs", []):
+            if run.get("head_sha") != sha or str(run.get("id")) == current:
+                continue
+            jobs = api(f"/repos/{repo}/actions/runs/{run['id']}/jobs?per_page=100").get("jobs", [])
+            passed = {job.get("name") for job in jobs if job.get("conclusion") == "success"}
+            if SUITE_JOB in passed:
+                found["suite"] = "skip"
+            if not found["reuse_run"] and passed & WINDOWS_JOBS:
+                artifacts = api(f"/repos/{repo}/actions/runs/{run['id']}/artifacts?per_page=100").get("artifacts", [])
+                usable = [a["name"] for a in artifacts
+                          if WINDOWS_ARTIFACT.fullmatch(a.get("name", "")) and not a.get("expired", True)]
+                if usable:
+                    found.update(reuse_run=str(run["id"]), reuse_artifact=usable[0], suite="skip")
+    except Exception as exc:  # no answer means build and test
+        print(f"Could not read earlier runs of this commit ({type(exc).__name__}); building and testing.")
+        return nothing
+    return found
 
 
 def build_windows(event: str, ref: str, baseline: str | None, sha: str) -> tuple[bool, str]:
@@ -132,13 +178,21 @@ def main(argv: list[str]) -> int:
             print(f"Release tag {tag} matches the source version and is on main.")
         return 1 if problems else 0
     event, ref = os.environ.get("GITHUB_EVENT_NAME", ""), os.environ.get("GITHUB_REF", "")
-    baseline = last_windows_build() if event == "push" and ref == "refs/heads/main" else None
+    # Only the daily run compares with the last Windows build (a push never builds Windows).
+    baseline = last_windows_build() if event == "schedule" and ref == "refs/heads/main" else None
     build, reason = build_windows(event, ref, baseline, sha)
+    values = {"reuse_run": "", "reuse_artifact": "", "suite": "run", "phone": "false"}
+    if event == "workflow_dispatch" and ref == "refs/heads/main":
+        values.update(earlier_runs(sha), phone="true")
+        if values["reuse_run"]:
+            build, reason = False, f"run {values['reuse_run']} built and tested this commit; its ZIP is reused"
     print(f"Build the Windows app: {'yes' if build else 'no'} ({reason})")
+    print(f"Linux suite: {values['suite']}; phone app and test bundle: {'yes' if values['phone'] == 'true' else 'no'}")
+    values["build_windows"] = "true" if build else "false"
     output = os.environ.get("GITHUB_OUTPUT")
     if output:
         with open(output, "a", encoding="utf-8") as stream:
-            stream.write(f"build_windows={'true' if build else 'false'}\n")
+            stream.write("".join(f"{key}={value}\n" for key, value in values.items()))
     return 0
 
 

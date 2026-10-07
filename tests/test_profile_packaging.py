@@ -319,3 +319,80 @@ def test_notices_follow_what_pyinstaller_actually_bundled(tmp_path):
     spec = (ROOT / "packaging" / "desktop-app.spec").read_text(encoding="utf-8")
     for tool in ('"pytest"', '"rich"', '"pygments"', '"httpx"'):  # test tools stay out of the app
         assert tool in spec, tool
+
+
+def test_a_manual_run_reuses_what_this_commit_already_has(monkeypatch, tmp_path):
+    """Matched test builds (docs/proposals/milestone_builds.md): a manual run on main reuses an unexpired
+    Windows ZIP of this exact commit and skips a Linux suite that already passed on it; nothing else counts."""
+    scope = _ci_scope()
+    sha = "d" * 40
+    runs = {"workflow_runs": [{"id": 9, "head_sha": sha}, {"id": 8, "head_sha": sha}, {"id": 7, "head_sha": sha},
+                              {"id": 6, "head_sha": "e" * 40}]}
+    jobs = {9: [{"name": "Full test suite (Linux)", "conclusion": "success"}],  # a push: suite only
+            8: [{"name": "Build and test the Windows app", "conclusion": "success"}],
+            7: [{"name": "Build and test the Windows app", "conclusion": "success"}],
+            6: [{"name": "Build and test the Windows app", "conclusion": "success"}]}
+    artifacts = {8: [{"name": "Lightning-v0.5.0-beta.1-dev-2026-10-01-r8-dddddddd-a1-Windows-x64", "expired": True},
+                     {"name": "windows-check-reports-r8-a1", "expired": False}],
+                 7: [{"name": "Lightning-v0.5.0-beta.1-dev-2026-10-01-r7-dddddddd-a1-Windows-x64", "expired": False}]}
+
+    def api(path):
+        number = path.split("/runs/")[-1].split("/")[0]
+        if "/jobs" in path:
+            return {"jobs": jobs[int(number)]}
+        if "/artifacts" in path:
+            return {"artifacts": artifacts.get(int(number), [])}
+        assert f"head_sha={sha}" in path and "desktop-probe.yml" in path
+        return runs
+
+    monkeypatch.setenv("GITHUB_REPOSITORY", "owner/Lightning")
+    monkeypatch.setenv("GITHUB_WORKFLOW_REF", "owner/Lightning/.github/workflows/desktop-probe.yml@refs/heads/main")
+    monkeypatch.setenv("GH_TOKEN", "token")
+    monkeypatch.setenv("GITHUB_RUN_ID", "10")
+    found = scope.earlier_runs(sha, api)
+    assert found == {"reuse_run": "7", "reuse_artifact": artifacts[7][0]["name"], "suite": "skip"}
+
+    artifacts[7][0]["expired"] = True  # every ZIP expired: build again, but the suite already passed
+    assert scope.earlier_runs(sha, api) == {"reuse_run": "", "reuse_artifact": "", "suite": "skip"}
+    jobs[9][0]["conclusion"] = "failure"
+    for run in (8, 7):
+        jobs[run][0]["conclusion"] = "cancelled"
+    assert scope.earlier_runs(sha, api) == {"reuse_run": "", "reuse_artifact": "", "suite": "run"}
+
+    def broken(path):
+        raise OSError("no network")
+
+    assert scope.earlier_runs(sha, broken)["suite"] == "run"  # no answer: build and test
+
+    # The outputs the workflow reads. A manual run elsewhere, a push or the daily run make no phone build.
+    monkeypatch.setattr(scope, "earlier_runs", lambda sha: {"reuse_run": "7", "reuse_artifact": "zip", "suite": "skip"})
+    monkeypatch.setattr(scope, "last_windows_build", lambda: None)
+
+    def outputs(event, ref):
+        out = tmp_path / f"out-{event}"
+        monkeypatch.setenv("GITHUB_OUTPUT", str(out))
+        monkeypatch.setenv("GITHUB_EVENT_NAME", event)
+        monkeypatch.setenv("GITHUB_REF", ref)
+        monkeypatch.setenv("GITHUB_SHA", sha)
+        assert scope.main([]) == 0
+        return dict(line.split("=", 1) for line in out.read_text().splitlines())
+
+    manual = outputs("workflow_dispatch", "refs/heads/main")
+    assert manual == {"reuse_run": "7", "reuse_artifact": "zip", "suite": "skip", "phone": "true", "build_windows": "false"}
+    branch = outputs("workflow_dispatch", "refs/heads/feature")
+    assert branch["phone"] == "false" and branch["build_windows"] == "true" and branch["suite"] == "run"
+    assert outputs("push", "refs/heads/main")["phone"] == "false"
+    assert outputs("schedule", "refs/heads/main")["build_windows"] == "true"  # no earlier build known
+
+
+def test_the_daily_run_compares_with_the_last_windows_build(monkeypatch, tmp_path):
+    """The daily run, not a push (which never builds Windows), looks up the last commit built."""
+    scope = _ci_scope()
+    asked = []
+    monkeypatch.setattr(scope, "last_windows_build", lambda: asked.append(True) or None)
+    for event in ("push", "schedule"):
+        monkeypatch.setenv("GITHUB_EVENT_NAME", event)
+        monkeypatch.setenv("GITHUB_REF", "refs/heads/main")
+        monkeypatch.setenv("GITHUB_OUTPUT", str(tmp_path / event))
+        scope.main([])
+    assert asked == [True]

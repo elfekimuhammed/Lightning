@@ -1,0 +1,121 @@
+# The phone app, Lightning Test: built only from requirements/android.lock, checked, and signed with the test
+# key. Run it by hand to check a change cheaply (Linux, about 3 minutes); without the bundle input nothing
+# installable is uploaded. "PC and phone app" (desktop-probe.yml) calls it for the matched test builds, which
+# need the test key. How it fits: docs/proposals/milestone_builds.md.
+name: Phone app
+
+on:
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      bundle:
+        description: Called for the matched test builds, so the APK must carry the test key
+        type: boolean
+        default: false
+    secrets:
+      ANDROID_TEST_KEYSTORE:
+        required: false
+      ANDROID_TEST_KEYSTORE_PASSWORD:
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  apk:
+    name: Build and check the phone app
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0  # the version code is the number of commits
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.13'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Test identity (version code = commits on main)
+        id: identity
+        run: python packaging/phone_build.py identity
+      - name: Build the arm64 app from the lock (no index; every file pinned by hash)
+        working-directory: android
+        env:
+          CODE: ${{ steps.identity.outputs.version_code }}
+          NAME: ${{ steps.identity.outputs.version_name }}
+        run: gradle --no-daemon :app:assembleDebug "-PtestVersionCode=$CODE" "-PtestVersionName=$NAME"
+      - name: Check the app as built (ID, version, arm64, permissions, files, packages)
+        env:
+          CODE: ${{ steps.identity.outputs.version_code }}
+          NAME: ${{ steps.identity.outputs.version_name }}
+        run: >-
+          python packaging/phone_build.py check android/app/build/outputs/apk/debug/app-debug.apk
+          --build-tools "$ANDROID_HOME/build-tools/35.0.0" --code "$CODE" --name "$NAME" --info "$RUNNER_TEMP/built.json"
+      - name: The key script's keys sign APKs (a throwaway key; its APK never leaves this job)
+        run: |
+          set -euo pipefail
+          tools="$ANDROID_HOME/build-tools/35.0.0"
+          python -m pip install --quiet 'cryptography==50.0.2'
+          python tools/android_test_key.py "$RUNNER_TEMP/throwaway" > /dev/null
+          base64 -d "$RUNNER_TEMP/throwaway/ANDROID_TEST_KEYSTORE.txt" > "$RUNNER_TEMP/throwaway.p12"
+          export PASS="$(cat "$RUNNER_TEMP/throwaway/ANDROID_TEST_KEYSTORE_PASSWORD.txt")"
+          "$tools/apksigner" sign --ks "$RUNNER_TEMP/throwaway.p12" --ks-type PKCS12 --ks-pass env:PASS --key-pass env:PASS \
+            --ks-key-alias lightning-test --out "$RUNNER_TEMP/throwaway.apk" android/app/build/outputs/apk/debug/app-debug.apk
+          signer="$(python packaging/phone_build.py signer "$RUNNER_TEMP/throwaway.apk" --build-tools "$tools")"
+          expected="$(cat "$RUNNER_TEMP/throwaway/certificate-sha256.txt")"
+          [ "$signer" = "$expected" ] || { echo "::error::signed by $signer, not the script's certificate $expected"; exit 1; }
+          rm -rf "$RUNNER_TEMP/throwaway" "$RUNNER_TEMP/throwaway.p12" "$RUNNER_TEMP/throwaway.apk"
+          echo "A key from tools/android_test_key.py signs and verifies with apksigner."
+      - name: Sign with the test key
+        id: sign
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_TEST_KEYSTORE }}
+          PASS: ${{ secrets.ANDROID_TEST_KEYSTORE_PASSWORD }}
+          BUNDLE: ${{ inputs.bundle }}
+          APK: ${{ steps.identity.outputs.apk }}
+        run: |
+          set -euo pipefail
+          if [ -z "$KEYSTORE" ] || [ -z "$PASS" ]; then
+            if [ "$BUNDLE" = "true" ]; then
+              echo "::error::No test key. Add the secrets ANDROID_TEST_KEYSTORE and ANDROID_TEST_KEYSTORE_PASSWORD (OWNER.md); an APK signed by any other key could not update Lightning Test."
+              exit 1
+            fi
+            echo "::notice::No test key yet: this APK is checked but not signed with it, and nothing is uploaded."
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          umask 077
+          printf '%s' "$KEYSTORE" | base64 -d > "$RUNNER_TEMP/test.p12"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign --ks "$RUNNER_TEMP/test.p12" --ks-type PKCS12 \
+            --ks-pass env:PASS --key-pass env:PASS --ks-key-alias lightning-test \
+            --out "$RUNNER_TEMP/$APK" android/app/build/outputs/apk/debug/app-debug.apk
+          rm -f "$RUNNER_TEMP/test.p12"
+          echo "signed=true" >> "$GITHUB_OUTPUT"
+      - name: Check the signed app (the same checks, and the test certificate alone)
+        if: steps.sign.outputs.signed == 'true'
+        env:
+          CODE: ${{ steps.identity.outputs.version_code }}
+          NAME: ${{ steps.identity.outputs.version_name }}
+          APK: ${{ steps.identity.outputs.apk }}
+        run: >-
+          python packaging/phone_build.py check "$RUNNER_TEMP/$APK"
+          --build-tools "$ANDROID_HOME/build-tools/35.0.0" --code "$CODE" --name "$NAME"
+          --certificate packaging/android-test-certificate.sha256 --info "$RUNNER_TEMP/apk.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: inputs.bundle && steps.sign.outputs.signed == 'true'
+        with:
+          name: phone-apk
+          path: |
+            ${{ runner.temp }}/${{ steps.identity.outputs.apk }}
+            ${{ runner.temp }}/apk.json
+          if-no-files-found: error
+          retention-days: 1  # the bundle job copies it into the seven-day downloads

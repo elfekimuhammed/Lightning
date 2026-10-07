@@ -8,11 +8,15 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "org.lightning.app"
+        // CI builds the test app (packaging/phone_build.py): its own ID and label, and a version code that grows
+        // with every commit on main, so each test APK installs over the last. org.lightning.app stays for Play.
+        val testVersionCode = providers.gradleProperty("testVersionCode").orNull
+        applicationId = if (testVersionCode != null) "org.lightning.app.test" else "org.lightning.app"
+        manifestPlaceholders["appLabel"] = if (testVersionCode != null) "Lightning Test" else "Lightning"
         minSdk = 24
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.5-m1"
+        versionCode = testVersionCode?.toInt() ?: 1
+        versionName = providers.gradleProperty("testVersionName").getOrElse("0.5-m1")
         ndk {
             abiFilters += "arm64-v8a"
         }
@@ -39,24 +43,10 @@ chaquopy {
         version = "3.13"
         extractPackages("lightning")  // migrations, seed files and the catalogue are read from disk
         pip {
-            // CI resolves cryptography alone too, so SQLCipher's missing wheel
-            // cannot conceal a second independent native-package failure.
-            // -PwheelDir: the arm64 wheels built by android-native-wheels.yml, since Chaquopy's index
-            // has neither pinned version. Without it, the pinned names (which do not resolve today).
-            val wheels = providers.gradleProperty("wheelDir").orNull?.let { file(it).listFiles()?.toList() } ?: emptyList()
-            fun pinned(name: String, spec: String) =
-                install(wheels.firstOrNull { it.name.startsWith(name + "-") && it.name.endsWith(".whl") }?.absolutePath ?: spec)
-            if (providers.gradleProperty("probeMode").orElse("full").get() != "crypto-only") {
-                pinned("sqlcipher3", "sqlcipher3==0.6.2")
-            }
-            pinned("cryptography", "cryptography==50.0.2")
-            // Native dependencies the index lacks (cffi >= 2.0, pydantic-core) come from the same run.
-            wheels.filter { (it.name.startsWith("cffi-") || it.name.startsWith("pydantic_core-")) && it.name.endsWith(".whl") }.forEach { install(it.absolutePath) }
-            install("fastapi==0.141.1")
-            install("uvicorn==0.54.0")
-            install("jinja2==3.1.6")
-            install("python-multipart==0.0.32")
-            install("tzdata==2026.2")
+            // Every package as one exact file and hash (tools/android_lock.py), and nothing from an index:
+            // the four native wheels come from this repository's release android-wheels-r<run>.
+            options("--no-index")
+            install("-r", rootProject.file("../requirements/android.lock").absolutePath)
         }
     }
 }
