@@ -31,9 +31,10 @@ Each names who it is for; that AI deletes it once handled. A message to all may 
 
 ## Next
 
-Unclaimed: add a *Claimed* row before you start. Each item's **Read:** names what it needs. The 0.5.0-beta.1 release waits on the owner (`OWNER.md`, Price packs).
+Claim one first; its **Read:** says what it needs. The 0.5.0-beta.1 release waits on the owner (`OWNER.md`, Price packs).
 
 1. **Registers as two-line rows** (UX plan 6; its add, edit and bulk rows share the table's columns). Read: guideline A11; `templates/register.html`.
 2. **UX plan 10 leftovers**, among them a certificate's month-end price that cannot post. Read: Project Overview › UX plan 10.
 3. **Gold at the shop price** (a source tested from a home connection); silver needs holdings first. Read: `docs/proposals/market_data.md`.
 4. **Speed (optional):** stable window origin for caching; trim unused CSS. Read: Architecture › Page speed.
+5. **Lent phone's add sheet** (xfail). Read: `tests/test_two_devices.py` 3b.

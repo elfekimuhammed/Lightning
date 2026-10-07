@@ -8,7 +8,9 @@ reads the database as before.
 The memo can never serve a figure older than the database it was read from:
 - it lives for one request only;
 - any write on the connection (SQLite ``total_changes``) empties it;
-- nothing is cached or served while a transaction is open, so a rolled-back write leaves nothing behind.
+- nothing is cached or served while a transaction is open, so a rolled-back write leaves nothing behind;
+- nothing is cached once its connection is closed (the profile reopened during the request, as sync's take back
+  does), so the page reads the reopened ledger directly.
 
 Callers get a copy of a cached list, dict or tuple (``deep=True`` copies all the way down), so a caller
 that edits its result cannot change what the next caller reads.
@@ -34,6 +36,8 @@ class _Scope:
 
     def usable(self) -> int | None:
         """The connection's change count when the memo may be used now, else None."""
+        if getattr(self.db, "closed", False):
+            return None
         conn = self.db.conn
         if conn.in_transaction:
             return None

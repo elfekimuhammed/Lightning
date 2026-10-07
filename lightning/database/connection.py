@@ -89,6 +89,10 @@ class Database:
             raise ValueError("This database has no key")
         return bytes(self._key)
 
+    @property
+    def closed(self) -> bool:
+        return self._closed
+
     def close(self) -> None:
         if self.encrypted and self._closed:
             return
