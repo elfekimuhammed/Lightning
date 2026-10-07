@@ -21,6 +21,8 @@ This is Lightning's canonical language for product, database, code, and UI. Use 
 
 ## Device authority
 
+The first table describes built v1 lending. The planned replacement follows below; it does not change the current runtime.
+
 | Term | Meaning |
 |---|---|
 | **Home node** | The device holding the centralized accepted database and deciding which device may write. The phone is the intended default. |
@@ -31,6 +33,22 @@ This is Lightning's canonical language for product, database, code, and UI. Use 
 | **Hand back** | Borrower freezes its working copy and returns an encrypted candidate for home verification and publication. |
 | **Received** | Home durably holds a complete ciphertext candidate; the borrower remains read-only, and home has not resumed writing. |
 | **Accepted** | Home has verified and durably published the candidate and issued a durable receipt for its new checkpoint. |
+
+
+Planned [edit journal](proposals/edit_journal.md), not built:
+
+| Term | Meaning |
+|---|---|
+| **Home** | The stable device that validates proposed edits and publishes confirmed results; it changes only through an explicit move or recovery. |
+| **Proposal** | An immutable, signed request to perform one domain action, with a durable origin identity and preconditions. |
+| **Pending edit** | A locally saved proposal awaiting a terminal home decision; visible locally but excluded from confirmed reports. |
+| **Confirmed change** | The home's durable accepted result, replicated exactly rather than recalculated by peers. |
+| **Decision receipt** | The durable outcome tied to a proposal's identity and content hash, retained in compact form to prevent replay. |
+| **Authority generation** | One home-authority history; explicit home replacement advances it. |
+| **Confirmed cursor** | Generation, decision revision and commit hash identifying contiguous applied progress. |
+| **Origin incarnation** | One device installation's sequence namespace, renewed when safe counter continuity cannot be proved. |
+| **Field group** | Fields whose preconditions and updates must be checked together to preserve a domain action's meaning. |
+| **Outbox** | The device's encrypted durable queue, preserved independently of its confirmed replica. |
 
 ## The basic model
 

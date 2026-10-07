@@ -1,292 +1,247 @@
-# Edit journal: every device writes, the home decides
+# Edit journal: edit anywhere, one home confirms
 
-**Status: proposal · 2026-10-07 · not built, not yet scheduled (owner: later). The owner set its rules (section 1), chose the mailbox (section 8) and answered every open question (section 11).**
+**Status: revised proposal · 2026-10-07 · not built, not scheduled.** The owner requested this replacement after reviewing the moving-writer design. Product decisions live in [Project Overview](../PROJECT_OVERVIEW.md#product-decisions-that-must-hold); the current implementation remains in [Architecture](../ARCHITECTURE.md#desktop-app-and-encrypted-profiles). This file owns the proposed protocol and its acceptance gates.
 
-Today one device writes at a time: the phone lends the ledger to one PC and gets it back ([multiple_devices.md](multiple_devices.md)). This proposal lets every paired device write at any time. A device with **writing rights** from the home edits the ledger; any other device saves **pending edits** that it shows at once, and the device with writing rights (the *decider*) takes or turns down each one, applying it through the normal services. Every device ends with the decider's ledger, over any network, not only the same Wi-Fi.
-
-The owner's product decisions live in [Project Overview](../PROJECT_OVERVIEW.md#product-decisions-that-must-hold); the built sync design lives in [Architecture](../ARCHITECTURE.md#desktop-app-and-encrypted-profiles) (*Multiple devices*); claims live in [NOW.md](../../NOW.md). This file owns the proposed design, its rollout and its acceptance tests.
+Every paired device saves edits immediately. One stable **home** validates them and publishes confirmed changes. Devices exchange those small changes continuously. Opening a PC does not borrow the ledger, move writing rights or require a whole database transfer. The home changes only through an explicit move or recovery.
 
 ## Contents
 
 | Section | Read it when |
 |---|---|
-| 1. Decision and why | Deciding whether to build it |
-| 2. Guarantees | Writing or reviewing any part; these are the acceptance tests |
-| 3. What the code does today | Before changing a save path or the sync code |
-| 4. The model | Building the journal, the decider or a device's view |
-| 5. Clashes and duplicates | Building review, or a new kind of entry |
-| 6. Automatic edits | Touching payment matching, prices, SMS or anything that writes by itself |
-| 7. Writing rights | Changing the sync state machines |
-| 8. Storage, transport and security | Building the journal store, the wire messages or a channel |
-| 9. Rollout | Planning or claiming work |
-| 10. Acceptance | Testing any stage |
-| 11. Open questions | Before stage 1 |
+| 1. Product contract | Deciding what this delivers and what waits |
+| 2. Guarantees and limits | Reviewing correctness or recovery claims |
+| 3. Identity and messages | Building the wire format or journal |
+| 4. Durable processing | Building save, confirmation, replay or snapshots |
+| 5. Conflicts and duplicates | Building review and financial validation |
+| 6. Small, continuous transfers | Building either network channel |
+| 7. Authority, pairing and recovery | Building trust, revocation or moving home |
+| 8. Compatibility and automatic work | Adding an entry kind or changing schema |
+| 9. Retention and backups | Deleting history or restoring a device |
+| 10. Delivery stages | Planning implementation |
+| 11. Acceptance | Proving a stage can ship |
 
-## 1. Decision and why
+## 1. Product contract
 
-**Owner decisions (2026-10-07):**
+- **Edit on any device, online or offline.** A successful save first persists an edit locally. A PC never needs writing rights. The home uses the same save path, then confirms locally when possible.
+- **One stable home decides.** The phone is the default. Only the home applies proposals through the financial services and creates authoritative decisions. Other devices hold confirmed replicas and local pending edits.
+- **Pending is useful and honest.** The register shows local pending additions, edits and deletes immediately, with the confirmed value still inspectable. Reports, balances and budget actuals use only confirmed data. An unavailable home delays confirmation, not capture. There is no claim that an offline edit is already in every device's ledger.
+- **No routine handover.** No borrow, hand-back or Take back in this protocol. A deliberately chosen PC can be home; it confirms only while its profile is open. No background profile key is stored on a PC.
+- **Review on the home.** Conflicts and possible duplicate payments wait there. On the originating device their state and reason remain visible. A refusal stays in *Not taken* for one week after the device first displays it, with *Add again* creating a new edit.
+- **Trust once.** Existing owner choices remain: code, matching check digits and profile password during pairing; no later phone tap to sync; the phone can keep its data key wrapped by Android Keystore for background work. Locked screens still need the profile password.
+- **Local or internet transport.** Use the existing pinned local link when available and the chosen Cloudflare mailbox otherwise. Neither transport calculates money. Firebase push is a wake-up hint, not a delivery or latency guarantee.
+- **Home replacement remains exceptional.** Any paired device may become home with two of the three owner secrets. Section 7 distinguishes a complete move from recovery using an incomplete surviving copy.
 
-- **Writing rights or pending edits.** A device edits the ledger only with writing rights given by the home. Without them, every save is a pending edit, shown on that device at once; the device with writing rights takes it or turns it down. This replaces "one device edits at a time, the rest only read" and "no automatic merge" (multiple_devices.md, R5 and *Deferred*).
-- **Not tied to the same Wi-Fi.** Devices must exchange edits, decisions and writing rights wherever they are. The internet channel is a mailbox on Cloudflare with Firebase push (section 8, *Transport*).
-- **Trust pairing.** Pairing is the one strong check, done once. Afterwards a paired device asks for writing rights by itself, and the home gives them whenever it is reachable and holds them: no tap, no unlocking the phone. The password the user types to open the profile on that device is enough (section 8, *Pairing and trust*).
+This replaces the earlier automatic transfer of writing rights. It preserves local-first storage, Python financial rules, encrypted transport, home-only review, short visible history and the home's compatibility policy. It does not turn sync into a backup service.
 
-Why (owner, 2026-10-07): a person adds a coffee on the phone in the evening while the office PC still has the ledger, imports the bank statement on the PC while the phone captured the same payments from SMS, and fixes a row on whichever device is in hand. Lend and hand-back alone cannot serve that: the phone only reads while lent, and edits on a PC the phone took back are lost.
+**Why this design.** Copy-and-handover spends bandwidth on unchanged data and complicates everyday editing. Unrestricted merging of database rows cannot by itself enforce bill settlement, linked transfers or investment rules. This proposal keeps one financial decision point but removes it from the local save interaction. See the existing [competition analysis](../COMPETITION.md#actual-budget-code-analysis) for workflow lessons; no external sync engine is selected here.
 
-Alternatives weighed, and why not:
+## 2. Guarantees and limits
 
-| Alternative | Why not |
+| ID | Contract |
 |---|---|
-| Lend and hand-back only (today) | One writer; the evening case and lost edits after Take back stay. |
-| Reconcile two copies at hand-back | Compares results without intent, so duplicates and deletes are guessed. Kept only to read a stranded old copy (section 7). |
-| Every device equal, no decider | Nobody enforces money rules (a bill settled once, a closed account). Wrong for a ledger. |
-| Order edits by their time alone | Device clocks drift and reorder a device's own edits. Not airtight. |
-| A cloud server as the decider | The owner chose no remote finance server. |
+| G1 | **Durable save.** Before saying saved, the device has persisted the edit and its identity. Process restarts, retries and replica replacement do not discard it. |
+| G2 | **At most once per authority history.** An identical retry returns the recorded decision. Reusing an identity with different content is a protocol error. Compact duplicate-prevention records outlive visible history. |
+| G3 | **One confirmed result.** Devices with the same authority generation and revision have the same canonical ledger fingerprint. They apply the home's exact results, not their own reinterpretation of the request. |
+| G4 | **No silent conflicting overwrite.** Field-group preconditions and causal dependencies govern merging. Clocks never select a winning financial value. |
+| G5 | **Financial invariants.** Confirmation runs the normal Python services in one transaction; ledger effects and the decision commit together. |
+| G6 | **Causal order.** Each origin's financial edits reach a terminal decision in sequence; dependencies on earlier pending edits are explicit. A conflict cannot deadlock its own resolution. |
+| G7 | **Authenticated authority.** Only currently trusted origins submit new work; only the authorized home signs confirmed results. Membership and authority generations are checked on both channels. |
+| G8 | **Bounded visible history.** Detailed accepted history remains at least 30 days and until acknowledged by all currently paired devices. Receipt metadata and delete markers are separate, longer-lived correctness records. |
 
-## 2. Guarantees
+These hold for supported versions, honest clients, durable storage honoring successful flushes, and eventual communication. They do not promise survival of destroyed storage, recovery of an edit that existed only on a lost device, or instantaneous revocation of an offline device. OS power-loss durability still needs the evidence described in Architecture.
 
-Each is a test in section 10. "Airtight" means these hold under any interleaving of edits, disconnects, repeated or lost messages, crashes and revoked devices. It does not mean instant: an entry reaches the decider when both can reach a channel (section 8); until then it is pending, and shown.
+**Acceptance is scoped to a home generation.** Normal disconnection never changes that generation. Explicit lost-home recovery may start from an older verified checkpoint; the owner must see that cutoff. Edits on a retired branch are recovered as proposals, not silently treated as confirmed in the new branch. This exception is visible, tested and never triggered automatically by a timeout.
 
-| | Guarantee |
+## 3. Identity and messages
+
+Use a new protocol version; v1 and its fixture stay frozen. All encodings are canonical, versioned and bounded; unknown fields and duplicate JSON keys are refused. Domain records gain stable UUIDs. Local integer keys remain implementation details and never identify a record on the wire.
+
+**Origin identity:** `(profile_id, device_id, incarnation_id, seq)`. Each installation has a random incarnation and a durable increasing sequence, allocated in the same transaction as its local edit. A new installation or an uncertain/restored counter gets a new incarnation approved by the home. Old queued edits retain their original identities. Installing a backup never reuses a sequence for new content.
+
+| Message | Required content |
 |---|---|
-| G1 | **No lost edit.** An entry is durable on its device before the screen says Saved, and stays until the decider has accepted it or turned it down, and the device has shown which. |
-| G2 | **Nothing twice.** An entry is identified by its device and that device's running number; a resend is recognised and answered with the first decision. |
-| G3 | **One ledger.** Every device ends with the decider's ledger: same content fingerprint at the same version. |
-| G4 | **Clashes are caught, never guessed.** An entry that changes a record the decider changed since the device saw it is applied only where fields do not overlap; otherwise it waits for the owner. Clocks never decide. |
-| G5 | **Money rules hold.** Entries are applied through the same Python services as a direct save; an entry those services refuse is turned down with their reason. |
-| G6 | **One order per device.** A device's entries are applied in the order it made them. |
-| G7 | **Only paired devices write.** An entry from an unpaired or revoked device is refused before it is read. |
-| G8 | **Recent history.** Every accepted entry is kept with its device, time and version until every paired device has it and for at least 30 days, then dropped (owner: no full history); undo is a new entry that reverses one, within that window. |
+| Proposal | Origin identity; canonical payload hash; entry kind and version; resolved values; created UUIDs; changed field groups and their base tokens; explicit dependency IDs; last confirmed cursor; display time and zone; origin signature. |
+| Decision | Proposal identity and hash; accepted, rejected or accepted-as-existing; bounded reason code; resolved UUID aliases; home generation and revision; exact effects when accepted. Waiting for review is a durable nonterminal status, not a rejection. |
+| Confirmed batch | Contiguous decision revisions; previous batch/commit hash; home signature; deterministic domain effects and resulting record/group tokens. Rejections advance the decision revision with no financial effect. |
+| Snapshot | A verified encrypted database plus a signed manifest binding profile, generation, revision, schema, canonical fingerprint, file hash, size and chunk hashes. |
+| Acknowledgement | Specific envelope IDs durably received, and separately the highest contiguous confirmed cursor durably applied. Neither means the user has seen a decision. |
 
-## 3. What the code does today
+A cursor is `(generation, revision, commit_hash)`, never a bare number. A UUID alone does not establish causality or prevent replay. The signature binds the entire proposal; its payload is immutable once saved. Correcting it means another edit, not altering a queued one.
 
-Checked 2026-10-07; each point shapes section 4.
+**Resolved effects:** the home records domain rows with UUID references, references assigned for display, exact decimal/date values, deletions, aliases and field-group tokens. The replica validates the typed effect schema, authority, predecessor and constraints, then applies the complete effect transaction through a dedicated Python replication service. It does not execute transmitted SQL, rerun categorisation, regenerate identifiers, settle bills or fetch prices.
 
-- **A save is one database transaction.** `Database.transaction()` nests with savepoints, so one user action can be applied as one entry, all or nothing.
-- **104 save actions** (`@router.post`) across 17 route modules: budget 18, investments 14, transactions 11, accounts 11, settings 6, reserves 6, planning 6, categories 6, rules 5, deposits 5, SMS 4, physical items 4, bank imports 4, and smaller ones. Each must become an entry kind before its area can be edited away from the decider.
-- **Records have no device-made identity.** Every table uses `INTEGER PRIMARY KEY`; a transaction's `ref` comes from a per-day counter (`format_ref(doc_type, day, next_seq)`). Two devices adding on the same day make the same number and reference.
-- **The app writes by itself.** Opening a profile runs migrations, seeds and an ownership repair, and fills and fetches prices (`session._fill_prices`, `live_prices.apply_finished` on the next page). Reading today's position settles bills that a posted payment already paid (`planning.match_payments`, from `position._at`). A read-only build already skips all of them (`build(read_only=True)`, `tests/test_session_roles.py`).
-- **Rules categorise at save time** (`RuleService`), and bank imports match rows to existing ones on the device that imports.
-- **Sync today:** pinned TLS between paired devices, signed challenges, 16 KB messages, `PROTOCOL_VERSION = 1` frozen in `tests/fixtures/sync_v1.json`, whole encrypted copies with `content_fingerprint`, verified promotion, base checkpoints kept on the home.
-- **`audit_log`** records some changes with before and after values, but not every save and not with a device; it is not the journal.
+The canonical fingerprint covers synchronized domain state using UUID references and normalized values. It excludes physical row IDs, SQLite sequences, device-local timestamps, outboxes and caches. This needs an explicit new fingerprint contract; the current whole-copy fingerprint must not be assumed suitable for independent replay.
 
-## 4. The model
+## 4. Durable processing
 
-### Entries
+### On every device
 
-One user action (one save on one screen) makes one entry:
+1. Validate the form against the available view. Resolve user choices, including date, selected category and decimal amounts; capture preconditions and dependencies.
+2. Persist the signed proposal and advance the origin counter in a device-local encrypted outbox with FULL synchronous writes. Only then say *Saved on this device · Pending*.
+3. Render a disposable overlay above the confirmed replica. Its failure cannot erase the proposal or contaminate reports. A pending delete appears as awaiting deletion rather than silently removing the confirmed evidence.
+4. Deliver/retry from the outbox. Delivery to the mailbox is not confirmation. Retain payloads until their terminal decisions are durably stored and displayed locally; accepted edits are not removed from the overlay until the corresponding confirmed effects have arrived.
+5. Apply complete confirmed commits in one replica transaction, advancing the cursor in that transaction. Rebuild the overlay from remaining proposals. A now-invalid overlay becomes *Needs review*; it is never dropped or silently rewritten.
 
-| Field | Meaning |
+### On the home
+
+The canonical ledger, durable inbox, decision receipts, origin progress, record tokens, delete markers and confirmed effects live in **one encrypted database**. This removes the former cross-file atomicity ambiguity. The home may also have its own separate outbox; a crash between outbox save and confirmation is harmless because retry uses the same identity.
+
+1. Authenticate the envelope and current membership before decrypting its financial payload. Check bounds, supported versions and signature. Do not parse or act on an unauthorized payload.
+2. If the proposal already has a receipt, require the same hash and return its status. A future sequence is staged within a bounded gap window and missing IDs are requested. No clock-based reordering.
+3. Persist the inbox item. For the next eligible proposal, resolve aliases, dependencies and group preconditions. Persist any review state; other origins continue while this origin waits.
+4. In a single ledger transaction, run the financial services, capture every effect, assign group tokens and a revision, and store the terminal receipt and origin progress. A financial refusal rolls back all financial effects; recording the rejection and advancing progress then occurs atomically in a separate transaction.
+5. Publish only committed results. A crash after commit but before response returns the stored result on retry. A response cannot claim success before the commit. Network operations and push calls never run inside the financial transaction.
+
+Home signatures are produced from durable committed content; sending can be retried after a crash. The outbound stream is reconstructed from the ledger, not a second file that must commit atomically with it.
+
+### Replay and resynchronization
+
+Require the next cursor and exact predecessor hash before applying a batch. Duplicate commits are harmless; missing or inconsistent predecessors stop replay. Verify the canonical fingerprint at checkpoints and after catch-up. On a mismatch, preserve evidence and request a verified snapshot; never upload the mismatching replica as authority.
+
+Stage and verify snapshots with the existing promotion foundation. Preserve local outboxes and unseen decisions independently of replica replacement. A snapshot contains receipt summaries, aliases, delete markers and compatibility metadata, but no other device's local outbox. After promotion, query the status of pending IDs and rebuild the overlay. A restored snapshot must not roll back authority-generation memory or origin counters.
+
+## 5. Conflicts and duplicates
+
+Each kind declares the groups of fields that must change together and its service-level preconditions. Amount, currency and postings of a financial transaction form one group; note or category may be separate when the service contract permits. A transfer and all its legs, or a split and its lines, are one atomic action. A version on each database row alone is insufficient.
+
+Base tokens name the last confirmed change to a field group. For a record created or changed by an earlier pending edit, a proposal instead names that dependency's identity and expected result; the home resolves it from the receipt. Deletion markers and aliases prevent stale devices recreating removed identities.
+
+| Situation | Result |
 |---|---|
-| `device_id`, `seq` | The device and its running number. Together the entry's identity (G2, G6). |
-| `kind`, `kind_version` | What it does, e.g. `transaction.add` v1, with its own validated, bounded fields. Never SQL, never a row copy. |
-| `values` | What the user confirmed, fully resolved on the device: the dates typed, "today" as a date, the category after rules, amounts as text decimals. The decider never re-guesses what the user meant. |
-| `creates` | Device-made IDs (UUIDs) for each record it adds, so a later entry can name a record the decider has not seen yet. |
-| `changes` | For each existing record it changes or deletes: its UUID and the version the device saw. |
-| `made_at`, `zone` | When it was made, on the device's clock. For display and for the default in a clash only. |
-| `seen_version` | The ledger version the device's view was built on. |
+| Groups read/changed by the action still match | Validate and accept. |
+| Only independent groups changed elsewhere | Apply only the requested groups, then validate the whole result. |
+| Same group changed, including changed and changed back | Hold for review with base, current and proposed values. No automatic timestamp winner. |
+| Target was deleted | Reject with deletion context; *Add again* needs a fresh UUID and current validation. |
+| Delete would remove a record changed since its base | Review; keep is the safe initial choice. |
+| Earlier dependency rejected | Reject dependent edits with that reason; advance sequence for each terminal outcome. |
+| Same canonical category/account name added twice | If domain rules establish equivalence, return the existing UUID and persist an alias from the proposed UUID. Otherwise review. All dependent references resolve through that alias. |
+| Proven same imported item | Use a namespaced source ID and validated equivalence to return the existing payment; never count it twice. |
+| SMS and CSV merely resemble the same payment | Hold the incoming payment for review before posting. Keep the existing confirmed payment; offer link to it or post separately. Similarity alone neither merges nor double-counts money. |
+| A bill occurrence is already linked to a payment | Do not partially accept a combined post-and-link action. Review the possible duplicate or reject the complete action; an explicit later choice may post an unrelated payment. |
 
-### The decider
+**Review cannot block itself.** Home review commands use a separate idempotent control lane, not the blocked origin's financial sequence. They reference the waiting proposal and the exact review-state version. One transaction rechecks current preconditions, records the choice, resolves that proposal and unblocks its origin. A stale choice returns refreshed review; it cannot overwrite a later edit. No financial operation bypasses the normal services through this lane.
 
-The device with writing rights: the phone, unless it gave them to a PC (section 7). It keeps the **accepted journal** and the **ledger version**, a number raised by one for every accepted entry.
+Unrelated origins continue during review. Later financial edits from a blocked origin stay visibly queued; the UI names the blocker. The first version favors strict per-origin order over a more complex dependency scheduler. Owner cancellation is a recorded terminal rejection, never deletion of a sequence slot.
 
-For each entry, in arrival order, keeping each device's own order (G6):
+Undo is a fresh, validated proposal referring to a retained accepted action. It can itself conflict; it is not restoration of old database rows without checks.
 
-1. Refuse it unread if the device is not paired, or the kind or its version is unknown (G7; section 8).
-2. If `(device_id, seq)` was decided before, answer that decision again (G2).
-3. If `seq` is not the device's next number, hold it until the gap arrives.
-4. Check `changes`: a record still at the version the device saw passes; otherwise section 5 decides.
-5. Apply it through the services in one transaction, then raise the ledger version and record it as accepted with that version. A service's refusal turns it down with the refusal's words (G5).
+## 6. Small, continuous transfers
 
-The decider's own saves go through the same path, applied at once.
+Both transports carry the same authenticated envelopes. A sync round exchanges capabilities, authority information and cursors; uploads missing proposals; downloads decisions and confirmed changes; and acknowledges durable progress. Devices request missing ranges instead of repeatedly sending everything. New edits trigger a short coalescing window; reconnect and app-open trigger catch-up. No tight polling loop.
 
-### What a device shows
+- **Local link:** pinned TLS, available without the mailbox. It can deliver proposals and confirmed changes even during an internet outage. Authority freshness has the recovery limitation in section 7.
+- **Internet:** the chosen Cloudflare Worker and one Durable Object per profile hold opaque envelopes for paired recipients. An active foreground app uses a hibernating WebSocket; disconnected devices resume from durable cursors. Push contains only a mailbox wake-up hint.
+- **Delivery:** delete a mailbox envelope only after a recipient durably acknowledges it, not after download starts. Lost acknowledgements cause retries. A sender retains its own durable source until the protocol permits pruning, so mailbox expiry is recoverable.
+- **Snapshot fallback:** first pairing, history pruned before a device's cursor, verified divergence, or catch-up whose measured cost exceeds a snapshot. Use resumable, hashed chunks through R2 or the local link. A few new expenses must never require the whole file.
 
-Each device keeps the decider's ledger at some accepted version, plus its own entries not yet decided. Its screens show that ledger with the pending entries applied on a working copy, each pending row marked as pending. Pending rows count in no report until accepted, since one ledger records real money.
+**Initial resource limits, to measure in the prototype:** normal envelopes at most 64 KiB including framing; at most 50 proposals and 48 KiB encoded plaintext per normal batch; per-kind payload limits; bounded staging and gap buffers. Oversized imports are reviewed and divided into explicit per-payment actions before saving, with one import ID for progress and undo. Never silently split a transaction or transfer. Larger indivisible effects use a hashed, bounded chunk manifest and are applied only after complete verified assembly. Start with a 1 MiB maximum assembled effect and 200 MiB snapshot; refuse larger actions before acceptance with a clear reason, then revise limits only with evidence. Do not use decompression without strict expanded-size limits.
 
-When a device reaches the decider, on any channel:
+**Android availability.** FCM normal messages can be delayed in Doze, and repeated high-priority messages without visible notifications can be deprioritized. Periodic background work's 15-minute minimum is not a maximum delay. Catch up on foreground/resume, use supported bounded background work, and show the last confirmed sync and pending count. Never promise *within seconds* or invent a resume time for an unknown outage. Sources: [Firebase priority](https://firebase.google.com/docs/cloud-messaging/android-message-priority), [Android work scheduling](https://developer.android.com/develop/background-work/background-tasks/persistent/getting-started/define-work).
 
-1. The device sends its undecided entries and learns each decision.
-2. It receives the accepted entries after its version, and replays them on its copy through the same services.
-3. It compares its content fingerprint with the decider's at that version. If they differ, for example after a code change, it takes a whole verified copy instead, as today's borrow does. Replay is fast; the fingerprint keeps it honest (G3).
-4. It re-applies the entries still pending on top, and shows each accepted, turned down or waiting for the owner. A turned-down edit stays in a *Not taken* list for one week, with *Add again*, then goes.
+**Cost and abuse.** Keep the dedicated Cloudflare account and private domain. Enforce authenticated mailbox creation, unguessable IDs, per-device request and byte limits, per-recipient queue quotas, upload quotas, bounded signatures before costly work, backoff and monitoring. A device exhausting its quota must not consume another device's reserved control/recovery capacity. Cloudflare request, duration, storage, R2 and push-call costs must be measured together; the old daily-request calculation is not a capacity promise. [Durable Objects pricing](https://developers.cloudflare.com/durable-objects/platform/pricing/) distinguishes these charges and idle WebSocket behavior.
 
-A device far behind, or new, starts from a whole copy, as today.
+Before deployment, verify actual edge-rule availability and whether blocked requests consume Worker allowance on the chosen plan. A valid-shaped flood may still reach billed code; no claim that arbitrary abuse leaves real users unaffected. Initially retain unacknowledged envelopes up to 30 days and temporary snapshots up to 7 days, with retries from devices after expiry. Authority retirement records must survive mailbox queue expiry. Owner setup stays in [OWNER.md](../../OWNER.md).
 
-### Records need versions and device-made IDs
+## 7. Authority, pairing and recovery
 
-Every table an entry kind touches gets a `uid` (UUID text, unique) and a `version` (integer, raised on every change, by a trigger so no code path forgets). `ref` stays the human-facing number, assigned by the decider when it applies an add; a device shows "pending" until then.
+### Normal authority and trust
 
-## 5. Clashes and duplicates
+A profile has one home public key, an authority generation, a membership version and an approved device/incarnation set. These are distinct from the ledger schema and decision revision. All proposals, decisions and snapshot manifests bind the profile and generation. The home serializes confirmations; peers cannot turn their local overlays into confirmed data. Network timeout, app-open and phone sleep never elect a home.
 
-| Situation | Decision |
+Pairing requires the code, profile password proof, matching six digits and confirmation on the existing home. The proof is bound to the pairing transcript and both device keys; possession of a code alone is insufficient. A new device receives the verified authority and membership state with its snapshot. Repeated pairing does not reset another origin's sequence.
+
+Use a fresh random group transport secret independent of the shared profile data key; derive domain-separated transport keys from it and bind an explicit key epoch. A revoked device must not derive the next secret from its old data key. Use authenticated encryption plus an outer device signature over the ciphertext and routing header, bound to recipient, profile, message type and envelope identity. Authenticate that outer signature before decrypting; the enclosed proposal retains its original signature across forwarding. Retransmit identical sealed bytes or use a fresh unique nonce; never reuse a nonce for different plaintext. TLS pinning remains an additional local-channel defense. Keys and plaintext financial payloads never enter logs or the plain control store.
+
+On revocation, the home stops new work from that origin, advances membership, and rotates the transport key for remaining devices over their authenticated individual key channels. Deleting a certificate from the mailbox alone does not revoke a shared encryption key. Old data already held by a device cannot be erased remotely. Offline devices learn revocation on contact; no instantaneous remote-erasure promise. Old receipts remain valid historical evidence; a revoked device's unsent edits are not silently admitted as new work.
+
+### Deliberately moving a reachable home
+
+Use the existing two-of-three owner-secret rule, then a durable freeze-transfer-activate handshake. Freeze the old home before taking its final snapshot; drain its accepted work and include the inbox, receipts and protocol state. The target verifies everything before activation. The old home persists retirement before the new home confirms anything; an interrupted handover resumes idempotently and never infers success from timeout. Local pending outboxes remain on their origin devices and send to the successor.
+
+A mailbox-backed profile also publishes the transition in the authority registry below. A local-only profile may move through this cooperative handshake; lost-home recovery of the same profile requires the registry, or an explicit new profile with re-pairing. No silent competing home.
+
+### Lost-home recovery and stale devices
+
+The internet mailbox has a **small authority registry**, separate from expiring message queues. It stores no financial plaintext: only profile identity, the current home/generation, owner-authority public key, transition certificates and recovery cutoff hashes. Generation changes use atomic compare-and-swap against the previous generation. Competing recovery attempts cannot both become the successor. A queued reply from an old attempt cannot undo a newer transition.
+
+Recovery needs an online registry and owner authorization, a verified surviving snapshot, and an explicit display of its last confirmed revision/time and possible missing work. The successor preserves that prefix, starts a new generation and does not import the old home's unverified replacement database. The registry refuses further publication by the retired home. It is trusted to serialize authority transitions and preserve the latest record, although it cannot decrypt finance data. This control-plane trust is additional to the untrusted envelope carrier; pinned generation memory detects rollback on existing devices, and registry loss requires explicit repair rather than treating an empty registry as a new profile. If the registry is unavailable, devices keep local capture; they cannot force a same-profile home replacement.
+
+**Two secrets must authorize recovery, not just unlock a screen.** Existing `keys.json` has a password lock and a recovery-key-plus-answer lock; the recovery key alone does not open the profile. Keep that scheme. Add an independent owner-authority signing credential protected by a reviewed two-of-three secret-sharing/key-wrapping construction; it must not be derivable from the profile data key or an ordinary paired-device key. The registry verifies its nonce-bound transition signature. Enrollment, every pair of secrets, wrong-secret throttling, credential changes, lost wrappers and revocation of obsolete recovery authority are mandatory security gates before recovery ships. Do not invent cryptographic primitives or treat a client boolean saying “two secrets checked” as proof. Ordinary sync never needs this credential.
+
+**A registry cannot stop an offline old home from running.** A device retains its highest authenticated generation in durable control state, refuses older-generation confirmed streams once a successor is known, and exchanges this state on both channels. After a restart, restore or reconnect, check the registry when reachable before publishing new work. While it is unreachable, a known home may still confirm in its existing generation over the local link; those views can become a retired branch if recovery occurred elsewhere. Show last authority contact when stale. This is the explicit price of local operation during an outage; claiming immediate global fencing would instead require online authorization for every confirmation.
+
+On seeing retirement, the old home stops confirming and preserves its branch. Original proposals after the recovery cutoff, including its own edits and those of other devices, are offered to the successor with their original signatures and causal chains. The successor's inherited receipt set prevents replay of the retained prefix. Branch-specific outcomes are kept as evidence; missing proposals are revalidated and may now conflict or be refused. Revoked origins require an explicit owner-reviewed import into fresh proposals. Devices preserve a comparison copy until review completes. They never silently overwrite either branch or report previously confirmed but now absent work as still confirmed.
+
+If the only copy of some edit was on the lost device, it cannot be recovered. Show the limit before recovery, and offer a newer verified surviving checkpoint when one is available. Sync receipt retention cannot recover destroyed payloads.
+
+## 8. Compatibility and automatic work
+
+The home's app version defines the supported protocol, entry kinds, effect schemas and ledger schema. Publish a compatibility table with each release. Exchange capabilities before submitting work; distinguish “update this device” from “update the home.” Unsupported proposals stay pending without consuming their sequence; dependent work waits visibly. Never turn incompatibility into a financial rejection or discard a queue during upgrade.
+
+Only the home migrates canonical schema, behind a durable migration barrier. Freeze confirmation, checkpoint, back up, migrate, publish the new capabilities and a snapshot, then resume. Capable replicas upgrade and take that snapshot; older ones continue viewing their last supported copy and retain pending work. Entry adapters preserve original signed payloads and record normalized interpretations. A kind that cannot be safely adapted goes to review; no silent semantic rewrite. A migration cannot bypass a waiting recovery transition.
+
+**Capture may run anywhere; financial automation runs on the home.** Phone SMS capture/parsing creates local candidates or proposals even while the home is a PC. Bank CSV review on a PC behaves similarly. Receipt of an SMS is not authority to post it. Rules that choose values in the user's preview are captured in the proposal; the home checks current invariants without silently changing those confirmed choices.
+
+Price fills, bill matching, ownership repairs and other automatic financial writes run only on the home and produce deterministic journal effects with stable job/source identities. Replica reads, overlay rebuilding and replay never run them. Audit all current save paths and hidden writes before enabling an area. Home writes in an unsupported area cannot bypass the journal and still claim incremental convergence: disable that area in the experimental profile until journal coverage exists.
+
+## 9. Retention and backups
+
+| Record | Retention and purpose |
 |---|---|
-| Record unchanged since the device saw it | Applied. |
-| Changed meanwhile, other fields only (phone fixed the amount, PC the category) | Applied to its own fields. |
-| Same field changed on both | Waits for the owner. Default: the later `made_at`, shown as a suggestion only. |
-| Record deleted meanwhile | Turned down: "deleted on Phone at 14:02". The device keeps the entry visible so the user can add it again. |
-| Delete of a record changed meanwhile | Waits for the owner. Default: keep. |
-| Add that refers to a record turned down (a row in a new account that was refused) | Turned down with it; entries are grouped when one creates what another uses. |
-| Add that looks like an existing row (same account, amount, date within 3 days, similar counterparty) | Applied, then flagged "looks like the same payment", using the bank-import matching. The owner keeps both or removes one, which is a new entry. |
-| Same money as two different types (ATM: a transfer on the PC, cash in on the phone) | Flagged by amount and date across accounts. Never merged automatically. |
-| A planned bill paid by two entries | The ledger allows one payment per bill and due date (`planned_payments`, unique), so the second link is refused; the row itself is applied and flagged. |
-| Same name added on both (category "Gym" and "gym") | Names are canonical (Project Overview): the second add is applied as a use of the first, and the device is told. |
+| Local undecided proposal | Until a terminal decision is durably stored and displayed; no age-based deletion. Storage exhaustion stops a save before success is shown. |
+| Detailed accepted history and before-values | At least 30 days and until all currently paired replicas have durably acknowledged it. An absent device can delay pruning; prompt for deliberate revocation, never silently remove it. |
+| Rejected payload on its origin | One week after first display. Before display, retain it even if the device was offline for months. |
+| Compact receipt | Keep proposal identity/hash, outcome code, generation/revision, dependency result tokens and required aliases for the lifetime of that authority history, including after payload pruning. Old retries return the same outcome; narrative details may be expired. |
+| Delete markers, field-group tokens and UUID aliases | Keep while stale references or retries can arrive; the first implementation keeps compact records for the profile lifetime. They contain no deleted financial payload. |
+| Retired generations and device incarnations | Durable rejection/redirect records, not subject to mailbox queue cleanup or visible-history pruning. |
 
-Waiting entries appear **on the home only** (owner, 2026-10-07): while a PC has writing rights, an entry that needs a choice waits for the home. They show in a review list in the style of the phone's *From SMS*, one line each, with "Take all suggested" for the many and a choice for each. Owner choices are entries too, so every device learns them.
+Receipts are scoped to their authority history: inherited-prefix outcomes survive recovery, while proposals outside that prefix can get new decisions in the successor history. Preserve the relationship; never confuse an old-branch acceptance with a new-branch acceptance.
 
-## 6. Automatic edits
+Profile backups must include confirmed ledger/protocol state, this device's encrypted outbox and identity manifest, plus the applicable key material. Use the profile/session lock to make a consistent package and record which other devices have acknowledged the checkpoint. Restore first preserves current queues, then imports backup proposals by original identity; it never rewinds a live origin counter. A stale replica takes a fresh snapshot. Restoring the home to an older ledger is an explicit recovery transition, not ordinary resume. Missing authority metadata blocks confirmation and requests repair.
 
-The writes the app does by itself (section 3) run **only on the decider**, and each one it makes is recorded as an entry of the decider, so devices replay its result instead of redoing it: bill settling, price fills and fetches, SMS ingest, ownership repair. Devices open their copy with these writes off, as a read-only build does today. Migrations and seeds are not entries: a version change is section 8's compatibility rule.
+Compaction tests must cover a returned device after more than 30 days, removed devices, delayed rejection delivery and a restored old backup. “Keep history for 30 days” does not authorize erasing the metadata needed to prevent duplicate money.
 
-## 7. Writing rights
+## 10. Delivery stages
 
-The owner's rule (section 1): **writing rights from the home, or pending edits.** Writing rights are today's lend, extended:
+No production protocol switch before complete write coverage. Early stages use isolated dummy profiles; they are end-to-end engineering milestones, not claims that the full product is ready. Claims belong in [NOW.md](../../NOW.md). Building remains unscheduled.
 
-- **One device at a time holds them,** and is the decider. The phone holds them unless it gave them away.
-- **A device without them never waits.** It saves pending edits, shows them at once, marked as pending, and sends them to the decider when it can.
-- **Asking for writing rights** happens by itself when the user opens the profile on a paired PC with its password (trust pairing, section 8). The home gives them whenever it is reachable and holds them, locked or not, with no tap. Until they arrive, the PC keeps saving pending edits.
-- **When writing rights arrive,** the device first applies its own pending edits as the new decider, with section 5's checks, then edits the ledger directly. Each direct save is still recorded as an accepted entry.
-- **The phone while it has lent them** saves pending edits too: the evening coffee waits on the phone, shown, and goes in after the hand-back.
-- **Hand-back** returns the ledger with its accepted journal. The phone becomes the decider again and checks its pending edits against the returned ledger.
-- **Moving the home** (owner, 2026-10-07): any paired device can become the home with **two of the three keys**: the profile password, the security answer and the recovery key. The password and the recovery key each open the profile key, and the answer is checked once it is open, so every pair proves the owner. The new home takes over from its last accepted ledger plus its pending edits, under a new lineage; the mailbox retires the old home so it can never give writing rights again; every other device follows the new home. This is how a lost or broken phone is replaced: a PC becomes the home, then the new phone pairs and becomes the home the same way.
-- **Take back** (the PC is out of reach): the phone becomes the decider from its own copy, under a new lineage, as today. What the PC accepted during the lend becomes, for the phone, pending edits from that PC, checked when they arrive. This replaces today's "the PC's edits will not come back".
-- **A stranded copy with no journal** (a profile from before this change) can only be read side by side; reconcile by comparison is not built.
-
-As more areas become entry kinds, a PC needs writing rights only for long sessions, such as a statement import or budgeting, where it is faster to edit directly.
-
-## 8. Storage, transport and security
-
-- **Where.** Each device keeps its undecided entries, and the decider its accepted journal, in an encrypted SQLite file beside the ledger, with the profile's key and FULL sync. Nothing financial goes in the plain control store.
-- **Order of writes on a device.** Save the entry, then apply it to the working copy. At start, an entry saved but not applied is applied again; its `creates` IDs make this safe.
-- **On the decider,** applying an entry and recording it as accepted happen in one transaction of the ledger, so a crash leaves both or neither.
-- **On the wire.** A new `PROTOCOL_VERSION` (v1 stays frozen). Entries travel in bounded batches, with a per-device limit on entries waiting.
-- **Compatibility** (owner, 2026-10-07)**.** Every release publishes a compatibility table: which entry kinds and versions, and which ledger versions, each app version reads and writes. **The home's app version sets what the profile accepts.** A device whose version the home does not accept keeps its edits pending and says "Update Lightning on this device"; the home tells the user which paired device is behind. A decider never guesses at an older or newer kind. A ledger migration happens on the home; a device behind it takes a whole copy after updating.
-- **Revoke** refuses that device's future entries; its accepted ones stay in the history.
-
-### Pairing and trust
-
-Owner (2026-10-07): **make the first time concrete, then make it easy.**
-
-**Pairing, once per device, is the strong check.** All of it is needed together:
-
-1. On the phone, unlocked with the profile password: Devices › Pair a PC shows a one-time code (ten minutes, three wrong tries per device, as today).
-2. On the PC: the code, then the profile password at once. The PC proves it can open the profile before it is trusted; a wrong password pairs nothing.
-3. Both screens show the same six check digits; the user confirms on the phone: "Trust Office PC to edit Mohab".
-4. Each side keeps the other's certificate. Every later message is signed with the device key and checked against it.
-
-**Afterwards, nothing more is asked.** Opening the profile on a trusted PC with its password is the user's proof; the PC then asks for writing rights, sends pending edits and fetches the ledger by itself, and the home answers on its own:
-
-| Check | Kept, and why |
+| Stage | Deliverable and exit gate |
 |---|---|
-| The phone being unlocked, or a tap on it | **Dropped.** |
-| The profile password on the PC | Kept: it is how the PC opens the encrypted ledger at all. |
-| The signed, pinned device identity on every message | Kept, invisibly: without it anyone on a network could act as the PC. The user never sees it. |
-| Revoke on the phone | Kept: ends the trust at once; the device must pair again. |
+| J1 — Local core | Exact message/state schemas; UUID/fingerprint contract; outbox; same-database decisions; simulator for add/edit/delete, dependencies, receipts, replay and crashes. G1–G8 within one generation. |
+| J2 — Two-device experience | Transaction forms, splits/transfers, overlays, reports excluding pending work, review control lane, local delta exchange and snapshot repair. Phone/PC screen acceptance. |
+| J3 — Real capture | SMS and CSV candidates, source identities, duplicate review, import batching, automatic writes journaled or explicitly disabled. Show measured bandwidth against whole-copy transfer. |
+| J4 — Internet channel | Cloudflare queues, resumable snapshots, bounded background work, push, quotas and privacy note. Measure Doze/offline behavior and full cost; no latency promises from simulator results. |
+| J5 — Trust and recovery | Registry, reviewed owner-authorization construction, cooperative move, lost-home recovery, transport-key rotation, restored identities and retired-branch reconciliation. Complete fault/security gates before enabling replacement. |
+| J6 — Product cutover | All writable areas covered, compatible upgrades and backups, ordinary Windows/Android acceptance, Mohab's year, security/durability review. Freeze legacy lends; receive all returns or explicitly retain stranded copies; take a verified baseline; pair/upgrade peers into the new protocol. Never run v1 lending and this protocol on one live profile. |
 
-**What it needs on the phone** (owner confirmed, 2026-10-07)**.** To give writing rights, take in edits and apply them while locked, the phone app must use the profile key without the password. It keeps a copy wrapped by the Android Keystore (hardware-backed where the phone has it), unusable outside this app on this phone and gone if the app's data is cleared. Unlocking the screens still needs the password; the stored key only serves the background work. A PC keeps no such key: it opens with the password each time.
+No borrowing fallback inside a journal profile. An area still awaiting coverage remains disabled there; the ordinary v1 profile stays on its existing implementation until cutover. A stranded pre-journal copy is preserved for explicit comparison/import, never guessed into an operation history.
 
-**Risk this accepts.** Someone who has the phone and gets past its own screen lock still cannot open Lightning's screens without the password, but the app keeps working in the background for paired devices. A lost phone is replaced by moving the home to another device with two of the three keys (section 7), which retires the old phone.
+## 11. Acceptance
 
-### Transport
+Seeded simulation checks invariants after every transition, not just after successful catch-up. Include packet loss, duplicate and out-of-order delivery, concurrent requests, divergent clocks, disk-full/flush failures, process crashes and revocation. Eventual-convergence tests explicitly restore communication and resolve review; they do not assume liveness while the home is unavailable.
 
-Owner (2026-10-07): not tied to the same Wi-Fi; the internet channel is a mailbox on Cloudflare with Firebase push.
+| Case | Required evidence |
+|---|---|
+| Offline phone coffee and PC statement | Both survive restart locally; when the home returns, both get decisions and converge without moving authority. |
+| Amount and category edited separately | Independent field groups merge; conflicting amount edits wait; clock skew changes no suggestion or decision. |
+| Add then edit before either uploads | Causal tokens resolve; rejected parent rejects children with reasons; no missing sequence. |
+| Review blocks the origin | Later edits show the blocker; separate review lane resolves it; other origins continue. |
+| Repeated or altered identity | Identical retry has one effect; same identity with changed payload is refused. Repeat after history pruning and snapshot replacement. |
+| Crash at every durable boundary | Saved proposal, inbox, ledger effects, receipt and applied cursor recover consistently; no acknowledged operation disappears. |
+| Replica on different rules/version | Exact effects converge without rerunning rules; unsupported effect schema stops before writes. |
+| Category alias and deletion | Dependent edits follow canonical UUID; stale deletes/updates never recreate removed money. |
+| SMS versus CSV and rent posted twice | Fuzzy match waits before a second posting; exact proven match links once; bill settlement and its payment stay atomic. |
+| Snapshot amid pending edits | Verified promotion preserves the queue and unseen decisions; overlay rebuilt; fingerprint matches. |
+| Phone sleeping or push lost | Save continues; status remains truthful; foreground/retry catches up. Test actual Android Doze and devices without Google services. |
+| Local link and mailbox deliver together | One outcome and contiguous progress; interrupted chunks resume; acknowledgements mean durable receipt. |
+| Wrong password/code or revoked origin | No pairing or new work; old queued envelopes cannot bypass membership; rotated keys exclude the removed device. |
+| Graceful move interrupted at every phase | At most one activated successor; old home frozen durably; every accepted edit and receipt transfers. |
+| Two simultaneous lost-home recoveries | Registry selects one successor by compare-and-swap; one owner secret, forged proof, or old transition nonce fails. |
+| Old home and peer offline during recovery | Stale branch is preserved, not mistaken for current authority; reconnection re-proposes missing originals and shows changed outcomes. |
+| Old backup restored / device reinstalled | No origin-ID reuse; prefix receipts survive; old messages cannot overwrite newer authority state. |
+| Device absent for months | Receipt and tombstone metadata prevent replay; unseen refusal remains available; snapshot plus current pending edits converges. |
+| Mailbox full, expired, attacked or unavailable | Bounded resources, backoff and isolated device quotas; edits persist; local sync works subject to authority limits; no invented recovery time. |
+| Upgrade or automatic write during sync | Migration barrier and journal coverage prevent unrecorded mutations; interrupted migration restores or blocks safely. |
+| Legacy cutover | An outstanding lend cannot be ignored; no v1 path can reopen a converted profile for writes. |
 
-- **Sealed envelopes, so the channel needs no trust.** Everything that travels (entries, decisions, writing rights, ledger copies) is encrypted end to end with a key derived from the profile key, which every paired device already holds, and signed with the sender's device key, pinned at pairing. Running numbers expose a dropped or replayed envelope. A channel only carries envelopes it cannot read or forge, so choosing one is about reach and cost, not trust.
-- **An internet channel needs a mailbox.** Mobile carriers commonly share one public address among many phones, so a phone cannot accept a connection from the internet. Something always reachable must hold envelopes until the other device fetches them:
-
-| Channel | For | Against |
-|---|---|---|
-| The owner's own Google Drive (an app-only folder) | No server; free | No way to wake the phone, so up to about 15 minutes in the background; Google sign-in on every device |
-| **A Lightning mailbox on Cloudflare, with Firebase push** (chosen) | Seconds, even with the phone locked; free to start; no machines to look after | A small service to run; Cloudflare-specific; it sees sizes and times, never content |
-| A rented server | Seconds | Updates, security and backups are ours |
-| Direct over the internet | No middle | Blocked by carriers' shared addresses |
-
-**Chosen (owner, 2026-10-07): the mailbox on Cloudflare, with Firebase Cloud Messaging to wake the phone.** It never holds readable finance data, so it keeps the spirit of "no remote finance server".
-
-### The mailbox
-
-- **What it is.** A Cloudflare Worker on our own domain (`sync.` plus the website's domain; the `workers.dev` address is turned off) and one Durable Object, a small private store, per paired profile. It keeps sealed envelopes until the other device takes them, then deletes them. Ledger copies for writing rights go through Cloudflare's file storage (R2) in chunks and are deleted once taken, or after 7 days.
-- **Waking the phone.** When an envelope arrives for the phone, the mailbox sends a Firebase push carrying nothing but "check your mailbox". The phone wakes, takes, decides and answers within seconds, locked or not. A phone without Google services (some Huawei models, common in Egypt) checks about every 15 minutes instead.
-- **One sleeping connection, never frequent checks.** An open app holds one WebSocket to its mailbox, which costs nothing while idle (Cloudflare bills incoming messages at one request per 20, pings free). Checking every few seconds would cost about 17,000 requests a day per user; it is never done.
-- **The budget.** About 50–150 requests a day for an active user (opening the apps, batches of edits, pushes, writing rights), so the free plan's 100,000 a day carries roughly 700–2,000 active users. Move to the paid plan (about $5 a month) when daily use stays above half the free allowance. Cloudflare's paid plan has no hard spending cap, so the limits below matter there too.
-- **When it is unreachable** (an outage, the daily allowance used up): sync waits, every edit stays pending and shown, the same-Wi-Fi link still works, and the app says "Sync paused" with when it resumes. Nothing is lost (G1).
-- **Lock-in.** The mailbox stays small (a few hundred lines) and the envelope format is ours, so moving to another host means rewriting only the mailbox.
-
-### Limits against abuse
-
-An attacker cannot read or forge envelopes (sealed, signed, pinned). What is left to attack is the allowance: every request that reaches our code counts against the 100,000 a day, even when we refuse it, and stored data costs space. So the limits stop junk as early and as cheaply as possible, in layers:
-
-| Layer | Stops | How |
-|---|---|---|
-| 1. Cloudflare's edge, before our code | Floods and anything not shaped like Lightning | Automatic DDoS protection. Free custom rules allow only our paths and methods (`/v1/m/<mailbox>/…`), a mailbox ID of the right form, the device header, and bodies up to 64 KB except the copy upload; everything else is blocked. The free rate-limit rule blocks any address sending more than 60 requests in 10 seconds (an app holds one connection, so it never comes close). **To prove in J6:** requests blocked here do not count against the Worker's allowance on our domain. |
-| 2. Our Worker, before the store | Made-up or guessed mailboxes | A mailbox ID is 128 random bits plus a tag the Worker signs with its own secret when it creates the mailbox, so a forged or guessed ID is refused with one calculation, without touching the store. An address that keeps failing is refused for an hour (Cloudflare's rate-limiting binding). |
-| 3. The mailbox's store | A device without trust | Every request is signed with a device key the mailbox learned at pairing; anything else is refused. Revoke removes the key. |
-| 4. Budgets per mailbox | A paired device gone wrong (a bug that loops, a stolen PC) | Each device: at most 2,000 requests a day; each mailbox: 5,000 a day, 1,000 envelopes or 20 MB waiting, one ledger copy of at most 200 MB. Over budget, the answer is "wait until <time>", the app pauses sync and shows it; pending edits stay. Envelopes not taken in 30 days are dropped; their device still holds them and sends them again (G1). |
-| 5. Creating a mailbox, the only open door | Mass creation | Only at pairing, from the phone: at most 3 a day per address, a small proof of work (about a second on a phone, costly by the thousand), and later Google Play Integrity to prove our genuine app. A mailbox never paired within a day, or unused for 180 days, is deleted. |
-| 6. Our own apps | Ourselves | Batching, one sleeping connection, back-off with jitter after errors, never retrying sooner than the mailbox says, and a cap per day in the app itself. |
-| 7. Watching | Surprises | A scheduled Worker (free) checks the day's use and warns the owner at 50% and 80% of the allowance, with the top mailboxes and addresses. The mailbox runs on its own Cloudflare account, so the website never shares or eats its allowance. |
-
-- **Same Wi-Fi** stays as today's pinned TLS link, the fastest when both are home, and needs no mailbox.
-
-## 9. Rollout
-
-Each stage is shippable and tested end to end; an area not yet an entry kind is edited only on the decider (or by borrowing), as today.
-
-| Stage | What | Done when |
-|---|---|---|
-| J1 | The journal store, entry identity, the decider loop, versions and UIDs on transactions and their lines, and the simulator of section 10, with no screens | G1–G8 hold in the simulator for `transaction.add` |
-| J2 | Transactions from every device: add, edit amount, date, category, note and owner, delete, split; pending rows on screen; decisions shown | `tests/test_two_devices.py` gains the evening case, the both-devices edit and the review list |
-| J3 | Imports as entries: SMS on the phone, bank CSVs on the PC, with the duplicate flags | SMS versus statement, case U1 below |
-| J4 | Automatic edits as decider entries (section 6) | A device never writes by itself; replay converges |
-| J5 | Writing rights move the decider (section 7), given by themselves after trust pairing (section 8); Take back keeps the PC's entries | U9, U13, U16, U17 below |
-| J6 | The mailbox, Firebase push and the limits against abuse (section 8) | U14, U15, U18–U20 below; the edge-blocking proof in layer 1 |
-| J7+ | One area at a time: budget, planning, reserves, accounts, investments, deposits, items, rules, settings | Each area's save actions are entry kinds with tests |
-
-## 10. Acceptance
-
-**The simulator** (J1) runs seeded random scenarios: two to three devices editing offline and online, messages dropped, repeated and reordered, crashes between saving and applying and between applying and answering, clock skew of hours, revoked devices. After every scenario it checks:
-
-- every device's fingerprint equals the decider's at the same version (G3);
-- every entry ever saved is accepted, turned down or waiting, and its device shows which (G1);
-- no entry applied twice, and each device's order kept (G2, G6);
-- every account's balance equals the sum of its entries, as in a direct save (G5);
-- every same-field clash reached the review list (G4);
-- nothing from an unpaired or revoked device was read (G7).
-
-**Use cases** (through the screens, extending `tests/test_two_devices.py`):
-
-| | Case | Expected |
-|---|---|---|
-| U1 | The phone captured a card payment from SMS; the PC imported the statement with it | One applied, one flagged as the same payment |
-| U2 | Coffee on the phone in the evening while the PC has writing rights | Pending on the phone, shown; applied after the hand-back |
-| U3 | The phone fixes Talabat's amount, the PC its category | Both applied |
-| U4 | Both change the same amount, to 175 and 180 | Review; the later is suggested |
-| U5 | The PC deletes a row the phone edited | Review; keep is suggested |
-| U6 | The PC adds a row then edits it before the phone has seen either | Applied in order |
-| U7 | The PC marks rent paid from the plan; the phone typed the rent | Bill settled once; the second row flagged |
-| U8 | "Gym" on one device, "gym" on the other | One category |
-| U9 | The phone took the ledger back; the PC reaches it a week later | The PC's entries checked and applied or flagged, none lost |
-| U10 | The PC's clock is three hours wrong | Order and outcome unchanged; only displayed times differ |
-| U11 | The same batch is sent twice after a dropped answer | Applied once |
-| U12 | A device on an older app version sends a newer kind | Refused with "update Lightning on this device"; the entry stays pending |
-| U13 | The PC asks for writing rights while the phone is off | The PC keeps saving pending edits; when the rights arrive they go in first, then it edits directly |
-| U14 | Phone on mobile data, PC at the office, never on the same Wi-Fi | Each device's edits reach the other through the internet channel; the phone decides at its next check |
-| U15 | The channel drops, repeats or alters an envelope | A dropped one is sent again; a repeat is answered once; an altered one is refused unread |
-| U16 | The phone is locked in his pocket; he opens the profile on the trusted PC | Writing rights arrive with no tap on the phone |
-| U17 | Pairing with the right code but the wrong profile password; a revoked PC asks for writing rights | Nothing paired; refused, and the PC says to pair again |
-| U18 | A stranger floods the mailbox address, or tries made-up mailbox IDs | Blocked at the edge or by the Worker's tag check; the store is never touched; real users unaffected |
-| U19 | A paired PC with a bug sends in a loop | Stopped at its daily budget; the phone and other devices keep syncing; the PC shows Sync paused |
-| U20 | The daily allowance is used up | Sync paused with its resume time; edits pending and shown; nothing lost; the same Wi-Fi still works |
-| U21 | The phone is lost; on the PC he types the password and the security answer | The PC becomes the home; the old phone can no longer give writing rights; a new phone pairs and becomes the home the same way |
-| U22 | Someone tries to move the home with one key only, or with a wrong second key | Refused; nothing changes; wrong tries count like wrong passwords |
-
-## 11. Owner's answers (2026-10-07)
-
-| | Question | Decision |
-|---|---|---|
-| Q1 | Lost or broken phone | Any paired device can become the home with two of the three keys: password, security answer, recovery key (section 7, *Moving the home*). |
-| Q2 | Where clashes and duplicates are reviewed | On the home only; while a PC has writing rights, they wait for the home (section 5). |
-| Q3 | How long a turned-down edit stays visible | One week, in *Not taken*, with *Add again* (section 4). |
-| Q4 | Keep the accepted journal for years | No: until every paired device has it, and at least 30 days (G8). |
-| Q5 | When to build | Later; not scheduled. |
-| Q6 | Devices on different app versions | A compatibility table with every release; the home's version decides for the profile (section 8). |
-| Q7 | The website's privacy note | Updated later, before the mailbox (J6) ships. |
+Measure encoded bytes, round trips, replay time, snapshot frequency, storage growth and catch-up latency on a representative year and large import. A small edit exchanges only bounded protocol overhead and its new data. Release evidence includes focused tests, the full suite, `tests/test_two_devices.py`, `tests/test_mohab_year.py`, ordinary-PC/phone checks, and A16/Part C review for affected screens. Passing the simulator is not evidence for phone wake-up timing or physical power-loss survival.
