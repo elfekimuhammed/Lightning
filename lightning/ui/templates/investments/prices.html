@@ -2,7 +2,7 @@
 {% block title %}Investment prices{% endblock %}
 {% block heading %}<h1>Investment prices</h1><div class="muted">Lightning fetches them online, falls back on the shared price files, or you type them. A price you type for a day wins.</div>{% endblock %}
 {% block content %}
-<section class="card" style="max-width:860px;margin-bottom:16px" aria-labelledby="price-files">
+<section class="card" style="max-width:1000px;margin-bottom:16px" aria-labelledby="price-files">
   <h2 id="price-files">Update prices</h2>
   <p class="muted small">Lightning asks the sources itself for the investments you hold: the latest close, and every month-end close it lacks. It does this by itself the first time you open it after a month ends, because month-end prices make your monthly returns. Sources: TradingView and Yahoo Finance for stocks, Mubasher for funds, and for gold an estimate from the world price and the dollar’s rate (Yahoo Finance).</p>
   <form method="post" class="actions" action="/investments/prices/online">
@@ -44,7 +44,7 @@
   <div class="actions" style="margin-top:12px"><button class="btn primary">Save missing prices</button></div>
 <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
 {% endif %}
-<form method="post" class="card" style="max-width:860px" autocomplete="off">
+<form method="post" class="card" style="max-width:1000px" autocomplete="off">
   <div class="field" style="max-width:220px">
     <label for="date">As of <span class="muted small">yyyy-mm-dd</span></label>
     <input type="text" id="date" name="date" value="{{ day }}" placeholder="yyyy-mm-dd" inputmode="numeric" autocomplete="off" data-smart-date required>
@@ -58,7 +58,7 @@
       <td class="num small">{% if r.held %}{{ r.held.quantity|money(False, 3 if r.asset.unit == 'gram' else (0 if r.asset.unit == 'share' else 4)) }} {{ r.asset.unit }}s{% else %}<span class="muted">—</span>{% endif %}</td>
       <td class="num small">{% if r.price is not none %}{{ r.price|money(False, 4) }}<div class="muted">{{ r.price_date }}{{ ' · last trade' if r.source == 'TRADE' else (' · at cost' if r.source == 'COST' else (' · price file' if r.source == 'MARKET' else (' · online' if r.source == 'ONLINE' else ''))) }}</div>{% else %}<span class="muted">none</span>{% endif %}</td>
       <td>{% if r.held and r.held.quantity > 0 %}<input type="text" name="value_{{ r.asset.id }}" inputmode="decimal" class="num" aria-label="Total value of {{ r.asset.name }}">{% else %}<span class="muted">—</span>{% endif %}</td>
-      <td><input type="text" name="p_{{ r.asset.id }}" inputmode="decimal" class="num" placeholder="{{ r.price|money(False, 4) if r.price is not none else '' }}"></td>
+      <td>{% if not r.is_certificate %}<input type="text" name="p_{{ r.asset.id }}" inputmode="decimal" class="num" placeholder="{{ r.price|money(False, 4) if r.price is not none else '' }}">{% else %}<span class="muted">Set at purchase</span>{% endif %}</td>
     </tr>
     {% else %}
     <tr><td colspan="5" class="empty">No investments yet. <a href="/investments/assets/new">Add one</a>.</td></tr>

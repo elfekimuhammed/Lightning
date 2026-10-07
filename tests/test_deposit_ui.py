@@ -1,4 +1,5 @@
 from datetime import date
+from decimal import Decimal
 
 from fastapi.testclient import TestClient
 
@@ -61,6 +62,18 @@ def test_cd_portfolio_shows_certificates_and_records_purchase(c, setup):
     assert response.status_code == 303
     assert c.transactions.count_for_account(cd.id) == before + 1
     assert len(c.deposits.list_certificates(cd.id)) == 2
+
+
+def test_prices_page_uses_purchase_value_for_certificate_and_does_not_ask_for_a_quote(c, setup):
+    accounts, _ = setup
+    certificate, _ = _purchase(c, accounts)
+    client = TestClient(create_app(c), follow_redirects=False)
+
+    page = client.get("/investments/prices").text
+    assert "CIB 1-year certificate" in page
+    assert "Set at purchase" in page
+    assert f'name="p_{certificate.terms.asset_id}"' not in page
+    assert c.reevaluations._price(certificate.terms.asset_id, "2026-12-31") == (Decimal("5000"), "TRADE")
 
 
 def test_cd_purchase_validates_compound_schedule_and_dates(c, setup):

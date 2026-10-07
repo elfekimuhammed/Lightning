@@ -107,11 +107,12 @@ class PostingLine:
         )
 
     @staticmethod
-    def revaluation(account_id: int, cash_asset_id: int, amount: Decimal, fx_rate: Decimal = ONE,
-                    memo: str = "Investment revaluation", owner_id: int | None = None) -> "PostingLine":
+    def revaluation(account_id: int, asset_id: int, amount: Decimal, fx_rate: Decimal = ONE,
+                    memo: str = "Investment revaluation", owner_id: int | None = None,
+                    is_cash: bool = True) -> "PostingLine":
         """Value-only adjustment: no cash movement and no units added or removed."""
-        return PostingLine(account_id, cash_asset_id, ZERO, Effect.REVALUATION, ONE, fx_rate,
-                           memo=memo, amount=amount, amount_base=_round2(amount * fx_rate), is_cash=True,
+        return PostingLine(account_id, asset_id, ZERO, Effect.REVALUATION, ONE, fx_rate,
+                           memo=memo, amount=amount, amount_base=_round2(amount * fx_rate), is_cash=is_cash,
                            owner_id=owner_id)
 
 def _round2(value: Decimal) -> Decimal:
@@ -134,7 +135,8 @@ def validate_posting(lines: list[PostingLine]) -> None:
             raise ValidationError(f"Line {i}: price and exchange rate must be positive.")
         if line.is_cash and line.effect != Effect.REVALUATION and (line.unit_price != ONE or line.amount != line.quantity):
             raise ValidationError(f"Line {i}: a cash line's amount must equal its quantity.")
-        if not line.is_cash and line.amount != ZERO and (line.amount > ZERO) != (line.quantity > ZERO):
+        if (not line.is_cash and line.effect != Effect.REVALUATION and line.amount != ZERO and
+                (line.amount > ZERO) != (line.quantity > ZERO)):
             raise ValidationError(f"Line {i}: units in must cost money; units out must return money.")
         if line.amount_base != _round2(line.amount * line.fx_rate):
             raise ValidationError(f"Line {i}: base amount must equal amount x exchange rate.")

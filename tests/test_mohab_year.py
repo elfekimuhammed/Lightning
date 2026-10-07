@@ -120,10 +120,13 @@ class Mohab:
         screen = self.b.go("Investments", "Prices")
         fields = {}
         for name, price in typed.items():
-            row = next(block for block in re.findall(r"(?s)<tr\b.*?</tr>", screen.html)
-                       if name.casefold() in re.sub(r"<[^>]+>", " ", block).casefold())
-            names = re.findall(r'<(?:input|select|textarea)\b[^>]*\bname="([^"]+)"', row)
-            fields[next(field for field in names if field.startswith("p_"))] = price
+            rows = [block for block in re.findall(r"(?s)<tr\b.*?</tr>", screen.html)
+                    if name.casefold() in re.sub(r"<[^>]+>", " ", block).casefold()]
+            names = [re.findall(r'<(?:input|select|textarea)\b[^>]*\bname="([^"]+)"', row)
+                     for row in rows]
+            field = next((field for row_names in names for field in row_names if field.startswith("p_")), None)
+            assert field is not None, f"No latest-price field found for {name!r}"
+            fields[field] = price
         return self.b.submit({"date": when} | fields,
                              button="Save prices")
 
@@ -1142,6 +1145,14 @@ def test_a_saved_change_says_so_in_a_status_message(mohab):
     assert re.search(r'class="flash"[^>]*role="status"', mohab.notes["prices_saved"].html)
 
 
+def test_certificate_keeps_its_purchase_value_without_month_end_price_prompts(mohab):
+    certificate = next(asset for asset in mohab.c.assets.investments(active_only=True)
+                       if asset.name == "NBE 3-year certificate · 22%")
+    screen = mohab.b.go("Investments", "Prices")
+    assert certificate.name in screen.text and f'name="p_{certificate.id}"' not in screen.html
+    assert all(row["asset_id"] != certificate.id for row in mohab.c.reevaluations.pending_prices())
+
+
 def test_an_emergency_target_above_his_cash_is_flagged(mohab):
     assert mohab.answers["emergency_target"].shows("more than the cash you own")
 
@@ -1217,8 +1228,10 @@ def test_food_over_plan_two_months_running_gets_room_from_shopping(mohab):
 
 def test_a_fund_can_be_valued_by_its_total(mohab):
     screen = mohab.answers["fund_value"].screen
-    field = screen.field_in_row("Azimut")
-    assert "value" in field
+    field = next(field for block in re.findall(r"(?s)<tr\b.*?</tr>", screen.html)
+                 if "Azimut" in re.sub(r"<[^>]+>", " ", block)
+                 for field in re.findall(r'<(?:input|select|textarea)\b[^>]*\bname="([^"]+)"', block)
+                 if field.startswith("value_"))
     mohab.b.open(screen.path)
     saved = mohab.b.submit({"date": "2027-09-30", field: "20000"}, button="Save prices")
     assert saved.shows("Saved 1 price")

@@ -1,5 +1,21 @@
 from decimal import Decimal
 
+import pytest
+
+from lightning.core.errors import ValidationError
+from lightning.core.ledger import PostingLine
+from lightning.core.refs import DocType
+from lightning.transactions.domain import TxnSource
+
+
+def _certificate(c, accounts, name, principal):
+    return c.deposits.purchase(
+        accounts["cd"].id, name=name, start_date="2026-09-01", lockup_end_date="2026-09-01",
+        maturity_date="2027-09-01", principal=principal, annual_rate="12.5", interest_method="SIMPLE",
+        payout_frequency="MONTHLY", compounding_frequency="MONTHLY",
+        destination_account_id=accounts["cib"].id, funding_account_id=accounts["cib"].id,
+    )[0]
+
 
 def test_monthly_returns_create_one_account_journal_linked_from_each_asset(c):
     account = c.account_flows.open_account("THNDR", "BROKERAGE", "2026-09-01", "10000")
@@ -88,6 +104,47 @@ def test_pending_month_end_price_is_explicit_and_completes_after_manual_entry(c)
     c.reevaluations.record_manual_price(asset.id, "2026-09-30", Decimal("120"))
     assert c.db.scalar("SELECT status FROM reevaluation_periods WHERE date='2026-09-30'") == "POSTED"
     assert c.reevaluations.pending_prices() == []
+
+
+def test_cd_month_end_prices_post_per_certificate_without_cash_or_unit_changes(c, setup):
+    accounts, _ = setup
+    first = _certificate(c, accounts, "CIB first certificate", "10000")
+    second = _certificate(c, accounts, "CIB second certificate", "20000")
+    c.assets.set_price(first.terms.asset_id, "2026-09-30", "11000")
+    c.assets.set_price(second.terms.asset_id, "2026-09-30", "18000")
+    cash_before = c.reporting.account_balance(accounts["cd"].id, "2026-09-30")
+
+    assert c.reevaluations.process_date("2026-09-30", "MONTH_END")
+    details = c.db.all("SELECT asset_id,units_e6,return_base_e6,journal_transaction_id "
+                       "FROM reevaluation_entries ORDER BY asset_id")
+    assert [(row["asset_id"], row["units_e6"], row["return_base_e6"]) for row in details] == [
+        (first.terms.asset_id, 1_000_000, 1_000_000_000),
+        (second.terms.asset_id, 1_000_000, -2_000_000_000),
+    ]
+    assert len({row["journal_transaction_id"] for row in details}) == 1
+    journal = c.transactions.get(details[0]["journal_transaction_id"])
+    assert journal.type == DocType.VAL and journal.source == TxnSource.SYSTEM
+    assert [(line.asset_id, line.quantity, line.amount_base,
+             c.assets.get_asset(line.asset_id).is_cash) for line in journal.lines] == [
+        (first.terms.asset_id, Decimal(0), Decimal("1000.00"), False),
+        (second.terms.asset_id, Decimal(0), Decimal("-2000.00"), False),
+    ]
+    assert c.reporting.account_balance(accounts["cd"].id, "2026-09-30") == cash_before
+    for asset_id in (first.terms.asset_id, second.terms.asset_id):
+        units = c.db.scalar("SELECT SUM(le.quantity_e6) FROM ledger_entries le JOIN transactions t "
+                            "ON t.id=le.transaction_id WHERE le.account_id=? AND le.asset_id=? "
+                            "AND t.status='POSTED' AND le.date<='2026-09-30'",
+                            (accounts["cd"].id, asset_id))
+        assert units == 1_000_000
+
+
+def test_cd_portfolio_rejects_manual_value_journals(c, setup):
+    accounts, _ = setup
+    certificate = _certificate(c, accounts, "CIB certificate", "10000")
+    line = PostingLine.revaluation(accounts["cd"].id, certificate.terms.asset_id,
+                                   Decimal("1"), is_cash=False)
+    with pytest.raises(ValidationError, match="Only CD certificates can be traded"):
+        c.transactions.post(DocType.VAL, "2026-09-30", [line], source=TxnSource.MANUAL)
 
 
 def test_month_end_checkpoint_keeps_returns_by_owner_without_changing_cash(c):

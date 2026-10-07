@@ -125,6 +125,7 @@ class ReevaluationService:
                 positions = {k: v for k, v in positions.items() if k in focus}
             incomplete = False
             account_returns: dict[tuple[int, int | None], Decimal] = {}
+            certificate_returns: dict[tuple[int, int, int | None], Decimal] = {}
             for (account_id, asset_id, owner_id), units_e6 in sorted(
                     positions.items(), key=lambda item: (item[0][0], item[0][1], item[0][2] or 0)):
                 asset = self.reporting.assets.get_asset(asset_id)
@@ -186,6 +187,9 @@ class ReevaluationService:
                      to_e6(value), to_e6(ret), source))
                 owner_key = (account_id, owner_id)
                 account_returns[owner_key] = account_returns.get(owner_key, ZERO) + ret
+                if self.accounts.get(account_id).account_type.value == "DEPOSIT":
+                    certificate_key = (account_id, asset_id, owner_id)
+                    certificate_returns[certificate_key] = certificate_returns.get(certificate_key, ZERO) + ret
             if incomplete:
                 return False
             for account_id in sorted({key[0] for key in account_returns}):
@@ -197,12 +201,20 @@ class ReevaluationService:
                 fx = self.reporting.valuer._fx(account.currency, day)
                 if fx is None:
                     return False
-                owner_lines = [PostingLine.revaluation(
-                    account_id, cash_asset.id, amount_base / fx, fx,
-                    f"Investment revaluation · {reason.lower()}", owner_id=owner_id)
-                    for (row_account, owner_id), amount_base in sorted(
-                        account_returns.items(), key=lambda item: (item[0][0], item[0][1] or 0))
-                    if row_account == account_id]
+                if self.accounts.get(account_id).account_type.value == "DEPOSIT":
+                    owner_lines = [PostingLine.revaluation(
+                        row_account, asset_id, amount_base / fx, fx,
+                        f"Investment revaluation · {reason.lower()}", owner_id=owner_id, is_cash=False)
+                        for (row_account, asset_id, owner_id), amount_base in sorted(
+                            certificate_returns.items(), key=lambda item: (item[0][1], item[0][2] or 0))
+                        if row_account == account_id]
+                else:
+                    owner_lines = [PostingLine.revaluation(
+                        account_id, cash_asset.id, amount_base / fx, fx,
+                        f"Investment revaluation · {reason.lower()}", owner_id=owner_id)
+                        for (row_account, owner_id), amount_base in sorted(
+                            account_returns.items(), key=lambda item: (item[0][0], item[0][1] or 0))
+                        if row_account == account_id]
                 amount_base = sum((value for (row_account, _), value in account_returns.items()
                                    if row_account == account_id), ZERO)
                 journal = self.transactions.post(
@@ -256,10 +268,15 @@ class ReevaluationService:
             # Physical-item values are explicit dated appraisals, not market
             # quotes; retain the latest recorded appraisal until replaced.
             return valuation.price, valuation.source
-        found = self.reporting.valuer._price(self.reporting.assets.get_asset(asset_id), day)
+        asset = self.reporting.assets.get_asset(asset_id)
+        found = self.reporting.valuer._price(asset, day)
         if not found or found[2] == "COST":
             return None
         price, price_date, source = found
+        if self.reporting.assets.get_class(asset.asset_class_id).code == "DEPOSIT.CD":
+            # A CD has no market quote. Its purchase price remains its principal value until
+            # the user enters a new valuation, so it does not need a new price each month.
+            return price, source
         if (parse_date(day) - parse_date(price_date)).days > 10:
             return None
         return price, source

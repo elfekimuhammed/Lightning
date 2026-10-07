@@ -379,7 +379,7 @@ class TransactionService:
         """
         for account_id in {ln.account_id for ln in lines}:
             self.accounts.require_usable(account_id)
-        self._validate_deposit_lines(lines, doc_type)
+        self._validate_deposit_lines(lines, doc_type, source)
         day = self._check_date(date)
         validate_posting(lines)
         self._validate_owner_balances(lines, day, force_brokerage_cash=doc_type == DocType.BUY)
@@ -393,7 +393,7 @@ class TransactionService:
             raise ValidationError("Restore this transaction before editing it.")
         for account_id in {ln.account_id for ln in lines}:
             self.accounts.require_usable(account_id)
-        self._validate_deposit_lines(lines, current.type)
+        self._validate_deposit_lines(lines, current.type, current.source)
         day = self._check_date(date)
         validate_posting(lines)
         self._validate_owner_balances(lines, day, exclude_txn_id=txn_id,
@@ -454,7 +454,7 @@ class TransactionService:
                         f"{fmt(before, 2)} {account.currency}. {context}",
                         "owner")
 
-    def _validate_deposit_lines(self, lines, doc_type: DocType) -> None:
+    def _validate_deposit_lines(self, lines, doc_type: DocType, source: TxnSource) -> None:
         """CD portfolios hold certificate assets only; cash stays in bank and wallet accounts."""
         for line in lines:
             account = self.accounts.get(line.account_id)
@@ -463,6 +463,10 @@ class TransactionService:
             if account.account_type == AccountType.DEPOSIT:
                 if asset.is_cash:
                     raise ValidationError("A CD portfolio cannot hold cash. Use the CD purchase or redemption action.")
+                if (doc_type == DocType.VAL and source == TxnSource.SYSTEM and
+                        line.effect == Effect.REVALUATION and line.quantity == ZERO and not line.is_cash and
+                        is_certificate):
+                    continue
                 if not is_certificate or doc_type not in {DocType.BUY, DocType.SEL}:
                     raise ValidationError("Only CD certificates can be traded in a CD portfolio.", "asset")
             elif is_certificate:

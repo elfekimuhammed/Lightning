@@ -703,7 +703,8 @@ async def prices(request: Request, error: str = ""):
     for asset in c.assets.investments(active_only=True):
         valuation = c.reporting.value_of(asset.id, 1, day)
         rows.append({"asset": asset, "held": held.get(asset.id), "price": valuation.price,
-                     "price_date": valuation.price_date, "source": valuation.source})
+                     "price_date": valuation.price_date, "source": valuation.source,
+                     "is_certificate": c.assets.get_class(asset.asset_class_id).code == "DEPOSIT.CD"})
     rows.sort(key=lambda r: (r["held"] is None, r["asset"].name))
     return render(request, "investments/prices.html", rows=rows, day=day, error=error,
                   pending=c.reevaluations.pending_prices(), market=_followed(c), fails=live_prices.failures(c))
