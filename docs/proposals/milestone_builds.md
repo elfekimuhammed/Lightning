@@ -1,39 +1,78 @@
 # Matched PC and phone test builds
 
-**Status:** proposal, 2026-10-07. This packages a milestone for review with dummy data. It does not publish a Windows release or an Android app to Google Play. Public distribution remains governed by Architecture › Build and release and Project Overview › Order to Google Play.
+**Status:** proposal by Codex, 2026-10-07; rewritten by Claude the same day at the owner's request ("efficient, airtight, solid"). This is the instruction for building the test pair. When it is built, move what holds into Architecture › Desktop app and encrypted profiles › *Build and release* and delete this file. Public Windows releases and Google Play stay as Architecture and Project Overview › *Order to Google Play* say.
 
-## Why this needs a separate path
+## What the owner gets
 
-The Windows workflow already makes and tests a development ZIP on a manual run, a qualifying daily run, or a tag; pushes run Linux tests only. The Android workflow is manual and uploads a full arm64 `app-debug.apk`. They can be built at different commits; the two runs linked in `OWNER.md` must not be called a matched pair without checking their source SHAs. Android also names an expiring native-wheel workflow run, keeps `versionCode = 1`, uses the release application ID `org.lightning.app`, and relies on the runner's debug signing certificate. A later debug APK may therefore fail to update the installed one. The older pasted note's claim that Windows builds on every push is out of date. The Android APK is now a working app, not merely a dependency probe.
+One manual run of the app workflow on `main` gives two downloads built and tested from **one commit**: `…-PC` (the Windows ZIP) and `…-Phone` (the APK of an app named **Lightning Test**). Each device downloads only its own file. A later Phone download installs over the earlier one and keeps its dummy profile. Dummy data only: a debug build is debuggable.
 
-## One review bundle
+## Why today's path is not enough
 
-Provide one **manual** `Milestone test builds` action. Its input is a commit on `main`, defaulting to the current head; reject a SHA that is not on `main`. Resolve the full commit once; every job checks out that exact commit. Run the Linux suite and import contracts once. Then build the Windows development ZIP with its existing packaging and extracted-ZIP checks, and the Android **full** debug variant (skip the crypto-only experiment). Reuse the existing build steps as shared jobs/scripts; do not fork a second Windows packaging implementation or run either platform job on every push. A failed job means no complete bundle is offered. This test path does not need the public downloads token or a tagged-release price pack; report when the optional development price pack is absent.
+- Windows and Android are separate workflows, so a "pair" can come from two commits.
+- The APK is signed by the runner's throwaway debug key, with `versionCode = 1` under the release ID `org.lightning.app`, so a later APK may refuse to update the installed one.
+- Its native wheels come from the artifacts of run 37449625570. GitHub deletes those when their retention ends (90 days by default, early January 2027), and then no APK can be built. If a wheel is missing, Gradle falls back to the package index; fastapi, uvicorn and jinja2 are pinned without their dependencies. Two builds can therefore carry different code.
+- Every run also builds an unused crypto-only APK.
 
-Downloadable output is one seven-day Actions artifact containing the tested Windows ZIP, the tested APK, `SHA256SUMS`, a short install/readme, and a machine-readable manifest. Keep the Windows ZIP's existing development name; give the APK a test name with the source version and commit prefix. The manifest records the full source commit, workflow run and attempt, UTC build time, filenames and hashes, Windows `BUILD_INFO.txt` identity, Android application ID, `versionName`, `versionCode`, signing-certificate fingerprint, ABI, native-wheel provenance and hashes, and the check results. Generate it from the built files; verify the hashes again after downloading the finished artifact. A run must never claim that the Windows and Android binaries match if either was built from another commit or an unverified wheel set. The artifact is a temporary, sign-in-required review handoff, not a website download or a versioned release.
+## One workflow, nothing built twice
 
-Keep native wheels reproducible: the milestone run uses the checked-out wheel build recipe to build the pinned Android dependencies, or consumes an immutable, SHA-256-pinned wheel set with recorded source/toolchain identity. A bare previous `wheel_run` number and an expiring artifact are insufficient. If the pinned set cannot be obtained or verified, fail the APK job rather than resolving different native versions.
+Extend `.github/workflows/desktop-probe.yml` (shown as "PC and phone app") and delete `android-feasibility.yml`.
 
-## Android test identity and updates
+| Event | Linux suite | Windows | Android and bundle |
+|---|---|---|---|
+| Push to `main` | yes | no | no |
+| Daily | yes | when the app changed (as now) | no |
+| Tag `v*` | yes | yes | **never**; the release job is unchanged |
+| Manual, on `main` only | skipped if an earlier run of this workflow passed it on this commit | reused if an earlier run built it on this commit and its artifact has not expired; otherwise built | yes |
 
-Give the distributable test variant a distinct ID such as `org.lightning.app.debug` and visible name **Lightning Test**. Keep `org.lightning.app` for a future release/Play build. The first ID change requires a one-time reinstall of today's debug app; there is no automatic data migration between IDs. Use dummy profiles and make that explicit in the bundle readme. A debug build is debuggable and is not a financial-data release.
+A manual run on any other ref fails in the tests job, with the reason.
 
-For repeated milestone reviews, sign this test variant with one dedicated CI **test** certificate, separate from any Play upload/app-signing key. Keep its keystore and passwords in restricted GitHub Actions secrets, never in the repository or artifact. Verify the certificate fingerprint in the job. Set a monotonically increasing test `versionCode` (with a checked upper bound) and a `versionName` that includes the source version and commit. An install-over-existing-app smoke check must prove that a later test APK with the same ID and certificate updates without deleting its dummy profile. A key rotation or certificate loss requires a documented uninstall/reinstall; do not promise seamless updates. The release key is neither needed nor used for this debug path. Android's signing and version rules require the same certificate and a nondecreasing version code for an update: [signing](https://developer.android.com/studio/publish/app-signing), [versioning](https://developer.android.com/studio/publish/versioning), [separate build IDs](https://developer.android.com/build/build-variants).
+**Jobs.**
+1. **tests** (Linux). For a manual run, `packaging/ci_scope.py` reads this workflow's earlier runs on `github.sha` (the API it already uses) and sets `reuse_run` (the newest run whose Windows job succeeded and whose `Lightning-v*-dev-*-Windows-x64` artifact has `expired: false`) and `suite=skip` (such a run, or any run whose tests job succeeded). An unknown answer means build and test, as now. Its cases get tests beside the existing ones in `tests/test_profile_packaging.py`.
+2. **windows**: unchanged; skipped when `reuse_run` is set.
+3. **android** (Linux, after tests, beside windows): the pinned build and checks below.
+4. **bundle** (Linux): only when android succeeded and windows succeeded or was replaced by `reuse_run`. A reused ZIP must match its `APP_SHA256SUMS`, and its `BUILD_INFO.txt` commit must equal `github.sha`.
 
-The APK carries no real profile, key, backup, SMS fixture from a person, or private log. Keep the current app-private storage and backup exclusion. For general testers, do not request live SMS access in the debug package until the milestone explicitly tests that permission and its privacy handling; an owner-only SMS test APK can be a separate controlled variant. Show the commit/build kind in an About or diagnostics view so a screenshot identifies the APK in use.
+**Concurrency.** A manual run gets its own group, so a push to `main` never cancels it and it never cancels a push: `group: windows-app-${{ github.ref }}${{ github.event_name == 'workflow_dispatch' && format('-{0}', github.run_id) || '' }}`. Its Windows job is a job of this workflow on `main`, so the next daily run counts it and does not rebuild that commit.
 
-## Release path stays separate
+**Cost** (billed minutes, from the runs of 2026-10-06; Windows counts double): a manual run that reuses the ZIP about 4; one that builds Windows about 31 (Linux suite 6, Windows 22, Android 2, bundle 1). Publishing the native wheels costs about 30, once, and again only when a native pin changes. Today's path costs about 60 when the wheels are rebuilt.
 
-A Windows `v<version>` tag continues to publish only its checked and immutable ZIP to `Lightning-downloads` after the existing price-pack and owner gates. Do not attach a debug APK to that public release or call the matched test bundle `1.0`.
+## Android inputs, pinned
 
-When the owner's signing key is ready, identify whether it is the **Play upload key** or a separate **app signing key** before wiring CI. For Google Play, build a non-debuggable Android App Bundle (`.aab`) under `org.lightning.app`, sign it with the upload key held in restricted CI secrets, verify its certificate and incrementing `versionCode`, and submit it to Play App Signing. Google may sign the installed APKs with a different app signing key. A direct-download APK signed only with the Play upload key must therefore not be promised as an update to the Play-installed app. Decide a direct APK channel and its app-signing identity separately if one is wanted. The key never enters a debug build, repository file, artifact or log. Keep publication gated on the phone milestones, SMS/Play policy review and ordinary-device acceptance. [Android's two-key model](https://developer.android.com/studio/publish/app-signing) and [Play's bundle flow](https://developer.android.com/studio/publish/upload-bundle) govern this path; the four APK-signing secrets proposed in the pasted note are not a prerequisite for the present test bundle.
+- **Native wheels** (cryptography, sqlcipher3, cffi, pydantic_core). `android-native-wheels.yml` gets a `publish` input. When all four builds pass, a job with `contents: write` publishes them as a prerelease `android-wheels-<n>` of this repository, titled as a build input, not an app. It carries `SHA256SUMS` and `PROVENANCE.txt` (each source archive's SHA-256, NDK, Python and builder versions). `android/wheels.lock` commits the tag and each file's name and SHA-256. The android job downloads that release (`gh release download`, `contents: read`) and runs `sha256sum -c` before Gradle. Release assets do not expire; a replaced or deleted asset fails the check. To change a native pin: run the wheel workflow with `publish`, then commit the new lock.
+- **Pure-Python packages.** `requirements/android.in` names what `android/app/build.gradle.kts` installs today (fastapi, uvicorn, jinja2, python-multipart, tzdata). uv compiles it with hashes into `requirements/android.lock`, like the desktop locks, leaving out the four native names. Gradle installs that lock plus the four wheels, each with its locked hash, under `--require-hashes`. It never names a version of its own.
+- **No fallback.** Gradle fails when `wheelDir` is missing or lacks one of the four wheels; it never resolves them from an index.
+- **After the build**, the job lists the `*.dist-info` folders inside the APK's Chaquopy requirement archives. It fails unless the names and versions equal the two locks exactly, which also catches a dependency that differs on Android.
 
-## Small implementation tasks and exit checks
+## Android identity, signing and checks
 
-1. **Identity:** add the test Android ID/label, build identity, increasing version code and test certificate; verify update-in-place and document the one-time transition from today's debug app.
-2. **Native inputs:** replace the hard-coded wheel run with source-matched or immutable hash-pinned wheels; fail on missing/mismatched provenance.
-3. **Shared build jobs:** expose the existing Windows checks and Android full build to one manual milestone workflow without duplicating scripts or adding Windows minutes to every push.
-4. **Bundle check:** create the manifest/readme/checksums only after both packages pass; verify source SHA, APK identity/signature/native contents, Windows extracted-ZIP self-check/window check and final artifact hashes.
-5. **Ordinary-device review:** install the matched ZIP and APK on the owner's PC and arm64 phone, pair and complete the milestone's end-to-end steps with dummy data. Record both build IDs and failures. This is the point to request an owner screen/device check, not each intermediate step.
+- **Identity.** The workflow passes Gradle properties: `applicationId` `org.lightning.app.test`; label **Lightning Test**; `versionCode` = `git rev-list --count HEAD`, which grows with every commit on `main`, so an older build cannot install over a newer one (Android's rule); and `versionName` = `<DISPLAY_VERSION>-test.<count>+<commit8>`. Local builds keep `versionCode` 1. `org.lightning.app` stays reserved for the Play build. The phone's Settings shows the `versionName`, so a screenshot names the build.
+- **Test key.** One dedicated key (RSA 3072, valid 30 years, PKCS#12, alias `lightning-test`), never a Play key. `tools/android_test_key.py` makes it on the owner's PC with Python and `cryptography`, which Lightning already needs. It prints the two secret values, `ANDROID_TEST_KEYSTORE` (base64) and `ANDROID_TEST_KEYSTORE_PASSWORD`, and the certificate's SHA-256 fingerprint. The fingerprint is public and is committed as `android/test-certificate.sha256`. The key never passes through the repository, an artifact, a log or an AI session. The job decodes it to `$RUNNER_TEMP` and deletes it after signing. **No secret, no APK:** the job never falls back to the runner's debug key, whose APK could not update the installed one. If the key is lost, the next APK needs one uninstall, which loses the dummy profile.
+- **Checks on the built APK** (`apksigner` and `aapt2` from build-tools 35); each failure fails the job:
+  - it is signed with scheme v2 or later, by exactly the pinned certificate;
+  - its package, `versionCode` and `versionName` are the ones the job passed;
+  - it has native libraries for `arm64-v8a` only;
+  - its permissions equal `android/permissions.txt` (adding one, such as SMS for milestone 3, takes a deliberate commit);
+  - it carries the files the current workflow requires, and no database, key, backup or log except the committed dummy fixture `roundtrip_fixture/profile.db`.
 
-The normal release gates remain separate: ordinary Windows restore/fault acceptance and the recorded power-loss decision for real data; the price-pack/download setup for a tagged Windows release; and phone milestones, signing and policy checks before Google Play.
+  Same ID, same certificate and a `versionCode` that never falls are exactly Android's rules for an update, so no emulator run is needed. The owner's install is the real-device proof.
+
+## The bundle
+
+- Two seven-day artifacts, `Lightning-Test-<version>-<count>-<commit8>-PC` and `…-Phone`. They hold the Windows ZIP (under its existing development name) and `Lightning-Test-<version>-<count>-<commit8>.apk`.
+- Each also holds `SHA256SUMS` (for both files), `README.txt` and `BUILD.json`. The README gives the install steps, says dummy data only, and says to uninstall the old "Lightning" debug app once. `BUILD.json` records:
+  - the commit, run, attempt and UTC time;
+  - each file's name, size and SHA-256;
+  - the Windows `BUILD_INFO.txt` identity, and the run it came from;
+  - the Android ID, `versionCode`, `versionName`, certificate fingerprint, ABI and wheel tag.
+- The bundle job writes them from the built files, only after every check above has passed. A run never offers half a pair. The bundle is not a release, is never attached to one, and needs neither the downloads token nor a price pack.
+
+## The release path stays separate
+
+A `v<version>` tag publishes only its tested Windows ZIP, as Architecture › *Build and release* says. For Google Play: a non-debuggable App Bundle (`.aab`) under `org.lightning.app`, signed in CI with the owner's **upload key** from restricted secrets, with an increasing `versionCode`, submitted to Play App Signing. Google then signs installs with its own app signing key, so an APK signed with the upload key cannot be promised to update a Play install. A direct-download channel needs its own decision. The upload key never enters a test build, a file, an artifact or a log. Publication stays gated on the phone milestones, the SMS and Play policy review, and ordinary-device acceptance ([app signing](https://developer.android.com/studio/publish/app-signing), [versioning](https://developer.android.com/studio/publish/versioning), [bundles](https://developer.android.com/studio/publish/upload-bundle)).
+
+## Steps (push each one when its tests pass)
+
+1. **Pinned inputs:** the wheel `publish` job, `android/wheels.lock`, `requirements/android.lock`, Gradle without fallback, and the after-build check. Run the wheel workflow with `publish` once, then commit the lock.
+2. **Test identity:** Gradle's ID, label, version and signing; the key script; the fingerprint and permissions files; the APK checks; the phone's Settings showing the build. Then add to `OWNER.md`: run the script, add the two secrets, send the fingerprint.
+3. **One workflow:** the android and bundle jobs in `desktop-probe.yml`, `ci_scope.py` reuse and suite skip with their tests, the concurrency group, the refusal outside `main`, `android-feasibility.yml` deleted, and `android/README.md` updated. One manual run proves it. Then move what holds into Architecture, replace `OWNER.md`'s two run links with "run *PC and phone app* by hand", and delete this file.
+4. **Owner review**, at the milestone only: install both builds, uninstall the old Lightning once, pair, and run the milestone with dummy data.
