@@ -28,6 +28,7 @@ The owner's product decisions live in [Project Overview](../PROJECT_OVERVIEW.md#
 
 - **Writing rights or pending edits.** A device edits the ledger only with writing rights given by the home. Without them, every save is a pending edit, shown on that device at once; the device with writing rights takes it or turns it down. This replaces "one device edits at a time, the rest only read" and "no automatic merge" (multiple_devices.md, R5 and *Deferred*).
 - **Not tied to the same Wi-Fi.** Devices must exchange edits, decisions and writing rights wherever they are. Which internet channel is still open (section 8, *Transport*).
+- **Trust pairing.** Pairing is the one strong check, done once. Afterwards a paired device asks for writing rights by itself, and the home gives them whenever it is reachable and holds them: no tap, no unlocking the phone. The password the user types to open the profile on that device is enough (section 8, *Pairing and trust*).
 
 Why (owner, 2026-10-07): a person adds a coffee on the phone in the evening while the office PC still has the ledger, imports the bank statement on the PC while the phone captured the same payments from SMS, and fixes a row on whichever device is in hand. Lend and hand-back alone cannot serve that: the phone only reads while lent, and edits on a PC the phone took back are lost.
 
@@ -142,7 +143,7 @@ The owner's rule (section 1): **writing rights from the home, or pending edits.*
 
 - **One device at a time holds them,** and is the decider. The phone holds them unless it gave them away.
 - **A device without them never waits.** It saves pending edits, shows them at once, marked as pending, and sends them to the decider when it can.
-- **Asking for writing rights** (Borrow on a PC) goes through the same channels as entries. The phone grants it when it is unlocked, as today (section 11 asks whether it needs a tap). Until the answer comes, the PC keeps saving pending edits.
+- **Asking for writing rights** happens by itself when the user opens the profile on a paired PC with its password (trust pairing, section 8). The home gives them whenever it is reachable and holds them, locked or not, with no tap. Until they arrive, the PC keeps saving pending edits.
 - **When writing rights arrive,** the device first applies its own pending edits as the new decider, with section 5's checks, then edits the ledger directly. Each direct save is still recorded as an accepted entry.
 - **The phone while it has lent them** saves pending edits too: the evening coffee waits on the phone, shown, and goes in after the hand-back.
 - **Hand-back** returns the ledger with its accepted journal. The phone becomes the decider again and checks its pending edits against the returned ledger.
@@ -159,6 +160,30 @@ As more areas become entry kinds, a PC needs writing rights only for long sessio
 - **On the wire.** A new `PROTOCOL_VERSION` (v1 stays frozen). Entries travel in bounded batches, with a per-device limit on entries waiting.
 - **Compatibility.** An entry kind carries its version. The decider refuses a kind or version it does not know, and the device says "update Lightning on this device"; a decider never guesses at an older or newer kind. A ledger migration raises the version; a device behind it takes a whole copy after updating.
 - **Revoke** refuses that device's future entries; its accepted ones stay in the history.
+
+### Pairing and trust
+
+Owner (2026-10-07): **make the first time concrete, then make it easy.**
+
+**Pairing, once per device, is the strong check.** All of it is needed together:
+
+1. On the phone, unlocked with the profile password: Devices › Pair a PC shows a one-time code (ten minutes, three wrong tries per device, as today).
+2. On the PC: the code, then the profile password at once. The PC proves it can open the profile before it is trusted; a wrong password pairs nothing.
+3. Both screens show the same six check digits; the user confirms on the phone: "Trust Office PC to edit Mohab".
+4. Each side keeps the other's certificate. Every later message is signed with the device key and checked against it.
+
+**Afterwards, nothing more is asked.** Opening the profile on a trusted PC with its password is the user's proof; the PC then asks for writing rights, sends pending edits and fetches the ledger by itself, and the home answers on its own:
+
+| Check | Kept, and why |
+|---|---|
+| The phone being unlocked, or a tap on it | **Dropped.** |
+| The profile password on the PC | Kept: it is how the PC opens the encrypted ledger at all. |
+| The signed, pinned device identity on every message | Kept, invisibly: without it anyone on a network could act as the PC. The user never sees it. |
+| Revoke on the phone | Kept: ends the trust at once; the device must pair again. |
+
+**What it needs on the phone.** To give writing rights, take in edits and apply them while locked, the phone app must use the profile key without the password. It keeps a copy wrapped by the Android Keystore (hardware-backed where the phone has it), unusable outside this app on this phone and gone if the app's data is cleared. Unlocking the screens still needs the password; the stored key only serves the background work. A PC keeps no such key: it opens with the password each time.
+
+**Risk this accepts.** Someone who has the phone and gets past its own screen lock still cannot open Lightning's screens without the password, but the app keeps working in the background for paired devices. A lost phone is handled as today (Take back from a new home, revoke).
 
 ### Transport
 
@@ -188,7 +213,7 @@ Each stage is shippable and tested end to end; an area not yet an entry kind is 
 | J2 | Transactions from every device: add, edit amount, date, category, note and owner, delete, split; pending rows on screen; decisions shown | `tests/test_two_devices.py` gains the evening case, the both-devices edit and the review list |
 | J3 | Imports as entries: SMS on the phone, bank CSVs on the PC, with the duplicate flags | SMS versus statement, case U1 below |
 | J4 | Automatic edits as decider entries (section 6) | A device never writes by itself; replay converges |
-| J5 | Writing rights move the decider (section 7); Take back keeps the PC's entries | U9, U13 below |
+| J5 | Writing rights move the decider (section 7), given by themselves after trust pairing (section 8); Take back keeps the PC's entries | U9, U13, U16, U17 below |
 | J6 | The internet channel (section 8, *Transport*) | U14, U15 below |
 | J7+ | One area at a time: budget, planning, reserves, accounts, investments, deposits, items, rules, settings | Each area's save actions are entry kinds with tests |
 
@@ -222,11 +247,12 @@ Each stage is shippable and tested end to end; an area not yet an entry kind is 
 | U13 | The PC asks for writing rights while the phone is off | The PC keeps saving pending edits; when the rights arrive they go in first, then it edits directly |
 | U14 | Phone on mobile data, PC at the office, never on the same Wi-Fi | Each device's edits reach the other through the internet channel; the phone decides at its next check |
 | U15 | The channel drops, repeats or alters an envelope | A dropped one is sent again; a repeat is answered once; an altered one is refused unread |
+| U16 | The phone is locked in his pocket; he opens the profile on the trusted PC | Writing rights arrive with no tap on the phone |
+| U17 | Pairing with the right code but the wrong profile password; a revoked PC asks for writing rights | Nothing paired; refused, and the PC says to pair again |
 
 ## 11. Open questions
 
 - **The internet channel** (section 8, *Transport*): the owner's own Google Drive (recommended) or a Lightning mailbox.
-- Whether giving writing rights needs a tap on the phone, or happens by itself while the phone is unlocked, as a borrow does today.
 - How long turned-down entries stay visible on their device.
 - Whether the decider's review is on the phone only, or also on a PC that is the decider.
 - Size of the accepted journal over years: keep it all (history, G8) or fold old entries into a checkpoint.
