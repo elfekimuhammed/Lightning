@@ -42,6 +42,14 @@
     window.location.replace("/profiles");
   };
 
+  // Still open, but the session changed under this page (a phone lent its ledger to a PC, or got it back):
+  // show this same page again in its new state instead of leaving it for the profile settings.
+  const reloadHere = () => {
+    if (redirecting || leaving) return;
+    redirecting = true;
+    window.location.replace(window.location.href);
+  };
+
   const checkHealth = async () => {
     if (redirecting || healthRequest) return healthRequest;
     healthRequest = (async () => {
@@ -56,7 +64,8 @@
           return;
         }
         const health = await response.json();
-        if (health.locked || health.session !== token) lockAndRedirect();
+        if (health.locked) lockAndRedirect();
+        else if (health.session !== token) reloadHere();
       } catch (error) {
         // Navigation cancels outstanding fetches in Firefox. An old document
         // must not launch a competing redirect while its successor is loading.

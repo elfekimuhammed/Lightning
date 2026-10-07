@@ -7,6 +7,7 @@ import time
 from contextlib import suppress
 from contextlib import asynccontextmanager
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from starlette.requests import Request
 from starlette.responses import JSONResponse, PlainTextResponse, RedirectResponse, Response
@@ -22,6 +23,8 @@ from .http import (MARKET_IMPORT_PATH, MAX_IMPORT_CONFIRM_BODY, MAX_IMPORT_CONFI
 from .devices import Devices, home_state_line, move_to_phone, open_move
 from .paths import choose_data_root, discover_profiles, resolve_profile
 from .roles import READ_ONLY_REFUSAL, SessionRole
+
+READ_ONLY_PATH = "/__read-only"
 from .session import AttemptGuard, ProfileError, ProfileSession
 
 _DEFAULT_FORM_FIELDS = 2_000
@@ -102,11 +105,20 @@ class SessionGate:
             request = Request(scope)
             profile_route = request.url.path == "/profiles" or request.url.path.startswith("/profiles/")
             public = profile_route or request.url.path.startswith("/static/")
-            if not public and self.session.container is None:
+            if not public and self.session.container is None and self.session.paths is None:
                 return await RedirectResponse("/profiles", 303)(scope, receive, send)
-            if scope["method"] not in ("GET", "HEAD"):
-                if not profile_route and not self.session.role.writable:
-                    return await PlainTextResponse(READ_ONLY_REFUSAL, 403)(scope, receive, send)
+            if not public and self.session.container is None:
+                # Sync closed the ledger for a moment (a returned copy going in): wait, not the chooser.
+                return await RedirectResponse("/profiles/checking", 303)(scope, receive, send)
+            if scope["method"] not in ("GET", "HEAD") and not profile_route and not self.session.role.writable:
+                line = self.device_line()[0]
+                if request.headers.get("x-requested-with") == "fetch":  # an inline save shows this text as is
+                    text = f"{line}. Nothing was saved." if line else READ_ONLY_REFUSAL
+                    return await PlainTextResponse(text, 403)(scope, receive, send)
+                # A form: say so in a page of the app, with who has the ledger and a way on (see read_only_page).
+                scope = dict(scope, method="GET", path=READ_ONLY_PATH, raw_path=READ_ONLY_PATH.encode(),
+                             query_string=b"")
+            elif scope["method"] not in ("GET", "HEAD"):
                 if generation != self.session.token:
                     return await PlainTextResponse("Profile changed. Reload before submitting.", 409)(scope, receive, send)
                 body = scope["state"]["request_body"]
@@ -185,7 +197,43 @@ def profile_app(credentials: Credentials, root: Path | str | None = None, device
 
     @app.get("/profiles/health")
     async def health():
-        return JSONResponse({"ok": True, "locked": session.container is None, "session": session.token})
+        # Locked means closed. While sync briefly closes an open ledger (a returned copy going in) it is not.
+        return JSONResponse({"ok": True, "locked": session.paths is None, "session": session.token})
+
+    @app.get("/profiles/checking")
+    async def checking(request: Request):
+        """While a copy a PC handed back goes in, the phone's ledger is closed for a moment: wait here."""
+        if session.container is not None:
+            return RedirectResponse("/", 303)
+        if session.paths is None:
+            return RedirectResponse("/profiles", 303)
+        return page(request, "checking")
+
+    @app.get(READ_ONLY_PATH)
+    async def read_only_page(request: Request):
+        """A form saved while this device only reads the ledger: the gate turns that POST into this page."""
+        from lightning.ui import web
+        if session.container is None or session.role.writable:
+            return RedirectResponse("/", 303)
+        action = gate.device_line()[1]
+        came_from = urlsplit(request.headers.get("referer", ""))
+        back = came_from.path + (f"?{came_from.query}" if came_from.query else "")
+        if not back.startswith("/") or back.startswith("//") or came_from.path == READ_ONLY_PATH:
+            back = "/"
+        return web.render(request, "read_only.html", 403, holder=lent_to(), action=action, back=back,
+                          refusal=READ_ONLY_REFUSAL)
+
+    def lent_to() -> str:
+        """The PC this phone's ledger is lent to, or "" when it reads only for another reason."""
+        from lightning.sync.state import HomeState
+        if session.borrowed is not None or session.paths is None or devices.lending_state(session.paths) != "ok":
+            return ""
+        node = devices.home_node(session.paths)
+        home = node.model if node is not None else None
+        if home is None or home.state is not HomeState.LENT or home.active is None:
+            return ""
+        peer = node.store.peer(home.active.grant.borrower_id)
+        return peer.name if peer else "A PC"
 
     @app.post("/__activity")
     async def activity():
@@ -195,7 +243,7 @@ def profile_app(credentials: Credentials, root: Path | str | None = None, device
 
     def page(request: Request, mode: str, *, error="", status=200, **context):
         values = dict(mode=mode, csrf=session.csrf, error=error, root=str(session.root), borrowed=[],
-                      is_borrowed=session.borrowed is not None,
+                      is_borrowed=session.borrowed is not None, writable=session.role.writable,
                       profiles=[], backups=[], selected="", backup="", name="", recovery="",
                       active_name=session.name, notice="", suggestion="", chosen_password="",
                       questions=SUGGESTED_QUESTIONS, question="", new_recovery="")
@@ -223,6 +271,8 @@ def profile_app(credentials: Credentials, root: Path | str | None = None, device
     async def profiles(request: Request):
         if session.container:
             return page(request, "manage")
+        if session.paths is not None:
+            return RedirectResponse("/profiles/checking", 303)
         try:
             root_value = request.query_params.get("root")
             if root_value:

@@ -7,11 +7,12 @@ only clicks, types and reads. The other sync tests prove the protocol; this file
    cannot open its old copy for writing.
 2. On the bus he fixes a wrong amount and adds a ride on the phone; at his desk the PC borrows the ledger and shows
    exactly the phone's edits; he edits and deletes on the PC while the phone only reads; Hand back returns it.
-3. A form left open on one device never saves over the other's work. (Known gap: a lent phone still offers its add
-   sheet, and Save answers a bare text page.)
+3. A form left open on one device never saves over the other's work; a save on a lent phone answers a phone page
+   that names the PC and leads to Devices, and an open page shows the hand-over by itself.
 4. He forgets to hand back and goes home: the PC keeps his edits sealed; the next morning they reach the phone.
 5. The PC is out of reach for good: the phone takes the ledger back, and the PC says so and borrows again.
-6. The phone is locked when the PC hands back: the changes wait and go in when he unlocks it.
+6. The phone is locked when the PC hands back: the changes wait and go in when he unlocks it; meanwhile a tap
+   shows One moment, never the profile chooser.
 7. A second PC at home cannot borrow while the office PC has it; a wrong password borrows nothing.
 
 After every hand-over both devices show the same figures. A gap found here is a strict expected failure until fixed.
@@ -78,13 +79,13 @@ class Device:
         self.open_app()
 
     def wait_while_checking(self, seconds: float = 10.0):
-        """He waits a moment while the phone checks a returned copy (meanwhile a tap shows the chooser)."""
+        """He waits a moment while the phone checks a returned copy (meanwhile a tap shows One moment)."""
         deadline = time.monotonic() + seconds
         while time.monotonic() < deadline:
             page = self.client.get("/")
             if page.url.path == "/" and "Checking it" not in page.text:
                 return
-            assert page.url.path in ("/", "/profiles"), page.url
+            assert page.url.path == "/" or "One moment" in page.text, page.url
             time.sleep(0.05)
         raise AssertionError("The phone kept checking the returned copy")
 
@@ -257,7 +258,7 @@ def test_3_a_form_left_open_never_saves_over_the_other_devices_work(mohab):
     borrow(pc)
     pc.fix_amount("Wallet", "Talabat", "180")
     late = phone.b.submit({"amount": "175"}, action="edit-popup", page=sheet, expect=403)
-    assert "read-only" in late.text
+    assert late.shows("Nothing was saved", "Office PC has the ledger now")
 
     # The PC's own row, open in its register when the ledger goes home (the 15-minute lock, or Hand back).
     txn = pc.hand.transaction_id("Wallet", "Seoudi")
@@ -272,22 +273,37 @@ def test_3_a_form_left_open_never_saves_over_the_other_devices_work(mohab):
     assert phone.owns() == "620"
 
 
-@pytest.mark.xfail(strict=True, reason="Known gap (2026-10-07): a lent phone still offers the add button and "
-                                       "its sheet; Save answers a bare text page outside the phone frame")
-def test_3b_a_lent_phone_says_who_has_the_ledger_before_he_types_a_row(mohab):
+def test_3b_a_save_on_a_lent_phone_says_who_has_the_ledger_and_where_to_go(mohab):
     phone, pc = mohab
     moved(phone, pc)
     borrow(pc)
     wallet = phone.b.go("Accounts", "Wallet")
-    sheet = phone.b.open(next(l.href for l in wallet.links if l.attrs.get("aria-label") == "Add transaction"))
-    if sheet.forms and any(b[0] == "Save" for f in sheet.forms for b in f.buttons):
-        refused = phone.b.submit({"kind": "out", "date": "2026-10-04", "counterparty": "Cafe", "amount": "40",
-                                  "category_id": screens.Choose("Food & Groceries")}, button="Save", expect=403)
-        # At least the refusal is a phone page that names the PC and leads to Devices (take back) or back.
-        assert 'class="phone-appbar"' in refused.html and refused.shows("Office PC")
-        assert any("/profiles/devices" in l.href for l in refused.links)
-    else:
-        assert sheet.shows("Office PC")
+    phone.b.open(next(l.href for l in wallet.links if l.attrs.get("aria-label") == "Add transaction"))
+    refused = phone.b.submit({"kind": "out", "date": "2026-10-04", "counterparty": "Cafe", "amount": "40",
+                              "category_id": screens.Choose("Food & Groceries")}, button="Save", expect=403)
+    assert 'class="phone-appbar"' in refused.html            # a phone page, not bare text
+    assert refused.shows("Nothing was saved", "Office PC has the ledger now", "Hand it back on that PC")
+    assert phone.b.click("Devices").shows("Office PC", "Has the ledger")
+    # An inline save (no page to show) gets one line that says the same.
+    inline = phone.client.post("/accounts/new", data={"__session": phone.app.session.token},
+                               headers={"X-Requested-With": "fetch"})
+    assert inline.status_code == 403 and inline.text == "Lent to Office PC · read only. Nothing was saved."
+    assert "Cafe" not in phone.register("Wallet") and "Cafe" not in pc.register("Wallet")
+
+
+def test_3c_while_a_returned_copy_goes_in_the_phone_says_one_moment(mohab):
+    phone, pc = mohab
+    moved(phone, pc)
+    gate = phone.app.gate
+    phone.client.portal.call(gate.set_mode, "closed")   # as sync does while it promotes a returned copy
+    try:
+        waiting = phone.b.open("/")
+        assert waiting.path == "/profiles/checking" and waiting.shows("One moment", "by itself")
+        assert phone.b.open("/profiles").path == "/profiles/checking"   # never the chooser
+        assert phone.client.get("/profiles/health").json()["locked"] is False  # an open page stays and reloads
+    finally:
+        phone.client.portal.call(gate.set_mode, "home")
+    assert phone.b.open("/profiles/checking").path == "/"
 
 
 def test_4_he_forgets_to_hand_back_and_the_edits_reach_the_phone_next_morning(mohab):
@@ -339,10 +355,12 @@ def test_5_the_phone_takes_the_ledger_back_from_a_pc_out_of_reach(mohab):
     assert kept.shows("The phone took the ledger back. This copy is kept here, read only.")
     # He reads his lunch in the kept copy, which saves nothing...
     assert "Office lunch" in pc.register("Wallet")
-    assert pc.b.client.get("/").status_code == 200 and pc.app.session.role.writable is False
+    refused = pc.b.submit({"date": "2026-10-07", "counterparty": "Taxi", "category": "Food & Groceries",
+                           "amount": "-30"}, button="Add", page=pc.b.go("Wallet"), expect=403)
+    assert refused.shows("Nothing was saved", "Read only on this PC") and refused.link("Profiles & lock")
     # ...closes it and borrows the phone's ledger again, then types the lunch there.
     pc.b.go("Profiles & lock")
-    assert pc.b.submit({}, button="Hand back").shows("Taken back by the phone")
+    assert pc.b.submit({}, button="Close this copy").shows("Taken back by the phone")
     listing = pc.b.open("/profiles")
     again = pc.b.click(next(l.text for l in listing.links if "/profiles/borrowed?id=" in l.href))
     assert again.shows("Edits made here since then did not go to the phone")

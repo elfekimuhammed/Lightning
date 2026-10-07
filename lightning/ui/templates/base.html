@@ -84,6 +84,6 @@
 <script nonce="{{ request.state.csp_nonce|default('') }}" src="/static/app.js?v=36"></script>
 <script nonce="{{ request.state.csp_nonce|default('') }}" src="/static/ai-handoff.js?v=1" defer></script>
 <script nonce="{{ request.state.csp_nonce|default('') }}">(()=>{const section=document.getElementById('sidebar-accounts'),mobile=window.matchMedia('(max-width: 900px)');if(!section)return;const sync=()=>{section.open=!mobile.matches};sync();mobile.addEventListener('change',sync)})();</script>
-{% if request.state.secure_profiles|default(false) %}<script nonce="{{ request.state.csp_nonce|default('') }}" src="/static/session.js?v=1"></script>{% endif %}
+{% if request.state.secure_profiles|default(false) %}<script nonce="{{ request.state.csp_nonce|default('') }}" src="/static/session.js?v=3"></script>{% endif %}
 </body>
 </html>{% endif %}

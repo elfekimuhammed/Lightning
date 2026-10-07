@@ -4,7 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1{{ ', viewport-fit=cover' if on_phone }}">
   <meta name="color-scheme" content="light">
-  <title>{% if mode == 'choose' %}Choose a profile{% elif mode == 'setup' %}Create a profile{% elif mode == 'recovery-key' %}Save your recovery key{% elif mode == 'unlock' %}Unlock your profile{% elif mode == 'recover' %}Reset your password{% elif mode == 'restore' %}Restore a backup{% elif mode == 'resume-restore' %}Resume a restore{% elif mode == 'manage' %}Profile settings{% elif mode == 'devices' %}Devices{% elif mode in ['connect', 'connected'] %}Connect to your phone{% elif mode == 'borrowed' %}Open from your phone{% elif mode == 'receive' %}Bring a profile from your PC{% else %}Profiles{% endif %} · Lightning</title>
+  {% if mode == 'checking' %}<meta http-equiv="refresh" content="1">{% endif %}
+  <title>{% if mode == 'choose' %}Choose a profile{% elif mode == 'setup' %}Create a profile{% elif mode == 'recovery-key' %}Save your recovery key{% elif mode == 'unlock' %}Unlock your profile{% elif mode == 'recover' %}Reset your password{% elif mode == 'restore' %}Restore a backup{% elif mode == 'resume-restore' %}Resume a restore{% elif mode == 'manage' %}Profile settings{% elif mode == 'devices' %}Devices{% elif mode in ['connect', 'connected'] %}Connect to your phone{% elif mode == 'borrowed' %}Open from your phone{% elif mode == 'receive' %}Bring a profile from your PC{% elif mode == 'checking' %}One moment{% else %}Profiles{% endif %} · Lightning</title>
   <link rel="stylesheet" href="/static/fonts/fonts.css">
   <link rel="stylesheet" href="/static/profiles.css?v=2">
 </head>
@@ -50,6 +51,9 @@
           <h1 id="page-title">{{ item.name }}</h1>
         {% elif mode == 'receive' %}
           <h1 id="page-title">Bring a profile from your PC</h1>
+        {% elif mode == 'checking' %}
+          <h1 id="page-title">One moment</h1>
+          <p>Your PC handed the ledger back. Lightning is checking its copy; this page opens {{ active_name }} by itself in a few seconds.</p>
         {% elif mode == 'manage' %}
           <h1 id="page-title">Profile settings</h1>
           <p>Because this profile is open, each change needs one more proof: your security answer or your recovery key.</p>
@@ -59,7 +63,7 @@
       {% if error %}<div class="alert alert-error" role="alert" aria-live="assertive">{{ error }}</div>{% endif %}
       {% if error and selected and mode in ['unlock', 'restore'] and 'restore' in error|lower %}<p><a class="text-link" href="/profiles/restore/resume?db={{ selected|urlencode }}">Check interrupted restore →</a></p>{% endif %}
       {% if notice %}<div class="alert alert-notice" role="status">{{ notice }}</div>{% endif %}
-      {% if mode == 'devices' %}<p><a class="text-link" href="/profiles">← Back to profile settings</a></p>{% elif mode != 'choose' and mode != 'manage' %}<p><a class="text-link" href="/profiles">← Back to profiles</a></p>{% endif %}
+      {% if mode == 'devices' %}<p><a class="text-link" href="/profiles">← Back to profile settings</a></p>{% elif mode not in ['choose', 'manage', 'checking'] %}<p><a class="text-link" href="/profiles">← Back to profiles</a></p>{% endif %}
       {% if selected and not on_phone %}<p class="selected-database">Selected database: <code>{{ selected }}</code></p>{% endif %}
 
       {% if mode == 'choose' %}
@@ -332,7 +336,7 @@
       {% elif mode == 'manage' %}
         <section class="panel account-panel" aria-labelledby="active-heading">
           <div><p class="eyebrow">Unlocked profile</p><h2 id="active-heading">{{ active_name }}</h2></div>
-          <div class="account-actions"><a class="button button-secondary" href="/">Open finance</a>{% if is_borrowed %}<form method="post" action="/profiles/hand-back"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="button button-primary" type="submit">Hand back</button></form>{% else %}<a class="button button-secondary" href="/profiles/devices">Devices</a><form method="post" action="/profiles/lock"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="button button-secondary" type="submit">Lock profile</button></form>{% endif %}</div>
+          <div class="account-actions"><a class="button button-secondary" href="/">Open finance</a>{% if is_borrowed %}<form method="post" action="/profiles/hand-back"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="button button-primary" type="submit">{{ 'Hand back' if writable else 'Close this copy' }}</button></form>{% else %}<a class="button button-secondary" href="/profiles/devices">Devices</a><form method="post" action="/profiles/lock"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="button button-secondary" type="submit">Lock profile</button></form>{% endif %}</div>
         </section>
         {% if not is_borrowed %}
         {% if not on_phone %}<section class="panel form-panel" aria-labelledby="move-heading">
