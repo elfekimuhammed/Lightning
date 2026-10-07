@@ -12,7 +12,7 @@ The files live in ``lightning/samples/mohab_2026`` (``generate_mohab_2026.py`` w
   month-end prices, which drive the revaluations.
 
 ``load_mohab_2026`` fills an empty Lightning with all of it, then adds the plan (budget, emergency
-fund, recurring bills, the car loan), the same way the screens would.
+fund, recurring bills, a yearly course and bonus, the car loan), the same way the screens would.
 """
 from __future__ import annotations
 
@@ -154,6 +154,13 @@ def _plan(c, accounts: dict[str, int], day: date) -> None:
         c.planning.create(kind=kind, name=name, amount=amount, frequency="MONTHLY", interval_count="1",
                           start_date=start, account_id=account, category_id=category(text),
                           counterparty_id=party(name))
+    # Two yearly events, so the months ahead differ: the English course renews in November, the bonus comes in December.
+    for kind, name, amount, start, text, payee in (
+            ("BILL", "English course", "7,800", "2026-11-15", "Personal › Education", "British Council"),
+            ("INCOME", "Year-end bonus", "50,000", "2026-12-20", "Work › Bonus", "ACME Egypt")):
+        c.planning.create(kind=kind, name=name, amount=amount, frequency="YEARLY", interval_count="1",
+                          start_date=start, account_id=cib, category_id=category(text),
+                          counterparty_id=party(payee))
     c.planning.create(kind="LOAN", name="Car loan", amount="2,500", frequency="MONTHLY", interval_count="1",
                       start_date="2026-01-05", payment_count="24", principal="60,000", account_id=cib,
                       category_id=category("Loans & held money › Loan payments"), counterparty_id=party("Toyota Finance"),

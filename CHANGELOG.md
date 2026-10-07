@@ -10,6 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-07 · Claude: Mohab's 2026 sample plans a yearly English course (7,800, 2026-11-15) and a year-end bonus (50,000, 2026-12-20), so the months ahead differ: 2026-11 −12,486, 2026-12 +45,254, lowest point 165,937 in 2026-11. Overview read budget 605 → 640.
 - 2026-10-07 · Codex and Luna: published the tested Windows ZIP and signed Android APK together as [Version 1.0 beta 1](https://github.com/elfekimuhammed/Lightning-downloads/releases/tag/v1.0.0-beta.1), with checksums and a shared build record.
 - 2026-10-07 · Codex: the beta phone signer uses the four Android repository secrets already configured; the signed CI build proved the key and its public certificate fingerprint is pinned.
 - 2026-10-07 · Codex: a changed FX provider clears the retired provider's failure from the current pack health, so a healthy Banque Misr run can publish.
