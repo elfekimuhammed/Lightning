@@ -249,9 +249,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RUN: ${{ inputs.publish_run }}
-          SHA: ${{ steps.source.outputs.sha }}
+        # The tag goes on this run's commit: the job token may not tag an older commit whose workflow files
+        # differ from main's (HTTP 403). PROVENANCE.txt names the commit the wheels were built from.
         run: >-
-          gh release create "android-wheels-r${RUN}" -R "$GITHUB_REPOSITORY" --prerelease --target "$SHA"
+          gh release create "android-wheels-r${RUN}" -R "$GITHUB_REPOSITORY" --prerelease --target "$GITHUB_SHA"
           --title "Android build input: native wheels of run ${RUN} (not an app release)"
           --notes "The arm64 wheels the phone app is built with, pinned by SHA-256 in requirements/android.lock. Not an app; nothing here is installed by people."
           *.whl SHA256SUMS PROVENANCE.txt
