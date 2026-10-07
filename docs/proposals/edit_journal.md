@@ -181,7 +181,7 @@ Owner (2026-10-07): **make the first time concrete, then make it easy.**
 | The signed, pinned device identity on every message | Kept, invisibly: without it anyone on a network could act as the PC. The user never sees it. |
 | Revoke on the phone | Kept: ends the trust at once; the device must pair again. |
 
-**What it needs on the phone.** To give writing rights, take in edits and apply them while locked, the phone app must use the profile key without the password. It keeps a copy wrapped by the Android Keystore (hardware-backed where the phone has it), unusable outside this app on this phone and gone if the app's data is cleared. Unlocking the screens still needs the password; the stored key only serves the background work. A PC keeps no such key: it opens with the password each time.
+**What it needs on the phone** (owner confirmed, 2026-10-07)**.** To give writing rights, take in edits and apply them while locked, the phone app must use the profile key without the password. It keeps a copy wrapped by the Android Keystore (hardware-backed where the phone has it), unusable outside this app on this phone and gone if the app's data is cleared. Unlocking the screens still needs the password; the stored key only serves the background work. A PC keeps no such key: it opens with the password each time.
 
 **Risk this accepts.** Someone who has the phone and gets past its own screen lock still cannot open Lightning's screens without the password, but the app keeps working in the background for paired devices. A lost phone is handled as today (Take back from a new home, revoke).
 
@@ -278,6 +278,14 @@ Each stage is shippable and tested end to end; an area not yet an entry kind is 
 
 ## 11. Open questions
 
-- How long turned-down entries stay visible on their device.
-- Whether the decider's review is on the phone only, or also on a PC that is the decider.
-- Size of the accepted journal over years: keep it all (history, G8) or fold old entries into a checkpoint.
+Each with a recommendation; the owner decides.
+
+| | Question | Recommendation |
+|---|---|---|
+| Q1 | **Lost or broken phone.** The phone is the home, so losing it loses the decider. Which device takes over, and how is the old phone shut out? | A paired PC, with the profile password, can *Make this PC the home*: it becomes the decider from its last accepted ledger plus its pending edits, under a new lineage; the mailbox retires the old phone so it can never give writing rights again; other devices follow the new home. Pairing a new phone later moves the home back. |
+| Q2 | Where the owner reviews clashes and duplicates | On whichever device holds writing rights: the phone at home, the PC while it has them. |
+| Q3 | How long a turned-down edit stays visible on its device | Until the user dismisses it, in a *Not taken* list, with *Add again*. |
+| Q4 | The accepted journal over years | Keep it all (history, G8). A year of entries is a few megabytes. |
+| Q5 | When to build it | After the bank SMS work (M3) finishes, since it holds the sync files. J1–J5 work on the same Wi-Fi with no server; J6 adds the mailbox. |
+| Q6 | Devices on different app versions | A device that is behind keeps its edits pending and says "Update Lightning on this device"; the phone updates through Google Play, the PC from the website, and the phone tells the user when a paired PC is behind. |
+| Q7 | Privacy | Before J6 ships, the website's privacy note says what Cloudflare and Firebase see (addresses, times, sizes) and that they never see content. |
