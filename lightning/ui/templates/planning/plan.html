@@ -45,7 +45,7 @@
 {% endif %}
 <header class="overview-section-head inv-head"><h2>What is promised?</h2><span>Today</span></header>
 {% set by_loan = p.loan_bars.rows|length > 1 %}
-<section class="card wide-card"><div class="{{ 'overview-split' if by_loan }}">
+<section class="card wide-card"><div class="overview-split{{ '' if by_loan else ' is-single' }}">
   <section><div class="overview-block-head"><div><h3>{{ fig.what_you_owe.label }}</h3><p>Bills already due and loans</p></div><a class="quiet-link" href="/plan/loans">Loans</a></div>
     <div class="overview-headline">{{ owe.total|money }} <small>{{ base }}</small></div>
     <div class="overview-inline-list"><div class="overview-static-row"><span>{{ fig.bills_due.label }} <small>other than loan payments</small></span><b>{{ owe.other_bills_due|money }}</b></div>

@@ -44,10 +44,10 @@ class IntegrityService:
                         "Gross account values should equal the asset-class breakdown."),
             self._check("What I own plus money held for others equals account balances",
                         account_split, owned_and_held,
-                        "Gross balances = owned net worth + the valued custody subledger.", complete),
+                        "Account balances = what you own + money you hold for others.", complete),
             self._check("Asset-class report adds to owned net worth",
                         sum((group.value for group in nw.by_class), ZERO), nw.total,
-                        "The negative custody row is included in the owned total.", complete),
+                        "Money held for others is taken out of what you own.", complete),
         ]
 
         custody_by_account = self.reporting.custody_value_by_account(day)

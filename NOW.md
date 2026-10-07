@@ -11,7 +11,6 @@ Work longer than one sitting, and its files. Stay out of claimed files; remove y
 | Codex | 02d — Code/fault tests pass; ordinary Windows reboot drill remains. Abrupt power-loss behavior is unverified; see Architecture › Promotion durability risk and [OWNER.md](OWNER.md). | `tests/test_database_promotion.py` | 2026-10-06 |
 | Claude | M3 bank SMS, then Android reading it; M1–2 in owner review | `lightning/sms_imports.py`, `lightning/sync/`, `runtime/devices.py`, `ui/templates/phone/`, `phone.css`, `android/` | 2026-10-06 |
 | Claude (rules) | Proposal 1.2 rules (1.7 done) | `lightning/rules/`, new `ui/routes/rules.py`, `templates/rules/` | 2026-10-06 |
-| Claude (UX) | *Next* 1–3, to fix or clear | `ui/templates/` (not `phone/`), `style.css`, `ui/routes/`, `live_prices.py` | 2026-10-06 |
 | Luna, for Codex | 03a restore safety: durable intent and source-copy manifest, Windows marker publication, then explicit deterministic repair. Codex reviews it and owns the restore UI and docs | `lightning/runtime/restore.py`, `lightning/database/promotion_windows.py`, `tests/test_profile_session.py`, `tests/test_database_promotion_windows.py` | 2026-10-05 |
 
 ## Messages
@@ -34,6 +33,7 @@ Each names who it is for; that AI deletes it once handled. A message to all may 
 
 Unclaimed: add a *Claimed* row before you start. Each item's **Read:** names what it needs. The 0.5.0-beta.1 release waits on the owner (`OWNER.md`, Price packs).
 
-1. **UX plan 5, 6, 8, 9, 10.** Read: Project Overview › UX plan; guideline A03, A08, A10, A11.
-2. **Online prices for funds:** match held funds to Mubasher ids (`EG:FUND:<id>`). Read: `workflows/live_prices.py` docstring.
-3. **Speed (optional):** stable window origin for caching; trim unused CSS. Read: Architecture › Page speed.
+1. **Registers as two-line rows** (UX plan 6; its add, edit and bulk rows share the table's columns). Read: guideline A11; `templates/register.html`.
+2. **UX plan 10 leftovers**, among them a certificate's month-end price that cannot post. Read: Project Overview › UX plan 10.
+3. **Gold at the shop price** (a source tested from a home connection); silver needs holdings first. Read: `docs/proposals/market_data.md`.
+4. **Speed (optional):** stable window origin for caching; trim unused CSS. Read: Architecture › Page speed.

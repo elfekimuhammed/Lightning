@@ -4,7 +4,7 @@
 {% block heading %}<h1>Accounts</h1><div class="muted">Where is your money held?</div>{% endblock %}
 {% block top_actions %}<a class="btn primary" href="/accounts/new">Add account</a> <a class="btn" href="/sms">From SMS</a>{% endblock %}
 {% block content %}
-{% if rows %}<section class="card account-list-summary"><div class="budget-summary-grid"><div><span>Total balance</span><b>{{ held(gross_total, base) }}</b></div><div><span>{{ fig.what_you_own.label }}</span><b>{{ held(net_worth.total, base) }}</b></div></div></section>{% endif %}
+{% if rows %}<section class="card account-list-summary"><div class="budget-summary-grid"><div><span>Total balance</span><b>{{ held(gross_total, base, 0) }}</b></div><div><span>{{ fig.what_you_own.label }}</span><b>{{ held(net_worth.total, base, 0) }}</b></div></div></section>{% endif %}
 <div class="card">
   <table>
     <thead><tr><th>Account</th><th>Type</th><th class="num">Transactions</th><th class="num">Total balance</th><th class="num">You own</th></tr></thead>
