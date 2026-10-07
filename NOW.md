@@ -4,7 +4,7 @@
 
 | Who | Work | Files | Since |
 |---|---|---|---|
-| Codex | Beta 1.0 paired release: code and Linux CI green; FX pack published. Waiting for the owner's dedicated Android test key and public fingerprint before tagging. Website draft is in `/tmp/Lightning_website`, not published until both assets exist. | `NOW.md`, `CHANGELOG.md`, release workflows, packaging, docs (outside others' claims) | 2026-10-07 |
+| Codex | Beta 1.0 paired release: code and Linux CI green; FX pack published. Using the owner's four existing Android signing secrets; next pin their public certificate fingerprint, tag and publish both apps. Website draft is in `/tmp/Lightning_website`, not published until both assets exist. | `NOW.md`, `CHANGELOG.md`, release workflows, packaging, docs (outside others' claims) | 2026-10-07 |
 | Codex | 02d — Code/fault tests pass; ordinary Windows reboot drill remains. Abrupt power-loss behavior is unverified; see Architecture › Promotion durability risk and [OWNER.md](OWNER.md). | `tests/test_database_promotion.py` | 2026-10-06 |
 | Claude | M3 bank SMS, then Android reading it; M1–2 in owner review | `lightning/sms_imports.py`, `lightning/sync/`, `runtime/devices.py`, `ui/templates/phone/`, `phone.css`, `android/` | 2026-10-06 |
 | Luna, for Codex | 03a restore safety: durable intent and source-copy manifest, Windows marker publication, then explicit deterministic repair. Codex reviews it and owns the restore UI and docs | `lightning/runtime/restore.py`, `lightning/database/promotion_windows.py`, `tests/test_profile_session.py`, `tests/test_database_promotion_windows.py` | 2026-10-05 |

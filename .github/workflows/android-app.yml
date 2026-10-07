@@ -15,9 +15,13 @@ on:
         type: boolean
         default: false
     secrets:
-      ANDROID_TEST_KEYSTORE:
+      ANDROID_KEYSTORE_BASE64:
         required: false
-      ANDROID_TEST_KEYSTORE_PASSWORD:
+      ANDROID_KEYSTORE_PASSWORD:
+        required: false
+      ANDROID_KEY_ALIAS:
+        required: false
+      ANDROID_KEY_PASSWORD:
         required: false
 
 permissions:
@@ -112,15 +116,17 @@ jobs:
       - name: Sign with the test key
         id: sign
         env:
-          KEYSTORE: ${{ secrets.ANDROID_TEST_KEYSTORE }}
-          PASS: ${{ secrets.ANDROID_TEST_KEYSTORE_PASSWORD }}
+          KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
           BUNDLE: ${{ inputs.bundle }}
           APK: ${{ needs.apk.outputs.apk }}
         run: |
           set -euo pipefail
-          if [ -z "$KEYSTORE" ] || [ -z "$PASS" ]; then
+          if [ -z "$KEYSTORE" ] || [ -z "$STORE_PASS" ] || [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASS" ]; then
             if [ "$BUNDLE" = "true" ]; then
-              echo "::error::No test key. Add the secrets ANDROID_TEST_KEYSTORE and ANDROID_TEST_KEYSTORE_PASSWORD (OWNER.md); an APK signed by any other key could not update Lightning Test."
+              echo "::error::The Android signing key needs ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS and ANDROID_KEY_PASSWORD."
               exit 1
             fi
             echo "::notice::No test key yet: this APK is checked but not signed with it, and nothing is uploaded."
@@ -128,21 +134,36 @@ jobs:
             exit 0
           fi
           umask 077
-          # Pasted secrets may carry spaces or Windows line ends; the key's text and password have neither.
-          export PASS="$(printf '%s' "$PASS" | tr -d ' \r\n\t')"
-          if ! printf '%s' "$KEYSTORE" | tr -d ' \r\n\t' | base64 -d > "$RUNNER_TEMP/test.p12" 2>/dev/null; then
-            echo "::error::ANDROID_TEST_KEYSTORE is not the text of ANDROID_TEST_KEYSTORE.txt: paste that whole file again."
+          # Base64 can contain line breaks; preserve passwords byte for byte.
+          if ! printf '%s' "$KEYSTORE" | tr -d ' \r\n\t' | base64 -d > "$RUNNER_TEMP/signing.keystore" 2>/dev/null; then
+            echo "::error::ANDROID_KEYSTORE_BASE64 is not valid base64."
             exit 1
           fi
-          if ! "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign --ks "$RUNNER_TEMP/test.p12" --ks-type PKCS12 \
-              --ks-pass env:PASS --key-pass env:PASS --ks-key-alias lightning-test \
+          if ! "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign --ks "$RUNNER_TEMP/signing.keystore" \
+              --ks-pass env:STORE_PASS --key-pass env:KEY_PASS --ks-key-alias "$KEY_ALIAS" \
               --out "$RUNNER_TEMP/$APK" "$RUNNER_TEMP/unsigned/app-debug.apk"; then
-            rm -f "$RUNNER_TEMP/test.p12"
-            echo "::error::The test key would not open. ANDROID_TEST_KEYSTORE_PASSWORD must be the whole of ANDROID_TEST_KEYSTORE_PASSWORD.txt, from the same run of tools/android_test_key.py as ANDROID_TEST_KEYSTORE."
+            rm -f "$RUNNER_TEMP/signing.keystore"
+            echo "::error::The Android signing keystore, alias or password was rejected by apksigner."
             exit 1
           fi
-          rm -f "$RUNNER_TEMP/test.p12"
+          rm -f "$RUNNER_TEMP/signing.keystore"
           echo "signed=true" >> "$GITHUB_OUTPUT"
+      - name: Pin the public signing certificate
+        if: steps.sign.outputs.signed == 'true'
+        env:
+          APK: ${{ needs.apk.outputs.apk }}
+        run: |
+          set -euo pipefail
+          fingerprint="$(python packaging/phone_build.py signer "$RUNNER_TEMP/$APK" --build-tools "$ANDROID_HOME/build-tools/35.0.0")"
+          if ! [[ "$fingerprint" =~ ^[0-9a-f]{64}$ ]]; then
+            echo "::error::Expected exactly one SHA-256 signing fingerprint."
+            exit 1
+          fi
+          echo "Public Android signing certificate SHA-256: $fingerprint"
+          if [ ! -f packaging/android-test-certificate.sha256 ]; then
+            echo "::error::Pin this public fingerprint in packaging/android-test-certificate.sha256 before publishing."
+            exit 1
+          fi
       - name: Check the signed app (the same checks, and the test certificate alone)
         if: steps.sign.outputs.signed == 'true'
         env:

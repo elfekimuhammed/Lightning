@@ -430,7 +430,7 @@ def test_a_manual_run_says_at_once_what_it_can_make():
                                    "workflow_dispatch run", True, True)
     assert "Windows: built and tested in this run" in built[0][1]  # plain words, not the event's name
     no_key = scope.manual_run_notes("refs/heads/main", "d" * 40, ready, "manual run", False, False)
-    assert no_key[1][0] == "warning" and "No test key" in no_key[1][1] and "OWNER.md" in no_key[1][1]
+    assert no_key[1][0] == "warning" and "No Android signing key" in no_key[1][1] and "OWNER.md" in no_key[1][1]
     no_print = scope.manual_run_notes("refs/heads/main", "d" * 40, ready, "manual run", True, False)
     assert "android-test-certificate.sha256" in no_print[1][1]
     branch = scope.manual_run_notes("refs/heads/feature", "d" * 40, {"phone": "false", "suite": "run", "reuse_run": ""},

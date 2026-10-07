@@ -284,11 +284,11 @@ def manual_run_notes(ref: str, sha: str, values: dict[str, str], reason: str, ha
     notes = [("notice", f"Matched test builds of {sha[:8]}. Windows: {windows}. Linux suite: "
                         + ("already passed on this commit, not run again." if values["suite"] == "skip" else "runs now."))]
     if not has_key:
-        notes.append(("warning", "No test key yet (OWNER.md, Phone test key): both apps are built and checked, "
+        notes.append(("warning", "No Android signing key yet (OWNER.md, Phone test key): both apps are built and checked, "
                                  "the Windows ZIP is uploaded, but the phone build stops at signing and no matched "
                                  "pair is offered."))
     elif not has_fingerprint:
-        notes.append(("warning", "The test key is set but its fingerprint is not committed as "
+        notes.append(("warning", "The Android signing key is set but its public fingerprint is not committed as "
                                  "packaging/android-test-certificate.sha256: the phone build will stop after signing."))
     return notes
 
