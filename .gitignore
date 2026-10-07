@@ -10,3 +10,12 @@ dist/
 nul
 # The release build writes this from the published price files; never committed.
 lightning/market/market.zip
+
+# The Android test key (tools/android_test_key.py) is kept outside the repository; never commit it.
+ANDROID_TEST_KEYSTORE*.txt
+*.p12
+*.jks
+*.keystore
+# Gradle state of the phone build
+.gradle/
+android/local.properties

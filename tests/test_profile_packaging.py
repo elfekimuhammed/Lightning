@@ -192,6 +192,9 @@ def test_only_documentation_skips_the_windows_build():
                  "packaging/package_app.py", "tests/test_ui.py", "requirements/desktop-probe-win.lock",
                  ".github/workflows/desktop-probe.yml", "pyproject.toml", "desktop_app.py", "run.bat"):
         assert not scope.cannot_reach_app(path), path
+    for path in ("android/app/build.gradle.kts", "requirements/android.lock", ".github/workflows/android-app.yml",
+                 "packaging/phone_build.py", "packaging/android-permissions.txt"):
+        assert scope.cannot_reach_app(path), path  # the phone's build never changes the Windows app
     # Anything uncertain builds.
     assert scope.build_windows("workflow_dispatch", "refs/heads/main", None, "HEAD")[0]
     assert scope.build_windows("push", "refs/tags/v1.0.0", "a" * 40, "HEAD")[0]
@@ -245,6 +248,7 @@ def test_the_docs_only_skip_compares_with_the_last_successful_windows_build(monk
         if "/jobs" in path:
             return {"jobs": jobs[int(path.split("/runs/")[1].split("/")[0])]}
         assert "branch=main" in path and "desktop-probe.yml" in path
+        assert "event=schedule" in path or "event=workflow_dispatch" in path  # never a page of pushes
         return runs
 
     monkeypatch.setenv("GITHUB_REPOSITORY", "owner/Lightning")
@@ -401,3 +405,18 @@ def test_the_daily_run_compares_with_the_last_windows_build(monkeypatch, tmp_pat
         monkeypatch.setenv("GITHUB_OUTPUT", str(tmp_path / event))
         scope.main([])
     assert asked == [True]
+
+
+def test_a_manual_run_says_at_once_what_it_can_make():
+    """The owner learns in the first minute, not after the Windows build, why no pair will come."""
+    scope = _ci_scope()
+    ready = {"phone": "true", "suite": "skip"}
+    notes = scope.manual_run_notes("refs/heads/main", "d" * 40, ready, "run 7 built and tested this commit", True, True)
+    assert [level for level, _ in notes] == ["notice"] and "already passed" in notes[0][1]
+    no_key = scope.manual_run_notes("refs/heads/main", "d" * 40, ready, "manual run", False, False)
+    assert no_key[1][0] == "warning" and "No test key" in no_key[1][1] and "OWNER.md" in no_key[1][1]
+    no_print = scope.manual_run_notes("refs/heads/main", "d" * 40, ready, "manual run", True, False)
+    assert "android-test-certificate.sha256" in no_print[1][1]
+    branch = scope.manual_run_notes("refs/heads/feature", "d" * 40, {"phone": "false", "suite": "run"}, "x", True, True)
+    assert branch == [("warning", "A manual run on feature builds the Windows app only; the matched PC and phone "
+                                  "test builds run only on main.")]

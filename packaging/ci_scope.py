@@ -37,6 +37,11 @@ _NEVER_SHIPPED = (
     re.compile(r"^(?!lightning/|packaging/)[^\n]*\.md$"),
     re.compile(r"^Lightning\.desktop$"),
     re.compile(r"^run\.sh$"),
+    # The phone app's own build: the Windows app never contains it.
+    re.compile(r"^android/"),
+    re.compile(r"^requirements/android\."),
+    re.compile(r"^\.github/workflows/android-"),
+    re.compile(r"^packaging/(phone_build\.py|android-)"),
 )
 
 
@@ -72,13 +77,18 @@ def _workflow() -> tuple[str, str]:
 
 
 def last_windows_build(api=github_api) -> str | None:
-    """The commit of the newest run on main whose Windows job succeeded, or None if unknown."""
+    """The commit of the newest run on main whose Windows job succeeded, or None if unknown. Only daily and
+    manual runs build Windows on main, so only they are read: a day of pushes would fill a page of all runs."""
     repo, workflow = _workflow()
     if not repo or not workflow:
         return None
     try:
-        runs = api(f"/repos/{repo}/actions/workflows/{workflow}/runs?branch=main&status=completed&per_page=30")
-        for run in runs.get("workflow_runs", []):
+        runs = []
+        for event in ("schedule", "workflow_dispatch"):
+            runs += api(f"/repos/{repo}/actions/workflows/{workflow}/runs?branch=main&event={event}"
+                        "&status=completed&per_page=20").get("workflow_runs", [])
+        runs.sort(key=lambda run: run.get("created_at", ""), reverse=True)
+        for run in runs:
             jobs = api(f"/repos/{repo}/actions/runs/{run['id']}/jobs?per_page=100")
             if any(job.get("name") in WINDOWS_JOBS and job.get("conclusion") == "success"
                    for job in jobs.get("jobs", [])):
@@ -167,6 +177,34 @@ def check_release_tag(tag: str, sha: str) -> list[str]:
     return problems
 
 
+def manual_run_notes(ref: str, sha: str, values: dict[str, str], reason: str, has_key: bool,
+                     has_fingerprint: bool) -> list[tuple[str, str]]:
+    """What a manual run will make, as (level, text) lines for the run's page, said in its first minute."""
+    if values["phone"] != "true":
+        return [("warning", f"A manual run on {ref.removeprefix('refs/heads/')} builds the Windows app only; "
+                            "the matched PC and phone test builds run only on main.")]
+    notes = [("notice", f"Matched test builds of {sha[:8]}. Windows: {reason}. Linux suite: "
+                        + ("already passed on this commit, not run again." if values["suite"] == "skip" else "runs now."))]
+    if not has_key:
+        notes.append(("warning", "No test key yet (OWNER.md, Phone test key): both apps are built and checked, "
+                                 "the Windows ZIP is uploaded, but the phone build stops at signing and no matched "
+                                 "pair is offered."))
+    elif not has_fingerprint:
+        notes.append(("warning", "The test key is set but its fingerprint is not committed as "
+                                 "packaging/android-test-certificate.sha256: the phone build will stop after signing."))
+    return notes
+
+
+def tell(notes: list[tuple[str, str]]) -> None:
+    """Annotations on the run's page, and the same lines in its summary."""
+    for level, text in notes:
+        print(f"::{level}::{text}")
+    summary = os.environ.get("GITHUB_STEP_SUMMARY")
+    if summary and notes:
+        with open(summary, "a", encoding="utf-8") as stream:
+            stream.write("".join(f"- {text}\n" for _, text in notes))
+
+
 def main(argv: list[str]) -> int:
     sha = os.environ.get("GITHUB_SHA", "HEAD")
     if "--check-release-tag" in argv:
@@ -188,6 +226,9 @@ def main(argv: list[str]) -> int:
             build, reason = False, f"run {values['reuse_run']} built and tested this commit; its ZIP is reused"
     print(f"Build the Windows app: {'yes' if build else 'no'} ({reason})")
     print(f"Linux suite: {values['suite']}; phone app and test bundle: {'yes' if values['phone'] == 'true' else 'no'}")
+    if event == "workflow_dispatch":
+        tell(manual_run_notes(ref, sha, values, reason, os.environ.get("HAS_TEST_KEY") == "true",
+                              (ROOT / "packaging" / "android-test-certificate.sha256").exists()))
     values["build_windows"] = "true" if build else "false"
     output = os.environ.get("GITHUB_OUTPUT")
     if output:

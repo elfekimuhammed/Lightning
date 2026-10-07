@@ -119,8 +119,8 @@ def contents_problems(apk_path: Path, locked: dict[str, str]) -> tuple[list[str]
         if not app:
             problems.append("no app Python archive (assets/chaquopy/app*.imy)")
         carried = [entry for name in app for entry in imy_names(apk, name)]
-        for wanted in REQUIRED:
-            if not any(wanted in entry for entry in carried):
+        for wanted in REQUIRED:  # exactly that file, or something inside that folder
+            if not any(entry == wanted or (wanted.endswith("/") and entry.startswith(wanted)) for entry in carried):
                 problems.append(f"{wanted} is not in the APK")
         packages: dict[str, str] = {}
         requirement_files = []
@@ -132,7 +132,7 @@ def contents_problems(apk_path: Path, locked: dict[str, str]) -> tuple[list[str]
                     if match := re.match(r"([^/]+)-([^-/]+)\.dist-info/$", entry.split("/", 1)[0] + "/"):
                         packages[normalize(match[1])] = match[2]
         for entry in [n for n in names if not n.startswith("META-INF/")] + carried + requirement_files:
-            if PRIVATE.search(entry) and not any(entry.endswith(allowed) for allowed in ALLOWED_PRIVATE):
+            if PRIVATE.search(entry) and entry not in ALLOWED_PRIVATE:
                 problems.append(f"{entry} looks like private data (database, key, backup or log)")
     if packages != locked:
         extra = {k: v for k, v in packages.items() if locked.get(k) != v}
@@ -206,7 +206,9 @@ def check(apk: Path, build_tools: Path, code: str, name: str, cert_file: Path | 
         fingerprint = certificate(cert_file)
         found = signers(tool(build_tools, "apksigner", "verify", "--verbose", "--print-certs", str(apk)))
         if found != [fingerprint]:
-            problems.append(f"signed by {found}, not by the test certificate {fingerprint} alone")
+            problems.append(f"signed by {found}, not by the test certificate {fingerprint} alone. If a new key was "
+                            "made, commit its fingerprint as packaging/android-test-certificate.sha256 (Lightning Test "
+                            "then needs one uninstall); otherwise the secrets hold a different key than the one pinned")
     if problems:
         raise BuildError("The APK is not the test build it should be:\n- " + "\n- ".join(problems))
     return {"file": apk.name, "size": apk.stat().st_size, "sha256": sha256(apk), "application_id": info["package"],
@@ -234,14 +236,22 @@ def windows_build(folder: Path, commit: str) -> tuple[Path, dict[str, str]]:
 README = """Lightning test builds {stamp}: dummy data only
 
 These two files were built and tested from one commit ({commit}). They are test builds, not a
-release: use dummy profiles only. The phone app is debuggable.
+release: use dummy profiles only. The phone app is debuggable. Install both from the same run:
+a PC and a phone from different runs may not understand each other.
 
-PC (Windows): extract the ZIP and run Lightning\\Lightning.exe.
-Phone (Android, arm64): open the APK and allow your browser or Files app to install it.
-  - It installs as "Lightning Test", beside the old "Lightning" debug app. Uninstall that old app once
-    when you are ready; its dummy data goes with it.
-  - A later Lightning Test APK updates this one and keeps its dummy profile.
+PC (Windows): extract the ZIP to a new folder and run Lightning\\Lightning.exe. If Windows says it
+protected your PC, choose More info, then Run anyway (test builds are not code-signed). Your
+profiles stay in Documents\\Lightning. An older build refuses a profile a newer one has opened.
 
+Phone (Android, arm64): unzip the download in Files, open the APK, and allow Files (or your browser)
+to install apps when Android asks.
+  - The first time: uninstall the old "Lightning" app first. Both listen on the same network port,
+    so pairing can fail while it is installed. Its dummy data goes with it. Then pair again.
+  - Later: a newer Lightning Test APK updates this one and keeps its dummy profile. If Android says
+    the app was not installed, the APK is older than the one on the phone, or the test key changed:
+    uninstall Lightning Test once, then install.
+
+These downloads last seven days; run "PC and phone app" again for fresh ones.
 SHA256SUMS lists both files' SHA-256; BUILD.json says what was built, from where, and how it was checked.
 """
 

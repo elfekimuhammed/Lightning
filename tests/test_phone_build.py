@@ -222,3 +222,63 @@ def test_the_workflows_offer_a_pair_only_from_one_run_and_never_sign_with_anothe
     assert 'if [ "$BUNDLE" = "true" ]; then' in sign and "exit 1" in sign  # no key, no APK for the bundle
     assert "--certificate packaging/android-test-certificate.sha256" in android
     assert "if: inputs.bundle && steps.sign.outputs.signed == 'true'" in android  # only a signed APK is uploaded
+
+
+# Imports the shipped apps lack today, each a strict known gap: the test fails once it is fixed, so the
+# entry is removed. httpx: cd23258 made the self-check use it, but desktop-app.spec excludes it as a test
+# tool and the phone does not carry it, so every packaged self-check fails (Messages in NOW.md).
+KNOWN_UNSHIPPED = {"httpx <- lightning/runtime/selfcheck.py"}
+DESKTOP_ONLY = {"webview", "clr", "System"}  # pywebview and pythonnet, used only under lightning/desktop/
+
+
+def _third_party_imports() -> dict[str, set[str]]:
+    import ast
+    import sys
+    found: dict[str, set[str]] = {}
+    for path in (ROOT / "lightning").rglob("*.py"):
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if isinstance(node, ast.Import):
+                names = [alias.name for alias in node.names]
+            elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+                names = [node.module]
+            else:
+                continue
+            for name in names:
+                top = name.split(".")[0]
+                if top not in sys.stdlib_module_names and top != "lightning":
+                    found.setdefault(top, set()).add(path.relative_to(ROOT).as_posix())
+    return found
+
+
+def test_shared_code_imports_only_what_both_apps_ship():
+    """A module the code imports but an app does not carry breaks that app only when it runs, after a
+    green suite (the developer has it installed). Checked here, on every push, instead."""
+    import re
+    spec = (ROOT / "packaging" / "desktop-app.spec").read_text(encoding="utf-8")
+    excluded = set(re.findall(r'"([\w.]+)"', spec[spec.index("excludes=["):spec.index("]", spec.index("excludes=["))]))
+    phone = {name.replace("-", "_") for name in _locked()} | {"multipart"}  # python-multipart's module
+    missing = set()
+    for module, paths in _third_party_imports().items():
+        for path in paths:
+            desktop_only = path.startswith("lightning/desktop/")
+            if module in DESKTOP_ONLY and desktop_only:
+                continue
+            if module in excluded or (not desktop_only and module not in phone):
+                missing.add(f"{module} <- {path}")
+    assert missing == KNOWN_UNSHIPPED
+
+
+def test_the_pc_and_the_phone_run_the_same_core_libraries():
+    """The PC and the phone open the same encrypted ledger and serve the same pages: the libraries that
+    touch either must be the same version on both, or a sync can meet a format one side does not know."""
+    core = ("sqlcipher3", "cryptography", "fastapi", "starlette", "pydantic", "pydantic-core", "jinja2",
+            "uvicorn", "python-multipart", "tzdata")
+    phone = _locked()
+    for lock in ("desktop-probe-win.lock", "desktop-probe-linux.lock"):
+        desktop: dict[str, str] = {}
+        for line in (ROOT / "requirements" / lock).read_text(encoding="utf-8").splitlines():
+            if "==" in line and not line.startswith((" ", "#")):
+                name, version = line.split(" ")[0].split("==")
+                desktop[name.lower().replace("_", "-")] = version
+        for name in core:
+            assert desktop.get(name) == phone.get(name), f"{name}: {lock} has {desktop.get(name)}, the phone {phone.get(name)}"
