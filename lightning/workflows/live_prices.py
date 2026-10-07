@@ -43,7 +43,7 @@ from lightning.core.dates import fmt_date
 from lightning.market.http import APP_AGENT, Polite
 from lightning.market.model import Quote, SourceError
 from lightning.market.packs import PACKS
-from lightning.market.sources import cbe, mubasher, tradingview, yahoo
+from lightning.market.sources import banque_misr, mubasher, tradingview, yahoo
 from lightning.workflows.market_prices import MISSING_SETTING, _month_ends
 
 SOURCE = "ONLINE"
@@ -481,7 +481,7 @@ def probe(session=None) -> list[tuple[str, bool, str]]:
         ("Yahoo Finance", lambda: count(len(yahoo.fetch_history(session, "EG:COMI", "1mo")), "day", "days")
          + " of CIB's history"),
         ("Mubasher", lambda: count(len(mubasher.fetch(session).quotes), "Egyptian fund", "Egyptian funds")),
-        ("Central Bank of Egypt", lambda: count(len(cbe.fetch(session, fmt_date(date.today())).quotes),
+        ("Banque Misr", lambda: count(len(banque_misr.fetch(session, fmt_date(date.today())).quotes),
                                                 "exchange rate", "exchange rates")),
     )
     results = []
@@ -498,4 +498,3 @@ def probe(session=None) -> list[tuple[str, bool, str]]:
 def probe_summary(results) -> str:
     return " · ".join(f"{name}: {'works, ' + what if works else 'not working (' + what + ')'}"
                       for name, works, what in results)
-

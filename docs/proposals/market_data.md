@@ -37,7 +37,7 @@ Today each copy of Lightning asks Yahoo's undocumented chart feed for each Egypt
                              data with bad                         and daily price files        files of followed packs
 ```
 
-1. **Each app fetches its own prices; the collector is the backup** (owner, 2026-10-05, reversing "the app never scrapes"). CBE blocks GitHub's servers but not home connections, and a person's app reading prices for its owner republishes nothing. The app fetches at least at every month-end and on Update prices (*How the app gets prices*). The collector still runs daily after each close: it keeps the shared files a user can download when a source fails for them, and its alarm tells us when an adapter breaks, so the fix ships before most users notice.
+1. **Each app fetches its own prices; the collector is the backup** (owner, 2026-10-05, reversing "the app never scrapes"). CBE now rejects the collector's requests; Banque Misr's dated public transfer rates are the working FX source (owner, 2026-10-07). The app fetches at least at every month-end and on Update prices (*How the app gets prices*). The collector still runs daily after each close: it keeps the shared files a user can download when a source fails for them, and its alarm tells us when an adapter breaks, so the fix ships before most users notice.
 2. **One format, one pack per market.** Egyptian stocks, Egyptian funds, exchange rates, US, Gulf and European stocks: each pack is the same format with ISO identifiers, refreshed on its own schedule, and a user follows only the packs they want (owner's request).
 3. **History comes with the app.** Each release ships the default packs, so first run and back-filling work offline and at once.
 4. **Updating is one button and a few kilobytes.** The app compares checksums and downloads only what changed, usually today's closes.
@@ -80,7 +80,7 @@ Owner's request (2026-10-05): compile Gulf and European stocks too, let each use
 |---|---|---|---|---|---|
 | `egx` | Every EGX stock, the EGX indices | XCAI | Sun–Thu | 13:30 | On |
 | `eg-funds` | Egyptian mutual funds' NAV, with fund class | — | Sun–Thu | 19:00 | On |
-| `fx` | CBE official rates in pounds | — | Sun–Thu | 13:30 | On |
+| `fx` | Banque Misr transfer buy/sell midpoint in pounds | — | Sun–Thu | 13:30 | On |
 | `us` | 600 largest US stocks, 100 largest ETFs | XNAS, XNYS, ARCX, XASE | Mon–Fri | 22:30 | Off |
 | `gcc` | Every stock on Saudi, Dubai, Abu Dhabi, Qatar, Kuwait and Bahrain exchanges | XSAU, XDFM, XADS, DSMQ, XKUW, XBAH | Sun–Fri | 13:30 | Off |
 | `europe` | Largest stocks and UCITS ETFs in London, Xetra, Euronext, Madrid, Milan, Zurich | XLON, XETR, XPAR, XAMS, XBRU, XLIS, XMAD, XMIL, XSWX | Mon–Fri | 17:30 | Off |
@@ -100,9 +100,9 @@ Every source has an adapter in `lightning/market/sources/` (shared by the app an
 |---|---|---|---|---|---|
 | EGX stocks, latest close | TradingView screener: one POST returns every EGX stock (verified, open-source trackers use it) | Mubasher stock list | Yahoo `.CA` chart | Yahoo chart `range=max`, per stock, once; then our own daily files | EGX moves are limited per day, so a jump past the limit needs a second source |
 | Egyptian funds, NAV | Mubasher `api/1/funds?country=eg` (verified) | each manager's own page (Banque Misr, CI, AZ, ...) | Starta, EGX Bot fund pages | Mubasher `priceChartFund_{id}.csv`, the whole history in one file per fund (verified) | Mubasher's robots.txt asks bots to keep off `/api/` (see *Rights*); funds split units, so a 1.9× move is a split, not a price |
-| Exchange rates | CBE's official rates page | NBE and Banque Misr rate pages | a market-rate feed, labelled "not official" | CBE historical rates page; then our own daily files | We publish the CBE mid (buy and sell averaged); devaluation days are real, so CBE wins when it is the source |
+| Exchange rates | Banque Misr's dated public rate bulletin | CBE if it answers, then NBE | a market-rate feed, labelled "not a bank quote" | our own daily files | Publish the transfer buy/sell midpoint, per one unit; label it Banque Misr, never CBE official |
 | US stocks and ETFs | TradingView screener, `america` (verified) | Yahoo chart | Stooq (free key, kept as a GitHub secret) | Yahoo chart `range=max`, once | Prices in USD; valuing them in EGP needs multi-currency (Upcoming projects #15, #16) |
-| Gold, EGP per gram | an Egyptian gold-price feed (for example DahabPulse's JSON) | a second gold site | world gold price × CBE USD × karat ÷ 24, labelled "estimate" | the gold site's history | Local retail prices differ from the world price; we say which one we show |
+| Gold, EGP per gram | an Egyptian gold-price feed (for example DahabPulse's JSON) | a second gold site | world gold price × a cited USD/EGP rate × karat ÷ 24, labelled "estimate" | the gold site's history | Local retail prices differ from the world price; we say which one we show |
 | Indices | TradingView screener | Yahoo | — | Yahoo | For comparisons only (Upcoming projects #1) |
 
 Adding a source is one adapter, one sample, one line of priority, and a test. Removing one is a line.
@@ -111,9 +111,9 @@ Adding a source is one adapter, one sample, one line of priority, and a test. Re
 
 A run never publishes a price that fails these; it keeps the last good one and says so in `health.json`.
 
-- **Shape and size:** the answer parses, and has at least as many rows as expected (150 EGX stocks, 100 funds, USD and EUR from CBE). A page that returns HTML instead of data fails.
+- **Shape and size:** the answer parses, and has at least as many rows as expected (150 EGX stocks, 100 funds, 10 currencies from Banque Misr). A block page instead of a rate table fails.
 - **Sense:** closes above zero, dates not in the future, a "latest" price not older than its market's last trading day by more than a week.
-- **Jumps:** a move past the market's limit (EGX stocks 20%, funds 15% unless it is a clean split, currencies 15%) needs a second source that agrees, except a CBE rate, which is the official number.
+- **Jumps:** a move past the market's limit (EGX stocks 20%, funds 15% unless it is a clean split, currencies 15%) needs a second source that agrees, except a dated first-party CBE or Banque Misr bulletin; its buy/sell spread and rows are checked before it is trusted.
 - **Agreement:** when two sources give the same instrument and day, they must agree within 1% (stocks), 0.5% (funds, currencies). If not, the higher-priority source is used only if it also passes the jump check; the disagreement is reported.
 - **History is append-only.** A published price is corrected only by a reviewed line in `corrections.csv`, never by a run.
 
@@ -126,7 +126,7 @@ A run never publishes a price that fails these; it keeps the last good one and s
 
 ## How the app gets prices
 
-- **Fetched by the app itself (built 2026-10-05, `workflows/live_prices.py`).** Not daily by itself: month-end closes matter most, as the monthly revaluation is posted from them. Opening a profile fetches only when a held investment lacks the close of a month-end that has passed (open it three days after the month ends and it gets that month-end's close), at most once a day. Update prices fetches at any time: latest closes and every missing month-end. Latest closes come from whole boards (TradingView's EGX board, Mubasher's fund list), so asking reveals nothing about what you hold; month-end closes from each instrument's history (Yahoo for stocks, Mubasher for funds), the last close within ten days before the month-end. A close counts only once final (during trading hours the moving price is skipped). Saved as `ONLINE`; a typed price wins. Funds need their Mubasher key (phase 3 matches them); stocks in another currency than the holding wait for multi-currency; exchange rates wait for FX revaluation (phase 4), with the CBE adapter ready.
+- **Fetched by the app itself (built 2026-10-05, `workflows/live_prices.py`).** Not daily by itself: month-end closes matter most, as the monthly revaluation is posted from them. Opening a profile fetches only when a held investment lacks the close of a month-end that has passed (open it three days after the month ends and it gets that month-end's close), at most once a day. Update prices fetches at any time: latest closes and every missing month-end. Latest closes come from whole boards (TradingView's EGX board, Mubasher's fund list), so asking reveals nothing about what you hold; month-end closes from each instrument's history (Yahoo for stocks, Mubasher for funds), the last close within ten days before the month-end. A close counts only once final (during trading hours the moving price is skipped). Saved as `ONLINE`; a typed price wins. Funds need their Mubasher key (phase 3 matches them); stocks in another currency than the holding wait for multi-currency; exchange rates wait for FX revaluation (phase 4), with Banque Misr's adapter ready.
 - **Funds by name, gold by the world price (built 2026-10-06).** A held fund without its Mubasher number is matched by exact name against the fund list the app already downloads, or its Mubasher page is pasted on Edit investment. Gold (the 18K, 21K and 24K references and gold held by the gram) is Yahoo's world price (GC=F) ÷ 31.1035 × the dollar (EGP=X) × karat ÷ 24, said to be an estimate; an Egyptian shop-price source is still to choose and test from a home connection. Silver is not held in Lightning yet.
 - **Never in the way (built 2026-10-06).** The fetch on opening runs in the background; the next page saves it and says "Month-end prices: …". Prices still missing show on Investment prices with Get prices (ask again); after two failed tries it also offers Use shared prices. Settings › Price files › Test price sources asks each source once and names any that fails.
 - **The shared files, opt-in.** If a source fails for you, Investment prices › Download shared prices brings the collector's files for the markets you follow.
@@ -165,10 +165,10 @@ These need the owner's decision before the file is published (`OWNER.md`):
 - **Mubasher** asks automated clients not to use `/api/` in its robots.txt (as the open-source funds tracker reports). Use it at most once a day, or ask Mubasher for permission or a feed.
 - **TradingView and Yahoo** terms forbid automated collection and republishing. They are fine as cross-checks a user's own app performs, but publishing their data in our file is a risk, more so in a paid app.
 - **EGX** licenses its market data; republishing end-of-day prices in a commercial product may need a licence or a licensed vendor (EGX data vendors, or paid APIs with redistribution terms).
-- **CBE rates** are official public data; republishing with attribution is the safest part.
+- **FX rates:** the CBE endpoint rejects the collector. Banque Misr's public bulletin supplies transfer buy/sell quotes; publish only the numeric midpoint with attribution and its bulletin date, and revisit the source if its terms or access change.
 - **Fund NAVs** are public disclosures by each manager; the manager's own page is the cleanest source.
 
-**Decided (owner, 2026-10-05):** publish only what a source allows, and cite every source. Each pack in `packs.py` names its `source` (written into its manifest and `index.json`, and shown on Investment prices and Settings › Price files) and whether it may be `publish`ed. Today only `fx` (CBE) is published and shipped in the release ZIP; the other packs are collected and checked, kept only as the run's artifact. A fund-manager adapter, a source's written permission or a licensed end-of-day feed turns another pack on.
+**Decided (owner, 2026-10-05; FX source revised 2026-10-07):** publish only what a source allows, and cite every source. Each pack in `packs.py` names its `source` (written into its manifest and `index.json`, and shown on Investment prices and Settings › Price files) and whether it may be `publish`ed. Today only `fx` (Banque Misr) is published and shipped in the release ZIP; the other packs are collected and checked, kept only as the run's artifact. A fund-manager adapter, a source's written permission or a licensed end-of-day feed turns another pack on.
 
 ## Phases
 

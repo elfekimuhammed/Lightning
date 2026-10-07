@@ -20,7 +20,7 @@
 <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
 <form method="post" class="card" action="/investments/prices/markets/test" style="margin-top:16px">
   <h2>Price sources</h2>
-  <p class="muted small">Lightning asks TradingView, Yahoo Finance, Mubasher and the Central Bank of Egypt for prices itself. If prices stop coming, test each source once to see which one is not answering.</p>
+  <p class="muted small">Lightning asks TradingView, Yahoo Finance, Mubasher and Banque Misr for prices itself. If prices stop coming, test each source once to see which one is not answering.</p>
   <div class="actions"><button class="btn" data-busy="Testing sources…">Test price sources</button></div>
 <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
 {% endblock %}

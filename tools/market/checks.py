@@ -13,10 +13,10 @@ LIMITS = {"STOCK": Decimal("0.20"), "FUND": Decimal("0.15"), "CURRENCY": Decimal
 # How close two sources must be to count as agreeing.
 TOLERANCE = {"STOCK": Decimal("0.01"), "FUND": Decimal("0.005"), "CURRENCY": Decimal("0.005"), "GOLD": Decimal("0.02"),
              "INDEX": Decimal("0.01")}
-OFFICIAL = {"cbe"}  # the official number: never held back by the jump check
+OFFICIAL = {"cbe", "banque-misr"}  # first-party bank bulletin: a verified devaluation is not suppressed
 # The fewest rows a healthy answer has; fewer means the source is broken or blocking us.
 MINIMUM_ROWS = {"tradingview-egx": 150, "tradingview-us": 400, "tradingview-gcc": 300, "tradingview-europe": 700,
-                "mubasher-funds": 100, "cbe": 5}
+                "mubasher-funds": 100, "cbe": 5, "banque-misr": 10}
 SPLIT_RATIO = Decimal("1.9")  # a fund NAV moving this much at once is a unit split, not a price
 
 

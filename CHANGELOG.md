@@ -10,6 +10,9 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-07 · Codex: FX prices now use Banque Misr's dated transfer-rate midpoint after CBE blocked the collector; source labels, checks and tests updated.
+- 2026-10-07 · Luna, for Codex: register rows follow A11; sparse Spending and Plan screens show clearer numbers and spaced timeline labels.
+- 2026-10-07 · Codex: rewrote the planned edit journal around local edits, a stable home and encrypted deltas; resolved durable receipts, conflict review, snapshot recovery and authority limits. Updated product decisions and terms; not built or scheduled (`docs/proposals/edit_journal.md`).
 - 2026-10-07 · Claude: owner answered the edit journal's Q1–Q7: move the home with two of three keys, review on the home only, one week for turned-down edits, history kept 30 days, a compatibility table with the home's version deciding; building later (`docs/proposals/edit_journal.md` section 11).
 - 2026-10-07 · Claude: build cleanup: the never-shipped LightningProbe is gone (its entry, module, legacy server, spec, packaging and CI steps; the shipped app's checks cover it), about 20 s less per Windows build (measured); `ci_scope.py` rewritten in order with the same decisions; Architecture › Build and release reads as one schedule.
 - 2026-10-07 · Claude: owner confirmed the phone keeps the profile key under the Android Keystore; the edit journal's open questions become Q1–Q7, each with a recommendation (`docs/proposals/edit_journal.md` section 11).

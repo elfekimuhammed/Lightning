@@ -16,7 +16,7 @@ from lightning.market.packs import PACK_ID, PACKS, write_index
 
 from . import checks
 from lightning.market.model import Quote, SourceError, SourceResult
-from lightning.market.sources import cbe, mubasher, tradingview, yahoo
+from lightning.market.sources import banque_misr, mubasher, tradingview, yahoo
 
 INACTIVE_AFTER_DAYS = 30
 
@@ -40,7 +40,7 @@ def _sources(session, pack: str, today: str, instruments: dict[str, Instrument])
     if pack == "eg-funds":
         return [("mubasher-funds", lambda: mubasher.fetch(session, classes))]
     if pack == "fx":
-        return [("cbe", lambda: cbe.fetch(session, today))]
+        return [("banque-misr", lambda: banque_misr.fetch(session, today))]
     if pack in tradingview.BOARDS:
         return [(f"tradingview-{pack}", lambda: tradingview.fetch(session, pack, today))]
     return []

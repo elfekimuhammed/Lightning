@@ -13,7 +13,7 @@ from tools.market import checks
 from tools.market.alarm import alarms
 from tools.market.collect import _settle_keys, backfill, collect
 from lightning.market.model import Quote, SourceError, SourceResult
-from lightning.market.sources import cbe, mubasher, tradingview, yahoo
+from lightning.market.sources import banque_misr, cbe, mubasher, tradingview, yahoo
 
 SAMPLES = Path(__file__).parent / "fixtures" / "market"
 
@@ -81,6 +81,17 @@ def test_cbe_publishes_the_mid_rate_per_one_unit():
     assert set(found) == {"USD/EGP", "EUR/EGP", "JPY/EGP", "SAR/EGP", "GBP/EGP"}
     with pytest.raises(SourceError, match="no US dollar"):
         cbe.parse("<table><tr><td>Euro</td><td>1</td><td>2</td></tr></table>", "2026-10-05")
+
+
+def test_banque_misr_uses_dated_transfer_quotes_and_rejects_block_pages():
+    rates = banque_misr.parse(sample("banque_misr_rates.html"), "2026-10-07")
+    found = {q.key: q for q in rates.quotes}
+    assert len(found) == 10
+    assert found["USD/EGP"] == Quote("USD/EGP", "2026-10-07", D("52.39"), "banque-misr")
+    assert found["CNY/EGP"].close == D("7.810035")  # banknotes are zero; use transfer quotes
+    assert found["JPY/EGP"].close == D("0.331017")  # page quotes 100 yen
+    with pytest.raises(SourceError, match="dated timestamp"):
+        banque_misr.parse("<title>Request Rejected</title>", "2026-10-07")
 
 
 def test_yahoo_history_is_put_back_to_the_prices_that_traded():
@@ -161,9 +172,9 @@ class FakeNet:
         return sample("yahoo_chart.json")
 
     def get_text(self, url, params=None):
-        if "cbe.org.eg" in url:
-            self._fail("cbe")
-            return sample("cbe_rates.html").replace("05/10/2026", "01/10/2026")
+        if "banquemisr.com" in url:
+            self._fail("banque-misr")
+            return sample("banque_misr_rates.html").replace("07-10-2026", "01-10-2026")
         self._fail("mubasher-history")
         return sample("mubasher_history.csv")
 
@@ -175,36 +186,36 @@ def test_a_run_writes_one_folder_per_pack_and_a_failing_source_keeps_its_last_pr
     root = tmp_path / "market"
     report = collect(root, FakeNet(), "2026-10-01", "2026-10-01T22:30:00Z", PACKS)  # a Thursday: every pack trades
     assert all(report[pack][name]["ok"] for pack, name in (("egx", "tradingview-egx"), ("eg-funds", "mubasher-funds"),
-                                                            ("fx", "cbe"), ("us", "tradingview-us"), ("gcc", "tradingview-gcc")))
+                                                            ("fx", "banque-misr"), ("us", "tradingview-us"), ("gcc", "tradingview-gcc")))
     counts = {pack: len(MarketFile.open(root / pack).instruments()) for pack in PACKS}
-    assert counts == {"egx": 161, "eg-funds": 110, "fx": 5, "us": 520, "gcc": 350}
+    assert counts == {"egx": 161, "eg-funds": 110, "fx": 10, "us": 520, "gcc": 350}
     assert MarketFile.open(root / "egx").close_on("EG:COMI", "2026-10-01").close == D("85.25")
-    assert MarketFile.open(root / "fx").close_on("USD/EGP", "2026-10-01").close == D("52.4315")
+    assert MarketFile.open(root / "fx").close_on("USD/EGP", "2026-10-01").close == D("52.39")
     assert MarketFile.open(root / "gcc").manifest["pack"] == "gcc"
     index = json.loads((root / "index.json").read_text())
     assert sorted(index["packs"]) == sorted(PACKS) and index["packs"]["gcc"]["name"] == "Gulf stocks"
     assert index["packs"]["egx"]["instruments"] == 161 and index["packs"]["egx"]["bytes"] > 0
 
-    # Friday: EGX, Egyptian funds and CBE do not trade, the Gulf (Dubai, Abu Dhabi) does; nothing is lost.
+    # Friday: EGX, Egyptian funds and Banque Misr do not trade, the Gulf does; nothing is lost.
     report = collect(root, FakeNet(), "2026-10-02", "2026-10-02T22:30:00Z", PACKS)
     assert report["egx"]["tradingview-egx"]["checked_at"] == "2026-10-01T22:30:00Z"  # skipped, unchanged
     assert report["gcc"]["tradingview-gcc"]["checked_at"] == "2026-10-02T22:30:00Z"
-    assert MarketFile.open(root / "fx").close_on("USD/EGP", "2026-10-04").close == D("52.4315")  # the last rate stays
+    assert MarketFile.open(root / "fx").close_on("USD/EGP", "2026-10-04").close == D("52.39")  # the last rate stays
 
-    # Sunday: CBE is down and a 60% jump in CIB from one source is held back; both are reported.
-    report = collect(root, FakeNet(failing={"cbe"}, egx_close="136.4"), "2026-10-04", "2026-10-04T22:30:00Z", PACKS)
+    # Sunday: the bank page is down and a 60% jump in CIB from one source is held back; both are reported.
+    report = collect(root, FakeNet(failing={"banque-misr"}, egx_close="136.4"), "2026-10-04", "2026-10-04T22:30:00Z", PACKS)
     assert MarketFile.open(root / "egx").latest("EG:COMI") == Close("2026-10-01", "EG:COMI", D("85.25"))
     assert any("EG:COMI 2026-10-04 held back" in p for p in report["egx"]["_run"]["problems"])
-    cbe_health = report["fx"]["cbe"]
-    assert cbe_health["ok"] is False and cbe_health["failures_in_a_row"] == 1 and "403" in cbe_health["error"]
-    assert cbe_health["last_ok"] == "2026-10-01T22:30:00Z"
+    bank_health = report["fx"]["banque-misr"]
+    assert bank_health["ok"] is False and bank_health["failures_in_a_row"] == 1 and "403" in bank_health["error"]
+    assert bank_health["last_ok"] == "2026-10-01T22:30:00Z"
     assert MarketFile.open(root / "fx").latest("USD/EGP").date == "2026-10-01"
     assert alarms(root)["failing"] == []  # one failure is not yet an issue
 
-    collect(root, FakeNet(failing={"cbe"}), "2026-10-05", "2026-10-05T22:30:00Z", ("fx",))
-    assert [a["name"] for a in alarms(root)["failing"]] == ["fx/cbe"] and alarms(root)["failing"][0]["failures"] == 2
+    collect(root, FakeNet(failing={"banque-misr"}), "2026-10-05", "2026-10-05T22:30:00Z", ("fx",))
+    assert [a["name"] for a in alarms(root)["failing"]] == ["fx/banque-misr"] and alarms(root)["failing"][0]["failures"] == 2
     collect(root, FakeNet(), "2026-10-06", "2026-10-06T22:30:00Z", ("fx",))
-    assert alarms(root)["failing"] == [] and "fx/cbe" in alarms(root)["ok"]  # recovered: its issue closes
+    assert alarms(root)["failing"] == [] and "fx/banque-misr" in alarms(root)["ok"]  # recovered
 
 
 def test_a_source_that_answers_too_little_counts_as_failing(tmp_path):

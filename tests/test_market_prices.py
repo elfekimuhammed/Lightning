@@ -351,10 +351,10 @@ def test_a_tagged_release_build_refuses_to_ship_without_price_files(tmp_path):
 
 def test_only_sources_that_allow_it_are_published_and_each_is_cited(tmp_path):
     from lightning.market.packs import PACKS, publishable
-    assert publishable(PACKS) == ["fx"]  # CBE rates; stock and fund sources do not allow republishing (yet)
+    assert publishable(PACKS) == ["fx"]  # public bank rates; stock and fund sources still are not published
     assert all(p.source for p in PACKS.values())
     assert json.loads((publish(tmp_path / "m") / "index.json").read_text())["packs"]["fx"]["source"] \
-        == "Central Bank of Egypt (cbe.org.eg)"
+        == "Banque Misr (banquemisr.com; transfer buy/sell midpoint)"
     from pathlib import Path
     text = (Path(__file__).resolve().parents[1] / ".github" / "workflows" / "market-data.yml").read_text(encoding="utf-8")
     assert '--root market-data --packs "$PUBLIC"' in text and 'publishable(' in text
@@ -364,9 +364,9 @@ def test_the_pages_cite_the_source_of_the_prices(c, holdings, tmp_path, monkeypa
     _bundle(tmp_path, monkeypatch)
     client = TestClient(create_app(c))
     text = client.get("/investments/prices").text
-    assert "Source: " in text and "Central Bank of Egypt (cbe.org.eg)." in text
+    assert "Source: " in text and "Banque Misr (banquemisr.com; transfer buy/sell midpoint)." in text
     page = client.get("/investments/prices/markets").text
-    assert "Source: Central Bank of Egypt (cbe.org.eg)" in page and "Source: TradingView" in page
+    assert "Source: Banque Misr (banquemisr.com; transfer buy/sell midpoint)" in page and "Source: TradingView" in page
 
 
 def test_a_pack_without_prices_is_never_offered_or_shipped(tmp_path):
