@@ -105,7 +105,7 @@ Every source has an adapter in `lightning/market/sources/` (shared by the app an
 | Gold, EGP per gram | an Egyptian gold-price feed (for example DahabPulse's JSON) | a second gold site | world gold price × a cited USD/EGP rate × karat ÷ 24, labelled "estimate" | the gold site's history | Local retail prices differ from the world price; we say which one we show |
 | Indices | TradingView screener | Yahoo | — | Yahoo | For comparisons only (Upcoming projects #1) |
 
-Adding a source is one adapter, one sample, one line of priority, and a test. Removing one is a line.
+Adding a source is one adapter, one sample, one line of priority, and a test. When a provider changes, the next trading run removes retired providers from current `health.json`; historical prices and their provenance remain.
 
 ## Checks before anything is published
 

@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from lightning.market.bundle import Close, MarketFile
+from lightning.market.bundle import Close, MarketFile, write
 from tools.market import checks
 from tools.market.alarm import alarms
 from tools.market.collect import _settle_keys, backfill, collect
@@ -92,6 +92,22 @@ def test_banque_misr_uses_dated_transfer_quotes_and_rejects_block_pages():
     assert found["JPY/EGP"].close == D("0.331017")  # page quotes 100 yen
     with pytest.raises(SourceError, match="dated timestamp"):
         banque_misr.parse("<title>Request Rejected</title>", "2026-10-07")
+
+
+def test_replacing_an_fx_source_clears_its_old_failure(tmp_path):
+    root = tmp_path / "market"
+    collect(root, FakeNet(), "2026-10-01", "2026-10-01T15:00:00Z", ("fx",))
+    health_file = root / "fx" / "health.json"
+    health = json.loads(health_file.read_text(encoding="utf-8"))
+    health["cbe"] = {"ok": False, "error": "old source blocked", "failures_in_a_row": 8}
+    market = MarketFile.open(root / "fx")
+    write(root / "fx", list(market.instruments().values()), market.daily_closes(), "2026-10-01T15:30:00Z",
+          health, pack="fx", source="Banque Misr")
+
+    report = collect(root, FakeNet(), "2026-10-01", "2026-10-01T16:00:00Z", ("fx",))
+    assert "cbe" not in report["fx"]
+    assert report["fx"]["banque-misr"]["ok"]
+    assert "cbe" not in json.loads(health_file.read_text(encoding="utf-8"))
 
 
 def test_yahoo_history_is_put_back_to_the_prices_that_traded():

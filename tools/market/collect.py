@@ -128,8 +128,12 @@ def collect(root: Path, session, today: str, created_at: str, packs=tuple(PACKS)
             report[pack] = _load(folder)[2]
             continue
         instruments, series, health = _load(folder)
+        sources = _sources(session, pack, today, instruments)
+        active = {name for name, _ in sources}
+        # A changed provider must not keep the retired provider's failure as this run's result.
+        health = {name: entry for name, entry in health.items() if name.startswith("_") or name in active}
         quotes, problems = [], []
-        for name, fetch in _sources(session, pack, today, instruments):
+        for name, fetch in sources:
             try:
                 result: SourceResult = fetch()
                 minimum = checks.MINIMUM_ROWS.get(name, 1)
