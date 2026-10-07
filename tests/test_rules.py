@@ -175,3 +175,22 @@ def test_the_rules_screens_open_from_settings(c):
     assert "All of these" in form and "Split money out" in form and "Keep the usual one" in form
     refused = client.post("/rules", data={"counterparty": "", "category_id": ""})
     assert refused.status_code == 400 and "Say when the rule applies" in refused.text
+
+
+def test_the_phone_entry_sheet_follows_the_rule_when_the_category_is_left_empty(c, setup):
+    accounts, _ = setup
+    cats = _categories(c)
+    cib = accounts["cib"].id
+    client = TestClient(create_app(c), base_url="http://127.0.0.1")
+    c.rules.save({"counterparty": "Vodafone", "amount_op": "more", "amount": "300",
+                  "category_id": str(cats["EXP.PERSONAL.UTILITIES"])})
+    saved = client.post(f"/accounts/{cib}/transaction/new", data={
+        "kind": "out", "date": "2026-10-03", "counterparty": "Vodafone", "category_id": "", "amount": "450"},
+        follow_redirects=False)
+    assert saved.status_code == 303
+    refused = client.post(f"/accounts/{cib}/transaction/new", data={
+        "kind": "out", "date": "2026-10-03", "counterparty": "Vodafone", "category_id": "", "amount": "90"})
+    assert refused.status_code == 400 and "Choose a category" in refused.text   # no rule, no habit: he picks
+    row = c.db.one("SELECT l.category_id FROM ledger_entries l JOIN transactions t ON t.id=l.transaction_id "
+                   "WHERE t.counterparty='Vodafone' AND l.category_id IS NOT NULL")
+    assert row["category_id"] == cats["EXP.PERSONAL.UTILITIES"]

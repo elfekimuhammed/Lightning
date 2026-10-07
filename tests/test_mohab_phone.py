@@ -34,6 +34,7 @@ DETOURS = {
     "Loans still to pay": ("What you owe",),                      # the Overview's row that opens Loans
     "Data checks": ("/settings", "Data checks"),                  # from a settings sheet: Settings, then the tab
     "Categories": ("/settings", "Categories"),
+    "Rules": ("/settings", "Rules"),
     "#Eid": ("?q=%23eid",),                                       # a note's tag: typed into the search
     "Investment planner": ("Planner",),
 }

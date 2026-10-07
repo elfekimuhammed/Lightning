@@ -308,6 +308,17 @@ def _learn_alias(c, party, typed: str) -> None:
         pass
 
 
+def category_when_empty(c, name: str, notes: str, amount, account_id: int | None, party=None) -> int | None:
+    """A row saved with no category: a rule decides first (Rules with conditions), then the counterparty's
+    own or usual category. Used by the register and the phone's entry sheet."""
+    party = party or (c.counterparties.resolve(name) if name else None)
+    pickable = {item.id for item in c.categories.pickable()}
+    ruled = c.rules.outcome([name, party["name"] if party else ""], notes, amount, account_id).category_id
+    if ruled in pickable:
+        return ruled
+    return _category_for_party(party, c.transactions.usual_categories(), pickable) if party else None
+
+
 def _category_for_party(party, usual: dict, pickable: set) -> int | None:
     """The category set on the counterparty, else the one it is usually filed under, if it has one."""
     if not party:
@@ -361,15 +372,11 @@ def _resolve(request: Request, row_account: int | None, values: dict, allow_miss
     if allow_missing_category and not category_text and category_choice is None:
         return None, None, canonical
     if not category_text and category_choice is None:
-        pickable = {item.id for item in c.categories.pickable()}
         try:
             amount = to_decimal(values.get("amount", ""), "amount")
         except ValidationError:
             amount = None
-        ruled = c.rules.outcome([raw, party["name"] if party else ""], values.get("notes", ""), amount,
-                                row_account).category_id
-        category_choice = ruled if ruled in pickable else (
-            _category_for_party(party, c.transactions.usual_categories(), pickable) if party else None)
+        category_choice = category_when_empty(c, raw, values.get("notes", ""), amount, row_account, party)
     if category_choice is not None:
         category = c.categories.get(category_choice)
         if category.id not in {item.id for item in c.categories.pickable()}:

@@ -159,6 +159,10 @@ async def save_transaction_popup(request: Request, account_id: int):
                                                  notes=values["notes"], owner_id=owner_id)
         else:
             category_id = int(values["category_id"]) if values["category_id"].isdigit() else None
+            if not category_id and values["counterparty"].strip():
+                # Left empty: a rule decides first, then the counterparty's usual category, as in the register.
+                category_id = register.category_when_empty(c, values["counterparty"].strip(), values["notes"],
+                                                           -amount if kind == "out" else amount, account_id)
             if not category_id:
                 raise ValidationError("Choose a category.", "category")
             category = c.categories.get(category_id)
