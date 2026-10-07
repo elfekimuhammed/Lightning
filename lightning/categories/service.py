@@ -343,6 +343,7 @@ class CategoryService:
             self.db.scalar("SELECT 1 FROM ledger_entries WHERE category_id=? LIMIT 1", (category_id,))
             or self.db.scalar("SELECT 1 FROM budgets WHERE category_id=? LIMIT 1", (category_id,))
             or self.db.scalar("SELECT 1 FROM counterparties WHERE default_category_id=? LIMIT 1", (category_id,))
+            or self.db.scalar("SELECT 1 FROM rule_actions WHERE category_id=? LIMIT 1", (category_id,))
             or self.db.scalar("SELECT 1 FROM categories WHERE parent_id=? LIMIT 1", (category_id,))
         )
         with self.db.transaction():

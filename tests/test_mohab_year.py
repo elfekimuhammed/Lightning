@@ -568,6 +568,20 @@ def _live_the_year(o: Mohab) -> None:
     o.ask("year_checks", "Is everything still right after a year?", "Settings", "Data checks")
     _the_feedback_round(o)
     _exercise_cash_ownership(o)
+    _a_rule_for_vodafone(o)
+
+
+def _a_rule_for_vodafone(o: Mohab) -> None:
+    """Rules with conditions (Upcoming projects #5): a phone bought at the Vodafone shop is Shopping, while
+    the monthly 350 stays a bill. He leaves the category empty and the rule decides on saving."""
+    o.on("2027-09-30")
+    b = o.b
+    b.go("Settings", "Rules", "Add rule")
+    o.notes["rule_saved"] = b.submit({"counterparty": "Vodafone", "amount_op": Choose("Between"), "amount": "1,000",
+                                      "amount_to": "50,000", "category_id": Choose("Shopping")}, button="Add rule")
+    o.enter("CIB Payroll", "2027-09-30", "Vodafone", "", "-350")
+    o.enter("CIB Payroll", "2027-09-30", "Vodafone", "", "-12,000", notes="new phone")
+    o.ask("rule_filed", "Did the rule file the phone as Shopping and keep the bill?", "CIB Payroll")
 
 
 def _exercise_cash_ownership(o: Mohab) -> None:
@@ -1337,3 +1351,13 @@ def test_a_figure_reads_the_same_on_every_tab(mohab, period):
         portfolio = {"Overview": _figure(flat(overview), r"Portfolio value ([\d,]+)"),
                      "Investments": _figure(flat(investments), r"Portfolio value Last 6 months ([\d,]+)")}
         assert None not in portfolio.values() and len(set(portfolio.values())) == 1, portfolio
+
+
+
+def test_a_rule_files_a_new_phone_as_shopping_and_keeps_the_monthly_bill(mohab):
+    assert mohab.notes["rule_saved"].shows("Rule saved.", "Counterparty contains Vodafone · Amount between 1,000 and 50,000",
+                                           "Shopping")
+    assert route(mohab, "rule_filed") == ["/", "/accounts/1"]
+    answer = mohab.answers["rule_filed"]
+    assert answer.shows("2027-09-30 Vodafone Shopping new phone −12,000.00",
+                        "2027-09-30 Vodafone Utilities & Bills −350.00")

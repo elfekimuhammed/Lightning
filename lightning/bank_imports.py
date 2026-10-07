@@ -16,6 +16,7 @@ from lightning.core.errors import ConflictError, LightningError, NotFoundError, 
 from lightning.core.limits import MAX_CSV_IMPORT_BYTES
 from lightning.core.refs import DocType
 from lightning.transactions.domain import TxnSource
+from lightning.transactions.tags import tags_in
 
 REQUIRED = ("Date", "Amount")
 OPTIONAL = ("Counterparty", "Category", "Notes", "Reference")
@@ -109,11 +110,13 @@ def decode_csv(data: bytes) -> tuple[list[str], list[dict[str, str]]]:
 
 
 class BankImportService:
-    def __init__(self, db, accounts, categories, counterparties, transactions, money_from_others=None, reserves=None):
+    def __init__(self, db, accounts, categories, counterparties, transactions, money_from_others=None, reserves=None,
+                 rules=None):
         self.db, self.accounts, self.categories = db, accounts, categories
         self.counterparties, self.transactions = counterparties, transactions
         self.money_from_others = money_from_others
         self.reserves = reserves
+        self.rules = rules
 
     def first_pending_review(self):
         """Earliest staged import row still requiring a decision."""
@@ -300,7 +303,8 @@ class BankImportService:
             parsed["_link_candidates"] = ([] if ref_duplicate or row["status"] != "REVIEW"
                                           else self._link_candidates(batch["account_id"], parsed))
             parsed["_internal"] = is_internal(parsed["Category"])
-            parsed["_category_id"] = None if parsed["_internal"] else self._category_for(parsed, cp)
+            outcome = self._rules_outcome(batch["account_id"], parsed, cp)
+            parsed["_category_id"] = None if parsed["_internal"] else self._category_for(parsed, cp, outcome)
             parsed["_transfer_target_suggestion"] = (self._own_account(batch["account_id"], parsed["Counterparty"])
                 or self._transfer_target_suggestion(batch["account_id"], parsed["Notes"])
                 or self._transfer_target_suggestion(batch["account_id"], parsed["Counterparty"])
@@ -439,7 +443,30 @@ class BankImportService:
         matches = {bank_ids[row["account_id"]] for row in rows if row["account_id"] in bank_ids}
         return next(iter(matches)) if len(matches) == 1 else None
 
-    def _category_for(self, parsed, counterparty):
+    def _rules_outcome(self, account_id, parsed, counterparty):
+        """What the user's rules say about a row (Rules with conditions). Their tags go into the row's notes
+        now, so the review shows them and the user can remove them; a split is shown and applied on posting."""
+        parsed["_rule_id"], parsed["_rule_split"] = None, []
+        if self.rules is None or parsed.get("_errors") or parsed["_internal"]:
+            return None
+        names = [parsed["Counterparty"], counterparty["name"] if counterparty else ""]
+        outcome = self.rules.outcome(names, parsed["Notes"], parsed["Amount"], account_id)
+        missing = [t for t in outcome.tags if t not in tags_in(parsed["Notes"])]
+        if missing:
+            parsed["Notes"] = " ".join([parsed["Notes"].strip(), *(f"#{t}" for t in missing)]).strip()
+        return outcome
+
+    def _category_for(self, parsed, counterparty, outcome=None):
+        if outcome and outcome.category_id:
+            category = self.categories.get(outcome.category_id)
+            # Money out needs a spending category; money in takes income or, as a refund, spending.
+            if category.active and (Decimal(parsed["Amount"]) > 0 or category.movement == Movement.OUTFLOW):
+                parsed["_rule_id"] = outcome.rule_id
+                if Decimal(parsed["Amount"]) < 0:
+                    parsed["_rule_split"] = [
+                        {"category": self.categories.get(category_id).name, "amount": format(value, "f")}
+                        for category_id, value in self.rules.split_for(outcome.rule_id, parsed["Amount"]) or []]
+                return category.id
         if parsed["Category"]:
             try:
                 return self.categories.find_by_text(parsed["Category"]).id
@@ -720,6 +747,11 @@ class BankImportService:
             if amount < 0:
                 txn = self.transactions.record_outflow(day, batch["account_id"], abs(amount), int(category_id),
                                                       allow_system_category=True, **kwargs)
+                # A rule's split, while the row keeps the rule's category; the parts follow an edited amount.
+                parts = (self.rules.split_for(row.get("_rule_id"), abs(amount))
+                         if self.rules and not owner and int(category_id) == row.get("_category_id") else None)
+                if parts:
+                    txn = self.transactions.update_expense_split(txn.id, parts)
             elif category.movement == Movement.OUTFLOW:
                 txn = self.transactions.record_refund(day, batch["account_id"], amount, int(category_id), **kwargs)
             else:

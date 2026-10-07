@@ -13,7 +13,7 @@
 | § | Section | From | Size | Needs |
 |---|---|---|---|---|
 | 1.1 | Category pre-filling | Actual | **Built** 2026-10-05: [Architecture › Default category for a counterparty](../ARCHITECTURE.md) | — |
-| 1.2 | Rules with conditions and splits | Actual | Large | — |
+| 1.2 | Rules with conditions and splits | Actual | **Built** 2026-10-06: [Architecture › Default category for a counterparty](../ARCHITECTURE.md) | — |
 | 1.3 | Undo for edits, deletes and imports | Actual | Medium | — |
 | 1.4 | Finding the same transaction on import | Actual | **Owner decision** (one constant) | — |
 | 1.5 | Locking a month checked against the bank | Actual | Small | — |
@@ -27,41 +27,11 @@
 | 2.5 | One order of price sources | GnuCash | Small | — |
 | 2.6 | Return per purchase (ROI and CAGR) | GnuCash | Small | 2.1 |
 
-**Suggested order:** 2.3 → 2.1 → 2.2 (bonus shares are common on the EGX and cannot be recorded honestly today), 1.5, 1.3, 2.4, 1.2, then the rest.
+**Suggested order:** 2.3 → 2.1 → 2.2 (bonus shares are common on the EGX and cannot be recorded honestly today), 1.5, 1.3, 2.4, then the rest.
 
 ---
 
 ## 1. Actual Budget
-
-### 1.2 Rules with conditions and splits
-
-**They do better:** "if the counterparty contains Vodafone **and** the amount is between 100 and 300, file it under Phone; if it is above 300, split it 70% Phone, 30% Internet". Lightning can only say "Vodafone → Phone".
-
-**How they do it** (`loot-core/src/server/rules/`, 1,824 lines):
-1. **Three objects.** `Condition(field, op, value)` with `eval(txn)` (`condition.ts`); `Action(field, op, value, options)` with `exec(txn)` (`action.ts`); `Rule(stage, conditionsOp, conditions, actions)` (`rule.ts`).
-2. **Ops.** is, is not, one of, contains, matches, between, **about** (±7.5% of the amount, `shared/rules.ts` `getApproxNumberThreshold`), greater/less than, has tag.
-3. **Ranking** (`rule-utils.ts` `computeScore`). Each condition scores by op (is 10, one of 9, about and between 5, greater/less 1, contains 0); a rule whose conditions are all exact scores double. Rules run in stage order pre → default → post, most specific first.
-4. **Index** (`rule-indexer.ts`). Rules are keyed by the lowercased payee (and by first character), so only a handful are tried per transaction; rules with no payee condition sit under `*`.
-5. **Missing fields become null** before matching, so "payee is nothing" matches a row with no payee (`transaction-rules.ts` `runRules`, a bug they fixed).
-6. **Splits** (`rule.ts` `execSplitActions`). Fixed amounts first, then percentages of what is left, then remainders shared equally; the last remainder takes the rounding difference so the parts always add up.
-7. Rules run on import and on edit; saving a rule can apply it to past transactions.
-
-**Lightning today:** a counterparty has one default category (`counterparties.default_category_id`); `ui/routes/budget.py` has a bulk apply with one undo. No conditions, no amounts, no splits by rule.
-
-**What to change:**
-1. Migration: `rules(id, stage, match_all, position, active)`, `rule_conditions(rule_id, field, op, value)`, `rule_actions(rule_id, field, op, value, split_index, split_method)`. Fields: counterparty, notes, amount, account, direction. Ops: is, contains, one of, between, about. Actions: set category, set counterparty, add tag, split.
-2. `lightning/rules/engine.py`, pure functions over a dict, no database inside:
-   ```python
-   def rank(rules) -> list[Rule]                  # Actual's scores, then position
-   def run(rules, txn: dict) -> dict              # the first matching rule sets each field
-   def split(amount, actions) -> list[tuple[int, Decimal]]   # fixed, percent, remainder; parts add up
-   ```
-   and `RuleIndex = dict[str, set[Rule]]` on the lowercased counterparty, with `"*"` for the rest.
-3. `lightning/rules/service.py`: create, edit, reorder, delete, and `preview(rule)` returning the past transactions it would change.
-4. Hook points: `bank_imports._category_for` and the register's `_category_for_party` call `rules.run` first, then today's order ([Architecture › Default category for a counterparty](../ARCHITECTURE.md)). A counterparty's saved default is shown and stored as a generated `is` rule, so there is one mechanism, not two.
-5. Screen: Settings › Rules, a list (header, then list, A16) and a form built from fields, never text typed into notes. Saving shows "This would change N past transactions" with apply-to-past, using one undo (1.3).
-
-**Done when:** engine unit tests per op, ranking and split rounding (parts always add to the amount); an import test where a rule beats the usual category; Mohab adds a Vodafone rule with an amount range and his next import files both bills right.
 
 ### 1.3 Undo for edits, deletes and imports
 

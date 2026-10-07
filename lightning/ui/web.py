@@ -303,7 +303,7 @@ class RequestCache:
 
 
 def create_app(c: Container | None = None) -> FastAPI:
-    from .routes import accounts, bank_imports, birdview, budget, categories, counterparties, dashboard, deposits, exports, financial_health, integrity, investments, physical_items, planning, reserves, search, settings, sms, transactions
+    from .routes import accounts, bank_imports, birdview, budget, categories, counterparties, dashboard, deposits, exports, financial_health, integrity, investments, physical_items, planning, reserves, rules, search, settings, sms, transactions
 
     app = FastAPI(title="Lightning", docs_url=None, redoc_url=None, openapi_url=None)
     app.state.container = c
@@ -355,7 +355,7 @@ def create_app(c: Container | None = None) -> FastAPI:
         return JSONResponse({"value": format(value.normalize(), "f")})
 
     app.mount("/static", StaticFiles(directory=str(UI_DIR / "static")), name="static")
-    for module in (dashboard, financial_health, accounts, deposits, bank_imports, birdview, transactions, budget, investments, physical_items, planning, reserves, integrity, counterparties, categories, settings, search, exports, sms):
+    for module in (dashboard, financial_health, accounts, deposits, bank_imports, birdview, transactions, budget, investments, physical_items, planning, reserves, integrity, counterparties, categories, rules, settings, search, exports, sms):
         app.include_router(module.router)
 
     @app.exception_handler(NotFoundError)
