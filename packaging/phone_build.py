@@ -251,10 +251,10 @@ def windows_build(folder: Path, commit: str) -> tuple[Path, dict[str, str]]:
     return zips[0], fields
 
 
-README = """Lightning test builds {stamp}: dummy data only
+README = """Lightning test builds {stamp}
 
 These two files were built and tested from one commit ({commit}). They are test builds, not a
-release: use dummy profiles only. The phone app is debuggable. Install both from the same run:
+release. You may use sample or real data; keep an independent backup. The phone app is debuggable. Install both from the same run:
 a PC and a phone from different runs may not understand each other.
 
 PC (Windows): extract the ZIP to a new folder and run Lightning\\Lightning.exe. If Windows says it
@@ -263,9 +263,10 @@ profiles stay in Documents\\Lightning. An older build refuses a profile a newer 
 
 Phone (Android, arm64): unzip the download in Files, open the APK, and allow Files (or your browser)
 to install apps when Android asks.
-  - The first time: uninstall the old "Lightning" app first. Both listen on the same network port,
-    so pairing can fail while it is installed. Its dummy data goes with it. Then pair again.
-  - Later: a newer Lightning Test APK updates this one and keeps its dummy profile. If Android says
+  - The first time: if the old "Lightning" app has data you want, move its ledger to the PC and
+    verify it there before uninstalling. Uninstall erases that phone copy. Then uninstall the old
+    app, install Lightning Test and pair again; both apps listen on the same network port.
+  - Later: a newer Lightning Test APK updates this one and keeps its profile. If Android says
     the app was not installed, the APK is older than the one on the phone, or the test key changed:
     uninstall Lightning Test once, then install.
 

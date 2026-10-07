@@ -49,6 +49,9 @@ class Sources:
                                       "indicators": {"quote": [{"close": list(series.values())}]}}]}}
 
     def get_text(self, url, params=None):
+        if "banquemisr.com" in url:
+            self._check("banque-misr")
+            return (Path(__file__).parent / "fixtures" / "market" / "banque_misr_rates.html").read_text(encoding="utf-8")
         if "cbe.org.eg" in url:
             self._check("cbe")
             return (Path(__file__).parent / "fixtures" / "market" / "cbe_rates.html").read_text(encoding="utf-8")
@@ -201,7 +204,7 @@ def test_after_two_failed_tries_the_shared_prices_are_offered(c, held):
 def test_testing_the_price_sources_names_the_one_that_fails(c, monkeypatch):
     results = probe(Sources(board={"COMI": 80}, history={"COMI.CA": {"2026-10-01": 80}}, fail={"mubasher"}))
     assert [(name, works) for name, works, _ in results] == [
-        ("TradingView", True), ("Yahoo Finance", True), ("Mubasher", False), ("Central Bank of Egypt", True)]
+        ("TradingView", True), ("Yahoo Finance", True), ("Mubasher", False), ("Banque Misr", True)]
     text = probe_summary(results)
     assert "TradingView: works, 1 Egyptian stock" in text and "Mubasher: not working (mubasher is down)" in text
     monkeypatch.setattr(live_prices, "probe", lambda: results)

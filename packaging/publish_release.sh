@@ -1,32 +1,42 @@
 #!/usr/bin/env bash
-# Publish a tested, tagged Windows build as a NEW release in the public downloads repository.
+# Publish tested, tagged Windows and Android builds as ONE new release in the public downloads repository.
 #
 # Run by the release job of .github/workflows/desktop-probe.yml, from the folder that holds the
-# downloaded build artifact (the ZIP, APP_SHA256SUMS and BUILD_INFO.txt).
+# verified pair (the ZIP, APK, SHA256SUMS, BUILD.json and BUILD_INFO.txt).
 #
 # Never replaces anything: if the release or its tag already exists in the downloads repository the
 # job fails. The files are uploaded to a draft first, downloaded back and compared byte for byte, and
 # only then published. Needs:
 #   GH_TOKEN        fine-grained token with Contents: read and write on DOWNLOADS_REPO
 #   DOWNLOADS_REPO  owner/name of the public downloads repository
-#   TAG             the release tag, e.g. v0.5.0-beta.1 (already checked against the source version)
-#   ZIP             the ZIP's file name, e.g. Lightning-v0.5.0-beta.1-Windows-x64.zip
+#   TAG             the release tag, e.g. v1.0.0-beta.1 (already checked against the source version)
+#   ZIP             the ZIP's file name, e.g. Lightning-v1.0.0-beta.1-Windows-x64.zip
+#   APK             the signed phone APK's file name, from BUILD.json
 set -euo pipefail
 
 fail() { echo "::error::$*"; exit 1; }
 
-: "${DOWNLOADS_REPO:?}" "${TAG:?}" "${ZIP:?}"
+: "${DOWNLOADS_REPO:?}" "${TAG:?}" "${ZIP:?}" "${APK:?}"
 [[ -n "${GH_TOKEN:-}" ]] || fail "The LIGHTNING_DOWNLOADS_TOKEN secret is not set. Create a fine-grained personal access token with Contents: read and write on ${DOWNLOADS_REPO} only, add it to this repository as the Actions secret LIGHTNING_DOWNLOADS_TOKEN, then re-run this job. Nothing was published."
 [[ "$ZIP" =~ ^Lightning-v[0-9A-Za-z.+-]+-Windows-x64\.zip$ ]] || fail "Unexpected ZIP name: $ZIP"
 [[ "$ZIP" == "Lightning-${TAG}-Windows-x64.zip" ]] || fail "The ZIP $ZIP was not built as release $TAG (a development build cannot be published)."
+[[ "$APK" =~ ^Lightning-Test-[0-9A-Za-z.+-]+\.apk$ ]] || fail "Unexpected APK name: $APK"
 
-for file in "$ZIP" APP_SHA256SUMS BUILD_INFO.txt; do
+for file in "$ZIP" "$APK" SHA256SUMS BUILD.json BUILD_INFO.txt; do
   [[ -f "$file" ]] || fail "The build artifact has no $file."
 done
-grep -Eq "^[0-9a-f]{64}  ${ZIP//./\\.}\$" APP_SHA256SUMS || fail "APP_SHA256SUMS does not describe $ZIP."
-sha256sum --check --strict APP_SHA256SUMS || fail "The ZIP does not match APP_SHA256SUMS."
+[[ $(wc -l < SHA256SUMS) -eq 2 ]] || fail "SHA256SUMS must name exactly the ZIP and APK."
+grep -Fqx "$(sha256sum "$ZIP")" SHA256SUMS || fail "SHA256SUMS does not describe $ZIP."
+grep -Fqx "$(sha256sum "$APK")" SHA256SUMS || fail "SHA256SUMS does not describe $APK."
+sha256sum --check --strict SHA256SUMS || fail "The builds do not match SHA256SUMS."
 grep -qx "Build: release ${TAG}" BUILD_INFO.txt || fail "BUILD_INFO.txt does not say this is release ${TAG}."
+jq -e --arg zip "$ZIP" --arg apk "$APK" --arg commit "$(sed -n 's/^Commit: //p' BUILD_INFO.txt)" \
+  '.windows.file == $zip and .android.file == $apk and .commit == $commit and
+   .android.application_id == "org.lightning.app.test" and .android.debuggable == true and
+   (.android.certificate_sha256 | type == "string" and length > 0)' BUILD.json >/dev/null \
+  || fail "BUILD.json does not identify this tested pair and its signed Lightning Test app."
 zip_sha=$(sha256sum "$ZIP" | cut -d' ' -f1)
+apk_sha=$(sha256sum "$APK" | cut -d' ' -f1)
 
 # The token must reach the downloads repository before anything else is decided.
 gh api "repos/${DOWNLOADS_REPO}" --jq .full_name >/dev/null \
@@ -50,7 +60,7 @@ state=$(lookup "repos/${DOWNLOADS_REPO}/git/ref/tags/${TAG}")
 
 version="${TAG#v}"
 pretty=$(sed -E 's/-beta\.([0-9]+)$/ beta \1/; s/-rc\.([0-9]+)$/ release candidate \1/' <<<"$version")
-title="Lightning ${pretty} for Windows"
+title="Lightning ${pretty} for Windows and Android"
 # A draft is created under this name and renamed in the same call that publishes it, so a published
 # release never carries it. GitHub turns a published release whose tag was deleted back into a draft
 # with its real name: that draft is never removed here.
@@ -70,18 +80,19 @@ run=$(sed -n 's/^Run: //p' BUILD_INFO.txt)
 
 notes=$(mktemp)
 {
-  echo "Lightning ${pretty} for Windows (x64), built from Lightning source commit ${commit} (${run})."
+  echo "Lightning ${pretty} for Windows (x64) and Android (arm64), built from the same Lightning source commit ${commit} (${run})."
   echo
-  echo "Download **${ZIP}**, extract it once into a new folder, then run \`Lightning\\Lightning.exe\`."
+  echo "PC: download **${ZIP}**, extract it into a new folder, then run \`Lightning\\Lightning.exe\`."
   echo "The Microsoft Edge WebView2 Runtime is required; Python is not."
+  echo "Phone: download **${APK}** on Android and install it. This is Lightning Test; pair it with this release's PC build."
   echo
   if [[ "$prerelease" == true ]]; then
-    echo "This is a beta: use test data only. The app is not code-signed, so Windows may warn before the first start."
+    echo "This is a beta. You may use sample or real data; keep an independent backup. The Android app is debuggable; the Windows app is not code-signed and Windows may warn before the first start."
   else
     echo "The app is not code-signed, so Windows may warn before the first start."
   fi
   echo
-  echo "SHA-256 of ${ZIP}: \`${zip_sha}\` (also in APP_SHA256SUMS)."
+  echo "SHA-256 of ${ZIP}: \`${zip_sha}\`. SHA-256 of ${APK}: \`${apk_sha}\`. Both are in SHA256SUMS."
 } >"$notes"
 
 release_json=$(gh api -X POST "repos/${DOWNLOADS_REPO}/releases" \
@@ -91,9 +102,11 @@ release_id=$(jq -r .id <<<"$release_json")
 upload_url="https://uploads.github.com/repos/${DOWNLOADS_REPO}/releases/${release_id}/assets"
 echo "Created draft release ${release_id}."
 
-for file in "$ZIP" APP_SHA256SUMS; do
+for file in "$ZIP" "$APK" SHA256SUMS BUILD.json; do
   type=application/octet-stream
   [[ "$file" == *.zip ]] && type=application/zip
+  [[ "$file" == *.apk ]] && type=application/vnd.android.package-archive
+  [[ "$file" == *.json ]] && type=application/json
   gh api -X POST "${upload_url}?name=${file}" -H "Content-Type: ${type}" --input "$file" --jq .name >/dev/null
   echo "Uploaded ${file}."
 done
@@ -101,13 +114,13 @@ done
 # Download every asset back from the draft and compare it with what was tested.
 check_dir=$(mktemp -d)
 mapfile -t assets < <(gh api "repos/${DOWNLOADS_REPO}/releases/${release_id}/assets" --jq '.[] | "\(.id) \(.name)"')
-[[ ${#assets[@]} -eq 2 ]] || fail "The draft has ${#assets[@]} files instead of 2."
+[[ ${#assets[@]} -eq 4 ]] || fail "The draft has ${#assets[@]} files instead of 4."
 for entry in "${assets[@]}"; do
   id=${entry%% *}; name=${entry#* }
   gh api -H "Accept: application/octet-stream" "repos/${DOWNLOADS_REPO}/releases/assets/${id}" >"${check_dir}/${name}"
   cmp -s "${check_dir}/${name}" "$name" || fail "The uploaded ${name} differs from the tested file. The draft was left unpublished."
 done
-echo "Both files read back identical to the tested build."
+echo "All four files read back identical to the tested pair."
 
 published=$(gh api -X PATCH "repos/${DOWNLOADS_REPO}/releases/${release_id}" -f name="$title" -F draft=false)
 [[ $(jq -r .draft <<<"$published") == false ]] || fail "The release did not publish."
@@ -123,5 +136,7 @@ fi
   echo
   echo "- Download page: ${url}"
   echo "- ZIP: ${ZIP}"
-  echo "- SHA-256: \`${zip_sha}\`"
+  echo "- APK: ${APK}"
+  echo "- SHA-256 (PC): \`${zip_sha}\`"
+  echo "- SHA-256 (Phone): \`${apk_sha}\`"
 } >>"${GITHUB_STEP_SUMMARY:-/dev/null}"

@@ -10,19 +10,19 @@ desktop build instructions (`packaging/` and `.github/workflows/`),
 and the desktop design and status in [Architecture](docs/ARCHITECTURE.md#desktop-app-and-encrypted-profiles). It does not contain
 anyone's financial databases, passwords, recovery keys or installed app.
 
-The current **Windows desktop preview** is v0.5.0-beta.1. The [PC and phone app workflow](https://github.com/elfekimuhammed/Lightning/actions/workflows/desktop-probe.yml)
-builds a versioned app ZIP; run by hand on `main` it also builds the matching phone test app
-(Architecture › Build and release). Download the ZIP from a successful run's artifacts (a GitHub
-sign-in is needed) and extract it into a new folder: `Lightning.exe` and `README.txt` are directly
-inside. No Python installation is needed; Microsoft Edge WebView2 Runtime is required. Tagged
-releases are published to `elfekimuhammed/Lightning-downloads`.
+The source version is **v1.0.0-beta.1**. The [PC and phone app workflow](https://github.com/elfekimuhammed/Lightning/actions/workflows/desktop-probe.yml)
+builds the tested Windows ZIP and matching signed Android APK from one commit (Architecture › Build
+and release). A manual run offers both as seven-day artifacts (GitHub sign-in required). A successful
+tag publishes both in [Lightning-downloads](https://github.com/elfekimuhammed/Lightning-downloads/releases).
+Extract the Windows ZIP into a new folder and launch `Lightning.exe`; no Python installation is
+needed, but Microsoft Edge WebView2 Runtime is required.
 
 The desktop preview asks for a profile password and provides a recovery key.
 Its encrypted profile databases and backups live under the user's
 `Documents/Lightning`, outside the extracted app folder. Close the app before
 replacing that entire folder with a newer ZIP; replacing app files does not
-replace profile data. Use dummy data first: legacy database import and backup
-restore in the UI are not finished. Do not sync a live database between running
+replace profile data. Testers may use sample or real data; keep an independent
+backup because legacy database import and backup restore in the UI are not finished. Do not sync a live database between running
 computers.
 
 On Linux, run `python -m lightning --profiles` from a source checkout for the

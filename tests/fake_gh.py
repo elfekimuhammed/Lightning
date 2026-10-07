@@ -64,7 +64,8 @@ m = re.fullmatch(r"https://uploads\.github\.com/repos/[^/]+/[^/]+/releases/(\d+)
 if m and method == "POST":
     rel = next(r for r in state["releases"] if r["id"] == int(m.group(1)))
     data = Path(input_file).read_bytes()
-    if state.get("corrupt_upload") and m.group(2).endswith(".zip"):
+    if (state.get("corrupt_upload") is True and m.group(2).endswith(".zip")) or (
+            state.get("corrupt_upload") == "apk" and m.group(2).endswith(".apk")):
         data = data[:-1] + bytes([data[-1] ^ 0x01])
     aid = 5000 + sum(len(r["assets"]) for r in state["releases"])
     store = state_path.parent / f"asset-{aid}"

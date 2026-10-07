@@ -8,8 +8,8 @@
 #   something that can change the app changed since the last successful Windows build.
 # - The ZIP that is uploaded is the ZIP that was tested: it is extracted to a fresh folder and its
 #   own Lightning.exe must pass the self-check and the real WebView2 window check.
-# - A tag vX.Y.Z[-beta.N] that matches the source version and sits on main publishes that tested ZIP
-#   as a new, never-replaced release in elfekimuhammed/Lightning-downloads.
+# - A tag vX.Y.Z[-beta.N] that matches the source version and sits on main publishes the tested ZIP
+#   and matching signed APK as a new, never-replaced release in elfekimuhammed/Lightning-downloads.
 #   How to release: docs/ARCHITECTURE.md › Desktop app and encrypted profiles › Build and release.
 # - The daily run also builds and checks the phone app (no key, nothing offered) when its files changed.
 # - A manual run on main makes the matched test builds: the Windows ZIP and the phone APK (Lightning Test)
@@ -178,7 +178,7 @@ jobs:
           retention-days: 14
 
   phone:
-    # The matched test builds (manual, on main), or the daily check when the phone's files changed: that one
+    # The matched test builds (manual or release tag), or the daily check when the phone's files changed: that one
     # builds and checks the phone, needs no key and offers nothing.
     name: Phone app
     needs: tests
@@ -196,7 +196,7 @@ jobs:
     # Only when the phone app passed and the Windows ZIP of this commit was built and tested in this run
     # or an earlier one; anything else offers nothing.
     if: >-
-      always() && needs.tests.result == 'success' && needs.tests.outputs.phone == 'true'
+      always() && github.event_name == 'workflow_dispatch' && needs.tests.result == 'success' && needs.tests.outputs.phone == 'true'
       && needs.phone.result == 'success'
       && (needs.windows.result == 'success' || (needs.windows.result == 'skipped' && needs.tests.outputs.reuse_run != ''))
     runs-on: ubuntu-24.04
@@ -252,12 +252,12 @@ jobs:
             echo "### Matched test builds of ${GITHUB_SHA:0:8}"
             echo "- PC: download **$PC**, extract it, run Lightning\\Lightning.exe."
             echo "- Phone: download **$PHONE** on the phone and install the APK inside (Lightning Test)."
-            echo "Dummy data only. Each holds README.txt, SHA256SUMS and BUILD.json."
+            echo "Sample or real data; keep an independent backup. Each holds README.txt, SHA256SUMS and BUILD.json."
           } >> "$GITHUB_STEP_SUMMARY"
 
   release:
     name: Publish the release
-    needs: [tests, windows]
+    needs: [tests, windows, phone]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -267,10 +267,22 @@ jobs:
         with:
           name: ${{ needs.windows.outputs.artifact }}
           path: release
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131  # v7
+        with:
+          name: phone-apk
+          path: phone
+      - name: Verify that the Windows ZIP and signed APK are the tested pair from this commit
+        run: |
+          python packaging/phone_build.py bundle --windows release --apk phone/Lightning-Test-*.apk \
+            --info phone/apk.json --out verified
+          cp verified/PC/SHA256SUMS verified/PC/BUILD.json release/
+          cp phone/Lightning-Test-*.apk release/
       - name: Publish to Lightning-downloads
         working-directory: release
         env:
           GH_TOKEN: ${{ secrets.LIGHTNING_DOWNLOADS_TOKEN }}
           TAG: ${{ github.ref_name }}
           ZIP: ${{ needs.windows.outputs.zip }}
-        run: bash "$GITHUB_WORKSPACE/packaging/publish_release.sh"
+        run: |
+          export APK="$(jq -r .android.file BUILD.json)"
+          bash "$GITHUB_WORKSPACE/packaging/publish_release.sh"

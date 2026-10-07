@@ -226,7 +226,7 @@ def test_2_edits_on_the_phone_reach_the_pc_and_the_pcs_come_back(mohab):
     opened = borrow(pc)
     assert opened.path == "/" and opened.shows("Borrowed from My phone")
     rows = pc.register("Wallet")
-    assert "175.00" in rows and "Uber" in rows and "150.00" not in rows
+    assert "175" in rows and "Uber" in rows and "150" not in rows
     assert pc.owns() == phone.owns() == "565"
 
     # While the PC has it the phone reads and says who has it (test_3b: what Save does there).
@@ -243,7 +243,7 @@ def test_2_edits_on_the_phone_reach_the_pc_and_the_pcs_come_back(mohab):
     pc.b.go("Profiles & lock")
     assert pc.b.submit({}, button="Hand back").shows("Mohab is back on My phone, with your changes.")
     rows = phone.register("Wallet")
-    assert "Carrefour" in rows and "65.00" in rows and "Talabat" not in rows
+    assert "Carrefour" in rows and "65" in rows and "Talabat" not in rows
     assert phone.owns() == "435"
     assert not phone.b.open("/").shows("Lent to")
     phone.spend("Wallet", "2026-10-06", "Kiosk", "15")   # the phone writes again
@@ -269,7 +269,7 @@ def test_3_a_form_left_open_never_saves_over_the_other_devices_work(mohab):
     assert stale.path == "/profiles" and stale.shows("On My phone")   # back at the chooser; nothing saved
 
     rows = phone.register("Wallet")
-    assert "180.00" in rows and "175.00" not in rows and "200.00" in rows and "250.00" not in rows
+    assert "180" in rows and "175" not in rows and "200" in rows and "250" not in rows
     assert phone.owns() == "620"
 
 

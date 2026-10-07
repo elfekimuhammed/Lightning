@@ -174,7 +174,7 @@ def test_the_bundle_offers_only_a_pair_from_one_commit(tmp_path):
         manifest = json.loads((folder / "BUILD.json").read_text())
         assert manifest["commit"] == commit and manifest["windows"]["built_by_run"] == "7"
         assert f"{build.sha256(zip_path)}  {zip_path.name}" in (folder / "SHA256SUMS").read_text()
-        assert "dummy data only" in (folder / "README.txt").read_text()
+        assert "sample or real data" in (folder / "README.txt").read_text()
 
     other = tmp_path / "other"
     _windows(other, "e" * 40)
@@ -226,7 +226,10 @@ def test_the_workflows_offer_a_pair_only_from_one_run_and_never_sign_with_anothe
     assert "needs: [tests, windows, phone]" in bundle_job and "needs.phone.result == 'success'" in bundle_job
     assert "needs.windows.result == 'success' || (needs.windows.result == 'skipped' && needs.tests.outputs.reuse_run != '')" in bundle_job
     assert "phone_build.py bundle" in bundle_job and bundle_job.count("retention-days: 7") == 2
-    assert "phone" not in release_job.split("steps:")[0]  # a tag release never waits on, or carries, the APK
+    assert "github.event_name == 'workflow_dispatch'" in bundle_job  # a tag uses the permanent release instead
+    assert "needs: [tests, windows, phone]" in release_job.split("steps:")[0]
+    assert "name: phone-apk" in release_job and "phone_build.py bundle" in release_job
+    assert "publish_release.sh" in release_job and "BUILD.json" in release_job
     assert "format('-{0}', github.run_id)" in app  # a push never cancels the test builds
     android = (flows / "android-app.yml").read_text(encoding="utf-8")
     sign = android[android.index("- name: Sign with the test key"):android.index("- name: Check the signed app")]

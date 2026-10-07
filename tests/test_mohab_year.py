@@ -429,8 +429,9 @@ def _live_the_year(o: Mohab) -> None:
     o.ask("refund", "Amazon refunded me. Did my spending go down?", "Spending")
     o.ask("emergency", "After the repair, how much is left in my emergency fund?", "Cash planning", "Reserves")
     o.ask("fixed", "Is the Carrefour mistake fixed, and the double Talabat gone?", "CIB Payroll")
-    statement_balance = o.answers["fixed"].figure("In this account")
     o.ask("reconcile", "Does Lightning match my bank statement?", "CIB Payroll", "Check against bank")
+    # The register header is intentionally whole EGP (A16). Reconciliation shows the exact cents.
+    statement_balance = money(o.answers["reconcile"].screen.after("Lightning shows"))
     o.answers["reconcile"].screen = b.submit({"date": "2026-10-31", "balance": str(statement_balance)}, button="Check")
 
     # ============================================================== November: a dividend
@@ -826,9 +827,9 @@ def test_paying_from_the_overview_moves_net_worth_only_by_the_salary(mohab):
 
 def test_a_mistake_is_fixed_in_place_and_a_double_entry_deleted(mohab):
     register = mohab.answers["fixed"]
-    assert register.shows("2026-10-26 Carrefour Food & Groceries −4,060.00")
-    assert "−4,600.00" not in register.screen.text
-    assert register.screen.text.count("2026-10-10 Talabat") == 1
+    assert register.shows("Carrefour Food & Groceries 2026-10-26 −4,060")
+    assert "−4,600" not in register.screen.text
+    assert register.screen.text.count("Talabat Eating Out 2026-10-10") == 1
 
 
 def test_the_atm_fee_is_only_inside_others(mohab):
@@ -1279,7 +1280,8 @@ def test_a_small_difference_from_the_bank_is_one_adjustment(mohab):
     check = mohab.notes["wallet_check"]
     assert check.shows("A small difference", "Lightning is 30.00 EGP above your bank", "Post adjustment of −30.00")
     assert mohab.notes["wallet_adjusted"].shows("Balance adjustment", "The account now matches your bank")
-    assert mohab.notes["wallet_adjusted"].shows("2027-09-30 Balance adjustment Other Personal")
+    assert mohab.notes["wallet_adjusted"].shows("Balance adjustment Other Personal 2027-09-30 Bank showed",
+                                                "−30 Balance 42,950")
     assert mohab.notes["wallet_rechecked"].shows("It matches")
 
 
@@ -1372,5 +1374,5 @@ def test_a_rule_files_a_new_phone_as_shopping_and_keeps_the_monthly_bill(mohab):
                                            "Shopping")
     assert route(mohab, "rule_filed") == ["/", "/accounts/1"]
     answer = mohab.answers["rule_filed"]
-    assert answer.shows("2027-09-30 Vodafone Shopping new phone −12,000.00",
-                        "2027-09-30 Vodafone Utilities & Bills −350.00")
+    assert answer.shows("Vodafone Shopping 2027-09-30 new phone −12,000",
+                        "Vodafone Utilities & Bills 2027-09-30 −350")

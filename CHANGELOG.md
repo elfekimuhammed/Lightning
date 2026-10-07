@@ -10,6 +10,11 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+
+## [1.0.0b1] — 2026-10-07 — Windows and Android beta
+
+- 2026-10-07 · Codex: Version 1.0 beta pairs one tested Windows ZIP and signed Android APK in one permanent release, with shared checksums and build identity. Testers may use sample or real data with an independent backup.
+- 2026-10-07 · Luna, for Codex: certificate prices retain principal until manually valued; dated valuations post one noncash value line per certificate and owner.
 - 2026-10-07 · Codex: rewrote the planned edit journal around local edits, a stable home and encrypted deltas; specified conflict, replay and recovery rules. Updated decisions, terms and handoff; recorded unrelated baseline test failures. Not built or scheduled (`docs/proposals/edit_journal.md`).
 - 2026-10-07 · Codex: FX prices now use Banque Misr's dated transfer-rate midpoint after CBE blocked the collector; source labels, checks and tests updated.
 - 2026-10-07 · Luna, for Codex: register rows follow A11; sparse Spending and Plan screens show clearer numbers and spaced timeline labels.

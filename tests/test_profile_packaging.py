@@ -36,7 +36,7 @@ def test_workflow_ships_only_what_passed_the_full_suite_and_its_own_checks():
     assert steps("package_app.py --strict") < steps("Expand-Archive") < steps("-Arguments '--self-check'",
                                                                             steps("Expand-Archive"))
     assert steps("steps.shipped.outputs.exe") < steps("actions/upload-artifact")
-    assert "needs: [tests, windows]" in release and "startsWith(github.ref, 'refs/tags/v')" in release
+    assert "needs: [tests, windows, phone]" in release and "startsWith(github.ref, 'refs/tags/v')" in release
     assert "needs.windows.outputs.artifact" in release and "publish_release.sh" in release
     assert "secrets.LIGHTNING_DOWNLOADS_TOKEN" in release
     # Every third-party action is pinned to a full commit, here and in the phone workflows (the phone job
@@ -378,7 +378,7 @@ def test_a_manual_run_reuses_what_this_commit_already_has(monkeypatch, tmp_path)
 
     assert scope.earlier_runs(sha, broken)["suite"] == "run"  # no answer: build and test
 
-    # The outputs the workflow reads. A manual run elsewhere, a push or the daily run make no phone build.
+    # A manual run on main and a release tag make a signed phone build; a push and daily run do not bundle.
     monkeypatch.setattr(scope, "earlier_runs", lambda sha: {"reuse_run": "7", "reuse_artifact": "zip", "suite": "skip"})
     monkeypatch.setattr(scope, "last_windows_build", lambda **kwargs: None)
     monkeypatch.setattr(scope, "last_full_suite", lambda: None)
@@ -398,6 +398,8 @@ def test_a_manual_run_reuses_what_this_commit_already_has(monkeypatch, tmp_path)
     branch = outputs("workflow_dispatch", "refs/heads/feature")
     assert branch["phone"] == "false" and branch["build_windows"] == "true" and branch["suite"] == "run"
     assert outputs("push", "refs/heads/main")["phone"] == "false"
+    tagged = outputs("push", "refs/tags/v1.0.0-beta.1")
+    assert tagged["phone"] == "true" and tagged["build_windows"] == "true"
     daily = outputs("schedule", "refs/heads/main")
     assert daily["build_windows"] == "true" and daily["phone_daily"] == "true"  # no earlier build known
     assert daily["phone"] == "false"  # the daily phone build offers nothing and needs no key

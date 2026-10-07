@@ -234,17 +234,19 @@ def test_12_the_usual_month_counts_refunds_like_money_out(c, setup):
 
 
 def test_12_average_payment_is_the_average_of_the_payments(c, setup, monkeypatch):
-    """#12: one 1,000 payment and a 400 refund: the average payment is 1,000, not Money out 600 ÷ 1."""
+    """#12: two payments of 1,000 and 200 plus a 400 refund average 600, not net Money out 800 ÷ 2."""
     import re
 
     from fastapi.testclient import TestClient
 
     from lightning.ui.web import create_app
     monkeypatch.setenv("LIGHTNING_TODAY", "2026-10-31")
-    _refunded_october(c, setup)
+    cib = _refunded_october(c, setup)
+    food = setup[1]["EXP.PERSONAL.FOOD"]
+    c.transactions.record_outflow("2026-10-25", cib, "200", food.id)
     html = TestClient(create_app(c)).get("/birdview/expenses?period=month&month=2026-10").text
     card = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", html[html.index("Average payment"):][:400]))
-    assert "1,000" in card and "600" not in card.split("payment")[1][:40]
+    assert "600" in card and "800" not in card.split("payment")[1][:40]
 
 
 def test_12_the_money_flow_chart_balances_when_a_refund_outweighs_spending(c, setup, monkeypatch):

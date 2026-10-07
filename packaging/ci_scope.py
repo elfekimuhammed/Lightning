@@ -14,7 +14,8 @@ and tests:
 - Windows app. A tag and a manual run build it. The daily run builds it when a file that can reach it
   changed since the last commit whose Windows build succeeded (so a failed or cancelled build is redone).
   A manual run on main reuses an earlier run's unexpired ZIP of this exact commit.
-- Phone app. A manual run on main makes the matched test builds (docs/ARCHITECTURE.md › Build and release).
+- Phone app. A manual run on main makes matched test builds; a release tag builds the same signed APK
+  for the permanent Windows and Android beta release (docs/ARCHITECTURE.md › Build and release).
   The daily run builds and checks it (no key, nothing offered) when a file that reaches it changed since
   its last successful build.
 """
@@ -332,6 +333,8 @@ def main(argv: list[str]) -> int:
         values.update(earlier_runs(sha), phone="true")
         if values["reuse_run"]:
             build, reason = False, f"run {values['reuse_run']} built and tested this commit; its ZIP is reused"
+    if ref.startswith("refs/tags/v"):
+        values["phone"] = "true"
     print(f"Build the Windows app: {'yes' if build else 'no'} ({reason})")
     if event == "workflow_dispatch":
         tell(manual_run_notes(ref, sha, values, reason, os.environ.get("HAS_TEST_KEY") == "true",

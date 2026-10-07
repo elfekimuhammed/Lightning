@@ -6,11 +6,8 @@ What only the owner can do or decide. Any AI adds an item here, and removes it o
 
 - **Before the edit-journal mailbox ships:** create its dedicated Cloudflare account, arrange a card that pays in dollars, and update the website privacy note. Building remains for later; [revised proposal](docs/proposals/edit_journal.md).
 
-- **Before the first tagged release (one-time):**
-  1. Create a fine-grained token with Contents: read and write on `Lightning-downloads` only. Save it in this repository as the Actions secret `LIGHTNING_DOWNLOADS_TOKEN`.
-  2. Turn on release immutability in `Lightning-downloads` › Settings.
-  3. Release with `git tag v0.5.0-beta.1 <commit on main>` and `git push origin v0.5.0-beta.1`.
-- **Price packs (one-time):** the public repository `elfekimuhammed/Lightning_Market_Data` exists (2026-10-05); still to do: a fine-grained token with Contents: read and write on it only, saved here as the Actions secret `LIGHTNING_MARKET_TOKEN`, and the repository variable `MARKET_PUBLISH` set to `true`. Until then the collector runs and checks sources but publishes nothing. Only exchange rates (CBE) are published (decided 2026-10-05). A tagged release needs that pack published there, because the release ZIP carries it: until then `v0.5.0-beta.1` stops at its price-files step.
+- **Before the first tagged release (one-time):** turn on release immutability in `Lightning-downloads` › Settings. The `LIGHTNING_DOWNLOADS_TOKEN` secret is configured. Codex handles the `v1.0.0-beta.1` tag after the paired PC and phone checks pass.
+- **Price pack:** the `LIGHTNING_MARKET_TOKEN` secret and `MARKET_PUBLISH` variable are configured. The FX collector now uses Banque Misr because CBE rejected requests; publish and verify the first FX pack before tagging, because the Windows ZIP requires it.
 - **Review milestones 1 and 2 together, dummy data only:**
   1. Phone: install `lightning-android` from [Android run 37527282826](https://github.com/elfekimuhammed/Lightning/actions/runs/37527282826) (a new app called Lightning). PC: install the ZIP from [Windows run 37519503375](https://github.com/elfekimuhammed/Lightning/actions/runs/37519503375). Same Wi-Fi.
   2. PC: create a dummy profile and add an account. Phone: Bring a profile from your PC, Show a code. PC: Profile settings › Move to your phone, type the address and code. Both show the same six digits. (A profile made on the phone instead: Settings, the gear, › This phone › Pair a PC; on the PC, Connect to your phone.)
