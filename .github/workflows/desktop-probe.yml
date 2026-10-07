@@ -110,7 +110,7 @@ jobs:
         run: >-
           python -m pytest -o addopts= -o faulthandler_timeout=120 -q -n auto --dist loadfile
           tests/test_desktop_crypto.py tests/test_desktop_window.py
-          tests/test_desktop_server.py tests/test_desktop_packaging.py tests/test_profile_packaging.py
+          tests/test_desktop_packaging.py tests/test_profile_packaging.py
           tests/test_profile_app.py tests/test_profile_session.py
           tests/test_runtime_paths.py tests/test_runtime_instance.py
           tests/test_encrypted_database.py tests/test_database_staging.py
@@ -120,16 +120,8 @@ jobs:
           tests/test_figures.py tests/test_ui.py
       - name: Price files the app carries (market.zip; required for a tagged release)
         run: python -m tools.market release ${{ github.ref_type == 'tag' && '--required' || '' }}
-      - name: Build the one-folder executables
-        run: |
-          pyinstaller --clean --noconfirm packaging/desktop-probe.spec
-          pyinstaller --clean --noconfirm packaging/desktop-app.spec
-      - name: Probe self-check (encryption and resources)
-        shell: pwsh
-        run: ./packaging/run_check.ps1 -Exe dist/LightningProbe/LightningProbe.exe -Report reports/probe-self-check.json -Arguments '--self-check'
-      - name: Probe window check (real WebView2)
-        shell: pwsh
-        run: ./packaging/run_check.ps1 -Exe dist/LightningProbe/LightningProbe.exe -Report reports/probe-window.json -Arguments '--smoke' -TimeoutSeconds 120
+      - name: Build the one-folder app
+        run: pyinstaller --clean --noconfirm packaging/desktop-app.spec
       - name: Package the app
         id: package
         shell: pwsh

@@ -6,19 +6,16 @@ investments, cash reserves, and owned wealth. Historical wealth analysis and a d
 ## Source code, desktop app and private data
 
 This GitHub repository contains the **source code** (`lightning/`), tests (`tests/`),
-desktop build instructions (`packaging/` and `.github/workflows/desktop-probe.yml`),
+desktop build instructions (`packaging/` and `.github/workflows/`),
 and the desktop design and status in [Architecture](docs/ARCHITECTURE.md#desktop-app-and-encrypted-profiles). It does not contain
 anyone's financial databases, passwords, recovery keys or installed app.
 
-The current **Windows desktop preview** is v0.5.0-beta.1. A separate, versioned
-app ZIP is produced by the [Windows desktop feasibility workflow](https://github.com/elfekimuhammed/Lightning/actions/workflows/desktop-probe.yml).
-Download the ZIP from a successful workflow run's artifacts and extract it once
-into a new folder. `Lightning.exe` and `README.txt` are directly inside the
-extracted folder. No Python installation is needed; Microsoft Edge WebView2
-Runtime is required. The download contains only the Lightning app, not the
-older engineering probe or test reports. This repository is private, so only
-people with repository access can download Actions artifacts. A website link for
-outside testers will need a separately published download.
+The current **Windows desktop preview** is v0.5.0-beta.1. The [PC and phone app workflow](https://github.com/elfekimuhammed/Lightning/actions/workflows/desktop-probe.yml)
+builds a versioned app ZIP; run by hand on `main` it also builds the matching phone test app
+(Architecture › Build and release). Download the ZIP from a successful run's artifacts (a GitHub
+sign-in is needed) and extract it into a new folder: `Lightning.exe` and `README.txt` are directly
+inside. No Python installation is needed; Microsoft Edge WebView2 Runtime is required. Tagged
+releases are published to `elfekimuhammed/Lightning-downloads`.
 
 The desktop preview asks for a profile password and provides a recovery key.
 Its encrypted profile databases and backups live under the user's

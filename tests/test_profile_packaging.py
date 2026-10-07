@@ -20,7 +20,6 @@ def test_desktop_version_and_one_extract_artifact_agree():
     assert "branches: [main]" in workflow and "tags: ['v*']" in workflow
     assert "dist/APP_SHA256SUMS" in workflow
     assert "name: ${{ steps.package.outputs.artifact }}" in workflow
-    assert "dist/LightningProbe-windows-x64.zip" not in workflow
 
 
 def test_workflow_ships_only_what_passed_the_full_suite_and_its_own_checks():
@@ -247,7 +246,7 @@ def test_the_docs_only_skip_compares_with_the_last_successful_windows_build(monk
     jobs = {3: [{"name": "Full test suite (Linux)", "conclusion": "success"},
                 {"name": "Build and test the Windows app", "conclusion": "cancelled"}],
             2: [{"name": "Build and test the Windows app", "conclusion": "skipped"}],
-            1: [{"name": "windows-probe", "conclusion": "success"}]}
+            1: [{"name": "Build and test the Windows app", "conclusion": "success"}]}
 
     def api(path):
         if "/jobs" in path:

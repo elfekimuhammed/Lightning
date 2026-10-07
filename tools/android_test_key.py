@@ -66,7 +66,7 @@ def write(folder: Path) -> str:
     password = secrets.token_urlsafe(32)
     store, fingerprint = make_keystore(password)
     contents = (base64.b64encode(store).decode() + "\n", password + "\n", fingerprint + "\n")
-    for name, text in zip(FILES, contents):
+    for name, text in zip(FILES, contents, strict=True):
         (folder / name).write_text(text, encoding="ascii")
     return fingerprint
 
