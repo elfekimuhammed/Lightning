@@ -5,7 +5,7 @@
 
 {% if error %}<p class="flash error" role="alert">{{ error }}</p>{% endif %}
 <details class="card" {{ 'open' if error or review_required }}>
-  <summary><b>Add a Counterparty</b><span class="muted small">Save a name and optional suggested category</span></summary>
+  <summary><b>Add a counterparty</b><span class="muted small">Save a name and optional suggested category</span></summary>
   <p class="muted small">Use one saved name across transactions. You can set a suggested category; each transaction can still use a different one.</p>
   <form method="post" action="/counterparties" class="stack">
     <label>Name<input type="text" name="name" value="{{ entered_name or '' }}" placeholder="e.g. Talabat" required></label>
@@ -14,7 +14,7 @@
         {% from "partials/macros.html" import category_options %}{{ category_options(category_groups(categories), entered_category_id) }}
       </select>
     </label>
-    <button class="btn primary">Add Counterparty</button>
+    <button class="btn primary">Add counterparty</button>
   <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
  </details>
 <section class="card data-panel">

@@ -3,8 +3,8 @@
 {%- endmacro %}
 
 {# A balance you hold: Azure, a negative one needs you (guideline A03). #}
-{% macro held(value, currency='') -%}
-<span class="num held{{ ' neg' if value is not none and value < 0 }}">{{ value|money }}{% if currency %} <span class="muted small">{{ currency }}</span>{% endif %}</span>
+{% macro held(value, currency='', places=None) -%}
+<span class="num held{{ ' neg' if value is not none and value < 0 }}">{{ value|money(places=places) }}{% if currency %} <span class="muted small">{{ currency }}</span>{% endif %}</span>
 {%- endmacro %}
 
 {% macro txn_table(rows, show_account=True, empty='No transactions yet.') -%}

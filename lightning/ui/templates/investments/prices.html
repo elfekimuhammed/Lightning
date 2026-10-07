@@ -38,7 +38,7 @@
   <p class="muted">These month-end checkpoints are waiting for a price. Get prices asks the sources again; {% if fails >= 2 and market %}they failed the last {{ fails }} times, so you can use the shared prices instead, or {% else %}or {% endif %}enter each price below. Its account return is then posted to the main ledger.</p>
   <div class="actions" style="margin-bottom:12px"><button class="btn" formaction="/investments/prices/online" formnovalidate data-busy="Fetching prices…">Get prices</button>{% if fails >= 2 and market %}<button class="btn" formaction="/investments/prices/market/update" formnovalidate data-busy="Downloading…">Use shared prices</button>{% endif %}</div>
   <table class="budget"><thead><tr><th>Checkpoint</th><th>Investment</th><th>Price needed</th></tr></thead>
-    {% for row in pending %}<tr><td>{{ row.date }}</td><td>{{ row.asset_name }} <span class="code muted small">{{ row.asset_code }}</span></td>
+    {% for row in pending %}<tr><td>{{ row.date }}</td><td>{{ row.asset_name }}</td>
       <td><input name="rp_{{ row.asset_id }}_{{ row.date }}" class="num" inputmode="decimal" placeholder="Price per unit" required></td></tr>{% endfor %}
   </table>
   <div class="actions" style="margin-top:12px"><button class="btn primary">Save missing prices</button></div>
@@ -53,7 +53,7 @@
     <thead><tr><th>Investment</th><th class="num">You hold</th><th class="num">Last price</th><th class="num">Total value</th><th class="num" style="width:170px">New price per unit</th></tr></thead>
     {% for r in rows %}
     <tr>
-      <td>{{ r.asset.name }} <span class="code muted small">{{ r.asset.code }}</span>
+      <td>{{ r.asset.name }}
         <a class="small" href="/investments/assets/{{ r.asset.id }}/edit" style="margin-left:6px">edit</a></td>
       <td class="num small">{% if r.held %}{{ r.held.quantity|money(False, 3 if r.asset.unit == 'gram' else (0 if r.asset.unit == 'share' else 4)) }} {{ r.asset.unit }}s{% else %}<span class="muted">—</span>{% endif %}</td>
       <td class="num small">{% if r.price is not none %}{{ r.price|money(False, 4) }}<div class="muted">{{ r.price_date }}{{ ' · last trade' if r.source == 'TRADE' else (' · at cost' if r.source == 'COST' else (' · price file' if r.source == 'MARKET' else (' · online' if r.source == 'ONLINE' else ''))) }}</div>{% else %}<span class="muted">none</span>{% endif %}</td>

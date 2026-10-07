@@ -14,7 +14,7 @@ def test_the_box_shows_the_fund_after_payments_and_saving_it_changes_nothing(c, 
     c.reserves.set_expense_link(fund["id"], repair.id, "6500")
     client = TestClient(create_app(c))
     page = client.get("/plan/reserves").text
-    assert 'name="allocated" value="13,500.00"' in page and "After 6,500 paid from the fund" in page
+    assert 'name="allocated" value="13,500.00"' in page and "13,500 left of 20,000 · 6,500 used" in page and "Refill to 20,000" in page
     c.reserves.set_emergency_fund("13,500")
     emergency = next(r for r in c.reserves.list_active() if r["kind"] == "EMERGENCY")
     assert emergency["effective_allocated"] == Decimal("13500")

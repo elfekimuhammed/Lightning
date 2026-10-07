@@ -27,7 +27,7 @@
   <td class="num">{{ row.estimate|money }}</td></tr>{% endfor %}
 </tbody>{% else %}<tbody><tr><td colspan="4">No investment classes are configured.</td></tr></tbody>{% endfor %}
 </table><p class="muted small">Leave a kind empty to use its class’s factor. Clear a class to use the 95% default.</p>
-<details><summary>View configured classes and assets</summary><table>{% for c in classes %}<tr><td class="indent-{{ c.depth }}">{{ c.name }}</td><td class="code muted">{{ c.code }}</td></tr>{% endfor %}</table><h3>Financial assets</h3><table>{% for a in assets %}<tr><td>{{ a.name }}</td><td class="code muted">{{ a.code }}</td></tr>{% endfor %}</table></details></section>
+<details><summary>View configured classes and assets</summary><table>{% for c in classes %}<tr><td class="indent-{{ c.depth }}">{{ c.name }}</td></tr>{% endfor %}</table><h3>Financial assets</h3><table>{% for a in assets %}<tr><td>{{ a.name }}</td></tr>{% endfor %}</table></details></section>
 {% elif section=='budget' %}{% include 'settings/budget_section.html' %}
 {% elif section=='financial-health' %}{% include 'settings/financial_health_section.html' %}
 {% elif section=='targets' %}<section class="card"><div class="section-head"><div><h2>Target allocation</h2></div></div>{% include "investments/_targets.html" %}</section>

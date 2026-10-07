@@ -493,6 +493,26 @@ tr.clickable:hover td { background: var(--surface-2); }
 .emergency-form label { display: grid; gap: 4px; color: var(--muted); font-size: 13px; }
 .emergency-form input { width: 190px; }
 .table-wrap { overflow-x: auto; }
+.reserve-rows { list-style:none; margin:0; padding:0; }
+.reserve-row { padding:14px 0; border-top:1px solid var(--line); display:grid; gap:8px; }
+.reserve-row:first-child { border-top:0; }
+.reserve-line { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+.reserve-what { display:grid; gap:2px; min-width:0; }
+.reserve-set { display:flex; align-items:center; gap:10px; }
+.reserve-set .money-input { width:130px; text-align:right; }
+.reserve-meter { flex:1; display:grid; gap:4px; min-width:0; }
+.reserve-meter .bartrack { height:6px; background:var(--track); }
+.reserve-meter .bar { height:100%; border-radius:inherit; background:var(--azure); }
+.reserve-actions { display:flex; align-items:center; gap:8px; }
+.reserve-foot { display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 16px; }
+.reserve-foot .reserve-edit { margin:0; min-width:0; }
+.reserve-foot .reserve-edit[open] { flex-basis:100%; }
+.reserve-foot .reserve-edit > summary:not(#_) { display:inline-flex; width:auto; padding:0; font-size:13px; font-weight:400; color:var(--accent); }
+.reserve-foot .reserve-edit > summary::after { display:none; }
+.reserve-row p { margin:0; }
+.status-dot::before { content:""; display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:5px; background:var(--muted); vertical-align:1px; }
+.status-dot.is-done::before { background:var(--meadow); }
+@media (max-width:700px) { .reserve-line { flex-wrap:wrap; } }
 .reserve-table { min-width: 760px; }
 .reserve-table td { vertical-align: middle; }
 .reserve-table td:first-child { min-width: 140px; }
@@ -1765,6 +1785,7 @@ a.chart-meter:hover { background:var(--hover); }
 /* Overview › what it is made of | if you sold today: one wide card split by a divider. */
 .main .overview-owned-card { margin-top:16px; }
 .main .overview-split { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0; }
+.main .overview-split.is-single { grid-template-columns:minmax(0,1fr); }
 .main .overview-split > section { min-width:0; padding:0 24px; }
 .main .overview-split > section:first-child { padding-left:0; }
 .main .overview-split > section + section { border-left:1px solid var(--line); padding-right:0; }
