@@ -15,3 +15,4 @@ pyinstaller-hooks-contrib==2026.8
 pytest==9.1.1
 httpx==0.28.1
 import-linter==2.15
+httpx2==2.13.1

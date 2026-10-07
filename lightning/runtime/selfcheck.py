@@ -22,29 +22,15 @@ def get(app, path: str) -> tuple[int, bytes]:
 
     The encrypted database only answers on the thread that opened it, and every finance route is
     async, so the whole request runs on this thread's event loop."""
-    route, _, query = path.partition("?")
-    scope = {"type": "http", "asgi": {"version": "3.0", "spec_version": "2.3"}, "http_version": "1.1",
-             "method": "GET", "scheme": "http", "path": route, "raw_path": route.encode(), "root_path": "",
-             "query_string": query.encode(), "headers": [(b"host", b"127.0.0.1")],
-             "client": ("127.0.0.1", 50000), "server": ("127.0.0.1", 80)}
-    status, body, asked = 0, [], False
+    import httpx
 
-    async def receive():
-        nonlocal asked
-        if not asked:
-            asked = True
-            return {"type": "http.request", "body": b"", "more_body": False}
-        await asyncio.Event().wait()  # the client stays connected until the response is complete
+    async def request():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),
+                                     base_url="http://127.0.0.1") as client:
+            response = await client.get(path)
+            return response.status_code, response.content
 
-    async def send(message):
-        nonlocal status
-        if message["type"] == "http.response.start":
-            status = message["status"]
-        elif message["type"] == "http.response.body":
-            body.append(message.get("body", b""))
-
-    asyncio.run(app(scope, receive, send))
-    return status, b"".join(body)
+    return asyncio.run(request())
 
 
 def finance_page_checks(container) -> dict[str, bool]:
