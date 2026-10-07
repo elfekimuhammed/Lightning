@@ -128,7 +128,7 @@ def test_account_and_all_transactions_share_an_internally_scrollable_register(c)
     for path in ("/accounts/1", "/transactions"):
         page = client.get(path)
         assert page.status_code == 200
-        assert '<div class="register-table-scroll"><table>' in page.text
+        assert '<div class="register-table-scroll"><table class="register-rows">' in page.text
         assert 'id="quick-add"' in page.text
         assert 'id="select-visible"' in page.text
 
@@ -192,14 +192,18 @@ def test_flash_behavior_covers_errors_popups_and_late_insertions():
     assert "@media(prefers-reduced-motion:reduce)" in stylesheet
 
 
-def test_register_keeps_balance_inside_a_horizontally_scrollable_table():
+def test_register_uses_two_line_rows_and_keeps_balance_under_amount():
     register = (ROOT / "lightning/ui/templates/register.html").read_text(encoding="utf-8")
     stylesheet = (ROOT / "lightning/ui/static/style.css").read_text(encoding="utf-8")
 
-    assert '<div class="register-table-scroll"><table>' in register
+    assert '<div class="register-table-scroll"><table class="register-rows">' in register
+    assert "register-primary-line" in register and "register-meta-line" in register
+    assert "register-balance" in register
+    assert 'class="action-heading"' not in register
+    assert 'money(False, 0)' in register
     scroll_rule = re.search(r"\.main \.register-table-scroll\s*\{([^}]*)\}", stylesheet)
     table_rule = re.search(r"\.main \.register-table-scroll\s*>\s*table\s*\{([^}]*)\}", stylesheet)
     number_rule = re.search(r"\.num\s*\{([^}]*)\}", stylesheet)
     assert scroll_rule and "overflow-x:auto" in scroll_rule.group(1)
-    assert table_rule and "min-width:1120px" in table_rule.group(1)
+    assert table_rule and "min-width:0" in table_rule.group(1)
     assert number_rule and "white-space: nowrap" in number_rule.group(1)

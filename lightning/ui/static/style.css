@@ -785,7 +785,30 @@ body { background: var(--surface-2); }
 .ledger { padding: 0; overflow-x: auto; }
 .ledger table { margin: 0; }
 .main .register-table-scroll { max-width:100%; overflow-x:auto; }
-.main .register-table-scroll > table { min-width:1120px; }
+.main .register-table-scroll > table { width:100%; min-width:0; table-layout:fixed; }
+.main .register-rows th:first-child, .main .register-rows td:first-child { width:42px; }
+.main .register-rows th:last-child, .main .register-rows td:last-child { width:150px; }
+.main .register-rows th { color:var(--ink); }
+.main .register-rows td { vertical-align:middle; }
+.main .register-row-details { min-width:0; }
+.main .register-primary-line { font-weight:700; color:var(--ink); overflow-wrap:anywhere; }
+.main .register-meta-line { display:flex; align-items:center; gap:5px 10px; flex-wrap:wrap; margin-top:4px; color:var(--muted); font-size:var(--fs-meta); }
+.main .register-meta-line > * + *::before { content:"·"; margin-right:10px; color:var(--line-control); }
+.main .register-meta-line .register-note { max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.main .register-row-action { text-align:right; white-space:nowrap; }
+.main .register-row-action .amount { display:block; font-weight:700; }
+.main .register-balance { display:block; margin:4px 0; color:var(--muted); font-size:var(--fs-meta); }
+.main .register-edit-details { width:auto; }
+.main .register-edit-details > .counterparty-picker { margin-bottom:6px; }
+.main .register-edit-meta { display:grid; grid-template-columns:minmax(110px,.65fr) minmax(130px,.8fr) minmax(180px,1.2fr) minmax(120px,1fr); gap:6px; }
+.main .register-edit-meta > input, .main .register-edit-meta select, .main .register-edit-meta .category-picker { min-width:0; width:100%; }
+.main .register-edit-amount input { width:100%; min-width:0; }
+.main .quick-add-row .register-row-action { display:flex; flex-direction:column; align-items:flex-end; gap:5px; }
+@media (max-width:760px) {
+  .main .register-rows th:last-child, .main .register-rows td:last-child { width:120px; }
+  .main .register-edit-meta { grid-template-columns:1fr 1fr; }
+  .main .register-edit-meta .category-picker { grid-column:1/-1; }
+}
 .ledger td, .ledger th { padding: 8px 10px; }
 .ledger tr.clickable:hover td { background: var(--surface-2); }
 .register-intro { margin: 0 0 14px; }
@@ -1720,7 +1743,7 @@ a.chart-meter:hover { background:var(--hover); }
 .main .section-total small { font:600 var(--fs-body)/1 var(--body); color:var(--muted); margin-left:4px; }
 .main .topbar .icon-btn svg.icon { width:20px!important; height:20px!important; display:block; }
 /* Register: one line per note, amounts never cut, readable dates. */
-.main .ledger td.register-note { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:0; }
+.main .ledger td.register-note { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .main .ledger td.amount, .main .ledger td.num { white-space:nowrap; overflow:visible; text-overflow:clip; }
 .main .ledger td, .main .ledger th { vertical-align:top; }
 .main .btn.small, .main button.small { font-size:var(--fs-2)!important; }
