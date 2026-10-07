@@ -9,7 +9,7 @@ changed since the last commit whose Windows build SUCCEEDED is one that cannot r
 feedback notes, Linux launchers), or nothing changed at all. Comparing with that commit means code whose
 build was cancelled or failed is never skipped; anything uncertain builds.
 
-A manual run on main makes the matched PC and phone test builds (docs/proposals/milestone_builds.md) and
+A manual run on main makes the matched PC and phone test builds (docs/ARCHITECTURE.md › Build and release) and
 does nothing twice: if an earlier run of this workflow built and tested the Windows app of this exact commit
 and its artifact has not expired, that ZIP is reused (reuse_run, reuse_artifact) and Windows is not built;
 if an earlier run passed the Linux suite on this commit, the suite is skipped. A manual run elsewhere builds

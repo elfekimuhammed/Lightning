@@ -10,6 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-07 · Claude: a manual run of **PC and phone app** on `main` now gives the matched test builds: the Windows ZIP and the Lightning Test APK of one commit, two seven-day downloads, reusing a ZIP already built for that commit; it waits on the owner's test key (`OWNER.md`). Architecture › Build and release replaces the proposal.
 - 2026-10-07 · Claude: the phone app builds only from `requirements/android.lock` (every package one file by hash, natives from release `android-wheels-r37449625570`, no index) as **Lightning Test** (`org.lightning.app.test`, version code = commits); `packaging/phone_build.py` checks each APK; `tools/android_test_key.py` makes the test key. The daily Windows run now finds its last build.
 - 2026-10-07 · Claude: the native wheel workflow can publish an earlier run's four arm64 wheels, unchanged and checked, as a permanent prerelease `android-wheels-r<run>` (the artifacts the phone build uses expire on 2027-01-04).
 - 2026-10-07 · Claude: the matched PC and phone test builds, rewritten at the owner's request (`docs/proposals/milestone_builds.md`): one manual workflow on `main` that reuses a built Windows ZIP, hash-pinned phone libraries kept as a release, and a stable test key so each APK updates the last; about 4 to 31 CI minutes a run.

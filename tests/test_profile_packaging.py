@@ -40,9 +40,14 @@ def test_workflow_ships_only_what_passed_the_full_suite_and_its_own_checks():
     assert "needs: [tests, windows]" in release and "startsWith(github.ref, 'refs/tags/v')" in release
     assert "needs.windows.outputs.artifact" in release and "publish_release.sh" in release
     assert "secrets.LIGHTNING_DOWNLOADS_TOKEN" in release
-    # Every third-party action is pinned to a full commit.
-    for action in re.findall(r"uses: ([^\s]+)", workflow):
-        assert re.fullmatch(r"[\w.-]+/[\w.-]+@[0-9a-f]{40}", action), action
+    # Every third-party action is pinned to a full commit, here and in the phone workflows (the phone job
+    # holds the test key; the wheel publisher can write releases). Only this repository's own workflows
+    # are called by path.
+    for name in ("desktop-probe.yml", "android-app.yml", "android-native-wheels.yml"):
+        text = (ROOT / ".github" / "workflows" / name).read_text(encoding="utf-8")
+        for action in re.findall(r"uses: ([^\s]+)", text):
+            assert (re.fullmatch(r"[\w.-]+/[\w.-]+(/[\w.-]+)?@[0-9a-f]{40}", action)
+                    or re.fullmatch(r"\./\.github/workflows/[\w-]+\.yml", action)), f"{name}: {action}"
 
 
 def test_packaging_script_imports_outside_source_directory(tmp_path):
@@ -322,7 +327,7 @@ def test_notices_follow_what_pyinstaller_actually_bundled(tmp_path):
 
 
 def test_a_manual_run_reuses_what_this_commit_already_has(monkeypatch, tmp_path):
-    """Matched test builds (docs/proposals/milestone_builds.md): a manual run on main reuses an unexpired
+    """Matched test builds (docs/ARCHITECTURE.md › Build and release): a manual run on main reuses an unexpired
     Windows ZIP of this exact commit and skips a Linux suite that already passed on it; nothing else counts."""
     scope = _ci_scope()
     sha = "d" * 40

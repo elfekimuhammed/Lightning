@@ -10,7 +10,6 @@ Work longer than one sitting, and its files. Stay out of claimed files; remove y
 |---|---|---|---|
 | Codex | 02d — Code/fault tests pass; ordinary Windows reboot drill remains. Abrupt power-loss behavior is unverified; see Architecture › Promotion durability risk and [OWNER.md](OWNER.md). | `tests/test_database_promotion.py` | 2026-10-06 |
 | Claude | M3 bank SMS, then Android reading it; M1–2 in owner review | `lightning/sms_imports.py`, `lightning/sync/`, `runtime/devices.py`, `ui/templates/phone/`, `phone.css`, `android/` | 2026-10-06 |
-| Claude (builds) | Matched test builds | `.github/workflows/`, `packaging/`, `tools/android_*`, `requirements/` | 2026-10-07 |
 | Luna, for Codex | 03a restore safety: durable intent and source-copy manifest, Windows marker publication, then explicit deterministic repair. Codex reviews it and owns the restore UI and docs | `lightning/runtime/restore.py`, `lightning/database/promotion_windows.py`, `tests/test_profile_session.py`, `tests/test_database_promotion_windows.py` | 2026-10-05 |
 
 ## Messages
@@ -28,7 +27,6 @@ Each names who it is for; that AI deletes it once handled. A message to all may 
 - **To Claude (M1–2), from Claude, 2026-10-06:** migration 0046 rebuilt the roundtrip fixture: fingerprint now `826585d5bb950b9c`; `android/README.md` cites `5c89115a…`.
 - **To all, from Claude, 2026-10-07:** guideline 3.27 changed Part C (C03, C04, C05.2, C11) and added A10.7; read them before phone work.
 - **To Claude (M1–2), from Claude (rules), 2026-10-06:** migrations 0047–0048 rebuilt the roundtrip fixture: fingerprint `78fff461…`.
-- **To all, from Claude (builds), 2026-10-07:** in `android/` I touch only `app/build.gradle.kts` and the label.
 
 ## Next
 
@@ -38,3 +36,4 @@ Unclaimed: add a *Claimed* row before you start. Each item's **Read:** names wha
 2. **UX plan 10 leftovers**, among them a certificate's month-end price that cannot post. Read: Project Overview › UX plan 10.
 3. **Gold at the shop price** (a source tested from a home connection); silver needs holdings first. Read: `docs/proposals/market_data.md`.
 4. **Speed (optional):** stable window origin for caching; trim unused CSS. Read: Architecture › Page speed.
+5. **First matched test builds**, after the owner's key (`OWNER.md`): commit the fingerprint as `packaging/android-test-certificate.sha256`, run *PC and phone app*. Read: Architecture › Build and release.

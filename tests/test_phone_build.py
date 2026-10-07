@@ -1,4 +1,4 @@
-"""The matched PC and phone test builds (docs/proposals/milestone_builds.md): the scripts that pin, check,
+"""The matched PC and phone test builds (docs/ARCHITECTURE.md › Build and release): the scripts that pin, check,
 sign and bundle the phone app. The workflow runs them on real builds; these tests run them on fakes."""
 from __future__ import annotations
 
@@ -202,3 +202,23 @@ def test_the_test_key_script_makes_a_store_android_can_sign_with(tmp_path):
     pkcs12.load_pkcs12(store, (folder / "ANDROID_TEST_KEYSTORE_PASSWORD.txt").read_text().strip().encode())
     with pytest.raises(SystemExit, match="not empty"):
         key_tool.write(folder)  # never overwrites a key
+
+
+def test_the_workflows_offer_a_pair_only_from_one_run_and_never_sign_with_another_key():
+    flows = ROOT / ".github" / "workflows"
+    app = (flows / "desktop-probe.yml").read_text(encoding="utf-8")
+    phone_job = app[app.index("\n  phone:"):app.index("\n  bundle:")]
+    bundle_job = app[app.index("\n  bundle:"):app.index("\n  release:")]
+    release_job = app[app.index("\n  release:"):]
+    assert "uses: ./.github/workflows/android-app.yml" in phone_job and "bundle: true" in phone_job
+    assert "needs.tests.outputs.phone == 'true'" in phone_job
+    assert "needs: [tests, windows, phone]" in bundle_job and "needs.phone.result == 'success'" in bundle_job
+    assert "needs.windows.result == 'success' || (needs.windows.result == 'skipped' && needs.tests.outputs.reuse_run != '')" in bundle_job
+    assert "phone_build.py bundle" in bundle_job and bundle_job.count("retention-days: 7") == 2
+    assert "phone" not in release_job.split("steps:")[0]  # a tag release never waits on, or carries, the APK
+    assert "format('-{0}', github.run_id)" in app  # a push never cancels the test builds
+    android = (flows / "android-app.yml").read_text(encoding="utf-8")
+    sign = android[android.index("- name: Sign with the test key"):android.index("- name: Check the signed app")]
+    assert 'if [ "$BUNDLE" = "true" ]; then' in sign and "exit 1" in sign  # no key, no APK for the bundle
+    assert "--certificate packaging/android-test-certificate.sha256" in android
+    assert "if: inputs.bundle && steps.sign.outputs.signed == 'true'" in android  # only a signed APK is uploaded

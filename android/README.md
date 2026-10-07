@@ -4,11 +4,11 @@ This is a disposable arm64 build probe, not the Lightning Android app. It loads 
 same Python 3.13 runtime and pinned native dependencies needed by the proposed
 phone home node. It contains no profile or financial data.
 
-Run the **Android dependency probe** GitHub Actions workflow manually, or run
-`gradle --no-daemon :app:assembleDebug` from this directory with JDK 17,
-Gradle 8.11.1, Android SDK platform/build-tools 35 and Python 3.13 installed.
-Install the resulting APK on an arm64 phone and launch it: the screen must report
-a SQLCipher version before the dependency-load part of 04a can pass.
+**Building (2026-10-07).** Run the **Phone app** workflow by hand to check a change, or **PC and phone app**
+on `main` for the matched test builds the owner installs; both are described in
+docs/ARCHITECTURE.md › Build and release. Locally, `gradle --no-daemon :app:assembleDebug` from this
+directory (JDK 17, Gradle 8.11.1, Android SDK platform/build-tools 35, Python 3.13) builds
+`org.lightning.app` from `requirements/android.lock`. The notes below are the history of tasks 04a–04c.
 
 GitHub Actions [run 37235081432](https://github.com/elfekimuhammed/Lightning/actions/runs/37235081432)
 resolved each native dependency separately. The full build found no Android
