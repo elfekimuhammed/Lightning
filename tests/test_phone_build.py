@@ -210,8 +210,9 @@ def test_the_workflows_offer_a_pair_only_from_one_run_and_never_sign_with_anothe
     phone_job = app[app.index("\n  phone:"):app.index("\n  bundle:")]
     bundle_job = app[app.index("\n  bundle:"):app.index("\n  release:")]
     release_job = app[app.index("\n  release:"):]
-    assert "uses: ./.github/workflows/android-app.yml" in phone_job and "bundle: true" in phone_job
-    assert "needs.tests.outputs.phone == 'true'" in phone_job
+    assert "uses: ./.github/workflows/android-app.yml" in phone_job
+    assert "bundle: ${{ needs.tests.outputs.phone == 'true' }}" in phone_job  # the daily check never bundles
+    assert "needs.tests.outputs.phone == 'true' || needs.tests.outputs.phone_daily == 'true'" in phone_job
     assert "needs: [tests, windows, phone]" in bundle_job and "needs.phone.result == 'success'" in bundle_job
     assert "needs.windows.result == 'success' || (needs.windows.result == 'skipped' && needs.tests.outputs.reuse_run != '')" in bundle_job
     assert "phone_build.py bundle" in bundle_job and bundle_job.count("retention-days: 7") == 2
@@ -222,12 +223,14 @@ def test_the_workflows_offer_a_pair_only_from_one_run_and_never_sign_with_anothe
     assert 'if [ "$BUNDLE" = "true" ]; then' in sign and "exit 1" in sign  # no key, no APK for the bundle
     assert "--certificate packaging/android-test-certificate.sha256" in android
     assert "if: inputs.bundle && steps.sign.outputs.signed == 'true'" in android  # only a signed APK is uploaded
+    build_job = android[android.index("\n  apk:"):android.index("\n  sign:")]
+    assert "secrets." not in build_job and "gradle" in build_job  # the key never meets Gradle
+    assert "gradle" not in android[android.index("\n  sign:"):]
 
 
-# Imports the shipped apps lack today, each a strict known gap: the test fails once it is fixed, so the
-# entry is removed. httpx: cd23258 made the self-check use it, but desktop-app.spec excludes it as a test
-# tool and the phone does not carry it, so every packaged self-check fails (Messages in NOW.md).
-KNOWN_UNSHIPPED = {"httpx <- lightning/runtime/selfcheck.py"}
+# Imports the shipped apps lack, each a strict known gap: the test fails once it is fixed, so the entry is
+# removed. None today (cd23258's httpx in the self-check was replaced by a client-free request, 2026-10-07).
+KNOWN_UNSHIPPED: set[str] = set()
 DESKTOP_ONLY = {"webview", "clr", "System"}  # pywebview and pythonnet, used only under lightning/desktop/
 
 
@@ -282,3 +285,36 @@ def test_the_pc_and_the_phone_run_the_same_core_libraries():
                 desktop[name.lower().replace("_", "-")] = version
         for name in core:
             assert desktop.get(name) == phone.get(name), f"{name}: {lock} has {desktop.get(name)}, the phone {phone.get(name)}"
+
+
+def test_the_phones_settings_name_the_build_a_screenshot_came_from(tmp_path, monkeypatch):
+    """The phone test build writes its name (`<version>-test.<commits>+<commit>`) where Settings shows the
+    app version, the check refuses an APK that would show anything else, and a build without it shows the
+    source version."""
+    from fastapi.testclient import TestClient
+
+    from lightning import DISPLAY_VERSION
+    from lightning.runtime.app import profile_app
+    from lightning.runtime.devices import Devices
+    from lightning.runtime.http import Credentials
+    from lightning.ui import web
+    from test_profile_app import create
+
+    assert web.build_version(tmp_path / "absent.txt") == DISPLAY_VERSION
+    name = "0.5.0-beta.1-test.445+38557359"
+    (tmp_path / "build_identity.txt").write_text(name + "\n")
+    assert web.build_version(tmp_path / "build_identity.txt") == name
+    gradle = (ROOT / "android" / "app" / "build.gradle.kts").read_text(encoding="utf-8")
+    assert 'lightning/build_identity.txt").writeText(it)' in gradle
+
+    monkeypatch.setitem(web.templates.env.globals, "app_version", name)
+    cfg = Credentials("http://127.0.0.1:9871")
+    app = profile_app(cfg, tmp_path / "docs", devices=Devices(tmp_path / "app", port=0), phone=True)
+    with TestClient(app, base_url=cfg.origin, headers={"Origin": cfg.origin}) as phone:
+        phone.get("/__launch", params={"code": cfg.launch_code})
+        create(phone)
+        assert f"v{name}" in phone.get("/settings").text
+
+    apk = _apk(tmp_path / "named.apk", extra_app=("lightning/build_identity.txt",))
+    assert build.carried_identity(apk) == "x"  # _archive writes "x" into every file
+    assert build.carried_identity(_apk(tmp_path / "unnamed.apk")) is None

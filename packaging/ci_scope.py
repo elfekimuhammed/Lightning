@@ -55,6 +55,20 @@ def _git(*args: str) -> subprocess.CompletedProcess:
 
 # The Windows job's name now, and before 2026-10-03.
 WINDOWS_JOBS = {"Build and test the Windows app", "windows-probe"}
+PHONE_JOBS = {"Phone app / Build and check the phone app"}  # the phone build as this workflow calls it
+# Files that reach the phone app or its build; the daily run builds the phone when one of them changed.
+_REACHES_PHONE = (
+    re.compile(r"^lightning/"),
+    re.compile(r"^android/"),
+    re.compile(r"^requirements/android\."),
+    re.compile(r"^packaging/(phone_build\.py|android-)"),
+    re.compile(r"^\.github/workflows/(android-app|desktop-probe)\.yml$"),
+    re.compile(r"^tests/fixtures/roundtrip/"),
+)
+
+
+def reaches_phone(path: str) -> bool:
+    return any(pattern.search(path) for pattern in _REACHES_PHONE)
 SUITE_JOB = "Full test suite (Linux)"
 WINDOWS_ARTIFACT = re.compile(r"Lightning-v\S+-dev-\S+-Windows-x64")  # a development build's ZIP artifact
 
@@ -76,9 +90,10 @@ def _workflow() -> tuple[str, str]:
             os.environ.get("GITHUB_WORKFLOW_REF", "").split("@")[0].rsplit("/", 1)[-1])
 
 
-def last_windows_build(api=github_api) -> str | None:
-    """The commit of the newest run on main whose Windows job succeeded, or None if unknown. Only daily and
-    manual runs build Windows on main, so only they are read: a day of pushes would fill a page of all runs."""
+def last_windows_build(api=github_api, jobs_wanted: set[str] = WINDOWS_JOBS) -> str | None:
+    """The commit of the newest run on main whose Windows job (or, with PHONE_JOBS, phone job) succeeded,
+    or None if unknown. Only daily and manual runs build either on main, so only they are read: a day of
+    pushes would fill a page of all runs."""
     repo, workflow = _workflow()
     if not repo or not workflow:
         return None
@@ -90,7 +105,7 @@ def last_windows_build(api=github_api) -> str | None:
         runs.sort(key=lambda run: run.get("created_at", ""), reverse=True)
         for run in runs:
             jobs = api(f"/repos/{repo}/actions/runs/{run['id']}/jobs?per_page=100")
-            if any(job.get("name") in WINDOWS_JOBS and job.get("conclusion") == "success"
+            if any(job.get("name") in jobs_wanted and job.get("conclusion") == "success"
                    for job in jobs.get("jobs", [])):
                 return run["head_sha"]
     except Exception as exc:  # no answer means no baseline, and no baseline means build
@@ -129,6 +144,35 @@ def earlier_runs(sha: str, api=github_api) -> dict[str, str]:
     return found
 
 
+def changed_since(baseline: str | None, sha: str, what: str) -> tuple[list[str] | None, str]:
+    """The files changed from the last successful build to this commit, or None and why that is unknown."""
+    if not baseline:
+        return None, f"no earlier successful {what} build to compare with"
+    if _git("cat-file", "-e", f"{baseline}^{{commit}}").returncode != 0:
+        return None, f"last built commit {baseline[:8]} is not in this history"
+    if _git("merge-base", "--is-ancestor", baseline, sha).returncode != 0:
+        return None, f"last built commit {baseline[:8]} is not an ancestor of this push"
+    # --no-renames: a file moved out of the app (say into docs/) lists its old path too, so it builds.
+    diff = _git("diff", "--no-renames", "--name-only", baseline, sha)
+    if diff.returncode != 0:
+        return None, "could not list changed files"
+    return [line for line in diff.stdout.splitlines() if line.strip()], ""
+
+
+def build_phone_daily(event: str, ref: str, baseline: str | None, sha: str) -> tuple[bool, str]:
+    """Whether the daily run builds and checks the phone app (no key needed, nothing offered): only when a
+    file that reaches the phone changed since its last successful build. Anything uncertain builds."""
+    if event != "schedule" or ref != "refs/heads/main":
+        return False, "only the daily run builds the phone on its own"
+    changed, why = changed_since(baseline, sha, "phone")
+    if changed is None:
+        return True, why
+    reaching = [path for path in changed if reaches_phone(path)]
+    if reaching:
+        return True, f"{len(reaching)} changed file(s) reach the phone, e.g. {reaching[0]}"
+    return False, f"nothing that reaches the phone changed since {baseline[:8]}"
+
+
 def build_windows(event: str, ref: str, baseline: str | None, sha: str) -> tuple[bool, str]:
     if ref.startswith("refs/tags/"):
         return True, "release tag"
@@ -136,17 +180,9 @@ def build_windows(event: str, ref: str, baseline: str | None, sha: str) -> tuple
         return False, "a push runs the Linux suite only; Windows builds daily, on a tag or when run by hand"
     if event != "schedule":
         return True, f"{event or 'manual'} run"
-    if not baseline:
-        return True, "no earlier successful Windows build to compare with"
-    if _git("cat-file", "-e", f"{baseline}^{{commit}}").returncode != 0:
-        return True, f"last built commit {baseline[:8]} is not in this history"
-    if _git("merge-base", "--is-ancestor", baseline, sha).returncode != 0:
-        return True, f"last built commit {baseline[:8]} is not an ancestor of this push"
-    # --no-renames: a file moved out of the app (say into docs/) lists its old path too, so it builds.
-    diff = _git("diff", "--no-renames", "--name-only", baseline, sha)
-    if diff.returncode != 0:
-        return True, "could not list changed files"
-    changed = [line for line in diff.stdout.splitlines() if line.strip()]
+    changed, why = changed_since(baseline, sha, "Windows")
+    if changed is None:
+        return True, why
     if not changed:
         return False, f"nothing changed since the last build ({baseline[:8]})"
     reaching = [path for path in changed if not cannot_reach_app(path)]
@@ -219,7 +255,11 @@ def main(argv: list[str]) -> int:
     # Only the daily run compares with the last Windows build (a push never builds Windows).
     baseline = last_windows_build() if event == "schedule" and ref == "refs/heads/main" else None
     build, reason = build_windows(event, ref, baseline, sha)
-    values = {"reuse_run": "", "reuse_artifact": "", "suite": "run", "phone": "false"}
+    values = {"reuse_run": "", "reuse_artifact": "", "suite": "run", "phone": "false", "phone_daily": "false"}
+    if event == "schedule" and ref == "refs/heads/main":
+        daily, why = build_phone_daily(event, ref, last_windows_build(jobs_wanted=PHONE_JOBS), sha)
+        values["phone_daily"] = "true" if daily else "false"
+        print(f"Build the phone app: {'yes' if daily else 'no'} ({why})")
     if event == "workflow_dispatch" and ref == "refs/heads/main":
         values.update(earlier_runs(sha), phone="true")
         if values["reuse_run"]:

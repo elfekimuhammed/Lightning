@@ -18,19 +18,48 @@ _FONT_URL = re.compile(r"url\(\s*['\"]?\./([^'\")]+)")
 
 
 def get(app, path: str) -> tuple[int, bytes]:
-    """One GET request through the app in this thread, with no server or network: (status, body).
+    """One GET request through the app in this thread, with no server, network or HTTP client: (status, body).
 
     The encrypted database only answers on the thread that opened it, and every finance route is
-    async, so the whole request runs on this thread's event loop."""
-    import httpx
+    async, so the whole request runs on this thread's event loop. It behaves as an HTTP client's ASGI
+    transport does: the request is received once, and any later receive (a disconnect listener) waits
+    until the response is complete, then reports the client gone, so nothing waits forever. The shipped
+    apps carry no HTTP client (httpx is a test tool, excluded from the Windows build), so it uses none."""
+    route, _, query = path.partition("?")
+    scope = {"type": "http", "asgi": {"version": "3.0", "spec_version": "2.3"}, "http_version": "1.1",
+             "method": "GET", "scheme": "http", "path": route, "raw_path": route.encode(), "root_path": "",
+             "query_string": query.encode(), "headers": [(b"host", b"127.0.0.1")],
+             "client": ("127.0.0.1", 50000), "server": ("127.0.0.1", 80)}
+    status, body = 0, []
 
     async def request():
-        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),
-                                     base_url="http://127.0.0.1") as client:
-            response = await client.get(path)
-            return response.status_code, response.content
+        complete = asyncio.Event()
+        asked = False
 
-    return asyncio.run(request())
+        async def receive():
+            nonlocal asked
+            if not asked:
+                asked = True
+                return {"type": "http.request", "body": b"", "more_body": False}
+            await complete.wait()
+            return {"type": "http.disconnect"}
+
+        async def send(message):
+            nonlocal status
+            if message["type"] == "http.response.start":
+                status = message["status"]
+            elif message["type"] == "http.response.body":
+                body.append(message.get("body", b""))
+                if not message.get("more_body", False):
+                    complete.set()
+
+        try:
+            await app(scope, receive, send)
+        finally:
+            complete.set()
+
+    asyncio.run(request())
+    return status, b"".join(body)
 
 
 def finance_page_checks(container) -> dict[str, bool]:

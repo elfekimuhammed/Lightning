@@ -180,7 +180,16 @@ def _back_url(request) -> str:
 templates.env.globals["back_url"] = _back_url
 templates.env.globals["sections_for"] = sections.for_request
 templates.env.globals["fig"] = FIGURES
-templates.env.globals["app_version"] = DISPLAY_VERSION
+def build_version(identity: Path = Path(__file__).resolve().parents[1] / "build_identity.txt") -> str:
+    """The version Settings shows: the build's own name when the build wrote one (the phone test build
+    writes `<version>-test.<commits>+<commit>`), else the source version."""
+    try:
+        return identity.read_text(encoding="utf-8").strip() or DISPLAY_VERSION
+    except OSError:
+        return DISPLAY_VERSION
+
+
+templates.env.globals["app_version"] = build_version()
 
 
 def container(request: Request) -> Container:

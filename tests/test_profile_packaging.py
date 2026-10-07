@@ -43,11 +43,16 @@ def test_workflow_ships_only_what_passed_the_full_suite_and_its_own_checks():
     # Every third-party action is pinned to a full commit, here and in the phone workflows (the phone job
     # holds the test key; the wheel publisher can write releases). Only this repository's own workflows
     # are called by path.
-    for name in ("desktop-probe.yml", "android-app.yml", "android-native-wheels.yml"):
-        text = (ROOT / ".github" / "workflows" / name).read_text(encoding="utf-8")
-        for action in re.findall(r"uses: ([^\s]+)", text):
-            assert (re.fullmatch(r"[\w.-]+/[\w.-]+(/[\w.-]+)?@[0-9a-f]{40}", action)
-                    or re.fullmatch(r"\./\.github/workflows/[\w-]+\.yml", action)), f"{name}: {action}"
+    # Every workflow pins one commit per action, so an update is one change everywhere.
+    pinned: dict[str, set[str]] = {}
+    for path in sorted((ROOT / ".github" / "workflows").glob("*.yml")):
+        for action in re.findall(r"uses: ([^\s]+)", path.read_text(encoding="utf-8")):
+            if re.fullmatch(r"\./\.github/workflows/[\w-]+\.yml", action):
+                continue
+            assert re.fullmatch(r"[\w.-]+/[\w.-]+(/[\w.-]+)?@[0-9a-f]{40}", action), f"{path.name}: {action}"
+            name, commit = action.split("@")
+            pinned.setdefault(name, set()).add(commit)
+    assert {name: commits for name, commits in pinned.items() if len(commits) > 1} == {}
 
 
 def test_packaging_script_imports_outside_source_directory(tmp_path):
@@ -375,7 +380,7 @@ def test_a_manual_run_reuses_what_this_commit_already_has(monkeypatch, tmp_path)
 
     # The outputs the workflow reads. A manual run elsewhere, a push or the daily run make no phone build.
     monkeypatch.setattr(scope, "earlier_runs", lambda sha: {"reuse_run": "7", "reuse_artifact": "zip", "suite": "skip"})
-    monkeypatch.setattr(scope, "last_windows_build", lambda: None)
+    monkeypatch.setattr(scope, "last_windows_build", lambda **kwargs: None)
 
     def outputs(event, ref):
         out = tmp_path / f"out-{event}"
@@ -387,24 +392,28 @@ def test_a_manual_run_reuses_what_this_commit_already_has(monkeypatch, tmp_path)
         return dict(line.split("=", 1) for line in out.read_text().splitlines())
 
     manual = outputs("workflow_dispatch", "refs/heads/main")
-    assert manual == {"reuse_run": "7", "reuse_artifact": "zip", "suite": "skip", "phone": "true", "build_windows": "false"}
+    assert manual == {"reuse_run": "7", "reuse_artifact": "zip", "suite": "skip", "phone": "true", "phone_daily": "false",
+                      "build_windows": "false"}
     branch = outputs("workflow_dispatch", "refs/heads/feature")
     assert branch["phone"] == "false" and branch["build_windows"] == "true" and branch["suite"] == "run"
     assert outputs("push", "refs/heads/main")["phone"] == "false"
-    assert outputs("schedule", "refs/heads/main")["build_windows"] == "true"  # no earlier build known
+    daily = outputs("schedule", "refs/heads/main")
+    assert daily["build_windows"] == "true" and daily["phone_daily"] == "true"  # no earlier build known
+    assert daily["phone"] == "false"  # the daily phone build offers nothing and needs no key
 
 
 def test_the_daily_run_compares_with_the_last_windows_build(monkeypatch, tmp_path):
     """The daily run, not a push (which never builds Windows), looks up the last commit built."""
     scope = _ci_scope()
     asked = []
-    monkeypatch.setattr(scope, "last_windows_build", lambda: asked.append(True) or None)
+    monkeypatch.setattr(scope, "last_windows_build",
+                        lambda jobs_wanted=scope.WINDOWS_JOBS: asked.append(sorted(jobs_wanted)[0]) or None)
     for event in ("push", "schedule"):
         monkeypatch.setenv("GITHUB_EVENT_NAME", event)
         monkeypatch.setenv("GITHUB_REF", "refs/heads/main")
         monkeypatch.setenv("GITHUB_OUTPUT", str(tmp_path / event))
         scope.main([])
-    assert asked == [True]
+    assert sorted(asked) == ["Build and test the Windows app", "Phone app / Build and check the phone app"]
 
 
 def test_a_manual_run_says_at_once_what_it_can_make():
@@ -420,3 +429,43 @@ def test_a_manual_run_says_at_once_what_it_can_make():
     branch = scope.manual_run_notes("refs/heads/feature", "d" * 40, {"phone": "false", "suite": "run"}, "x", True, True)
     assert branch == [("warning", "A manual run on feature builds the Windows app only; the matched PC and phone "
                                   "test builds run only on main.")]
+
+
+def test_the_self_check_needs_no_http_client_and_never_waits_forever(monkeypatch):
+    """The shipped apps carry no httpx (a test tool), so the self-check's request uses none; and a route
+    that listens for the client leaving gets told, once the response is complete, instead of waiting."""
+    import asyncio
+    import sys
+
+    from lightning.runtime import selfcheck
+
+    monkeypatch.setitem(sys.modules, "httpx", None)  # as in the packaged Windows app and the APK
+
+    async def listening(scope, receive, send):
+        assert scope["path"] == "/x" and scope["query_string"] == b"y=1"
+        assert (await receive())["type"] == "http.request"
+        listener = asyncio.ensure_future(receive())  # a disconnect listener, as Starlette's may run
+        await send({"type": "http.response.start", "status": 200, "headers": []})
+        await send({"type": "http.response.body", "body": b"o", "more_body": True})
+        assert not listener.done()  # still connected while the body streams
+        await send({"type": "http.response.body", "body": b"k"})
+        assert (await asyncio.wait_for(listener, 5))["type"] == "http.disconnect"
+
+    assert selfcheck.get(listening, "/x?y=1") == (200, b"ok")
+
+
+def test_the_daily_run_builds_the_phone_only_when_its_files_changed(monkeypatch):
+    """No key, nothing offered: the daily phone build only proves the phone still builds and passes its
+    checks, and runs only when something the phone carries or is built from changed."""
+    scope = _ci_scope()
+    for path in ("lightning/ui/web.py", "android/app/build.gradle.kts", "requirements/android.lock",
+                 "packaging/phone_build.py", ".github/workflows/android-app.yml", "tests/fixtures/roundtrip/expected.json"):
+        assert scope.reaches_phone(path), path
+    for path in ("docs/ARCHITECTURE.md", "packaging/desktop-app.spec", "tests/test_ui.py", "CHANGELOG.md"):
+        assert not scope.reaches_phone(path), path
+    assert not scope.build_phone_daily("workflow_dispatch", "refs/heads/main", None, "HEAD")[0]
+    assert scope.build_phone_daily("schedule", "refs/heads/main", None, "HEAD")[0]  # no earlier build: build
+    monkeypatch.setattr(scope, "changed_since", lambda baseline, sha, what: (["docs/x.md", "packaging/desktop-app.spec"], ""))
+    assert not scope.build_phone_daily("schedule", "refs/heads/main", "a" * 40, "HEAD")[0]
+    monkeypatch.setattr(scope, "changed_since", lambda baseline, sha, what: (["lightning/ui/web.py"], ""))
+    assert scope.build_phone_daily("schedule", "refs/heads/main", "a" * 40, "HEAD")[0]

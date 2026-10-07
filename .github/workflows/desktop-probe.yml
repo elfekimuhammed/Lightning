@@ -10,6 +10,7 @@
 # - A tag vX.Y.Z[-beta.N] that matches the source version and sits on main publishes that tested ZIP
 #   as a new, never-replaced release in elfekimuhammed/Lightning-downloads.
 #   How to release: docs/ARCHITECTURE.md › Desktop app and encrypted profiles › Build and release.
+# - The daily run also builds and checks the phone app (no key, nothing offered) when its files changed.
 # - A manual run on main makes the matched test builds: the Windows ZIP and the phone APK (Lightning Test)
 #   of one commit, as two seven-day downloads, offered only when both pass every check. It reuses a
 #   Windows ZIP an earlier run built and tested for this commit, and skips a Linux suite that already
@@ -48,13 +49,14 @@ jobs:
     outputs:
       build_windows: ${{ steps.scope.outputs.build_windows }}
       phone: ${{ steps.scope.outputs.phone }}
+      phone_daily: ${{ steps.scope.outputs.phone_daily }}
       reuse_run: ${{ steps.scope.outputs.reuse_run }}
       reuse_artifact: ${{ steps.scope.outputs.reuse_artifact }}
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5
         with:
           fetch-depth: 0  # the docs-only check and the release-tag check read history
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6
         with:
           python-version: '3.13'
       - name: Decide whether the Windows app must be built
@@ -88,8 +90,8 @@ jobs:
       artifact: ${{ steps.package.outputs.artifact }}
       zip: ${{ steps.package.outputs.zip }}
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6
         with:
           python-version: '3.13'
       - name: Install locked dependencies
@@ -157,7 +159,7 @@ jobs:
       - name: Shipped app window check (profile chooser in WebView2)
         shell: pwsh
         run: ./packaging/run_check.ps1 -Exe '${{ steps.shipped.outputs.exe }}' -Report reports/app-window.json -Arguments '--smoke' -TimeoutSeconds 120
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f  # v6
         with:
           name: ${{ steps.package.outputs.artifact }}
           path: |
@@ -169,7 +171,7 @@ jobs:
           retention-days: ${{ startsWith(github.ref, 'refs/tags/') && 90 || 7 }}
       - name: Keep the check reports
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f  # v6
         with:
           name: windows-check-reports-r${{ github.run_number }}-a${{ github.run_attempt }}
           path: reports/
@@ -177,12 +179,14 @@ jobs:
           retention-days: 14
 
   phone:
+    # The matched test builds (manual, on main), or the daily check when the phone's files changed: that one
+    # builds and checks the phone, needs no key and offers nothing.
     name: Phone app
     needs: tests
-    if: needs.tests.outputs.phone == 'true'
+    if: needs.tests.outputs.phone == 'true' || needs.tests.outputs.phone_daily == 'true'
     uses: ./.github/workflows/android-app.yml
     with:
-      bundle: true
+      bundle: ${{ needs.tests.outputs.phone == 'true' }}
     secrets:
       ANDROID_TEST_KEYSTORE: ${{ secrets.ANDROID_TEST_KEYSTORE }}
       ANDROID_TEST_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_TEST_KEYSTORE_PASSWORD }}
@@ -202,20 +206,20 @@ jobs:
       contents: read
       actions: read  # to download a reused Windows ZIP from the earlier run
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131  # v7
         if: needs.tests.outputs.reuse_run == ''
         with:
           name: ${{ needs.windows.outputs.artifact }}
           path: windows
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131  # v7
         if: needs.tests.outputs.reuse_run != ''
         with:
           run-id: ${{ needs.tests.outputs.reuse_run }}
           github-token: ${{ github.token }}
           name: ${{ needs.tests.outputs.reuse_artifact }}
           path: windows
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131  # v7
         with:
           name: phone-apk
           path: phone
@@ -226,14 +230,14 @@ jobs:
         run: >-
           python packaging/phone_build.py bundle --windows windows --apk phone/Lightning-Test-*.apk
           --info phone/apk.json --out bundle --reused-from "$REUSED"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f  # v6
         with:
           name: ${{ steps.bundle.outputs.pc }}
           path: bundle/PC/
           if-no-files-found: error
           overwrite: true  # a re-run replaces its own downloads
           retention-days: 7
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f  # v6
         with:
           name: ${{ steps.bundle.outputs.phone }}
           path: bundle/Phone/
@@ -259,8 +263,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131  # v7
         with:
           name: ${{ needs.windows.outputs.artifact }}
           path: release

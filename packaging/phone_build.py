@@ -142,6 +142,18 @@ def contents_problems(apk_path: Path, locked: dict[str, str]) -> tuple[list[str]
     return problems, packages
 
 
+def carried_identity(apk_path: Path) -> str | None:
+    """The build name the APK's Python carries for Settings (lightning/build_identity.txt), or None."""
+    import io
+    with zipfile.ZipFile(apk_path) as apk:
+        for name in apk.namelist():
+            if name.startswith("assets/chaquopy/app") and name.endswith(".imy"):
+                with zipfile.ZipFile(io.BytesIO(apk.read(name))) as inner:
+                    if "lightning/build_identity.txt" in inner.namelist():
+                        return inner.read("lightning/build_identity.txt").decode("utf-8").strip()
+    return None
+
+
 # ---------------------------------------------------------------- aapt2 and apksigner
 def badging(text: str) -> dict[str, str]:
     """Package name, version code and name, and whether it is debuggable, from `aapt2 dump badging`."""
@@ -201,6 +213,9 @@ def check(apk: Path, build_tools: Path, code: str, name: str, cert_file: Path | 
                         f"lacks {sorted(allowed - asked)}")
     content_problems, packages = contents_problems(apk, locked_packages(lock_text))
     problems += content_problems
+    shown = carried_identity(apk)
+    if shown != name:
+        problems.append(f"Settings would show {shown!r} as the version, not {name!r} (lightning/build_identity.txt)")
     fingerprint = None
     if cert_file is not None:
         fingerprint = certificate(cert_file)

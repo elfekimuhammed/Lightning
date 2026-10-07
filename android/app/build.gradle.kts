@@ -33,6 +33,9 @@ sync {
     into(sharedPython)
 }
 file("$sharedPython/roundtrip_fixture/__init__.py").writeText("")
+// A test build names itself where Settings shows the app version (lightning/ui/web.py reads it), so a
+// screenshot says which APK took it. packaging/phone_build.py checks the APK carries exactly this name.
+providers.gradleProperty("testVersionName").orNull?.let { file("$sharedPython/lightning/build_identity.txt").writeText(it) }
 
 chaquopy {
     sourceSets {
