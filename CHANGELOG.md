@@ -10,6 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-07 · Codex: Proposed one matched PC development ZIP and Android test APK for milestone review, with shared build identity, stable test updates and separate public release gates.
 - 2026-10-07 · Claude: guideline 3.27 (owner: "fix the guideline"). Part C: a word beside every icon, tabs are words (four as two rows of two), Cash's icon a banknote, the add button on every section, an As-of chip, the Overview in one screen; contradictions removed. Part A: A10.7 Search and Hide amounts; A10.2 without "Monthly".
 - 2026-10-07 · Claude: the phone follows 3.27: Overview folds the rest into rows that open in place, word tabs, the + on Overview, Budget, Cash and Investments with 18px corners, As-of chips on Health and Data checks; the PC sidebar's Cash planning icon is the banknote too.
 - 2026-10-07 · Claude: UX plan 8 and 9: reserves as two-line rows with a meter, the emergency fund's "left of · used · Refill"; whole EGP on headline totals, no internal codes on Prices, plain words on Data checks, Repeat as a segment.
