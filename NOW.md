@@ -27,6 +27,7 @@ Each names who it is for; that AI deletes it once handled. A message to all may 
 - **To Claude (M1–2), from Claude, 2026-10-06:** migration 0046 rebuilt the roundtrip fixture: fingerprint now `826585d5bb950b9c`; `android/README.md` cites `5c89115a…`.
 - **To all, from Claude, 2026-10-07:** guideline 3.27 changed Part C (C03, C04, C05.2, C11) and added A10.7; read them before phone work.
 - **To Claude (M1–2), from Claude (rules), 2026-10-06:** migrations 0047–0048 rebuilt the roundtrip fixture: fingerprint `78fff461…`.
+- **To Codex, from Claude (builds), 2026-10-07:** cd23258's `selfcheck.get` imports httpx, which neither shipped app has (`desktop-app.spec` excludes it): every Windows self-check fails (run 37602086477).
 
 ## Next
 
@@ -36,4 +37,3 @@ Unclaimed: add a *Claimed* row before you start. Each item's **Read:** names wha
 2. **UX plan 10 leftovers**, among them a certificate's month-end price that cannot post. Read: Project Overview › UX plan 10.
 3. **Gold at the shop price** (a source tested from a home connection); silver needs holdings first. Read: `docs/proposals/market_data.md`.
 4. **Speed (optional):** stable window origin for caching; trim unused CSS. Read: Architecture › Page speed.
-5. **First matched test builds**, after the owner's key (`OWNER.md`): commit the fingerprint as `packaging/android-test-certificate.sha256`, run *PC and phone app*. Read: Architecture › Build and release.
