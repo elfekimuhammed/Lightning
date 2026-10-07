@@ -201,6 +201,7 @@ def _expense_stats(a, total, prior, prior_label, largest, selected, first, last,
               "href": f"/transactions?{query}"}]
     now_rows = payments(first, last)
     count = len(now_rows)
+    stats[0]["payment_count"] = count
     # The average of the payments themselves: refunds are not payments, so they are not divided in
     # (audit 2026-10-05 #12).
     average = sum((r["value"] for r in now_rows), ZERO) / count if count else None

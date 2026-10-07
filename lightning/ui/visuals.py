@@ -467,7 +467,9 @@ def cash_plan(c, forecast, day: date) -> dict:
         offset = max(0, (parse_date(p.due_date) - day).days)
         x = 3 + 94 * min(offset, 30) / 30
         rows_used = last_x[p.item.is_income]
-        row = next((r for r in range(3) if x - rows_used[r] >= 15), None)  # labels never overlap
+        # Each label is 110px wide. The plan timeline uses half of the main card at 1,366px,
+        # so keep same-row marks at least 22% of the axis apart (about 115px there).
+        row = next((r for r in range(3) if x - rows_used[r] >= 22), None)  # labels never overlap
         if row is None:
             continue  # the list under the timeline still shows it
         rows_used[row] = x
