@@ -76,6 +76,25 @@ def test_prices_page_uses_purchase_value_for_certificate_and_does_not_ask_for_a_
     assert c.reevaluations._price(certificate.terms.asset_id, "2026-12-31") == (Decimal("5000"), "TRADE")
 
 
+def test_saving_a_certificate_value_posts_its_month_end_revaluation(c, setup):
+    accounts, _ = setup
+    certificate, _ = _purchase(c, accounts)
+    client = TestClient(create_app(c), follow_redirects=False)
+    cash_before = c.reporting.account_balance(accounts["cd"].id)
+
+    response = client.post("/investments/prices", data={
+        "date": "2026-09-30", f"value_{certificate.terms.asset_id}": "6000",
+    })
+
+    assert response.status_code == 303
+    assert "CD%20portfolio%20cannot%20hold%20cash" not in response.headers["location"]
+    row = next(row for row in c.reevaluations.history()
+               if row["asset_id"] == certificate.terms.asset_id and row["date"] == "2026-09-30")
+    assert row["return_base_e6"] == Decimal("1000")
+    assert row["status"] == "POSTED"
+    assert c.reporting.account_balance(accounts["cd"].id) == cash_before
+
+
 def test_cd_purchase_validates_compound_schedule_and_dates(c, setup):
     accounts, _ = setup
     client = TestClient(create_app(c), follow_redirects=False)
