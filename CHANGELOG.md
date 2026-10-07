@@ -10,6 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-07 · Claude: the native wheel workflow can publish an earlier run's four arm64 wheels, unchanged and checked, as a permanent prerelease `android-wheels-r<run>` (the artifacts the phone build uses expire on 2027-01-04).
 - 2026-10-07 · Claude: the matched PC and phone test builds, rewritten at the owner's request (`docs/proposals/milestone_builds.md`): one manual workflow on `main` that reuses a built Windows ZIP, hash-pinned phone libraries kept as a release, and a stable test key so each APK updates the last; about 4 to 31 CI minutes a run.
 - 2026-10-07 · Codex: Reworked the Android page self-check to use standard ASGI transport; added HTTPX2 for Starlette’s supported TestClient while keeping HTTPX for direct client tests.
 - 2026-10-07 · Codex: Proposed one matched PC development ZIP and Android test APK for milestone review, with shared build identity, stable test updates and separate public release gates.

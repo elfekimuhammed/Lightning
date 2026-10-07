@@ -1,15 +1,27 @@
-# Exploratory task 04a build. No wheel from this job is used in a release until
-# its source, link dependencies, Android runtime and 16 KB support are verified.
+# The arm64 wheels the phone app needs that no index has (cryptography, sqlcipher3, cffi, pydantic_core).
+# No wheel from this job is used in a Google Play release until its source, link dependencies, Android
+# runtime and 16 KB support are verified.
+#
+# Run by hand with no input to build the four wheels as artifacts (they expire). Run again with publish_run
+# set to that run's id to publish them, unchanged, as the prerelease android-wheels-r<run> of this
+# repository, which never expires; then regenerate requirements/android.lock with tools/android_lock.py.
+# How it fits: docs/proposals/milestone_builds.md.
 name: Android native wheel experiment
 
 on:
   workflow_dispatch:
+    inputs:
+      publish_run:
+        description: Publish the wheels of this earlier successful run (its id) as a permanent release
+        required: false
+        default: ''
 
 permissions:
   contents: read
 
 jobs:
   build:
+    if: inputs.publish_run == ''
     runs-on: ubuntu-24.04
     timeout-minutes: 50
     strategy:
@@ -170,3 +182,76 @@ jobs:
         with:
           name: android-${{ matrix.package }}-wheel
           path: /tmp/lightning-android-wheels/*.whl
+
+  publish:
+    name: Publish an earlier run's wheels as a release
+    if: inputs.publish_run != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write  # to create the release
+      actions: read    # to read the earlier run and its artifacts
+    steps:
+      - name: The run is a successful run of this workflow on main
+        id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN: ${{ inputs.publish_run }}
+        run: |
+          set -euo pipefail
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN}" \
+            --jq '[.path, .head_branch, .conclusion, .head_sha, .html_url] | @tsv' > run.tsv
+          IFS=$'\t' read -r path branch conclusion sha url < run.tsv
+          [ "$path" = ".github/workflows/android-native-wheels.yml" ] || { echo "::error::run $RUN is not this workflow ($path)"; exit 1; }
+          [ "$branch" = "main" ] && [ "$conclusion" = "success" ] || { echo "::error::run $RUN is $conclusion on $branch, not success on main"; exit 1; }
+          if gh release view "android-wheels-r${RUN}" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error::android-wheels-r${RUN} already exists; a published wheel set is never replaced"; exit 1
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ inputs.publish_run }}
+          github-token: ${{ github.token }}
+          pattern: android-*-wheel
+          merge-multiple: true
+          path: wheels
+      - name: Exactly the four wheels, for CPython 3.13 on arm64 Android
+        working-directory: wheels
+        run: |
+          set -euo pipefail
+          ls -l
+          for name in cryptography sqlcipher3 cffi pydantic_core; do
+            count=$(ls ${name}-*-android_24_arm64_v8a.whl 2>/dev/null | wc -l)
+            [ "$count" = 1 ] || { echo "::error::expected one ${name} arm64 wheel, found $count"; exit 1; }
+          done
+          [ "$(ls | wc -l)" = 4 ] || { echo "::error::expected exactly four files"; exit 1; }
+      - name: Checksums and provenance
+        working-directory: wheels
+        env:
+          RUN: ${{ inputs.publish_run }}
+          SHA: ${{ steps.source.outputs.sha }}
+          URL: ${{ steps.source.outputs.url }}
+        run: |
+          set -euo pipefail
+          sha256sum *.whl > SHA256SUMS
+          {
+            echo "Built by run $RUN of .github/workflows/android-native-wheels.yml: $URL"
+            echo "Source commit (the build recipe): $SHA"
+            echo "Published unchanged by run $GITHUB_RUN_ID, attempt $GITHUB_RUN_ATTEMPT"
+            echo "Each wheel's source is its PyPI source distribution of the version in its name;"
+            echo "OpenSSL 3.5.4 and libffi 3.5.2 are checked by SHA-256 in that recipe."
+          } > PROVENANCE.txt
+          cat SHA256SUMS PROVENANCE.txt
+          { echo '```'; cat SHA256SUMS; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - name: Publish android-wheels-r${{ inputs.publish_run }}
+        working-directory: wheels
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN: ${{ inputs.publish_run }}
+          SHA: ${{ steps.source.outputs.sha }}
+        run: >-
+          gh release create "android-wheels-r${RUN}" -R "$GITHUB_REPOSITORY" --prerelease --target "$SHA"
+          --title "Android build input: native wheels of run ${RUN} (not an app release)"
+          --notes "The arm64 wheels the phone app is built with, pinned by SHA-256 in requirements/android.lock. Not an app; nothing here is installed by people."
+          *.whl SHA256SUMS PROVENANCE.txt
