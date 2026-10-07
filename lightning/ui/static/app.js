@@ -423,7 +423,7 @@ const normalizeDateField = (input) => {
   return false;
 };
 const initDateFields = (root = document) => {
-  root.querySelectorAll('input[type="date"]:not(.date-picker-native)').forEach((native) => {
+  root.querySelectorAll('input[type="date"]:not(.date-picker-native):not([data-native-date])').forEach((native) => {
     native.type = "text";
     native.dataset.smartDate = "";
     if (!native.placeholder) native.placeholder = "yyyy-mm-dd";
@@ -2275,3 +2275,9 @@ window.lightningPrivacy = (() => {
     row.addEventListener("click", (event) => { if (held) { event.preventDefault(); event.stopImmediatePropagation(); } }, true);
   });
 })();
+
+// C04.6 on a phone: the As-of chip is the phone's own date picker; choosing a day shows that day.
+document.querySelectorAll("form.phone-as-of input[data-native-date]").forEach((input) => {
+  input.addEventListener("change", () => { if (input.value) input.form.requestSubmit(); });
+  input.addEventListener("click", () => { try { input.showPicker?.(); } catch (error) { /* the tap itself opens it */ } });
+});

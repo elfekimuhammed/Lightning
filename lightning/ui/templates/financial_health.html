@@ -4,10 +4,10 @@
 {# Answers "Am I financially healthy?": four headline figures, every figure against the limit you set
    (grouped as cushion, saving, then debt), and how saving and net worth moved. Limits sit behind the gear. #}
 {% block heading %}<h1>Financial health</h1><div class="muted">Balances as of {{ as_of }} · savings rate from {{ savings_month }}</div>{% endblock %}
-{% block top_actions %}<form class="health-as-of" method="get" action="/financial-health">
+{% block top_actions %}{% if phone_mode() %}<form class="phone-as-of" method="get" action="/financial-health"><label class="phone-chip is-chosen">As of {{ as_of_iso }}<input type="date" data-native-date name="as_of" value="{{ as_of_iso }}" max="{{ today_iso }}" aria-label="As of"></label><noscript><button class="btn">Show</button></noscript></form>{% else %}<form class="health-as-of" method="get" action="/financial-health">
     <label for="health-as-of">As of</label><input id="health-as-of" name="as_of" type="date" value="{{ as_of_iso }}" max="{{ today_iso }}">
     <button class="btn small" type="submit">Show</button>
-  </form>{% endblock %}
+  </form>{% endif %}{% endblock %}
 {% block content %}
 {% if error %}<p class="flash error" role="alert">{{ error }}</p>{% endif %}
 {{ stat_tiles(kpis, base, 'Your financial health') }}

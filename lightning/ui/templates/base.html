@@ -30,6 +30,7 @@
             {% elif icon == 'birdview' %}<path d="m12 3 9 5-9 5-9-5zM3 12l9 5 9-5M3 16l9 5 9-5"/>
             {% elif icon == 'investments' %}<path d="M3 20V4M3 20h18M6 16l5-5 4 3 5-8"/><path d="M16 6h4v4"/>
             {% elif icon == 'expenses' %}<path d="M5 3h14v18l-3-2-4 2-4-2-3 2zM8 8h8M8 12h8M8 16h5"/>
+            {% elif icon == 'cash' %}<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/>
             {% elif icon in ('reserves', 'health') %}<path d="M12 2 4 6v6c0 5 3.5 8 8 10 4.5-2 8-5 8-10V6z"/><path d="m9 12 2 2 4-4"/>
             {% elif icon == 'accounts' %}<path d="M3 10h18M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 21h18M12 3l9 5H3z"/>
             {% elif icon == 'people' %}<circle cx="9" cy="8" r="3"/><path d="M3 20c0-3 2.5-5 6-5s6 2 6 5M17 5a3 3 0 0 1 0 6M18 15c2 .4 3 2 3 5"/>
@@ -80,7 +81,7 @@
   </div>
 </dialog>
 <div id="busy-toast" class="busy-toast" role="status" aria-live="polite" hidden{% if prices_running %} data-watch="/investments/prices/online/status" data-watch-label="Fetching month-end prices…"{% endif %}><span class="busy-square" aria-hidden="true"></span><span class="busy-text"></span><a class="busy-link" href="/investments/prices" hidden>Show</a></div>
-<script nonce="{{ request.state.csp_nonce|default('') }}" src="/static/app.js?v=34"></script>
+<script nonce="{{ request.state.csp_nonce|default('') }}" src="/static/app.js?v=36"></script>
 <script nonce="{{ request.state.csp_nonce|default('') }}" src="/static/ai-handoff.js?v=1" defer></script>
 <script nonce="{{ request.state.csp_nonce|default('') }}">(()=>{const section=document.getElementById('sidebar-accounts'),mobile=window.matchMedia('(max-width: 900px)');if(!section)return;const sync=()=>{section.open=!mobile.matches};sync();mobile.addEventListener('change',sync)})();</script>
 {% if request.state.secure_profiles|default(false) %}<script nonce="{{ request.state.csp_nonce|default('') }}" src="/static/session.js?v=1"></script>{% endif %}

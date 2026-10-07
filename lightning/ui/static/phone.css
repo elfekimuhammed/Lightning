@@ -70,16 +70,11 @@ html.phone.keyboard-open .phone-tabbar, html.phone.sheet-open .phone-tabbar { di
 .phone .section-gear { display: none; }
 .phone .section-tabs { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; width: 100%; overflow: hidden; }
 .phone .section-tabs .plan-tab { justify-content: center; min-height: 48px; min-width: 0; padding: 0 6px; white-space: nowrap; }
-.phone .section-tabs:has(.plan-tab:nth-child(4)) .plan-tab:not([aria-current]) { font-size: 0; gap: 0; }
-.phone .section-tabs:has(.plan-tab:nth-child(4)) .plan-tab svg { width: 22px; height: 22px; }
-/* The chosen tab takes the room its name needs; the icons share the rest, so "Data checks" is never cut (C03.3). */
-.phone .section-tabs:has(.plan-tab:nth-child(4)) { display: flex; }
-.phone .section-tabs:has(.plan-tab:nth-child(4)) .plan-tab { flex: 1 1 0; }
-.phone .section-tabs:has(.plan-tab:nth-child(4)) .plan-tab[aria-current] { flex: 0 0 auto; padding: 0 14px; }
-/* Two or three tabs: words only, wrapping to two lines rather than squeezing the icon to a dot or the last word
-   against the edge (review, 2026-10-06). */
-.phone .section-tabs:not(:has(.plan-tab:nth-child(4))) .plan-tab svg { display: none; }
-.phone .section-tabs:not(:has(.plan-tab:nth-child(4))) .plan-tab { white-space: normal; text-align: center; line-height: 1.2; padding: 4px 8px; }
+/* C03.3 (3.27): tabs are words, never icons alone. Up to three in one row; four as two rows of two. A name may
+   wrap to two lines; it is never cut. */
+.phone .section-tabs .plan-tab svg { display: none; }
+.phone .section-tabs .plan-tab { white-space: normal; text-align: center; line-height: 1.2; padding: 4px 8px; }
+.phone .section-tabs:has(.plan-tab:nth-child(4)) { grid-auto-flow: row; grid-template-columns: 1fr 1fr; border-radius: 24px; }
 
 /* C05 touch: 48 to press, fields 48 with 16px text so the phone does not zoom. */
 .phone .btn { min-height: 48px; }
@@ -246,7 +241,7 @@ html.phone.keyboard-open .phone-tabbar, html.phone.sheet-open .phone-tabbar { di
 /* C05.2: the add button, 56 Nile, 16 from the edge, 16 above the tab bar; the page ends above it so it never covers a row. */
 .phone-content:has(> .phone-add) { padding-bottom: calc(var(--c-tabbar) + env(safe-area-inset-bottom) + 96px); }
 .phone-add { position: fixed; right: 16px; bottom: calc(var(--c-tabbar) + env(safe-area-inset-bottom) + 16px); z-index: 19;
-  display: inline-flex; align-items: center; justify-content: center; width: 56px; height: 56px; border-radius: 999px;
+  display: inline-flex; align-items: center; justify-content: center; width: 56px; height: 56px; border-radius: 18px;
   background: var(--c-nile); color: #fff; box-shadow: 0 6px 18px rgba(10, 36, 66, .3); }
 .phone-add svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; }
 
@@ -374,3 +369,15 @@ main.phone-content { counter-reset: picked; }
 .phone .health-row-status { grid-area: status; }
 .phone .health-row .health-numbers { grid-area: numbers; justify-self: start !important; }
 .phone .health-numbers > summary { min-height: 44px; display: inline-flex; align-items: center; font-weight: 700; color: var(--c-nile); }
+
+/* C11.1: the Overview's other answers, one row each, opening in place (C06.2). */
+.phone-folds { padding-top: 4px; padding-bottom: 4px; }
+.phone-folds > .phone-fold:first-child > summary.phone-row { border-top: 0; }
+.phone-fold-body { padding: 4px 0 12px; }
+.phone-fold > summary.phone-row > span { display: flex; flex-direction: column; }
+
+/* C04.6: As of a day, one chip that opens the phone's date picker. */
+.phone-as-of { margin: 0; }
+/* The chip shows the date as the app writes it (yyyy-mm-dd); the phone's own picker lies over it, unseen. */
+.phone-as-of .phone-chip { position: relative; cursor: pointer; }
+.phone-as-of input[type="date"] { position: absolute; inset: 0; width: 100%; min-height: 0; height: 100%; opacity: 0; border: 0; padding: 0; cursor: pointer; }

@@ -69,7 +69,7 @@ SECTIONS: tuple[Section, ...] = (
         Tab("budget", "Budget", "/budget", _I["budget"], ("/budget",), settings=("budget",),
             gear="/settings?section=budget", gear_label="Budget settings"),
     )),
-    Section("plan", "Cash planning", "reserves", (
+    Section("plan", "Cash planning", "cash", (
         Tab("plan", "Plan", "/plan", _I["plan"], ("=/plan", "/plan/items")),
         Tab("recurring", "Recurring", "/plan/recurring", _I["recurring"], ("/plan/recurring",)),
         Tab("loans", "Loans", "/plan/loans", _I["loans"], ("/plan/loans",)),
