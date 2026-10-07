@@ -1,8 +1,8 @@
 # Edit journal: every device writes, the home decides
 
-**Status: proposal · 2026-10-07 · not built. Needs the owner's decision (section 1) before any code.**
+**Status: proposal · 2026-10-07 · not built. The owner set its two rules (section 1); the internet channel is still to choose (section 11).**
 
-Today one device writes at a time: the phone lends the ledger to one PC and gets it back ([multiple_devices.md](multiple_devices.md)). This proposal lets every paired device write at any time. Each save becomes a journal entry; the device that holds the ledger (the *decider*) applies entries one at a time through the normal services, and every device ends with the decider's ledger. Lend and hand-back stay, as the way the decider moves to a PC.
+Today one device writes at a time: the phone lends the ledger to one PC and gets it back ([multiple_devices.md](multiple_devices.md)). This proposal lets every paired device write at any time. A device with **writing rights** from the home edits the ledger; any other device saves **pending edits** that it shows at once, and the device with writing rights (the *decider*) takes or turns down each one, applying it through the normal services. Every device ends with the decider's ledger, over any network, not only the same Wi-Fi.
 
 The owner's product decisions live in [Project Overview](../PROJECT_OVERVIEW.md#product-decisions-that-must-hold); the built sync design lives in [Architecture](../ARCHITECTURE.md#desktop-app-and-encrypted-profiles) (*Multiple devices*); claims live in [NOW.md](../../NOW.md). This file owns the proposed design, its rollout and its acceptance tests.
 
@@ -16,15 +16,18 @@ The owner's product decisions live in [Project Overview](../PROJECT_OVERVIEW.md#
 | 4. The model | Building the journal, the decider or a device's view |
 | 5. Clashes and duplicates | Building review, or a new kind of entry |
 | 6. Automatic edits | Touching payment matching, prices, SMS or anything that writes by itself |
-| 7. With lend and hand-back | Changing the sync state machines |
-| 8. Storage, durability and security | Building the journal store or the wire messages |
+| 7. Writing rights | Changing the sync state machines |
+| 8. Storage, transport and security | Building the journal store, the wire messages or a channel |
 | 9. Rollout | Planning or claiming work |
 | 10. Acceptance | Testing any stage |
 | 11. Open questions | Before stage 1 |
 
 ## 1. Decision and why
 
-**Owner decision needed:** replace "one device edits at a time" and "no automatic merge" (multiple_devices.md, R5 and *Deferred*) with "every paired device writes; the device holding the ledger decides, in one order, and asks the owner only about clashes".
+**Owner decisions (2026-10-07):**
+
+- **Writing rights or pending edits.** A device edits the ledger only with writing rights given by the home. Without them, every save is a pending edit, shown on that device at once; the device with writing rights takes it or turns it down. This replaces "one device edits at a time, the rest only read" and "no automatic merge" (multiple_devices.md, R5 and *Deferred*).
+- **Not tied to the same Wi-Fi.** Devices must exchange edits, decisions and writing rights wherever they are. Which internet channel is still open (section 8, *Transport*).
 
 Why (owner, 2026-10-07): a person adds a coffee on the phone in the evening while the office PC still has the ledger, imports the bank statement on the PC while the phone captured the same payments from SMS, and fixes a row on whichever device is in hand. Lend and hand-back alone cannot serve that: the phone only reads while lent, and edits on a PC the phone took back are lost.
 
@@ -40,7 +43,7 @@ Alternatives weighed, and why not:
 
 ## 2. Guarantees
 
-Each is a test in section 10. "Airtight" means these hold under any interleaving of edits, disconnects, repeated or lost messages, crashes and revoked devices. It does not mean instant: without a server, entries reach the decider only when the devices meet on Wi-Fi.
+Each is a test in section 10. "Airtight" means these hold under any interleaving of edits, disconnects, repeated or lost messages, crashes and revoked devices. It does not mean instant: an entry reaches the decider when both can reach a channel (section 8); until then it is pending, and shown.
 
 | | Guarantee |
 |---|---|
@@ -83,7 +86,7 @@ One user action (one save on one screen) makes one entry:
 
 ### The decider
 
-The device that holds the ledger: the phone at home, or the PC while it borrows (section 7). It keeps the **accepted journal** and the **ledger version**, a number raised by one for every accepted entry.
+The device with writing rights: the phone, unless it gave them to a PC (section 7). It keeps the **accepted journal** and the **ledger version**, a number raised by one for every accepted entry.
 
 For each entry, in arrival order, keeping each device's own order (G6):
 
@@ -99,7 +102,7 @@ The decider's own saves go through the same path, applied at once.
 
 Each device keeps the decider's ledger at some accepted version, plus its own entries not yet decided. Its screens show that ledger with the pending entries applied on a working copy, each pending row marked as pending. Pending rows count in no report until accepted, since one ledger records real money.
 
-When the devices meet:
+When a device reaches the decider, on any channel:
 
 1. The device sends its undecided entries and learns each decision.
 2. It receives the accepted entries after its version, and replays them on its copy through the same services.
@@ -133,26 +136,47 @@ Waiting entries appear on the decider in a review list in the style of the phone
 
 The writes the app does by itself (section 3) run **only on the decider**, and each one it makes is recorded as an entry of the decider, so devices replay its result instead of redoing it: bill settling, price fills and fetches, SMS ingest, ownership repair. Devices open their copy with these writes off, as a read-only build does today. Migrations and seeds are not entries: a version change is section 8's compatibility rule.
 
-## 7. With lend and hand-back
+## 7. Writing rights
 
-The lend protocol stays and moves the decider:
+The owner's rule (section 1): **writing rights from the home, or pending edits.** Writing rights are today's lend, extended:
 
-- **At home** the phone is the decider. Every PC writes through entries.
-- **Lent**, the PC is the decider for the lend. It applies its own saves directly as entries, and the phone's evening coffee waits on the phone as a pending entry, shown as such.
-- **Hand-back** returns the ledger with its accepted journal; the phone sends its pending entries to itself as the decider, with section 5's checks against the returned ledger.
-- **Take back** (the PC is out of reach): the phone becomes the decider again from its own copy, under a new lineage as today. The PC's entries accepted during the lend are, for the phone, undecided entries from that PC; when it next meets the phone they are checked like any other. This replaces today's "the PC's edits will not come back".
+- **One device at a time holds them,** and is the decider. The phone holds them unless it gave them away.
+- **A device without them never waits.** It saves pending edits, shows them at once, marked as pending, and sends them to the decider when it can.
+- **Asking for writing rights** (Borrow on a PC) goes through the same channels as entries. The phone grants it when it is unlocked, as today (section 11 asks whether it needs a tap). Until the answer comes, the PC keeps saving pending edits.
+- **When writing rights arrive,** the device first applies its own pending edits as the new decider, with section 5's checks, then edits the ledger directly. Each direct save is still recorded as an accepted entry.
+- **The phone while it has lent them** saves pending edits too: the evening coffee waits on the phone, shown, and goes in after the hand-back.
+- **Hand-back** returns the ledger with its accepted journal. The phone becomes the decider again and checks its pending edits against the returned ledger.
+- **Take back** (the PC is out of reach): the phone becomes the decider from its own copy, under a new lineage, as today. What the PC accepted during the lend becomes, for the phone, pending edits from that PC, checked when they arrive. This replaces today's "the PC's edits will not come back".
 - **A stranded copy with no journal** (a profile from before this change) can only be read side by side; reconcile by comparison is not built.
 
-Over time, as more areas become entry kinds, borrowing is needed only for areas that are not entries yet.
+As more areas become entry kinds, a PC needs writing rights only for long sessions, such as a statement import or budgeting, where it is faster to edit directly.
 
-## 8. Storage, durability and security
+## 8. Storage, transport and security
 
 - **Where.** Each device keeps its undecided entries, and the decider its accepted journal, in an encrypted SQLite file beside the ledger, with the profile's key and FULL sync. Nothing financial goes in the plain control store.
 - **Order of writes on a device.** Save the entry, then apply it to the working copy. At start, an entry saved but not applied is applied again; its `creates` IDs make this safe.
 - **On the decider,** applying an entry and recording it as accepted happen in one transaction of the ledger, so a crash leaves both or neither.
-- **On the wire.** A new `PROTOCOL_VERSION` (v1 stays frozen). Entries travel in batches inside today's pinned TLS link and signed challenge, at most 16 KB a message and a bounded batch, with a per-device limit on entries waiting.
+- **On the wire.** A new `PROTOCOL_VERSION` (v1 stays frozen). Entries travel in bounded batches, with a per-device limit on entries waiting.
 - **Compatibility.** An entry kind carries its version. The decider refuses a kind or version it does not know, and the device says "update Lightning on this device"; a decider never guesses at an older or newer kind. A ledger migration raises the version; a device behind it takes a whole copy after updating.
 - **Revoke** refuses that device's future entries; its accepted ones stay in the history.
+
+### Transport
+
+Owner (2026-10-07): not tied to the same Wi-Fi.
+
+- **Sealed envelopes, so the channel needs no trust.** Everything that travels (entries, decisions, writing rights, ledger copies) is encrypted end to end with a key derived from the profile key, which every paired device already holds, and signed with the sender's device key, pinned at pairing. Running numbers expose a dropped or replayed envelope. A channel only carries envelopes it cannot read or forge, so choosing one is about reach and cost, not trust.
+- **Same Wi-Fi** stays as today's pinned TLS link: the fastest channel when both are home.
+- **An internet channel needs a mailbox.** Mobile carriers commonly share one public address among many phones, so a phone cannot accept a connection from the internet. Something always reachable must hold envelopes until the other device fetches them:
+
+| Channel | For | Against |
+|---|---|---|
+| **The owner's own Google Drive** (an app-only folder) | No Lightning server to run or pay for; the data stays in the user's own storage, encrypted | Both devices sign in to the same Google account; a phone checks in the background only every 15 minutes or so; Drive's limits |
+| **A Lightning mailbox** (a small relay that keeps sealed envelopes until fetched) | Near instant; can wake the phone with a push; nothing to set up for the user | A service to run, pay for and keep up; it sees sizes and times, never content; a step away from "no remote server" |
+| Direct over the internet | No middle | Blocked by carriers' shared addresses; needs a relay anyway |
+
+Recommendation: the owner's own Google Drive first, since pending edits show at once and a delay of minutes costs nothing; a mailbox later if near-instant matters. Ledger copies for writing rights travel the same way, in chunks.
+
+- **The phone in the background.** Android runs a background check only now and then; envelopes wait until then or until the app opens. Pending edits mean no device is blocked meanwhile.
 
 ## 9. Rollout
 
@@ -164,8 +188,9 @@ Each stage is shippable and tested end to end; an area not yet an entry kind is 
 | J2 | Transactions from every device: add, edit amount, date, category, note and owner, delete, split; pending rows on screen; decisions shown | `tests/test_two_devices.py` gains the evening case, the both-devices edit and the review list |
 | J3 | Imports as entries: SMS on the phone, bank CSVs on the PC, with the duplicate flags | SMS versus statement, case U1 below |
 | J4 | Automatic edits as decider entries (section 6) | A device never writes by itself; replay converges |
-| J5 | Lend moves the decider (section 7), Take back keeps the PC's entries | U9 below |
-| J6+ | One area at a time: budget, planning, reserves, accounts, investments, deposits, items, rules, settings | Each area's save actions are entry kinds with tests |
+| J5 | Writing rights move the decider (section 7); Take back keeps the PC's entries | U9, U13 below |
+| J6 | The internet channel (section 8, *Transport*) | U14, U15 below |
+| J7+ | One area at a time: budget, planning, reserves, accounts, investments, deposits, items, rules, settings | Each area's save actions are entry kinds with tests |
 
 ## 10. Acceptance
 
@@ -183,21 +208,25 @@ Each stage is shippable and tested end to end; an area not yet an entry kind is 
 | | Case | Expected |
 |---|---|---|
 | U1 | The phone captured a card payment from SMS; the PC imported the statement with it | One applied, one flagged as the same payment |
-| U2 | Coffee on the phone in the evening while the PC borrows | Pending on the phone; applied after the hand-back |
+| U2 | Coffee on the phone in the evening while the PC has writing rights | Pending on the phone, shown; applied after the hand-back |
 | U3 | The phone fixes Talabat's amount, the PC its category | Both applied |
 | U4 | Both change the same amount, to 175 and 180 | Review; the later is suggested |
 | U5 | The PC deletes a row the phone edited | Review; keep is suggested |
 | U6 | The PC adds a row then edits it before the phone has seen either | Applied in order |
 | U7 | The PC marks rent paid from the plan; the phone typed the rent | Bill settled once; the second row flagged |
 | U8 | "Gym" on one device, "gym" on the other | One category |
-| U9 | The phone took the ledger back; the PC meets it a week later | The PC's entries checked and applied or flagged, none lost |
+| U9 | The phone took the ledger back; the PC reaches it a week later | The PC's entries checked and applied or flagged, none lost |
 | U10 | The PC's clock is three hours wrong | Order and outcome unchanged; only displayed times differ |
 | U11 | The same batch is sent twice after a dropped answer | Applied once |
 | U12 | A device on an older app version sends a newer kind | Refused with "update Lightning on this device"; the entry stays pending |
+| U13 | The PC asks for writing rights while the phone is off | The PC keeps saving pending edits; when the rights arrive they go in first, then it edits directly |
+| U14 | Phone on mobile data, PC at the office, never on the same Wi-Fi | Each device's edits reach the other through the internet channel; the phone decides at its next check |
+| U15 | The channel drops, repeats or alters an envelope | A dropped one is sent again; a repeat is answered once; an altered one is refused unread |
 
 ## 11. Open questions
 
-- Whether the PC may decide while it borrows (section 7) or the phone always decides. Keeping the decider on the phone is simpler but needs the phone present for every PC save.
+- **The internet channel** (section 8, *Transport*): the owner's own Google Drive (recommended) or a Lightning mailbox.
+- Whether giving writing rights needs a tap on the phone, or happens by itself while the phone is unlocked, as a borrow does today.
 - How long turned-down entries stay visible on their device.
 - Whether the decider's review is on the phone only, or also on a PC that is the decider.
 - Size of the accepted journal over years: keep it all (history, G8) or fold old entries into a checkpoint.
