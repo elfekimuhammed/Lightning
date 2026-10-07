@@ -10,6 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-07 · Claude: owner answered the edit journal's Q1–Q7: move the home with two of three keys, review on the home only, one week for turned-down edits, history kept 30 days, a compatibility table with the home's version deciding; building later (`docs/proposals/edit_journal.md` section 11).
 - 2026-10-07 · Claude: build cleanup: the never-shipped LightningProbe is gone (its entry, module, legacy server, spec, packaging and CI steps; the shipped app's checks cover it), about a minute less per Windows build; `ci_scope.py` rewritten in order with the same decisions; Architecture › Build and release reads as one schedule.
 - 2026-10-07 · Claude: owner confirmed the phone keeps the profile key under the Android Keystore; the edit journal's open questions become Q1–Q7, each with a recommendation (`docs/proposals/edit_journal.md` section 11).
 - 2026-10-07 · Claude: owner chose a Cloudflare mailbox with Firebase push for sync away from home; the design adds its budget and seven layers of limits against abuse (`docs/proposals/edit_journal.md` section 8).

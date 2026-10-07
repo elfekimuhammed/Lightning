@@ -1,6 +1,6 @@
 # Edit journal: every device writes, the home decides
 
-**Status: proposal · 2026-10-07 · not built. The owner set its rules (section 1) and chose the mailbox (section 8).**
+**Status: proposal · 2026-10-07 · not built, not yet scheduled (owner: later). The owner set its rules (section 1), chose the mailbox (section 8) and answered every open question (section 11).**
 
 Today one device writes at a time: the phone lends the ledger to one PC and gets it back ([multiple_devices.md](multiple_devices.md)). This proposal lets every paired device write at any time. A device with **writing rights** from the home edits the ledger; any other device saves **pending edits** that it shows at once, and the device with writing rights (the *decider*) takes or turns down each one, applying it through the normal services. Every device ends with the decider's ledger, over any network, not only the same Wi-Fi.
 
@@ -55,7 +55,7 @@ Each is a test in section 10. "Airtight" means these hold under any interleaving
 | G5 | **Money rules hold.** Entries are applied through the same Python services as a direct save; an entry those services refuse is turned down with their reason. |
 | G6 | **One order per device.** A device's entries are applied in the order it made them. |
 | G7 | **Only paired devices write.** An entry from an unpaired or revoked device is refused before it is read. |
-| G8 | **Full history.** Every accepted entry is kept with its device, time and version; undo is a new entry that reverses one. |
+| G8 | **Recent history.** Every accepted entry is kept with its device, time and version until every paired device has it and for at least 30 days, then dropped (owner: no full history); undo is a new entry that reverses one, within that window. |
 
 ## 3. What the code does today
 
@@ -108,7 +108,7 @@ When a device reaches the decider, on any channel:
 1. The device sends its undecided entries and learns each decision.
 2. It receives the accepted entries after its version, and replays them on its copy through the same services.
 3. It compares its content fingerprint with the decider's at that version. If they differ, for example after a code change, it takes a whole verified copy instead, as today's borrow does. Replay is fast; the fingerprint keeps it honest (G3).
-4. It re-applies the entries still pending on top, and shows each accepted, turned down or waiting for the owner.
+4. It re-applies the entries still pending on top, and shows each accepted, turned down or waiting for the owner. A turned-down edit stays in a *Not taken* list for one week, with *Add again*, then goes.
 
 A device far behind, or new, starts from a whole copy, as today.
 
@@ -131,7 +131,7 @@ Every table an entry kind touches gets a `uid` (UUID text, unique) and a `versio
 | A planned bill paid by two entries | The ledger allows one payment per bill and due date (`planned_payments`, unique), so the second link is refused; the row itself is applied and flagged. |
 | Same name added on both (category "Gym" and "gym") | Names are canonical (Project Overview): the second add is applied as a use of the first, and the device is told. |
 
-Waiting entries appear on the decider in a review list in the style of the phone's *From SMS*, one line each, with "Take all suggested" for the many and a choice for each. Owner choices are entries too, so every device learns them.
+Waiting entries appear **on the home only** (owner, 2026-10-07): while a PC has writing rights, an entry that needs a choice waits for the home. They show in a review list in the style of the phone's *From SMS*, one line each, with "Take all suggested" for the many and a choice for each. Owner choices are entries too, so every device learns them.
 
 ## 6. Automatic edits
 
@@ -147,6 +147,7 @@ The owner's rule (section 1): **writing rights from the home, or pending edits.*
 - **When writing rights arrive,** the device first applies its own pending edits as the new decider, with section 5's checks, then edits the ledger directly. Each direct save is still recorded as an accepted entry.
 - **The phone while it has lent them** saves pending edits too: the evening coffee waits on the phone, shown, and goes in after the hand-back.
 - **Hand-back** returns the ledger with its accepted journal. The phone becomes the decider again and checks its pending edits against the returned ledger.
+- **Moving the home** (owner, 2026-10-07): any paired device can become the home with **two of the three keys**: the profile password, the security answer and the recovery key. The password and the recovery key each open the profile key, and the answer is checked once it is open, so every pair proves the owner. The new home takes over from its last accepted ledger plus its pending edits, under a new lineage; the mailbox retires the old home so it can never give writing rights again; every other device follows the new home. This is how a lost or broken phone is replaced: a PC becomes the home, then the new phone pairs and becomes the home the same way.
 - **Take back** (the PC is out of reach): the phone becomes the decider from its own copy, under a new lineage, as today. What the PC accepted during the lend becomes, for the phone, pending edits from that PC, checked when they arrive. This replaces today's "the PC's edits will not come back".
 - **A stranded copy with no journal** (a profile from before this change) can only be read side by side; reconcile by comparison is not built.
 
@@ -158,7 +159,7 @@ As more areas become entry kinds, a PC needs writing rights only for long sessio
 - **Order of writes on a device.** Save the entry, then apply it to the working copy. At start, an entry saved but not applied is applied again; its `creates` IDs make this safe.
 - **On the decider,** applying an entry and recording it as accepted happen in one transaction of the ledger, so a crash leaves both or neither.
 - **On the wire.** A new `PROTOCOL_VERSION` (v1 stays frozen). Entries travel in bounded batches, with a per-device limit on entries waiting.
-- **Compatibility.** An entry kind carries its version. The decider refuses a kind or version it does not know, and the device says "update Lightning on this device"; a decider never guesses at an older or newer kind. A ledger migration raises the version; a device behind it takes a whole copy after updating.
+- **Compatibility** (owner, 2026-10-07)**.** Every release publishes a compatibility table: which entry kinds and versions, and which ledger versions, each app version reads and writes. **The home's app version sets what the profile accepts.** A device whose version the home does not accept keeps its edits pending and says "Update Lightning on this device"; the home tells the user which paired device is behind. A decider never guesses at an older or newer kind. A ledger migration happens on the home; a device behind it takes a whole copy after updating.
 - **Revoke** refuses that device's future entries; its accepted ones stay in the history.
 
 ### Pairing and trust
@@ -183,7 +184,7 @@ Owner (2026-10-07): **make the first time concrete, then make it easy.**
 
 **What it needs on the phone** (owner confirmed, 2026-10-07)**.** To give writing rights, take in edits and apply them while locked, the phone app must use the profile key without the password. It keeps a copy wrapped by the Android Keystore (hardware-backed where the phone has it), unusable outside this app on this phone and gone if the app's data is cleared. Unlocking the screens still needs the password; the stored key only serves the background work. A PC keeps no such key: it opens with the password each time.
 
-**Risk this accepts.** Someone who has the phone and gets past its own screen lock still cannot open Lightning's screens without the password, but the app keeps working in the background for paired devices. A lost phone is handled as today (Take back from a new home, revoke).
+**Risk this accepts.** Someone who has the phone and gets past its own screen lock still cannot open Lightning's screens without the password, but the app keeps working in the background for paired devices. A lost phone is replaced by moving the home to another device with two of the three keys (section 7), which retires the old phone.
 
 ### Transport
 
@@ -275,17 +276,17 @@ Each stage is shippable and tested end to end; an area not yet an entry kind is 
 | U18 | A stranger floods the mailbox address, or tries made-up mailbox IDs | Blocked at the edge or by the Worker's tag check; the store is never touched; real users unaffected |
 | U19 | A paired PC with a bug sends in a loop | Stopped at its daily budget; the phone and other devices keep syncing; the PC shows Sync paused |
 | U20 | The daily allowance is used up | Sync paused with its resume time; edits pending and shown; nothing lost; the same Wi-Fi still works |
+| U21 | The phone is lost; on the PC he types the password and the security answer | The PC becomes the home; the old phone can no longer give writing rights; a new phone pairs and becomes the home the same way |
+| U22 | Someone tries to move the home with one key only, or with a wrong second key | Refused; nothing changes; wrong tries count like wrong passwords |
 
-## 11. Open questions
+## 11. Owner's answers (2026-10-07)
 
-Each with a recommendation; the owner decides.
-
-| | Question | Recommendation |
+| | Question | Decision |
 |---|---|---|
-| Q1 | **Lost or broken phone.** The phone is the home, so losing it loses the decider. Which device takes over, and how is the old phone shut out? | A paired PC, with the profile password, can *Make this PC the home*: it becomes the decider from its last accepted ledger plus its pending edits, under a new lineage; the mailbox retires the old phone so it can never give writing rights again; other devices follow the new home. Pairing a new phone later moves the home back. |
-| Q2 | Where the owner reviews clashes and duplicates | On whichever device holds writing rights: the phone at home, the PC while it has them. |
-| Q3 | How long a turned-down edit stays visible on its device | Until the user dismisses it, in a *Not taken* list, with *Add again*. |
-| Q4 | The accepted journal over years | Keep it all (history, G8). A year of entries is a few megabytes. |
-| Q5 | When to build it | After the bank SMS work (M3) finishes, since it holds the sync files. J1–J5 work on the same Wi-Fi with no server; J6 adds the mailbox. |
-| Q6 | Devices on different app versions | A device that is behind keeps its edits pending and says "Update Lightning on this device"; the phone updates through Google Play, the PC from the website, and the phone tells the user when a paired PC is behind. |
-| Q7 | Privacy | Before J6 ships, the website's privacy note says what Cloudflare and Firebase see (addresses, times, sizes) and that they never see content. |
+| Q1 | Lost or broken phone | Any paired device can become the home with two of the three keys: password, security answer, recovery key (section 7, *Moving the home*). |
+| Q2 | Where clashes and duplicates are reviewed | On the home only; while a PC has writing rights, they wait for the home (section 5). |
+| Q3 | How long a turned-down edit stays visible | One week, in *Not taken*, with *Add again* (section 4). |
+| Q4 | Keep the accepted journal for years | No: until every paired device has it, and at least 30 days (G8). |
+| Q5 | When to build | Later; not scheduled. |
+| Q6 | Devices on different app versions | A compatibility table with every release; the home's version decides for the profile (section 8). |
+| Q7 | The website's privacy note | Updated later, before the mailbox (J6) ships. |
