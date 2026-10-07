@@ -10,7 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
-- 2026-10-07 · Codex: the beta phone signer uses the four Android repository secrets already configured; its public certificate fingerprint is printed and pinned before publication.
+- 2026-10-07 · Codex: the beta phone signer uses the four Android repository secrets already configured; the signed CI build proved the key and its public certificate fingerprint is pinned.
 - 2026-10-07 · Codex: a changed FX provider clears the retired provider's failure from the current pack health, so a healthy Banque Misr run can publish.
 
 ## [1.0.0b1] — 2026-10-07 — Windows and Android beta
