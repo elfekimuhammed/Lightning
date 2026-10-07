@@ -10,8 +10,8 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
-- 2026-10-06 · Claude: Settings › Rules: when the counterparty, notes, amount, account or direction fit, set a category, add tags or split money out; the most specific rule decides, imports and the register ask it first, and the past changes only when asked, with one undo (`0048_rules.sql`).
 - 2026-10-07 · Claude: UX plan 8 and 9: reserves as two-line rows with a meter, the emergency fund's "left of · used · Refill"; whole EGP on headline totals, no internal codes on Prices, plain words on Data checks, Repeat as a segment.
+- 2026-10-06 · Claude: Settings › Rules: when the counterparty, notes, amount, account or direction fit, set a category, add tags or split money out; the most specific rule decides, imports and the register ask it first, and the past changes only when asked, with one undo (`0048_rules.sql`).
 - 2026-10-06 · Claude: UX plan 5 and most of 10: one Free cash breakdown, no Overview waterfall, loans once on Plan, Recurring's one share of income, empty Investments sections hidden, dashed forecast key, "Rest of" this month, Azure balances, locked certificates said, no Investment planner header button.
 - 2026-10-06 · Claude: due dates that know the Egyptian weekend: a planned item's *On a weekend* (keep, day before, day after) moves a Friday or Saturday payment to Thursday or Sunday; every item keeps its date until you choose (`0047_weekend_move.sql`).
 - 2026-10-06 · Claude: online prices: a held fund without its Mubasher number is found by its name, or its Mubasher page is pasted on Edit investment; gold (18K, 21K, 24K references and gold by the gram) is priced as an estimate from the world price and the dollar's rate (`workflows/live_prices.py`).
