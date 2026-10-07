@@ -1,6 +1,6 @@
 # Edit journal: every device writes, the home decides
 
-**Status: proposal · 2026-10-07 · not built. The owner set its two rules (section 1); the internet channel is still to choose (section 11).**
+**Status: proposal · 2026-10-07 · not built. The owner set its rules (section 1) and chose the mailbox (section 8).**
 
 Today one device writes at a time: the phone lends the ledger to one PC and gets it back ([multiple_devices.md](multiple_devices.md)). This proposal lets every paired device write at any time. A device with **writing rights** from the home edits the ledger; any other device saves **pending edits** that it shows at once, and the device with writing rights (the *decider*) takes or turns down each one, applying it through the normal services. Every device ends with the decider's ledger, over any network, not only the same Wi-Fi.
 
@@ -27,7 +27,7 @@ The owner's product decisions live in [Project Overview](../PROJECT_OVERVIEW.md#
 **Owner decisions (2026-10-07):**
 
 - **Writing rights or pending edits.** A device edits the ledger only with writing rights given by the home. Without them, every save is a pending edit, shown on that device at once; the device with writing rights takes it or turns it down. This replaces "one device edits at a time, the rest only read" and "no automatic merge" (multiple_devices.md, R5 and *Deferred*).
-- **Not tied to the same Wi-Fi.** Devices must exchange edits, decisions and writing rights wherever they are. Which internet channel is still open (section 8, *Transport*).
+- **Not tied to the same Wi-Fi.** Devices must exchange edits, decisions and writing rights wherever they are. The internet channel is a mailbox on Cloudflare with Firebase push (section 8, *Transport*).
 - **Trust pairing.** Pairing is the one strong check, done once. Afterwards a paired device asks for writing rights by itself, and the home gives them whenever it is reachable and holds them: no tap, no unlocking the phone. The password the user types to open the profile on that device is enough (section 8, *Pairing and trust*).
 
 Why (owner, 2026-10-07): a person adds a coffee on the phone in the evening while the office PC still has the ledger, imports the bank statement on the PC while the phone captured the same payments from SMS, and fixes a row on whichever device is in hand. Lend and hand-back alone cannot serve that: the phone only reads while lent, and edits on a PC the phone took back are lost.
@@ -187,21 +187,44 @@ Owner (2026-10-07): **make the first time concrete, then make it easy.**
 
 ### Transport
 
-Owner (2026-10-07): not tied to the same Wi-Fi.
+Owner (2026-10-07): not tied to the same Wi-Fi; the internet channel is a mailbox on Cloudflare with Firebase push.
 
 - **Sealed envelopes, so the channel needs no trust.** Everything that travels (entries, decisions, writing rights, ledger copies) is encrypted end to end with a key derived from the profile key, which every paired device already holds, and signed with the sender's device key, pinned at pairing. Running numbers expose a dropped or replayed envelope. A channel only carries envelopes it cannot read or forge, so choosing one is about reach and cost, not trust.
-- **Same Wi-Fi** stays as today's pinned TLS link: the fastest channel when both are home.
 - **An internet channel needs a mailbox.** Mobile carriers commonly share one public address among many phones, so a phone cannot accept a connection from the internet. Something always reachable must hold envelopes until the other device fetches them:
 
 | Channel | For | Against |
 |---|---|---|
-| **The owner's own Google Drive** (an app-only folder) | No Lightning server to run or pay for; the data stays in the user's own storage, encrypted | Both devices sign in to the same Google account; a phone checks in the background only every 15 minutes or so; Drive's limits |
-| **A Lightning mailbox** (a small relay that keeps sealed envelopes until fetched) | Near instant; can wake the phone with a push; nothing to set up for the user | A service to run, pay for and keep up; it sees sizes and times, never content; a step away from "no remote server" |
-| Direct over the internet | No middle | Blocked by carriers' shared addresses; needs a relay anyway |
+| The owner's own Google Drive (an app-only folder) | No server; free | No way to wake the phone, so up to about 15 minutes in the background; Google sign-in on every device |
+| **A Lightning mailbox on Cloudflare, with Firebase push** (chosen) | Seconds, even with the phone locked; free to start; no machines to look after | A small service to run; Cloudflare-specific; it sees sizes and times, never content |
+| A rented server | Seconds | Updates, security and backups are ours |
+| Direct over the internet | No middle | Blocked by carriers' shared addresses |
 
-Recommendation: the owner's own Google Drive first, since pending edits show at once and a delay of minutes costs nothing; a mailbox later if near-instant matters. Ledger copies for writing rights travel the same way, in chunks.
+**Chosen (owner, 2026-10-07): the mailbox on Cloudflare, with Firebase Cloud Messaging to wake the phone.** It never holds readable finance data, so it keeps the spirit of "no remote finance server".
 
-- **The phone in the background.** Android runs a background check only now and then; envelopes wait until then or until the app opens. Pending edits mean no device is blocked meanwhile.
+### The mailbox
+
+- **What it is.** A Cloudflare Worker on our own domain (`sync.` plus the website's domain; the `workers.dev` address is turned off) and one Durable Object, a small private store, per paired profile. It keeps sealed envelopes until the other device takes them, then deletes them. Ledger copies for writing rights go through Cloudflare's file storage (R2) in chunks and are deleted once taken, or after 7 days.
+- **Waking the phone.** When an envelope arrives for the phone, the mailbox sends a Firebase push carrying nothing but "check your mailbox". The phone wakes, takes, decides and answers within seconds, locked or not. A phone without Google services (some Huawei models, common in Egypt) checks about every 15 minutes instead.
+- **One sleeping connection, never frequent checks.** An open app holds one WebSocket to its mailbox, which costs nothing while idle (Cloudflare bills incoming messages at one request per 20, pings free). Checking every few seconds would cost about 17,000 requests a day per user; it is never done.
+- **The budget.** About 50–150 requests a day for an active user (opening the apps, batches of edits, pushes, writing rights), so the free plan's 100,000 a day carries roughly 700–2,000 active users. Move to the paid plan (about $5 a month) when daily use stays above half the free allowance. Cloudflare's paid plan has no hard spending cap, so the limits below matter there too.
+- **When it is unreachable** (an outage, the daily allowance used up): sync waits, every edit stays pending and shown, the same-Wi-Fi link still works, and the app says "Sync paused" with when it resumes. Nothing is lost (G1).
+- **Lock-in.** The mailbox stays small (a few hundred lines) and the envelope format is ours, so moving to another host means rewriting only the mailbox.
+
+### Limits against abuse
+
+An attacker cannot read or forge envelopes (sealed, signed, pinned). What is left to attack is the allowance: every request that reaches our code counts against the 100,000 a day, even when we refuse it, and stored data costs space. So the limits stop junk as early and as cheaply as possible, in layers:
+
+| Layer | Stops | How |
+|---|---|---|
+| 1. Cloudflare's edge, before our code | Floods and anything not shaped like Lightning | Automatic DDoS protection. Free custom rules allow only our paths and methods (`/v1/m/<mailbox>/…`), a mailbox ID of the right form, the device header, and bodies up to 64 KB except the copy upload; everything else is blocked. The free rate-limit rule blocks any address sending more than 60 requests in 10 seconds (an app holds one connection, so it never comes close). **To prove in J6:** requests blocked here do not count against the Worker's allowance on our domain. |
+| 2. Our Worker, before the store | Made-up or guessed mailboxes | A mailbox ID is 128 random bits plus a tag the Worker signs with its own secret when it creates the mailbox, so a forged or guessed ID is refused with one calculation, without touching the store. An address that keeps failing is refused for an hour (Cloudflare's rate-limiting binding). |
+| 3. The mailbox's store | A device without trust | Every request is signed with a device key the mailbox learned at pairing; anything else is refused. Revoke removes the key. |
+| 4. Budgets per mailbox | A paired device gone wrong (a bug that loops, a stolen PC) | Each device: at most 2,000 requests a day; each mailbox: 5,000 a day, 1,000 envelopes or 20 MB waiting, one ledger copy of at most 200 MB. Over budget, the answer is "wait until <time>", the app pauses sync and shows it; pending edits stay. Envelopes not taken in 30 days are dropped; their device still holds them and sends them again (G1). |
+| 5. Creating a mailbox, the only open door | Mass creation | Only at pairing, from the phone: at most 3 a day per address, a small proof of work (about a second on a phone, costly by the thousand), and later Google Play Integrity to prove our genuine app. A mailbox never paired within a day, or unused for 180 days, is deleted. |
+| 6. Our own apps | Ourselves | Batching, one sleeping connection, back-off with jitter after errors, never retrying sooner than the mailbox says, and a cap per day in the app itself. |
+| 7. Watching | Surprises | A scheduled Worker (free) checks the day's use and warns the owner at 50% and 80% of the allowance, with the top mailboxes and addresses. The mailbox runs on its own Cloudflare account, so the website never shares or eats its allowance. |
+
+- **Same Wi-Fi** stays as today's pinned TLS link, the fastest when both are home, and needs no mailbox.
 
 ## 9. Rollout
 
@@ -214,7 +237,7 @@ Each stage is shippable and tested end to end; an area not yet an entry kind is 
 | J3 | Imports as entries: SMS on the phone, bank CSVs on the PC, with the duplicate flags | SMS versus statement, case U1 below |
 | J4 | Automatic edits as decider entries (section 6) | A device never writes by itself; replay converges |
 | J5 | Writing rights move the decider (section 7), given by themselves after trust pairing (section 8); Take back keeps the PC's entries | U9, U13, U16, U17 below |
-| J6 | The internet channel (section 8, *Transport*) | U14, U15 below |
+| J6 | The mailbox, Firebase push and the limits against abuse (section 8) | U14, U15, U18–U20 below; the edge-blocking proof in layer 1 |
 | J7+ | One area at a time: budget, planning, reserves, accounts, investments, deposits, items, rules, settings | Each area's save actions are entry kinds with tests |
 
 ## 10. Acceptance
@@ -249,10 +272,12 @@ Each stage is shippable and tested end to end; an area not yet an entry kind is 
 | U15 | The channel drops, repeats or alters an envelope | A dropped one is sent again; a repeat is answered once; an altered one is refused unread |
 | U16 | The phone is locked in his pocket; he opens the profile on the trusted PC | Writing rights arrive with no tap on the phone |
 | U17 | Pairing with the right code but the wrong profile password; a revoked PC asks for writing rights | Nothing paired; refused, and the PC says to pair again |
+| U18 | A stranger floods the mailbox address, or tries made-up mailbox IDs | Blocked at the edge or by the Worker's tag check; the store is never touched; real users unaffected |
+| U19 | A paired PC with a bug sends in a loop | Stopped at its daily budget; the phone and other devices keep syncing; the PC shows Sync paused |
+| U20 | The daily allowance is used up | Sync paused with its resume time; edits pending and shown; nothing lost; the same Wi-Fi still works |
 
 ## 11. Open questions
 
-- **The internet channel** (section 8, *Transport*): the owner's own Google Drive (recommended) or a Lightning mailbox.
 - How long turned-down entries stay visible on their device.
 - Whether the decider's review is on the phone only, or also on a PC that is the decider.
 - Size of the accepted journal over years: keep it all (history, G8) or fold old entries into a checkpoint.

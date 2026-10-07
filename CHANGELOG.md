@@ -10,6 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-07 · Claude: owner chose a Cloudflare mailbox with Firebase push for sync away from home; the design adds its budget and seven layers of limits against abuse (`docs/proposals/edit_journal.md` section 8).
 - 2026-10-07 · Claude: owner decided trust pairing: one strong pairing (code, check digits, the profile password on the PC), then writing rights with no tap or phone unlock (`docs/proposals/edit_journal.md` section 8; Project Overview).
 - 2026-10-07 · Claude: owner decided: writing rights from the home or pending edits seen locally, and sync not tied to the same Wi-Fi (Project Overview; `docs/proposals/edit_journal.md` sections 1, 7, 8). The internet channel waits on the owner.
 - 2026-10-07 · Claude: proposal `docs/proposals/edit_journal.md`: every paired device writes through an edit journal, the device holding the ledger decides; guarantees, rollout J1–J6 and acceptance cases. Waits on the owner (`OWNER.md` › To decide 11).
