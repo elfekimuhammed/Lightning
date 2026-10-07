@@ -38,11 +38,15 @@ def _locked() -> dict[str, str]:
     return build.locked_packages((ROOT / "requirements" / "android.lock").read_text(encoding="utf-8"))
 
 
+def _app_entries() -> list[str]:
+    return [entry if entry.endswith("/") or "." in entry.rsplit("/", 1)[-1] else entry + "/x.py"
+            for entry in build.REQUIRED]
+
+
 def _apk(path: Path, *, extra_app: tuple[str, ...] = (), abis: tuple[str, ...] = ("arm64-v8a",),
-         packages: dict[str, str] | None = None) -> Path:
+         packages: dict[str, str] | None = None, app: list[str] | None = None) -> Path:
     packages = _locked() if packages is None else packages
-    app = [entry if entry.endswith("/") or "." in entry.rsplit("/", 1)[-1] else entry + "/x.py"
-           for entry in build.REQUIRED] + list(extra_app)
+    app = (_app_entries() if app is None else app) + list(extra_app)
     requirements = [f"{name.replace('-', '_')}-{version}.dist-info/METADATA" for name, version in packages.items()]
     with zipfile.ZipFile(path, "w") as apk:
         apk.writestr("AndroidManifest.xml", b"")
@@ -106,6 +110,12 @@ def test_a_test_build_has_its_own_id_and_a_version_that_never_falls():
 def test_the_apk_must_carry_exactly_what_it_should(tmp_path):
     problems, packages = build.contents_problems(_apk(tmp_path / "good.apk"), _locked())
     assert problems == [] and packages == _locked()
+    # Chaquopy ships top-level modules compiled; a same-named file elsewhere is not the module.
+    compiled = [entry + "c" if entry in ("probe.py", "lightning_android.py") else entry for entry in _app_entries()]
+    assert build.contents_problems(_apk(tmp_path / "pyc.apk", app=compiled), _locked())[0] == []
+    elsewhere = [("lightning/desktop/" + e) if e == "probe.py" else e for e in _app_entries()]
+    assert build.contents_problems(_apk(tmp_path / "far.apk", app=elsewhere), _locked())[0] == [
+        "probe.py is not in the APK (found lightning/desktop/probe.py)"]
 
     private = build.contents_problems(_apk(tmp_path / "p.apk", extra_app=("lightning/profiles/real.db",
                                                                           "lightning/keys.json", "x/app.log")), _locked())[0]

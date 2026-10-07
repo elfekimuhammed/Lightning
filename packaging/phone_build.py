@@ -119,9 +119,12 @@ def contents_problems(apk_path: Path, locked: dict[str, str]) -> tuple[list[str]
         if not app:
             problems.append("no app Python archive (assets/chaquopy/app*.imy)")
         carried = [entry for name in app for entry in imy_names(apk, name)]
-        for wanted in REQUIRED:  # exactly that file, or something inside that folder
-            if not any(entry == wanted or (wanted.endswith("/") and entry.startswith(wanted)) for entry in carried):
-                problems.append(f"{wanted} is not in the APK")
+        for wanted in REQUIRED:  # exactly that file (Chaquopy may ship a module compiled: .pyc), or inside that folder
+            if not any(entry in (wanted, wanted + "c") or (wanted.endswith("/") and entry.startswith(wanted))
+                       for entry in carried):
+                base = wanted.rstrip("/").rsplit("/", 1)[-1]
+                near = [entry for entry in carried if entry.rstrip("/").rsplit("/", 1)[-1].startswith(base)][:3]
+                problems.append(f"{wanted} is not in the APK" + (f" (found {', '.join(near)})" if near else ""))
         packages: dict[str, str] = {}
         requirement_files = []
         for name in assets:

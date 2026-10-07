@@ -419,14 +419,18 @@ def test_the_daily_run_compares_with_the_last_windows_build(monkeypatch, tmp_pat
 def test_a_manual_run_says_at_once_what_it_can_make():
     """The owner learns in the first minute, not after the Windows build, why no pair will come."""
     scope = _ci_scope()
-    ready = {"phone": "true", "suite": "skip"}
+    ready = {"phone": "true", "suite": "skip", "reuse_run": "7"}
     notes = scope.manual_run_notes("refs/heads/main", "d" * 40, ready, "run 7 built and tested this commit", True, True)
     assert [level for level, _ in notes] == ["notice"] and "already passed" in notes[0][1]
+    built = scope.manual_run_notes("refs/heads/main", "d" * 40, {"phone": "true", "suite": "run", "reuse_run": ""},
+                                   "workflow_dispatch run", True, True)
+    assert "Windows: built and tested in this run" in built[0][1]  # plain words, not the event's name
     no_key = scope.manual_run_notes("refs/heads/main", "d" * 40, ready, "manual run", False, False)
     assert no_key[1][0] == "warning" and "No test key" in no_key[1][1] and "OWNER.md" in no_key[1][1]
     no_print = scope.manual_run_notes("refs/heads/main", "d" * 40, ready, "manual run", True, False)
     assert "android-test-certificate.sha256" in no_print[1][1]
-    branch = scope.manual_run_notes("refs/heads/feature", "d" * 40, {"phone": "false", "suite": "run"}, "x", True, True)
+    branch = scope.manual_run_notes("refs/heads/feature", "d" * 40, {"phone": "false", "suite": "run", "reuse_run": ""},
+                                    "x", True, True)
     assert branch == [("warning", "A manual run on feature builds the Windows app only; the matched PC and phone "
                                   "test builds run only on main.")]
 

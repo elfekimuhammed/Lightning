@@ -219,7 +219,8 @@ def manual_run_notes(ref: str, sha: str, values: dict[str, str], reason: str, ha
     if values["phone"] != "true":
         return [("warning", f"A manual run on {ref.removeprefix('refs/heads/')} builds the Windows app only; "
                             "the matched PC and phone test builds run only on main.")]
-    notes = [("notice", f"Matched test builds of {sha[:8]}. Windows: {reason}. Linux suite: "
+    windows = reason if values["reuse_run"] else "built and tested in this run"
+    notes = [("notice", f"Matched test builds of {sha[:8]}. Windows: {windows}. Linux suite: "
                         + ("already passed on this commit, not run again." if values["suite"] == "skip" else "runs now."))]
     if not has_key:
         notes.append(("warning", "No test key yet (OWNER.md, Phone test key): both apps are built and checked, "
