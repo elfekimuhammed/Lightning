@@ -34,7 +34,7 @@ Be as efficient with tokens as you can, in what you read, run and write. This ne
 - **Read sections, not files.** The long docs start with a contents list that says when to read each section. Find the heading (`grep -n '^## ' <file>`) and read from that line to the next heading.
 - **Never open the brand guideline whole** (about 95,000 tokens, mostly drawings). Run `python tools/guideline.py` to list its sections and `python tools/guideline.py A12` to print one as text (A is guideline/app.html, B guideline/website.html, C guideline/phone.html).
 - **Search before you read:** grep for the name, then read only the lines around it. Do not re-read a file you have just edited, or read code you are not changing.
-- **Keep output short:** run the tests for what you changed with `-q`, and show only the failures. Run the full suite once, before you push.
+- **Keep output short:** run the tests for what you changed with `-q`, and show only the failures. Run the full suite once, before you push, with `-n auto --dist loadfile` (about two minutes instead of five).
 - **Skip unless your task needs it:** `OWNER.md`, old changelog sections, `docs/proposals/`, `user feedback/`, `Claude outputs/`, and the generated figures table in the Glossary (grep it).
 - **Write short:** a changelog entry is at most three lines, and `NOW.md` stays under 4,500 bytes. Put each fact in the one file that owns it and link to it from elsewhere.
 - **The owner reviews milestones, not steps** (owner's request, 2026-10-06): batch work into a milestone the owner can use end to end, and ask for a phone, PC or screen check only then. Small steps still pass CI and are pushed, without asking the owner to test them.

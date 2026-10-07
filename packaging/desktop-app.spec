@@ -34,6 +34,8 @@ analysis = Analysis(
         # The shipped app's self-check and window check prove it still runs without them.
         "pytest",
         "_pytest",
+        "xdist",
+        "execnet",
         "pluggy",
         "iniconfig",
         "importlinter",

@@ -10,6 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-07 · Claude: CI optimisation: the suite runs one worker per core (5 min to about 2 here; Windows' own tests too), and a push that changes only documents since the last full suite runs just the tests that read them; `pytest-xdist` joins the dev and CI locks, no other pin moved.
 - 2026-10-07 · Claude: phone and PC hand-overs: a save on a lent phone answers a phone page naming the PC (was bare text); a returned copy going in shows One moment, not the chooser; an open page reloads in place on a hand-over instead of jumping to Profile settings; a taken-back PC copy says Close this copy, not Hand back.
 - 2026-10-07 · Claude: `tests/test_two_devices.py` walks a user's PC and phone journey through the screens (move, edit, hand over, forget, take back, locked phone, second PC). Fixed: Take back and Keep this copy on the phone showed an error page (the request cache read the closed ledger).
 - 2026-10-07 · Claude: the packaged self-check needs no HTTP client again (Windows builds pass; the phone probe too); the test key lives in its own sign job; the daily run checks the phone when its files changed; the phone's Settings shows the exact build; every workflow pins current Node 24 actions, one commit each.

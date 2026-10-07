@@ -70,6 +70,38 @@ _REACHES_PHONE = (
 def reaches_phone(path: str) -> bool:
     return any(pattern.search(path) for pattern in _REACHES_PHONE)
 SUITE_JOB = "Full test suite (Linux)"
+SUITE_STEP = "Full test suite"  # the step that ran it: the job also succeeds when the suite was skipped
+# Documents only: a push that changes nothing else since the last full suite runs the tests that read them.
+_DOCS_ONLY = (
+    re.compile(r"^docs/"),
+    re.compile(r"^user feedback/"),
+    re.compile(r"^Claude outputs/"),
+    re.compile(r"^[^/]+\.md$"),  # NOW, OWNER, CHANGELOG, AGENTS, README and the like
+)
+ALWAYS_DOCS_TESTS = ("tests/test_docs_structure.py", "tests/test_changelog.py")
+
+
+def docs_only(path: str) -> bool:
+    return any(pattern.search(path) for pattern in _DOCS_ONLY)
+
+
+def suite_passed(job: dict) -> bool:
+    """Whether this job ran the full Linux suite and it passed (not merely skipped it)."""
+    return job.get("name") == SUITE_JOB and any(
+        step.get("name") == SUITE_STEP and step.get("conclusion") == "success" for step in job.get("steps", []))
+
+
+def docs_tests(changed: list[str], tests_dir: Path | None = None) -> list[str]:
+    """The tests for a documents-only change: the documentation tests, and every test file that names a
+    changed document (a test that reads a document names it)."""
+    tests_dir = tests_dir or ROOT / "tests"
+    names = {Path(path).name for path in changed}
+    chosen = set(ALWAYS_DOCS_TESTS)
+    for test in sorted(tests_dir.glob("test_*.py")):
+        text = test.read_text(encoding="utf-8")
+        if any(name in text for name in names):
+            chosen.add(f"tests/{test.name}")
+    return sorted(chosen)
 WINDOWS_ARTIFACT = re.compile(r"Lightning-v\S+-dev-\S+-Windows-x64")  # a development build's ZIP artifact
 
 
@@ -113,6 +145,33 @@ def last_windows_build(api=github_api, jobs_wanted: set[str] = WINDOWS_JOBS) -> 
     return None
 
 
+def last_full_suite(api=github_api) -> str | None:
+    """The commit of the newest run on main that ran the full Linux suite and passed it, or None."""
+    repo, workflow = _workflow()
+    if not repo or not workflow:
+        return None
+    try:
+        runs = api(f"/repos/{repo}/actions/workflows/{workflow}/runs?branch=main&status=completed&per_page=30")
+        for run in runs.get("workflow_runs", []):
+            jobs = api(f"/repos/{repo}/actions/runs/{run['id']}/jobs?per_page=100").get("jobs", [])
+            if any(suite_passed(job) for job in jobs):
+                return run["head_sha"]
+    except Exception as exc:  # no answer means the full suite
+        print(f"Could not read earlier runs ({type(exc).__name__}); running the full suite.")
+    return None
+
+
+def push_suite(baseline: str | None, sha: str) -> tuple[str, list[str], str]:
+    """For a push to main: "docs" and the tests to run when only documents changed since the last commit
+    whose full suite passed (so a cancelled run's code is never let through), else "run"."""
+    changed, why = changed_since(baseline, sha, "full-suite")
+    if changed is None:
+        return "run", [], why
+    if changed and all(docs_only(path) for path in changed):
+        return "docs", docs_tests(changed), f"only documents changed since {baseline[:8]}, the last full suite"
+    return "run", [], "code changed since the last full suite" if changed else "nothing changed; run anyway"
+
+
 def earlier_runs(sha: str, api=github_api) -> dict[str, str]:
     """What earlier runs of this workflow already did for this exact commit: the newest run whose Windows
     build succeeded and whose ZIP artifact has not expired (reuse_run, reuse_artifact), and whether the
@@ -130,7 +189,7 @@ def earlier_runs(sha: str, api=github_api) -> dict[str, str]:
                 continue
             jobs = api(f"/repos/{repo}/actions/runs/{run['id']}/jobs?per_page=100").get("jobs", [])
             passed = {job.get("name") for job in jobs if job.get("conclusion") == "success"}
-            if SUITE_JOB in passed:
+            if any(suite_passed(job) for job in jobs):
                 found["suite"] = "skip"
             if not found["reuse_run"] and passed & WINDOWS_JOBS:
                 artifacts = api(f"/repos/{repo}/actions/runs/{run['id']}/artifacts?per_page=100").get("artifacts", [])
@@ -256,7 +315,12 @@ def main(argv: list[str]) -> int:
     # Only the daily run compares with the last Windows build (a push never builds Windows).
     baseline = last_windows_build() if event == "schedule" and ref == "refs/heads/main" else None
     build, reason = build_windows(event, ref, baseline, sha)
-    values = {"reuse_run": "", "reuse_artifact": "", "suite": "run", "phone": "false", "phone_daily": "false"}
+    values = {"reuse_run": "", "reuse_artifact": "", "suite": "run", "phone": "false", "phone_daily": "false",
+              "docs_tests": ""}
+    if event == "push" and ref == "refs/heads/main":
+        suite, tests, why = push_suite(last_full_suite(), sha)
+        values.update(suite=suite, docs_tests=" ".join(tests))
+        print(f"Linux suite: {suite} ({why})" + (f": {' '.join(tests)}" if tests else ""))
     if event == "schedule" and ref == "refs/heads/main":
         daily, why = build_phone_daily(event, ref, last_windows_build(jobs_wanted=PHONE_JOBS), sha)
         values["phone_daily"] = "true" if daily else "false"

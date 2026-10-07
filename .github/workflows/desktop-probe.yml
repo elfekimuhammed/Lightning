@@ -2,7 +2,8 @@
 # tagged releases.
 #
 # - Every push to main runs the full test suite on Linux, and nothing else (owner, 2026-10-06: Actions
-#   minutes are limited and Windows minutes count double).
+#   minutes are limited and Windows minutes count double). A push that changes only documents since the
+#   last full suite runs the tests that read them (packaging/ci_scope.py). Tests run one worker per core.
 # - The Windows app is built after that suite passes, on a tag, on a manual run, and once a day when
 #   something that can change the app changed since the last successful Windows build.
 # - The ZIP that is uploaded is the ZIP that was tested: it is extracted to a fresh folder and its
@@ -74,10 +75,16 @@ jobs:
         run: |
           python -m pip install --require-hashes --only-binary=:all: -r requirements/desktop-probe-linux.lock
       - name: Full test suite
-        if: steps.scope.outputs.suite != 'skip'
-        run: python -m pytest -o addopts= -o faulthandler_timeout=120 -q
+        if: steps.scope.outputs.suite == 'run'
+        # One worker per core, each test file on one worker (Mohab's year is built once, not per worker).
+        run: python -m pytest -o addopts= -o faulthandler_timeout=120 -q -n auto --dist loadfile
+      - name: Documentation tests (only documents changed since the last full suite)
+        if: steps.scope.outputs.suite == 'docs'
+        env:
+          DOCS_TESTS: ${{ steps.scope.outputs.docs_tests }}
+        run: python -m pytest -o addopts= -o faulthandler_timeout=120 -q $DOCS_TESTS
       - name: Check import contracts
-        if: steps.scope.outputs.suite != 'skip'
+        if: steps.scope.outputs.suite == 'run'
         run: lint-imports
 
   windows:
@@ -101,7 +108,7 @@ jobs:
       - name: Test Windows profiles, encrypted storage, desktop and UI
         timeout-minutes: 10
         run: >-
-          python -m pytest -o addopts= -o faulthandler_timeout=120 -q
+          python -m pytest -o addopts= -o faulthandler_timeout=120 -q -n auto --dist loadfile
           tests/test_desktop_crypto.py tests/test_desktop_window.py
           tests/test_desktop_server.py tests/test_desktop_packaging.py tests/test_profile_packaging.py
           tests/test_profile_app.py tests/test_profile_session.py

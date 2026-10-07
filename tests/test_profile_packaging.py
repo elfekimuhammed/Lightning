@@ -342,7 +342,8 @@ def test_a_manual_run_reuses_what_this_commit_already_has(monkeypatch, tmp_path)
     sha = "d" * 40
     runs = {"workflow_runs": [{"id": 9, "head_sha": sha}, {"id": 8, "head_sha": sha}, {"id": 7, "head_sha": sha},
                               {"id": 6, "head_sha": "e" * 40}]}
-    jobs = {9: [{"name": "Full test suite (Linux)", "conclusion": "success"}],  # a push: suite only
+    passed_suite = [{"name": "Full test suite", "conclusion": "success"}]
+    jobs = {9: [{"name": "Full test suite (Linux)", "conclusion": "success", "steps": passed_suite}],  # a push
             8: [{"name": "Build and test the Windows app", "conclusion": "success"}],
             7: [{"name": "Build and test the Windows app", "conclusion": "success"}],
             6: [{"name": "Build and test the Windows app", "conclusion": "success"}]}
@@ -368,7 +369,7 @@ def test_a_manual_run_reuses_what_this_commit_already_has(monkeypatch, tmp_path)
 
     artifacts[7][0]["expired"] = True  # every ZIP expired: build again, but the suite already passed
     assert scope.earlier_runs(sha, api) == {"reuse_run": "", "reuse_artifact": "", "suite": "skip"}
-    jobs[9][0]["conclusion"] = "failure"
+    jobs[9][0]["steps"] = [{"name": "Full test suite", "conclusion": "skipped"}]  # skipped is not passed
     for run in (8, 7):
         jobs[run][0]["conclusion"] = "cancelled"
     assert scope.earlier_runs(sha, api) == {"reuse_run": "", "reuse_artifact": "", "suite": "run"}
@@ -381,6 +382,7 @@ def test_a_manual_run_reuses_what_this_commit_already_has(monkeypatch, tmp_path)
     # The outputs the workflow reads. A manual run elsewhere, a push or the daily run make no phone build.
     monkeypatch.setattr(scope, "earlier_runs", lambda sha: {"reuse_run": "7", "reuse_artifact": "zip", "suite": "skip"})
     monkeypatch.setattr(scope, "last_windows_build", lambda **kwargs: None)
+    monkeypatch.setattr(scope, "last_full_suite", lambda: None)
 
     def outputs(event, ref):
         out = tmp_path / f"out-{event}"
@@ -393,7 +395,7 @@ def test_a_manual_run_reuses_what_this_commit_already_has(monkeypatch, tmp_path)
 
     manual = outputs("workflow_dispatch", "refs/heads/main")
     assert manual == {"reuse_run": "7", "reuse_artifact": "zip", "suite": "skip", "phone": "true", "phone_daily": "false",
-                      "build_windows": "false"}
+                      "docs_tests": "", "build_windows": "false"}
     branch = outputs("workflow_dispatch", "refs/heads/feature")
     assert branch["phone"] == "false" and branch["build_windows"] == "true" and branch["suite"] == "run"
     assert outputs("push", "refs/heads/main")["phone"] == "false"
@@ -406,6 +408,7 @@ def test_the_daily_run_compares_with_the_last_windows_build(monkeypatch, tmp_pat
     """The daily run, not a push (which never builds Windows), looks up the last commit built."""
     scope = _ci_scope()
     asked = []
+    monkeypatch.setattr(scope, "last_full_suite", lambda: None)
     monkeypatch.setattr(scope, "last_windows_build",
                         lambda jobs_wanted=scope.WINDOWS_JOBS: asked.append(sorted(jobs_wanted)[0]) or None)
     for event in ("push", "schedule"):
@@ -473,3 +476,45 @@ def test_the_daily_run_builds_the_phone_only_when_its_files_changed(monkeypatch)
     assert not scope.build_phone_daily("schedule", "refs/heads/main", "a" * 40, "HEAD")[0]
     monkeypatch.setattr(scope, "changed_since", lambda baseline, sha, what: (["lightning/ui/web.py"], ""))
     assert scope.build_phone_daily("schedule", "refs/heads/main", "a" * 40, "HEAD")[0]
+
+
+def test_a_push_of_documents_only_runs_the_tests_that_read_them(monkeypatch, tmp_path):
+    """Measured against the last commit whose full suite passed, not the previous push: a code push whose
+    run was cancelled by a later documents push still gets the full suite."""
+    scope = _ci_scope()
+    for path in ("NOW.md", "CHANGELOG.md", "docs/ARCHITECTURE.md", "docs/proposals/x.md", "user feedback/a.md"):
+        assert scope.docs_only(path), path
+    for path in ("lightning/ui/web.py", "lightning/README.md", "guideline/app.html", "tools/guideline.py",
+                 "packaging/notes.md", "tests/test_ui.py", "android/README.md"):
+        assert not scope.docs_only(path), path
+
+    tests = tmp_path / "tests"
+    tests.mkdir()
+    (tests / "test_reads_overview.py").write_text('OVERVIEW = ROOT / "docs" / "PROJECT_OVERVIEW.md"\n')
+    (tests / "test_ui.py").write_text("def test_page(): pass\n")
+    assert scope.docs_tests(["docs/PROJECT_OVERVIEW.md"], tests) == [
+        "tests/test_changelog.py", "tests/test_docs_structure.py", "tests/test_reads_overview.py"]
+
+    monkeypatch.setattr(scope, "changed_since", lambda baseline, sha, what: (["NOW.md", "docs/GLOSSARY.md"], ""))
+    suite, chosen, _ = scope.push_suite("a" * 40, "HEAD")
+    assert suite == "docs" and "tests/test_docs_structure.py" in chosen and "tests/test_figures.py" in chosen
+    monkeypatch.setattr(scope, "changed_since", lambda baseline, sha, what: (["NOW.md", "lightning/ui/web.py"], ""))
+    assert scope.push_suite("a" * 40, "HEAD")[0] == "run"  # any code: the full suite
+    monkeypatch.setattr(scope, "changed_since", lambda baseline, sha, what: (None, "no earlier full suite"))
+    assert scope.push_suite(None, "HEAD")[0] == "run"  # unknown: the full suite
+
+    runs = {"workflow_runs": [{"id": 3, "head_sha": "c" * 40}, {"id": 2, "head_sha": "b" * 40}]}
+    jobs = {3: [{"name": "Full test suite (Linux)", "conclusion": "success",
+                 "steps": [{"name": "Full test suite", "conclusion": "skipped"}]}],  # a documents-only run
+            2: [{"name": "Full test suite (Linux)", "conclusion": "success",
+                 "steps": [{"name": "Full test suite", "conclusion": "success"}]}]}
+
+    def api(path):
+        if "/jobs" in path:
+            return {"jobs": jobs[int(path.split("/runs/")[1].split("/")[0])]}
+        return runs
+
+    monkeypatch.setenv("GITHUB_REPOSITORY", "owner/Lightning")
+    monkeypatch.setenv("GITHUB_WORKFLOW_REF", "owner/Lightning/.github/workflows/desktop-probe.yml@refs/heads/main")
+    monkeypatch.setenv("GH_TOKEN", "token")
+    assert scope.last_full_suite(api) == "b" * 40  # the documents-only run is not a full suite
