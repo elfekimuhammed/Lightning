@@ -23,6 +23,7 @@ What only the owner can do or decide. Any AI adds an item here, and removes it o
 - **For milestone 3: more bank SMS.** CIB and NBE are in `tests/fixtures/bank_sms.json` (details changed). Send other banks, and from these two a refund, a declined payment and a purchase in English if you get them; paste them in chat and I change the details before they go in.
 - **GitHub spending limit (your choice, 2026-10-06):** GitHub › Settings › Billing and licensing › Budgets and alerts: set Actions to $0 (or the most you accept). CI then pauses until next month instead of charging you.
 - **Website search:** add `lightningeg.com` to Google Search Console and Bing Webmaster Tools; submit `/sitemap.xml`.
+- **Activate website feedback screenshots:** in the existing Apps Script receiver, replace or add `apps-script/AppFeedbackReceiverPatch.gs` from `Lightning_website`, route `form_type=app_feedback` to `saveAppFeedback_`, deploy a new version, and authorize Drive access when prompted. The first image submission creates a private folder in the deployment owner's Drive; the feedback Sheet stores links to those files. The website form code is pushed, but screenshot storage stays inactive until this deployment is done.
 - **Retest:** on the PC whose window failed to start, try a ZIP downloaded in a browser. Builds from `f4e1603` on include the fix.
 
 

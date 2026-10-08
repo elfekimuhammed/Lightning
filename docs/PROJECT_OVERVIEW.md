@@ -39,6 +39,7 @@ Every number comes from one of three layers, and each screen says which:
 
 ## Product decisions that must hold
 
+- **App feedback screenshots stay private.** The website allows up to five images per ticket; it stores them in the Apps Script deployment owner's private Drive folder and records the links beside the ticket in the feedback Sheet. The website repository owns the implementation and activation steps.
 - **One ledger.** Account registers, the all-accounts view, budget actuals, investments, the Overview and the reports are all views of one transaction ledger.
 - **Other people's money** (*Held for others*) stays in the account balance but belongs to its owner. It is left out of *What you own*. It is not income, spending or money owed to you.
 - **Certain obligations count; forecasts never do.** Bills due and loans still to pay make up *What you owe*. Bills due come off Free cash, and What you owe comes off Net worth. Loans are payment schedules, not debt accounts. A loan payment counts as spending when it is paid. Credit cards, loan-interest accounting and money owed to you are out of scope; CD interest schedules are in scope as estimates.
