@@ -10,6 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-09 · Codex and Luna: redesigned the Arabic website compass in `guideline/website-ar.html` with locally hosted Alexandria, Egyptian copy, Arabic numerals and RTL component examples; mirrored it in the website repository.
 - 2026-10-09 · Codex: kept Arabic language switching compatible with the content security policy and updated screen tests for the translated shell.
 - 2026-10-09 · Codex and Luna: `0049_currency_registry.sql` lets profiles register ISO or custom currencies and select a base before monetary history; foreign cash uses dated FX, keeps native balances, and shows month-end FX revaluation separately.
 - 2026-10-09 · Codex and Luna: Currencies tab shows native and profile values; the main register shows profile and native amounts, with manual rate entry in Settings.
