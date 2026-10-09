@@ -347,6 +347,15 @@ class Browser:
         """Fill in the form on the page and press its button."""
         screen = page or self.page
         form = screen.form(button, action)
+        if button is None and action is None and values:
+            # A profile's language selector is a separate form before its main
+            # unlock/borrow form. Choose the form containing the entered fields.
+            wanted = set(values)
+            matching = [candidate for candidate in screen.forms
+                        if wanted <= (set(candidate.fields) | set(candidate.options) |
+                                      set(candidate.boxes) | set(candidate.multi))]
+            if matching:
+                form = matching[0]
         data: dict = dict(form.fields)
         for name, checked in form.multi.items():
             data[name] = list(checked)

@@ -24,10 +24,12 @@ from lightning.counterparties import CounterpartyService
 from lightning.database.audit import AuditLog
 from lightning.database.backup import backup, list_backups
 from lightning.database.connection import Database
+from lightning.database.currencies import CurrencyRegistry
 from lightning.database.migrator import inspect_schema, migrate
 from lightning.database.seed import seed
 from lightning.database.settings import SettingsStore
 from lightning.deposits import DepositService
+from lightning.fx import CurrencyRates
 from lightning.investments.service import InvestmentService
 from lightning.integrity import IntegrityService
 from lightning.money_from_others import MoneyFromOthersService
@@ -49,6 +51,7 @@ class Container:
     db: Database
     data_dir: Path
     settings: SettingsStore
+    fx: CurrencyRates
     audit: AuditLog
     assets: AssetService
     categories: CategoryService
@@ -78,6 +81,17 @@ class Container:
     @property
     def base_currency(self) -> str:
         return self.settings.base_currency
+
+    def set_profile_currency(self, code: str) -> None:
+        """Change an unused profile's base and refresh the live service graph."""
+        CurrencyRegistry(self.db).set_base_currency(code)
+        base = self.settings.base_currency
+        self.assets.base_currency = base
+        self.accounts.base_currency = base
+        self.transactions.base_currency = base
+        self.reporting.base_currency = base
+        self.reporting.valuer.base = base
+        self.fx.profile_currency = base
 
     def backup_now(self) -> Path | None:
         return backup(self.db, self.backup_dir or self.data_dir / "backups")
@@ -131,10 +145,11 @@ def build(db_path: str | Path | None = None, backup_on_start: bool = False, *,
         raise
     settings = SettingsStore(db)
     base = settings.base_currency
+    fx = CurrencyRates(db, base)
     audit = AuditLog(db)
     assets = AssetService(db, base)
     categories = CategoryService(db)
-    accounts = AccountService(db, assets, base)
+    accounts = AccountService(db, assets, base, allow_foreign=True)
     transactions = TransactionService(db, accounts, assets, categories, audit, base)
     counterparties = CounterpartyService(db)
     reserves = CashReserveService(db)
@@ -161,6 +176,7 @@ def build(db_path: str | Path | None = None, backup_on_start: bool = False, *,
         db=db,
         data_dir=data_dir,
         settings=settings,
+        fx=fx,
         audit=audit,
         assets=assets,
         categories=categories,

@@ -6,13 +6,14 @@ from lightning.accounts.domain import DEFAULT_CASH_CLASS, OFFERED_TYPES, TYPE_LA
 from lightning.core.dates import fmt_date, parse_date, today
 from lightning.core.errors import LightningError, ValidationError
 from lightning.core.money import to_decimal
+from lightning.database.currencies import CurrencyRegistry
 
 from . import register
 from ..web import container, redirect, render
 
 router = APIRouter(prefix="/accounts")
 
-FIELDS = ("name", "account_type", "institution", "last4", "notes", "opening_balance", "opening_balance_date", "owner_id")
+FIELDS = ("name", "account_type", "institution", "last4", "notes", "opening_balance", "opening_balance_date", "owner_id", "currency")
 
 
 def _form_context(request: Request, values: dict, account=None, error: LightningError | None = None):
@@ -20,6 +21,8 @@ def _form_context(request: Request, values: dict, account=None, error: Lightning
     return dict(
         values=values,
         account=account,
+        currencies=CurrencyRegistry(c.db).list(),
+        base=c.base_currency,
         types=sorted(((t.value, TYPE_LABELS[t]) for t in OFFERED_TYPES), key=lambda row: row[1].casefold()),
         # where each type shows up in "What your wealth is made of", in plain words
         groups={t.value: c.assets.get_class_by_code(DEFAULT_CASH_CLASS[t]).name for t in OFFERED_TYPES},
@@ -33,13 +36,28 @@ def _form_context(request: Request, values: dict, account=None, error: Lightning
 async def list_accounts(request: Request):
     c = container(request)
     rows = []
+    has_unavailable = False
     for account in c.accounts.list():
-        rows.append((account, c.reporting.account_value(account.id, today()),
-                     c.reporting.owned_account_value(account.id, today()),
-                     c.transactions.count_for_account(account.id)))
+        balance = c.reporting.account_value(account.id, today())
+        owned = c.reporting.owned_account_value(account.id, today())
+        if (account.currency != c.base_currency
+                and account.account_type.value in ("CASH", "BANK", "BROKERAGE")):
+            cash = c.reporting.valuer.value(c.assets.cash_asset(account.currency),
+                                            c.reporting.account_balance(account.id, today()), today())
+            if cash.value is None:
+                balance = owned = None
+                has_unavailable = True
+        rows.append((account, balance, owned, c.transactions.count_for_account(account.id)))
     net_worth = c.reporting.net_worth(today())
-    gross_total = sum((row[1] for row in rows if row[0].active), start=0)
+    gross_total = (None if has_unavailable else
+                   sum((row[1] for row in rows if row[0].active), start=0))
     return render(request, "accounts/list.html", rows=rows, net_worth=net_worth, gross_total=gross_total)
+
+
+@router.get("/currencies")
+async def currency_accounts(request: Request):
+    c = container(request)
+    return render(request, "accounts/currencies.html", groups=c.reporting.foreign_currency_accounts(today()))
 
 
 @router.get("/add-transaction")
@@ -54,6 +72,7 @@ async def pick_account_for_entry(request: Request):
 @router.get("/new")
 async def new_account(request: Request):
     values = {"account_type": request.query_params.get("type", "BANK"), "opening_balance": "",
+              "currency": container(request).base_currency,
               "opening_balance_date": today().isoformat(), "institution": "", "owner_id": ""}
     return render(request, "accounts/form.html", **_form_context(request, values))
 
@@ -69,6 +88,7 @@ async def create_account(request: Request):
         account = c.account_flows.open_account(
             name=values["name"], account_type=values["account_type"],
             opening_date="1900-01-01", opening_balance=values["opening_balance"],
+            currency=values.get("currency") or c.base_currency,
             opening_balance_date=values["opening_balance_date"],
             institution=values["institution"], last4=values["last4"], notes=values["notes"],
             owner_id=int(values["owner_id"]) if values["owner_id"].isdigit() else None,

@@ -17,10 +17,12 @@
       </select>
       <div class="help">{{ 'Shown under'|tr(locale) }} <b id="group_name">{{ groups.get(values.account_type, '') }}</b>.</div>
     </div>
-    <div class="field">
-      <label>{{ 'Currency'|tr(locale) }}</label>
-      <input type="text" value="{{ account.currency if account else base }}" disabled>
-      <div class="help">{{ 'Accounts are kept in your base currency for now.'|tr(locale) }}</div>
+    <div class="field {{ 'has-error' if error_field == 'currency' }}">
+      <label for="currency">{{ 'Currency'|tr(locale) }}</label>
+      <input id="currency" name="currency" list="account-currencies" value="{{ account.currency if account else values.currency }}" {{ 'disabled' if account }} required autocomplete="off">
+      <datalist id="account-currencies">{% for currency in currencies %}<option value="{{ currency.code }}">{{ currency.name }}</option>{% endfor %}</datalist>
+      {% if account %}<div class="help">{{ "An account's currency cannot be changed after it is created."|tr(locale) }}</div>{% else %}<div class="help">{{ 'Add a currency in Settings before using it here. Exchange rates are entered in Settings.'|tr(locale) }}</div>{% endif %}
+      {% if error_field == 'currency' %}<small class="error">{{ error }}</small>{% endif %}
     </div>
   </div>
   <section class="card" id="opening-balance-section" {% if values.account_type == 'DEPOSIT' %}hidden style="display:none;background:var(--surface-2);box-shadow:none;margin:14px 0"{% else %}style="background:var(--surface-2);box-shadow:none;margin:14px 0"{% endif %}>
@@ -28,7 +30,7 @@
     <p class="muted small">{{ 'Enter what this account held when you started tracking it. This sets the opening balance; it is not counted as income. Leave it blank if you’ll import or enter the opening activity separately.'|tr(locale) }}</p>
     <div class="row">
       <div class="field {{ 'has-error' if error_field == 'opening_balance' }}">
-        <label for="opening_balance">Balance ({{ account.currency if account else base }})</label>
+        <label for="opening_balance">Balance ({{ account.currency if account else values.currency or base }})</label>
         <input id="opening_balance" name="opening_balance" type="text" inputmode="decimal" value="{{ values.opening_balance or '' }}" placeholder="0.00">
       </div>
       <div class="field {{ 'has-error' if error_field == 'opening_balance_date' }}">

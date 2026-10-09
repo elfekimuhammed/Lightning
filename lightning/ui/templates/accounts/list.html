@@ -2,9 +2,9 @@
 {% from "partials/macros.html" import amount, held with context %}
 {% block title %}Accounts{% endblock %}
 {% block heading %}<h1>{{ 'Accounts'|tr(locale) }}</h1><div class="muted">{{ 'Where is your money held?'|tr(locale) }}</div>{% endblock %}
-{% block top_actions %}<a class="btn primary" href="/accounts/new">{{ 'Add account'|tr(locale) }}</a> <a class="btn" href="/sms">{{ "From SMS"|tr(locale) }}</a>{% endblock %}
+{% block top_actions %}<a class="btn primary" href="/accounts/new">{{ 'Add account'|tr(locale) }}</a> <a class="btn" href="/accounts/currencies">{{ 'Other currencies'|tr(locale) }}</a> <a class="btn" href="/sms">{{ "From SMS"|tr(locale) }}</a>{% endblock %}
 {% block content %}
-{% if rows %}<section class="card account-list-summary"><div class="budget-summary-grid"><div><span>{{ "Total balance"|tr(locale) }}</span><b>{{ held(gross_total, base, 0) }}</b></div><div><span>{{ fig.what_you_own.label }}</span><b>{{ held(net_worth.total, base, 0) }}</b></div></div></section>{% endif %}
+{% if rows %}<section class="card account-list-summary"><div class="budget-summary-grid"><div><span>{{ "Total balance"|tr(locale) }}</span><b>{% if gross_total is none %}<span class="muted">{{ 'Unavailable'|tr(locale) }}</span>{% else %}{{ held(gross_total, base, 0) }}{% endif %}</b></div><div><span>{{ fig.what_you_own.label }}</span><b>{% if net_worth.unvalued %}<span class="muted">{{ 'Unavailable'|tr(locale) }}</span>{% else %}{{ held(net_worth.total, base, 0) }}{% endif %}</b></div></div></section>{% endif %}
 <div class="card">
   <table>
     <thead><tr><th>{{ 'Account'|tr(locale) }}</th><th>{{ 'Type'|tr(locale) }}</th><th class="num">{{ 'Transactions'|tr(locale) }}</th><th class="num">{{ "Total balance"|tr(locale) }}</th><th class="num">{{ "You own"|tr(locale) }}</th></tr></thead>
@@ -14,8 +14,8 @@
         <td><a href="/accounts/{{ acc.id }}">{{ acc.name }}</a>{% if not acc.active %} <span class="pill">{{ "inactive"|tr(locale) }}</span>{% endif %}</td>
         <td class="small">{{ acc.type_label }}{% if acc.account_type.value == 'DEPOSIT' %}<br><a href="/deposits/{{ acc.id }}">{{ "View CDs"|tr(locale) }}</a>{% endif %}</td>
         <td class="num small">{{ count }}</td>
-        <td class="num">{{ held(balance, base) }}</td>
-        <td class="num">{{ held(owned, base) }}</td>
+        <td class="num">{% if balance is none %}<span class="muted">{{ 'Unavailable'|tr(locale) }}</span>{% else %}{{ held(balance, base) }}{% endif %}</td>
+        <td class="num">{% if owned is none %}<span class="muted">{{ 'Unavailable'|tr(locale) }}</span>{% else %}{{ held(owned, base) }}{% endif %}</td>
       </tr>
     {% else %}
       <tr><td colspan="5" class="empty">{{ "No accounts yet."|tr(locale) }}</td></tr>

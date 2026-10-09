@@ -171,6 +171,7 @@ class ReportQueries:
         where, params = self._statement_filter(account_id, date_from, date_to)
         rows = self.db.all(
             f"SELECT le.date, le.account_id, SUM(le.quantity_e6) AS quantity_e6, SUM(le.amount_e6) AS amount_e6,"
+            f" SUM(le.amount_base_e6) AS amount_base_e6,"
             f" MAX(le.effect) AS effect, CASE WHEN COUNT(*)=1 THEN MAX(le.category_id) END AS category_id,"
             f" CASE WHEN COUNT(*)=1 THEN MAX(le.memo) ELSE 'Split · ' || COUNT(DISTINCT le.category_id) || ' categories' END AS memo,"
             f" t.id AS txn_id, t.ref, t.type, t.description, t.counterparty, t.notes,"

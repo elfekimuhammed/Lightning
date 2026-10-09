@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import held %}
+{% block title %}{{ 'Other currencies'|tr(locale) }}{% endblock %}
+{% block heading %}<h1>{{ 'Other currencies'|tr(locale) }}</h1><div class="muted">{{ 'Cash held in accounts outside {base}.'|tr(locale, base=base) }}</div>{% endblock %}
+{% block top_actions %}<a class="btn" href="/accounts">{{ 'Accounts'|tr(locale) }}</a> <a class="btn primary" href="/accounts/new">{{ 'Add account'|tr(locale) }}</a>{% endblock %}
+{% block content %}
+{% for group in groups %}<section class="card data-panel"><h2>{{ group.currency }}</h2>
+  <table><thead><tr><th>{{ 'Account'|tr(locale) }}</th><th class="num">{{ 'Balance'|tr(locale) }} ({{ group.currency }})</th><th class="num">{{ 'You own'|tr(locale) }}</th><th class="num">{{ 'Value'|tr(locale) }} ({{ base }})</th></tr></thead><tbody>
+  {% for row in group.rows %}<tr><td><a href="/accounts/{{ row.account.id }}">{{ row.account.name }}</a></td><td class="num">{{ held(row.balance, group.currency) }}</td><td class="num">{{ held(row.owned, group.currency) }}</td><td class="num">{% if row.value is none %}<span class="muted">{{ 'Unavailable'|tr(locale) }}</span>{% else %}{{ held(row.value, base) }}{% endif %}</td></tr>{% endfor %}
+  <tr><th>{{ 'Total'|tr(locale) }} {{ group.currency }}</th><th class="num">{{ held(group.balance, group.currency) }}</th><th class="num">{{ held(group.owned, group.currency) }}</th><th class="num">{% if group.available %}{{ held(group.value, base) }}{% else %}<span class="muted">{{ 'Unavailable'|tr(locale) }}</span>{% endif %}</th></tr>
+  </tbody></table>
+  {% if not group.available %}<p class="muted small">{{ 'Add a dated {currency} rate to see this value in {base}.'|tr(locale, currency=group.currency, base=base) }} <a href="/settings">{{ 'Settings'|tr(locale) }}</a></p>{% endif %}
+</section>{% else %}<section class="card"><p>{{ 'No accounts use another currency yet.'|tr(locale) }}</p><a class="btn primary" href="/accounts/new">{{ 'Add an account'|tr(locale) }}</a></section>{% endfor %}
+{% endblock %}

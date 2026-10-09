@@ -79,9 +79,18 @@ class TestAccounts:
         with pytest.raises(ValidationError, match="inactive"):
             c.transactions.record_transfer("2026-09-10", accounts["cib"].id, accounts["thndr"].id, "10")
 
-    def test_foreign_currency_accounts_are_refused_for_now(self, c):
-        with pytest.raises(ValidationError, match="accounts must be in EGP"):
-            c.account_flows.open_account("USD", "BANK", "2026-09-01", currency="USD")
+    def test_foreign_currency_accounts_require_registration_and_a_dated_opening_rate(self, c):
+        from lightning.database.currencies import CurrencyRegistry
+
+        with pytest.raises(ValidationError, match="not registered"):
+            c.account_flows.open_account("XYZ", "BANK", "2026-09-01", currency="XYZ")
+        CurrencyRegistry(c.db).register("USD")
+        with pytest.raises(ValidationError, match="exchange rate"):
+            c.account_flows.open_account("USD", "BANK", "2026-09-01", "100", currency="USD")
+        c.fx.save("USD", "2026-09-01", "50")
+        account = c.account_flows.open_account("USD", "BANK", "2026-09-01", "100", currency="USD")
+        assert c.reporting.account_balance(account.id) == Decimal("100")
+        assert c.reporting.account_value(account.id, "2026-09-01") == Decimal("5000")
 
     def test_last4_only(self, c):
         with pytest.raises(ValidationError):

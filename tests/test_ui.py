@@ -231,6 +231,50 @@ def test_account_form_has_no_class_picker(client):
     assert "Credit card" not in r.text and "Loan" not in r.text
 
 
+def test_settings_registers_and_selects_profile_currencies(client, c):
+    from lightning.database.currencies import CurrencyRegistry
+
+    CurrencyRegistry(c.db).register("USD")
+    page = client.get("/settings")
+    assert 'id="base_currency" name="base_currency"' in page.text
+    assert 'list="registered-base-currencies" value="EGP"' in page.text
+    assert 'value="USD"' in page.text
+    assert client.post("/settings/currency", data={"action": "base", "base_currency": "USD"}).status_code == 200
+    assert c.settings.base_currency == "USD"
+
+
+def test_account_form_offers_registered_currencies(client, c):
+    from lightning.database.currencies import CurrencyRegistry
+
+    CurrencyRegistry(c.db).register("USD")
+    page = client.get("/accounts/new")
+    assert 'id="currency" name="currency"' in page.text
+    assert '<option value="USD">US Dollar</option>' in page.text
+
+
+def test_other_currency_accounts_show_native_balance_and_unavailable_conversion(client, c):
+    from lightning.database.currencies import CurrencyRegistry
+
+    CurrencyRegistry(c.db).register("USD")
+    client.post("/accounts/new", data={"name": "Dollar wallet", "account_type": "CASH", "currency": "USD",
+                                       "opening_balance_date": "2026-09-01", "opening_balance": "0"})
+    page = client.get("/accounts/currencies")
+    assert "Dollar wallet" in page.text and "0.00" in page.text and "Unavailable" in page.text
+    main = client.get("/accounts")
+    assert "Dollar wallet" in main.text and "Unavailable" in main.text
+
+
+def test_settings_saves_and_lists_dated_fx_rates(client, c):
+    from lightning.core.dates import today
+    from lightning.database.currencies import CurrencyRegistry
+
+    CurrencyRegistry(c.db).register("USD")
+    response = client.post("/settings/fx-rate", data={"currency": "USD", "date": today().isoformat(), "rate": "31.5"})
+    assert response.status_code == 200
+    page = client.get("/settings")
+    assert "USD" in page.text and "31.5" in page.text
+
+
 def test_categories_page_is_plain(client):
     r = client.get("/categories")
     assert "Food &amp; Groceries" in r.text and "EXP.PERSONAL.FOOD" not in r.text

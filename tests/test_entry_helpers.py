@@ -71,13 +71,13 @@ def test_search_page_and_command_bar_ask_the_same_matcher(c):
 def test_privacy_mode_is_the_windows_cookie_else_what_the_profile_remembers(c):
     _house(c)
     client = TestClient(create_app(c), base_url="http://127.0.0.1")
-    assert '<html lang="en">' in client.get("/").text and 'aria-pressed="false"' in client.get("/").text
+    assert '<html lang="en" dir="ltr">' in client.get("/").text and 'aria-pressed="false"' in client.get("/").text
     assert client.post("/settings/privacy", data={"on": "1"}).status_code == 204
     assert c.settings.get("privacy_mode") == "1"
     shell = client.get("/").text
-    assert '<html lang="en" class="privacy">' in shell and 'aria-label="Show amounts"' in shell
+    assert '<html lang="en" dir="ltr" class="privacy">' in shell and 'aria-label="Show amounts"' in shell
     client.cookies.set("lightning_privacy", "0")  # switched off in this window, for this sitting
-    assert '<html lang="en">' in client.get("/").text
+    assert '<html lang="en" dir="ltr">' in client.get("/").text
     client.post("/settings/privacy", data={"on": "0"})
     client.cookies.set("lightning_privacy", "1")  # a reader session cannot save, so its cookie decides
-    assert '<html lang="en" class="privacy">' in client.get("/").text and c.settings.get("privacy_mode") == "0"
+    assert '<html lang="en" dir="ltr" class="privacy">' in client.get("/").text and c.settings.get("privacy_mode") == "0"
