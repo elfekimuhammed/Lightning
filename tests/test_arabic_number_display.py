@@ -13,7 +13,7 @@ SCRIPT = ROOT / "lightning/ui/static/arabic-numbers.js"
 def test_arabic_number_display_script_is_loaded_in_both_shared_shells():
     for template in ("base.html", "phone/base.html"):
         source = (ROOT / "lightning/ui/templates" / template).read_text(encoding="utf-8")
-        assert "/static/arabic-numbers.js?v=1" in source
+        assert "/static/arabic-numbers.js?v=2" in source
 
 
 def test_arabic_display_localizes_numeric_tokens_but_keeps_identifiers():

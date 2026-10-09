@@ -49,7 +49,7 @@
 
   function localizeAttribute(element, name) {
     const value = element.getAttribute(name);
-    if (value == null || element.matches(protectedSelector) || element.classList?.contains("code")) return;
+    if (value == null || (element.matches(protectedSelector) && name !== "placeholder") || element.classList?.contains("code")) return;
     const localized = localizeNumericText(value);
     if (localized !== value) element.setAttribute(name, localized);
   }
@@ -61,15 +61,15 @@
     }
     if (root.nodeType !== Node.ELEMENT_NODE && root.nodeType !== Node.DOCUMENT_NODE) return;
     if (root.nodeType === Node.ELEMENT_NODE) {
-      for (const name of ["aria-label", "title"]) localizeAttribute(root, name);
+      for (const name of ["aria-label", "title", "data-tip", "placeholder"]) localizeAttribute(root, name);
       if (root.matches(protectedSelector)) return;
     }
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
     let node;
     while ((node = walker.nextNode())) localizeTextNode(node);
     if (root.querySelectorAll) {
-      root.querySelectorAll("[aria-label], [title]").forEach((element) => {
-        for (const name of ["aria-label", "title"]) localizeAttribute(element, name);
+      root.querySelectorAll("[aria-label], [title], [data-tip], [placeholder]").forEach((element) => {
+        for (const name of ["aria-label", "title", "data-tip", "placeholder"]) localizeAttribute(element, name);
       });
     }
   }
@@ -90,6 +90,6 @@
     childList: true,
     characterData: true,
     attributes: true,
-    attributeFilter: ["aria-label", "title"]
+    attributeFilter: ["aria-label", "title", "data-tip", "placeholder"]
   });
 })();
