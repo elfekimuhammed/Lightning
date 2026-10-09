@@ -26,5 +26,7 @@
 ## Next
 
 1. **Arabic release acceptance: inspect PC and phone layouts on real devices, run the full suite and Mohab's year, then ship matching Windows and Android builds.** Read: `docs/ARCHITECTURE.md` › UI contract and Build and release, `tests/test_mohab_year.py`, `tests/test_mohab_phone.py`, and the A/C Arabic guideline pages.
-2. **Gold: test source from home; silver needs holdings.** Read: `docs/proposals/market_data.md`.
-3. **Optional: stable origin/cache, trim CSS.** Read: Architecture › Page speed.
+2. **Multi-currency follow-up: conversion and foreign investments.** Add sent/received amounts, spread or fee and realized FX to conversion; show foreign-priced holdings' price and FX returns separately. **Read:** Architecture › Persistence; Project Overview › #15–16; `lightning/transactions/service.py`, `lightning/reevaluations.py`.
+3. **Multi-currency phone and import paths.** Check foreign entry, reporting and rates on phone; review bank import currency handling. **Read:** Architecture › UI contract; `tests/test_mohab_phone.py`, `lightning/ui/routes/bank_imports.py`.
+4. **Gold: test source from home; silver needs holdings.** Read: `docs/proposals/market_data.md`.
+5. **Optional: stable origin/cache, trim CSS.** Read: Architecture › Page speed.

@@ -134,6 +134,8 @@ class StatementRow:
     category_id: int | None = None
     other_account_id: int | None = None
     other_account_label: str = ""
+    amount_base: Decimal = ZERO
+    currency: str = ""
 
     @property
     def payment(self) -> Decimal | None:
@@ -414,6 +416,32 @@ class ReportingService:
 
     def account_balance(self, account_id: int, as_of: date | str | None = None) -> Decimal:
         return from_e6(self.q.account_quantity(account_id, as_of=self._day(as_of) if as_of else None))
+
+    def foreign_currency_accounts(self, as_of: date | str) -> list[dict]:
+        """Native cash and profile-currency value, grouped for the Currencies tab."""
+        day = self._day(as_of)
+        groups: dict[str, dict] = {}
+        for account in self.accounts.list():
+            if (account.currency == self.base_currency or
+                    account.account_type not in {AccountType.CASH, AccountType.BANK, AccountType.BROKERAGE}):
+                continue
+            balance = self.account_balance(account.id, day)
+            held = self.money_from_others.cash_total_for_account(account.id, day)
+            owned = balance - held
+            valuation = self.valuer.value(self.assets.cash_asset(account.currency), owned, day)
+            row = {"account": account, "balance": balance, "owned": owned,
+                   "value": valuation.value, "reason": valuation.reason}
+            group = groups.setdefault(account.currency, {"currency": account.currency, "rows": [],
+                                                           "balance": ZERO, "owned": ZERO, "value": ZERO,
+                                                           "available": True})
+            group["rows"].append(row)
+            group["balance"] += balance
+            group["owned"] += owned
+            if valuation.value is None:
+                group["available"] = False
+            else:
+                group["value"] += valuation.value
+        return list(groups.values())
 
     # -- the net-worth equation --------------------------------------------
     def bridge(self, date_from: date | str, date_to: date | str) -> Bridge:
@@ -711,6 +739,7 @@ class ReportingService:
             if running is not None:
                 running += movement
             other_label = self.accounts.get(r["other_account_id"]).label if r["other_account_id"] else ""
+            account = self.accounts.get(r["account_id"])
             if r["memo"].startswith("Split · "):
                 category = r["memo"]
             elif r["type"] in ("BUY", "SEL") and r["memo"]:
@@ -724,7 +753,8 @@ class ReportingService:
             rows.append(StatementRow(
                 r["date"], r["txn_id"], r["ref"], r["type"], DOC_LABELS[DocType(r["type"])], r["counterparty"],
                 r["description"], r["notes"], category, amount, running, r["account_id"],
-                self.accounts.get(r["account_id"]).label, r["category_id"], r["other_account_id"], other_label))
+                account.label, r["category_id"], r["other_account_id"], other_label,
+                from_e6(r["amount_base_e6"]), account.currency))
         return rows
 
     def sidebar(self, as_of: date | str) -> tuple[Decimal, Decimal, list[Group]]:

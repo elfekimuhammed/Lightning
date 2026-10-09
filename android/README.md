@@ -97,7 +97,8 @@ It also prints each step's seconds (input for 04d). Linux and Windows gave the e
 Linux and Windows (fingerprint `a00fc4f576edb7c9`). Phone timings: unlock with password 0.54 s, open 0.06 s,
 write 0.06 s, unlock with recovery key 1.79 s, reopen 0.65 s. Lesson: name every Chaquopy source folder; CI now
 checks the APK carries the probe, the round-trip and the fixture. Since migration 0044 the rebuilt fixture's
-fingerprint is `5c89115a01678f85` (only its schema lines changed).
+fingerprint is `5c89115a01678f85` (only its schema lines changed). Migration 0049 adds the
+currency registry; its refreshed fixture fingerprint is `15bc54a5bd7bae12`.
 
 **04c: one shared page (2026-10-06, Claude).** At launch the probe also renders every finance page of the dummy
 profile on the owning thread, with no server (`runtime/selfcheck.finance_page_checks`). **Open Lightning (04c)**

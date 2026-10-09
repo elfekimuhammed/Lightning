@@ -11,6 +11,52 @@ def ids(c, **kw):
 
 
 class TestRecording:
+    def test_foreign_cash_posting_uses_latest_rate_on_or_before_transaction_date(self, c, setup):
+        from lightning.database.currencies import CurrencyRegistry
+        _, cats = setup
+        CurrencyRegistry(c.db).register("USD")
+        c.accounts.allow_foreign = True
+        usd = c.account_flows.open_account("Dollar account", "BANK", "2026-09-01", "0",
+                                           institution="Test Bank", currency="USD")
+        c.db.execute(
+            "INSERT INTO fx_rates(date,base,quote,rate_e6,source,created_at) VALUES(?,?,?,?,?,?)",
+            ("2026-09-01", "USD", "EGP", 48000000, "MANUAL", "2026-09-01T00:00:00Z"),
+        )
+        # This later quote must not leak into a posting dated before it.
+        c.db.execute(
+            "INSERT INTO fx_rates(date,base,quote,rate_e6,source,created_at) VALUES(?,?,?,?,?,?)",
+            ("2026-09-20", "USD", "EGP", 50000000, "MANUAL", "2026-09-20T00:00:00Z"),
+        )
+
+        txn = c.transactions.record_outflow("2026-09-10", usd.id, "2",
+                                            cats["EXP.PERSONAL.FOOD"].id)
+
+        assert txn.lines[0].fx_rate == Decimal("48")
+        assert txn.lines[0].amount_base == Decimal("-96.00")
+
+    def test_foreign_cash_posting_requires_a_historical_rate(self, c, setup):
+        from lightning.database.currencies import CurrencyRegistry
+        _, cats = setup
+        CurrencyRegistry(c.db).register("USD")
+        c.accounts.allow_foreign = True
+        usd = c.account_flows.open_account("Dollar account", "BANK", "2026-09-01", "0",
+                                           institution="Test Bank", currency="USD")
+
+        with pytest.raises(ValidationError, match="No USD/EGP exchange rate"):
+            c.transactions.record_outflow("2026-09-10", usd.id, "2",
+                                          cats["EXP.PERSONAL.FOOD"].id)
+
+    def test_cross_currency_transfers_remain_rejected(self, c, setup):
+        from lightning.database.currencies import CurrencyRegistry
+        accounts, _ = setup
+        CurrencyRegistry(c.db).register("USD")
+        c.accounts.allow_foreign = True
+        usd = c.account_flows.open_account("Dollar account", "BANK", "2026-09-01", "0",
+                                           institution="Test Bank", currency="USD")
+
+        with pytest.raises(ValidationError, match="same currency"):
+            c.transactions.record_transfer("2026-09-10", accounts["cib"].id, usd.id, "5")
+
     def test_outflow(self, setup, c):
         accounts, cats = setup
         t = c.transactions.record_outflow("2026-09-25", accounts["cib"].id, "450", cats["EXP.PERSONAL.FOOD"].id,

@@ -5,6 +5,7 @@ import pytest
 from lightning.core.errors import ValidationError
 from lightning.core.ledger import PostingLine
 from lightning.core.refs import DocType
+from lightning.database.currencies import CurrencyRegistry
 from lightning.transactions.domain import TxnSource
 
 
@@ -39,6 +40,45 @@ def test_monthly_returns_create_one_account_journal_linked_from_each_asset(c):
     assert c.db.scalar("SELECT status FROM reevaluation_periods WHERE date='2026-09-30'") == "POSTED"
     assert c.reevaluations.process_date("2026-09-30", "MONTH_END")  # idempotent on reopen
     assert c.db.scalar("SELECT COUNT(*) FROM transactions WHERE type='VAL'") == 1
+
+
+def test_foreign_cash_month_end_records_fx_return_without_changing_native_balance(c):
+    CurrencyRegistry(c.db).register("USD")
+    c.fx.save("USD", "2026-09-01", "50")
+    account = c.account_flows.open_account(
+        "Dollar savings", "BANK", "2026-09-01", "100", currency="USD",
+        opening_balance_date="2026-09-01")
+    c.fx.save("USD", "2026-09-30", "55")
+
+    assert c.reevaluations.process_date("2026-09-30", "MONTH_END")
+    detail = c.db.one("SELECT value_base_e6,return_base_e6,price_source,journal_transaction_id "
+                      "FROM reevaluation_entries")
+    assert detail["value_base_e6"] == 5_500_000_000
+    assert detail["return_base_e6"] == 500_000_000
+    assert detail["price_source"] == "FX"
+    assert c.reporting.account_balance(account.id, "2026-09-30") == Decimal("100")
+    opening = next(row for row in c.reporting.register(account.id, "2026-09-01", "2026-09-30")
+                   if row.type == "OPN")
+    assert (opening.amount_base, opening.amount, opening.currency) == (
+        Decimal("5000"), Decimal("100"), "USD")
+    journal = c.transactions.get(detail["journal_transaction_id"])
+    assert journal.lines[0].quantity == 0
+    assert journal.lines[0].amount_base == Decimal("500")
+    assert c.reevaluations.process_date("2026-09-30", "MONTH_END")
+    assert c.db.scalar("SELECT COUNT(*) FROM transactions WHERE type='VAL'") == 1
+
+
+def test_foreign_cash_checkpoint_exposes_missing_rate(c):
+    CurrencyRegistry(c.db).register("USD")
+    c.fx.save("USD", "2026-09-01", "50")
+    c.account_flows.open_account("Dollar savings", "BANK", "2026-09-01", "100",
+                                 currency="USD", opening_balance_date="2026-09-01")
+    c.db.execute("DELETE FROM fx_rates")
+
+    assert not c.reevaluations.process_date("2026-09-30", "MONTH_END")
+    assert c.reevaluations.pending_fx() == [{"date": "2026-09-30", "currency": "USD"}]
+    c.fx.save("USD", "2026-09-30", "55")
+    assert c.reevaluations.process_date("2026-09-30", "MONTH_END")
 
 
 def test_deleted_reevaluation_stays_deleted_when_checkpoint_is_rebuilt(c):

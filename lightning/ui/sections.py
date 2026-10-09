@@ -49,6 +49,7 @@ _I = {  # tab icons
     "planner": "M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8",
     "prices": "M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8zM7.5 7.5h.01",
     "accounts": "M3 10h18M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 21h18M12 3l9 5H3z",
+    "currencies": "M4 7h14l-3-3M20 17H6l3 3M4 7l3-3M20 17l-3 3",
     "transactions": "M4 6h16M4 12h16M4 18h10",
     "people": "M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM3 20c0-3 2.5-5 6-5s6 2 6 5M17 5a3 3 0 0 1 0 6M18 15c2 .4 3 2 3 5",
     "data": "M4 6c0-1.7 3.6-3 8-3s8 1.3 8 3-3.6 3-8 3-8-1.3-8-3zM4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3",
@@ -65,6 +66,7 @@ SECTIONS: tuple[Section, ...] = (
         Tab("spending", "Spending", "/birdview/expenses", _I["spending"], ("/birdview/expenses",)),
         Tab("health", "Health", "/financial-health", _I["health"], ("/financial-health",),
             settings=("financial-health",), gear="/settings?section=financial-health", gear_label="Financial health limits"),
+        Tab("currencies", "Currencies", "/accounts/currencies", _I["currencies"], ("=/accounts/currencies",)),
     )),
     Section("budget", "Budget", "budget", (
         Tab("budget", "Budget", "/budget", _I["budget"], ("/budget",), settings=("budget",),

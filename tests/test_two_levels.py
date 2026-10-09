@@ -17,7 +17,8 @@ def test_six_sections_and_five_tabs_at_most():
 def test_every_page_sits_in_one_tab():
     expected = {
         "/": ("overview", "summary"), "/birdview/expenses": ("overview", "spending"),
-        "/financial-health": ("overview", "health"), "/budget": ("budget", "budget"),
+        "/financial-health": ("overview", "health"), "/accounts/currencies": ("overview", "currencies"),
+        "/budget": ("budget", "budget"),
         "/plan": ("plan", "plan"), "/plan/recurring": ("plan", "recurring"), "/reserves/3/payments": ("plan", "reserves"),
         "/investments": ("investments", "holdings"), "/investments/holding/4": ("investments", "holdings"),
         "/investments/planner": ("investments", "planner"), "/investments/reevaluations": ("investments", "prices"),

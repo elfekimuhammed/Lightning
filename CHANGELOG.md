@@ -10,6 +10,10 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-09 · Codex: kept Arabic language switching compatible with the content security policy and updated screen tests for the translated shell.
+- 2026-10-09 · Codex and Luna: `0049_currency_registry.sql` lets profiles register ISO or custom currencies and select a base before monetary history; foreign cash uses dated FX, keeps native balances, and shows month-end FX revaluation separately.
+- 2026-10-09 · Codex and Luna: Currencies tab shows native and profile values; the main register shows profile and native amounts, with manual rate entry in Settings.
+- 2026-10-09 · Codex: refreshed the encrypted dummy round-trip fixture for migration 0049 and its currency registry tables.
 - 2026-10-09 · Luna, for Codex: completed Egyptian Arabic labels across app and profile screens, including SMS, devices, finance reports and specialist forms; the locked chooser remembers Arabic before unlock.
 - 2026-10-09 · Codex and Luna: expanded the Arabic A/B/C guideline prose and specimens while preserving every original section and diagram; enriched the Arabic website guides, release log and homepage FAQ.
 - 2026-10-09 · Codex: completed Arabic names for every registered figure and canonical glossary term, and documented the pre-unlock language choice.

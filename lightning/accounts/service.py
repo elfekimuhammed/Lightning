@@ -97,6 +97,8 @@ class AccountService:
         self._ensure_unique_name(name)
         account_type = self._type(account_type)
         currency = (currency or self.base_currency).strip().upper()
+        if not self.db.scalar("SELECT 1 FROM registered_currencies WHERE code=?", (currency,)):
+            raise ValidationError(f"Currency {currency} is not registered. Add it in Settings first.", "currency")
         self.assets.cash_asset(currency)  # currency must exist
         if currency != self.base_currency and not self.allow_foreign:
             raise ValidationError(

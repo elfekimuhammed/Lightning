@@ -16,6 +16,7 @@ from lightning.categories.domain import Movement, CategoryFamily
 from lightning.core.dates import month_of
 from lightning.workflows.ai_analysis import AIAnalysisService
 from ..periods import parse_period
+from lightning.database.currencies import CurrencyRegistry
 
 router = APIRouter(prefix="/settings")
 
@@ -97,10 +98,44 @@ async def settings_page(request: Request):
                   ai_month=month_of(ai_period.end) if ai_period else month_of(today()),
                   current_month=month_of(today()), health_limits=health_limits,
                   health_fund=health_fund,
+                  currencies=CurrencyRegistry(c.db).list(),
+                  currency_suggestions=CurrencyRegistry(c.db).suggestions(),
+                  fx_rates=c.fx.list() if hasattr(c, "fx") else [],
+                  pending_fx=c.reevaluations.pending_fx() if section == "general" else [],
                   # Every tab's gear, so each tab's settings can be reached from Settings too.
                   tab_settings=[{"label": tab.gear_label, "href": tab.gear, "where": section.label
                                  if len(section.tabs) == 1 else f"{section.label} · {tab.label}"}
                                 for section in SECTIONS for tab in section.tabs if tab.gear])
+
+
+@router.post("/currency")
+async def save_currency(request: Request):
+    c = container(request)
+    form = await request.form()
+    registry = CurrencyRegistry(c.db)
+    try:
+        action = str(form.get("action", "base"))
+        if action == "register":
+            registry.register(str(form.get("code", "")), str(form.get("name", "")) or None)
+            message = "Currency registered."
+        else:
+            c.set_profile_currency(str(form.get("base_currency", "")))
+            message = "Profile currency saved."
+    except (ValueError, LightningError) as exc:
+        return redirect("/settings", exc.message if isinstance(exc, LightningError) else str(exc))
+    return redirect("/settings", message)
+
+
+@router.post("/fx-rate")
+async def save_fx_rate(request: Request):
+    c = container(request)
+    form = await request.form()
+    try:
+        c.fx.save(str(form.get("currency", "")), str(form.get("date", "")), str(form.get("rate", "")))
+        c.reevaluations.process_due()
+    except (ValueError, LightningError) as exc:
+        return redirect("/settings", exc.message if isinstance(exc, LightningError) else str(exc))
+    return redirect("/settings", "Exchange rate saved.")
 
 
 @router.post("/financial-health-limit")

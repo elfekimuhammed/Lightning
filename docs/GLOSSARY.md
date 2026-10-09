@@ -77,6 +77,9 @@ Each term belongs to one layer: **Ledger** (real money that actually moved), **P
 | **Transaction** | Ledger | A dated user or system event shown in the main ledger. | 450 EGP Talabat payment |
 | **Main ledger** | Ledger | The single activity ledger from which account registers, all-transaction view, budget actuals, and reporting are derived. | Register filtered to CIB |
 | **Ledger line / journal line** | Ledger | One transaction's effect on a particular account and financial asset. | CIB cash −450 EGP |
+| **Profile currency** | Ledger + Report | The currency used for ledger amount and report totals; fixed once monetary history exists. | EGP |
+| **Amount in currency** | Ledger | The amount in the line's own currency, preserved with its dated profile-currency value and rate. | 100 USD recorded as 5,000 EGP at 50 EGP/USD |
+| **FX revaluation** | Ledger + Report | Month-end change in the profile-currency value of foreign cash already held; it changes no native units and is not income or spending. | 100 USD rises from 5,000 to 5,500 EGP |
 | **Owner ID** | Ledger | Optional Counterparty reference on a ledger line (shown as **Held for**); blank means the user owns the value on that line. | Dad owns 2,000 EGP of THNDR cash |
 | **Money in / money out** | Ledger | Direction in which value crosses an account boundary. Direction does not determine category. | Salary is money in; grocery purchase is money out |
 | **Transfer** | Ledger | Value moved between accounts owned by the user; not income or expense. Selecting an owned account as Counterparty creates both account effects. | CIB → THNDR |

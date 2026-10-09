@@ -128,7 +128,7 @@ def validate_posting(lines: list[PostingLine]) -> None:
         if line.quantity == ZERO and line.effect != Effect.REVALUATION:
             raise ValidationError(f"Line {i}: amount cannot be zero.", "amount")
         for name in ("quantity", "unit_price", "fx_rate", "amount", "amount_base"):
-            places = 2 if name in {"amount", "amount_base"} else 6
+            places = 2 if name == "amount_base" or (name == "amount" and line.effect != Effect.REVALUATION) else 6
             if decimal_places(getattr(line, name)) > places:
                 raise ValidationError(f"Line {i}: {name} has more than {places} decimal places.")
         if line.unit_price < ZERO or line.fx_rate <= ZERO:

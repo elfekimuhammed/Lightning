@@ -1,4 +1,4 @@
-"""Monthly investment return checkpoints and their linked account-level journal entries."""
+"""Monthly investment and foreign-cash checkpoints with linked journal entries."""
 
 from __future__ import annotations
 
@@ -30,9 +30,10 @@ class ReevaluationService:
         first = self.db.scalar(
             "SELECT MIN(day) FROM ("
             "SELECT MIN(le.date) AS day FROM ledger_entries le JOIN transactions t ON t.id=le.transaction_id "
-            "JOIN financial_assets a ON a.id=le.asset_id WHERE t.status='POSTED' AND a.is_cash=0 "
+            "JOIN financial_assets a ON a.id=le.asset_id WHERE t.status='POSTED' "
+            "AND (a.is_cash=0 OR (a.is_cash=1 AND a.currency<>?)) "
             "UNION ALL SELECT MIN(date) AS day FROM reevaluation_periods"
-            ") WHERE day IS NOT NULL")
+            ") WHERE day IS NOT NULL", (self.reporting.base_currency,))
         if not first:
             return 0
         first_day = parse_date(first)
@@ -116,8 +117,10 @@ class ReevaluationService:
             rows = self.db.all("SELECT le.account_id,le.asset_id,le.owner_id,SUM(le.quantity_e6) quantity_e6 "
                                "FROM ledger_entries le JOIN transactions t ON t.id=le.transaction_id "
                                "JOIN financial_assets a ON a.id=le.asset_id "
-                               "WHERE t.status='POSTED' AND le.date<=? AND a.is_cash=0 "
-                               "GROUP BY le.account_id,le.asset_id,le.owner_id HAVING SUM(le.quantity_e6)<>0", (day,))
+                               "WHERE t.status='POSTED' AND le.date<=? AND "
+                               "(a.is_cash=0 OR (a.is_cash=1 AND a.currency<>?)) "
+                               "GROUP BY le.account_id,le.asset_id,le.owner_id HAVING SUM(le.quantity_e6)<>0",
+                               (day, self.reporting.base_currency))
             positions = {(r["account_id"], r["asset_id"], r["owner_id"]): int(r["quantity_e6"]) for r in rows}
             if focus is not None:
                 for key in focus:
@@ -129,10 +132,9 @@ class ReevaluationService:
             for (account_id, asset_id, owner_id), units_e6 in sorted(
                     positions.items(), key=lambda item: (item[0][0], item[0][1], item[0][2] or 0)):
                 asset = self.reporting.assets.get_asset(asset_id)
-                if asset.is_cash:
-                    continue
                 forced = (forced_prices or {}).get((asset_id, owner_id))
-                found = (forced, "TRADE") if forced is not None else self._price(asset_id, day)
+                found = (ONE, "FX") if asset.is_cash else (
+                    (forced, "TRADE") if forced is not None else self._price(asset_id, day))
                 if found is None and fetch_price:
                     found = fetch_price(asset, day)
                     if found:
@@ -147,7 +149,7 @@ class ReevaluationService:
                     continue
                 price, source = found
                 units = from_e6(units_e6)
-                if forced is not None:
+                if asset.is_cash or forced is not None:
                     fx = self.reporting.valuer._fx(asset.currency, day)
                     value = (units * price * fx).quantize(Decimal("0.01")) if fx is not None else None
                 else:
@@ -172,6 +174,8 @@ class ReevaluationService:
                 flow_sql = "SELECT COALESCE(SUM(amount_base_e6),0) FROM ledger_entries le JOIN transactions t " \
                            "ON t.id=le.transaction_id WHERE t.status='POSTED' AND le.account_id=? AND le.asset_id=? " \
                            "AND le.date<=?"
+                if asset.is_cash:
+                    flow_sql += " AND t.type<>'VAL'"
                 flow_sql += " AND le.owner_id IS ?"
                 params: list = [account_id, asset_id, day, owner_id]
                 if flow_start:
@@ -203,14 +207,14 @@ class ReevaluationService:
                     return False
                 if self.accounts.get(account_id).account_type.value == "DEPOSIT":
                     owner_lines = [PostingLine.revaluation(
-                        row_account, asset_id, amount_base / fx, fx,
+                        row_account, asset_id, (amount_base / fx).quantize(Decimal("0.000001")), fx,
                         f"Investment revaluation · {reason.lower()}", owner_id=owner_id, is_cash=False)
                         for (row_account, asset_id, owner_id), amount_base in sorted(
                             certificate_returns.items(), key=lambda item: (item[0][1], item[0][2] or 0))
                         if row_account == account_id]
                 else:
                     owner_lines = [PostingLine.revaluation(
-                        account_id, cash_asset.id, amount_base / fx, fx,
+                        account_id, cash_asset.id, (amount_base / fx).quantize(Decimal("0.000001")), fx,
                         f"Investment revaluation · {reason.lower()}", owner_id=owner_id)
                         for (row_account, owner_id), amount_base in sorted(
                             account_returns.items(), key=lambda item: (item[0][0], item[0][1] or 0))
@@ -232,12 +236,14 @@ class ReevaluationService:
         return True
 
     def _source_hash(self, day: str, reason: str, forced_prices: dict | None) -> str:
-        """Fingerprint posted investment activity and dated inputs that can affect this checkpoint."""
+        """Fingerprint posted holdings activity and dated inputs for this checkpoint."""
         activity = [tuple(row) for row in self.db.all(
             "SELECT le.date,le.account_id,le.asset_id,le.owner_id,le.quantity_e6,le.unit_price_e6,le.amount_base_e6,"
             "t.type,t.status FROM ledger_entries le JOIN transactions t ON t.id=le.transaction_id "
-            "JOIN financial_assets a ON a.id=le.asset_id WHERE a.is_cash=0 AND le.date<=? "
-            "ORDER BY le.date,le.account_id,le.asset_id,t.id,le.line_no", (day,))]
+            "JOIN financial_assets a ON a.id=le.asset_id WHERE "
+            "(a.is_cash=0 OR (a.is_cash=1 AND a.currency<>? AND t.type<>'VAL')) AND le.date<=? "
+            "ORDER BY le.date,le.account_id,le.asset_id,t.id,le.line_no",
+            (self.reporting.base_currency, day))]
         prices = [tuple(row) for row in self.db.all(
             "SELECT p.asset_id,p.date,p.price_e6,p.currency,p.source FROM price_history p "
             "JOIN financial_assets a ON a.id=p.asset_id WHERE a.is_cash=0 AND p.date<=? "
@@ -289,8 +295,18 @@ class ReevaluationService:
         return [dict(row) for row in self.db.all(
             "SELECT DISTINCT p.date,e.asset_id,a.name AS asset_name,a.code AS asset_code,e.currency "
             "FROM reevaluation_entries e JOIN reevaluation_periods p ON p.id=e.period_id "
-            "JOIN financial_assets a ON a.id=e.asset_id WHERE e.needs_price=1 AND p.status='PENDING' "
+            "JOIN financial_assets a ON a.id=e.asset_id WHERE e.needs_price=1 AND a.is_cash=0 "
+            "AND p.status='PENDING' "
             "ORDER BY p.date,a.name")]
+
+    def pending_fx(self) -> list[dict]:
+        """Foreign cash checkpoints awaiting a dated conversion rate."""
+        return [dict(row) for row in self.db.all(
+            "SELECT DISTINCT p.date,e.currency FROM reevaluation_entries e "
+            "JOIN reevaluation_periods p ON p.id=e.period_id "
+            "JOIN financial_assets a ON a.id=e.asset_id "
+            "WHERE e.needs_price=1 AND a.is_cash=1 AND p.status='PENDING' "
+            "ORDER BY p.date,e.currency")]
 
     def history(self, limit: int = 300, entry_ids: set[int] | None = None) -> list[dict]:
         """Visible checkpoints, or an exact selection of checkpoint entry IDs."""

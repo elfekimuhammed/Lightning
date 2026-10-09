@@ -16,7 +16,7 @@
         <img src="/static/lightning-mark.svg" alt="" width="18" height="25">
         <span>Lightning</span>
       </a>
-      <form class="gate-language" method="post" action="/profiles/locale"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="return_to" value="{{ request.url.path }}{% if request.url.query %}?{{ request.url.query }}{% endif %}"><label for="gate-locale">{{ 'Language'|tr(locale) }}</label><select id="gate-locale" name="locale" onchange="this.form.requestSubmit()"><option value="en" {{ 'selected' if locale == 'en' }}>{{ 'English'|tr(locale) }}</option><option value="ar" {{ 'selected' if locale == 'ar' }}>{{ 'العربية'|tr(locale) }}</option></select></form><span class="masthead-label">{{ 'Private profiles'|tr(locale) }}</span>
+      <form class="gate-language" method="post" action="/profiles/locale"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="return_to" value="{{ request.url.path }}{% if request.url.query %}?{{ request.url.query }}{% endif %}"><label for="gate-locale">{{ 'Language'|tr(locale) }}</label><select id="gate-locale" name="locale" data-locale-auto><option value="en" {{ 'selected' if locale == 'en' }}>{{ 'English'|tr(locale) }}</option><option value="ar" {{ 'selected' if locale == 'ar' }}>{{ 'العربية'|tr(locale) }}</option></select></form><span class="masthead-label">{{ 'Private profiles'|tr(locale) }}</span>
     </header>
 
     <div class="content-wrap">
@@ -400,6 +400,7 @@
     </footer>{% endif %}
   </main>
   <script nonce="{{ request.state.csp_nonce|default('') }}">window.LIGHTNING_UI={{ arabic_translations|tojson }};window.lightningT=(text,values)=>{const raw=String(text);let out=window.LIGHTNING_UI[raw];if(!out){for(const [pattern,translated] of Object.entries(window.LIGHTNING_UI)){if(!pattern.includes('{'))continue;const names=[...pattern.matchAll(/\{([a-z_]+)\}/g)].map(m=>m[1]);const parts=pattern.split(/\{[a-z_]+\}/g).map(part=>part.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'));const match=new RegExp('^'+parts.join('(.+?)')+'$').exec(raw);if(match){out=translated;names.forEach((name,i)=>out=out.replaceAll(`{${name}}`,match[i+1]));break;}}}out=out||raw;for(const [key,value] of Object.entries(values||{}))out=out.replaceAll(`{${key}}`,String(value));return out;};</script>
+  <script nonce="{{ request.state.csp_nonce|default('') }}">document.querySelectorAll("[data-locale-auto]").forEach(control=>control.addEventListener("change",()=>control.form?.requestSubmit()));</script>
   <script src="/static/session.js?v=4" defer></script>
 </body>
 </html>

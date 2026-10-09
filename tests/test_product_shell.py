@@ -188,8 +188,8 @@ ROOT = Path(__file__).resolve().parents[1]
 def test_server_rendered_messages_have_live_region_semantics():
     template = (ROOT / "lightning/ui/templates/base.html").read_text(encoding="utf-8")
 
-    assert 'class="flash" role="status" aria-live="polite" aria-atomic="true">{{ msg }}' in template
-    assert 'class="flash error" role="alert" aria-live="assertive" aria-atomic="true">{{ error }}' in template
+    assert 'class="flash" role="status" aria-live="polite" aria-atomic="true">{{ msg|tr(locale) }}' in template
+    assert 'class="flash error" role="alert" aria-live="assertive" aria-atomic="true">{{ error|tr(locale) }}' in template
 
 
 def test_flash_behavior_covers_errors_popups_and_late_insertions():
