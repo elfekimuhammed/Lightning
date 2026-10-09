@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 {% block title %}Financial assets{% endblock %}
-{% block heading %}<div><h1>Financial assets</h1></div>{% endblock %}
+{% block heading %}<div><h1>{{ 'Financial assets'|tr(locale) }}</h1></div>{% endblock %}
 {% block top_actions %}<a class="btn primary" href="/investments/assets/new">Add an investment</a>{% endblock %}
 {% block content %}
 
 <section class="card data-panel">
   {% if rows %}<table class="asset-list">
-    <thead><tr><th>Name</th><th>Ticker</th><th>Exchange</th><th>Type</th><th>ISIN</th><th>Shown</th><th></th></tr></thead>
+    <thead><tr><th>{{ 'Name'|tr(locale) }}</th><th>Ticker</th><th>Exchange</th><th>{{ 'Type'|tr(locale) }}</th><th>ISIN</th><th>Shown</th><th></th></tr></thead>
     <tbody>{% for r in rows %}{% set a = r.asset %}
       <tr class="{{ 'muted' if not a.active }}">
         <td><a href="/investments/assets/{{ a.id }}/edit"><b>{{ a.name }}</b></a></td>

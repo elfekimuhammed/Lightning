@@ -5,13 +5,13 @@
 {% from "phone/partials/charts.html" import kpi_tiles, bar_rows, flow_bars, month_tiles %}
 {% from "partials/charts.html" import trend, donut %}
 {% block title %}Overview{% endblock %}
-{% block heading %}<h1>Overview</h1><p>{{ range_label }}</p>{% endblock %}
-{% block top_actions %}{% from "partials/macros.html" import period_control %}{{ period_control("/", period.key, month, this_month, request.query_params.get("date_from", "") if period_error and period.key == "custom" else period.start_text, request.query_params.get("date_to", "") if period_error and period.key == "custom" else period.end_text) }}{% endblock %}
+{% block heading %}<h1>{{ 'Overview'|tr(locale) }}</h1><p>{{ range_label }}</p>{% endblock %}
+{% block top_actions %}{% from "partials/macros.html" import period_control with context %}{{ period_control("/", period.key, month, this_month, request.query_params.get("date_from", "") if period_error and period.key == "custom" else period.start_text, request.query_params.get("date_to", "") if period_error and period.key == "custom" else period.end_text) }}{% endblock %}
 {% block content %}
 {% if period_error %}<p class="flash error">{{ period_error }}</p>{% endif %}
 {% if setup %}{% set done = setup|selectattr("done")|list|length %}
 <section class="card phone-card" aria-labelledby="setup-heading">
-  <h2 id="setup-heading" class="phone-card-title">Get set up</h2><p class="phone-note">{{ done }} of {{ setup|length }} done</p>
+  <h2 id="setup-heading" class="phone-card-title">{{ 'Get set up'|tr(locale) }}</h2><p class="phone-note">{{ done }} of {{ setup|length }} done</p>
   <div class="phone-rows">{% for step in setup %}{% if step.done %}<div class="phone-row is-done"><span>{{ step.label }}</span><b>Done</b></div>{% else %}<a class="phone-row" href="{{ step.href }}"{% if step.popup %} data-popup-open{% endif %}><span>{{ step.label }}<small>{{ step.detail }}</small></span><b class="phone-row-action">{{ step.action or '›' }}</b></a>{% endif %}{% endfor %}</div>
 </section>
 {% endif %}
@@ -25,7 +25,7 @@
 {{ kpi_tiles(stats, base) }}
 
 <section class="phone-section" aria-labelledby="position-heading">
-  <header class="phone-section-head"><h2 id="position-heading">Your position</h2><span>As of {{ position_as_of }}</span></header>
+  <header class="phone-section-head"><h2 id="position-heading">{{ 'Your position'|tr(locale) }}</h2><span>As of {{ position_as_of }}</span></header>
   {% set owes = pos.what_you_owe > 0 %}{% set lead = 'net_worth' if owes else 'what_you_own' %}
   <article class="card phone-card" aria-labelledby="lead-heading">
     <h3 id="lead-heading" class="phone-card-title">{{ fig[lead].label }}</h3><p class="phone-note">Excludes money held for others</p>
@@ -52,7 +52,7 @@
   <details class="phone-row-more phone-fold"><summary class="phone-row"><span>{{ fig.free_cash.label }}<small>After reserves and bills due</small></span><b>{{ pos.free_cash|money if pos.free_cash is not none else 'Unavailable' }}</b><span class="phone-chevron" aria-hidden="true">›</span></summary>
     <div class="phone-fold-body">
     {% if free_cash_steps %}{{ bar_rows(free_cash_steps.rows, fig.free_cash.label) }}{% else %}<p class="chart-empty">{{ pos.unavailable_reason or 'Free cash is unavailable on this date.' }}</p>{% endif %}
-    <a class="phone-quiet" href="/plan">Cash planning</a>
+    <a class="phone-quiet" href="/plan">{{ 'Cash planning'|tr(locale) }}</a>
     </div></details>
   <details class="phone-row-more phone-fold"><summary class="phone-row"><span>What it is made of</span><span class="phone-chevron" aria-hidden="true">›</span></summary>
     <div class="phone-fold-body">
@@ -70,7 +70,7 @@
 </section>
 
 <section class="phone-section" aria-labelledby="period-heading">
-  <header class="phone-section-head"><h2 id="period-heading">This period</h2><span>{{ date_from }} to {{ date_to }}</span></header>
+  <header class="phone-section-head"><h2 id="period-heading">{{ 'This period'|tr(locale) }}</h2><span>{{ date_from }} to {{ date_to }}</span></header>
   <article class="card phone-card phone-folds">
   <details class="phone-row-more phone-fold"><summary class="phone-row"><span>{{ fig.net_flow.label }}</span><b class="{{ cash_flow.net|tone }}">{{ cash_flow.net|money(True) }}</b><span class="phone-chevron" aria-hidden="true">›</span></summary>
     <div class="phone-fold-body">
@@ -82,7 +82,7 @@
     {{ flow_bars(money_sankey, base) }}
     <a class="phone-quiet" href="/birdview/expenses?{{ request.url.query }}">See spending</a>
     </div></details>
-  <details class="phone-row-more phone-fold"><summary class="phone-row"><span>Investments<small>{{ fig.result.label }}</small></span><b>{% if investment_report.period_result_available %}{{ investment_report.period_result|money(True) }}{% else %}—{% endif %}</b><span class="phone-chevron" aria-hidden="true">›</span></summary>
+  <details class="phone-row-more phone-fold"><summary class="phone-row"><span>{{ 'Investments'|tr(locale) }}<small>{{ fig.result.label }}</small></span><b>{% if investment_report.period_result_available %}{{ investment_report.period_result|money(True) }}{% else %}—{% endif %}</b><span class="phone-chevron" aria-hidden="true">›</span></summary>
     <div class="phone-fold-body">
     <div class="phone-rows">
       <div class="phone-row"><span>{{ fig.portfolio_value.label }}</span><b>{{ pos.portfolio_value|money }}</b></div>

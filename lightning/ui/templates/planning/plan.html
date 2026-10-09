@@ -1,52 +1,52 @@
 {% extends "base.html" %}
 {% from "planning/_macros.html" import payment_row %}
 {% block title %}Cash planning{% endblock %}
-{% block heading %}<div><h1>Cash planning</h1></div>{% endblock %}
+{% block heading %}<div><h1>{{ 'Cash planning'|tr(locale) }}</h1></div>{% endblock %}
 
 {% block content %}
 {% from "partials/charts.html" import stat_tiles, trend, waterfall, bars %}
 {% set f = forecast %}{% set p = plan %}
 {{ stat_tiles(stats, base, 'Your cash') }}
 
-<header class="overview-section-head inv-head" id="plan-build"><h2>How is safe to spend worked out?</h2><span>Today to {{ f.next_income_date or 'three months from now' }}</span></header>
+<header class="overview-section-head inv-head" id="plan-build"><h2>{{ 'How is safe to spend worked out?'|tr(locale) }}</h2><span>Today to {{ f.next_income_date or 'three months from now' }}</span></header>
 <section class="card wide-card"><div class="overview-split">
   <section><div class="overview-block-head"><div><h3>From free cash to safe to spend</h3></div></div>
     {{ waterfall(p.build) }}
     {% if f.safe_to_spend < 0 %}<p class="notice">Promised payments are larger than your free cash.</p>{% endif %}
-    <details class="chart-table"><summary>Show the numbers</summary><table><tbody>{% for name, value in f.safe_to_spend_parts %}<tr><td>{{ name }}</td><td class="num">{{ value|money(not loop.first) }}</td></tr>{% endfor %}<tr><th>{{ fig.safe_to_spend.label }}</th><th class="num">{{ f.safe_to_spend|money }}</th></tr></tbody></table></details></section>
-  <section id="plan-next"><div class="overview-block-head"><div><h3>The next 30 days</h3><p>{{ as_of }} to {{ window_end }} · money in above the line, payments below</p></div><a class="quiet-link" href="/plan/recurring">Recurring</a></div>
+    <details class="chart-table"><summary>{{ 'Show the numbers'|tr(locale) }}</summary><table><tbody>{% for name, value in f.safe_to_spend_parts %}<tr><td>{{ name }}</td><td class="num">{{ value|money(not loop.first) }}</td></tr>{% endfor %}<tr><th>{{ fig.safe_to_spend.label }}</th><th class="num">{{ f.safe_to_spend|money }}</th></tr></tbody></table></details></section>
+  <section id="plan-next"><div class="overview-block-head"><div><h3>The next 30 days</h3><p>{{ as_of }} to {{ window_end }} · money in above the line, payments below</p></div><a class="quiet-link" href="/plan/recurring">{{ 'Recurring'|tr(locale) }}</a></div>
     {% if p.marks %}<div class="timeline{{ ' has-in' if p.marks|selectattr('income')|list }}" role="img" aria-label="Payments in the next 30 days">
-      <i class="tl-axis"></i><span class="tl-today" style="left:3%">Today</span><span class="tl-end">+30 days</span>
+      <i class="tl-axis"></i><span class="tl-today" style="left:3%">{{ 'Today'|tr(locale) }}</span><span class="tl-end">+30 days</span>
       {% for m in p.marks %}<span class="tl-mark {{ 'is-in' if m.income else 'is-out' }}{{ ' is-late' if m.late }} row-{{ m.row }}" style="left:{{ '%.2f'|format(m.x) }}%" title="{{ m.name }} · {{ m.due }} · {{ m.amount|money }}"><i></i><b>{{ m.name }}</b><small>{{ '+' if m.income else '−' }}{{ m.amount|money }}</small></span>{% endfor %}
     </div>{% endif %}
-    {% if next_payments %}<div class="compact-list plan-next-list">{% for pay in next_payments[:6] %}{{ payment_row(pay, '/plan') }}{% endfor %}</div>{% if next_payments|length > 6 %}<p class="muted small">{{ next_payments|length - 6 }} more in the next 30 days · <a href="/plan/recurring">Recurring</a></p>{% endif %}
+    {% if next_payments %}<div class="compact-list plan-next-list">{% for pay in next_payments[:6] %}{{ payment_row(pay, '/plan') }}{% endfor %}</div>{% if next_payments|length > 6 %}<p class="muted small">{{ next_payments|length - 6 }} more in the next 30 days · <a href="/plan/recurring">{{ 'Recurring'|tr(locale) }}</a></p>{% endif %}
     {% elif has_items %}<p class="chart-empty">Nothing is due in the next 30 days.</p>
-    {% else %}<p class="chart-empty">Add your recurring bills, subscriptions, income and loans on <a href="/plan/recurring">Recurring</a> to see what is coming.</p>{% endif %}</section>
+    {% else %}<p class="chart-empty">Add your recurring bills, subscriptions, income and loans on <a href="/plan/recurring">{{ 'Recurring'|tr(locale) }}</a> to see what is coming.</p>{% endif %}</section>
 </div></section>
 
 {% if has_income %}
-<header class="overview-section-head inv-head" id="plan-forecast"><h2>Where is my cash heading?</h2><span>The last {{ p.heading.labels|length - f.months|length if p.heading.labels else 0 }} month ends, then the next {{ f.months|length }}</span></header>
+<header class="overview-section-head inv-head" id="plan-forecast"><h2>{{ 'Where is my cash heading?'|tr(locale) }}</h2><span>The last {{ p.heading.labels|length - f.months|length if p.heading.labels else 0 }} month ends, then the next {{ f.months|length }}</span></header>
 <section class="card wide-card"><div class="overview-split">
   <section><div class="overview-block-head"><div><h3>Free cash, then the forecast</h3><p>Solid: what it was · dashed: the forecast{% if f.lowest %} · lowest {{ f.lowest.closing|money }} in {{ f.lowest.month }}{% endif %}</p></div></div>
     {{ trend(p.heading, 'Free cash at past month ends, then the forecast', 'Plan', 230) }}</section>
   <section><div class="overview-block-head"><div><h3>In and out each month ahead</h3><p>Money in includes income and CD proceeds · projected values are estimates</p></div><span class="bullet-key"><span><i class="k in"></i>In</span><span><i class="k outflow"></i>Out</span></span></div>
     <div class="flow-cols">{% for r in p.flows %}<div class="flow-col"><div class="flow-bars"><span class="flow-bar-col"><small>{{ r.in|compact }}</small><i class="in" style="height:{{ '%.1f'|format(r.in_h * 0.84) }}%"></i></span><span class="flow-bar-col"><small>{{ r.out|compact }}</small><i class="out" style="height:{{ '%.1f'|format(r.out_h * 0.84) }}%"></i></span></div><span class="flow-month">{{ ('Rest of ' ~ r.month) if r.rest else r.month }}</span><em class="{{ 'pos' if r.net > 0 else ('neg' if r.net < 0 else '') }}">{{ r.net|money(True) }}</em>{% if r.estimated %}<small class="muted">income: average</small>{% endif %}</div>{% endfor %}</div>
-    <details class="chart-table"><summary>Show the numbers</summary><div class="table-scroll"><table class="plan-forecast-table">
+    <details class="chart-table"><summary>{{ 'Show the numbers'|tr(locale) }}</summary><div class="table-scroll"><table class="plan-forecast-table">
       {% set has_deposits = f.months|selectattr("deposit_cash")|list %}
-      <thead><tr><th>Month</th><th class="num">Income (estimate)</th>{% if has_deposits %}<th class="num">CD proceeds (estimate)</th>{% endif %}<th class="num">Out (estimate)</th><th class="num">Ends with (estimate)</th></tr></thead>
+      <thead><tr><th>{{ 'Month'|tr(locale) }}</th><th class="num">Income (estimate)</th>{% if has_deposits %}<th class="num">CD proceeds (estimate)</th>{% endif %}<th class="num">Out (estimate)</th><th class="num">Ends with (estimate)</th></tr></thead>
       <tbody>{% for m in f.months %}<tr class="{{ 'plan-low' if f.lowest and m.month == f.lowest.month }}"><td>{{ ('Rest of ' ~ m.month) if loop.first and p.flows and p.flows[0].rest else m.month }}</td><td class="num">{{ m.income|money }}{% if m.income_estimated %} <small class="muted">average</small>{% endif %}</td>{% if has_deposits %}<td class="num">{{ m.deposit_cash|money }}</td>{% endif %}<td class="num"><details><summary>{{ m.money_out|money }}</summary><small>Bills and loan payments {{ m.commitments|money }} · {{ fig.left_in_plan_after_bills.label }} {{ m.budget_spending|money }} · {{ fig.saving_for_goals.label }} {{ m.goal_saving|money }}{% if m.emergency_saving %} · {{ fig.emergency_top_up.label }} {{ m.emergency_saving|money }}{% endif %}{% if m.target_saving %} · {{ fig.savings_target_rest.label }} {{ m.target_saving|money }}{% endif %}</small></details></td><td class="num">{{ m.closing|money }}</td></tr>{% endfor %}</tbody>
     </table></div></details></section>
 </div></section>
 
 {% else %}
-<header class="overview-section-head inv-head" id="plan-forecast"><h2>Where is my cash heading?</h2><span>Today</span></header>
-<section class="card wide-card empty-state"><p>Add your salary and bills to see where your cash is heading. Lightning forecasts from what you expect to come in and go out; with nothing planned it would only be guessing.</p><div class="actions"><a class="btn primary" href="/plan/recurring">Add salary and bills</a></div></section>
+<header class="overview-section-head inv-head" id="plan-forecast"><h2>{{ 'Where is my cash heading?'|tr(locale) }}</h2><span>{{ 'Today'|tr(locale) }}</span></header>
+<section class="card wide-card empty-state"><p>Add your salary and bills to see where your cash is heading. Lightning forecasts from what you expect to come in and go out; with nothing planned it would only be guessing.</p><div class="actions"><a class="btn primary" href="/plan/recurring">{{ 'Add salary and bills'|tr(locale) }}</a></div></section>
 
 {% endif %}
-<header class="overview-section-head inv-head"><h2>What is promised?</h2><span>Today</span></header>
+<header class="overview-section-head inv-head"><h2>{{ 'What is promised?'|tr(locale) }}</h2><span>{{ 'Today'|tr(locale) }}</span></header>
 {% set by_loan = p.loan_bars.rows|length > 1 %}
 <section class="card wide-card"><div class="overview-split{{ '' if by_loan else ' is-single' }}">
-  <section><div class="overview-block-head"><div><h3>{{ fig.what_you_owe.label }}</h3><p>Bills already due and loans</p></div><a class="quiet-link" href="/plan/loans">Loans</a></div>
+  <section><div class="overview-block-head"><div><h3>{{ fig.what_you_owe.label }}</h3><p>Bills already due and loans</p></div><a class="quiet-link" href="/plan/loans">{{ 'Loans'|tr(locale) }}</a></div>
     <div class="overview-headline">{{ owe.total|money }} <small>{{ base }}</small></div>
     <div class="overview-inline-list"><div class="overview-static-row"><span>{{ fig.bills_due.label }} <small>other than loan payments</small></span><b>{{ owe.other_bills_due|money }}</b></div>
       <div class="overview-static-row"><span>{{ fig.loans_still_to_pay.label }}</span><b>{{ owe.loans_still_to_pay|money }}</b></div></div></section>

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Price files{% endblock %}
-{% block heading %}<div><h1>Price files</h1></div>{% endblock %}
+{% block heading %}<div><h1>{{ 'Price files'|tr(locale) }}</h1></div>{% endblock %}
 {% block content %}
 
 <form method="post" class="card data-panel" autocomplete="off">
@@ -16,7 +16,7 @@
       </tr>{% endfor %}</tbody>
   </table>
   <p class="muted small">Each market is its own file, refreshed after that market closes. After the first download, an update brings only what changed, about 1 MB a month for each. Unfollowing a market removes its file from this computer; prices already filled stay. Prices in another currency fill once holdings can be in that currency.</p>
-  <div class="actions"><button class="btn primary" name="update" value="1" data-busy="Downloading…">Save and download shared prices</button><button class="btn">Save</button><a class="btn" href="/investments/prices">Back to prices</a></div>
+  <div class="actions"><button class="btn primary" name="update" value="1" data-busy="Downloading…">Save and download shared prices</button><button class="btn">{{ 'Save'|tr(locale) }}</button><a class="btn" href="/investments/prices">Back to prices</a></div>
 <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
 <form method="post" class="card" action="/investments/prices/markets/test" style="margin-top:16px">
   <h2>Price sources</h2>

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "partials/macros.html" import amount %}
+{% from "partials/macros.html" import amount with context %}
 {% block title %}{{ txn.ref }}{% endblock %}
 {% block heading %}<h1 class="code" style="font-size:20px">{{ txn.ref }}</h1>
 <div class="muted">{{ 'Refund' if txn.type.value == 'IN' and lines and lines[0].effect == 'OUTFLOW' else summary.type_label }} · {{ txn.date }}{% if txn.source == 'SYSTEM' %} · <span class="pill">System-generated</span>{% endif %}{% if txn.is_void %} · <span class="pill void">deleted</span>{% endif %}</div>{% endblock %}
@@ -8,19 +8,19 @@
   <div class="card">
     <h2>{{ txn.description or summary.counterparty or txn.type_label }}</h2>
     <table>
-      <tr><td class="muted">Amount</td><td class="num">{% if txn.type == 'TRF' %}{{ summary.amount|money }} {{ summary.currency }}{% else %}{{ amount(summary.amount, summary.currency, True) }}{% endif %}</td></tr>
+      <tr><td class="muted">{{ 'Amount'|tr(locale) }}</td><td class="num">{% if txn.type == 'TRF' %}{{ summary.amount|money }} {{ summary.currency }}{% else %}{{ amount(summary.amount, summary.currency, True) }}{% endif %}</td></tr>
       {% if txn.type == 'TRF' %}
       <tr><td class="muted">From</td><td>{{ summary.account_label }}</td></tr>
       <tr><td class="muted">To</td><td>{{ summary.to_account_label }}</td></tr>
       {% else %}
-      <tr><td class="muted">Account</td><td>{{ summary.account_label }}</td></tr>
-      {% if summary.category_label %}<tr><td class="muted">Category</td><td>{{ summary.category_label }}</td></tr>{% endif %}
+      <tr><td class="muted">{{ 'Account'|tr(locale) }}</td><td>{{ summary.account_label }}</td></tr>
+      {% if summary.category_label %}<tr><td class="muted">{{ 'Category'|tr(locale) }}</td><td>{{ summary.category_label }}</td></tr>{% endif %}
       {% endif %}
       {% for effect in cash_effects %}<tr><td class="muted">Effect · {{ effect.owner }}</td><td>Cash in {{ effect.account }} {{ 'increases' if effect.quantity > 0 else 'decreases' }} by {{ effect.quantity|abs|money }} {{ effect.currency }}</td></tr>{% endfor %}
-      {% if txn.counterparty %}<tr><td class="muted">Counterparty</td><td>{{ txn.counterparty }}</td></tr>{% endif %}
+      {% if txn.counterparty %}<tr><td class="muted">{{ 'Counterparty'|tr(locale) }}</td><td>{{ txn.counterparty }}</td></tr>{% endif %}
       {% set owner = lines|selectattr('owner_id', 'defined')|selectattr('owner_id')|first %}
-      {% if owner %}<tr><td class="muted">Held for</td><td>{{ owner.owner_name }}</td></tr>{% endif %}
-      {% if txn.notes %}<tr><td class="muted">Notes</td><td>{{ txn.notes|tagged }}</td></tr>{% endif %}
+      {% if owner %}<tr><td class="muted">{{ 'Held for'|tr(locale) }}</td><td>{{ owner.owner_name }}</td></tr>{% endif %}
+      {% if txn.notes %}<tr><td class="muted">{{ 'Notes'|tr(locale) }}</td><td>{{ txn.notes|tagged }}</td></tr>{% endif %}
       <tr><td class="muted">Recorded</td><td class="small">{{ txn.created_at }}{% if txn.updated_at != txn.created_at %} · updated {{ txn.updated_at }}{% endif %}</td></tr>
     </table>
     <div class="actions" style="margin-top:14px">
@@ -30,7 +30,7 @@
         {% elif txn.type in ('BUY', 'SEL', 'DIV') or (txn.type == 'OPN' and lines[0].asset != 'CASH:' ~ base) %}<a class="btn" href="/investments/{{ txn.id }}/edit">Edit</a>
         {% elif txn.type == 'OPN' %}<a class="btn" href="/accounts/{{ lines[0].account_id }}/edit">Change opening balance</a>
         {% else %}<a class="btn" href="/accounts/{{ summary.account_id }}?edit={{ txn.id }}&acct={{ summary.account_id }}">Edit in transactions</a>{% endif %}
-        {% if txn.type != 'OPN' %}<form method="post" action="/transactions/{{ txn.id }}/delete" data-confirm-delete><button class="btn danger">Delete</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>{% endif %}
+        {% if txn.type != 'OPN' %}<form method="post" action="/transactions/{{ txn.id }}/delete" data-confirm-delete><button class="btn danger">{{ 'Delete'|tr(locale) }}</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>{% endif %}
       {% else %}
         {% if replaced_revaluation %}<p class="muted small">Replaced by a newer revaluation; nothing to restore.</p>{% else %}<form method="post" action="/transactions/{{ txn.id }}/restore"><button class="btn">Restore</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>{% endif %}
       {% endif %}
@@ -54,13 +54,13 @@
     <div id="expense-split-rows">
       {% for row in split_lines %}<div class="split-row">
         <select name="split_category_id" aria-label="Expense category" data-own-picker>
-          <option value="">Choose a category</option>{% from "partials/macros.html" import category_options %}{{ category_options(category_groups(expense_categories|map(attribute='id')|list), row.category_id) }}
+          <option value="">{{ 'Choose a category'|tr(locale) }}</option>{% from "partials/macros.html" import category_options %}{{ category_options(category_groups(expense_categories|map(attribute='id')|list), row.category_id) }}
         </select>
         <input type="text" name="split_amount" value="{{ row.amount }}" placeholder="Amount" inputmode="decimal" aria-label="Split amount">
       </div>{% endfor %}
       {% for _ in range(2) %}<div class="split-row">
         <select name="split_category_id" aria-label="Expense category" data-own-picker>
-          <option value="">Choose a category</option>{% from "partials/macros.html" import category_options %}{{ category_options(category_groups(expense_categories|map(attribute='id')|list)) }}
+          <option value="">{{ 'Choose a category'|tr(locale) }}</option>{% from "partials/macros.html" import category_options %}{{ category_options(category_groups(expense_categories|map(attribute='id')|list)) }}
         </select>
         <input type="text" name="split_amount" placeholder="Amount" inputmode="decimal" aria-label="Split amount">
       </div>{% endfor %}
@@ -90,7 +90,7 @@
   <details>
     <summary>Ledger lines — how this transaction affects balances</summary>
     <table style="margin-top:10px">
-      <thead><tr><th>Line</th><th>Account</th><th>Asset</th><th>Effect</th><th>Category</th><th class="num">Quantity</th><th class="num">Value ({{ base }})</th></tr></thead>
+      <thead><tr><th>Line</th><th>{{ 'Account'|tr(locale) }}</th><th>Asset</th><th>Effect</th><th>{{ 'Category'|tr(locale) }}</th><th class="num">Quantity</th><th class="num">Value ({{ base }})</th></tr></thead>
       {% for l in lines %}
       <tr><td class="code">{{ l.ref }}</td><td class="small">{{ l.account }}</td><td class="code">{{ l.asset }}</td><td><span class="pill">{{ l.effect }}</span></td>
           <td class="small">{{ l.category }}</td><td class="num">{{ l.quantity|money(True) }}</td><td class="num">{{ l.amount_base|money(True) }}</td></tr>

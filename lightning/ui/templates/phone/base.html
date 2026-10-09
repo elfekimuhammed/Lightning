@@ -1,7 +1,7 @@
 {# The phone frame (guideline Part C, C02–C05): app bar on top, content, five-section tab bar at the bottom.
    base.html hands over to this when the request comes from the phone app; pages keep their blocks. #}
 <!doctype html>
-<html lang="en" class="phone{% if privacy_on(request) %} privacy{% endif %}">
+<html lang="{{ 'ar-EG' if locale == 'ar' else 'en' }}" dir="{{ 'rtl' if locale == 'ar' else 'ltr' }}" class="phone{% if privacy_on(request) %} privacy{% endif %}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -10,13 +10,13 @@
   <link rel="icon" type="image/svg+xml" href="/static/lightning-mark.svg">
   <link rel="stylesheet" href="/static/fonts/fonts.css">
   <link rel="stylesheet" href="/static/style.css?v=83">
-  <link rel="stylesheet" href="/static/phone.css?v=4">
+  <link rel="stylesheet" href="/static/phone.css?v=5">
 </head>
 <body data-base-currency="{{ base }}" class="phone-body">
 {% set here = sections_for(request) %}{% set back = back_url(request) %}
 <header class="phone-appbar">
   {# C03.2: the mark alone, or on an inner page ‹ and the page it returns to. A page sets phone_back. #}
-  {% block phone_back %}{% if back %}<a class="phone-back" href="{{ back }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><span>{{ here.section.label if here.section else 'Back' }}</span></a>
+  {% block phone_back %}{% if back %}<a class="phone-back" href="{{ back }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><span>{{ (here.section.label if here.section else 'Back')|tr(locale) }}</span></a>
   {% else %}<a class="phone-mark" href="/" aria-label="Overview"><img src="/static/lightning-mark.svg" alt="" width="20" height="28"></a>{% endif %}{% endblock %}
   <span class="phone-appbar-title" aria-hidden="true"></span>
   <nav class="phone-appbar-icons" aria-label="Tools">
@@ -26,12 +26,12 @@
   </nav>
 </header>
 <main class="main phone-content">
-  {% if request.state.device_line|default('') %}<div class="flash device-line" role="status"><span>{{ request.state.device_line }}</span>{% if request.state.device_action == 'hand-back' %}<form method="post" action="/sync/hand-back"><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"><button class="btn primary" type="submit">Hand back</button></form>{% elif request.state.device_action == 'take-back' %}<a class="btn" href="/profiles/devices">Devices</a>{% endif %}</div>{% endif %}
+  {% if request.state.device_line|default('') %}<div class="flash device-line" role="status"><span>{{ request.state.device_line }}</span>{% if request.state.device_action == 'hand-back' %}<form method="post" action="/sync/hand-back"><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"><button class="btn primary" type="submit">{{ 'Hand back'|tr(locale) }}</button></form>{% elif request.state.device_action == 'take-back' %}<a class="btn" href="/profiles/devices">{{ 'Devices'|tr(locale) }}</a>{% endif %}</div>{% endif %}
   <div class="phone-header">{% block heading %}{% endblock %}</div>
   <div class="phone-page-actions">{% block top_actions %}{% endblock %}</div>
   {% include "partials/section_tabs.html" %}
-  {% if msg %}<div class="flash" role="status" aria-live="polite" aria-atomic="true">{{ msg }}</div>{% endif %}
-  {% if error %}<div class="flash error" role="alert" aria-live="assertive" aria-atomic="true">{{ error }}</div>{% endif %}
+  {% if msg %}<div class="flash" role="status" aria-live="polite" aria-atomic="true">{{ msg|tr(locale) }}</div>{% endif %}
+  {% if error %}<div class="flash error" role="alert" aria-live="assertive" aria-atomic="true">{{ error|tr(locale) }}</div>{% endif %}
   {% block content %}{% endblock %}
   {# C05.2 (3.27): adding is one tap from every section's first page; it asks which account, then opens the sheet. #}
   {% block phone_add %}{% if request.url.path in ('/', '/budget', '/plan', '/investments') and not request.state.read_only|default(false) %}<a class="phone-add" href="/accounts/add-transaction" data-popup-open aria-label="Add transaction"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></a>{% endif %}{% endblock %}
@@ -44,7 +44,7 @@
     ('plan', 'Cash', '/plan', 'M4 6h16a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2zM14 12a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM6 12h.01M18 12h.01'),
     ('investments', 'Investments', '/investments', 'M3 20V4M3 20h18M6 16l5-5 4 3 5-8M16 6h4v4'),
     ('accounts', 'Accounts', '/accounts', 'M3 10h18M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 21h18M12 3l9 5H3z')] %}
-  <a class="phone-tab{{ ' is-chosen' if chosen == key }}" href="{{ href }}"{% if chosen == key %} aria-current="page"{% endif %}><span class="phone-tab-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="{{ path }}"/></svg></span><span class="phone-tab-name">{{ label }}</span></a>
+  <a class="phone-tab{{ ' is-chosen' if chosen == key }}" href="{{ href }}"{% if chosen == key %} aria-current="page"{% endif %}><span class="phone-tab-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="{{ path }}"/></svg></span><span class="phone-tab-name">{{ label|tr(locale) }}</span></a>
   {% endfor %}
 </nav>
 <dialog id="app-popup" class="app-popup phone-sheet" aria-modal="true" aria-labelledby="app-popup-title">

@@ -1,4 +1,4 @@
 {% extends "base.html" %}
 {% block title %}Target allocation{% endblock %}
-{% block heading %}<div><h1>Target allocation</h1></div>{% endblock %}
+{% block heading %}<div><h1>{{ 'Target allocation'|tr(locale) }}</h1></div>{% endblock %}
 {% block content %}<section class="card">{% include "investments/_targets.html" %}</section>{% endblock %}

@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% from "partials/charts.html" import tone_icon %}
 {% block title %}Investments{% endblock %}
-{% block heading %}<div class="birdview-title"><div><h1>Investments</h1><div class="muted">Valued as of {{ period.end_display }}</div></div>{# the Planner tab is the way in #}</div>{% endblock %}
-{% block top_actions %}{% from "partials/macros.html" import period_control %}{{ period_control("/investments", period.key, period.start_text[:7], this_month, period.start_text, period.end_text) }}{% endblock %}
+{% block heading %}<div class="birdview-title"><div><h1>{{ 'Investments'|tr(locale) }}</h1><div class="muted">Valued as of {{ period.end_display }}</div></div>{# the Planner tab is the way in #}</div>{% endblock %}
+{% block top_actions %}{% from "partials/macros.html" import period_control with context %}{{ period_control("/investments", period.key, period.start_text[:7], this_month, period.start_text, period.end_text) }}{% endblock %}
 {% block content %}
 {% if period_error %}<p class="flash error">{{ period_error }}</p>{% endif %}
 {% from "partials/charts.html" import key_notes, trend, donut, bars, diverging, saved_split %}
@@ -10,13 +10,13 @@
 
 {% if not accounts %}<div class="card empty">Investments live in a brokerage account or a physical asset account. <a href="/accounts/new?type=BROKERAGE">Add a brokerage account</a></div>
 {% else %}
-{% if not owned_rows and not period_activity %}<section class="card empty"><h2>No holdings yet</h2><p>{% if investment_report.investment_cash %}{{ investment_report.investment_cash|money }} {{ base if base is defined else '' }} of brokerage cash is ready in your investment accounts. {% endif %}Record a holding to see portfolio value, performance, and allocation.</p><p class="muted small">Holdings are recorded from their account. <a href="/accounts">Open accounts</a></p></section>
+{% if not owned_rows and not period_activity %}<section class="card empty"><h2>{{ 'No holdings yet'|tr(locale) }}</h2><p>{% if investment_report.investment_cash %}{{ investment_report.investment_cash|money }} {{ base if base is defined else '' }} of brokerage cash is ready in your investment accounts. {% endif %}Record a holding to see portfolio value, performance, and allocation.</p><p class="muted small">Holdings are recorded from their account. <a href="/accounts">{{ 'Open accounts'|tr(locale) }}</a></p></section>
 {% else %}
 {% set result = investment_report.result %}
 <section class="stat-tiles inv-top" aria-label="This period">
   {% if not phone_mode() %}{# on a phone the Overview's tiles carry these rates; never twice #}
   <div class="stat-tile surface-in inv-saved-tile">{% set w = waffle %}{% set bar = w.bar %}
-    <span class="stat-tile-head">{{ tone_icon('in') }}<span class="stat-tile-label">Saved and invested</span><span class="stat-chip">{{ chip }}</span></span>
+    <span class="stat-tile-head">{{ tone_icon('in') }}<span class="stat-tile-label">{{ 'Saved and invested'|tr(locale) }}</span><span class="stat-chip">{{ chip }}</span></span>
     {{ saved_split(w) }}
   </div>{% endif %}
   <div class="stat-tile surface-{{ 'over' if result is not none and result < 0 else 'in' }} inv-result-tile">
@@ -49,11 +49,11 @@
 {% if investment_report.unresolved_dividends %}<p class="notice">{{ investment_report.unresolved_dividends }} dividend(s) have unresolved asset attribution; the amount remains in cash.</p>{% endif %}
 {% if investment_report.recon_difference is not none and investment_report.recon_difference|abs > 0.01 %}<p class="notice">Portfolio reconciliation differs from closing value by {{ investment_report.recon_difference|money(True) }}. The source is unresolved.</p>{% endif %}
 
-<header class="overview-section-head inv-head"><h2>Holdings</h2><span>As of {{ period.end_text }}</span></header>
+<header class="overview-section-head inv-head"><h2>{{ 'Holdings'|tr(locale) }}</h2><span>As of {{ period.end_text }}</span></header>
 <section class="card wide-card holdings-card"><div class="holdings-toolbar"><div class="holdings-filters"><input id="holding-search" placeholder="Search holdings" data-filter-holdings aria-label="Search holdings"><select id="horizon-filter" data-filter-holdings aria-label="Horizon"><option value="">All horizons</option><option>Short</option><option>Medium</option><option>Long</option><option>Unassigned</option></select></div></div>
 {% set multi = holding_accounts > 1 %}{% set cols = 12 if multi else 11 %}
 {% macro pct(value, tone_of=none) %}{% if value is not none %}<span class="{{ (tone_of if tone_of is not none else value)|tone }}">{{ value|signed_pct }}%</span>{% else %}—{% endif %}{% endmacro %}
-<div class="table-wrap"><table id="holdings-table" class="holdings-grouped holdings-wide"><thead><tr><th>Investment</th>{% if multi %}<th>Account</th>{% endif %}<th class="num">Units</th><th class="num">{{ fig.average_cost.label }}</th><th class="num">Price</th><th class="num">{{ fig.cost.label }}</th><th class="num">Value</th><th class="num">Share</th><th class="num">Gain</th><th class="num">Return</th><th class="num" title="Return a year, counting when money went in and out (after a full year held)">XIRR</th><th>Horizon</th></tr></thead>
+<div class="table-wrap"><table id="holdings-table" class="holdings-grouped holdings-wide"><thead><tr><th>Investment</th>{% if multi %}<th>{{ 'Account'|tr(locale) }}</th>{% endif %}<th class="num">Units</th><th class="num">{{ fig.average_cost.label }}</th><th class="num">Price</th><th class="num">{{ fig.cost.label }}</th><th class="num">Value</th><th class="num">Share</th><th class="num">Gain</th><th class="num">Return</th><th class="num" title="Return a year, counting when money went in and out (after a full year held)">XIRR</th><th>Horizon</th></tr></thead>
 {% set tot_cost = holding_groups|sum(attribute='cost') %}{% set tot_value = holding_groups|sum(attribute='value') %}<tbody class="holding-total"><tr><th>All holdings</th>{% if multi %}<td></td>{% endif %}<td></td><td></td><td></td><td class="num">{{ tot_cost|money }}</td><td class="num">{{ tot_value|money }}</td><td class="num">100%</td><td class="num gain"><span class="{{ (tot_value - tot_cost)|tone }}">{{ (tot_value - tot_cost)|money(True) }}</span></td><td class="num">{{ pct((tot_value - tot_cost) / tot_cost * 100 if tot_cost else none) }}</td><td class="num">{{ pct(since_xirr * 100 if since_xirr is not none else none) }}</td><td></td></tr></tbody>
 {% for g in holding_groups %}<tbody class="holding-group"><tr class="holding-class"><th>{{ g.name }}</th>{% if multi %}<td></td>{% endif %}<td></td><td></td><td></td><td class="num">{{ g.cost|money }}</td><td class="num">{{ g.value|money }}</td><td class="num">{{ '%.1f'|format(g.weight) }}%</td><td class="num gain"><span class="{{ g.gain|tone }}">{{ g.gain|money(True) }}</span></td><td class="num">{{ pct(g.gain_pct) }}</td><td class="num">—</td><td></td></tr>
 {% for r in g.rows %}{% if r.balance %}<tr data-search="{{ (r.name ~ ' ' ~ g.name)|lower }}" data-horizon="Unassigned">
@@ -91,7 +91,7 @@ document.querySelectorAll('[data-horizon-edit]').forEach(b=>b.addEventListener('
   </div>
 </section>
 
-{% if horizons.get('Unassigned', 0) < holdings_total %}<header class="overview-section-head inv-head"><h2>Intended investment horizon</h2><span>Today</span></header>
+{% if horizons.get('Unassigned', 0) < holdings_total %}<header class="overview-section-head inv-head"><h2>{{ 'Intended investment horizon'|tr(locale) }}</h2><span>{{ 'Today'|tr(locale) }}</span></header>
 <section class="card wide-card analysis-card"><div class="horizon-stack" role="img" aria-label="Portfolio value by intended investment horizon">{% for label in ['Short','Medium','Long','Unassigned'] %}{% set v=horizons.get(label,0) %}{% set pct=(v/holdings_total*100) if holdings_total else 0 %}<button type="button" class="horizon-segment horizon-{{ label|lower }}" style="width:{{ pct }}%" title="{{ label }} {{ v|money }} · {{ pct|round(1) }}%" data-horizon-filter="{{ label }}">{% if pct>8 %}{{ label }} · {{ pct|round(1) }}%{% endif %}</button>{% endfor %}</div><div class="horizon-legend">{% for label in ['Short','Medium','Long','Unassigned'] %}{% set v=horizons.get(label,0) %}<button type="button" data-horizon-filter="{{ label }}"><i class="dot horizon-dot-{{ label|lower }}"></i><span>{{ label }}<small>{{ ((v/holdings_total*100) if holdings_total else 0)|round(1) }}% · {{ v|money }}</small></span></button>{% endfor %}</div></section>{% endif %}
 
 {% endif %}{% endif %}{% endblock %}

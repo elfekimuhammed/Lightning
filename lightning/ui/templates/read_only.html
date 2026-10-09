@@ -11,6 +11,6 @@
   {% else %}
   <p>{{ refusal }}</p>
   {% endif %}
-  <div class="actions"><a class="btn primary" href="{{ back }}">Back</a>{% if action == 'take-back' %}<a class="btn" href="/profiles/devices">Devices</a>{% else %}<a class="btn" href="/profiles">Profiles &amp; lock</a>{% endif %}</div>
+  <div class="actions"><a class="btn primary" href="{{ back }}">{{ 'Back'|tr(locale) }}</a>{% if action == 'take-back' %}<a class="btn" href="/profiles/devices">{{ 'Devices'|tr(locale) }}</a>{% else %}<a class="btn" href="/profiles">Profiles &amp; lock</a>{% endif %}</div>
 </div>
 {% endblock %}

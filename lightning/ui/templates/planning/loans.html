@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 {% block title %}Loans · Cash planning{% endblock %}
-{% block heading %}<div><h1>Cash planning</h1></div>{% endblock %}
+{% block heading %}<div><h1>{{ 'Cash planning'|tr(locale) }}</h1></div>{% endblock %}
 {% block top_actions %}<a class="btn primary" data-popup-open href="/plan/items/new?kind=LOAN">Add loan</a>{% endblock %}
 {% block content %}
 {% from "partials/charts.html" import key_notes, stat_tiles %}
 {{ stat_tiles(debt_tiles, base, 'Your debt') }}
 {{ key_notes(notes) }}
 <section class="plan-section" aria-labelledby="loans-total">
-  <header class="overview-section-head"><h2 id="loans-total">Loans still to pay</h2></header>
+  <header class="overview-section-head"><h2 id="loans-total">{{ 'Loans still to pay'|tr(locale) }}</h2></header>
   <article class="card plan-lead lead-card">
     <div class="plan-figure">{{ still_to_pay|money(False, 0) }} <small>{{ base }}</small></div>
     <p class="muted small">Every unpaid payment, due or upcoming. Only payments already due come off free cash.</p>

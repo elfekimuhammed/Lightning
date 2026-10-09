@@ -1,5 +1,5 @@
 <fieldset class="sc-group"><legend>Emergency fund</legend>
       <div class="planner-mode" role="radiogroup" aria-label="Count the emergency fund in months of"><span class="planner-mode-label">Count it in months of</span><span class="planner-mode-seg">
         <label title="{{ fig.average_monthly_income.label }}"><input type="radio" name="emergency_basis" value="income"{% if emergency_basis != 'spending' %} checked{% endif %}><span>Income</span></label>
-        <label title="{{ fig.average_monthly_spending.label }}"><input type="radio" name="emergency_basis" value="spending"{% if emergency_basis == 'spending' %} checked{% endif %}><span>Spending</span></label></span></div>
+        <label title="{{ fig.average_monthly_spending.label }}"><input type="radio" name="emergency_basis" value="spending"{% if emergency_basis == 'spending' %} checked{% endif %}><span>{{ 'Spending'|tr(locale) }}</span></label></span></div>
     </fieldset>

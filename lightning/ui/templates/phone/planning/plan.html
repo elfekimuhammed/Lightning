@@ -5,13 +5,13 @@
 {% from "phone/partials/charts.html" import kpi_tiles, bar_rows %}
 {% from "partials/charts.html" import trend %}
 {% block title %}Cash planning{% endblock %}
-{% block heading %}<h1>Cash planning</h1><p>As of {{ as_of }}</p>{% endblock %}
+{% block heading %}<h1>{{ 'Cash planning'|tr(locale) }}</h1><p>As of {{ as_of }}</p>{% endblock %}
 {% block content %}
 {% set f = forecast %}{% set p = plan %}
 {{ kpi_tiles(stats, base) }}
 
 <section class="phone-section" aria-labelledby="safe-section">
-  <header class="phone-section-head"><h2 id="safe-section">Safe to spend</h2><span>To {{ f.next_income_date or 'three months from now' }}</span></header>
+  <header class="phone-section-head"><h2 id="safe-section">{{ 'Safe to spend'|tr(locale) }}</h2><span>To {{ f.next_income_date or 'three months from now' }}</span></header>
   <article class="card phone-card" id="plan-build" aria-labelledby="safe-heading">
     <h3 id="safe-heading" class="phone-card-title">{{ fig.safe_to_spend.label }}</h3><p class="phone-note">From free cash, after what is promised</p>
     <div class="phone-lead{{ ' is-negative' if f.safe_to_spend < 0 }}">{{ f.safe_to_spend|money }} <small>{{ base }}</small></div>
@@ -26,7 +26,7 @@
     {% endfor %}</div>
     {% if next_payments|length > 8 %}<a class="phone-quiet" href="/plan/recurring">{{ next_payments|length - 8 }} more on Recurring</a>{% endif %}
     {% elif has_items %}<p class="chart-empty">Nothing is due in the next 30 days.</p>
-    {% else %}<p class="chart-empty">Add your bills, subscriptions, income and loans on Recurring to see what is coming.</p><a class="btn primary phone-save" href="/plan/recurring">Recurring</a>{% endif %}
+    {% else %}<p class="chart-empty">Add your bills, subscriptions, income and loans on Recurring to see what is coming.</p><a class="btn primary phone-save" href="/plan/recurring">{{ 'Recurring'|tr(locale) }}</a>{% endif %}
   </article>
 </section>
 
@@ -47,13 +47,13 @@
   {% else %}
   <article class="card phone-card" id="plan-forecast">
     <p class="phone-note">Add your salary and bills to see where your cash is heading. With nothing planned Lightning would only be guessing.</p>
-    <a class="btn primary phone-save" href="/plan/recurring">Add salary and bills</a>
+    <a class="btn primary phone-save" href="/plan/recurring">{{ 'Add salary and bills'|tr(locale) }}</a>
   </article>
   {% endif %}
 </section>
 
 <section class="phone-section" aria-labelledby="owe-section">
-  <header class="phone-section-head"><h2 id="owe-section">What is promised</h2><span>Today</span></header>
+  <header class="phone-section-head"><h2 id="owe-section">What is promised</h2><span>{{ 'Today'|tr(locale) }}</span></header>
   <article class="card phone-card" aria-labelledby="owe-heading">
     <h3 id="owe-heading" class="phone-card-title">{{ fig.what_you_owe.label }}</h3><p class="phone-note">Bills already due and loans</p>
     <div class="phone-lead">{{ owe.total|money }} <small>{{ base }}</small></div>

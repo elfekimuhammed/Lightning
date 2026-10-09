@@ -11,7 +11,7 @@
   <h3 style="margin-top:16px">Shared price files</h3>
   {% if market %}
   <table class="budget">
-    <thead><tr><th>Market</th><th class="num">Prices</th><th>Up to</th><th>File</th></tr></thead>
+    <thead><tr><th>Market</th><th class="num">{{ 'Prices'|tr(locale) }}</th><th>Up to</th><th>File</th></tr></thead>
     {% for m in market %}<tr><td>{{ m.name }}</td>{% if m.have %}<td class="num">{{ m.have.instruments }}</td><td>{{ m.have.last_date }}</td><td class="muted small">{{ m.have.created_at }}, {{ m.have.origin }}</td>{% else %}<td class="num muted">—</td><td colspan="2" class="muted">Not downloaded yet</td>{% endif %}</tr>{% endfor %}
   </table>
   {% set cited = market | selectattr('have') | selectattr('source') | map(attribute='source') | unique | list %}
@@ -46,7 +46,7 @@
 {% endif %}
 <form method="post" class="card" style="max-width:1000px" autocomplete="off">
   <div class="field" style="max-width:220px">
-    <label for="date">As of <span class="muted small">yyyy-mm-dd</span></label>
+    <label for="date">{{ 'As of'|tr(locale) }} <span class="muted small">{{ 'yyyy-mm-dd'|tr(locale) }}</span></label>
     <input type="text" id="date" name="date" value="{{ day }}" placeholder="yyyy-mm-dd" inputmode="numeric" autocomplete="off" data-smart-date required>
   </div>
   <table class="budget">
@@ -64,7 +64,7 @@
     <tr><td colspan="5" class="empty">No investments yet. <a href="/investments/assets/new">Add one</a>.</td></tr>
     {% endfor %}
   </table>
-  <div class="actions" style="margin-top:14px"><button class="btn primary">Save prices</button><a class="btn" href="/investments">Cancel</a></div>
+  <div class="actions" style="margin-top:14px"><button class="btn primary">Save prices</button><a class="btn" href="/investments">{{ 'Cancel'|tr(locale) }}</a></div>
   <p class="muted small">A price you type wins over the price files and the last trade price for the same day.</p>
 <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
 {% endblock %}

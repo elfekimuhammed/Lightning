@@ -3,7 +3,7 @@
 {% extends "base.html" %}
 {% block title %}Devices{% endblock %}
 {% block phone_back %}<a class="phone-back" href="/profiles"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><span>Profile</span></a>{% endblock %}
-{% block heading %}<h1>Devices</h1><p>Your PCs borrow the ledger from this phone</p>{% endblock %}
+{% block heading %}<h1>{{ 'Devices'|tr(locale) }}</h1><p>Your PCs borrow the ledger from this phone</p>{% endblock %}
 {% block content %}
 {% if error %}<div class="flash error" role="alert">{{ error }}</div>{% endif %}
 {% if notice %}<div class="flash" role="status">{{ notice }}</div>{% endif %}

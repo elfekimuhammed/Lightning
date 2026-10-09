@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "partials/macros.html" import field %}
+{% from "partials/macros.html" import field with context %}
 {% block title %}{{ 'Edit category' if category else 'New category' }}{% endblock %}
 {% block heading %}<h1>{{ ('Edit ' ~ category.name) if category else 'New L2 category' }}</h1>
 {% if parent_name %}<div class="muted">In {{ parent_name.split(' › ')|join(' · ') }}{% if not category %} · the new category goes under it{% endif %}</div>{% endif %}{% endblock %}
@@ -19,18 +19,18 @@
     </div>
   </details>
   <div class="actions" style="margin-top:12px">
-    <button class="btn primary">Save</button>
+    <button class="btn primary">{{ 'Save'|tr(locale) }}</button>
     {% if category and not category.is_system and category.depth >= 2 %}
     {% if category.active %}<button class="btn" name="active" value="0" formnovalidate>Archive</button>
     {% else %}<button class="btn" name="active" value="1" formnovalidate>Activate</button>{% endif %}
     {% endif %}
-    <a class="btn" href="/categories">Cancel</a>
+    <a class="btn" href="/categories">{{ 'Cancel'|tr(locale) }}</a>
   </div>
 <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
 {% if category and not category.is_system and category.depth >= 2 %}
 <form method="post" action="/categories/{{ category.id }}/delete" style="margin-top:10px"
       data-confirm="Delete this category? If it has transactions or is otherwise in use, it will be archived instead.">
-  <button class="btn danger">Delete</button>
+  <button class="btn danger">{{ 'Delete'|tr(locale) }}</button>
 <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
 {% endif %}
 {% if review_required and similar_categories %}
@@ -43,7 +43,7 @@
       <input type="hidden" name="name" value="{{ values.name }}"><input type="hidden" name="code" value="{{ values.code }}">
       <input type="hidden" name="default_reimbursable" value="{{ values.default_reimbursable }}">
       <button class="btn primary" name="confirm_similar" value="1">Create a separate category anyway</button>
-      <a class="btn" href="/categories">Cancel</a>
+      <a class="btn" href="/categories">{{ 'Cancel'|tr(locale) }}</a>
     <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
   </section>
 </div>

@@ -11,21 +11,21 @@
   {{ segment('match', 'Match', [('all', 'All of these'), ('any', 'Any of these')], values.match) }}
   <div class="row">
     {{ segment('counterparty_op', 'Counterparty', [('contains', 'Contains'), ('is', 'Is'), ('one_of', 'One of')], values.counterparty_op) }}
-    <div class="field {{ err('counterparty') }}"><label for="counterparty">Name <span class="muted small">optional · for one of, separate with commas</span></label><input id="counterparty" name="counterparty" value="{{ values.counterparty }}" list="rule-counterparties" data-own-suggestions placeholder="Vodafone"><datalist id="rule-counterparties">{% for p in counterparties %}<option value="{{ p.name }}">{% endfor %}</datalist></div>
+    <div class="field {{ err('counterparty') }}"><label for="counterparty">{{ 'Name'|tr(locale) }} <span class="muted small">optional · for one of, separate with commas</span></label><input id="counterparty" name="counterparty" value="{{ values.counterparty }}" list="rule-counterparties" data-own-suggestions placeholder="Vodafone"><datalist id="rule-counterparties">{% for p in counterparties %}<option value="{{ p.name }}">{% endfor %}</datalist></div>
   </div>
   <div class="row">
-    <div class="field {{ err('amount_op') }}"><label for="amount_op">Amount</label><select id="amount_op" name="amount_op">{% for value, text in [('', 'Any amount'), ('is', 'Is'), ('about', 'About (within 7.5%)'), ('between', 'Between'), ('more', 'More than'), ('less', 'Less than')] %}<option value="{{ value }}" {{ 'selected' if values.amount_op == value }}>{{ text }}</option>{% endfor %}</select></div>
+    <div class="field {{ err('amount_op') }}"><label for="amount_op">{{ 'Amount'|tr(locale) }}</label><select id="amount_op" name="amount_op">{% for value, text in [('', 'Any amount'), ('is', 'Is'), ('about', 'About (within 7.5%)'), ('between', 'Between'), ('more', 'More than'), ('less', 'Less than')] %}<option value="{{ value }}" {{ 'selected' if values.amount_op == value }}>{{ text }}</option>{% endfor %}</select></div>
     <div class="field {{ err('amount') }}" data-rule-amount{{ ' hidden' if not values.amount_op }}><label for="amount">{{ base }}</label><span class="rule-amounts"><input id="amount" name="amount" value="{{ values.amount }}" inputmode="decimal" class="money-input" placeholder="100"><input name="amount_to" value="{{ values.amount_to }}" inputmode="decimal" class="money-input {{ err('amount_to') }}" placeholder="and 300" aria-label="Up to" data-rule-amount-to{{ ' hidden' if values.amount_op != 'between' }}></span></div>
   </div>
   <div class="row">
-    <div class="field {{ err('notes') }}"><label for="notes">Notes contain <span class="muted small">optional</span></label><input id="notes" name="notes" value="{{ values.notes }}" placeholder="internet"></div>
-    <div class="field {{ err('account_id') }}"><label for="account_id">Account <span class="muted small">optional</span></label><select id="account_id" name="account_id" data-own-picker><option value="">Any account</option>{% for a in accounts %}<option value="{{ a.id }}" {{ 'selected' if values.account_id == a.id|string }}>{{ a.name }}</option>{% endfor %}</select></div>
+    <div class="field {{ err('notes') }}"><label for="notes">Notes contain <span class="muted small">{{ 'optional'|tr(locale) }}</span></label><input id="notes" name="notes" value="{{ values.notes }}" placeholder="internet"></div>
+    <div class="field {{ err('account_id') }}"><label for="account_id">{{ 'Account'|tr(locale) }} <span class="muted small">{{ 'optional'|tr(locale) }}</span></label><select id="account_id" name="account_id" data-own-picker><option value="">Any account</option>{% for a in accounts %}<option value="{{ a.id }}" {{ 'selected' if values.account_id == a.id|string }}>{{ a.name }}</option>{% endfor %}</select></div>
   </div>
   {{ segment('direction', 'Direction', [('', 'Either'), ('out', 'Money out'), ('in', 'Money in')], values.direction) }}
   <h2>Then</h2>
   <div class="row">
-    <div class="field {{ err('category_id') }}"><label for="category_id">Category</label><select id="category_id" name="category_id" data-own-picker><option value="">Keep the usual one</option>{{ category_options(category_groups(categories), values.category_id) }}</select></div>
-    <div class="field {{ err('tag') }}"><label for="tag">Add a tag <span class="muted small">optional</span></label><input id="tag" name="tag" value="{{ values.tag }}" placeholder="#bills"></div>
+    <div class="field {{ err('category_id') }}"><label for="category_id">{{ 'Category'|tr(locale) }}</label><select id="category_id" name="category_id" data-own-picker><option value="">Keep the usual one</option>{{ category_options(category_groups(categories), values.category_id) }}</select></div>
+    <div class="field {{ err('tag') }}"><label for="tag">Add a tag <span class="muted small">{{ 'optional'|tr(locale) }}</span></label><input id="tag" name="tag" value="{{ values.tag }}" placeholder="#bills"></div>
   </div>
   <details class="rule-split" {{ 'open' if values.part_category_1 or error_field.startswith('part_') }}><summary>Split money out</summary>
     <p class="muted small">Each part takes a fixed amount, or a percent like 30%. The rest goes to the category above.</p>
@@ -34,8 +34,8 @@
       <div class="field {{ err('part_value_' ~ i) }}"><label for="part_value_{{ i }}">Amount or %</label><input id="part_value_{{ i }}" name="part_value_{{ i }}" value="{{ values['part_value_' ~ i] }}" inputmode="decimal" placeholder="30%"></div>
     </div>{% endfor %}
   </details>
-  <div class="actions"><button class="btn primary">{{ 'Save' if rule else 'Add rule' }}</button><a class="btn" href="/rules" data-popup-close>Cancel</a></div>
+  <div class="actions"><button class="btn primary">{{ 'Save' if rule else 'Add rule' }}</button><a class="btn" href="/rules" data-popup-close>{{ 'Cancel'|tr(locale) }}</a></div>
 <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
-{% if rule %}<form method="post" action="/rules/{{ rule.id }}/delete" class="plan-delete" data-confirm-delete="Delete this rule? Transactions it filed keep their category."><button class="btn small danger">Delete</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>{% endif %}
+{% if rule %}<form method="post" action="/rules/{{ rule.id }}/delete" class="plan-delete" data-confirm-delete="Delete this rule? Transactions it filed keep their category."><button class="btn small danger">{{ 'Delete'|tr(locale) }}</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>{% endif %}
 <script nonce="{{ request.state.csp_nonce|default('') }}">(()=>{const op=document.getElementById('amount_op');if(!op)return;const show=()=>{document.querySelector('[data-rule-amount]').hidden=!op.value;document.querySelector('[data-rule-amount-to]').hidden=op.value!=='between'};op.addEventListener('change',show)})();</script>
 {% endblock %}

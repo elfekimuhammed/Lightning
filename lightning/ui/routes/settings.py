@@ -134,6 +134,15 @@ async def save_privacy(request: Request):
     return Response(status_code=204)
 
 
+@router.post("/locale")
+async def save_locale(request: Request):
+    """Store the interface language in this profile; unsupported values fall back to English."""
+    form = await request.form()
+    locale = str(form.get("locale", "en"))
+    container(request).settings.set("locale", locale if locale in ("en", "ar") else "en")
+    return redirect("/settings")
+
+
 @router.post("/ai-analysis")
 async def prepare_ai_analysis(request: Request):
     c = container(request)

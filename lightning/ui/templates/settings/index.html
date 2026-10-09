@@ -1,7 +1,7 @@
 {% extends "base.html" %}
-{% from 'partials/macros.html' import period_control %}
+{% from 'partials/macros.html' import period_control with context %}
 {% block title %}Settings{% endblock %}
-{% block heading %}<h1>Settings</h1>{% endblock %}
+{% block heading %}<h1>{{ 'Settings'|tr(locale) }}</h1>{% endblock %}
 
 {% block content %}
 {% set settings_section = 'valuations' if section in ('valuations', 'assets-valuations') else section %}
@@ -16,7 +16,7 @@
 </section>
 {% endif %}
 
-{% if section in ('valuations','assets-valuations') %}<section id="assets-valuations" class="card data-panel"><div class="section-head"><div><h2>Sale factors</h2><p class="muted small">The share of each class's value you would expect to get if you sold today. Used for {{ fig.holdings_after_sale.label|lower }} and {{ fig.if_you_sold_today.label|lower }}.</p></div></div><table class="factor-table"><colgroup><col><col class="c-num"><col class="c-factor"><col class="c-num"></colgroup>
+{% if section in ('valuations','assets-valuations') %}<section id="assets-valuations" class="card data-panel"><div class="section-head"><div><h2>{{ 'Sale factors'|tr(locale) }}</h2><p class="muted small">The share of each class's value you would expect to get if you sold today. Used for {{ fig.holdings_after_sale.label|lower }} and {{ fig.if_you_sold_today.label|lower }}.</p></div></div><table class="factor-table"><colgroup><col><col class="c-num"><col class="c-factor"><col class="c-num"></colgroup>
 <thead><tr><th>Class</th><th class="num">Value you own</th><th>Sale factor</th><th class="num">After sale (estimate)</th></tr></thead>
 {% for g in factor_groups %}{% set r = g.root %}<tbody class="factor-group">
 <tr class="factor-head"><th>{{ r.name }}</th><td class="num">{{ g.value|money }}</td>
@@ -27,11 +27,11 @@
   <td class="num">{{ row.estimate|money }}</td></tr>{% endfor %}
 </tbody>{% else %}<tbody><tr><td colspan="4">No investment classes are configured.</td></tr></tbody>{% endfor %}
 </table><p class="muted small">Leave a kind empty to use its class’s factor. Clear a class to use the 95% default.</p>
-<details><summary>View configured classes and assets</summary><table>{% for c in classes %}<tr><td class="indent-{{ c.depth }}">{{ c.name }}</td></tr>{% endfor %}</table><h3>Financial assets</h3><table>{% for a in assets %}<tr><td>{{ a.name }}</td></tr>{% endfor %}</table></details></section>
+<details><summary>View configured classes and assets</summary><table>{% for c in classes %}<tr><td class="indent-{{ c.depth }}">{{ c.name }}</td></tr>{% endfor %}</table><h3>{{ 'Financial assets'|tr(locale) }}</h3><table>{% for a in assets %}<tr><td>{{ a.name }}</td></tr>{% endfor %}</table></details></section>
 {% elif section=='budget' %}{% include 'settings/budget_section.html' %}
 {% elif section=='financial-health' %}{% include 'settings/financial_health_section.html' %}
-{% elif section=='targets' %}<section class="card"><div class="section-head"><div><h2>Target allocation</h2></div></div>{% include "investments/_targets.html" %}</section>
-{% elif section=='general' %}<section class="card data-panel"><div class="section-head"><div><h2>Your data</h2></div><form method="post" action="/settings/backup"><button class="btn primary">Back up now</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form></div><table><tr><td class="muted">App version</td><td>v{{ app_version }}</td></tr><tr><td class="muted">Base currency</td><td>{{ base }}</td></tr>{% if not phone_mode() %}<tr><td class="muted">Database file</td><td class="small">{{ db_path }}</td></tr>{% endif %}</table><p class="small muted">A backup is made automatically each time the app starts.</p>{% if backups and not phone_mode() %}<details><summary>Recent backups ({{ backups|length }})</summary><ul class="small code">{% for b in backups %}<li>{{ b }}</li>{% endfor %}</ul></details>{% endif %}</section>
+{% elif section=='targets' %}<section class="card"><div class="section-head"><div><h2>{{ 'Target allocation'|tr(locale) }}</h2></div></div>{% include "investments/_targets.html" %}</section>
+{% elif section=='general' %}<section class="card data-panel"><div class="section-head"><div><h2>{{ 'Your data'|tr(locale) }}</h2></div><form method="post" action="/settings/backup"><button class="btn primary">{{ 'Back up now'|tr(locale) }}</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form></div><form method="post" action="/settings/locale" class="locale-form"><label for="ui-locale">{{ 'Language'|tr(locale) }}</label><select id="ui-locale" name="locale" onchange="this.form.requestSubmit()"><option value="en" {{ 'selected' if locale == 'en' }}>{{ 'English'|tr(locale) }}</option><option value="ar" {{ 'selected' if locale == 'ar' }}>{{ 'العربية'|tr(locale) }}</option></select><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form><table><tr><td class="muted">{{ 'App version'|tr(locale) }}</td><td>v{{ app_version }}</td></tr><tr><td class="muted">{{ 'Base currency'|tr(locale) }}</td><td dir="ltr">{{ base }}</td></tr>{% if not phone_mode() %}<tr><td class="muted">{{ 'Database file'|tr(locale) }}</td><td class="small">{{ db_path }}</td></tr>{% endif %}</table><p class="small muted">{{ 'A backup is made automatically each time the app starts.'|tr(locale) }}</p>{% if backups and not phone_mode() %}<details><summary>Recent backups ({{ backups|length }})</summary><ul class="small code">{% for b in backups %}<li>{{ b }}</li>{% endfor %}</ul></details>{% endif %}</section>
 <section class="card data-panel" id="tab-settings"><div class="section-head"><div><h2>Settings in each tab</h2><p class="muted small">The same pages the gear opens at the end of each tab bar.</p></div></div><table class="tab-settings">{% for t in tab_settings %}<tr><td><a href="{{ t.href }}" data-popup-open>{{ t.label }}</a></td><td class="muted">{{ t.where }}</td></tr>{% endfor %}</table></section>
 <section class="card data-panel" id="export-for-ai"><div class="section-head"><div><h2>Export for AI</h2><p class="muted small">Lightning does not upload your data.</p></div></div>
 {% if ai_period %}{{ period_control('/settings', ai_period.key, ai_month, current_month, ai_period.start_text, ai_period.end_text, auto_apply=true) }}

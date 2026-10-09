@@ -2,23 +2,23 @@
    then the list grouped by day. No table, no checkbox column, no typing row; the add button opens the sheet. #}
 {% extends "base.html" %}
 {% block title %}{{ account.name if account else 'Transactions' }}{% endblock %}
-{% block phone_back %}<a class="phone-back" href="/accounts"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><span>Accounts</span></a>{% endblock %}
+{% block phone_back %}<a class="phone-back" href="/accounts"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><span>{{ 'Accounts'|tr(locale) }}</span></a>{% endblock %}
 {% block heading %}
 {% if account %}<h1>{{ account.name }}</h1>{% if account.type_short|lower not in account.name|lower %}<p>{{ account.type_short }}</p>{% endif %}
 {% if account_held_value %}<p class="phone-note">In this account</p>{% endif %}
 <div class="phone-lead">{{ (account_value if account_value is not none else account_balance)|money(False, 0) }} <small>{{ account.currency }}</small></div>
 {% if account_held_value %}<p class="phone-note">{{ fig.what_you_own.label }} {{ account_owned_value|money(False, 0) }} · Held for others {{ account_held_value|money(False, 0) }}</p>{% endif %}
-{% else %}<h1>Transactions</h1><p>Every account</p>{% endif %}
+{% else %}<h1>{{ 'Transactions'|tr(locale) }}</h1><p>Every account</p>{% endif %}
 {% endblock %}
 {% block top_actions %}{% if account %}{# C04.5: one Secondary, the rest behind ⋯ #}
 {% if account.account_type.value == 'DEPOSIT' %}<a class="btn" href="/deposits/{{ account.id }}">View CDs</a>{% elif account.active and account.account_type.value in ('CASH','BANK','BROKERAGE') %}<a class="btn" data-popup-open href="/accounts/{{ account.id }}/ownership/new">Change ownership</a>{% endif %}
-<details class="action-menu phone-more-menu"><summary aria-label="More actions">⋯</summary><div>{% if account.account_type.value in ('CASH','BANK','BROKERAGE') %}<a href="/accounts/{{ account.id }}/import">Import a statement</a><a href="/accounts/{{ account.id }}/reconcile">Check against bank</a>{% endif %}<a data-popup-open href="/accounts/{{ account.id }}/edit">Edit account</a><a href="/transactions/deleted">Deleted transactions</a>{% if account.active %}<form method="post" action="/accounts/{{ account.id }}/deactivate"><button class="danger-text">Deactivate</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>{% else %}<form method="post" action="/accounts/{{ account.id }}/reactivate"><button>Reactivate</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>{% endif %}</div></details>
+<details class="action-menu phone-more-menu"><summary aria-label="More actions">⋯</summary><div>{% if account.account_type.value in ('CASH','BANK','BROKERAGE') %}<a href="/accounts/{{ account.id }}/import">Import a statement</a><a href="/accounts/{{ account.id }}/reconcile">Check against bank</a>{% endif %}<a data-popup-open href="/accounts/{{ account.id }}/edit">{{ 'Edit account'|tr(locale) }}</a><a href="/transactions/deleted">Deleted transactions</a>{% if account.active %}<form method="post" action="/accounts/{{ account.id }}/deactivate"><button class="danger-text">Deactivate</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>{% else %}<form method="post" action="/accounts/{{ account.id }}/reactivate"><button>Reactivate</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>{% endif %}</div></details>
 {% endif %}{% endblock %}
 {% block content %}
 {% set selecting = request.query_params.get('select') %}{% set picked = request.query_params.get('pick', '') %}
 {% if account and account.account_type.value == 'OTHER_ASSET' %}<section class="card phone-card" aria-labelledby="value-heading"><h2 id="value-heading" class="phone-card-title">Estimated value</h2>
 <form method="post" action="/accounts/{{ account.id }}/value" class="phone-form"><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}">
-<div class="field"><label for="value-date">As of</label><input id="value-date" name="date" value="{{ today }}" type="date" required></div>
+<div class="field"><label for="value-date">{{ 'As of'|tr(locale) }}</label><input id="value-date" name="date" value="{{ today }}" type="date" required></div>
 <div class="field"><label for="value-amount">Value ({{ account.currency }})</label><input id="value-amount" name="value" inputmode="decimal" value="{{ manual_asset_value.value|money(False, 2) if manual_asset_value else account_balance|money(False, 2) }}" required></div>
 <button class="btn phone-save">Update value</button></form></section>{% endif %}
 {% set this = month or today[:7] %}{% set y, m = this[:4]|int, this[5:7]|int %}
@@ -30,7 +30,7 @@
   {% if month %}<input type="hidden" name="month" value="{{ month }}">{% endif %}
 </form>
 <nav class="phone-chips" aria-label="Filter">
-  <a class="phone-chip{{ ' is-chosen' if not month }}" href="{{ base_url }}{{ '?q=' ~ q|urlencode if q }}">All</a>
+  <a class="phone-chip{{ ' is-chosen' if not month }}" href="{{ base_url }}{{ '?q=' ~ q|urlencode if q }}">{{ 'All'|tr(locale) }}</a>
   <span class="phone-chip phone-month-chip{{ ' is-chosen' if month }}">
     <a href="{{ base_url }}?month={{ prev }}{{ '&q=' ~ q|urlencode if q }}" aria-label="Previous month">‹</a>
     <a href="{{ base_url }}?month={{ this }}{{ '&q=' ~ q|urlencode if q }}">{{ this }}</a>
@@ -63,7 +63,7 @@
   <input type="hidden" name="back" value="{{ base_url }}{{ '?' ~ keep_qs if keep_qs }}"><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}">
   <span class="phone-select-count" aria-live="polite"> selected</span>
   <select name="category_id" aria-label="Category for the selected rows" data-own-picker><option value="">Change category to…</option>{{ category_options(category_groups()) }}</select>
-  <div class="phone-select-actions"><button class="btn primary">Change category</button><button class="btn danger" formaction="/transactions/bulk-delete" data-confirm-delete>Delete</button></div>
+  <div class="phone-select-actions"><button class="btn primary">Change category</button><button class="btn danger" formaction="/transactions/bulk-delete" data-confirm-delete>{{ 'Delete'|tr(locale) }}</button></div>
 </form>{% endif %}
 {% if page_number < total_pages %}<a class="btn phone-more-link" href="{{ base_url }}?{{ page_base_qs ~ '&' if page_base_qs else '' }}page={{ page_number + 1 }}">Show older</a>{% endif %}
 {% if page_number > 1 %}<a class="phone-quiet" href="{{ base_url }}?{{ page_base_qs ~ '&' if page_base_qs else '' }}page={{ page_number - 1 }}">Show newer</a>{% endif %}

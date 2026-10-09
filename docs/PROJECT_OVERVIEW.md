@@ -39,6 +39,7 @@ Every number comes from one of three layers, and each screen says which:
 
 ## Product decisions that must hold
 
+- **Arabic is for Egypt.** The app offers English and Egyptian Arabic for the same profile and the website links matching English and Arabic pages. Arabic pages read right to left; money, dates, currency codes and identifiers remain legible in their natural order. The [Glossary](GLOSSARY.md#العربية--المسرد-العربي) fixes the financial names used across both.
 - **App feedback screenshots stay private.** The website allows up to five images per ticket; it stores them in the Apps Script deployment owner's private Drive folder and records the links beside the ticket in the feedback Sheet. The website repository owns the implementation and activation steps.
 - **One ledger.** Account registers, the all-accounts view, budget actuals, investments, the Overview and the reports are all views of one transaction ledger.
 - **Other people's money** (*Held for others*) stays in the account balance but belongs to its owner. It is left out of *What you own*. It is not income, spending or money owed to you.

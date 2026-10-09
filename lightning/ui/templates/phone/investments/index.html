@@ -5,8 +5,8 @@
 {% from "phone/partials/charts.html" import kpi_tiles %}
 {% from "partials/charts.html" import donut %}
 {% block title %}Investments{% endblock %}
-{% block heading %}<h1>Investments</h1><p>Valued as of {{ period.end_display }}</p>{% endblock %}
-{% block top_actions %}{% from "partials/macros.html" import period_control %}{{ period_control("/investments", period.key, period.start_text[:7], this_month, period.start_text, period.end_text) }}{% endblock %}
+{% block heading %}<h1>{{ 'Investments'|tr(locale) }}</h1><p>Valued as of {{ period.end_display }}</p>{% endblock %}
+{% block top_actions %}{% from "partials/macros.html" import period_control with context %}{{ period_control("/investments", period.key, period.start_text[:7], this_month, period.start_text, period.end_text) }}{% endblock %}
 {% macro phone_bars(rows, caption) %}<div class="phone-bars" role="list" aria-label="{{ caption }}">{% for r in rows if not r.header %}
   {% set tag = 'a' if r.href else 'div' %}<{{ tag }} class="phone-bar-row" role="listitem"{% if r.href %} href="{{ r.href }}"{% endif %}><span class="phone-bar-name">{{ r.label }}</span><b class="phone-bar-value">{{ r.value|money }}</b><span class="phone-bar-track"><i style="width:{{ '%.1f'|format([r.width or 0, 1]|max) }}%"></i></span></{{ tag }}>
 {% endfor %}</div>{% endmacro %}
@@ -16,7 +16,7 @@
 {% if not accounts %}
 <section class="card phone-card"><p class="phone-note">Investments live in a brokerage account or a physical asset account.</p><a class="btn primary phone-save" href="/accounts/new?type=BROKERAGE">Add a brokerage account</a></section>
 {% elif not owned_rows and not period_activity %}
-<section class="card phone-card"><h2 class="phone-card-title">No holdings yet</h2><p class="phone-note">{% if investment_report.investment_cash %}{{ investment_report.investment_cash|money }} {{ base }} of brokerage cash is ready. {% endif %}Record a holding to see its value, result and allocation.</p></section>
+<section class="card phone-card"><h2 class="phone-card-title">{{ 'No holdings yet'|tr(locale) }}</h2><p class="phone-note">{% if investment_report.investment_cash %}{{ investment_report.investment_cash|money }} {{ base }} of brokerage cash is ready. {% endif %}Record a holding to see its value, result and allocation.</p></section>
 {% else %}
 {% set result = investment_report.result %}
 {% set tiles = [
@@ -48,7 +48,7 @@
 </section>
 
 <section class="phone-section" aria-labelledby="holdings-heading">
-  <header class="phone-section-head"><h2 id="holdings-heading">Holdings</h2><span>As of {{ period.end_text }}</span></header>
+  <header class="phone-section-head"><h2 id="holdings-heading">{{ 'Holdings'|tr(locale) }}</h2><span>As of {{ period.end_text }}</span></header>
   {% for g in holding_groups %}
   <article class="card phone-card" aria-label="{{ g.name }}">
     <div class="phone-group-head"><span class="phone-group-name"><b>{{ g.name }}</b><small>{{ '%.0f'|format(g.weight) }}% of holdings · gain {{ g.gain|money(True) }}</small></span><b class="phone-group-left">{{ g.value|money }}</b></div>
@@ -70,7 +70,7 @@
 </section>
 
 <section class="phone-section" aria-labelledby="horizon-heading">
-  <header class="phone-section-head"><h2 id="horizon-heading">Intended horizon</h2><span>Today</span></header>
+  <header class="phone-section-head"><h2 id="horizon-heading">Intended horizon</h2><span>{{ 'Today'|tr(locale) }}</span></header>
   <article class="card phone-card">
     <div class="phone-bars" role="list" aria-label="Holdings by intended horizon">{% for label in ['Short', 'Medium', 'Long', 'Unassigned'] %}{% set v = horizons.get(label, 0) %}{% if v %}
       <div class="phone-bar-row" role="listitem"><span class="phone-bar-name">{{ label }}<small> · {{ '%.0f'|format(v / holdings_total * 100 if holdings_total else 0) }}%</small></span><b class="phone-bar-value">{{ v|money }}</b><span class="phone-bar-track"><i style="width:{{ '%.1f'|format([v / holdings_total * 100 if holdings_total else 0, 1]|max) }}%"></i></span></div>

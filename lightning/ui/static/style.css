@@ -3075,3 +3075,11 @@ a.chart-sankey-label:hover b { color:var(--azure); }
 .main .rule-form [hidden] { display:none!important; }
 .main .rule-split > summary { cursor:pointer; font-weight:650; }
 .main .rule-undo { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+
+/* Arabic interface foundation: logical placement and isolated financial text. */
+html[dir="rtl"] body { font-family: Tahoma, 'Segoe UI', Arial, sans-serif; }
+html[dir="rtl"] .side { border-right: 0; border-left: 1px solid var(--border); }
+html[dir="rtl"] .side-account { padding-left: 0; padding-right: 16px; }
+html[dir="rtl"] .num, html[dir="rtl"] .amount, html[dir="rtl"] .money-input, html[dir="rtl"] [data-money],
+html[dir="rtl"] .code, html[dir="rtl"] code, html[dir="rtl"] [data-ref], html[dir="rtl"] time, html[dir="rtl"] .nowrap { direction: ltr; unicode-bidi: isolate; }
+.locale-form { display:flex; align-items:center; gap:12px; margin:0 0 16px; }

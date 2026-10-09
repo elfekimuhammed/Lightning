@@ -15,6 +15,6 @@
       <span><b>Keep the average</b><small class="muted">The plan waits until the new income shows in completed months</small></span>
       <button class="btn small">Keep it</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
   </div>
-  <p class="muted small">You can change this later in <a href="/settings?section=budget">Settings › Budget</a> and <a href="/settings?section=financial-health">Financial health</a>.</p>
+  <p class="muted small">You can change this later in <a href="/settings?section=budget">Settings › Budget</a> and <a href="/settings?section=financial-health">{{ 'Financial health'|tr(locale) }}</a>.</p>
 </section>
 {% endblock %}

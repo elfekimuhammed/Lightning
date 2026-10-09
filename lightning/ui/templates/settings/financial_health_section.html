@@ -1,6 +1,6 @@
 <section class="card data-panel health-settings">
   <div class="section-head">
-    <div><h2>Financial health limits</h2></div>
+    <div><h2>{{ 'Financial health limits'|tr(locale) }}</h2></div>
   </div>
   <div class="health-limit-list">
     {% for limit in health_limits %}
@@ -10,7 +10,7 @@
       <label class="health-limit-name" for="health-limit-{{ limit.key }}">{{ fig[limit.key].label }}<small>{{ 'At least' if limit.direction == 'minimum' else 'At most' }}</small></label>
       <span class="health-limit-input"><input id="health-limit-{{ limit.key }}" name="value" type="number" min="0" step="0.1" value="{{ limit.value if limit.value is not none else '' }}" aria-label="{{ fig[limit.key].label }} limit"><i>{{ limit.unit }}</i></span>
       {% if limit.supports_no_limit %}<label class="health-limit-none"><input type="checkbox" name="no_limit" value="1" {{ 'checked' if limit.no_limit }}> No limit</label>{% endif %}
-      <div class="health-limit-actions"><button class="btn small" type="submit" name="action" value="save">Save</button><button class="btn small" type="submit" name="action" value="reset">Restore default</button></div>
+      <div class="health-limit-actions"><button class="btn small" type="submit" name="action" value="save">{{ 'Save'|tr(locale) }}</button><button class="btn small" type="submit" name="action" value="reset">Restore default</button></div>
     </form>
     {% endfor %}
   </div>

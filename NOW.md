@@ -24,5 +24,7 @@
 
 ## Next
 
-1. **Gold: test source from home; silver needs holdings.** Read: `docs/proposals/market_data.md`.
-2. **Optional: stable origin/cache, trim CSS.** Read: Architecture › Page speed.
+1. **Finish Arabic app copy, especially specialist screens, dynamic options, status/error text and search JavaScript; verify on PC and phone.** Read: `docs/GLOSSARY.md` › العربية, `docs/ARCHITECTURE.md` › UI contract, `lightning/ui/web.py`, `lightning/ui/templates/`, and the A/C Arabic guideline pages.
+2. **Translate the remaining English detail and specimen labels in the bilingual A/B/C Arabic guideline pages.** Read: paired files in `guideline/`; keep both repositories' copies identical.
+3. **Gold: test source from home; silver needs holdings.** Read: `docs/proposals/market_data.md`.
+4. **Optional: stable origin/cache, trim CSS.** Read: Architecture › Page speed.

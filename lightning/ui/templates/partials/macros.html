@@ -10,7 +10,7 @@
 {% macro txn_table(rows, show_account=True, empty='No transactions yet.') -%}
 {% if rows %}
 <table>
-  <thead><tr><th>Date</th><th>Ref</th><th>What</th>{% if show_account %}<th>Account</th>{% endif %}<th>Category</th><th class="num">Amount</th></tr></thead>
+  <thead><tr><th>{{ 'Date'|tr(locale) }}</th><th>{{ 'Ref'|tr(locale) }}</th><th>{{ 'What'|tr(locale) }}</th>{% if show_account %}<th>{{ 'Account'|tr(locale) }}</th>{% endif %}<th>{{ 'Category'|tr(locale) }}</th><th class="num">{{ 'Amount'|tr(locale) }}</th></tr></thead>
   <tbody>
   {% for r in rows %}
     <tr class="{{ 'void' if r.status == 'VOID' }}">
@@ -26,30 +26,30 @@
   </tbody>
 </table>
 {% else %}
-<div class="empty">{{ empty }}</div>
+<div class="empty">{{ empty|tr(locale) }}</div>
 {% endif %}
 {%- endmacro %}
 
 {% macro field(name, label, values, error_field, help='', placeholder='', cls='', attrs='') -%}
 <div class="field {{ cls }} {{ 'has-error' if error_field == name }}">
-  <label for="{{ name }}">{{ label }}</label>
-  <input type="text" id="{{ name }}" name="{{ name }}" value="{{ values.get(name, '') }}" placeholder="{{ placeholder }}" {{ attrs|safe }}>
-  {% if help %}<div class="help">{{ help }}</div>{% endif %}
+  <label for="{{ name }}">{{ label|tr(locale) }}</label>
+  <input type="text" id="{{ name }}" name="{{ name }}" value="{{ values.get(name, '') }}" placeholder="{{ placeholder|tr(locale) }}" {{ attrs|safe }}>
+  {% if help %}<div class="help">{{ help|tr(locale) }}</div>{% endif %}
 </div>
 {%- endmacro %}
 
 {% macro date_field(values, error_field, name='date', label='Date') -%}
 <div class="field {{ 'has-error' if error_field == name }}">
-  <label for="{{ name }}">{{ label }} <span class="muted small">yyyy-mm-dd</span></label>
+  <label for="{{ name }}">{{ label|tr(locale) }} <span class="muted small">{{ 'yyyy-mm-dd'|tr(locale) }}</span></label>
   <span class="iso-date-control">
     <input type="text" id="{{ name }}" name="{{ name }}" value="{{ values.get(name, '') }}" placeholder="yyyy-mm-dd"
            inputmode="numeric" autocomplete="off" data-smart-date required>
     <input class="date-picker-native" type="date" data-date-picker-for="{{ name }}" tabindex="-1" aria-hidden="true">
-    <button class="btn small date-picker-button" type="button" data-open-date-picker="{{ name }}" aria-label="Choose date">▦</button>
+    <button class="btn small date-picker-button" type="button" data-open-date-picker="{{ name }}" aria-label="{{ 'Choose date'|tr(locale) }}">▦</button>
   </span>
   <div class="quick">
-    <button class="btn small" data-date="0" data-target="{{ name }}">Today</button>
-    <button class="btn small" data-date="1" data-target="{{ name }}">Yesterday</button>
+    <button class="btn small" data-date="0" data-target="{{ name }}">{{ 'Today'|tr(locale) }}</button>
+    <button class="btn small" data-date="1" data-target="{{ name }}">{{ 'Yesterday'|tr(locale) }}</button>
   </div>
 </div>
 {%- endmacro %}
@@ -61,10 +61,10 @@
   {% if category_filter %}<input type="hidden" name="category_id" value="{{ category_filter }}">{% endif %}
   <div class="period-buttons" role="group" aria-label="Reporting period">
     {% set labels = [('all','All'),('ytd','YTD'),('month',month or current_month),('custom','Custom')] if phone_mode() else [('all','All time'),('ytd','YTD'),('month','Monthly'),('custom','Custom')] %}{# C04.2 on a phone: never "Monthly" #}
-    {% for key, label in labels %}{% if key == 'month' and period == 'month' and phone_mode() %}{# C04.2: ‹ month › in its own segment, never a second row #}<span class="period-button selected period-month-seg month-stepper"><button class="period-step" type="button" data-month-shift="-1" aria-label="Previous month"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button><input type="text" name="month" value="{{ month }}" class="month-input period-month-value" data-month-select pattern="\d{4}-\d{2}" inputmode="numeric" autocomplete="off" aria-label="Month, yyyy-mm"><button class="period-step" type="button" data-month-shift="1" aria-label="Next month"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button><button type="submit" name="period" value="month" hidden>{{ label }}</button></span>{% else %}<button type="submit" name="period" value="{{ key }}" class="period-button {{ 'selected' if period==key else '' }}">{{ label }}</button>{% endif %}{% endfor %}
+    {% for key, label in labels %}{% if key == 'month' and period == 'month' and phone_mode() %}{# C04.2: ‹ month › in its own segment, never a second row #}<span class="period-button selected period-month-seg month-stepper"><button class="period-step" type="button" data-month-shift="-1" aria-label="{{ 'Previous month'|tr(locale) }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button><input type="text" name="month" value="{{ month }}" class="month-input period-month-value" data-month-select pattern="\d{4}-\d{2}" inputmode="numeric" autocomplete="off" aria-label="{{ 'Month'|tr(locale) }}, yyyy-mm"><button class="period-step" type="button" data-month-shift="1" aria-label="{{ 'Next month'|tr(locale) }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button><button type="submit" name="period" value="month" hidden>{{ label }}</button></span>{% else %}<button type="submit" name="period" value="{{ key }}" class="period-button {{ 'selected' if period==key else '' }}">{{ label|tr(locale) }}</button>{% endif %}{% endfor %}
   </div>
   {% if period=='month' and not phone_mode() %}<div class="period-month-picker month-stepper"><button class="period-step" type="button" data-month-shift="-1" aria-label="Previous month" title="Previous month"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button><input type="text" name="month" value="{{ month }}" class="month-input period-month-value" data-month-select pattern="\d{4}-\d{2}" inputmode="numeric" placeholder="yyyy-mm" autocomplete="off" aria-label="Month, yyyy-mm" title="Month, yyyy-mm"><button class="period-step" type="button" data-month-shift="1" aria-label="Next month" title="Next month"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button></div>{% endif %}
-  {% if period=='custom' %}<div class="period-date-range"><label>From month<input type="text" name="date_from" value="{{ date_from[:7] if date_from else '' }}" class="month-input" pattern="\d{4}-\d{2}" inputmode="numeric" placeholder="yyyy-mm" autocomplete="off" required></label><label>To month<input type="text" name="date_to" value="{{ date_to[:7] if date_to else '' }}" class="month-input" pattern="\d{4}-\d{2}" inputmode="numeric" placeholder="yyyy-mm" autocomplete="off" required></label>{% if not auto_apply %}<button type="submit" name="period" value="custom" class="btn small">Apply</button>{% endif %}</div>{% endif %}
+  {% if period=='custom' %}<div class="period-date-range"><label>{{ 'From month'|tr(locale) }}<input type="text" name="date_from" value="{{ date_from[:7] if date_from else '' }}" class="month-input" pattern="\d{4}-\d{2}" inputmode="numeric" placeholder="yyyy-mm" autocomplete="off" required></label><label>{{ 'To month'|tr(locale) }}<input type="text" name="date_to" value="{{ date_to[:7] if date_to else '' }}" class="month-input" pattern="\d{4}-\d{2}" inputmode="numeric" placeholder="yyyy-mm" autocomplete="off" required></label>{% if not auto_apply %}<button type="submit" name="period" value="custom" class="btn small">{{ 'Apply'|tr(locale) }}</button>{% endif %}</div>{% endif %}
 </form>
 {%- endmacro %}
 

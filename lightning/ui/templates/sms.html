@@ -11,8 +11,8 @@
   <p class="muted">{{ group.count }} message{{ 's' if group.count != 1 }} waiting. Lightning remembers your answer.</p>
   <form method="post" action="/sms/assign">
     <input type="hidden" name="ending" value="{{ group.ending }}">
-    <label for="account-{{ group.ending }}">Account</label>
-    <select id="account-{{ group.ending }}" name="account_id" data-own-picker required><option value="">Choose an account</option>{% for a in accounts %}<option value="{{ a.id }}">{{ a.name }}</option>{% endfor %}</select>
+    <label for="account-{{ group.ending }}">{{ 'Account'|tr(locale) }}</label>
+    <select id="account-{{ group.ending }}" name="account_id" data-own-picker required><option value="">{{ 'Choose an account'|tr(locale) }}</option>{% for a in accounts %}<option value="{{ a.id }}">{{ a.name }}</option>{% endfor %}</select>
     <div class="actions"><button class="btn primary" type="submit">Review these messages</button></div>
     <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}">
   </form>

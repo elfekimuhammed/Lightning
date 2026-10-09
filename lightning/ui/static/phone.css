@@ -41,6 +41,9 @@ html.phone, .phone-body { max-width: 100%; overflow-x: hidden; }
 .phone-tab.is-chosen { color: var(--c-ink); }
 .phone-tab.is-chosen .phone-tab-icon { background: var(--c-nile); color: #fff; }
 .phone-tab:hover { text-decoration: none; }
+html.phone[dir="rtl"] .phone-mark { margin-left: 0; margin-right: -8px; }
+html.phone[dir="rtl"] .phone-appbar-icons { margin-right: 0; margin-left: -8px; }
+html.phone[dir="rtl"] .phone-back svg { transform: scaleX(-1); }
 html.phone.keyboard-open .phone-tabbar, html.phone.sheet-open .phone-tabbar { display: none; }
 
 /* C04 page header: title, its dates, the period control, then the tabs. Four rows, nothing beside them. */

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Categories{% endblock %}
-{% block heading %}<h1>Settings</h1><div class="muted">Categories · why money moved</div>{% endblock %}
+{% block heading %}<h1>{{ 'Settings'|tr(locale) }}</h1><div class="muted">Categories · why money moved</div>{% endblock %}
 {% block content %}
 
 {% set session = request.state.session_token|default('') %}
@@ -16,10 +16,10 @@
     {% for value, text in (('OUT', '− Expense'), ('IN', '+ Income'), ('BOTH', '± Both')) %}<option value="{{ value }}" {{ 'selected' if cat and cat.direction.value == value }}>{{ text }}</option>{% endfor %}
   </select>
   {% set rec = cat and cat.id in recurring %}{% set off = cat and cat.id in one_offs %}
-  <button type="button" class="cat-pill" data-toggle="recurring" data-for="{{ '' if cat and cat.code == 'EXP.SYSTEM.CUSTODY' else 'IN BOTH' }}" aria-pressed="{{ 'true' if rec else 'false' }}" title="Counted in the income average and the forecast">Recurring</button><input type="hidden" name="recurring" value="{{ '1' if rec }}">
-  <button type="button" class="cat-pill is-oneoff" data-toggle="one_off" data-for="OUT BOTH" aria-pressed="{{ 'true' if off else 'false' }}" title="In cash flow, left out of the budget">One-off</button><input type="hidden" name="one_off" value="{{ '1' if off }}">
+  <button type="button" class="cat-pill" data-toggle="recurring" data-for="{{ '' if cat and cat.code == 'EXP.SYSTEM.CUSTODY' else 'IN BOTH' }}" aria-pressed="{{ 'true' if rec else 'false' }}" title="Counted in the income average and the forecast">{{ 'Recurring'|tr(locale) }}</button><input type="hidden" name="recurring" value="{{ '1' if rec }}">
+  <button type="button" class="cat-pill is-oneoff" data-toggle="one_off" data-for="OUT BOTH" aria-pressed="{{ 'true' if off else 'false' }}" title="In cash flow, left out of the budget">{{ 'One-off'|tr(locale) }}</button><input type="hidden" name="one_off" value="{{ '1' if off }}">
   <span class="cat-actions">
-    {% if add_parent %}<button class="btn small primary">Add</button><button type="button" class="btn small" data-cancel>Cancel</button>
+    {% if add_parent %}<button class="btn small primary">Add</button><button type="button" class="btn small" data-cancel>{{ 'Cancel'|tr(locale) }}</button>
     {% else %}<small class="cat-state" role="status" aria-live="polite"></small>
       {% if level == 2 %}<button type="button" class="cat-icon" data-add-under="{{ cat.id }}" title="Add detail under {{ cat.name }}" aria-label="Add detail under {{ cat.name }}"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>{% endif %}
       <button class="cat-icon" name="action" value="archive" title="Archive" aria-label="Archive {{ cat.name }}"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8M10 12h4"/></svg></button>
@@ -31,12 +31,12 @@
 <div class="cat-toolbar">
   <label class="cat-search"><input type="search" id="category-search" placeholder="Find a category" aria-label="Find a category"></label>
   <span id="category-result-count" class="muted small"></span>
-  <span class="cat-legend"><span class="cat-pill" aria-pressed="true">Recurring</span> counts toward the income average and forecast · <span class="cat-pill is-oneoff" aria-pressed="true">One-off</span> stays in cash flow, out of the budget · changes save as you make them</span>
+  <span class="cat-legend"><span class="cat-pill" aria-pressed="true">{{ 'Recurring'|tr(locale) }}</span> counts toward the income average and forecast · <span class="cat-pill is-oneoff" aria-pressed="true">{{ 'One-off'|tr(locale) }}</span> stays in cash flow, out of the budget · changes save as you make them</span>
   {% if archived %}<a class="btn small" href="/categories{{ '' if show_archived else '?archived=1' }}">{{ 'Hide archived' if show_archived else 'Archived (' ~ archived|length ~ ')' }}</a>{% endif %}
 </div>
 <form id="category-bulk-form" method="post" action="/categories/bulk-action" data-category-bulk><input type="hidden" name="__session" value="{{ session }}"></form>
 <div class="card cat-card">
-  <div class="cat-bulk"><label><input id="select-all-categories" type="checkbox"> Select all</label><span id="category-selection-count" class="muted small">0 selected</span>
+  <div class="cat-bulk"><label><input id="select-all-categories" type="checkbox"> {{ 'Select all'|tr(locale) }}</label><span id="category-selection-count" class="muted small">0 selected</span>
     <button class="btn small" form="category-bulk-form" name="action" value="archive">Archive selected</button>
     <button class="btn small" form="category-bulk-form" formaction="/exports/categories" formnovalidate>Export selected</button>
     <button class="btn small danger" form="category-bulk-form" name="action" value="delete">Delete selected</button></div>

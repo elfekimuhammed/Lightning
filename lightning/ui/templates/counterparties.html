@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Counterparties{% endblock %}
-{% block heading %}<h1>Settings</h1><div class="muted small">Counterparties · saved names, aliases, and suggested categories</div>{% endblock %}
+{% block heading %}<h1>{{ 'Settings'|tr(locale) }}</h1><div class="muted small">Counterparties · saved names, aliases, and suggested categories</div>{% endblock %}
 {% block content %}
 
 {% if error %}<p class="flash error" role="alert">{{ error }}</p>{% endif %}
@@ -8,7 +8,7 @@
   <summary><b>Add a counterparty</b><span class="muted small">Save a name and optional suggested category</span></summary>
   <p class="muted small">Use one saved name across transactions. You can set a suggested category; each transaction can still use a different one.</p>
   <form method="post" action="/counterparties" class="stack">
-    <label>Name<input type="text" name="name" value="{{ entered_name or '' }}" placeholder="e.g. Talabat" required></label>
+    <label>{{ 'Name'|tr(locale) }}<input type="text" name="name" value="{{ entered_name or '' }}" placeholder="e.g. Talabat" required></label>
     <label>Suggested category <span class="muted small">(optional)</span>
       <select name="default_category_id" data-own-picker><option value="">No default</option>
         {% from "partials/macros.html" import category_options %}{{ category_options(category_groups(categories), entered_category_id) }}
@@ -84,8 +84,8 @@
     {% if not exact_existing %}<form method="post" action="/counterparties">
       <input type="hidden" name="name" value="{{ entered_name }}"><input type="hidden" name="default_category_id" value="{{ entered_category_id }}">
       <button class="btn primary" name="counterparty_action" value="create">Create “{{ entered_name }}” as a new Counterparty</button>
-      <a class="btn" href="/counterparties">Cancel</a>
-    <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>{% else %}<a class="btn" href="/counterparties">Cancel</a>{% endif %}
+      <a class="btn" href="/counterparties">{{ 'Cancel'|tr(locale) }}</a>
+    <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>{% else %}<a class="btn" href="/counterparties">{{ 'Cancel'|tr(locale) }}</a>{% endif %}
   </section>
 </div>
 {% endif %}

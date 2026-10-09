@@ -2,7 +2,7 @@
 {% from "partials/charts.html" import tone_icon %}
 {% block title %}{{ h.asset_name }}{% endblock %}
 {% block heading %}<div><h1>{{ h.asset_name }}</h1><div class="muted page-subtitle">{{ h.account_label }} · {{ h.asset_class.split(' › ')[-1] }}{% if asset %}{% if asset.exchange %} · {{ asset.ticker }} on {{ asset.exchange }}{% endif %}{% if asset.isin %} · ISIN {{ asset.isin }}{% endif %}{% endif %} · {{ h.quantity|units_of(h.unit) }} · as of {{ day }}</div></div>{% endblock %}
-{% block top_actions %}<a class="btn small" href="/investments">Investments</a>{% endblock %}
+{% block top_actions %}<a class="btn small" href="/investments">{{ 'Investments'|tr(locale) }}</a>{% endblock %}
 {% block content %}
 {% from "partials/charts.html" import trend, diverging, waterfall %}
 {% set j = journey %}
@@ -37,10 +37,10 @@
     <div class="vol-stats">
       <div><span>Best month</span><b class="pos">{% if j.best %}{{ (j.best[1])|signed_pct }}%{% else %}—{% endif %}</b><small>{{ j.best[0] if j.best }}</small></div>
       <div><span>Worst month</span><b class="neg">{% if j.worst %}{{ (j.worst[1])|signed_pct }}%{% else %}—{% endif %}</b><small>{{ j.worst[0] if j.worst }}</small></div>
-      <div><span>Typical move</span><b>{% if j.typical is not none %}±{{ '%.1f'|format(j.typical) }}%{% else %}—{% endif %}</b><small>{{ 'a month' if j.typical is not none else 'after three months' }}</small></div>
+      <div><span>{{ 'Typical move'|tr(locale) }}</span><b>{% if j.typical is not none %}±{{ '%.1f'|format(j.typical) }}%{% else %}—{% endif %}</b><small>{{ 'a month' if j.typical is not none else 'after three months' }}</small></div>
       <div><span>Months up · down</span><b>{{ j.up or 0 }} · {{ j.down or 0 }}</b><small>of {{ (j.up or 0) + (j.down or 0) }}</small></div>
     </div></section>
-  <section><div class="overview-block-head"><div><h3>Fall from its high</h3><p>How far the price sat below its highest month-end{% if j.max_drawdown is not none %} · worst {{ '%.1f'|format(j.max_drawdown)|replace('-', '−') }}%{% endif %}</p></div></div>
+  <section><div class="overview-block-head"><div><h3>{{ 'Fall from its high'|tr(locale) }}</h3><p>How far the price sat below its highest month-end{% if j.max_drawdown is not none %} · worst {{ '%.1f'|format(j.max_drawdown)|replace('-', '−') }}%{% endif %}</p></div></div>
     {{ trend(j.drawdown, 'Percent below its highest month-end price', 'Plan', 190) if j.drawdown else '' }}</section>
 </div></section>
 
@@ -49,7 +49,7 @@
   <section><div class="overview-block-head"><div><h3>Value against cost</h3><p>Month-end value and what you paid for the units you held</p></div></div>
     {{ trend(j.value_cost, 'Value against cost', 'Plan', 210) if j.value_cost else '' }}</section>
   <section><div class="overview-block-head"><div><h3>Trades and payouts</h3></div></div>
-    <table class="journey-table"><thead><tr><th>Date</th><th>What</th><th class="num">Units</th><th class="num">Price</th><th class="num">Amount</th><th class="num">Held</th></tr></thead><tbody>
+    <table class="journey-table"><thead><tr><th>{{ 'Date'|tr(locale) }}</th><th>{{ 'What'|tr(locale) }}</th><th class="num">Units</th><th class="num">Price</th><th class="num">{{ 'Amount'|tr(locale) }}</th><th class="num">Held</th></tr></thead><tbody>
     {% for t in j.trades[:12] %}<tr><td class="code">{{ t.date }}</td><td>{{ t.kind }}</td><td class="num">{{ (('+' if t.units > 0 else '') ~ (t.units|units)) if t.units else '—' }}</td><td class="num">{{ t.price|money(False,2 if t.price < 10 else 0) if t.price is not none else '—' }}</td><td class="num">{{ t.amount|money }}</td><td class="num">{{ t.held|units }}</td></tr>{% else %}<tr><td colspan="6" class="empty">No trades yet.</td></tr>{% endfor %}
     </tbody></table>{% if j.trades|length > 12 %}<p class="muted small">{{ j.trades|length - 12 }} earlier entries</p>{% endif %}</section>
 </div></section>

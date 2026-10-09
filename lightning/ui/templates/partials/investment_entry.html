@@ -11,7 +11,7 @@
     <input type="hidden" name="price_basis" value="{{ investment_entry.get('price_basis', 'total') }}">
     <div class="investment-entry-grid">
       <div class="field {{ 'has-error' if investment_error_field == 'date' }}">
-        <label for="investment-date">Date</label>
+        <label for="investment-date">{{ 'Date'|tr(locale) }}</label>
         <input id="investment-date" type="text" name="date" value="{{ investment_entry.get('date', '') }}" placeholder="yyyy-mm-dd" inputmode="numeric" data-smart-date title="yyyy-mm-dd, like 2026-01-31" required>
       </div>
       <div class="field instrument-picker {{ 'has-error' if investment_error_field == 'instrument' }}">
@@ -21,7 +21,7 @@
         <div id="trade-position-hint" class="help" aria-live="polite"></div>
       </div>
       <div class="investment-action-control">
-        <span class="muted small">Type</span>
+        <span class="muted small">{{ 'Type'|tr(locale) }}</span>
         <input id="investment-action" type="hidden" name="trade_action" value="{{ investment_entry.get('trade_action', 'buy') }}">
         <div class="investment-action-buttons" role="group" aria-label="Investment type">
           {% for value, label in [('buy', 'Buy'), ('sell', 'Sell'), ('dividend', 'Dividend')] %}
@@ -34,7 +34,7 @@
         <input id="investment-units" type="text" name="units" value="{{ investment_entry.get('units', '') }}" placeholder="e.g. 100" inputmode="decimal" class="money-input">
       </div>
       <div class="field {{ 'has-error' if investment_error_field == 'total' }}">
-        <label id="investment-total-label" for="investment-total">Amount</label>
+        <label id="investment-total-label" for="investment-total">{{ 'Amount'|tr(locale) }}</label>
         <input id="investment-total" type="text" name="total" value="{{ investment_entry.get('total', '') }}" placeholder="Including fees" inputmode="decimal" class="money-input">
       </div>
       <div class="field" id="investment-dividend-basis-field" hidden>
@@ -67,7 +67,7 @@
       <div class="investment-ownership-area">
         <label class="investment-owner-flag"><input type="checkbox" name="is_others" value="1" {{ 'checked' if investment_entry.get('is_others') }}> Held for someone else</label>
         <div class="field investment-owner-field" {{ 'hidden' if not investment_entry.get('is_others') }}>
-          <label for="investment-whom">Held for</label>
+          <label for="investment-whom">{{ 'Held for'|tr(locale) }}</label>
           <input id="investment-whom" type="text" name="whom" value="{{ investment_entry.get('whom', '') }}" list="counterparty-options" placeholder="Choose a saved name">
         </div>
       </div>

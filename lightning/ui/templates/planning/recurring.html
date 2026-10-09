@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% from "planning/_macros.html" import status %}
 {% block title %}Recurring · Cash planning{% endblock %}
-{% block heading %}<div><h1>Cash planning</h1></div>{% endblock %}
-{% block top_actions %}<a class="btn primary" data-popup-open href="/plan/items/new?kind=BILL">Add recurring item</a>{% endblock %}
+{% block heading %}<div><h1>{{ 'Cash planning'|tr(locale) }}</h1></div>{% endblock %}
+{% block top_actions %}<a class="btn primary" data-popup-open href="/plan/items/new?kind=BILL">{{ 'Add recurring item'|tr(locale) }}</a>{% endblock %}
 {% block content %}
 {% from "partials/charts.html" import stat_tiles %}
 {{ stat_tiles(fixed_tiles, base, 'Your fixed costs') }}
@@ -16,9 +16,9 @@
 </section>
 {% endif %}{% endfor %}
 <section class="plan-section" aria-labelledby="recurring-totals">
-  <header class="overview-section-head"><h2 id="recurring-totals">Every month</h2></header>
+  <header class="overview-section-head"><h2 id="recurring-totals">{{ 'Every month'|tr(locale) }}</h2></header>
   <article class="card">
-    <div class="section-head"><div><h2>Bills and subscriptions</h2></div></div>
+    <div class="section-head"><div><h2>{{ 'Bills and subscriptions'|tr(locale) }}</h2></div></div>
     <div class="plan-figure plan-figure-small">{{ monthly_out|money(False, 0) }} <small>{{ base }} a month</small></div>
     {% if subscriptions_per_year %}<p class="muted small">Subscriptions come to {{ subscriptions_per_year|money(places=0) }} a year.</p>{% endif %}
     {% from "partials/charts.html" import bars %}{{ bars(bill_bars, 'spend', 'No bills or subscriptions yet.') }}
@@ -26,13 +26,13 @@
 </section>
 
 <section class="plan-section" aria-labelledby="recurring-list">
-  <header class="overview-section-head"><h2 id="recurring-list">Recurring items</h2><span>{{ rows|length }} active</span></header>
+  <header class="overview-section-head"><h2 id="recurring-list">{{ 'Recurring items'|tr(locale) }}</h2><span>{{ rows|length }} active</span></header>
   <article class="card">
     {% if rows %}<div class="compact-list">{% for r in rows %}{% set i = r.item %}
       <div class="compact-row plan-item-row">
         <span><a href="/plan/items/{{ i.id }}/edit" data-popup-open><b>{{ i.name }}</b></a><small class="muted">{{ i.kind_label }} · {{ r.schedule }}{% if r.category %} · {{ r.category }}{% endif %}{% if r.account %} · {{ r.account }}{% endif %}</small></span>
         <span class="plan-payment-side">
-          {% if r.due %}<a class="plan-status plan-status-due" data-popup-open href="/plan/items/{{ i.id }}/pay?due={{ r.due[0].due_date }}&amp;back=%2Fplan%2Frecurring">{{ r.due|length }} due</a>{% elif r.next %}<small class="muted">Next {{ r.next.due_date }}</small>{% if r.review_next %} <a class="small" data-popup-open href="/plan/items/{{ i.id }}/pay?due={{ r.next.due_date }}&amp;back=%2Fplan%2Frecurring">Possible early/changed payment — review</a>{% endif %}{% else %}<small class="muted">No more payments</small>{% endif %}{% if r.last_paid and r.last_paid.paid_amount and r.last_paid.paid_amount != i.amount and i.frequency.value != 'ONCE' %}<form method="post" action="/plan/items/{{ i.id }}/amount" class="plan-amount-update"><input type="hidden" name="amount" value="{{ r.last_paid.paid_amount }}"><input type="hidden" name="back" value="/plan/recurring"><small class="muted">Last paid {{ r.last_paid.paid_amount|money }}</small> <button class="btn small">Use {{ r.last_paid.paid_amount|money }} from now on</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>{% endif %}{% for p in r.skipped %} <a class="muted small" data-popup-open href="/plan/items/{{ i.id }}/pay?due={{ p.due_date }}&amp;back=%2Fplan%2Frecurring">Skipped {{ p.due_date }} · undo</a>{% endfor %}
+          {% if r.due %}<a class="plan-status plan-status-due" data-popup-open href="/plan/items/{{ i.id }}/pay?due={{ r.due[0].due_date }}&amp;back=%2Fplan%2Frecurring">{{ r.due|length }} due</a>{% elif r.next %}<small class="muted">Next {{ r.next.due_date }}</small>{% if r.review_next %} <a class="small" data-popup-open href="/plan/items/{{ i.id }}/pay?due={{ r.next.due_date }}&amp;back=%2Fplan%2Frecurring">Possible early/changed payment — review</a>{% endif %}{% else %}<small class="muted">{{ 'No more payments'|tr(locale) }}</small>{% endif %}{% if r.last_paid and r.last_paid.paid_amount and r.last_paid.paid_amount != i.amount and i.frequency.value != 'ONCE' %}<form method="post" action="/plan/items/{{ i.id }}/amount" class="plan-amount-update"><input type="hidden" name="amount" value="{{ r.last_paid.paid_amount }}"><input type="hidden" name="back" value="/plan/recurring"><small class="muted">Last paid {{ r.last_paid.paid_amount|money }}</small> <button class="btn small">Use {{ r.last_paid.paid_amount|money }} from now on</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>{% endif %}{% for p in r.skipped %} <a class="muted small" data-popup-open href="/plan/items/{{ i.id }}/pay?due={{ p.due_date }}&amp;back=%2Fplan%2Frecurring">Skipped {{ p.due_date }} · undo</a>{% endfor %}
           <b class="{{ 'pos' if i.is_income }}">{{ '+' if i.is_income else '−' }}{{ i.amount|money }}</b>
         </span>
       </div>{% endfor %}</div>
@@ -48,7 +48,7 @@
       <div class="compact-row plan-item-row">
         <span><b>{{ s.name }}</b><small class="muted">{{ s.months }} months · usually around day {{ s.day }} · last {{ s.last_date }}</small></span>
         <span class="plan-payment-side"><b class="{{ 'pos' if s.kind == 'INCOME' }}">{{ '+' if s.kind == 'INCOME' else '−' }}{{ s.amount|money }}</b>
-        <a class="btn small" data-popup-open href="/plan/items/new?kind={{ s.kind }}&amp;name={{ s.name|urlencode }}&amp;amount={{ s.amount }}&amp;frequency=MONTHLY&amp;counterparty={{ s.name|urlencode }}&amp;account_id={{ s.account_id or '' }}&amp;category_id={{ s.category_id or '' }}&amp;start_date={{ as_of[:8] }}{{ '%02d'|format([s.day, 28]|min) }}">Track</a>
+        <a class="btn small" data-popup-open href="/plan/items/new?kind={{ s.kind }}&amp;name={{ s.name|urlencode }}&amp;amount={{ s.amount }}&amp;frequency=MONTHLY&amp;counterparty={{ s.name|urlencode }}&amp;account_id={{ s.account_id or '' }}&amp;category_id={{ s.category_id or '' }}&amp;start_date={{ as_of[:8] }}{{ '%02d'|format([s.day, 28]|min) }}">{{ 'Track'|tr(locale) }}</a>
         <form method="post" action="/plan/suggestions/{{ s.counterparty_id }}/not-recurring"><button class="btn small">Not recurring</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form></span>
       </div>{% endfor %}</div>
   </article>

@@ -30,7 +30,7 @@
       <p class="muted">Proposals use base limits only. Spending and carryover are not copied. Selecting a row replaces that category's limit for {{ month }} only.</p>
       <form method="post" action="/budget/fill?month={{ month }}">
         <input type="hidden" name="source" value="{{ source }}">
-        <table class="setup-table"><thead><tr><th>Category</th><th>Source</th><th class="num">Current base limit</th><th class="num">Proposed limit</th><th>Review</th></tr></thead><tbody>
+        <table class="setup-table"><thead><tr><th>{{ 'Category'|tr(locale) }}</th><th>Source</th><th class="num">Current base limit</th><th class="num">Proposed limit</th><th>{{ 'Review'|tr(locale) }}</th></tr></thead><tbody>
         {% for row in proposal.rows %}
           <tr>
             <td>{% if row.selectable %}<label><input type="checkbox" name="selected" value="{{ row.category_id }}" {{ 'checked' if row.selected }}> {{ row.category_name }}</label>{% else %}{{ row.category_name }}{% endif %}</td>

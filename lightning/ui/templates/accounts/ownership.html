@@ -13,7 +13,7 @@
     </select></div>
     <div class="row">
       <div class="field {{ 'has-error' if error_field == 'date' }}">
-        <label for="ownership-date">Date</label>
+        <label for="ownership-date">{{ 'Date'|tr(locale) }}</label>
         <input id="ownership-date" type="text" name="date" value="{{ values.date }}" placeholder="yyyy-mm-dd" inputmode="numeric" data-smart-date required>
       </div>
       <div class="field {{ 'has-error' if error_field == 'amount' }}">
@@ -24,13 +24,13 @@
     <div class="row">
       <div class="field {{ 'has-error' if error_field == 'from_owner_id' }}">
         <label for="ownership-from">From</label>
-        <select id="ownership-from" name="from_owner_id" data-own-picker><option value="">You</option>
+        <select id="ownership-from" name="from_owner_id" data-own-picker><option value="">{{ 'You'|tr(locale) }}</option>
           {% for person in owners %}<option value="{{ person.id }}" {{ 'selected' if values.from_owner_id == person.id|string }}>{{ person.name }}</option>{% endfor %}
         </select>
       </div>
       <div class="field {{ 'has-error' if error_field == 'to_owner_id' }}">
         <label for="ownership-to">To / person who paid</label>
-        <select id="ownership-to" name="to_owner_id" data-own-picker><option value="">You</option>
+        <select id="ownership-to" name="to_owner_id" data-own-picker><option value="">{{ 'You'|tr(locale) }}</option>
           {% for person in owners %}<option value="{{ person.id }}" {{ 'selected' if values.to_owner_id == person.id|string }}>{{ person.name }}</option>{% endfor %}
         </select>
       </div>
@@ -43,7 +43,7 @@
     </div>
     <p class="muted small">For an ownership change, choose who it moves from and to; leave Expense category empty. For someone who paid for you, choose You as From, that person as To, and the expense category. CIB stays at the same total.</p>
     <div class="field"><label for="ownership-notes">Note <span class="muted">(optional)</span></label><input id="ownership-notes" name="notes" value="{{ values.notes }}" placeholder="For example, Dad paid October rent"></div>
-    <div class="popup-actions"><a class="btn" href="/accounts/{{ account.id }}">Cancel</a><button class="btn primary">Save</button></div>
+    <div class="popup-actions"><a class="btn" href="/accounts/{{ account.id }}">{{ 'Cancel'|tr(locale) }}</a><button class="btn primary">{{ 'Save'|tr(locale) }}</button></div>
     <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}">
   </form>
 </section>

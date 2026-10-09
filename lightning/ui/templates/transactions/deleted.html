@@ -9,7 +9,7 @@
 <section class="card">
   {% if rows %}
   <table>
-    <thead><tr><th>Date</th><th>Reference</th><th>What</th><th>Account</th><th>Category</th><th class="num">Amount</th><th></th></tr></thead>
+    <thead><tr><th>{{ 'Date'|tr(locale) }}</th><th>Reference</th><th>{{ 'What'|tr(locale) }}</th><th>{{ 'Account'|tr(locale) }}</th><th>{{ 'Category'|tr(locale) }}</th><th class="num">{{ 'Amount'|tr(locale) }}</th><th></th></tr></thead>
     <tbody>
     {% for row in rows %}
       <tr class="void">
