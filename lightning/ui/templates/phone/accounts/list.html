@@ -2,21 +2,21 @@
    button asks which account first (C05.2). #}
 {% extends "base.html" %}
 {% block title %}Accounts{% endblock %}
-{% block heading %}<h1>Accounts</h1>
-<p>Total balance</p>
+{% block heading %}<h1>{{ 'Accounts'|tr(locale) }}</h1>
+<p>{{ "Total balance"|tr(locale) }}</p>
 <div class="phone-lead">{{ gross_total|money(False, 0) }} <small>{{ base }}</small></div>
 <p class="phone-note">{{ fig.what_you_own.label }} {{ net_worth.total|money(False, 0) }}</p>{% endblock %}
-{% block top_actions %}{# C04.5: the everyday action as one Secondary, the rest behind ⋯ #}<a class="btn" href="/sms">From SMS</a><details class="action-menu phone-more-menu"><summary aria-label="More actions">⋯</summary><div><a href="/accounts/new">Add account</a><a href="/transactions/deleted">Deleted transactions</a></div></details>{% endblock %}
+{% block top_actions %}{# C04.5: the everyday action as one Secondary, the rest behind ⋯ #}<a class="btn" href="/sms">{{ "From SMS"|tr(locale) }}</a><details class="action-menu phone-more-menu"><summary aria-label="More actions">⋯</summary><div><a href="/accounts/new">{{ 'Add account'|tr(locale) }}</a><a href="/transactions/deleted">{{ "Deleted transactions"|tr(locale) }}</a></div></details>{% endblock %}
 {% block content %}
 <section class="card phone-card" aria-label="Your accounts">
   <div class="phone-rows is-list">
   {% for acc, balance, owned, count in rows if acc.active %}
     <a class="phone-row" href="/accounts/{{ acc.id }}"><span>{{ acc.name }}{% if acc.type_short|lower not in acc.name|lower %}<small>{{ acc.type_short }}</small>{% endif %}</span><b>{{ balance|money(False, 0) }}</b></a>
-  {% else %}<p class="empty">No accounts yet. Add your first one.</p>{% endfor %}
+  {% else %}<p class="empty">{{ "No accounts yet. Add your first one."|tr(locale) }}</p>{% endfor %}
   </div>
 </section>
 {% set closed = rows|rejectattr('0.active')|list %}
-{% if closed %}<details class="card phone-card"><summary class="phone-row"><span>Inactive accounts</span><b>{{ closed|length }}</b></summary>
+{% if closed %}<details class="card phone-card"><summary class="phone-row"><span>{{ "Inactive accounts"|tr(locale) }}</span><b>{{ closed|length }}</b></summary>
   <div class="phone-rows">{% for acc, balance, owned, count in closed %}<a class="phone-row" href="/accounts/{{ acc.id }}"><span>{{ acc.name }}</span><b>{{ balance|money(False, 0) }}</b></a>{% endfor %}</div></details>{% endif %}
 {% endblock %}
 {% block phone_add %}{% if rows %}<a class="phone-add" href="/accounts/add-transaction" data-popup-open aria-label="Add transaction"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></a>{% endif %}{% endblock %}

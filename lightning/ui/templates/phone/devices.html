@@ -1,66 +1,66 @@
 {# Devices on a phone, inside the phone frame (guideline Part C): one card per step, forms in soft wells, the
    main action full width. Same routes and fields as the Devices mode of profiles.html. #}
 {% extends "base.html" %}
-{% block title %}Devices{% endblock %}
-{% block phone_back %}<a class="phone-back" href="/profiles"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><span>Profile</span></a>{% endblock %}
-{% block heading %}<h1>Devices</h1><p>Your PCs borrow the ledger from this phone</p>{% endblock %}
+{% block title %}{{ 'Devices'|tr(locale) }}{% endblock %}
+{% block phone_back %}<a class="phone-back" href="/profiles"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg><span>{{ 'Profile'|tr(locale) }}</span></a>{% endblock %}
+{% block heading %}<h1>{{ 'Devices'|tr(locale) }}</h1><p>{{ 'Your PCs borrow the ledger from this phone'|tr(locale) }}</p>{% endblock %}
 {% block content %}
-{% if error %}<div class="flash error" role="alert">{{ error }}</div>{% endif %}
-{% if notice %}<div class="flash" role="status">{{ notice }}</div>{% endif %}
-{% if state_line and state_line != request.state.device_line|default('') %}<div class="flash" role="status">{{ state_line }}</div>{% endif %}
+{% if error %}<div class="flash error" role="alert">{{ error|tr(locale) }}</div>{% endif %}
+{% if notice %}<div class="flash" role="status">{{ notice|tr(locale) }}</div>{% endif %}
+{% if state_line and state_line != request.state.device_line|default('') %}<div class="flash" role="status">{{ state_line|tr(locale) }}</div>{% endif %}
 {% if lending in ['missing', 'damaged'] %}
 <section class="card phone-card" aria-labelledby="keep-heading">
-  <h2 id="keep-heading" class="phone-card-title">Keep this copy as the ledger</h2>
-  <p class="phone-note">Only if no PC holds the ledger now, or you accept losing what was changed there since it borrowed it. Afterwards pair your PCs again.</p>
+  <h2 id="keep-heading" class="phone-card-title">{{ 'Keep this copy as the ledger'|tr(locale) }}</h2>
+  <p class="phone-note">{{ 'Only if no PC holds the ledger now, or you accept losing what was changed there since it borrowed it. Afterwards pair your PCs again.'|tr(locale) }}</p>
   <form method="post" action="/profiles/devices/keep-home" class="phone-form">
     <input type="hidden" name="csrf" value="{{ csrf }}">
-    <label class="check-row"><input type="checkbox" name="confirm" value="yes"> A PC's copy from before will not come back</label>
-    <button class="btn phone-save" type="submit">Keep this copy</button>
+    <label class="check-row"><input type="checkbox" name="confirm" value="yes"> {{ 'The PC\'s copy from before will not come back'|tr(locale) }}</label>
+    <button class="btn phone-save" type="submit">{{ 'Keep this copy'|tr(locale) }}</button>
   </form>
 </section>
 {% else %}
 {% if pending %}
 <section class="card phone-card" aria-labelledby="pair-heading">
-  <h2 id="pair-heading" class="phone-card-title">{% if pending.paired_name %}Paired with {{ pending.paired_name }}{% else %}Pair a PC{% endif %}</h2>
+  <h2 id="pair-heading" class="phone-card-title">{% if pending.paired_name %}{{ 'Paired with {name}'|tr(locale, name=pending.paired_name) }}{% else %}{{ 'Pair a PC'|tr(locale) }}{% endif %}</h2>
   {% if pending.paired_name %}
-  <p class="phone-note">Check that the PC shows the same digits. If they differ, revoke it below.</p>
+  <p class="phone-note">{{ 'Check that the PC shows the same digits. If they differ, revoke it below.'|tr(locale) }}</p>
   <p class="phone-lead">{{ pending.digits[:3] }} {{ pending.digits[3:] }}</p>
   {% else %}
-  <p class="phone-note">On the PC: Connect to your phone, then type these. Same Wi-Fi; keep this page open. The code works once, for ten minutes.</p>
+  <p class="phone-note">{{ 'On the PC: Connect to your phone, then type these. Same Wi-Fi; keep this page open. The code works once, for ten minutes.'|tr(locale) }}</p>
   <div class="phone-rows">
-    <div class="phone-row"><span>Phone address</span><b>{{ address }}</b></div>
-    <div class="phone-row"><span>Code</span><b>{{ pending.code[:4] }}-{{ pending.code[4:8] }}-{{ pending.code[8:] }}</b></div>
+    <div class="phone-row"><span>{{ 'Phone address'|tr(locale) }}</span><b dir="ltr">{{ address }}</b></div>
+    <div class="phone-row"><span>{{ 'Code'|tr(locale) }}</span><b dir="ltr">{{ pending.code[:4] }}-{{ pending.code[4:8] }}-{{ pending.code[8:] }}</b></div>
   </div>
   {% endif %}
-  <form method="post" action="/profiles/devices/stop-pairing" class="phone-form"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn phone-save" type="submit">{% if pending.paired_name %}Done{% else %}Stop pairing{% endif %}</button></form>
+  <form method="post" action="/profiles/devices/stop-pairing" class="phone-form"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn phone-save" type="submit">{{ 'Done' if pending.paired_name else 'Stop pairing'|tr(locale) }}</button></form>
 </section>
 {% else %}
 <section class="card phone-card" aria-labelledby="new-pair-heading">
-  <h2 id="new-pair-heading" class="phone-card-title">Pair a PC</h2>
-  <p class="phone-note">The PC can then borrow this ledger, edit it and hand it back. One device edits at a time.</p>
+  <h2 id="new-pair-heading" class="phone-card-title">{{ 'Pair a PC'|tr(locale) }}</h2>
+  <p class="phone-note">{{ 'The PC can then borrow this ledger, edit it and hand it back. One device edits at a time.'|tr(locale) }}</p>
   <form method="post" action="/profiles/devices/pair" class="phone-form">
     <input type="hidden" name="csrf" value="{{ csrf }}">
-    <div class="field"><label for="phone-name">This phone's name</label><input id="phone-name" name="phone_name" type="text" required maxlength="60" value="{{ phone_name or 'My phone' }}" autocomplete="off"></div>
-    <button class="btn primary phone-save" type="submit">Show a pairing code</button>
+    <div class="field"><label for="phone-name">{{ 'This phone\'s name'|tr(locale) }}</label><input id="phone-name" name="phone_name" type="text" required maxlength="60" value="{{ phone_name or 'My phone' }}" autocomplete="off"></div>
+    <button class="btn primary phone-save" type="submit">{{ 'Show a pairing code'|tr(locale) }}</button>
   </form>
 </section>
 {% endif %}
 {% if peers %}
 <section class="card phone-card" aria-labelledby="peers-heading">
-  <h2 id="peers-heading" class="phone-card-title">Paired PCs</h2>
+  <h2 id="peers-heading" class="phone-card-title">{{ 'Paired PCs'|tr(locale) }}</h2>
   <div class="phone-rows">{% for peer in peers %}
-    <div class="phone-row"><span>{{ peer.name }}{% if peer.device_id == lent_to %}<small>Has the ledger</small>{% elif peer.revoked %}<small>Revoked</small>{% endif %}</span>{% if not peer.revoked %}<form method="post" action="/profiles/devices/revoke"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="device" value="{{ peer.device_id }}"><button class="btn" type="submit">Revoke</button></form>{% endif %}</div>
+    <div class="phone-row"><span>{{ peer.name }}{% if peer.device_id == lent_to %}<small>{{ 'Has the ledger'|tr(locale) }}</small>{% elif peer.revoked %}<small>{{ 'Revoked'|tr(locale) }}</small>{% endif %}</span>{% if not peer.revoked %}<form method="post" action="/profiles/devices/revoke"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="device" value="{{ peer.device_id }}"><button class="btn" type="submit">{{ 'Revoke'|tr(locale) }}</button></form>{% endif %}</div>
   {% endfor %}</div>
 </section>
 {% endif %}
 {% if lent_to or state_line %}
 <section class="card phone-card" aria-labelledby="take-back-heading">
-  <h2 id="take-back-heading" class="phone-card-title">Take the ledger back</h2>
-  <p class="phone-note">Only when the PC is lost or broken. The phone keeps editing from its own copy; what was changed on the PC since it borrowed the ledger does not come back.</p>
+  <h2 id="take-back-heading" class="phone-card-title">{{ 'Take the ledger back'|tr(locale) }}</h2>
+  <p class="phone-note">{{ 'Only when the PC is lost or broken. The phone keeps editing from its own copy; what was changed on the PC since it borrowed the ledger does not come back.'|tr(locale) }}</p>
   <form method="post" action="/profiles/devices/take-back" class="phone-form">
     <input type="hidden" name="csrf" value="{{ csrf }}">
-    <label class="check-row"><input type="checkbox" name="confirm" value="yes"> The PC's changes since it borrowed the ledger will not come back</label>
-    <button class="btn phone-save" type="submit">Take back</button>
+    <label class="check-row"><input type="checkbox" name="confirm" value="yes"> {{ 'The PC\'s changes since it borrowed the ledger will not come back'|tr(locale) }}</label>
+    <button class="btn phone-save" type="submit">{{ 'Take back'|tr(locale) }}</button>
   </form>
 </section>
 {% endif %}

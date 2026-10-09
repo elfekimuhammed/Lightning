@@ -1,23 +1,23 @@
 {% extends "base.html" %}
 {% block title %}Deleted transactions{% endblock %}
 {% block heading %}
-<h1>Deleted transactions</h1>
-<div class="muted">Deleted entries stay here so you can restore them.</div>
+<h1>{{ 'Deleted transactions'|tr(locale) }}</h1>
+<div class="muted">{{ "Deleted entries stay here so you can restore them."|tr(locale) }}</div>
 {% endblock %}
-{% block top_actions %}<a class="btn small" href="/transactions">Back to transactions</a>{% endblock %}
+{% block top_actions %}<a class="btn small" href="/transactions">{{ "Back to transactions"|tr(locale) }}</a>{% endblock %}
 {% block content %}
 <section class="card">
   {% if rows %}
   <table>
-    <thead><tr><th>Date</th><th>Reference</th><th>What</th><th>Account</th><th>Category</th><th class="num">Amount</th><th></th></tr></thead>
+    <thead><tr><th>{{ 'Date'|tr(locale) }}</th><th>{{ "Reference"|tr(locale) }}</th><th>{{ 'What'|tr(locale) }}</th><th>{{ 'Account'|tr(locale) }}</th><th>{{ 'Category'|tr(locale) }}</th><th class="num">{{ 'Amount'|tr(locale) }}</th><th></th></tr></thead>
     <tbody>
     {% for row in rows %}
       <tr class="void">
         <td class="code">{{ row.date }}</td>
         <td><a class="code" href="/transactions/{{ row.id }}">{{ row.ref }}</a></td>
-        <td>{{ row.description or row.counterparty or row.type_label }}</td>
+        <td>{% if row.description or row.counterparty %}{{ row.description or row.counterparty }}{% else %}{{ row.type_label|tr(locale) }}{% endif %}</td>
         <td class="small">{{ row.account_label }}{% if row.to_account_label %} → {{ row.to_account_label }}{% endif %}</td>
-        <td class="small">{{ row.category_label or row.type_label }}</td>
+        <td class="small">{{ (row.category_label or row.type_label)|tr(locale) }}</td>
         <td class="num">{{ row.amount|money(True) }} {{ row.currency }}</td>
         <td><form method="post" action="/transactions/{{ row.id }}/restore"><button class="cat-icon" title="Restore" aria-label="Restore {{ row.ref }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5"/></svg></button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form></td>
       </tr>
@@ -25,7 +25,7 @@
     </tbody>
   </table>
   {% else %}
-  <div class="empty">No deleted transactions.</div>
+  <div class="empty">{{ "No deleted transactions."|tr(locale) }}</div>
   {% endif %}
 </section>
 {% endblock %}

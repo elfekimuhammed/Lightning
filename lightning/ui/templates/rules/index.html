@@ -1,17 +1,17 @@
 {% extends "base.html" %}
 {% block title %}Rules · Settings{% endblock %}
-{% block heading %}<div><h1>Settings</h1></div>{% endblock %}
-{% block top_actions %}<a class="btn primary" data-popup-open href="/rules/new">Add rule</a>{% endblock %}
+{% block heading %}<div><h1>{{ 'Settings'|tr(locale) }}</h1></div>{% endblock %}
+{% block top_actions %}<a class="btn primary" data-popup-open href="/rules/new">{{ "Add rule"|tr(locale) }}</a>{% endblock %}
 {% block content %}
-{% if undo %}<form method="post" action="/rules/undo" class="card rule-undo"><span>Refiled the wrong ones?</span><input type="hidden" name="token" value="{{ undo }}"><button class="btn">Undo</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>{% endif %}
+{% if undo %}<form method="post" action="/rules/undo" class="card rule-undo"><span>{{ "Refiled the wrong ones?"|tr(locale) }}</span><input type="hidden" name="token" value="{{ undo }}"><button class="btn">{{ 'Undo'|tr(locale) }}</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>{% endif %}
 <section class="plan-section" aria-labelledby="rules-list">
-  <header class="overview-section-head"><h2 id="rules-list">Rules</h2><span>{{ rows|length }} saved · most specific first</span></header>
+  <header class="overview-section-head"><h2 id="rules-list">{{ 'Rules'|tr(locale) }}</h2><span>{{ rows|length }} saved · most specific first</span></header>
   <article class="card">
     {% if rows %}<div class="compact-list">{% for r in rows %}
       <div class="compact-row rule-row">
         <span><a href="/rules/{{ r.rule.id }}/edit" data-popup-open><b>{{ r.when }}</b></a><small class="muted">{{ r.then }}</small></span>
       </div>{% endfor %}</div>
-    {% else %}<p class="muted">No rules yet. A rule files a transaction by its counterparty, notes or amount, like Vodafone above 300 as Internet, before you review it.</p>{% endif %}
+    {% else %}<p class="muted">{{ "No rules yet. A rule files a transaction by its counterparty, notes or amount, like Vodafone above 300 as Internet, before you review it."|tr(locale) }}</p>{% endif %}
   </article>
 </section>
 {% endblock %}

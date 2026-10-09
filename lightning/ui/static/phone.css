@@ -41,6 +41,9 @@ html.phone, .phone-body { max-width: 100%; overflow-x: hidden; }
 .phone-tab.is-chosen { color: var(--c-ink); }
 .phone-tab.is-chosen .phone-tab-icon { background: var(--c-nile); color: #fff; }
 .phone-tab:hover { text-decoration: none; }
+html.phone[dir="rtl"] .phone-mark { margin-left: 0; margin-right: -8px; }
+html.phone[dir="rtl"] .phone-appbar-icons { margin-right: 0; margin-left: -8px; }
+html.phone[dir="rtl"] .phone-back svg { transform: scaleX(-1); }
 html.phone.keyboard-open .phone-tabbar, html.phone.sheet-open .phone-tabbar { display: none; }
 
 /* C04 page header: title, its dates, the period control, then the tabs. Four rows, nothing beside them. */
@@ -240,7 +243,7 @@ html.phone.keyboard-open .phone-tabbar, html.phone.sheet-open .phone-tabbar { di
 
 /* C05.2: the add button, 56 Nile, 16 from the edge, 16 above the tab bar; the page ends above it so it never covers a row. */
 .phone-content:has(> .phone-add) { padding-bottom: calc(var(--c-tabbar) + env(safe-area-inset-bottom) + 96px); }
-.phone-add { position: fixed; right: 16px; bottom: calc(var(--c-tabbar) + env(safe-area-inset-bottom) + 16px); z-index: 19;
+.phone-add { position: fixed; inset-inline-end: 16px; bottom: calc(var(--c-tabbar) + env(safe-area-inset-bottom) + 16px); z-index: 19;
   display: inline-flex; align-items: center; justify-content: center; width: 56px; height: 56px; border-radius: 18px;
   background: var(--c-nile); color: #fff; box-shadow: 0 6px 18px rgba(10, 36, 66, .3); }
 .phone-add svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; }

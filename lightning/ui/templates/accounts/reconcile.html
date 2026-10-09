@@ -1,42 +1,42 @@
 {% extends "base.html" %}
 {% block title %}Check {{ account.name }}{% endblock %}
-{% block heading %}<div class="acct-title"><h1>Check {{ account.name }}</h1></div><div class="muted small">What does your bank say? Type the balance it shows.</div>{% endblock %}
-{% block top_actions %}<a class="btn small" href="/accounts/{{ account.id }}">Back to account</a>{% endblock %}
+{% block heading %}<div class="acct-title"><h1>Check {{ account.name }}</h1></div><div class="muted small">{{ "What does your bank say? Type the balance it shows."|tr(locale) }}</div>{% endblock %}
+{% block top_actions %}<a class="btn small" href="/accounts/{{ account.id }}">{{ "Back to account"|tr(locale) }}</a>{% endblock %}
 {% block content %}
 <section class="card reconcile-summary">
   <form method="get" action="/accounts/{{ account.id }}/reconcile" class="reconcile-controls">
-    <label>On <small class="muted">the date it shows</small><input type="text" placeholder="yyyy-mm-dd" inputmode="numeric" autocomplete="off" data-smart-date name="date" value="{{ through }}" required></label>
-    <label>Your bank shows <small class="muted">ending balance</small><input type="text" name="balance" value="{{ balance_input }}" placeholder="e.g. 12,500.00" inputmode="decimal" required></label>
-    <button class="btn primary">Check</button>
+    <label>On <small class="muted">{{ "the date it shows"|tr(locale) }}</small><input type="text" placeholder="yyyy-mm-dd" inputmode="numeric" autocomplete="off" data-smart-date name="date" value="{{ through }}" required></label>
+    <label>{{ "Your bank shows"|tr(locale) }}<small class="muted">{{ "ending balance"|tr(locale) }}</small><input type="text" name="balance" value="{{ balance_input }}" placeholder="e.g. 12,500.00" inputmode="decimal" required></label>
+    <button class="btn primary">{{ "Check"|tr(locale) }}</button>
   </form>
-  {% if error %}<p class="flash error">{{ error }}</p>{% endif %}
+  {% if error %}<p class="flash error">{{ error|tr(locale) }}</p>{% endif %}
   <div class="reconcile-figures">
-    <div><span class="muted small">Lightning shows</span><b>{{ lightning_balance|money if lightning_balance is not none else '—' }}</b></div>
-    {% if check %}<div><span class="muted small">Your bank shows</span><b>{{ check.bank_balance|money }}</b></div>
-    <div><span class="muted small">Difference</span><b class="{{ check.difference|tone }}">{{ check.difference|money(True) }}</b></div>{% endif %}
+    <div><span class="muted small">{{ "Lightning shows"|tr(locale) }}</span><b>{{ lightning_balance|money if lightning_balance is not none else '—' }}</b></div>
+    {% if check %}<div><span class="muted small">{{ "Your bank shows"|tr(locale) }}</span><b>{{ check.bank_balance|money }}</b></div>
+    <div><span class="muted small">{{ 'Difference'|tr(locale) }}</span><b class="{{ check.difference|tone }}">{{ check.difference|money(True) }}</b></div>{% endif %}
   </div>
 </section>
 {% if check %}<section class="card reconcile-result">
   {% if check.matches %}
-  <h2>It matches</h2>
+  <h2>{{ "It matches"|tr(locale) }}</h2>
   <p>{{ account.name }} matches your bank on {{ check.through }}. Nothing to do.</p>
   {% elif check.small %}
-  <h2>A small difference</h2>
+  <h2>{{ "A small difference"|tr(locale) }}</h2>
   <p>Lightning is {{ check.difference|abs|money }} {{ account.currency }} {{ 'below' if check.difference > 0 else 'above' }} your bank, within the {{ check.limit|money }} that counts as small (1% of the balance, at least 100).</p>
   <p class="muted small">One balance adjustment on {{ check.through }} makes them match. It counts as {{ 'Other Income' if check.difference > 0 else 'Other Personal spending' }}, and you can edit or delete it later like any row.</p>
   <form method="post" action="/accounts/{{ account.id }}/reconcile" class="actions">
     <input type="hidden" name="date" value="{{ check.through }}"><input type="hidden" name="balance" value="{{ balance_input }}">
     <button class="btn primary">Post adjustment of {{ check.difference|money(True) }}</button>
-    <a class="btn" href="/accounts/{{ account.id }}?date_from={{ month_start }}&amp;date_to={{ check.through }}&amp;return_to={{ ('/accounts/' ~ account.id ~ '/reconcile?date=' ~ check.through ~ '&balance=' ~ balance_input)|urlencode }}">Review rows instead</a>
+    <a class="btn" href="/accounts/{{ account.id }}?date_from={{ month_start }}&amp;date_to={{ check.through }}&amp;return_to={{ ('/accounts/' ~ account.id ~ '/reconcile?date=' ~ check.through ~ '&balance=' ~ balance_input)|urlencode }}">{{ "Review rows instead"|tr(locale) }}</a>
   <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
   {% else %}
-  <h2>Too big to adjust</h2>
+  <h2>{{ "Too big to adjust"|tr(locale) }}</h2>
   <p>Lightning is {{ check.difference|abs|money }} {{ account.currency }} {{ 'below' if check.difference > 0 else 'above' }} your bank, more than the {{ check.limit|money }} that counts as small. A row is probably missing, doubled or mistyped.</p>
   <div class="actions">
     <a class="btn primary" href="/accounts/{{ account.id }}?date_from={{ month_start }}&amp;date_to={{ check.through }}&amp;return_to={{ ('/accounts/' ~ account.id ~ '/reconcile?date=' ~ check.through ~ '&balance=' ~ balance_input)|urlencode }}">Review {{ month_start[:7] }} row by row</a>
-    <a class="btn" href="/accounts/{{ account.id }}/import">Import the statement again</a>
+    <a class="btn" href="/accounts/{{ account.id }}/import">{{ "Import the statement again"|tr(locale) }}</a>
   </div>
-  <p class="muted small">To redo an import, select its rows in the register, delete them, then import the statement again.</p>
+  <p class="muted small">{{ "To redo an import, select its rows in the register, delete them, then import the statement again."|tr(locale) }}</p>
   {% endif %}
 </section>{% endif %}
 {% endblock %}

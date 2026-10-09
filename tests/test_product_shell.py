@@ -66,6 +66,22 @@ def test_analysis_navigation_selects_only_the_current_page(c):
         assert active == [current]
 
 
+def test_arabic_locale_persists_and_renders_rtl_with_isolated_financial_data(c):
+    client = TestClient(create_app(c))
+    before = client.get("/")
+    assert '<html lang="en" dir="ltr"' in before.text
+
+    saved = client.post("/settings/locale", data={"locale": "ar"}, follow_redirects=False)
+    assert saved.status_code == 303
+    assert c.settings.get("locale") == "ar"
+    page = client.get("/")
+    assert '<html lang="ar-EG" dir="rtl"' in page.text
+    assert "نظرة عامة" in page.text
+    assert '<b dir="ltr">' in page.text  # Amount and currency stay in a left-to-right isolate.
+    stylesheet = Path("lightning/ui/static/style.css").read_text(encoding="utf-8")
+    assert "unicode-bidi: isolate" in stylesheet
+
+
 def test_account_uses_guided_transaction_entry_and_keeps_advanced_row_secondary(c):
     c.account_flows.open_account("Wallet", "CASH", "2026-09-01", "1000")
     client = TestClient(create_app(c))

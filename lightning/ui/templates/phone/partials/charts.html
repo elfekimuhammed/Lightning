@@ -32,14 +32,14 @@
 <div class="phone-flow" aria-hidden="true">
   <span class="phone-flow-label">In</span>
   <span class="phone-flow-bar">{% for n in s.sources %}<i class="tone-in" style="width:{{ '%.2f'|format(n.value / s.total * 100) }}%"></i>{% endfor %}</span>
-  <span class="phone-flow-label">Out and kept</span>
+  <span class="phone-flow-label">{{ "Out and kept"|tr(locale) }}</span>
   <span class="phone-flow-bar">{% for n in s.targets %}<i class="tone-{{ n.tone }}" style="width:{{ '%.2f'|format(n.value / s.total * 100) }}%"></i>{% endfor %}</span>
 </div>
 <div class="phone-rows">
   {% for n in s.sources %}<div class="phone-row"><span class="has-key"><i class="phone-key tone-in"></i>{{ n.label }}</span><b>{{ n.value|money }} <small>{{ '%.0f'|format(n.value / s.total * 100) }}%</small></b></div>{% endfor %}
   {% for n in s.targets %}{% set tag = 'a' if n.href else 'div' %}<{{ tag }} class="phone-row"{% if n.href %} href="{{ n.href }}"{% endif %}><span class="has-key"><i class="phone-key tone-{{ n.tone }}"></i>{{ n.label }}</span><b>{{ n.value|money }} <small>{{ '%.0f'|format(n.value / s.total * 100) }}%</small></b></{{ tag }}>{% endfor %}
 </div>
-{% else %}<p class="chart-empty">No money moved in this period.</p>{% endif %}
+{% else %}<p class="chart-empty">{{ "No money moved in this period."|tr(locale) }}</p>{% endif %}
 {% endmacro %}
 
 {# C07.3.4: the latest year as a 4 × 3 grid of month tiles, the amount in each. #}

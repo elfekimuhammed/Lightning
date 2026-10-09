@@ -2166,7 +2166,7 @@ a.chart-sankey-label:hover b { color:var(--azure); }
 .main .cat-table .cat-l1 td { border-bottom:1px solid var(--line-control); }
 /* Inline row fields · fields inside a table row: a light green shade of the row, no border until
    you are in it, so the row still reads as a table. One style for every row-by-row table. */
-.main .row-field:not(#_) { height:30px!important; min-height:30px!important; width:84px; padding:0 26px 0 10px!important; border:1px solid transparent!important;
+.main .row-field:not(#_) { height:30px!important; min-height:30px!important; width:84px; padding-block:0!important; padding-inline:10px 26px!important; border:1px solid transparent!important;
   border-radius:8px!important; background:#EAF6EF!important; color:var(--ink); font:600 var(--fs-2)/1 var(--body)!important; text-align:right;
   font-variant-numeric:tabular-nums; box-shadow:none!important; -moz-appearance:textfield; appearance:textfield; }
 .main .row-field::-webkit-outer-spin-button, .main .row-field::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
@@ -2175,7 +2175,7 @@ a.chart-sankey-label:hover b { color:var(--azure); }
 .main .row-field:not(#_):focus { background:#FFFFFF!important; border-color:var(--meadow-dark)!important; box-shadow:0 0 0 3px rgba(11,138,95,.12)!important; outline:0; }
 .main .row-field::placeholder { color:var(--muted); font-weight:500; }
 .main .row-field-unit { position:relative; display:inline-block; }
-.main .row-field-unit i { position:absolute; right:9px; top:50%; transform:translateY(-50%); font:600 var(--fs-meta)/1 var(--body); font-style:normal; color:var(--muted); pointer-events:none; }
+.main .row-field-unit i { position:absolute; inset-inline-end:9px; top:50%; transform:translateY(-50%); font:600 var(--fs-meta)/1 var(--body); font-style:normal; color:var(--muted); pointer-events:none; }
 /* Sale factors grouped by class. */
 .main .factor-table { width:100%; max-width:860px; border-collapse:collapse; table-layout:fixed; }
 .main .factor-table col.c-num { width:170px; } .main .factor-table col.c-factor { width:230px; }
@@ -2458,7 +2458,7 @@ a.chart-sankey-label:hover b { color:var(--azure); }
 .main .targets-table .info-tip:hover::after, .main .targets-table .info-tip:focus::after { left:-8px; transform:none; z-index:40; }
 /* Percent stepper: two small chevrons inside the field, left of the unit; one percent a step. */
 .main .has-stepper { position:relative; }
-.main .row-field-unit.has-stepper .row-field:not(#_) { padding-right:40px!important; }
+.main .row-field-unit.has-stepper .row-field:not(#_) { padding-inline-end:40px!important; }
 .main .sc-unit.has-stepper input:not(#_) { padding-right:56px!important; }
 .main .has-stepper > i { right:26px!important; }
 .main .pct-stepper { position:absolute; right:4px; top:50%; transform:translateY(-50%); display:grid; gap:1px; }
@@ -3075,3 +3075,11 @@ a.chart-sankey-label:hover b { color:var(--azure); }
 .main .rule-form [hidden] { display:none!important; }
 .main .rule-split > summary { cursor:pointer; font-weight:650; }
 .main .rule-undo { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+
+/* Arabic interface foundation: logical placement and isolated financial text. */
+html[dir="rtl"] body { font-family: Tahoma, 'Segoe UI', Arial, sans-serif; }
+html[dir="rtl"] .side { border-right: 0; border-left: 1px solid var(--border); }
+html[dir="rtl"] .side-account { padding-left: 0; padding-right: 16px; }
+html[dir="rtl"] .num, html[dir="rtl"] .amount, html[dir="rtl"] .money-input, html[dir="rtl"] [data-money],
+html[dir="rtl"] .code, html[dir="rtl"] code, html[dir="rtl"] [data-ref], html[dir="rtl"] time, html[dir="rtl"] .nowrap { direction: ltr; unicode-bidi: isolate; }
+.locale-form { display:flex; align-items:center; gap:12px; margin:0 0 16px; }

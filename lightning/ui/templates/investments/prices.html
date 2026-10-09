@@ -1,70 +1,70 @@
 {% extends "base.html" %}
 {% block title %}Investment prices{% endblock %}
-{% block heading %}<h1>Investment prices</h1><div class="muted">Lightning fetches them online, falls back on the shared price files, or you type them. A price you type for a day wins.</div>{% endblock %}
+{% block heading %}<h1>{{ 'Investment prices'|tr(locale) }}</h1><div class="muted">{{ 'Lightning fetches them online, falls back on the shared price files, or you type them. A price you type for a day wins.'|tr(locale) }}</div>{% endblock %}
 {% block content %}
 <section class="card" style="max-width:1000px;margin-bottom:16px" aria-labelledby="price-files">
-  <h2 id="price-files">Update prices</h2>
-  <p class="muted small">Lightning asks the sources itself for the investments you hold: the latest close, and every month-end close it lacks. It does this by itself the first time you open it after a month ends, because month-end prices make your monthly returns. Sources: TradingView and Yahoo Finance for stocks, Mubasher for funds, and for gold an estimate from the world price and the dollar’s rate (Yahoo Finance).</p>
+  <h2 id="price-files">{{ 'Update prices'|tr(locale) }}</h2>
+  <p class="muted small">{{ 'Lightning asks the sources itself for the investments you hold: the latest close, and every month-end close it lacks. It does this by itself the first time you open it after a month ends, because month-end prices make your monthly returns. Sources: TradingView and Yahoo Finance for stocks, Mubasher for funds, and for gold an estimate from the world price and the dollar’s rate (Yahoo Finance).'|tr(locale) }}</p>
   <form method="post" class="actions" action="/investments/prices/online">
-    <button class="btn primary" data-busy="Fetching prices…">Update prices</button>
+    <button class="btn primary" data-busy="Fetching prices…">{{ 'Update prices'|tr(locale) }}</button>
   <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
-  <h3 style="margin-top:16px">Shared price files</h3>
+  <h3 style="margin-top:16px">{{ 'Shared price files'|tr(locale) }}</h3>
   {% if market %}
   <table class="budget">
-    <thead><tr><th>Market</th><th class="num">Prices</th><th>Up to</th><th>File</th></tr></thead>
-    {% for m in market %}<tr><td>{{ m.name }}</td>{% if m.have %}<td class="num">{{ m.have.instruments }}</td><td>{{ m.have.last_date }}</td><td class="muted small">{{ m.have.created_at }}, {{ m.have.origin }}</td>{% else %}<td class="num muted">—</td><td colspan="2" class="muted">Not downloaded yet</td>{% endif %}</tr>{% endfor %}
+    <thead><tr><th>{{ 'Market'|tr(locale) }}</th><th class="num">{{ 'Prices'|tr(locale) }}</th><th>{{ 'Up to'|tr(locale) }}</th><th>{{ 'File'|tr(locale) }}</th></tr></thead>
+    {% for m in market %}<tr><td>{{ m.name }}</td>{% if m.have %}<td class="num">{{ m.have.instruments }}</td><td>{{ m.have.last_date }}</td><td class="muted small">{{ m.have.created_at }}, {{ m.have.origin }}</td>{% else %}<td class="num muted">—</td><td colspan="2" class="muted">{{ 'Not downloaded yet'|tr(locale) }}</td>{% endif %}</tr>{% endfor %}
   </table>
   {% set cited = market | selectattr('have') | selectattr('source') | map(attribute='source') | unique | list %}
-  <p class="muted small">Lightning collects prices every day as a backup. If a source fails for you, download them and fill each investment's month-end and latest prices from them.{% if cited %} Source: {{ cited | join('; ') }}.{% endif %} <a href="/investments/prices/markets">Choose markets</a></p>
+  <p class="muted small">Lightning collects prices every day as a backup. If a source fails for you, download them and fill each investment's month-end and latest prices from them.{% if cited %} Source: {{ cited | join('; ') }}.{% endif %} <a href="/investments/prices/markets">{{ 'Choose markets'|tr(locale) }}</a></p>
   {% else %}
-  <p class="muted">You follow no markets. <a href="/investments/prices/markets">Choose markets</a> to use the shared price files.</p>
+  <p class="muted">{{ 'You follow no markets.'|tr(locale) }} <a href="/investments/prices/markets">{{ 'Choose markets'|tr(locale) }}</a> {{ 'to use the shared price files.'|tr(locale) }}</p>
   {% endif %}
   {% if market %}<form method="post" class="actions" action="/investments/prices/market/fill">
-    <button class="btn" formaction="/investments/prices/market/update" data-busy="Downloading…">Download shared prices</button>
-    {% if market | selectattr('have') | list %}<button class="btn">Fill from price files</button>{% endif %}
+    <button class="btn" formaction="/investments/prices/market/update" data-busy="Downloading…">{{ 'Download shared prices'|tr(locale) }}</button>
+    {% if market | selectattr('have') | list %}<button class="btn">{{ 'Fill from price files'|tr(locale) }}</button>{% endif %}
   <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>{% endif %}
   <details style="margin-top:12px">
-    <summary>Import a file</summary>
+    <summary>{{ 'Import a file'|tr(locale) }}</summary>
     <form method="post" enctype="multipart/form-data" action="/investments/prices/market/import" style="margin-top:10px">
       <div class="field"><label for="market-zip">market.zip</label><input id="market-zip" type="file" name="file" accept=".zip,application/zip" required>
-        <div class="help">From a newer Lightning or another computer. A pack older than yours is skipped.</div></div>
-      <div class="actions"><button class="btn">Import and fill</button></div>
+        <div class="help">{{ 'From a newer Lightning or another computer. A pack older than yours is skipped.'|tr(locale) }}</div></div>
+      <div class="actions"><button class="btn">{{ 'Import and fill'|tr(locale) }}</button></div>
     <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
   </details>
 </section>
 {% if pending %}
 <form method="post" class="card" style="max-width:1000px;margin-bottom:16px" autocomplete="off" id="missing">
-  <h2>Prices needed to complete reevaluations</h2>
+  <h2>{{ 'Prices needed to complete reevaluations'|tr(locale) }}</h2>
   <p class="muted">These month-end checkpoints are waiting for a price. Get prices asks the sources again; {% if fails >= 2 and market %}they failed the last {{ fails }} times, so you can use the shared prices instead, or {% else %}or {% endif %}enter each price below. Its account return is then posted to the main ledger.</p>
-  <div class="actions" style="margin-bottom:12px"><button class="btn" formaction="/investments/prices/online" formnovalidate data-busy="Fetching prices…">Get prices</button>{% if fails >= 2 and market %}<button class="btn" formaction="/investments/prices/market/update" formnovalidate data-busy="Downloading…">Use shared prices</button>{% endif %}</div>
-  <table class="budget"><thead><tr><th>Checkpoint</th><th>Investment</th><th>Price needed</th></tr></thead>
+  <div class="actions" style="margin-bottom:12px"><button class="btn" formaction="/investments/prices/online" formnovalidate data-busy="Fetching prices…">{{ 'Get prices'|tr(locale) }}</button>{% if fails >= 2 and market %}<button class="btn" formaction="/investments/prices/market/update" formnovalidate data-busy="Downloading…">{{ 'Use shared prices'|tr(locale) }}</button>{% endif %}</div>
+  <table class="budget"><thead><tr><th>{{ 'Checkpoint'|tr(locale) }}</th><th>{{ 'Investment'|tr(locale) }}</th><th>{{ 'Price needed'|tr(locale) }}</th></tr></thead>
     {% for row in pending %}<tr><td>{{ row.date }}</td><td>{{ row.asset_name }}</td>
       <td><input name="rp_{{ row.asset_id }}_{{ row.date }}" class="num" inputmode="decimal" placeholder="Price per unit" required></td></tr>{% endfor %}
   </table>
-  <div class="actions" style="margin-top:12px"><button class="btn primary">Save missing prices</button></div>
+  <div class="actions" style="margin-top:12px"><button class="btn primary">{{ 'Save missing prices'|tr(locale) }}</button></div>
 <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
 {% endif %}
 <form method="post" class="card" style="max-width:1000px" autocomplete="off">
   <div class="field" style="max-width:220px">
-    <label for="date">As of <span class="muted small">yyyy-mm-dd</span></label>
+    <label for="date">{{ 'As of'|tr(locale) }} <span class="muted small">{{ 'yyyy-mm-dd'|tr(locale) }}</span></label>
     <input type="text" id="date" name="date" value="{{ day }}" placeholder="yyyy-mm-dd" inputmode="numeric" autocomplete="off" data-smart-date required>
   </div>
   <table class="budget">
-    <thead><tr><th>Investment</th><th class="num">You hold</th><th class="num">Last price</th><th class="num">Total value</th><th class="num" style="width:170px">New price per unit</th></tr></thead>
+    <thead><tr><th>{{ 'Investment'|tr(locale) }}</th><th class="num">{{ 'You hold'|tr(locale) }}</th><th class="num">{{ 'Last price'|tr(locale) }}</th><th class="num">{{ 'Total value'|tr(locale) }}</th><th class="num" style="width:170px">{{ 'New price per unit'|tr(locale) }}</th></tr></thead>
     {% for r in rows %}
     <tr>
       <td>{{ r.asset.name }}
-        <a class="small" href="/investments/assets/{{ r.asset.id }}/edit" style="margin-left:6px">edit</a></td>
+        <a class="small" href="/investments/assets/{{ r.asset.id }}/edit" style="margin-left:6px">{{ 'edit'|tr(locale) }}</a></td>
       <td class="num small">{% if r.held %}{{ r.held.quantity|money(False, 3 if r.asset.unit == 'gram' else (0 if r.asset.unit == 'share' else 4)) }} {{ r.asset.unit }}s{% else %}<span class="muted">—</span>{% endif %}</td>
-      <td class="num small">{% if r.price is not none %}{{ r.price|money(False, 4) }}<div class="muted">{{ r.price_date }}{{ ' · last trade' if r.source == 'TRADE' else (' · at cost' if r.source == 'COST' else (' · price file' if r.source == 'MARKET' else (' · online' if r.source == 'ONLINE' else ''))) }}</div>{% else %}<span class="muted">none</span>{% endif %}</td>
+      <td class="num small">{% if r.price is not none %}{{ r.price|money(False, 4) }}<div class="muted">{{ r.price_date }}{{ ' · last trade' if r.source == 'TRADE' else (' · at cost' if r.source == 'COST' else (' · price file' if r.source == 'MARKET' else (' · online' if r.source == 'ONLINE' else ''))) }}</div>{% else %}<span class="muted">{{ 'none'|tr(locale) }}</span>{% endif %}</td>
       <td>{% if r.held and r.held.quantity > 0 %}<input type="text" name="value_{{ r.asset.id }}" inputmode="decimal" class="num" aria-label="Total value of {{ r.asset.name }}">{% else %}<span class="muted">—</span>{% endif %}</td>
-      <td>{% if not r.is_certificate %}<input type="text" name="p_{{ r.asset.id }}" inputmode="decimal" class="num" placeholder="{{ r.price|money(False, 4) if r.price is not none else '' }}">{% else %}<span class="muted">Set at purchase</span>{% endif %}</td>
+      <td>{% if not r.is_certificate %}<input type="text" name="p_{{ r.asset.id }}" inputmode="decimal" class="num" placeholder="{{ r.price|money(False, 4) if r.price is not none else '' }}">{% else %}<span class="muted">{{ 'Set at purchase'|tr(locale) }}</span>{% endif %}</td>
     </tr>
     {% else %}
-    <tr><td colspan="5" class="empty">No investments yet. <a href="/investments/assets/new">Add one</a>.</td></tr>
+    <tr><td colspan="5" class="empty">{{ 'No investments yet.'|tr(locale) }} <a href="/investments/assets/new">{{ 'Add one'|tr(locale) }}</a>.</td></tr>
     {% endfor %}
   </table>
-  <div class="actions" style="margin-top:14px"><button class="btn primary">Save prices</button><a class="btn" href="/investments">Cancel</a></div>
-  <p class="muted small">A price you type wins over the price files and the last trade price for the same day.</p>
+  <div class="actions" style="margin-top:14px"><button class="btn primary">{{ 'Save prices'|tr(locale) }}</button><a class="btn" href="/investments">{{ 'Cancel'|tr(locale) }}</a></div>
+  <p class="muted small">{{ 'A price you type wins over the price files and the last trade price for the same day.'|tr(locale) }}</p>
 <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
 {% endblock %}

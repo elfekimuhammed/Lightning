@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Apply rule · Settings{% endblock %}
-{% block heading %}<div><h1>Settings</h1></div>{% endblock %}
+{% block heading %}<div><h1>{{ 'Settings'|tr(locale) }}</h1></div>{% endblock %}
 {% block content %}
 <section class="card stack" aria-labelledby="rule-past">
   <h2 id="rule-past">This rule would change {{ total }} past transaction{{ 's' if total != 1 }}</h2>
@@ -9,6 +9,6 @@
     <div class="compact-row"><span><b>{{ t.counterparty or 'No counterparty' }}</b><small class="muted">{{ t.category_from }} · {{ t.date }}</small></span><b class="{{ 'pos' if t.amount > 0 }}">{{ '+' if t.amount > 0 else '−' }}{{ t.amount|abs|money }}</b></div>{% endfor %}
     {% if more %}<div class="compact-row"><span class="muted">and {{ more }} more</span></div>{% endif %}
   </div>
-  <div class="actions"><form method="post" action="/rules/{{ rule.id }}/apply"><button class="btn primary">Change {{ total }} transaction{{ 's' if total != 1 }}</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form><a class="btn" href="/rules">Leave the past as it is</a></div>
+  <div class="actions"><form method="post" action="/rules/{{ rule.id }}/apply"><button class="btn primary">Change {{ total }} transaction{{ 's' if total != 1 }}</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form><a class="btn" href="/rules">{{ "Leave the past as it is"|tr(locale) }}</a></div>
 </section>
 {% endblock %}

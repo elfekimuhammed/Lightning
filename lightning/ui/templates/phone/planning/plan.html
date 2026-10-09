@@ -5,33 +5,33 @@
 {% from "phone/partials/charts.html" import kpi_tiles, bar_rows %}
 {% from "partials/charts.html" import trend %}
 {% block title %}Cash planning{% endblock %}
-{% block heading %}<h1>Cash planning</h1><p>As of {{ as_of }}</p>{% endblock %}
+{% block heading %}<h1>{{ 'Cash planning'|tr(locale) }}</h1><p>As of {{ as_of }}</p>{% endblock %}
 {% block content %}
 {% set f = forecast %}{% set p = plan %}
 {{ kpi_tiles(stats, base) }}
 
 <section class="phone-section" aria-labelledby="safe-section">
-  <header class="phone-section-head"><h2 id="safe-section">Safe to spend</h2><span>To {{ f.next_income_date or 'three months from now' }}</span></header>
+  <header class="phone-section-head"><h2 id="safe-section">{{ 'Safe to spend'|tr(locale) }}</h2><span>To {{ f.next_income_date or 'three months from now' }}</span></header>
   <article class="card phone-card" id="plan-build" aria-labelledby="safe-heading">
-    <h3 id="safe-heading" class="phone-card-title">{{ fig.safe_to_spend.label }}</h3><p class="phone-note">From free cash, after what is promised</p>
+    <h3 id="safe-heading" class="phone-card-title">{{ fig.safe_to_spend.label }}</h3><p class="phone-note">{{ "From free cash, after what is promised"|tr(locale) }}</p>
     <div class="phone-lead{{ ' is-negative' if f.safe_to_spend < 0 }}">{{ f.safe_to_spend|money }} <small>{{ base }}</small></div>
     {% if p.build %}{{ bar_rows(p.build.rows, 'From free cash to safe to spend') }}{% endif %}
-    {% if f.safe_to_spend < 0 %}<p class="flash">Promised payments are larger than your free cash.</p>{% endif %}
+    {% if f.safe_to_spend < 0 %}<p class="flash">{{ "Promised payments are larger than your free cash."|tr(locale) }}</p>{% endif %}
   </article>
   <article class="card phone-card" id="plan-next" aria-labelledby="next-heading">
-    <h3 id="next-heading" class="phone-card-title">The next 30 days</h3><p class="phone-note">{{ as_of }} to {{ window_end }}</p>
+    <h3 id="next-heading" class="phone-card-title">{{ "The next 30 days"|tr(locale) }}</h3><p class="phone-note">{{ as_of }} to {{ window_end }}</p>
     {% if next_payments %}
     <div class="phone-rows">{% for pay in next_payments[:8] %}
       <a class="phone-row" data-popup-open href="/plan/items/{{ pay.item.id }}/pay?due={{ pay.due_date }}&amp;back={{ '/plan'|urlencode }}"><span>{{ pay.item.name }}<small>{{ pay.due_date }}{% if pay.status.value == 'PAID' %} · Paid{% elif pay.status.value == 'SKIPPED' %} · Skipped{% elif pay.status.value == 'DUE' %} · Due{% endif %}</small></span><b class="{{ 'pos' if pay.item.is_income }}">{{ '+' if pay.item.is_income else '−' }}{{ pay.amount|money }}</b></a>
     {% endfor %}</div>
     {% if next_payments|length > 8 %}<a class="phone-quiet" href="/plan/recurring">{{ next_payments|length - 8 }} more on Recurring</a>{% endif %}
-    {% elif has_items %}<p class="chart-empty">Nothing is due in the next 30 days.</p>
-    {% else %}<p class="chart-empty">Add your bills, subscriptions, income and loans on Recurring to see what is coming.</p><a class="btn primary phone-save" href="/plan/recurring">Recurring</a>{% endif %}
+    {% elif has_items %}<p class="chart-empty">{{ "Nothing is due in the next 30 days."|tr(locale) }}</p>
+    {% else %}<p class="chart-empty">{{ "Add your bills, subscriptions, income and loans on Recurring to see what is coming."|tr(locale) }}</p><a class="btn primary phone-save" href="/plan/recurring">{{ 'Recurring'|tr(locale) }}</a>{% endif %}
   </article>
 </section>
 
 <section class="phone-section" aria-labelledby="forecast-section">
-  <header class="phone-section-head"><h2 id="forecast-section">Where cash is heading</h2><span>Next {{ f.months|length }} months</span></header>
+  <header class="phone-section-head"><h2 id="forecast-section">{{ "Where cash is heading"|tr(locale) }}</h2><span>Next {{ f.months|length }} months</span></header>
   {% if has_income %}
   <article class="card phone-card" id="plan-forecast" aria-labelledby="forecast-heading">
     <h3 id="forecast-heading" class="phone-card-title">{{ fig.free_cash.label }}, then the forecast</h3>
@@ -39,26 +39,26 @@
     {{ trend(p.heading, 'Free cash at past month ends, then the forecast', 'Plan', 180) }}
   </article>
   <article class="card phone-card" aria-labelledby="months-heading">
-    <h3 id="months-heading" class="phone-card-title">Each month ahead</h3><p class="phone-note">Estimates: money in, money out, what is left</p>
+    <h3 id="months-heading" class="phone-card-title">{{ "Each month ahead"|tr(locale) }}</h3><p class="phone-note">{{ "Estimates: money in, money out, what is left"|tr(locale) }}</p>
     <div class="phone-rows">{% for r in p.flows %}
       <div class="phone-row"><span>{{ r.month }}<small>In {{ r.in|money }} · out {{ r.out|money }}{% if r.estimated %} · income is an average{% endif %}</small></span><b class="{{ 'pos' if r.net > 0 else ('neg' if r.net < 0 else '') }}">{{ r.net|money(True) }}</b></div>
     {% endfor %}</div>
   </article>
   {% else %}
   <article class="card phone-card" id="plan-forecast">
-    <p class="phone-note">Add your salary and bills to see where your cash is heading. With nothing planned Lightning would only be guessing.</p>
-    <a class="btn primary phone-save" href="/plan/recurring">Add salary and bills</a>
+    <p class="phone-note">{{ "Add your salary and bills to see where your cash is heading. With nothing planned Lightning would only be guessing."|tr(locale) }}</p>
+    <a class="btn primary phone-save" href="/plan/recurring">{{ 'Add salary and bills'|tr(locale) }}</a>
   </article>
   {% endif %}
 </section>
 
 <section class="phone-section" aria-labelledby="owe-section">
-  <header class="phone-section-head"><h2 id="owe-section">What is promised</h2><span>Today</span></header>
+  <header class="phone-section-head"><h2 id="owe-section">{{ "What is promised"|tr(locale) }}</h2><span>{{ 'Today'|tr(locale) }}</span></header>
   <article class="card phone-card" aria-labelledby="owe-heading">
-    <h3 id="owe-heading" class="phone-card-title">{{ fig.what_you_owe.label }}</h3><p class="phone-note">Bills already due and loans</p>
+    <h3 id="owe-heading" class="phone-card-title">{{ fig.what_you_owe.label }}</h3><p class="phone-note">{{ "Bills already due and loans"|tr(locale) }}</p>
     <div class="phone-lead">{{ owe.total|money }} <small>{{ base }}</small></div>
     <div class="phone-rows">
-      <div class="phone-row"><span>{{ fig.bills_due.label }}<small>Other than loan payments</small></span><b>{{ owe.other_bills_due|money }}</b></div>
+      <div class="phone-row"><span>{{ fig.bills_due.label }}<small>{{ "Other than loan payments"|tr(locale) }}</small></span><b>{{ owe.other_bills_due|money }}</b></div>
       <a class="phone-row" href="/plan/loans"><span>{{ fig.loans_still_to_pay.label }}</span><b>{{ owe.loans_still_to_pay|money }}</b></a>
     </div>
     {% if p.loan_bars and p.loan_bars.rows %}

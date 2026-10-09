@@ -1,5 +1,5 @@
 {# On the phone app the same pages render in the phone frame (guideline Part C): phone/base.html. #}{% if request.state.phone|default(false) %}{% extends "phone/base.html" %}{% endif %}{% if not request.state.phone|default(false) %}<!doctype html>
-<html lang="en"{% if privacy_on(request) %} class="privacy"{% endif %}>
+<html lang="{{ 'ar-EG' if locale == 'ar' else 'en' }}" dir="{{ 'rtl' if locale == 'ar' else 'ltr' }}"{% if privacy_on(request) %} class="privacy"{% endif %}>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -8,7 +8,7 @@
   <link rel="icon" type="image/svg+xml" href="/static/lightning-mark.svg">
   <link rel="stylesheet" href="/static/fonts/fonts.css">
   {# Bricolage Grotesque and Manrope (guideline A06) are bundled in fonts.css: no outside request, in every mode. #}
-  <link rel="stylesheet" href="/static/style.css?v=83">
+  <link rel="stylesheet" href="/static/style.css?v=84">
 </head>
 <body data-base-currency="{{ base }}">
 <div class="shell">
@@ -18,10 +18,10 @@
       <img class="brand-mark" src="/static/lightning-mark.svg" alt="" width="16" height="22">Lightning
     </a>
     <div class="side-tools">
-      <a class="side-search" href="/search" data-command-open aria-keyshortcuts="Control+K"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><span>Search</span><kbd>Ctrl K</kbd></a>
-      {% set hidden = privacy_on(request) %}<button type="button" class="side-privacy" data-privacy-toggle aria-pressed="{{ 'true' if hidden else 'false' }}" aria-label="{{ 'Show amounts' if hidden else 'Hide amounts' }}" title="{{ 'Show amounts' if hidden else 'Hide amounts' }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path class="side-privacy-off" d="M4 4l16 16"/></svg></button>
+      <a class="side-search" href="/search" data-command-open aria-keyshortcuts="Control+K"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><span>{{ 'Search'|tr(locale) }}</span><kbd dir="ltr">{{ "Ctrl K"|tr(locale) }}</kbd></a>
+      {% set hidden = privacy_on(request) %}<button type="button" class="side-privacy" data-privacy-toggle aria-pressed="{{ 'true' if hidden else 'false' }}" aria-label="{{ ('Show amounts' if hidden else 'Hide amounts')|tr(locale) }}" title="{{ ('Show amounts' if hidden else 'Hide amounts')|tr(locale) }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path class="side-privacy-off" d="M4 4l16 16"/></svg></button>
     </div>
-    <nav class="nav" aria-label="Main navigation">
+    <nav class="nav" aria-label="{{ 'Main navigation'|tr(locale) }}">
       {% set here = sections_for(request) %}{% for item in here.sections %}{% set icon = item.icon %}{% set active = here.section and here.section.key == item.key %}
         <a href="{{ item.href }}" class="{{ 'active' if active }}" {% if active %}aria-current="page"{% endif %}>
           <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24">
@@ -35,14 +35,14 @@
             {% elif icon == 'accounts' %}<path d="M3 10h18M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 21h18M12 3l9 5H3z"/>
             {% elif icon == 'people' %}<circle cx="9" cy="8" r="3"/><path d="M3 20c0-3 2.5-5 6-5s6 2 6 5M17 5a3 3 0 0 1 0 6M18 15c2 .4 3 2 3 5"/>
             {% else %}<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1"/>{% endif %}
-          </svg></span><span>{{ item.label }}</span>
+          </svg></span><span>{{ item.label|tr(locale) }}</span>
         </a>
       {% endfor %}
-      {% if request.state.secure_profiles|default(false) %}<a href="/profiles">Profiles &amp; lock</a>{% endif %}
+      {% if request.state.secure_profiles|default(false) %}<a href="/profiles">{{ 'Profiles & lock'|tr(locale) }}</a>{% endif %}
     </nav>
     <details class="side-accounts" id="sidebar-accounts">
-      <summary class="mobile-accounts-summary"><span>Accounts</span><b>{{ sidebar_total|money(False, 2) }} {{ base }}</b></summary>
-      <div class="sidebar-heading">Accounts <span>· Balances in {{ base }}</span></div>
+      <summary class="mobile-accounts-summary"><span>{{ 'Accounts'|tr(locale) }}</span><b dir="ltr">{{ sidebar_total|money(False, 2) }} {{ base }}</b></summary>
+      <div class="sidebar-heading">{{ 'Accounts'|tr(locale) }} <span>{{ "· Balances in"|tr(locale) }}<bdi dir="ltr">{{ base }}</bdi></span></div>
       <a class="side-row side-total {{ 'active' if path == '/transactions' }}" href="/transactions" {% if path == '/transactions' %}aria-current="page"{% endif %}>
         <span>{{ fig.in_your_accounts.label }}</span><span class="num" title="{{ fig.in_your_accounts.equation }}">{{ sidebar_total|money(False, 2) }}</span></a>
       {% for g in sidebar_groups %}
@@ -53,16 +53,16 @@
           <span class="num {{ 'neg' if a.value < 0 }}">{{ a.value|money(False, 2) }}</span></a>
         {% endfor %}
       {% endfor %}
-      <a class="side-add" data-popup-open href="/accounts/new">+ Add account</a>
-      <a class="side-add" href="/accounts">Manage accounts</a>
+      <a class="side-add" data-popup-open href="/accounts/new">+ {{ 'Add account'|tr(locale) }}</a>
+      <a class="side-add" href="/accounts">{{ 'Manage accounts'|tr(locale) }}</a>
     </details>
   </aside>
   <main class="main">
-    <div class="topbar">{% set back = back_url(request) %}{% if back %}<a class="btn page-back" href="{{ back }}" aria-label="Back to the page you came from"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>Back</a>{% endif %}<div>{% block heading %}{% endblock %}</div><div class="actions">{% block top_actions %}{% endblock %}</div></div>
+    <div class="topbar">{% set back = back_url(request) %}{% if back %}<a class="btn page-back" href="{{ back }}" aria-label="Back to the page you came from"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>{{ 'Back'|tr(locale) }}</a>{% endif %}<div>{% block heading %}{% endblock %}</div><div class="actions">{% block top_actions %}{% endblock %}</div></div>
     {% include "partials/section_tabs.html" %}
-    {% if request.state.device_line|default('') %}<div class="flash device-line" role="status"><span>{{ request.state.device_line }}</span>{% if request.state.device_action == 'hand-back' %}<form method="post" action="/sync/hand-back"><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"><button class="btn primary" type="submit">Hand back</button></form>{% elif request.state.device_action == 'take-back' %}<a class="btn" href="/profiles/devices">Devices</a>{% endif %}</div>{% endif %}
-    {% if msg %}<div class="flash" role="status" aria-live="polite" aria-atomic="true">{{ msg }}</div>{% endif %}
-    {% if error %}<div class="flash error" role="alert" aria-live="assertive" aria-atomic="true">{{ error }}</div>{% endif %}
+    {% if request.state.device_line|default('') %}<div class="flash device-line" role="status"><span>{{ request.state.device_line|tr(locale) }}</span>{% if request.state.device_action == 'hand-back' %}<form method="post" action="/sync/hand-back"><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"><button class="btn primary" type="submit">{{ 'Hand back'|tr(locale) }}</button></form>{% elif request.state.device_action == 'take-back' %}<a class="btn" href="/profiles/devices">{{ 'Devices'|tr(locale) }}</a>{% endif %}</div>{% endif %}
+    {% if msg %}<div class="flash" role="status" aria-live="polite" aria-atomic="true">{{ msg|tr(locale) }}</div>{% endif %}
+    {% if error %}<div class="flash error" role="alert" aria-live="assertive" aria-atomic="true">{{ error|tr(locale) }}</div>{% endif %}
     {% block content %}{% endblock %}
   </main>
 </div>
@@ -77,13 +77,14 @@
   <div class="app-popup-frame command-frame">
     <input class="pick-search command-input" type="search" placeholder="Search pages, accounts, actions or #tags" aria-label="Search" autocomplete="off" aria-controls="command-results">
     <div class="pick-list command-results" id="command-results" role="listbox" aria-label="Results"></div>
-    <p class="command-hint">↑ ↓ to move · Enter to open · Esc to close</p>
+    <p class="command-hint">{{ '↑ ↓ to move · Enter to open · Esc to close'|tr(locale) }}</p>
   </div>
 </dialog>
-<div id="busy-toast" class="busy-toast" role="status" aria-live="polite" hidden{% if prices_running %} data-watch="/investments/prices/online/status" data-watch-label="Fetching month-end prices…"{% endif %}><span class="busy-square" aria-hidden="true"></span><span class="busy-text"></span><a class="busy-link" href="/investments/prices" hidden>Show</a></div>
-<script nonce="{{ request.state.csp_nonce|default('') }}" src="/static/app.js?v=36"></script>
-<script nonce="{{ request.state.csp_nonce|default('') }}" src="/static/ai-handoff.js?v=1" defer></script>
+<div id="busy-toast" class="busy-toast" role="status" aria-live="polite" hidden{% if prices_running %} data-watch="/investments/prices/online/status" data-watch-label="Fetching month-end prices…"{% endif %}><span class="busy-square" aria-hidden="true"></span><span class="busy-text"></span><a class="busy-link" href="/investments/prices" hidden>{{ 'Show'|tr(locale) }}</a></div>
+<script nonce="{{ request.state.csp_nonce|default('') }}">window.LIGHTNING_UI={{ arabic_translations|tojson }};window.lightningT=(text,values)=>{const raw=String(text);let out=window.LIGHTNING_UI[raw];if(!out){for(const [pattern,translated] of Object.entries(window.LIGHTNING_UI)){if(!pattern.includes('{'))continue;const names=[...pattern.matchAll(/\{([a-z_]+)\}/g)].map(m=>m[1]);const parts=pattern.split(/\{[a-z_]+\}/g).map(part=>part.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'));const match=new RegExp('^'+parts.join('(.+?)')+'$').exec(raw);if(match){out=translated;names.forEach((name,i)=>out=out.replaceAll(`{${name}}`,match[i+1]));break;}}}out=out||raw;for(const [key,value] of Object.entries(values||{}))out=out.replaceAll(`{${key}}`,String(value));return out;};</script>
+<script nonce="{{ request.state.csp_nonce|default('') }}" src="/static/app.js?v=37"></script>
+<script nonce="{{ request.state.csp_nonce|default('') }}" src="/static/ai-handoff.js?v=2" defer></script>
 <script nonce="{{ request.state.csp_nonce|default('') }}">(()=>{const section=document.getElementById('sidebar-accounts'),mobile=window.matchMedia('(max-width: 900px)');if(!section)return;const sync=()=>{section.open=!mobile.matches};sync();mobile.addEventListener('change',sync)})();</script>
-{% if request.state.secure_profiles|default(false) %}<script nonce="{{ request.state.csp_nonce|default('') }}" src="/static/session.js?v=3"></script>{% endif %}
+{% if request.state.secure_profiles|default(false) %}<script nonce="{{ request.state.csp_nonce|default('') }}" src="/static/session.js?v=4"></script>{% endif %}
 </body>
 </html>{% endif %}

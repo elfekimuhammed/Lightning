@@ -1,33 +1,33 @@
 {% extends "base.html" %}
 {% block title %}Loans · Cash planning{% endblock %}
-{% block heading %}<div><h1>Cash planning</h1></div>{% endblock %}
-{% block top_actions %}<a class="btn primary" data-popup-open href="/plan/items/new?kind=LOAN">Add loan</a>{% endblock %}
+{% block heading %}<div><h1>{{ 'Cash planning'|tr(locale) }}</h1></div>{% endblock %}
+{% block top_actions %}<a class="btn primary" data-popup-open href="/plan/items/new?kind=LOAN">{{ "Add loan"|tr(locale) }}</a>{% endblock %}
 {% block content %}
 {% from "partials/charts.html" import key_notes, stat_tiles %}
 {{ stat_tiles(debt_tiles, base, 'Your debt') }}
 {{ key_notes(notes) }}
 <section class="plan-section" aria-labelledby="loans-total">
-  <header class="overview-section-head"><h2 id="loans-total">Loans still to pay</h2></header>
+  <header class="overview-section-head"><h2 id="loans-total">{{ 'Loans still to pay'|tr(locale) }}</h2></header>
   <article class="card plan-lead lead-card">
     <div class="plan-figure">{{ still_to_pay|money(False, 0) }} <small>{{ base }}</small></div>
-    <p class="muted small">Every unpaid payment, due or upcoming. Only payments already due come off free cash.</p>
+    <p class="muted small">{{ "Every unpaid payment, due or upcoming. Only payments already due come off free cash."|tr(locale) }}</p>
   </article>
 </section>
 <section class="plan-section" aria-labelledby="loans-list">
-  <header class="overview-section-head"><h2 id="loans-list">Your loans</h2><span>{{ loans|length }}</span></header>
+  <header class="overview-section-head"><h2 id="loans-list">{{ "Your loans"|tr(locale) }}</h2><span>{{ loans|length }}</span></header>
   {% if loans %}{% for l in loans %}{% set i = l.item %}{% set pr = l.progress %}
   <article class="card plan-loan">
     <div class="section-head"><div><h2><a href="/plan/items/{{ i.id }}/edit" data-popup-open>{{ i.name }}</a></h2><p>{{ l.schedule }}{% if l.account %} · from {{ l.account }}{% endif %}{% if i.principal %} · borrowed {{ i.principal|money(places=0) }} {{ base }}{% endif %}</p></div>
       {% if pr.due %}<a class="btn small" data-popup-open href="/plan/items/{{ i.id }}/pay?due={{ pr.due[0].due_date }}&amp;back=%2Fplan%2Floans">{{ pr.due|length }} due · mark paid</a>{% endif %}</div>
     <div class="chart-meter-track" role="img" aria-label="{{ pr.paid_amount|money }} of {{ pr.total_amount|money }} paid"><i style="width:{{ '%.1f'|format(l.meter.width) }}%"></i></div>
     <div class="compact-list">
-      <div class="compact-row"><span>Payments made</span><b>{{ pr.paid }} of {{ pr.total }} · {{ pr.paid_amount|money }}</b></div>
-      <div class="compact-row"><span>Still to pay</span><b>{{ pr.still_to_pay|money }}</b></div>
-      <div class="compact-row"><span>Next payment</span><b>{% if pr.next %}{{ pr.next.amount|money }} on {{ pr.next.due_date }}{% else %}Paid off{% endif %}</b></div>
-      <div class="compact-row"><span>Last payment</span><b>{{ pr.last_date or '—' }}</b></div>
-      {% for p in pr.skipped %}<a class="compact-row" data-popup-open href="/plan/items/{{ i.id }}/pay?due={{ p.due_date }}&amp;back=%2Fplan%2Floans"><span>Skipped {{ p.due_date }} <small class="muted">moved to the end · undo</small></span><b>{{ p.amount|money }}</b></a>{% endfor %}
+      <div class="compact-row"><span>{{ "Payments made"|tr(locale) }}</span><b>{{ pr.paid }} of {{ pr.total }} · {{ pr.paid_amount|money }}</b></div>
+      <div class="compact-row"><span>{{ "Still to pay"|tr(locale) }}</span><b>{{ pr.still_to_pay|money }}</b></div>
+      <div class="compact-row"><span>{{ "Next payment"|tr(locale) }}</span><b>{% if pr.next %}{{ pr.next.amount|money }} on {{ pr.next.due_date }}{% else %}Paid off{% endif %}</b></div>
+      <div class="compact-row"><span>{{ "Last payment"|tr(locale) }}</span><b>{{ pr.last_date or '—' }}</b></div>
+      {% for p in pr.skipped %}<a class="compact-row" data-popup-open href="/plan/items/{{ i.id }}/pay?due={{ p.due_date }}&amp;back=%2Fplan%2Floans"><span>Skipped {{ p.due_date }} <small class="muted">{{ "moved to the end · undo"|tr(locale) }}</small></span><b>{{ p.amount|money }}</b></a>{% endfor %}
     </div>
   </article>{% endfor %}
-  {% else %}<article class="card"><p class="muted">No loans yet. Add a car loan, a personal loan, or a phone bought in installments to see what you still owe and when it ends.</p></article>{% endif %}
+  {% else %}<article class="card"><p class="muted">{{ "No loans yet. Add a car loan, a personal loan, or a phone bought in installments to see what you still owe and when it ends."|tr(locale) }}</p></article>{% endif %}
 </section>
 {% endblock %}

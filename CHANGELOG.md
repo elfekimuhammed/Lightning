@@ -10,6 +10,12 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-09 · Luna, for Codex: completed Egyptian Arabic labels across app and profile screens, including SMS, devices, finance reports and specialist forms; the locked chooser remembers Arabic before unlock.
+- 2026-10-09 · Codex and Luna: expanded the Arabic A/B/C guideline prose and specimens while preserving every original section and diagram; enriched the Arabic website guides, release log and homepage FAQ.
+- 2026-10-09 · Codex: completed Arabic names for every registered figure and canonical glossary term, and documented the pre-unlock language choice.
+- 2026-10-09 · Codex and Luna: added Egyptian Arabic website pages with RTL layout, language links and Arabic search metadata across the public site; the website repo owns page details.
+- 2026-10-09 · Luna, for Codex: added a profile language switch, RTL PC/phone shells and Arabic labels for core figures and common app workflows; specialist copy remains to translate.
+- 2026-10-09 · Luna, for Codex: expanded the Arabic glossary and added standalone A/B/C guideline HTML with Arabic section guidance and original examples; detailed English source remains in the bilingual guides.
 - 2026-10-08 · Codex: the website app-feedback form can attach up to five screenshots per ticket, including paste, and losslessly optimize PNGs; screenshot storage needs the owner to deploy the Apps Script receiver update.
 - 2026-10-07 · Codex and Luna: lightningeg.com now links the published 1.0 beta Windows and Android files, checksums and build record; guide and feedback copy matches the available beta.
 - 2026-10-07 · Claude: Mohab's 2026 sample plans a yearly English course (7,800, 2026-11-15) and a year-end bonus (50,000, 2026-12-20), so the months ahead differ: 2026-11 −12,486, 2026-12 +45,254, lowest point 165,937 in 2026-11. Overview read budget 605 → 640.

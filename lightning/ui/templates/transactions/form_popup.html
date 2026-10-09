@@ -1,69 +1,69 @@
 {% extends "base.html" %}
-{% block title %}{{ title }}{% endblock %}
-{% block heading %}<h1>{{ title }}</h1><div class="muted">{{ account.label }}</div>{% endblock %}
+{% block title %}{{ title|tr(locale) }}{% endblock %}
+{% block heading %}<h1>{{ title|tr(locale) }}</h1><div class="muted">{{ account.label }}</div>{% endblock %}
 {% block content %}
 <section class="card app-popup-content" data-transaction-form data-account-name="{{ account.name }}" data-currency="{{ account.currency }}">
-  <h2 data-popup-title>{{ title }}</h2>
-  <p class="muted">Record one account activity. Enter a positive amount; choose Money out, Money in, or Transfer.</p>
-  {% if error %}<div class="flash error" role="alert">{{ error }}</div>{% endif %}
+  <h2 data-popup-title>{{ title|tr(locale) }}</h2>
+  <p class="muted">{{ 'Record one account activity. Enter a positive amount; choose Money out, Money in, or Transfer.'|tr(locale) }}</p>
+  {% if error %}<div class="flash error" role="alert">{{ error|tr(locale) }}</div>{% endif %}
   <form method="post" action="{{ action }}" {% if txn_id %}data-popup-autosave{% endif %}>
     <input type="hidden" name="return_to" value="{{ return_to }}">
     {% if txn_id %}<input type="hidden" name="account_id" value="{{ values.account_id }}">{% endif %}
     {% if split_categories %}<input type="hidden" name="kind" value="{{ values.kind }}"><p class="muted">This expense is split across {{ split_categories|join(', ') }}. Editing here preserves its full amount and category split.</p>
-    {% else %}<div class="transaction-choice-grid" role="group" aria-label="Transaction type">
+    {% else %}<div class="transaction-choice-grid" role="group" aria-label="{{ 'Transaction type'|tr(locale) }}">
       {% for value, label in [('out','Money out'),('in','Money in'),('transfer','Transfer')] %}
-      <label class="btn transaction-choice"><input type="radio" name="kind" value="{{ value }}" {{ 'checked' if values.kind == value }} required> {{ label }}</label>
+      <label class="btn transaction-choice"><input type="radio" name="kind" value="{{ value }}" {{ 'checked' if values.kind == value }} required> {{ label|tr(locale) }}</label>
       {% endfor %}
     </div>{% endif %}
     <div class="row">
       <div class="field {{ 'has-error' if error_field == 'date' }}">
-        <label for="popup-date">Date</label>
+        <label for="popup-date">{{ 'Date'|tr(locale) }}</label>
         <input id="popup-date" name="date" type="text" value="{{ values.date }}" placeholder="yyyy-mm-dd" inputmode="numeric" data-smart-date required>
-        {% if error_field == 'date' %}<small class="field-error">Check the date.</small>{% endif %}
+        {% if error_field == 'date' %}<small class="field-error">{{ 'Check the date.'|tr(locale) }}</small>{% endif %}
       </div>
       <div class="field {{ 'has-error' if error_field == 'amount' }}">
         <label for="popup-amount">Amount ({{ account.currency }})</label>
         <input id="popup-amount" name="amount" type="text" value="{{ values.amount }}" inputmode="decimal" placeholder="0.00" required {{ 'readonly' if split_categories }}>
-        {% if error_field == 'amount' %}<small class="field-error">{{ error }}</small>{% endif %}
+        {% if error_field == 'amount' %}<small class="field-error">{{ error|tr(locale) }}</small>{% endif %}
       </div>
     </div>
     <div class="row">
       <div class="field transfer-only" {{ 'hidden' if values.kind != 'transfer' }}>
-        <label for="popup-to-account">Transfer to</label>
+        <label for="popup-to-account">{{ 'Transfer to'|tr(locale) }}</label>
         <select id="popup-to-account" name="to_account_id" data-own-picker>
-          <option value="">Choose an account</option>
+          <option value="">{{ 'Choose an account'|tr(locale) }}</option>
           {% for a in accounts if a.id != account.id and a.account_type.value in ('CASH','BANK','DEPOSIT','BROKERAGE') and a.currency == account.currency %}<option value="{{ a.id }}" {{ 'selected' if values.to_account_id == a.id|string }}>{{ a.label }}</option>{% endfor %}
         </select>
       </div>
       <div class="field money-only {{ 'has-error' if error_field == 'category' }}" {{ 'hidden' if values.kind == 'transfer' }}>
-        <label for="popup-category">Category</label>
+        <label for="popup-category">{{ 'Category'|tr(locale) }}</label>
         {% if split_categories %}<input id="popup-category" value="Split · {{ split_categories|join(', ') }}" readonly>
         {% else %}<select id="popup-category" name="category_id" data-own-picker>
-          <option value="">Choose a category</option>
+          <option value="">{{ 'Choose a category'|tr(locale) }}</option>
           {% from "partials/macros.html" import category_options %}{{ category_options(category_groups(categories), values.category_id) }}
         </select>{% endif %}
-        {% if error_field == 'category' %}<small class="field-error">Choose a category.</small>{% endif %}
+        {% if error_field == 'category' %}<small class="field-error">{{ "Choose a category."|tr(locale) }}</small>{% endif %}
       </div>
       <div class="field money-only {{ 'has-error' if error_field == 'counterparty' }}" {{ 'hidden' if values.kind == 'transfer' }}>
-        <label for="popup-counterparty">Counterparty <span class="muted">(optional)</span></label>
+        <label for="popup-counterparty">{{ 'Counterparty'|tr(locale) }} <span class="muted">{{ "(optional)"|tr(locale) }}</span></label>
         <input id="popup-counterparty" name="counterparty" value="{{ values.counterparty }}" list="popup-counterparties" data-own-suggestions placeholder="Type a person or business" autocomplete="off">
         <datalist id="popup-counterparties">{% for person in counterparties %}<option value="{{ person.name }}">{% endfor %}</datalist>
-        {% if error_field == 'counterparty' %}<small class="field-error">Choose a saved Counterparty.</small>{% endif %}
+        {% if error_field == 'counterparty' %}<small class="field-error">{{ 'Choose a saved Counterparty.'|tr(locale) }}</small>{% endif %}
       </div>
     </div>
     <div class="field">
-      <label for="popup-owner">Held for</label>
-      <select id="popup-owner" name="owner_id" data-own-picker><option value="">You</option>
+      <label for="popup-owner">{{ 'Held for'|tr(locale) }}</label>
+      <select id="popup-owner" name="owner_id" data-own-picker><option value="">{{ 'You'|tr(locale) }}</option>
         {% for person in owners %}<option value="{{ person.id }}" {{ 'selected' if values.owner_id == person.id|string }}>{{ person.name }}</option>{% endfor %}
       </select>
-      <small class="muted">Leave blank if this money is yours. Add a person under Held for others first.</small>
+      <small class="muted">{{ "Leave blank if this money is yours. Add a person under Held for others first."|tr(locale) }}</small>
     </div>
-    <div class="field"><label for="popup-notes">Notes <span class="muted">(optional)</span></label><input id="popup-notes" name="notes" value="{{ values.notes }}"></div>
+    <div class="field"><label for="popup-notes">{{ 'Notes'|tr(locale) }} <span class="muted">{{ "(optional)"|tr(locale) }}</span></label><input id="popup-notes" name="notes" value="{{ values.notes }}"></div>
     <div class="transaction-effect" data-transaction-effect role="status" aria-live="polite"></div>
     <p class="small muted inline-save-status" data-popup-status aria-live="polite"></p>
     <div class="popup-actions">
-      <button type="button" class="btn" data-popup-close>Cancel</button>
-      {% if not txn_id %}<button type="submit" class="btn primary">Add transaction</button>{% endif %}
+      <button type="button" class="btn" data-popup-close>{{ 'Cancel'|tr(locale) }}</button>
+      {% if not txn_id %}<button type="submit" class="btn primary">{{ 'Add transaction'|tr(locale) }}</button>{% endif %}
     </div>
   <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
 </section>

@@ -1,55 +1,55 @@
 {# From SMS on the phone (guideline Part C, milestone 3): one card per step, the main action full width. The
    PC's page is sms.html; both read the same routes (lightning/ui/routes/sms.py). #}
 {% extends "base.html" %}
-{% block title %}From SMS{% endblock %}
-{% block heading %}<h1>From SMS</h1><p class="muted">Bank messages become transactions you check before they are posted</p>{% endblock %}
+{% block title %}{{ 'From SMS'|tr(locale) }}{% endblock %}
+{% block heading %}<h1>{{ "From SMS"|tr(locale) }}</h1><p class="muted">{{ "Bank messages become transactions you check before they are posted"|tr(locale) }}</p>{% endblock %}
 {% block content %}
-{% if error %}<p class="flash error" role="alert">{{ error }}</p>{% endif %}
+{% if error %}<p class="flash error" role="alert">{{ error|tr(locale) }}</p>{% endif %}
 {% if permission == 'not_granted' %}
 <section class="card phone-card" aria-labelledby="allow-heading">
-  <h2 id="allow-heading" class="phone-card-title">Read bank SMS by itself</h2>
-  <p class="phone-note">Lightning reads the SMS your banks send and turns each payment, transfer and salary into a transaction you check. It reads messages from senders with a name or a short code, like CIB or NBE, never from people's numbers. The messages stay on this phone: nothing is sent anywhere. Nothing is posted until you check it.</p>
-  <form method="post" action="/sms/allow" class="phone-form"><button class="btn primary phone-save" type="submit">Allow reading SMS</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
+  <h2 id="allow-heading" class="phone-card-title">{{ "Read bank SMS by itself"|tr(locale) }}</h2>
+  <p class="phone-note">{{ "Lightning reads the SMS your banks send and turns each payment, transfer and salary into a transaction you check. It reads messages from senders with a name or a short code, like CIB or NBE, never from people's numbers. The messages stay on this phone: nothing is sent anywhere. Nothing is posted until you check it."|tr(locale) }}</p>
+  <form method="post" action="/sms/allow" class="phone-form"><button class="btn primary phone-save" type="submit">{{ "Allow reading SMS"|tr(locale) }}</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
 </section>
 {% elif permission == 'granted' %}
-<p class="phone-note">Reads new bank messages when you open Overview or this page{% if last_read %} · up to {{ last_read.strftime('%Y-%m-%d %H:%M') }}{% endif %}.</p>
+<p class="phone-note">{{ 'Reads new bank messages when you open Overview or this page'|tr(locale) }}{% if last_read %} · {{ 'up to'|tr(locale) }} {{ last_read.strftime('%Y-%m-%d %H:%M') }}{% endif %}.</p>
 {% endif %}
 {% for group in waiting %}
 <section class="card phone-card" aria-labelledby="ending-{{ group.ending }}">
-  <h2 id="ending-{{ group.ending }}" class="phone-card-title">{% if group.ending == salary %}Where is your salary paid?{% else %}Which account ends with {{ group.ending }}?{% endif %}</h2>
-  <p class="phone-note">{{ group.count }} message{{ 's' if group.count != 1 }} waiting. Lightning remembers your answer.</p>
+  <h2 id="ending-{{ group.ending }}" class="phone-card-title">{% if group.ending == salary %}{{ 'Where is your salary paid?'|tr(locale) }}{% else %}{{ 'Which account ends with {digits}?'|tr(locale, digits=group.ending) }}{% endif %}</h2>
+  <p class="phone-note">{{ group.count }} {{ ('message' if group.count == 1 else 'messages')|tr(locale) }} {{ 'waiting. Lightning remembers your answer.'|tr(locale) }}</p>
   <form method="post" action="/sms/assign" class="phone-form">
     <input type="hidden" name="ending" value="{{ group.ending }}">
-    <div class="field"><label for="account-{{ group.ending }}">Account</label>
-      <select id="account-{{ group.ending }}" name="account_id" data-own-picker required><option value="">Choose an account</option>{% for a in accounts %}<option value="{{ a.id }}">{{ a.name }}</option>{% endfor %}</select></div>
-    <button class="btn primary phone-save" type="submit">Review these messages</button>
+    <div class="field"><label for="account-{{ group.ending }}">{{ 'Account'|tr(locale) }}</label>
+      <select id="account-{{ group.ending }}" name="account_id" data-own-picker required><option value="">{{ 'Choose an account'|tr(locale) }}</option>{% for a in accounts %}<option value="{{ a.id }}">{{ a.name }}</option>{% endfor %}</select></div>
+    <button class="btn primary phone-save" type="submit">{{ "Review these messages"|tr(locale) }}</button>
     <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}">
   </form>
 </section>
 {% endfor %}
 {% if batches %}
 <section class="card phone-card" aria-labelledby="review-heading">
-  <h2 id="review-heading" class="phone-card-title">Waiting for your check</h2>
+  <h2 id="review-heading" class="phone-card-title">{{ "Waiting for your check"|tr(locale) }}</h2>
   <div class="phone-rows">{% for b in batches %}<a class="phone-row" href="/accounts/{{ b.account_id }}/import/{{ b.batch_id }}"><span>{{ b.account }}<small>{{ b.file_name }}</small></span><b>{{ b.waiting }}</b></a>{% endfor %}</div>
 </section>
 {% endif %}
 {% if unread %}
 <section class="card phone-card" aria-labelledby="unread-heading">
-  <h2 id="unread-heading" class="phone-card-title">Messages kept for you</h2>
-  <p class="phone-note">Ones Lightning could not read, and the other side of a transfer it sent to review once. Each stays until you enter or dismiss it. Send the unread ones to be added as a bank pattern.</p>
+  <h2 id="unread-heading" class="phone-card-title">{{ "Messages kept for you"|tr(locale) }}</h2>
+  <p class="phone-note">{{ "Ones Lightning could not read, and the other side of a transfer it sent to review once. Each stays until you enter or dismiss it. Send the unread ones to be added as a bank pattern."|tr(locale) }}</p>
   {% for m in unread %}<div class="sms-unread">
-    <p dir="auto">{{ m.text }}</p><small class="muted">{{ m.sender or 'Pasted' }} · {{ m.received|replace('T', ' ') }}</small>{% if m.reason %}<small class="muted"> · {{ m.reason }}</small>{% endif %}
-    <div class="sms-unread-actions"><a class="btn" href="/accounts/add-transaction" data-popup-open>Enter it</a>
-      <form method="post" action="/sms/dismiss"><input type="hidden" name="id" value="{{ m.id }}"><button class="btn" type="submit">Dismiss</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form></div>
+    <p dir="auto">{{ m.text }}</p><small class="muted">{{ m.sender or 'Pasted' }} · {{ m.received|replace('T', ' ') }}</small>{% if m.reason %}<small class="muted"> · {{ m.reason|tr(locale) }}</small>{% endif %}
+    <div class="sms-unread-actions"><a class="btn" href="/accounts/add-transaction" data-popup-open>{{ "Enter it"|tr(locale) }}</a>
+      <form method="post" action="/sms/dismiss"><input type="hidden" name="id" value="{{ m.id }}"><button class="btn" type="submit">{{ "Dismiss"|tr(locale) }}</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form></div>
   </div>{% endfor %}
 </section>
 {% endif %}
 <section class="card phone-card" aria-labelledby="paste-heading">
-  <h2 id="paste-heading" class="phone-card-title">Paste or share messages</h2>
-  <p class="phone-note">Or share a message to Lightning from your SMS app. To paste several, leave a blank line between them. CIB and NBE are read today, other wordings by a general rule you check; codes, declined payments and offers are skipped.</p>
+  <h2 id="paste-heading" class="phone-card-title">{{ "Paste or share messages"|tr(locale) }}</h2>
+  <p class="phone-note">{{ "Or share a message to Lightning from your SMS app. To paste several, leave a blank line between them. CIB and NBE are read today, other wordings by a general rule you check; codes, declined payments and offers are skipped."|tr(locale) }}</p>
   <form method="post" action="/sms/paste" class="phone-form">
-    <div class="field"><label for="sms-messages">Messages</label><textarea id="sms-messages" name="messages" rows="8" required dir="auto"></textarea></div>
-    <button class="btn primary phone-save" type="submit">Read them</button>
+    <div class="field"><label for="sms-messages">{{ "Messages"|tr(locale) }}</label><textarea id="sms-messages" name="messages" rows="8" required dir="auto"></textarea></div>
+    <button class="btn primary phone-save" type="submit">{{ "Read them"|tr(locale) }}</button>
     <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}">
   </form>
 </section>

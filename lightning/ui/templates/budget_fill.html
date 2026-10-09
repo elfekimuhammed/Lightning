@@ -1,36 +1,35 @@
 {% extends "base.html" %}
 {% block title %}Fill this month's budget{% endblock %}
-{% block heading %}<div class="budget-heading"><div><h1>Fill this month's budget</h1><div class="muted">Review base limits for {{ month }}. Nothing is saved until you apply selected rows.</div></div><a class="btn small" href="/budget?month={{ month }}">Back to Budget</a></div>{% endblock %}
+{% block heading %}<div class="budget-heading"><div><h1>{{ "Fill this month's budget"|tr(locale) }}</h1><div class="muted">Review base limits for {{ month }}. Nothing is saved until you apply selected rows.</div></div><a class="btn small" href="/budget?month={{ month }}">{{ "Back to Budget"|tr(locale) }}</a></div>{% endblock %}
 {% block content %}
-{% if error %}<p class="notice" role="alert">{{ error }}</p>{% endif %}
+{% if error %}<p class="notice" role="alert">{{ error|tr(locale) }}</p>{% endif %}
 <form method="get" action="/budget/fill" class="row">
   <input type="hidden" name="month" value="{{ month }}">
-  <label>Fill from
-    <select name="source">
-      <option value="last_month" {{ 'selected' if source == 'last_month' }}>Last month</option>
-      <option value="schedule" {{ 'selected' if source == 'schedule' }}>Schedule</option>
-      <option value="goal" {{ 'selected' if source == 'goal' }}>Goal</option>
+  <label>{{ "Fill from"|tr(locale) }}<select name="source">
+      <option value="last_month" {{ 'selected' if source == 'last_month' }}>{{ "Last month"|tr(locale) }}</option>
+      <option value="schedule" {{ 'selected' if source == 'schedule' }}>{{ "Schedule"|tr(locale) }}</option>
+      <option value="goal" {{ 'selected' if source == 'goal' }}>{{ "Goal"|tr(locale) }}</option>
     </select>
   </label>
-  <button class="btn" type="submit">Show proposal</button>
+  <button class="btn" type="submit">{{ "Show proposal"|tr(locale) }}</button>
 </form>
 {% if proposal %}
   {% if check and check.spending_room is not none and source != 'goal' %}<p class="muted small">{{ fig.spending_room.label }} {{ check.spending_room|money(False, 0) }} {{ base }}, to leave {{ check.to_save|money(False, 0) }} to save. Rows that would go past it start unticked{% if room_left is not none %}; {{ [room_left, 0]|max|money(False, 0) }} {{ base }} of room is left after the ticked rows{% endif %}.</p>{% endif %}
   {% if proposal.rows %}
     {% if source == 'goal' %}
       <section class="card wide-card">
-        <h2>Saving goals</h2>
-        <p class="muted">These are monthly amounts to set aside in Reserves. They do not become spending limits.</p>
-        <table class="setup-table"><thead><tr><th>Goal</th><th class="num">Monthly amount</th></tr></thead><tbody>
+        <h2>{{ "Saving goals"|tr(locale) }}</h2>
+        <p class="muted">{{ "These are monthly amounts to set aside in Reserves. They do not become spending limits."|tr(locale) }}</p>
+        <table class="setup-table"><thead><tr><th>{{ "Goal"|tr(locale) }}</th><th class="num">{{ "Monthly amount"|tr(locale) }}</th></tr></thead><tbody>
         {% for row in proposal.rows %}<tr><td>{{ row.category_name }}<small>{{ row.note }} · {{ row.conflict }}</small></td><td class="num">{{ row.amount|money }} {{ base }}</td></tr>{% endfor %}
         </tbody></table>
-        <a class="btn" href="/plan/reserves">Open Reserves</a>
+        <a class="btn" href="/plan/reserves">{{ "Open Reserves"|tr(locale) }}</a>
       </section>
     {% else %}
       <p class="muted">Proposals use base limits only. Spending and carryover are not copied. Selecting a row replaces that category's limit for {{ month }} only.</p>
       <form method="post" action="/budget/fill?month={{ month }}">
         <input type="hidden" name="source" value="{{ source }}">
-        <table class="setup-table"><thead><tr><th>Category</th><th>Source</th><th class="num">Current base limit</th><th class="num">Proposed limit</th><th>Review</th></tr></thead><tbody>
+        <table class="setup-table"><thead><tr><th>{{ 'Category'|tr(locale) }}</th><th>{{ "Source"|tr(locale) }}</th><th class="num">{{ "Current base limit"|tr(locale) }}</th><th class="num">{{ "Proposed limit"|tr(locale) }}</th><th>{{ 'Review'|tr(locale) }}</th></tr></thead><tbody>
         {% for row in proposal.rows %}
           <tr>
             <td>{% if row.selectable %}<label><input type="checkbox" name="selected" value="{{ row.category_id }}" {{ 'checked' if row.selected }}> {{ row.category_name }}</label>{% else %}{{ row.category_name }}{% endif %}</td>
@@ -41,7 +40,7 @@
           </tr>
         {% endfor %}
         </tbody></table>
-        <button class="btn primary" type="submit">Apply selected for this month only</button>
+        <button class="btn primary" type="submit">{{ "Apply selected for this month only"|tr(locale) }}</button>
         <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}">
       </form>
     {% endif %}

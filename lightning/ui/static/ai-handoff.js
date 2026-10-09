@@ -11,10 +11,10 @@ document.addEventListener('click', async (event) => {
       area.select();
       if (!document.execCommand('copy')) throw new Error('Copy unavailable');
     }
-    status.textContent = 'Prompt copied.';
+    status.textContent = window.lightningT('Prompt copied.');
   } catch (_) {
     area.focus();
     area.select();
-    status.textContent = 'Clipboard access failed. The prompt is selected; copy it manually. You can also download the CSV template or matching reference.';
+    status.textContent = window.lightningT('Clipboard access failed. The prompt is selected; copy it manually. You can also download the CSV template or matching reference.');
   }
 });
