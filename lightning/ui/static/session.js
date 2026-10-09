@@ -110,11 +110,12 @@
   checkHealth();
 
   // Password advice (owner decision 2026-10-05: any length, advice only). The server never relies on it.
+  const t = (text) => window.lightningT ? window.lightningT(text) : text;
   const advice = (value) => {
-    if (!value) return ["", "Any length works. Longer is safer: three or four unrelated words are hard to guess."];
-    if (value.length < 8) return ["weak", "Weak. Short passwords can be guessed if someone copies your files."];
-    if (value.length < 14 && !/\s/.test(value.trim())) return ["fair", "Fair. Another word or two makes it much harder to guess."];
-    return ["strong", "Strong."];
+    if (!value) return ["", t("Any length works. Longer is safer: three or four unrelated words are hard to guess.")];
+    if (value.length < 8) return ["weak", t("Weak. Short passwords can be guessed if someone copies your files.")];
+    if (value.length < 14 && !/\s/.test(value.trim())) return ["fair", t("Fair. Another word or two makes it much harder to guess.")];
+    return ["strong", t("Strong.")];
   };
   document.querySelectorAll("input[data-strength]").forEach((input) => {
     const note = document.getElementById(input.dataset.strength);

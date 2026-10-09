@@ -13,7 +13,7 @@
     <div class="field {{ 'has-error' if error_field == 'account_type' }}">
       <label for="account_type">{{ 'Type'|tr(locale) }}</label>
       <select id="account_type" name="account_type" data-groups='{{ groups|tojson }}'>
-        {% for value, label in types %}<option value="{{ value }}" {{ 'selected' if values.account_type == value }}>{{ label }}</option>{% endfor %}
+        {% for value, label in types %}<option value="{{ value }}" {{ 'selected' if values.account_type == value }}>{{ label|tr(locale) }}</option>{% endfor %}
       </select>
       <div class="help">{{ 'Shown under'|tr(locale) }} <b id="group_name">{{ groups.get(values.account_type, '') }}</b>.</div>
     </div>

@@ -1,33 +1,33 @@
 {% extends "base.html" %}
 {% from 'partials/charts.html' import sparkline, stat_tiles %}
-{% block title %}Financial health{% endblock %}
+{% block title %}{{ 'Financial health'|tr(locale) }}{% endblock %}
 {# Answers "Am I financially healthy?": four headline figures, every figure against the limit you set
    (grouped as cushion, saving, then debt), and how saving and net worth moved. Limits sit behind the gear. #}
-{% block heading %}<h1>{{ 'Financial health'|tr(locale) }}</h1><div class="muted">Balances as of {{ as_of }} · savings rate from {{ savings_month }}</div>{% endblock %}
-{% block top_actions %}{% if phone_mode() %}<form class="phone-as-of" method="get" action="/financial-health"><label class="phone-chip is-chosen">As of {{ as_of_iso }}<input type="date" data-native-date name="as_of" value="{{ as_of_iso }}" max="{{ today_iso }}" aria-label="As of"></label><noscript><button class="btn">Show</button></noscript></form>{% else %}<form class="health-as-of" method="get" action="/financial-health">
+{% block heading %}<h1>{{ 'Financial health'|tr(locale) }}</h1><div class="muted">{{ 'Balances as of {date} · savings rate from {month}'|tr(locale, date=as_of, month=savings_month) }}</div>{% endblock %}
+{% block top_actions %}{% if phone_mode() %}<form class="phone-as-of" method="get" action="/financial-health"><label class="phone-chip is-chosen">As of {{ as_of_iso }}<input type="date" data-native-date name="as_of" value="{{ as_of_iso }}" max="{{ today_iso }}" aria-label="As of"></label><noscript><button class="btn">{{ 'Show'|tr(locale) }}</button></noscript></form>{% else %}<form class="health-as-of" method="get" action="/financial-health">
     <label for="health-as-of">{{ 'As of'|tr(locale) }}</label><input id="health-as-of" name="as_of" type="date" value="{{ as_of_iso }}" max="{{ today_iso }}">
-    <button class="btn small" type="submit">Show</button>
+    <button class="btn small" type="submit">{{ 'Show'|tr(locale) }}</button>
   </form>{% endif %}{% endblock %}
 {% block content %}
-{% if error %}<p class="flash error" role="alert">{{ error }}</p>{% endif %}
-{{ stat_tiles(kpis, base, 'Your financial health') }}
+{% if error %}<p class="flash error" role="alert">{{ error|tr(locale) }}</p>{% endif %}
+{{ stat_tiles(kpis, base, 'Your financial health'|tr(locale)) }}
 
 <section class="health-group" aria-labelledby="health-limits-heading">
-  <div class="section-head"><div><h2 id="health-limits-heading">Against your limits</h2></div>{% if judged %}<span class="muted">{{ within }} of {{ judged }} within your limits</span>{% endif %}</div>
+  <div class="section-head"><div><h2 id="health-limits-heading">{{ "Against your limits"|tr(locale) }}</h2></div>{% if judged %}<span class="muted">{{ '{within} of {judged} within your limits'|tr(locale, within=within, judged=judged) }}</span>{% endif %}</div>
   <div class="card health-board">
   {% for group in groups %}
     <h3 class="health-board-head">{{ group.title }}</h3>
     {% for row in group['items'] %}{% set item = row.item %}{% set label = labels[item.key] %}
     <div class="health-row {{ 'health-outside' if item.status == 'outside your limit' else ('health-within' if item.status == 'within your limit' else '') }}">
-      <a class="health-row-name" href="{{ item.href }}">{{ label }}</a>
+      <a class="health-row-name" href="{{ item.href }}">{{ label|tr(locale) }}</a>
       <span class="health-meter" aria-hidden="true">{% if row.meter %}<span class="health-meter-track"><i class="tone-{{ row.meter.tone }}" style="width:{{ '%.1f'|format(row.meter.fill) }}%"></i>{% if row.meter.tick is not none %}<b style="left:{{ '%.1f'|format(row.meter.tick) }}%"></b>{% endif %}</span>{% endif %}</span>
-      <b class="health-row-value">{% if item.gap %}—{% elif item.value is none %}Unavailable{% elif item.unit == '%' %}{{ '%.1f'|format(item.value) }}%{% elif item.unit == 'months' %}{{ '%.1f'|format(item.value) }} months{% else %}{{ item.value|money }} {{ base }}{% endif %}</b>
-      <span class="health-row-status">{% if item.status == 'within your limit' %}<span class="health-status">Within your limit</span>{% elif item.status == 'outside your limit' %}<span class="health-status">{{ 'Below' if item.direction == 'minimum' else 'Above' }} your limit</span>{% elif item.limit is none %}<span class="health-status muted">No limit</span>{% else %}<span class="health-status muted">No comparison available</span>{% endif %}
+      <b class="health-row-value">{% if item.gap %}—{% elif item.value is none %}{{ 'Unavailable'|tr(locale) }}{% elif item.unit == '%' %}{{ '%.1f'|format(item.value) }}%{% elif item.unit == 'months' %}{{ '%.1f'|format(item.value) }} {{ 'months'|tr(locale) }}{% else %}{{ item.value|money }} {{ base }}{% endif %}</b>
+      <span class="health-row-status">{% if item.status == 'within your limit' %}<span class="health-status">{{ "Within your limit"|tr(locale) }}</span>{% elif item.status == 'outside your limit' %}<span class="health-status">{{ ('Below' if item.direction == 'minimum' else 'Above')|tr(locale) }} {{ 'your limit'|tr(locale) }}</span>{% elif item.limit is none %}<span class="health-status muted">{{ "No limit"|tr(locale) }}</span>{% else %}<span class="health-status muted">{{ "No comparison available"|tr(locale) }}</span>{% endif %}
         {% if item.gap %}<small>{{ item.gap }}</small>{% endif %} <small>{{ item.period }}</small></span>
       <details class="health-numbers"><summary>{{ 'Show the numbers'|tr(locale) }}</summary><dl>
-        {% for name, value in item.support %}<div><dt>{{ name }}</dt><dd>{{ value|money ~ ' ' ~ base if value is not none else 'Unavailable' }}</dd></div>{% endfor %}
-        {% if item.limit is not none %}<div><dt>Your limit</dt><dd>{{ 'At least' if item.direction == 'minimum' else 'At most' }} {% if item.unit == '%' %}{{ '%.1f'|format(item.limit) }}%{% else %}{{ '%.0f'|format(item.limit) }} months{% endif %}</dd></div>{% else %}<div><dt>Your limit</dt><dd>No limit</dd></div>{% endif %}
-        {% if item.key == 'emergency_fund' %}<div><dt>Target</dt><dd>{{ fund.target|money if fund.target is not none else 'Unavailable' }}{% if fund.target is not none %} {{ base }}{% endif %}</dd></div>{% endif %}
+        {% for name, value in item.support %}<div><dt>{{ name|tr(locale) }}</dt><dd>{{ value|money ~ ' ' ~ base if value is not none else 'Unavailable'|tr(locale) }}</dd></div>{% endfor %}
+        {% if item.limit is not none %}<div><dt>{{ "Your limit"|tr(locale) }}</dt><dd>{{ ('At least' if item.direction == 'minimum' else 'At most')|tr(locale) }} {% if item.unit == '%' %}{{ '%.1f'|format(item.limit) }}%{% else %}{{ '%.0f'|format(item.limit) }} {{ 'months'|tr(locale) }}{% endif %}</dd></div>{% else %}<div><dt>{{ "Your limit"|tr(locale) }}</dt><dd>{{ "No limit"|tr(locale) }}</dd></div>{% endif %}
+        {% if item.key == 'emergency_fund' %}<div><dt>{{ 'Target'|tr(locale) }}</dt><dd>{{ fund.target|money if fund.target is not none else 'Unavailable'|tr(locale) }}{% if fund.target is not none %} {{ base }}{% endif %}</dd></div>{% endif %}
       </dl></details>
     </div>
     {% endfor %}
@@ -36,7 +36,7 @@
 </section>
 
 <section class="health-group" aria-labelledby="health-over-time-heading">
-  <div class="section-head"><div><h2 id="health-over-time-heading">Over time</h2></div><span class="muted">{{ trends[0].month }} to {{ savings_month }} · completed months</span></div>
+  <div class="section-head"><div><h2 id="health-over-time-heading">{{ "Over time"|tr(locale) }}</h2></div><span class="muted">{{ trends[0].month }} to {{ savings_month }} · {{ 'completed months'|tr(locale) }}</span></div>
   <div class="health-trend-grid">
     {% for key, title, values, spark, tone, sm in [
       ('savings_rate', fig.savings_rate.label, trends|map(attribute='savings_rate')|list, savings_spark, 'in', savings_summary),
@@ -44,10 +44,10 @@
     ] %}
     <article class="card health-trend">
       <div class="health-trend-head"><h3>{{ title }}</h3><a href="/">{{ 'Overview'|tr(locale) }}</a></div>
-      {% if sm %}<p class="health-trend-figure"><b>{% if key == 'savings_rate' %}{{ '%.1f'|format(sm.last) }}%{% else %}{{ sm.last|money }} <small>{{ base }}</small>{% endif %}</b> <span class="muted">in {{ sm.last_month }}{% if key == 'savings_rate' %} · lowest {{ '%.1f'|format(sm.low) }}% in {{ sm.low_month }}{% endif %}</span></p>{% endif %}
-      {% if spark.points and values|reject('none')|list|length >= 2 %}{{ sparkline(spark, tone, title ~ ' over six completed months') }}<div class="health-trend-axis muted" aria-hidden="true"><span>{{ trends[0].month }}</span><span>{{ trends[-1].month }}</span></div>{% else %}<p class="muted small">Not enough completed months to draw a line yet.</p>{% endif %}
+      {% if sm %}<p class="health-trend-figure"><b>{% if key == 'savings_rate' %}{{ '%.1f'|format(sm.last) }}%{% else %}{{ sm.last|money }} <small>{{ base }}</small>{% endif %}</b> <span class="muted">{{ 'in {month}'|tr(locale, month=sm.last_month) }}{% if key == 'savings_rate' %} · {{ 'lowest {value}% in {month}'|tr(locale, value='%.1f'|format(sm.low), month=sm.low_month) }}{% endif %}</span></p>{% endif %}
+      {% if spark.points and values|reject('none')|list|length >= 2 %}{{ sparkline(spark, tone, title ~ ' ' ~ 'over six completed months'|tr(locale)) }}<div class="health-trend-axis muted" aria-hidden="true"><span>{{ trends[0].month }}</span><span>{{ trends[-1].month }}</span></div>{% else %}<p class="muted small">{{ 'Not enough completed months to draw a line yet.'|tr(locale) }}</p>{% endif %}
       <details class="health-numbers"><summary>{{ 'Show the numbers'|tr(locale) }}</summary>
-        <div class="table-wrap"><table><thead><tr><th>Completed month</th><th class="num">{{ title }}</th></tr></thead><tbody>
+        <div class="table-wrap"><table><thead><tr><th>{{ 'Completed month'|tr(locale) }}</th><th class="num">{{ title }}</th></tr></thead><tbody>
         {% for month in trends %}<tr><td>{{ month.month }}</td><td class="num">{% set val = month.savings_rate if key == 'savings_rate' else month.net_worth %}{% if key == 'savings_rate' and month.gap %}{{ month.gap }}{% elif val is none %}Unavailable{% elif key == 'savings_rate' %}{{ '%.1f'|format(val) }}%{% else %}{{ val|money }} {{ base }}{% endif %}</td></tr>{% endfor %}
         </tbody></table></div>
       </details>
@@ -55,5 +55,5 @@
     {% endfor %}
   </div>
 </section>
-<p class="muted small health-limit-note">Limits only compare figures you already have; they change no transactions, plans or reports. Change them behind the gear.</p>
+<p class="muted small health-limit-note">{{ 'Limits only compare figures you already have; they change no transactions, plans or reports. Change them behind the gear.'|tr(locale) }}</p>
 {% endblock %}

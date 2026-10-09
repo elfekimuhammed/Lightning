@@ -2,16 +2,16 @@
 {% from "partials/macros.html" import amount with context %}
 {% block title %}{{ txn.ref }}{% endblock %}
 {% block heading %}<h1 class="code" style="font-size:20px">{{ txn.ref }}</h1>
-<div class="muted">{{ 'Refund' if txn.type.value == 'IN' and lines and lines[0].effect == 'OUTFLOW' else summary.type_label }} · {{ txn.date }}{% if txn.source == 'SYSTEM' %} · <span class="pill">System-generated</span>{% endif %}{% if txn.is_void %} · <span class="pill void">deleted</span>{% endif %}</div>{% endblock %}
+<div class="muted">{{ ('Refund' if txn.type.value == 'IN' and lines and lines[0].effect == 'OUTFLOW' else summary.type_label)|tr(locale) }} · {{ txn.date }}{% if txn.source == 'SYSTEM' %} · <span class="pill">{{ 'System-generated'|tr(locale) }}</span>{% endif %}{% if txn.is_void %} · <span class="pill void">{{ 'deleted'|tr(locale) }}</span>{% endif %}</div>{% endblock %}
 {% block content %}
 <div class="grid g2">
   <div class="card">
-    <h2>{{ txn.description or summary.counterparty or txn.type_label }}</h2>
+    <h2>{% if txn.description or summary.counterparty %}{{ txn.description or summary.counterparty }}{% else %}{{ txn.type_label|tr(locale) }}{% endif %}</h2>
     <table>
       <tr><td class="muted">{{ 'Amount'|tr(locale) }}</td><td class="num">{% if txn.type == 'TRF' %}{{ summary.amount|money }} {{ summary.currency }}{% else %}{{ amount(summary.amount, summary.currency, True) }}{% endif %}</td></tr>
       {% if txn.type == 'TRF' %}
-      <tr><td class="muted">From</td><td>{{ summary.account_label }}</td></tr>
-      <tr><td class="muted">To</td><td>{{ summary.to_account_label }}</td></tr>
+      <tr><td class="muted">{{ 'From'|tr(locale) }}</td><td>{{ summary.account_label }}</td></tr>
+      <tr><td class="muted">{{ 'To'|tr(locale) }}</td><td>{{ summary.to_account_label }}</td></tr>
       {% else %}
       <tr><td class="muted">{{ 'Account'|tr(locale) }}</td><td>{{ summary.account_label }}</td></tr>
       {% if summary.category_label %}<tr><td class="muted">{{ 'Category'|tr(locale) }}</td><td>{{ summary.category_label }}</td></tr>{% endif %}
@@ -21,34 +21,34 @@
       {% set owner = lines|selectattr('owner_id', 'defined')|selectattr('owner_id')|first %}
       {% if owner %}<tr><td class="muted">{{ 'Held for'|tr(locale) }}</td><td>{{ owner.owner_name }}</td></tr>{% endif %}
       {% if txn.notes %}<tr><td class="muted">{{ 'Notes'|tr(locale) }}</td><td>{{ txn.notes|tagged }}</td></tr>{% endif %}
-      <tr><td class="muted">Recorded</td><td class="small">{{ txn.created_at }}{% if txn.updated_at != txn.created_at %} · updated {{ txn.updated_at }}{% endif %}</td></tr>
+      <tr><td class="muted">{{ "Recorded"|tr(locale) }}</td><td class="small">{{ txn.created_at }}{% if txn.updated_at != txn.created_at %} · updated {{ txn.updated_at }}{% endif %}</td></tr>
     </table>
     <div class="actions" style="margin-top:14px">
       {% if not txn.is_void %}
-        {% if txn.source == 'SYSTEM' %}<span class="muted small">Deleting this reevaluation removes its effect from the account.</span>
-        {% elif is_ownership %}<a class="btn" data-popup-open href="/transactions/{{ txn.id }}/ownership/edit">Edit</a>
-        {% elif txn.type in ('BUY', 'SEL', 'DIV') or (txn.type == 'OPN' and lines[0].asset != 'CASH:' ~ base) %}<a class="btn" href="/investments/{{ txn.id }}/edit">Edit</a>
-        {% elif txn.type == 'OPN' %}<a class="btn" href="/accounts/{{ lines[0].account_id }}/edit">Change opening balance</a>
-        {% else %}<a class="btn" href="/accounts/{{ summary.account_id }}?edit={{ txn.id }}&acct={{ summary.account_id }}">Edit in transactions</a>{% endif %}
+        {% if txn.source == 'SYSTEM' %}<span class="muted small">{{ "Deleting this reevaluation removes its effect from the account."|tr(locale) }}</span>
+        {% elif is_ownership %}<a class="btn" data-popup-open href="/transactions/{{ txn.id }}/ownership/edit">{{ 'Edit'|tr(locale) }}</a>
+        {% elif txn.type in ('BUY', 'SEL', 'DIV') or (txn.type == 'OPN' and lines[0].asset != 'CASH:' ~ base) %}<a class="btn" href="/investments/{{ txn.id }}/edit">{{ 'Edit'|tr(locale) }}</a>
+        {% elif txn.type == 'OPN' %}<a class="btn" href="/accounts/{{ lines[0].account_id }}/edit">{{ "Change opening balance"|tr(locale) }}</a>
+        {% else %}<a class="btn" href="/accounts/{{ summary.account_id }}?edit={{ txn.id }}&acct={{ summary.account_id }}">{{ "Edit in transactions"|tr(locale) }}</a>{% endif %}
         {% if txn.type != 'OPN' %}<form method="post" action="/transactions/{{ txn.id }}/delete" data-confirm-delete><button class="btn danger">{{ 'Delete'|tr(locale) }}</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>{% endif %}
       {% else %}
-        {% if replaced_revaluation %}<p class="muted small">Replaced by a newer revaluation; nothing to restore.</p>{% else %}<form method="post" action="/transactions/{{ txn.id }}/restore"><button class="btn">Restore</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>{% endif %}
+        {% if replaced_revaluation %}<p class="muted small">{{ "Replaced by a newer revaluation; nothing to restore."|tr(locale) }}</p>{% else %}<form method="post" action="/transactions/{{ txn.id }}/restore"><button class="btn">{{ 'Restore'|tr(locale) }}</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>{% endif %}
       {% endif %}
     </div>
   </div>
   <div class="card">
-    <h2>History</h2>
+    <h2>{{ "History"|tr(locale) }}</h2>
     {% if history %}
     <table>{% for h in history %}<tr><td class="small code">{{ h.at }}</td><td class="small">{{ h.summary or h.action }}</td></tr>{% endfor %}</table>
-    {% else %}<div class="muted small">No changes since it was recorded.</div>{% endif %}
+    {% else %}<div class="muted small">{{ "No changes since it was recorded."|tr(locale) }}</div>{% endif %}
   </div>
 </div>
-{% if budget_impacts %}<section class="card" style="margin-top:16px"><div class="card-heading"><h2>Budget impact</h2><a href="/budget?month={{ budget_impacts[0].month }}#category-plan">Open {{ budget_impacts[0].month }} plan</a></div>
-  {% for impact in budget_impacts %}<div class="budget-attention-row"><span><b>{{ impact.name }}</b><small>Spending in this category changes its monthly plan.</small></span><span class="num">{% if impact.remaining is not none %}{{ impact.remaining|money }} left{% elif impact.covered_by %}Inside {{ impact.covered_by }} · {{ impact.covered_remaining|money }} left{% else %}No covering limit{% endif %}</span></div>{% endfor %}
+{% if budget_impacts %}<section class="card" style="margin-top:16px"><div class="card-heading"><h2>{{ "Budget impact"|tr(locale) }}</h2><a href="/budget?month={{ budget_impacts[0].month }}#category-plan">Open {{ budget_impacts[0].month }} plan</a></div>
+  {% for impact in budget_impacts %}<div class="budget-attention-row"><span><b>{{ impact.name }}</b><small>{{ "Spending in this category changes its monthly plan."|tr(locale) }}</small></span><span class="num">{% if impact.remaining is not none %}{{ impact.remaining|money }} left{% elif impact.covered_by %}Inside {{ impact.covered_by }} · {{ impact.covered_remaining|money }} left{% else %}No covering limit{% endif %}</span></div>{% endfor %}
 </section>{% endif %}
 {% if can_split and not txn.is_void %}
 <section class="card expense-split" style="margin-top:16px">
-  <h2>Expense categories</h2>
+  <h2>{{ "Expense categories"|tr(locale) }}</h2>
   <p class="muted small">Split the total across categories. The amounts must add up to {{ abs(summary.amount)|money }} {{ summary.currency }}. Refunds should be entered as money in under the original expense category.</p>
   <form method="post" action="/transactions/{{ txn.id }}/split" id="expense-split-form">
     <div id="expense-split-rows">
@@ -65,32 +65,32 @@
         <input type="text" name="split_amount" placeholder="Amount" inputmode="decimal" aria-label="Split amount">
       </div>{% endfor %}
     </div>
-    <div class="actions"><button type="button" class="btn small" id="add-expense-split-row">Add category</button><button class="btn primary">Save split</button></div>
+    <div class="actions"><button type="button" class="btn small" id="add-expense-split-row">{{ "Add category"|tr(locale) }}</button><button class="btn primary">{{ "Save split"|tr(locale) }}</button></div>
   <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
 </section>
 {% endif %}
 {% if txn.type.value == 'OUT' and not txn.is_void %}
 <section class="card reserve-payment" style="margin-top:16px">
-  <h2>Assign payment to a reserve</h2>
-  <p class="muted small">Link this payment to the plan it covers. Its amount will stop counting as cash still set aside, while the project keeps its progress. Repeating projects advance when linked payments reach the target. Matching payments are suggested for your confirmation in the account transaction list.</p>
+  <h2>{{ "Assign payment to a reserve"|tr(locale) }}</h2>
+  <p class="muted small">{{ "Link this payment to the plan it covers. Its amount will stop counting as cash still set aside, while the project keeps its progress. Repeating projects advance when linked payments reach the target. Matching payments are suggested for your confirmation in the account transaction list."|tr(locale) }}</p>
   {% if reserve_links %}<div class="reserve-payment-links">{% for link in reserve_links %}
     <div><span>{{ link.name }} · {{ link.amount|money }}</span><form method="post" action="/transactions/{{ txn.id }}/reserve">
       <input type="hidden" name="reserve_id" value="{{ link.reserve_id }}"><input type="hidden" name="action" value="unlink">
-      <button class="btn small">Remove link</button>
+      <button class="btn small">{{ "Remove link"|tr(locale) }}</button>
     <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form></div>
   {% endfor %}</div>{% endif %}
   {% if reserves %}<form method="post" action="/transactions/{{ txn.id }}/reserve" class="reserve-allocate">
     <select name="reserve_id" required aria-label="Reserve" data-own-picker>{% for reserve in reserves %}<option value="{{ reserve.id }}">{{ reserve.name }} · {{ reserve.effective_allocated|money }} available</option>{% endfor %}</select>
     <input type="text" name="amount" value="{{ abs(summary.amount) }}" inputmode="decimal" aria-label="Amount paid from reserve" required>
-    <button class="btn small primary">Apply payment</button>
-  <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>{% else %}<p class="muted small">Create a reserve before assigning payments to one.</p>{% endif %}
+    <button class="btn small primary">{{ "Apply payment"|tr(locale) }}</button>
+  <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>{% else %}<p class="muted small">{{ "Create a reserve before assigning payments to one."|tr(locale) }}</p>{% endif %}
 </section>
 {% endif %}
 <div class="card" style="margin-top:16px">
   <details>
-    <summary>Ledger lines — how this transaction affects balances</summary>
+    <summary>{{ "Ledger lines — how this transaction affects balances"|tr(locale) }}</summary>
     <table style="margin-top:10px">
-      <thead><tr><th>Line</th><th>{{ 'Account'|tr(locale) }}</th><th>Asset</th><th>Effect</th><th>{{ 'Category'|tr(locale) }}</th><th class="num">Quantity</th><th class="num">Value ({{ base }})</th></tr></thead>
+      <thead><tr><th>{{ "Line"|tr(locale) }}</th><th>{{ 'Account'|tr(locale) }}</th><th>{{ "Asset"|tr(locale) }}</th><th>{{ "Effect"|tr(locale) }}</th><th>{{ 'Category'|tr(locale) }}</th><th class="num">{{ "Quantity"|tr(locale) }}</th><th class="num">Value ({{ base }})</th></tr></thead>
       {% for l in lines %}
       <tr><td class="code">{{ l.ref }}</td><td class="small">{{ l.account }}</td><td class="code">{{ l.asset }}</td><td><span class="pill">{{ l.effect }}</span></td>
           <td class="small">{{ l.category }}</td><td class="num">{{ l.quantity|money(True) }}</td><td class="num">{{ l.amount_base|money(True) }}</td></tr>

@@ -2,15 +2,15 @@
 {% from "partials/macros.html" import field with context %}
 {% block title %}{{ 'Edit investment' if asset else 'New investment' }}{% endblock %}
 {% block heading %}<h1>{{ ('Edit ' ~ asset.label) if asset else 'New investment' }}</h1>
-<div class="muted">Something you can own units of: a stock, a fund, gold.</div>{% endblock %}
+<div class="muted">{{ "Something you can own units of: a stock, a fund, gold."|tr(locale) }}</div>{% endblock %}
 {% block content %}
 <form method="post" class="card" style="max-width:640px" autocomplete="off">
   {% if not asset %}
   <section class="field instrument-picker" aria-label="Find a stock or fund">
-    <label for="instrument-search">Find a stock or fund</label>
+    <label for="instrument-search">{{ 'Find a stock or fund'|tr(locale) }}</label>
     <input id="instrument-search" type="search" placeholder="Type a company, fund, or ticker (e.g. CIB or COMI)" autocomplete="off" aria-controls="instrument-results" aria-expanded="false" autofocus>
     <div id="instrument-results" class="instrument-results" role="listbox" hidden></div>
-    <div id="instrument-selection" class="help" aria-live="polite">Search the local EGX and Thndr fund list, or enter details below.</div>
+    <div id="instrument-selection" class="help" aria-live="polite">{{ "Search the local EGX and Thndr fund list, or enter details below."|tr(locale) }}</div>
   </section>
   <script nonce="{{ request.state.csp_nonce|default('') }}" id="instrument-catalogue" type="application/json">{{ catalogue | tojson }}</script>
   {% endif %}
@@ -26,12 +26,12 @@
   </div>
   <div class="row">
     <div class="field {{ 'has-error' if error_field == 'mic' }}">
-      <label for="mic">Exchange</label>
+      <label for="mic">{{ "Exchange"|tr(locale) }}</label>
       <select id="mic" name="mic">
         <option value="" {{ 'selected' if not values.mic }}>—</option>
         {% for code, venue in venues.items() %}<option value="{{ code }}" {{ 'selected' if values.mic == code }}>{{ venue[0] }} · {{ code }}</option>{% endfor %}
       </select>
-      <div class="help">A stock is on EGX unless you choose another. Funds and gold are not listed.</div>
+      <div class="help">{{ "A stock is on EGX unless you choose another. Funds and gold are not listed."|tr(locale) }}</div>
     </div>
     {{ field('isin', 'ISIN', values, error_field, help='Optional, 12 characters from your statement, e.g. EGS60121C018.', placeholder='e.g. EGS60121C018') }}
   </div>
@@ -40,21 +40,21 @@
   {% endif %}
   {% if not asset %}
   <div id="karat-field" class="field" {% if values.class_code != 'GOLD' %}hidden{% endif %}>
-    <label for="karat">Gold karat</label>
+    <label for="karat">{{ "Gold karat"|tr(locale) }}</label>
     <select id="karat" name="karat">{% for k in ['24', '22', '21', '18'] %}<option {{ 'selected' if values.karat == k }}>{{ k }}</option>{% endfor %}</select>
   </div>
   {% endif %}
   <details>
-    <summary>More options</summary>
+    <summary>{{ "More options"|tr(locale) }}</summary>
     <div style="margin-top:10px">
       <div class="field"><label for="notes">{{ 'Notes'|tr(locale) }}</label><textarea id="notes" name="notes" rows="2">{{ values.notes }}</textarea></div>
-      {% if asset %}<label class="small"><input type="checkbox" name="active" value="1" {{ 'checked' if values.active }}> Show in lists</label>{% endif %}
+      {% if asset %}<label class="small"><input type="checkbox" name="active" value="1" {{ 'checked' if values.active }}>{{ "Show in lists"|tr(locale) }}</label>{% endif %}
     </div>
   </details>
   <div class="actions" style="margin-top:12px">
     <button class="btn primary">{{ 'Save'|tr(locale) }}</button>
     <a class="btn" href="/investments">{{ 'Cancel'|tr(locale) }}</a>
   </div>
-  {% if not asset %}<p class="muted small">Picking a result fills in its name, ticker, and type. You can still edit those details.</p>{% endif %}
+  {% if not asset %}<p class="muted small">{{ "Picking a result fills in its name, ticker, and type. You can still edit those details."|tr(locale) }}</p>{% endif %}
 <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
 {% endblock %}

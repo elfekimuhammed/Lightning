@@ -14,7 +14,7 @@
 {% if period_error %}<p class="flash error">{{ period_error }}</p>{% endif %}
 {% set chip = {"month": period.start_text[:7], "ytd": "YTD", "all": "All"}.get(period.key, "Range") %}
 {% if not accounts %}
-<section class="card phone-card"><p class="phone-note">Investments live in a brokerage account or a physical asset account.</p><a class="btn primary phone-save" href="/accounts/new?type=BROKERAGE">Add a brokerage account</a></section>
+<section class="card phone-card"><p class="phone-note">{{ "Investments live in a brokerage account or a physical asset account."|tr(locale) }}</p><a class="btn primary phone-save" href="/accounts/new?type=BROKERAGE">{{ "Add a brokerage account"|tr(locale) }}</a></section>
 {% elif not owned_rows and not period_activity %}
 <section class="card phone-card"><h2 class="phone-card-title">{{ 'No holdings yet'|tr(locale) }}</h2><p class="phone-note">{% if investment_report.investment_cash %}{{ investment_report.investment_cash|money }} {{ base }} of brokerage cash is ready. {% endif %}Record a holding to see its value, result and allocation.</p></section>
 {% else %}
@@ -29,10 +29,10 @@
 ] %}
 {{ kpi_tiles(tiles, base) }}
 {% if investment_report.missing %}<p class="flash">Prices missing: {% for issue in investment_report.missing %}{{ issue.asset }}{% if not loop.last %}, {% endif %}{% endfor %}. Their value may be out of date.</p>{% endif %}
-{% if investment_report.unrealized_change is none %}<p class="flash">A dated market price is missing at a period boundary, so the result is unavailable.</p>{% endif %}
+{% if investment_report.unrealized_change is none %}<p class="flash">{{ "A dated market price is missing at a period boundary, so the result is unavailable."|tr(locale) }}</p>{% endif %}
 
 <section class="phone-section" aria-labelledby="alloc-heading">
-  <header class="phone-section-head"><h2 id="alloc-heading">Allocation</h2><span>{{ period.end_text }}</span></header>
+  <header class="phone-section-head"><h2 id="alloc-heading">{{ "Allocation"|tr(locale) }}</h2><span>{{ period.end_text }}</span></header>
   <article class="card phone-card" aria-label="By asset class">
     <h3 class="phone-card-title">{{ fig.holdings_value.label }} by asset class</h3>
     {{ donut(investment_donut, fig.holdings_value.label, base) }}
@@ -42,7 +42,7 @@
     </div>
   </article>
   {% if biggest and biggest.rows %}<article class="card phone-card" aria-label="Biggest holdings">
-    <h3 class="phone-card-title">Biggest holdings</h3><p class="phone-note">Share of {{ fig.holdings_value.label|lower }}</p>
+    <h3 class="phone-card-title">{{ "Biggest holdings"|tr(locale) }}</h3><p class="phone-note">Share of {{ fig.holdings_value.label|lower }}</p>
     {{ phone_bars(biggest.rows, 'Biggest holdings') }}
   </article>{% endif %}
 </section>
@@ -53,29 +53,29 @@
   <article class="card phone-card" aria-label="{{ g.name }}">
     <div class="phone-group-head"><span class="phone-group-name"><b>{{ g.name }}</b><small>{{ '%.0f'|format(g.weight) }}% of holdings · gain {{ g.gain|money(True) }}</small></span><b class="phone-group-left">{{ g.value|money }}</b></div>
     <div class="phone-rows">{% for r in g.rows %}
-      {% if r.balance %}<a class="phone-row" href="/accounts/{{ r.account_id }}"><span>{{ r.name }}<small>Cash in the account</small></span><b>{{ r.value|money }}</b></a>
+      {% if r.balance %}<a class="phone-row" href="/accounts/{{ r.account_id }}"><span>{{ r.name }}<small>{{ "Cash in the account"|tr(locale) }}</small></span><b>{{ r.value|money }}</b></a>
       {% else %}{% set h = r.h %}<a class="phone-row" href="/investments/holding/{{ h.asset_id }}?account={{ h.account_id }}&amp;date={{ period.end_text }}&amp;start={{ period.start_text }}"><span>{{ h.asset_name }}<small>{{ r.units|units_of(h.unit) }}{% if r.gain_pct is not none %} · {{ r.gain_pct|signed_pct }}%{% endif %}{% if r.horizon != 'Unassigned' %} · {{ r.horizon }}{% endif %}</small></span><b>{{ r.value|money if r.value is not none else 'Unavailable' }}</b></a>{% endif %}
     {% endfor %}</div>
   </article>
-  {% else %}<p class="empty">No owned holdings to show.</p>{% endfor %}
+  {% else %}<p class="empty">{{ "No owned holdings to show."|tr(locale) }}</p>{% endfor %}
 </section>
 
 <section class="phone-section" aria-labelledby="income-heading">
-  <header class="phone-section-head"><h2 id="income-heading">Dividends collected</h2><span>{{ ytd_year }} so far</span></header>
+  <header class="phone-section-head"><h2 id="income-heading">{{ "Dividends collected"|tr(locale) }}</h2><span>{{ ytd_year }} so far</span></header>
   <article class="card phone-card">
     {% if ytd_dividends and ytd_dividends.rows %}{{ phone_bars(ytd_dividends.rows, 'Dividends collected this year') }}
-    <a class="phone-quiet" data-popup-open href="/investments/report-detail?kind=dividends&amp;from={{ ytd_year }}-01-01&amp;to={{ today }}">See them</a>
-    {% else %}<p class="chart-empty">No dividends collected this year yet.</p>{% endif %}
+    <a class="phone-quiet" data-popup-open href="/investments/report-detail?kind=dividends&amp;from={{ ytd_year }}-01-01&amp;to={{ today }}">{{ "See them"|tr(locale) }}</a>
+    {% else %}<p class="chart-empty">{{ "No dividends collected this year yet."|tr(locale) }}</p>{% endif %}
   </article>
 </section>
 
 <section class="phone-section" aria-labelledby="horizon-heading">
-  <header class="phone-section-head"><h2 id="horizon-heading">Intended horizon</h2><span>{{ 'Today'|tr(locale) }}</span></header>
+  <header class="phone-section-head"><h2 id="horizon-heading">{{ "Intended horizon"|tr(locale) }}</h2><span>{{ 'Today'|tr(locale) }}</span></header>
   <article class="card phone-card">
     <div class="phone-bars" role="list" aria-label="Holdings by intended horizon">{% for label in ['Short', 'Medium', 'Long', 'Unassigned'] %}{% set v = horizons.get(label, 0) %}{% if v %}
       <div class="phone-bar-row" role="listitem"><span class="phone-bar-name">{{ label }}<small> · {{ '%.0f'|format(v / holdings_total * 100 if holdings_total else 0) }}%</small></span><b class="phone-bar-value">{{ v|money }}</b><span class="phone-bar-track"><i style="width:{{ '%.1f'|format([v / holdings_total * 100 if holdings_total else 0, 1]|max) }}%"></i></span></div>
     {% endif %}{% endfor %}</div>
-    <p class="phone-note">Set a holding's horizon on the PC's Holdings table for now.</p>
+    <p class="phone-note">{{ "Set a holding's horizon on the PC's Holdings table for now."|tr(locale) }}</p>
   </article>
 </section>
 {% endif %}

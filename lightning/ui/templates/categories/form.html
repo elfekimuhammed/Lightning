@@ -8,12 +8,12 @@
   {{ field('name', 'Name', values, error_field, placeholder='e.g. Pets', attrs='required autofocus') }}
   {% if (category and category.movement == 'OUTFLOW') or (not category and parent and parent.movement == 'OUTFLOW') %}
   <label class="small" style="display:flex;gap:6px;align-items:center;margin-bottom:12px">
-    <input type="checkbox" name="default_reimbursable" value="1" {{ 'checked' if values.default_reimbursable }}> Usually paid back by an employer (used from M5)</label>
+    <input type="checkbox" name="default_reimbursable" value="1" {{ 'checked' if values.default_reimbursable }}>{{ "Usually paid back by an employer (used from M5)"|tr(locale) }}</label>
   {% endif %}
   {% if category %}
   {% endif %}
   <details {{ 'open' if error_field == 'code' }}>
-    <summary>Code (for search and exports)</summary>
+    <summary>{{ "Code (for search and exports)"|tr(locale) }}</summary>
     <div style="margin-top:10px">
     {{ field('code', 'Code', values, error_field, help=('Created from the name if left empty. Needed when the name is not in Latin letters.'), placeholder='created for you') }}
     </div>
@@ -21,8 +21,8 @@
   <div class="actions" style="margin-top:12px">
     <button class="btn primary">{{ 'Save'|tr(locale) }}</button>
     {% if category and not category.is_system and category.depth >= 2 %}
-    {% if category.active %}<button class="btn" name="active" value="0" formnovalidate>Archive</button>
-    {% else %}<button class="btn" name="active" value="1" formnovalidate>Activate</button>{% endif %}
+    {% if category.active %}<button class="btn" name="active" value="0" formnovalidate>{{ "Archive"|tr(locale) }}</button>
+    {% else %}<button class="btn" name="active" value="1" formnovalidate>{{ "Activate"|tr(locale) }}</button>{% endif %}
     {% endif %}
     <a class="btn" href="/categories">{{ 'Cancel'|tr(locale) }}</a>
   </div>
@@ -36,13 +36,13 @@
 {% if review_required and similar_categories %}
 <div class="review-backdrop">
   <section class="review-dialog" role="dialog" aria-modal="true" aria-labelledby="category-review-title">
-    <h2 id="category-review-title">Check for a similar category</h2>
+    <h2 id="category-review-title">{{ "Check for a similar category"|tr(locale) }}</h2>
     <p>Before adding “{{ values.name }}”, check whether one of these broad categories already means the same thing.</p>
     <ul class="review-matches">{% for match in similar_categories %}<li><a class="btn" href="/categories/{{ match.id }}/edit">Use {{ match.name }}{% if ' › ' in match.display_name %} <small>in {{ match.display_name.split(' › ')[:-1]|join(' · ') }}</small>{% endif %}</a></li>{% endfor %}</ul>
     <form method="post" action="/categories/new?parent={{ parent.id }}">
       <input type="hidden" name="name" value="{{ values.name }}"><input type="hidden" name="code" value="{{ values.code }}">
       <input type="hidden" name="default_reimbursable" value="{{ values.default_reimbursable }}">
-      <button class="btn primary" name="confirm_similar" value="1">Create a separate category anyway</button>
+      <button class="btn primary" name="confirm_similar" value="1">{{ "Create a separate category anyway"|tr(locale) }}</button>
       <a class="btn" href="/categories">{{ 'Cancel'|tr(locale) }}</a>
     <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
   </section>

@@ -5,22 +5,22 @@
 
 <form method="post" class="card data-panel" autocomplete="off">
   <table class="asset-list">
-    <thead><tr><th>Follow</th><th>Market</th><th>Exchanges</th><th class="num">Download</th><th>On this computer</th></tr></thead>
+    <thead><tr><th>{{ 'Follow'|tr(locale) }}</th><th>{{ "Market"|tr(locale) }}</th><th>{{ "Exchanges"|tr(locale) }}</th><th class="num">{{ "Download"|tr(locale) }}</th><th>{{ "On this computer"|tr(locale) }}</th></tr></thead>
     <tbody>{% for r in rows %}
       <tr>
         <td><label class="sc-check"><input type="checkbox" name="pack" value="{{ r.id }}" {{ 'checked' if r.on }} aria-label="Follow {{ r.name }}"></label></td>
         <td><b>{{ r.name }}</b><div class="muted small">{{ r.covers }}{% if r.source %} · Source: {{ r.source }}{% endif %}</div></td>
         <td class="small">{{ r.venues or '—' }}</td>
         <td class="num small">{% if r.bytes and r.bytes >= 1000000 %}{{ (r.bytes / 1000000) | round(1) }} MB{% elif r.bytes %}{{ (r.bytes / 1000) | round(0, 'ceil') | int }} KB{% else %}<span class="muted">—</span>{% endif %}</td>
-        <td class="small">{% if r.have %}{{ r.have.instruments }} price{{ '' if r.have.instruments == 1 else 's' }} to {{ r.have.last_date }}<div class="muted">File of {{ r.have.created_at }}, {{ r.have.origin }}</div>{% else %}<span class="muted">Not downloaded</span>{% endif %}</td>
+        <td class="small">{% if r.have %}{{ r.have.instruments }} price{{ '' if r.have.instruments == 1 else 's' }} to {{ r.have.last_date }}<div class="muted">File of {{ r.have.created_at }}, {{ r.have.origin }}</div>{% else %}<span class="muted">{{ "Not downloaded"|tr(locale) }}</span>{% endif %}</td>
       </tr>{% endfor %}</tbody>
   </table>
-  <p class="muted small">Each market is its own file, refreshed after that market closes. After the first download, an update brings only what changed, about 1 MB a month for each. Unfollowing a market removes its file from this computer; prices already filled stay. Prices in another currency fill once holdings can be in that currency.</p>
-  <div class="actions"><button class="btn primary" name="update" value="1" data-busy="Downloading…">Save and download shared prices</button><button class="btn">{{ 'Save'|tr(locale) }}</button><a class="btn" href="/investments/prices">Back to prices</a></div>
+  <p class="muted small">{{ "Each market is its own file, refreshed after that market closes. After the first download, an update brings only what changed, about 1 MB a month for each. Unfollowing a market removes its file from this computer; prices already filled stay. Prices in another currency fill once holdings can be in that currency."|tr(locale) }}</p>
+  <div class="actions"><button class="btn primary" name="update" value="1" data-busy="Downloading…">{{ "Save and download shared prices"|tr(locale) }}</button><button class="btn">{{ 'Save'|tr(locale) }}</button><a class="btn" href="/investments/prices">{{ "Back to prices"|tr(locale) }}</a></div>
 <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
 <form method="post" class="card" action="/investments/prices/markets/test" style="margin-top:16px">
-  <h2>Price sources</h2>
-  <p class="muted small">Lightning asks TradingView, Yahoo Finance, Mubasher and Banque Misr for prices itself. If prices stop coming, test each source once to see which one is not answering.</p>
-  <div class="actions"><button class="btn" data-busy="Testing sources…">Test price sources</button></div>
+  <h2>{{ "Price sources"|tr(locale) }}</h2>
+  <p class="muted small">{{ "Lightning asks TradingView, Yahoo Finance, Mubasher and Banque Misr for prices itself. If prices stop coming, test each source once to see which one is not answering."|tr(locale) }}</p>
+  <div class="actions"><button class="btn" data-busy="Testing sources…">{{ "Test price sources"|tr(locale) }}</button></div>
 <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
 {% endblock %}

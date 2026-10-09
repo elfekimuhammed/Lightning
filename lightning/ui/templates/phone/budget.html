@@ -7,18 +7,18 @@
 {% block heading %}<h1>{{ 'Budget'|tr(locale) }}</h1><p>{{ period.start_text }} to {{ period.end_text }}</p>{% endblock %}
 {% block top_actions %}{% from "partials/macros.html" import period_control with context %}{{ period_control("/budget", period.key, month, this_month, period.start_text, period.end_text) }}{% endblock %}
 {% block content %}
-{% if error %}<p class="flash error" role="alert">{{ error }}</p>{% endif %}
-{% if bulk_undo %}<form method="post" action="/budget/bulk/undo" class="flash"><input type="hidden" name="token" value="{{ bulk_undo }}">Bulk rules applied. <button class="btn">{{ 'Undo'|tr(locale) }}</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>{% endif %}
+{% if error %}<p class="flash error" role="alert">{{ error|tr(locale) }}</p>{% endif %}
+{% if bulk_undo %}<form method="post" action="/budget/bulk/undo" class="flash"><input type="hidden" name="token" value="{{ bulk_undo }}">{{ "Bulk rules applied."|tr(locale) }}<button class="btn">{{ 'Undo'|tr(locale) }}</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>{% endif %}
 
 {% if period.key == 'month' and not has_plan %}
 <section class="card phone-card" aria-labelledby="first-heading">
-  <h2 id="first-heading" class="phone-card-title">Set your first spending limits</h2>
-  <p class="phone-note">Lightning proposes a limit for each category from what you spent; change any before saving.</p>
+  <h2 id="first-heading" class="phone-card-title">{{ "Set your first spending limits"|tr(locale) }}</h2>
+  <p class="phone-note">{{ "Lightning proposes a limit for each category from what you spent; change any before saving."|tr(locale) }}</p>
   {% if suggestions %}<form method="post" action="/budget/setup?month={{ month }}" class="phone-form"><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}">
   {% for group, items in suggestion_groups.items() %}<div class="phone-rows"><div class="phone-row"><span><b>{{ group }}</b></span></div>{% for category_id, name, amount in items %}
     <label class="phone-row phone-limit"><span>{{ name }}</span><input name="suggest_{{ category_id }}" value="{{ amount|money(False,2) }}" inputmode="decimal" aria-label="Monthly limit for {{ group }} {{ name }}"></label>{% endfor %}</div>{% endfor %}
   <button class="btn primary phone-save">{{ 'Create plan'|tr(locale) }}</button></form>
-  {% else %}<a class="btn primary phone-save" href="/budget/fill?month={{ month }}">Fill this month</a>{% endif %}
+  {% else %}<a class="btn primary phone-save" href="/budget/fill?month={{ month }}">{{ "Fill this month"|tr(locale) }}</a>{% endif %}
 </section>
 {% endif %}
 
@@ -34,12 +34,12 @@
     <div class="phone-row"><span>{{ fig.planned.label }}{% if period_carryover %}<small>Includes {{ period_carryover|money(True) }} carryover</small>{% endif %}</span><b>{{ period_budgeted|money }}</b></div>
     {% if check and check.plan_saves is not none and check.planned_savings_rate is not none %}<div class="phone-row"><span>{{ fig.plan_leaves_to_save.label }}<small>Your target is {{ '%.0f'|format(check.target_percent) }}%</small></span><b>{{ check.plan_saves|money }}</b></div>{% endif %}
   </div>
-  {% if period.key == 'month' %}<a class="phone-quiet" href="/budget/fill?month={{ month }}">Fill this month</a>{% endif %}
+  {% if period.key == 'month' %}<a class="phone-quiet" href="/budget/fill?month={{ month }}">{{ "Fill this month"|tr(locale) }}</a>{% endif %}
 </article>
 {% endif %}
 
 {{ key_notes(notes) }}
-{% if not period_income %}<p class="phone-note">Set your income categories to compare the plan with your income. <a href="/settings?section=budget">{{ 'Budget settings'|tr(locale) }}</a></p>{% endif %}
+{% if not period_income %}<p class="phone-note">{{ "Set your income categories to compare the plan with your income."|tr(locale) }}<a href="/settings?section=budget">{{ 'Budget settings'|tr(locale) }}</a></p>{% endif %}
 {% if ceiling_warning %}<p class="flash">{{ ceiling_warning }}</p>{% endif %}
 {% if view.one_off > 0 %}<p class="flash">{{ view.one_off|money }} {{ base }} of one-off spending stays in cash flow, out of the budget.</p>{% endif %}
 {% for warning in view.warnings %}<p class="flash">{{ warning }}</p>{% endfor %}
@@ -68,11 +68,11 @@
   {% endfor %}
   {% if unplanned_spending or plan_outside_groups %}{% set shown.any = true %}
     <a class="phone-group-head is-link" href="/birdview/expenses?period={{ period.key }}&amp;month={{ month }}&amp;date_from={{ period.start_text }}&amp;date_to={{ period.end_text }}">
-      <span class="phone-group-name"><b>Outside listed groups</b><small>{{ unplanned_spending|money }} of {{ plan_outside_groups|money }}</small></span>
+      <span class="phone-group-name"><b>{{ "Outside listed groups"|tr(locale) }}</b><small>{{ unplanned_spending|money }} of {{ plan_outside_groups|money }}</small></span>
       <b class="phone-group-left {{ (plan_outside_groups - unplanned_spending)|tone }}">{{ (plan_outside_groups - unplanned_spending)|money(True) }}</b>
     </a>
   {% endif %}
-  {% if not shown.any %}<p class="empty">No spending groups in this period yet. Record an expense or fill this month's plan.</p>{% endif %}
+  {% if not shown.any %}<p class="empty">{{ "No spending groups in this period yet. Record an expense or fill this month's plan."|tr(locale) }}</p>{% endif %}
   </div>
   <p class="phone-note">Type a limit beside a category: an amount, or a % of income. It saves as you type.</p>
 </section>

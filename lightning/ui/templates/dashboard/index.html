@@ -8,15 +8,15 @@
 {% if setup %}{% set done = setup|selectattr("done")|list|length %}
 <section class="card setup-card" aria-labelledby="setup-heading">
   <div class="card-head"><div><h2 id="setup-heading">{{ 'Get set up'|tr(locale) }}</h2><p>{{ done }} of {{ setup|length }} done · each step makes the Overview more useful</p></div></div>
-  <div class="overview-inline-list">{% for step in setup %}{% if step.done %}<div class="overview-action-row setup-step is-done"><span><b>{{ step.label }}</b><small>{{ step.detail }}</small></span><span class="status-word"><i class="dot dot-in"></i>Done</span></div>{% else %}<a class="overview-action-row setup-step" href="{{ step.href }}"><span><b>{{ step.label }}</b><small>{{ step.detail }}</small></span><span>{{ step.action }}</span></a>{% endif %}{% endfor %}</div>
+  <div class="overview-inline-list">{% for step in setup %}{% if step.done %}<div class="overview-action-row setup-step is-done"><span><b>{{ step.label }}</b><small>{{ step.detail }}</small></span><span class="status-word"><i class="dot dot-in"></i>{{ "Done"|tr(locale) }}</span></div>{% else %}<a class="overview-action-row setup-step" href="{{ step.href }}"><span><b>{{ step.label }}</b><small>{{ step.detail }}</small></span><span>{{ step.action }}</span></a>{% endif %}{% endfor %}</div>
 </section>
 {% endif %}
 {% if attention %}
 <details class="card needs-you" aria-labelledby="needs-heading">
-  <summary><span class="needs-you-dot" aria-hidden="true"></span><b id="needs-heading">Needs you</b><span class="needs-you-count">{{ attention|length }}</span><small>{{ attention[0].label }}{% if attention|length > 1 %} and {{ attention|length - 1 }} more{% endif %}</small></summary>
+  <summary><span class="needs-you-dot" aria-hidden="true"></span><b id="needs-heading">{{ "Needs you"|tr(locale) }}</b><span class="needs-you-count">{{ attention|length }}</span><small>{{ attention[0].label }}{% if attention|length > 1 %} and {{ attention|length - 1 }} more{% endif %}</small></summary>
   <div class="overview-inline-list">{% for item in attention %}<a class="overview-action-row" href="{{ item.href }}"{% if item.popup %} data-popup-open{% endif %}><span><b>{{ item.label }}</b><small>{{ item.detail }}</small></span><span>{{ item.action or 'Review' }}</span></a>{% endfor %}</div>
 </details>
-{% else %}<div class="card needs-you is-empty"><span class="needs-you-dot" aria-hidden="true"></span><b>Nothing needs you today</b></div>{% endif %}
+{% else %}<div class="card needs-you is-empty"><span class="needs-you-dot" aria-hidden="true"></span><b>{{ "Nothing needs you today"|tr(locale) }}</b></div>{% endif %}
 {{ stat_tiles(stats, base) }}
 {% set period_query = request.url.query %}
 <div class="overview-stack">
@@ -26,19 +26,19 @@
       {% set owes = pos.what_you_owe > 0 %}{% set lead = 'net_worth' if owes else 'what_you_own' %}
       <div class="overview-split">
         <section>
-          <div class="overview-block-head"><div><h3 id="owned-heading">{{ fig[lead].label }}</h3><p>Excludes money held for others</p></div></div>
-          <div class="overview-headline">{{ (pos.net_worth if owes else pos.what_you_own)|money }} <small>{{ base }}</small>{% if pos.unvalued %}<span>Known subtotal</span>{% endif %}</div>
+          <div class="overview-block-head"><div><h3 id="owned-heading">{{ fig[lead].label }}</h3><p>{{ "Excludes money held for others"|tr(locale) }}</p></div></div>
+          <div class="overview-headline">{{ (pos.net_worth if owes else pos.what_you_own)|money }} <small>{{ base }}</small>{% if pos.unvalued %}<span>{{ "Known subtotal"|tr(locale) }}</span>{% endif %}</div>
           {% if pos.unvalued %}<p class="notice">{{ pos.unvalued|length }} asset valuation(s) are missing from this total.</p>{% endif %}
           <div class="overview-inline-list" aria-label="{{ fig.what_you_own.label }}">
             {% if owes %}<div class="overview-static-row overview-subtotal"><span>{{ fig.what_you_own.label }}</span><b>{{ pos.what_you_own|money }}</b></div>{% endif %}
-            <details class="overview-disclosure"><summary><span>{{ fig.cash_you_own.label }}</span><b>{{ pos.cash_you_own|money }}</b></summary><div class="overview-disclosure-body">{% for account in cash_accounts if account.value %}<a href="/accounts/{{ account.id }}"><span>{{ account.label }} <small>{{ account.type }}</small></span><b>{{ account.value|money if account.value is not none else 'Unavailable' }}</b></a>{% else %}<p class="muted small">No cash is recorded in active accounts.</p>{% endfor %}</div></details>
+            <details class="overview-disclosure"><summary><span>{{ fig.cash_you_own.label }}</span><b>{{ pos.cash_you_own|money }}</b></summary><div class="overview-disclosure-body">{% for account in cash_accounts if account.value %}<a href="/accounts/{{ account.id }}"><span>{{ account.label }} <small>{{ account.type }}</small></span><b>{{ account.value|money if account.value is not none else 'Unavailable' }}</b></a>{% else %}<p class="muted small">{{ "No cash is recorded in active accounts."|tr(locale) }}</p>{% endfor %}</div></details>
             {% if pos.holdings_value %}<details class="overview-disclosure"><summary><span>{{ fig.holdings_value.label }}</span><b>{{ pos.holdings_value|money }}</b></summary><div class="overview-disclosure-body">{% for cls in pos.classes if cls.value %}<a data-popup-open href="/birdview/class/{{ cls.id }}?as_of={{ as_of }}"><span>{{ cls.name }}</span><b>{{ cls.value|money }}</b></a>{% endfor %}</div></details>{% endif %}
             {% if pos.other_you_own %}<div class="overview-static-row"><span>{{ fig.other_you_own.label }}</span><b>{{ pos.other_you_own|money }}</b></div>{% endif %}
-            {% if owes %}<details class="overview-disclosure"><summary><span>{{ fig.what_you_owe.label }}</span><b>−{{ pos.what_you_owe|money }}</b></summary><div class="overview-disclosure-body">{% if owe.other_bills_due > 0 %}<a href="/plan"><span>{{ fig.bills_due.label }} <small>other than loan payments</small></span><b>{{ owe.other_bills_due|money }}</b></a>{% endif %}{% if owe.loans_still_to_pay > 0 %}<a href="/plan/loans"><span>{{ fig.loans_still_to_pay.label }}</span><b>{{ owe.loans_still_to_pay|money }}</b></a>{% endif %}</div></details>{% endif %}
+            {% if owes %}<details class="overview-disclosure"><summary><span>{{ fig.what_you_owe.label }}</span><b>−{{ pos.what_you_owe|money }}</b></summary><div class="overview-disclosure-body">{% if owe.other_bills_due > 0 %}<a href="/plan"><span>{{ fig.bills_due.label }} <small>{{ "other than loan payments"|tr(locale) }}</small></span><b>{{ owe.other_bills_due|money }}</b></a>{% endif %}{% if owe.loans_still_to_pay > 0 %}<a href="/plan/loans"><span>{{ fig.loans_still_to_pay.label }}</span><b>{{ owe.loans_still_to_pay|money }}</b></a>{% endif %}</div></details>{% endif %}
           </div>
         </section>
         <section aria-labelledby="nw-trend-heading">
-          <div class="overview-block-head"><div><h3 id="nw-trend-heading">Over time</h3><p>At the end of each month{% if networth_trend.labels %} · {{ networth_trend.labels[0].text }} to {{ networth_trend.labels[-1].text }}{% endif %}</p></div></div>
+          <div class="overview-block-head"><div><h3 id="nw-trend-heading">{{ "Over time"|tr(locale) }}</h3><p>At the end of each month{% if networth_trend.labels %} · {{ networth_trend.labels[0].text }} to {{ networth_trend.labels[-1].text }}{% endif %}</p></div></div>
           {{ trend(networth_trend, fig[lead].label ~ ' at the end of each month', 'Plan', 230) }}
           {% for month, amount in networth_trend.openings %}<p class="muted small">{{ month }} includes {{ amount|money }} of opening balances: yours before, so not a change.</p>{% endfor %}
         </section>
@@ -47,25 +47,25 @@
     <article class="overview-block wide-card overview-cash-card" aria-labelledby="cash-heading">
       <div class="overview-split">
         <section>
-          <div class="overview-block-head"><div><h3 id="cash-heading">{{ fig.free_cash.label }}</h3><p>After reserves and bills due</p></div><a class="quiet-link" href="/plan">{{ 'Cash planning'|tr(locale) }}</a></div>
-          <div class="overview-cash-figure"><div class="overview-headline">{% if pos.free_cash is not none %}{{ pos.free_cash|money }} <small>{{ base }}</small>{% else %}Unavailable{% endif %}</div>{% if pos.free_cash and pos.free_cash > 0 %}<a class="btn btn-planner small" data-popup-open href="/investments/planner"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 20h18M6 16l4-5 4 3 6-8"/><path d="M16 6h4v4"/></svg>Plan to invest</a>{% endif %}</div>
+          <div class="overview-block-head"><div><h3 id="cash-heading">{{ fig.free_cash.label }}</h3><p>{{ "After reserves and bills due"|tr(locale) }}</p></div><a class="quiet-link" href="/plan">{{ 'Cash planning'|tr(locale) }}</a></div>
+          <div class="overview-cash-figure"><div class="overview-headline">{% if pos.free_cash is not none %}{{ pos.free_cash|money }} <small>{{ base }}</small>{% else %}Unavailable{% endif %}</div>{% if pos.free_cash and pos.free_cash > 0 %}<a class="btn btn-planner small" data-popup-open href="/investments/planner"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 20h18M6 16l4-5 4 3 6-8"/><path d="M16 6h4v4"/></svg>{{ "Plan to invest"|tr(locale) }}</a>{% endif %}</div>
           <div class="overview-inline-list">
           <div class="overview-static-row"><span>{{ fig.cash_you_own.label }}</span><b>{{ pos.cash_you_own|money }}</b></div>
-          {% if pos.reserve_rows is not none %}<details class="overview-disclosure"><summary><span>{{ fig.reserves.label }}</span><b>−{{ pos.reserves|money }}</b></summary><div class="overview-disclosure-body">{% for reserve in pos.reserve_rows if reserve.effective_allocated != 0 %}<a href="/plan/reserves"><span>{{ 'Emergency fund' if reserve.kind == 'EMERGENCY' else reserve.name }}</span><b>{{ reserve.effective_allocated|money }}</b></a>{% else %}<p class="muted small">No cash is set aside on this date.</p>{% endfor %}</div></details>{% else %}<div class="overview-static-row"><span>{{ fig.reserves.label }}</span><b>History unavailable</b></div><p class="muted small">Reserve history cannot be rebuilt for this date. <a href="/plan/reserves">Review current reserves</a></p>{% endif %}
-          <details class="overview-disclosure"><summary><span>{{ fig.bills_due.label }}</span><b>{{ ('−' ~ (pos.bills_due|money)) if pos.bills_due > 0 else '0' }}</b></summary><div class="overview-disclosure-body">{% for p in owe.bills_due_items[:6] %}<a data-popup-open href="/plan/items/{{ p.item.id }}/pay?due={{ p.due_date }}&amp;back=%2F"><span>{{ p.item.name }} <small>{{ p.due_date }}</small></span><b>{{ p.amount|money }}</b></a>{% else %}<p class="muted small">Nothing is due and unpaid.</p>{% endfor %}{% if owe.bills_due_items|length > 6 %}<a href="/plan"><span>{{ owe.bills_due_items|length - 6 }} more</span><b></b></a>{% endif %}</div></details>
+          {% if pos.reserve_rows is not none %}<details class="overview-disclosure"><summary><span>{{ fig.reserves.label }}</span><b>−{{ pos.reserves|money }}</b></summary><div class="overview-disclosure-body">{% for reserve in pos.reserve_rows if reserve.effective_allocated != 0 %}<a href="/plan/reserves"><span>{{ 'Emergency fund' if reserve.kind == 'EMERGENCY' else reserve.name }}</span><b>{{ reserve.effective_allocated|money }}</b></a>{% else %}<p class="muted small">{{ "No cash is set aside on this date."|tr(locale) }}</p>{% endfor %}</div></details>{% else %}<div class="overview-static-row"><span>{{ fig.reserves.label }}</span><b>{{ "History unavailable"|tr(locale) }}</b></div><p class="muted small">{{ "Reserve history cannot be rebuilt for this date."|tr(locale) }}<a href="/plan/reserves">{{ "Review current reserves"|tr(locale) }}</a></p>{% endif %}
+          <details class="overview-disclosure"><summary><span>{{ fig.bills_due.label }}</span><b>{{ ('−' ~ (pos.bills_due|money)) if pos.bills_due > 0 else '0' }}</b></summary><div class="overview-disclosure-body">{% for p in owe.bills_due_items[:6] %}<a data-popup-open href="/plan/items/{{ p.item.id }}/pay?due={{ p.due_date }}&amp;back=%2F"><span>{{ p.item.name }} <small>{{ p.due_date }}</small></span><b>{{ p.amount|money }}</b></a>{% else %}<p class="muted small">{{ "Nothing is due and unpaid."|tr(locale) }}</p>{% endfor %}{% if owe.bills_due_items|length > 6 %}<a href="/plan"><span>{{ owe.bills_due_items|length - 6 }} more</span><b></b></a>{% endif %}</div></details>
           </div>
         </section>
         <section aria-labelledby="cash-steps-heading">
-          <div class="overview-block-head"><div><h3 id="cash-steps-heading">How it is built</h3><p>{{ fig.free_cash.formula }}</p></div></div>
+          <div class="overview-block-head"><div><h3 id="cash-steps-heading">{{ "How it is built"|tr(locale) }}</h3><p>{{ fig.free_cash.formula }}</p></div></div>
           {% if free_cash_steps %}{{ waterfall(free_cash_steps) }}{% else %}<p class="chart-empty">{{ pos.unavailable_reason or 'Free cash is unavailable on this date.' }}</p>{% endif %}
         </section>
       </div>
     </article>
     <article class="overview-block wide-card overview-owned-card" aria-label="What it is made of and if you sold today">
       <div class="overview-split">
-        <section aria-labelledby="madeof-heading"><div class="overview-block-head"><div><h3 id="madeof-heading">What it is made of</h3><p>{{ fig.what_you_own.label }} by kind</p></div></div>
+        <section aria-labelledby="madeof-heading"><div class="overview-block-head"><div><h3 id="madeof-heading">{{ "What it is made of"|tr(locale) }}</h3><p>{{ fig.what_you_own.label }} by kind</p></div></div>
           {{ donut(wealth_donut, fig.what_you_own.label, base) }}</section>
-        <section aria-labelledby="sold-heading"><div class="overview-block-head"><div><h3 id="sold-heading">{{ fig.if_you_sold_today.label }}</h3><p>After selling your investments</p></div><a class="quiet-link" href="/settings?section=assets-valuations">{{ 'Sale factors'|tr(locale) }}</a></div>
+        <section aria-labelledby="sold-heading"><div class="overview-block-head"><div><h3 id="sold-heading">{{ fig.if_you_sold_today.label }}</h3><p>{{ "After selling your investments"|tr(locale) }}</p></div><a class="quiet-link" href="/settings?section=assets-valuations">{{ 'Sale factors'|tr(locale) }}</a></div>
           <div class="overview-headline">{% if pos.if_you_sold_today is not none %}{{ pos.if_you_sold_today|money }} <small>{{ base }}</small>{% else %}Unavailable{% endif %}</div>
           <div class="overview-inline-list">
             <div class="overview-static-row"><span>{{ fig.free_cash.label }}</span><b>{{ pos.free_cash|money if pos.free_cash is not none else 'Unavailable' }}</b></div>
@@ -84,13 +84,13 @@
           <div class="overview-block-head"><div><h3 id="flow-heading">{{ fig.net_flow.label }}</h3><p>{{ fig.net_flow.formula }}</p></div><a class="quiet-link" href="/transactions?date_from={{ date_from }}&amp;date_to={{ date_to }}">{{ 'Transactions'|tr(locale) }}</a></div>
           <div class="overview-headline overview-flow-net{{ ' is-negative' if cash_flow.net < 0 }}">{{ cash_flow.net|money(True) }} <small>{{ base }}</small></div>
           <div class="overview-inline-list">
-            <details class="overview-disclosure"><summary><span>{{ fig.money_in.label }}</span><b>{{ cash_flow.inflows|money }}</b></summary><div class="overview-disclosure-body">{% for r in money_in_rows %}<a href="{{ r.href }}"><span>{{ r.label }}</span><b>{{ r.value|money }}</b></a>{% else %}<p class="muted small">No money in was recorded in this period.</p>{% endfor %}</div></details>
-            <details class="overview-disclosure"><summary><span>{{ fig.money_out.label }}</span><b>{{ ('−' ~ (cash_flow.outflows|money)) if cash_flow.outflows > 0 else cash_flow.outflows|money }}</b></summary><div class="overview-disclosure-body">{% for r in money_out_rows %}<a href="{{ r.href }}"><span>{{ r.label }}</span><b>{{ r.value|money }}</b></a>{% else %}<p class="muted small">No money out was recorded in this period.</p>{% endfor %}</div></details>
+            <details class="overview-disclosure"><summary><span>{{ fig.money_in.label }}</span><b>{{ cash_flow.inflows|money }}</b></summary><div class="overview-disclosure-body">{% for r in money_in_rows %}<a href="{{ r.href }}"><span>{{ r.label }}</span><b>{{ r.value|money }}</b></a>{% else %}<p class="muted small">{{ "No money in was recorded in this period."|tr(locale) }}</p>{% endfor %}</div></details>
+            <details class="overview-disclosure"><summary><span>{{ fig.money_out.label }}</span><b>{{ ('−' ~ (cash_flow.outflows|money)) if cash_flow.outflows > 0 else cash_flow.outflows|money }}</b></summary><div class="overview-disclosure-body">{% for r in money_out_rows %}<a href="{{ r.href }}"><span>{{ r.label }}</span><b>{{ r.value|money }}</b></a>{% else %}<p class="muted small">{{ "No money out was recorded in this period."|tr(locale) }}</p>{% endfor %}</div></details>
             <div class="overview-static-row overview-subtotal"><span>{{ fig.net_flow.label }}</span><b>{{ cash_flow.net|money(True) }}</b></div>
           </div>
     </article>
     <article class="overview-block wide-card overview-sankey-card" aria-labelledby="sankey-heading">
-      <div class="overview-block-head"><div><h3 id="sankey-heading">Where money in went</h3></div><a class="quiet-link" href="/birdview/expenses?{{ period_query }}">See spending</a></div>
+      <div class="overview-block-head"><div><h3 id="sankey-heading">{{ "Where money in went"|tr(locale) }}</h3></div><a class="quiet-link" href="/birdview/expenses?{{ period_query }}">{{ "See spending"|tr(locale) }}</a></div>
       {{ sankey(money_sankey, 'Where money in went', base) }}
     </article>
   </section>
@@ -105,21 +105,21 @@
         <div><span>{{ fig.holdings_value.label }}</span><b>{{ pos.holdings_value|money }}</b></div>
         <div><span>{{ fig.new_money_in.label }}</span><b>{{ investment_report.new_money|money }}</b></div>
         <div><span>{{ fig.result.label }}</span><b class="{{ investment_report.period_result|tone if investment_report.period_result_available else '' }}">{% if investment_report.period_result_available %}{{ investment_report.period_result|money(True) }}{% else %}Unavailable{% endif %}</b></div>
-        <a class="quiet-link" href="/investments?{{ period_query }}">See investments</a>
+        <a class="quiet-link" href="/investments?{{ period_query }}">{{ "See investments"|tr(locale) }}</a>
       </div>
-      {% if investment_report.missing %}<p class="overview-context">A required valuation is missing, so the result is unavailable.</p>{% elif investment_report.at_cost %}<p class="overview-context">{{ investment_report.at_cost|length }} holding(s) valued at cost until a price is entered.</p>{% endif %}
+      {% if investment_report.missing %}<p class="overview-context">{{ "A required valuation is missing, so the result is unavailable."|tr(locale) }}</p>{% elif investment_report.at_cost %}<p class="overview-context">{{ investment_report.at_cost|length }} holding(s) valued at cost until a price is entered.</p>{% endif %}
     </article>
   </section>
 
   {% if month_calendar.years %}{% set mc = month_calendar %}<section class="overview-section" aria-labelledby="months-heading">
     <header class="overview-section-head"><h2 id="months-heading">{{ 'Month by month'|tr(locale) }}</h2><span>{{ mc.from }} to today</span></header>
     <article class="overview-block wide-card"><div class="overview-split">
-      <section><div class="overview-block-head"><div><h3>Total expenses</h3><p>{% if mc.biggest and mc.biggest.spend %}Most in {{ mc.biggest.key }} · {{ mc.biggest.spend|money }}{% else %}No spending yet{% endif %}</p></div></div>
+      <section><div class="overview-block-head"><div><h3>{{ "Total expenses"|tr(locale) }}</h3><p>{% if mc.biggest and mc.biggest.spend %}Most in {{ mc.biggest.key }} · {{ mc.biggest.spend|money }}{% else %}No spending yet{% endif %}</p></div></div>
         {{ month_cal(mc, 'spend') }}
-        <p class="muted small heat-key"><span class="heat-1"></span><span class="heat-2"></span><span class="heat-3"></span><span class="heat-4"></span> less to more spent · the biggest month darkest</p></section>
-      <section><div class="overview-block-head"><div><h3>Net cash flow</h3><p>{{ mc.kept }} of {{ mc.count }} month{{ '' if mc.count == 1 else 's' }} kept money{% if mc.best and mc.best.net > 0 %} · best {{ mc.best.key }} · {{ mc.best.net|money(True) }}{% endif %}</p></div></div>
+        <p class="muted small heat-key"><span class="heat-1"></span><span class="heat-2"></span><span class="heat-3"></span><span class="heat-4"></span>{{ "less to more spent · the biggest month darkest"|tr(locale) }}</p></section>
+      <section><div class="overview-block-head"><div><h3>{{ "Net cash flow"|tr(locale) }}</h3><p>{{ mc.kept }} of {{ mc.count }} month{{ '' if mc.count == 1 else 's' }} kept money{% if mc.best and mc.best.net > 0 %} · best {{ mc.best.key }} · {{ mc.best.net|money(True) }}{% endif %}</p></div></div>
         {{ month_cal(mc, 'net') }}
-        <p class="muted small heat-key"><span class="flow-in-2"></span><span class="flow-in-4"></span> kept <span class="flow-out-2"></span><span class="flow-out-4"></span> short · darker is more</p></section>
+        <p class="muted small heat-key"><span class="flow-in-2"></span><span class="flow-in-4"></span>{{ "kept"|tr(locale) }}<span class="flow-out-2"></span><span class="flow-out-4"></span>{{ "short · darker is more"|tr(locale) }}</p></section>
     </div></article>
   </section>{% endif %}
 </div>

@@ -5,14 +5,14 @@
 <section class="card app-popup-content" data-transaction-form data-account-name="{{ account.name }}" data-currency="{{ account.currency }}">
   <h2 data-popup-title>{{ title|tr(locale) }}</h2>
   <p class="muted">{{ 'Record one account activity. Enter a positive amount; choose Money out, Money in, or Transfer.'|tr(locale) }}</p>
-  {% if error %}<div class="flash error" role="alert">{{ error }}</div>{% endif %}
+  {% if error %}<div class="flash error" role="alert">{{ error|tr(locale) }}</div>{% endif %}
   <form method="post" action="{{ action }}" {% if txn_id %}data-popup-autosave{% endif %}>
     <input type="hidden" name="return_to" value="{{ return_to }}">
     {% if txn_id %}<input type="hidden" name="account_id" value="{{ values.account_id }}">{% endif %}
     {% if split_categories %}<input type="hidden" name="kind" value="{{ values.kind }}"><p class="muted">This expense is split across {{ split_categories|join(', ') }}. Editing here preserves its full amount and category split.</p>
     {% else %}<div class="transaction-choice-grid" role="group" aria-label="{{ 'Transaction type'|tr(locale) }}">
       {% for value, label in [('out','Money out'),('in','Money in'),('transfer','Transfer')] %}
-      <label class="btn transaction-choice"><input type="radio" name="kind" value="{{ value }}" {{ 'checked' if values.kind == value }} required> {{ label }}</label>
+      <label class="btn transaction-choice"><input type="radio" name="kind" value="{{ value }}" {{ 'checked' if values.kind == value }} required> {{ label|tr(locale) }}</label>
       {% endfor %}
     </div>{% endif %}
     <div class="row">
@@ -24,7 +24,7 @@
       <div class="field {{ 'has-error' if error_field == 'amount' }}">
         <label for="popup-amount">Amount ({{ account.currency }})</label>
         <input id="popup-amount" name="amount" type="text" value="{{ values.amount }}" inputmode="decimal" placeholder="0.00" required {{ 'readonly' if split_categories }}>
-        {% if error_field == 'amount' %}<small class="field-error">{{ error }}</small>{% endif %}
+        {% if error_field == 'amount' %}<small class="field-error">{{ error|tr(locale) }}</small>{% endif %}
       </div>
     </div>
     <div class="row">
@@ -42,10 +42,10 @@
           <option value="">{{ 'Choose a category'|tr(locale) }}</option>
           {% from "partials/macros.html" import category_options %}{{ category_options(category_groups(categories), values.category_id) }}
         </select>{% endif %}
-        {% if error_field == 'category' %}<small class="field-error">Choose a category.</small>{% endif %}
+        {% if error_field == 'category' %}<small class="field-error">{{ "Choose a category."|tr(locale) }}</small>{% endif %}
       </div>
       <div class="field money-only {{ 'has-error' if error_field == 'counterparty' }}" {{ 'hidden' if values.kind == 'transfer' }}>
-        <label for="popup-counterparty">{{ 'Counterparty'|tr(locale) }} <span class="muted">(optional)</span></label>
+        <label for="popup-counterparty">{{ 'Counterparty'|tr(locale) }} <span class="muted">{{ "(optional)"|tr(locale) }}</span></label>
         <input id="popup-counterparty" name="counterparty" value="{{ values.counterparty }}" list="popup-counterparties" data-own-suggestions placeholder="Type a person or business" autocomplete="off">
         <datalist id="popup-counterparties">{% for person in counterparties %}<option value="{{ person.name }}">{% endfor %}</datalist>
         {% if error_field == 'counterparty' %}<small class="field-error">{{ 'Choose a saved Counterparty.'|tr(locale) }}</small>{% endif %}
@@ -56,9 +56,9 @@
       <select id="popup-owner" name="owner_id" data-own-picker><option value="">{{ 'You'|tr(locale) }}</option>
         {% for person in owners %}<option value="{{ person.id }}" {{ 'selected' if values.owner_id == person.id|string }}>{{ person.name }}</option>{% endfor %}
       </select>
-      <small class="muted">Leave blank if this money is yours. Add a person under Held for others first.</small>
+      <small class="muted">{{ "Leave blank if this money is yours. Add a person under Held for others first."|tr(locale) }}</small>
     </div>
-    <div class="field"><label for="popup-notes">{{ 'Notes'|tr(locale) }} <span class="muted">(optional)</span></label><input id="popup-notes" name="notes" value="{{ values.notes }}"></div>
+    <div class="field"><label for="popup-notes">{{ 'Notes'|tr(locale) }} <span class="muted">{{ "(optional)"|tr(locale) }}</span></label><input id="popup-notes" name="notes" value="{{ values.notes }}"></div>
     <div class="transaction-effect" data-transaction-effect role="status" aria-live="polite"></div>
     <p class="small muted inline-save-status" data-popup-status aria-live="polite"></p>
     <div class="popup-actions">

@@ -6,7 +6,7 @@
 {% macro trend(t, caption, plan_label='Plan', height=180) %}
 <figure class="chart chart-trend" aria-label="{{ caption }}">
   {% if t.too_short %}
-  <p class="chart-empty">Not enough history yet — check back next month.</p>
+  <p class="chart-empty">{{ "Not enough history yet — check back next month."|tr(locale) }}</p>
   {% else %}
   {% if t.series|length > 1 or t.plan %}<div class="chart-legend">{% for s in t.series %}<span><i class="chart-key tone-{{ s.tone }}{{ ' is-dashed' if s.dashed }}"></i>{{ s.name }}</span>{% endfor %}{% if t.plan %}<span><i class="chart-key chart-key-plan"></i>{{ plan_label }} {{ t.plan.value|money }}</span>{% endif %}</div>{% endif %}
   <div class="chart-plot" style="height:{{ height }}px">
@@ -65,7 +65,7 @@
   </div>
   <ul class="chart-legend-list">{% for s in d.segments %}<li><i class="chart-key tone-{{ s.tone }}"></i><span>{{ s.label }}</span><b>{{ '%.1f'|format(s.share) }}%</b><small>{{ s.value|money }}</small></li>{% endfor %}
     <li class="chart-legend-total"><i class="chart-key" aria-hidden="true"></i><span>Total{% if of and of[1] %} · {{ '%.0f'|format(d.total / of[1] * 100) }}% of {{ of[0]|lower }}{% endif %}</span><b>100%</b><small>{{ d.total|money }}</small></li></ul>
-  {% else %}<p class="chart-empty">Nothing to show yet.</p>{% endif %}
+  {% else %}<p class="chart-empty">{{ "Nothing to show yet."|tr(locale) }}</p>{% endif %}
 </figure>
 {% endmacro %}
 
@@ -142,9 +142,9 @@
     <span class="chart-sankey-label is-hub" style="top:{{ '%.2f'|format(s.hub.y) }}%"><b>{{ s.hub.label }}</b><small>{{ s.hub.value|money }}</small></span>
     {% for n in s.targets %}{% set tag = 'a' if n.href else 'span' %}<{{ tag }} class="chart-sankey-label is-target tone-{{ n.tone }}" style="top:{{ '%.2f'|format(n.label_y) }}%"{% if n.href %} href="{{ n.href }}"{% endif %}><i class="chart-key"></i><b>{{ n.label }}</b><small>{{ n.value|money }} · {{ '%.0f'|format(n.value / s.total * 100) }}%</small></{{ tag }}>{% endfor %}
   </div>
-  <details class="chart-table"><summary>{{ 'Show the numbers'|tr(locale) }}</summary><table><thead><tr><th>Came in from</th><th class="num">{{ 'Amount'|tr(locale) }}</th><th>Went to</th><th class="num">{{ 'Amount'|tr(locale) }}</th></tr></thead><tbody>
+  <details class="chart-table"><summary>{{ 'Show the numbers'|tr(locale) }}</summary><table><thead><tr><th>{{ "Came in from"|tr(locale) }}</th><th class="num">{{ 'Amount'|tr(locale) }}</th><th>{{ "Went to"|tr(locale) }}</th><th class="num">{{ 'Amount'|tr(locale) }}</th></tr></thead><tbody>
     {% for i in range([s.sources|length, s.targets|length]|max) %}{% set a = s.sources[i] if i < s.sources|length else none %}{% set b = s.targets[i] if i < s.targets|length else none %}<tr><td>{{ a.label if a else '' }}</td><td class="num">{{ a.value|money if a else '' }}</td><td>{{ b.label if b else '' }}</td><td class="num">{{ b.value|money if b else '' }}</td></tr>{% endfor %}
-    <tr><th>Total</th><th class="num">{{ s.total|money }}</th><th>Total</th><th class="num">{{ s.total|money }}</th></tr></tbody></table></details>
+    <tr><th>{{ "Total"|tr(locale) }}</th><th class="num">{{ s.total|money }}</th><th>{{ "Total"|tr(locale) }}</th><th class="num">{{ s.total|money }}</th></tr></tbody></table></details>
   {% else %}<p class="chart-empty">{{ empty }}</p>{% endif %}
   <figcaption class="sr-only">{{ caption }}</figcaption>
 </figure>
@@ -169,7 +169,7 @@
   <span class="stat-tile-head">{{ tone_icon(s.surface) }}<span class="stat-tile-label">{{ s.label }}{% if s.warn %} {{ warn_tip(s.warn) }}{% endif %}</span>
     {% if s.badge %}<span class="stat-chip is-{{ s.badge.tone }}">{% set arrow = s.badge.arrow if s.badge.arrow is defined else s.badge.tone %}{% if arrow in ('up','down') %}<svg viewBox="0 0 24 24" aria-hidden="true">{% if arrow == 'up' %}<path d="M12 19V5M5 12l7-7 7 7"/>{% else %}<path d="M12 5v14M5 12l7 7 7-7"/>{% endif %}</svg>{% endif %}{{ (s.badge.text|phone_chip or s.badge.text) if phone_mode() else s.badge.text }}</span>{% endif %}</span>
   {% set shown = (s.value|money(s.key == 'change' or s.signed is defined and s.signed)) if s.value is not none and s.kind not in ('rate', 'months') else '' %}
-  <span class="stat-tile-value{{ ' is-negative' if s.value is not none and s.value < 0 }}{{ ' is-long' if shown|length > 7 }}">{% if s.value is none %}{{ s.empty or '—' }}{% elif s.kind == 'rate' %}{{ rate(s.value) }}<small>%</small>{% elif s.kind == 'months' %}{{ '%.1f'|format(s.value) }}<small>months</small>{% else %}{{ s.value|money(s.key == 'change' or s.signed is defined and s.signed) }}<small>{{ base }}</small>{% endif %}</span>
+  <span class="stat-tile-value{{ ' is-negative' if s.value is not none and s.value < 0 }}{{ ' is-long' if shown|length > 7 }}">{% if s.value is none %}{{ s.empty or '—' }}{% elif s.kind == 'rate' %}{{ rate(s.value) }}<small>%</small>{% elif s.kind == 'months' %}{{ '%.1f'|format(s.value) }}<small>{{ "months"|tr(locale) }}</small>{% else %}{{ s.value|money(s.key == 'change' or s.signed is defined and s.signed) }}<small>{{ base }}</small>{% endif %}</span>
   {% if s.sub is defined and s.sub %}<span class="stat-tile-sub">{% if s.figure is defined and s.figure is not none and s.value is not none %}<b class="{{ s.figure|tone }}">{{ s.figure|money(True) }}</b> {% endif %}{{ s.sub }}</span>{% endif %}
   {% if s.compare %}<span class="stat-compare">{% for k in s.compare %}<span class="is-{{ k.tone }}"><small>{{ k.label }}</small><b>{% if k.tone in ('up','down') %}<svg viewBox="0 0 24 24" aria-hidden="true">{% if k.tone == 'up' %}<path d="M12 19V5M5 12l7-7 7 7"/>{% else %}<path d="M12 5v14M5 12l7 7 7-7"/>{% endif %}</svg>{% endif %}{{ k.text }}</b></span>{% endfor %}</span>{% endif %}
   {% if s.meter %}<span class="stat-tile-meter tone-{{ s.meter.tone }}"><i style="width:{{ '%.1f'|format(s.meter.width) }}%"></i></span>{% endif %}
@@ -190,7 +190,7 @@
   <span class="bullet-name">{{ label }}</span>
   <span class="bullet-track" role="img" aria-label="{{ label }}: {{ used|money }} of {{ plan|money }}"><span class="bullet-plan" style="width:{{ '%.2f'|format(b.plan) }}%"><i class="bullet-spent" style="width:{{ '%.2f'|format(b.spent / b.plan * 100 if b.plan else 0) }}%"></i></span>{% if b.over %}<i class="bullet-over" style="left:{{ '%.2f'|format(b.plan) }}%;width:{{ '%.2f'|format(b.over) }}%"></i>{% endif %}</span>
   <span class="bullet-values"><b>{{ used|money }}</b> <small>of {{ plan|money }}</small></span>
-  <span class="bullet-status">{% if b.is_over %}<em class="over">{{ b.over_by|money }} over</em>{% elif b.left == 0 %}<em>On plan</em>{% else %}<em class="left">{{ b.left|money }} left</em>{% endif %}</span>
+  <span class="bullet-status">{% if b.is_over %}<em class="over">{{ b.over_by|money }} over</em>{% elif b.left == 0 %}<em>{{ "On plan"|tr(locale) }}</em>{% else %}<em class="left">{{ b.left|money }} left</em>{% endif %}</span>
 </{{ tag }}>
 {% endmacro %}
 
@@ -200,7 +200,7 @@
 <figure class="chart chart-diverging tones-{{ tones }}" aria-label="{{ caption }}">
   {% for r in d.rows %}{% if loop.first or r.group != loop.previtem.group %}<div class="div-group">{{ {'money': 'Money', 'class': 'Change in value'}.get(r.group, '') }}</div>{% endif %}
   <div class="div-row"><span class="div-label">{{ r.label }}</span><span class="div-track"><i class="div-zero"></i><i class="div-bar {{ 'is-neg' if r.value < 0 else 'is-pos' }}" style="{{ 'right' if r.value < 0 else 'left' }}:50%;width:{{ '%.2f'|format(r.width) }}%"></i></span><b class="div-value {{ r.value|tone }}">{% if unit == 'pct' %}{{ (r.value)|signed_pct }}%{% else %}{{ r.value|money(True) }}{% endif %}</b></div>
-  {% else %}<p class="chart-empty">Nothing moved in this period.</p>{% endfor %}
+  {% else %}<p class="chart-empty">{{ "Nothing moved in this period."|tr(locale) }}</p>{% endfor %}
   <figcaption class="sr-only">{{ caption }}</figcaption>
 </figure>
 {% endmacro %}
@@ -235,5 +235,5 @@
   </span>
 </span>
 <small class="muted inv-saved-note">Of {{ w.money_in|money }} {{ fig.money_in.label|lower }} · one square is 1%{% if bar.earlier > 0 %} · {{ bar.earlier|money }} more went in from earlier savings{% endif %}</small>
-{% else %}<span class="stat-tile-value">—</span><span class="stat-tile-sub">No money in this period</span>{% endif %}
+{% else %}<span class="stat-tile-value">—</span><span class="stat-tile-sub">{{ "No money in this period"|tr(locale) }}</span>{% endif %}
 {% endmacro %}

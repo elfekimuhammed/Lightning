@@ -10,6 +10,9 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-09 · Luna, for Codex: completed Egyptian Arabic labels across app and profile screens, including SMS, devices, finance reports and specialist forms; the locked chooser remembers Arabic before unlock.
+- 2026-10-09 · Codex and Luna: expanded the Arabic A/B/C guideline prose and specimens while preserving every original section and diagram; enriched the Arabic website guides, release log and homepage FAQ.
+- 2026-10-09 · Codex: completed Arabic names for every registered figure and canonical glossary term, and documented the pre-unlock language choice.
 - 2026-10-09 · Codex and Luna: added Egyptian Arabic website pages with RTL layout, language links and Arabic search metadata across the public site; the website repo owns page details.
 - 2026-10-09 · Luna, for Codex: added a profile language switch, RTL PC/phone shells and Arabic labels for core figures and common app workflows; specialist copy remains to translate.
 - 2026-10-09 · Luna, for Codex: expanded the Arabic glossary and added standalone A/B/C guideline HTML with Arabic section guidance and original examples; detailed English source remains in the bilingual guides.

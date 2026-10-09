@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 {% block title %}Financial assets{% endblock %}
 {% block heading %}<div><h1>{{ 'Financial assets'|tr(locale) }}</h1></div>{% endblock %}
-{% block top_actions %}<a class="btn primary" href="/investments/assets/new">Add an investment</a>{% endblock %}
+{% block top_actions %}<a class="btn primary" href="/investments/assets/new">{{ "Add an investment"|tr(locale) }}</a>{% endblock %}
 {% block content %}
 
 <section class="card data-panel">
   {% if rows %}<table class="asset-list">
-    <thead><tr><th>{{ 'Name'|tr(locale) }}</th><th>Ticker</th><th>Exchange</th><th>{{ 'Type'|tr(locale) }}</th><th>ISIN</th><th>Shown</th><th></th></tr></thead>
+    <thead><tr><th>{{ 'Name'|tr(locale) }}</th><th>{{ "Ticker"|tr(locale) }}</th><th>{{ "Exchange"|tr(locale) }}</th><th>{{ 'Type'|tr(locale) }}</th><th>{{ "ISIN"|tr(locale) }}</th><th>{{ "Shown"|tr(locale) }}</th><th></th></tr></thead>
     <tbody>{% for r in rows %}{% set a = r.asset %}
       <tr class="{{ 'muted' if not a.active }}">
         <td><a href="/investments/assets/{{ a.id }}/edit"><b>{{ a.name }}</b></a></td>
@@ -15,9 +15,9 @@
         <td>{{ r.class.name if r.class else '' }}</td>
         <td class="small">{{ a.isin or '—' }}</td>
         <td>{{ 'Yes' if a.active else 'Hidden' }}</td>
-        <td><a class="small" href="/investments/assets/{{ a.id }}/edit">Edit</a></td>
+        <td><a class="small" href="/investments/assets/{{ a.id }}/edit">{{ "Edit"|tr(locale) }}</a></td>
       </tr>{% endfor %}</tbody>
   </table>
-  {% else %}<p class="muted">Nothing yet. Add a stock, a fund or gold, or record a trade in a brokerage account.</p>{% endif %}
+  {% else %}<p class="muted">{{ "Nothing yet. Add a stock, a fund or gold, or record a trade in a brokerage account."|tr(locale) }}</p>{% endif %}
 </section>
 {% endblock %}

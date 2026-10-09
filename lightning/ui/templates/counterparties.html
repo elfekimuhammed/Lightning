@@ -1,28 +1,28 @@
 {% extends "base.html" %}
 {% block title %}Counterparties{% endblock %}
-{% block heading %}<h1>{{ 'Settings'|tr(locale) }}</h1><div class="muted small">Counterparties · saved names, aliases, and suggested categories</div>{% endblock %}
+{% block heading %}<h1>{{ 'Settings'|tr(locale) }}</h1><div class="muted small">{{ "Counterparties · saved names, aliases, and suggested categories"|tr(locale) }}</div>{% endblock %}
 {% block content %}
 
-{% if error %}<p class="flash error" role="alert">{{ error }}</p>{% endif %}
+{% if error %}<p class="flash error" role="alert">{{ error|tr(locale) }}</p>{% endif %}
 <details class="card" {{ 'open' if error or review_required }}>
-  <summary><b>Add a counterparty</b><span class="muted small">Save a name and optional suggested category</span></summary>
-  <p class="muted small">Use one saved name across transactions. You can set a suggested category; each transaction can still use a different one.</p>
+  <summary><b>{{ "Add a counterparty"|tr(locale) }}</b><span class="muted small">{{ "Save a name and optional suggested category"|tr(locale) }}</span></summary>
+  <p class="muted small">{{ "Use one saved name across transactions. You can set a suggested category; each transaction can still use a different one."|tr(locale) }}</p>
   <form method="post" action="/counterparties" class="stack">
     <label>{{ 'Name'|tr(locale) }}<input type="text" name="name" value="{{ entered_name or '' }}" placeholder="e.g. Talabat" required></label>
-    <label>Suggested category <span class="muted small">(optional)</span>
-      <select name="default_category_id" data-own-picker><option value="">No default</option>
+    <label>{{ 'Suggested category'|tr(locale) }} <span class="muted small">{{ "(optional)"|tr(locale) }}</span>
+      <select name="default_category_id" data-own-picker><option value="">{{ "No default"|tr(locale) }}</option>
         {% from "partials/macros.html" import category_options %}{{ category_options(category_groups(categories), entered_category_id) }}
       </select>
     </label>
-    <button class="btn primary">Add counterparty</button>
+    <button class="btn primary">{{ "Add counterparty"|tr(locale) }}</button>
   <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
  </details>
 <section class="card data-panel">
-  <div class="section-head"><div><h2>Find and correct names</h2><p class="muted small">{{ parties|length }} shown · {{ total_parties }} saved. Rename, add aliases, or change the suggested category.</p></div></div>
-  <form method="get" action="/counterparties" class="toolbar-filters" data-counterparty-search><input type="search" name="q" value="{{ query }}" placeholder="Search names and aliases" autocomplete="off">{% if query %}<a class="btn small" href="/counterparties">Clear</a>{% endif %}</form>
+  <div class="section-head"><div><h2>{{ "Find and correct names"|tr(locale) }}</h2><p class="muted small">{{ parties|length }} shown · {{ total_parties }} saved. Rename, add aliases, or change the suggested category.</p></div></div>
+  <form method="get" action="/counterparties" class="toolbar-filters" data-counterparty-search><input type="search" name="q" value="{{ query }}" placeholder="Search names and aliases" autocomplete="off">{% if query %}<a class="btn small" href="/counterparties">{{ 'Clear'|tr(locale) }}</a>{% endif %}</form>
   {% if search_suggestions %}<p class="muted small">Did you mean {% for name, score in search_suggestions %}<a href="/counterparties?q={{ name|urlencode }}">{{ name }}</a>{% if not loop.last %} · {% endif %}{% endfor %}?</p>{% endif %}
   {% if parties %}
-  <table class="cp-table"><colgroup><col><col class="c-cat"><col class="c-act"></colgroup><thead><tr><th>Counterparty and aliases</th><th>Suggested category</th><th class="num">Actions</th></tr></thead><tbody>
+  <table class="cp-table"><colgroup><col><col class="c-cat"><col class="c-act"></colgroup><thead><tr><th>{{ "Counterparty and aliases"|tr(locale) }}</th><th>{{ 'Suggested category'|tr(locale) }}</th><th class="num">{{ 'Actions'|tr(locale) }}</th></tr></thead><tbody>
     {% for party in parties %}{% set aliases = aliases_by_id.get(party.id, []) %}{% set edit_form = 'counterparty-edit-' ~ party.id %}
     <tr class="{{ 'muted' if not party.active }}"><td>
       <div class="counterparty-one-line">
@@ -53,34 +53,34 @@
           <input type="hidden" name="counterparty_action" value="add_alias">
           <input type="hidden" name="counterparty_id" value="{{ party.id }}">
           <input type="text" name="alias" placeholder="Add alias…" required aria-label="Add alias for {{ party.name }}">
-          <button class="alias-submit" aria-label="Save alias">Save alias</button>
+          <button class="alias-submit" aria-label="Save alias">{{ 'Save alias'|tr(locale) }}</button>
         <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
-        <div class="alias-enter-hint" role="status">Press Enter to save alias</div>
-      </div>{% else %}<span class="muted small">Alias limit reached</span>{% endif %}</details>{% endif %}
-      {% if not party.active %}<span class="small muted">Archived</span>{% endif %}
+        <div class="alias-enter-hint" role="status">{{ "Press Enter to save alias"|tr(locale) }}</div>
+      </div>{% else %}<span class="muted small">{{ "Alias limit reached"|tr(locale) }}</span>{% endif %}</details>{% endif %}
+      {% if not party.active %}<span class="small muted">{{ "Archived"|tr(locale) }}</span>{% endif %}
       </div>
     </td><td><select form="{{ edit_form }}" name="default_category_id" aria-label="Suggested category" data-submit-on-change data-own-picker>
       {% set learned = (usual or {}).get(party.name) %}{% set learned_label = category_labels.get(learned.category_id) if learned else none %}
       <option value="">{{ ('Learned: ' ~ learned_label.split(' › ')[-1]) if learned_label else 'No default' }}</option>{% from "partials/macros.html" import category_options %}{{ category_options(category_groups(categories), party.default_category_id or '') }}
     </select>{% if learned_label and not party.default_category_id %}<small class="muted learned-note">{{ learned.count }} of the last {{ learned.total }}</small>{% endif %}</td>
     <td><div class="counterparty-actions">
-      {% if not party.active %}<form method="post" action="/counterparties"><input type="hidden" name="counterparty_id" value="{{ party.id }}"><button class="btn small" name="counterparty_action" value="activate">Activate</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>{% endif %}
+      {% if not party.active %}<form method="post" action="/counterparties"><input type="hidden" name="counterparty_id" value="{{ party.id }}"><button class="btn small" name="counterparty_action" value="activate">{{ "Activate"|tr(locale) }}</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>{% endif %}
       <form method="post" action="/counterparties" data-counterparty-delete><input type="hidden" name="counterparty_id" value="{{ party.id }}"><button class="cat-icon is-danger" name="counterparty_action" value="delete" title="Delete" aria-label="Delete {{ party.name }}"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
     </div></td></tr>{% endfor %}
   </tbody></table>
-  {% else %}<p class="muted">No saved counterparties yet.</p>{% endif %}
+  {% else %}<p class="muted">{{ "No saved counterparties yet."|tr(locale) }}</p>{% endif %}
 </section>
 {% if review_required %}
 <div class="review-backdrop">
   <section class="review-dialog" role="dialog" aria-modal="true" aria-labelledby="counterparty-review-title">
-    <h2 id="counterparty-review-title">Review this Counterparty</h2>
+    <h2 id="counterparty-review-title">{{ "Review this Counterparty"|tr(locale) }}</h2>
     <p>Before saving “{{ entered_name }}”, check the saved names. Pressing Enter alone never creates a new Counterparty.</p>
     {% if similar_counterparties %}<ul class="review-matches">
       {% for match in similar_counterparties %}<li><form method="post" action="/counterparties">
         <input type="hidden" name="name" value="{{ entered_name }}"><input type="hidden" name="default_category_id" value="{{ entered_category_id }}">
         <button class="btn" name="counterparty_action" value="existing:{{ match.id }}">Use {{ match.name }}</button>
       <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form></li>{% endfor %}
-    </ul>{% else %}<p class="muted">No close match found.</p>{% endif %}
+    </ul>{% else %}<p class="muted">{{ "No close match found."|tr(locale) }}</p>{% endif %}
     {% if not exact_existing %}<form method="post" action="/counterparties">
       <input type="hidden" name="name" value="{{ entered_name }}"><input type="hidden" name="default_category_id" value="{{ entered_category_id }}">
       <button class="btn primary" name="counterparty_action" value="create">Create “{{ entered_name }}” as a new Counterparty</button>

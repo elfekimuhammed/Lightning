@@ -1,11 +1,11 @@
 {% extends "base.html" %}
-{% block title %}Welcome{% endblock %}
-{% block heading %}<h1>Welcome to Lightning</h1><div class="muted">Add one account to get started. You can add others whenever you need them.</div>{% endblock %}
+{% block title %}{{ 'Welcome to Lightning'|tr(locale) }}{% endblock %}
+{% block heading %}<h1>{{ "Welcome to Lightning"|tr(locale) }}</h1><div class="muted">{{ "Add one account to get started. You can add others whenever you need them."|tr(locale) }}</div>{% endblock %}
 {% block content %}
 <section class="card first-account-card">
-  <div class="label">First step</div>
-  <h2>Where do you keep your money?</h2>
-  <p class="muted">Start with the account your salary goes into. Next you can import its statement, so your history is in from day one.</p>
+  <div class="label">{{ "First step"|tr(locale) }}</div>
+  <h2>{{ "Where do you keep your money?"|tr(locale) }}</h2>
+  <p class="muted">{{ "Start with the account your salary goes into. Next you can import its statement, so your history is in from day one."|tr(locale) }}</p>
   <div class="setup-list first-account-choices">
     {# Lucide icons, 20px, 1.75 stroke (guideline A15), never text symbols. #}
     {% set icons = {
@@ -21,19 +21,19 @@
       ('BROKERAGE','Brokerage','Shares and funds, like THNDR'),
       ('PHYSICAL_ASSET','Gold and other things','A gold ring, a gold pound or another named item')
     ] %}
-    <a class="setup-row" data-popup-open href="/accounts/new?type={{ kind }}"><span class="setup-icon"><svg viewBox="0 0 24 24" aria-hidden="true">{{ icons[kind]|safe }}</svg></span><span><b>{{ label }}</b><small>{{ description }}</small></span><span class="setup-action">Add</span></a>
+    <a class="setup-row" data-popup-open href="/accounts/new?type={{ kind }}"><span class="setup-icon"><svg viewBox="0 0 24 24" aria-hidden="true">{{ icons[kind]|safe }}</svg></span><span><b>{{ label|tr(locale) }}</b><small>{{ description|tr(locale) }}</small></span><span class="setup-action">{{ 'Add'|tr(locale) }}</span></a>
     {% endfor %}
   </div>
 </section>
 <section class="card demo-card">
-  <div class="label">Just looking?</div>
-  <h2>See Lightning with a sample household</h2>
-  <p class="muted">Mohab's last three months in Cairo: salary, rent and groceries, a THNDR portfolio, gold at home, money kept for his mother, a budget, an emergency fund and a car loan. Everything is sample data; every screen works with it.</p>
-  <form method="post" action="/demo"><button class="btn">Add the sample household</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
-  <h2>Or a full year: Mohab's 2026</h2>
-  <p class="muted">January to today, one CSV per account: salary, a bonus and a raise, bills, Ramadan and both Eids, a Sahel trip, THNDR trades and a dividend, gold, and month-end prices. Enough to try every analysis.</p>
-  <form method="post" action="/sample/mohab-2026"><button class="btn">Load Mohab's 2026</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
-  <p class="muted small">Or download the files and import them yourself with Import CSV, CIB Payroll first: <a href="/samples/mohab-2026/accounts.csv">accounts</a> · <a href="/samples/mohab-2026/cib-payroll.csv">CIB Payroll</a> · <a href="/samples/mohab-2026/cash-wallet.csv">Cash wallet</a> · <a href="/samples/mohab-2026/vodafone-cash.csv">Vodafone Cash</a> · <a href="/samples/mohab-2026/thndr.csv">THNDR</a> · <a href="/samples/mohab-2026/gold-at-home.csv">Gold at home</a> · <a href="/samples/mohab-2026/prices.csv">prices</a>.</p>
-  <p class="muted small">{% if request.state.secure_profiles|default(false) %}This fills this empty profile. Create a separate profile for sample data to keep it apart from your own money.{% else %}This fills this empty Lightning. To keep a demo apart from your own money, start Lightning with <code>--demo</code>; it opens a separate database.{% endif %}</p>
+  <div class="label">{{ 'Just looking?'|tr(locale) }}</div>
+  <h2>{{ 'See Lightning with a sample household'|tr(locale) }}</h2>
+  <p class="muted">{{ 'Mohab\'s last three months in Cairo: salary, rent and groceries, a THNDR portfolio, gold at home, money kept for his mother, a budget, an emergency fund and a car loan. Everything is sample data; every screen works with it.'|tr(locale) }}</p>
+  <form method="post" action="/demo"><button class="btn">{{ 'Add the sample household'|tr(locale) }}</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
+  <h2>{{ 'Or a full year: Mohab\'s 2026'|tr(locale) }}</h2>
+  <p class="muted">{{ 'January to today, one CSV per account: salary, a bonus and a raise, bills, Ramadan and both Eids, a Sahel trip, THNDR trades and a dividend, gold, and month-end prices. Enough to try every analysis.'|tr(locale) }}</p>
+  <form method="post" action="/sample/mohab-2026"><button class="btn">{{ 'Load Mohab\'s 2026'|tr(locale) }}</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
+  <p class="muted small">{{ 'Or download the files and import them yourself with Import CSV, CIB Payroll first:'|tr(locale) }} <a href="/samples/mohab-2026/accounts.csv">{{ 'Accounts'|tr(locale) }}</a> · <a href="/samples/mohab-2026/cib-payroll.csv">CIB Payroll</a> · <a href="/samples/mohab-2026/cash-wallet.csv">{{ 'Cash wallet'|tr(locale) }}</a> · <a href="/samples/mohab-2026/vodafone-cash.csv">Vodafone Cash</a> · <a href="/samples/mohab-2026/thndr.csv">THNDR</a> · <a href="/samples/mohab-2026/gold-at-home.csv">{{ 'Gold at home'|tr(locale) }}</a> · <a href="/samples/mohab-2026/prices.csv">{{ 'Prices'|tr(locale) }}</a>.</p>
+  <p class="muted small">{% if request.state.secure_profiles|default(false) %}{{ 'This fills this empty profile. Create a separate profile for sample data to keep it apart from your own money.'|tr(locale) }}{% else %}{{ 'This fills this empty Lightning. To keep a demo apart from your own money, start Lightning with'|tr(locale) }} <code>--demo</code>; {{ 'it opens a separate database.'|tr(locale) }}{% endif %}</p>
 </section>
 {% endblock %}

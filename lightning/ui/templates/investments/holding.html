@@ -7,55 +7,55 @@
 {% from "partials/charts.html" import trend, diverging, waterfall %}
 {% set j = journey %}
 <section class="stat-tiles" aria-label="This holding">
-  <div class="stat-tile surface-hold"><span class="stat-tile-head">{{ tone_icon('hold') }}<span class="stat-tile-label">Current value</span><span class="stat-chip">{{ j.months_held or 0 }} months held</span></span>
+  <div class="stat-tile surface-hold"><span class="stat-tile-head">{{ tone_icon('hold') }}<span class="stat-tile-label">{{ "Current value"|tr(locale) }}</span><span class="stat-chip">{{ j.months_held or 0 }} months held</span></span>
     {% if j.spark and j.spark.points %}<span class="stat-tile-visual" aria-hidden="true"><svg class="stat-tile-spark tone-hold" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="{{ j.spark.area }}"/><polyline points="{{ j.spark.points }}" vector-effect="non-scaling-stroke"/></svg><span class="stat-tile-dot tone-hold" style="left:{{ '%.2f'|format(j.spark.last[0]) }}%;top:{{ '%.2f'|format(j.spark.last[1]) }}%"></span></span>{% endif %}
     <span class="stat-tile-value">{{ h.value|money if h.value is not none else '—' }}<small>{{ base }}</small></span>
-    <span class="stat-tile-sub">Price {{ h.price|money(False,2 if h.price is not none and h.price < 10 else 0) if h.price is not none else '—' }} · {{ h.price_date or 'no price date' }}{% if h.price_source=='COST' %} · at cost{% endif %}{% if stale_price %} · <a href="/investments/prices">out of date, update it</a>{% endif %}</span></div>
+    <span class="stat-tile-sub">Price {{ h.price|money(False,2 if h.price is not none and h.price < 10 else 0) if h.price is not none else '—' }} · {{ h.price_date or 'no price date' }}{% if h.price_source=='COST' %} · at cost{% endif %}{% if stale_price %} · <a href="/investments/prices">{{ "out of date, update it"|tr(locale) }}</a>{% endif %}</span></div>
   <div class="stat-tile surface-in"><span class="stat-tile-head">{{ tone_icon('in') }}<span class="stat-tile-label">{{ fig.unrealized_gain.label }}</span><span class="stat-chip is-{{ 'up' if (h.unrealized or 0) > 0 else ('down' if (h.unrealized or 0) < 0 else 'flat') }}">{% if gain_pct is not none %}{{ (gain_pct)|signed_pct }}%{% else %}—{% endif %}</span></span>
     <span class="stat-tile-value{{ ' is-negative' if h.unrealized is not none and h.unrealized < 0 }}">{{ h.unrealized|money(True) if h.unrealized is not none else '—' }}<small>{{ base }}</small></span>
     <span class="stat-tile-sub">{{ fig.cost.label }} {{ h.cost_basis|money }} · {{ fig.average_cost.label }} {{ h.average_cost|money(False,2 if h.average_cost is not none and h.average_cost < 10 else 0) if h.average_cost is not none else '—' }}</span></div>
-  <div class="stat-tile surface-in"><span class="stat-tile-head">{{ tone_icon('in') }}<span class="stat-tile-label">Total return</span></span>
+  <div class="stat-tile surface-in"><span class="stat-tile-head">{{ tone_icon('in') }}<span class="stat-tile-label">{{ "Total return"|tr(locale) }}</span></span>
     <span class="stat-tile-value{{ ' is-negative' if total_return < 0 }}">{{ total_return|money(True) }}<small>{{ base }}</small></span>
-    <span class="stat-tile-sub">Price change, sales and payouts since you bought it</span></div>
-  <div class="stat-tile surface-in"><span class="stat-tile-head">{{ tone_icon('in') }}<span class="stat-tile-label">XIRR</span><button type="button" class="info-tip" aria-label="What is XIRR?" data-tip="Average yearly return, counting when you bought, sold and were paid. Shown once you have held it for a full year.">?</button></span>
+    <span class="stat-tile-sub">{{ "Price change, sales and payouts since you bought it"|tr(locale) }}</span></div>
+  <div class="stat-tile surface-in"><span class="stat-tile-head">{{ tone_icon('in') }}<span class="stat-tile-label">{{ 'XIRR'|tr(locale) }}</span><button type="button" class="info-tip" aria-label="What is XIRR?" data-tip="Average yearly return, counting when you bought, sold and were paid. Shown once you have held it for a full year.">?</button></span>
     <span class="stat-tile-value{{ ' is-negative' if xirr_pct is not none and xirr_pct < 0 }}">{% if xirr_pct is not none %}{{ (xirr_pct)|signed_pct }}<small>% a year</small>{% else %}—{% endif %}</span>
     <span class="stat-tile-sub">{{ 'Since ' ~ j.first if xirr_pct is not none else 'After a full year of holding' }}</span></div>
 </section>
 
-<header class="overview-section-head inv-head"><h2>Is it making money?</h2><span>Month ends · {{ j.labels[0] if j.labels }} to {{ j.labels[-1] if j.labels }}</span></header>
+<header class="overview-section-head inv-head"><h2>{{ "Is it making money?"|tr(locale) }}</h2><span>Month ends · {{ j.labels[0] if j.labels }} to {{ j.labels[-1] if j.labels }}</span></header>
 <section class="card wide-card"><div class="overview-split">
-  <section><div class="overview-block-head"><div><h3>Price against what you paid</h3><p>Month-end price · the dashed line is your {{ fig.average_cost.label|lower }}</p></div></div>
+  <section><div class="overview-block-head"><div><h3>{{ "Price against what you paid"|tr(locale) }}</h3><p>Month-end price · the dashed line is your {{ fig.average_cost.label|lower }}</p></div></div>
     {{ trend(j.price, 'Month-end price against average cost', fig.average_cost.label, 210) if j.price else '' }}</section>
-  <section><div class="overview-block-head"><div><h3>Where the return came from</h3><p>From what you paid to value plus what it paid you</p></div></div>
+  <section><div class="overview-block-head"><div><h3>{{ "Where the return came from"|tr(locale) }}</h3><p>{{ "From what you paid to value plus what it paid you"|tr(locale) }}</p></div></div>
     {{ waterfall(breakdown) }}</section>
 </div></section>
 
-<header class="overview-section-head inv-head"><h2>How bumpy has it been?</h2><span>Month-to-month price moves</span></header>
+<header class="overview-section-head inv-head"><h2>{{ "How bumpy has it been?"|tr(locale) }}</h2><span>{{ "Month-to-month price moves"|tr(locale) }}</span></header>
 <section class="card wide-card"><div class="overview-split">
-  <section><div class="overview-block-head"><div><h3>Monthly price change</h3></div></div>
+  <section><div class="overview-block-head"><div><h3>{{ "Monthly price change"|tr(locale) }}</h3></div></div>
     {{ diverging(j.returns, 'Monthly price change', 'pct', 'growth') if j.returns else '' }}
     <div class="vol-stats">
-      <div><span>Best month</span><b class="pos">{% if j.best %}{{ (j.best[1])|signed_pct }}%{% else %}—{% endif %}</b><small>{{ j.best[0] if j.best }}</small></div>
-      <div><span>Worst month</span><b class="neg">{% if j.worst %}{{ (j.worst[1])|signed_pct }}%{% else %}—{% endif %}</b><small>{{ j.worst[0] if j.worst }}</small></div>
+      <div><span>{{ "Best month"|tr(locale) }}</span><b class="pos">{% if j.best %}{{ (j.best[1])|signed_pct }}%{% else %}—{% endif %}</b><small>{{ j.best[0] if j.best }}</small></div>
+      <div><span>{{ "Worst month"|tr(locale) }}</span><b class="neg">{% if j.worst %}{{ (j.worst[1])|signed_pct }}%{% else %}—{% endif %}</b><small>{{ j.worst[0] if j.worst }}</small></div>
       <div><span>{{ 'Typical move'|tr(locale) }}</span><b>{% if j.typical is not none %}±{{ '%.1f'|format(j.typical) }}%{% else %}—{% endif %}</b><small>{{ 'a month' if j.typical is not none else 'after three months' }}</small></div>
-      <div><span>Months up · down</span><b>{{ j.up or 0 }} · {{ j.down or 0 }}</b><small>of {{ (j.up or 0) + (j.down or 0) }}</small></div>
+      <div><span>{{ "Months up · down"|tr(locale) }}</span><b>{{ j.up or 0 }} · {{ j.down or 0 }}</b><small>of {{ (j.up or 0) + (j.down or 0) }}</small></div>
     </div></section>
   <section><div class="overview-block-head"><div><h3>{{ 'Fall from its high'|tr(locale) }}</h3><p>How far the price sat below its highest month-end{% if j.max_drawdown is not none %} · worst {{ '%.1f'|format(j.max_drawdown)|replace('-', '−') }}%{% endif %}</p></div></div>
     {{ trend(j.drawdown, 'Percent below its highest month-end price', 'Plan', 190) if j.drawdown else '' }}</section>
 </div></section>
 
-<header class="overview-section-head inv-head"><h2>The journey</h2><span>What you put in and what it is worth</span></header>
+<header class="overview-section-head inv-head"><h2>{{ "The journey"|tr(locale) }}</h2><span>{{ "What you put in and what it is worth"|tr(locale) }}</span></header>
 <section class="card wide-card"><div class="overview-split">
-  <section><div class="overview-block-head"><div><h3>Value against cost</h3><p>Month-end value and what you paid for the units you held</p></div></div>
+  <section><div class="overview-block-head"><div><h3>{{ "Value against cost"|tr(locale) }}</h3><p>{{ "Month-end value and what you paid for the units you held"|tr(locale) }}</p></div></div>
     {{ trend(j.value_cost, 'Value against cost', 'Plan', 210) if j.value_cost else '' }}</section>
-  <section><div class="overview-block-head"><div><h3>Trades and payouts</h3></div></div>
-    <table class="journey-table"><thead><tr><th>{{ 'Date'|tr(locale) }}</th><th>{{ 'What'|tr(locale) }}</th><th class="num">Units</th><th class="num">Price</th><th class="num">{{ 'Amount'|tr(locale) }}</th><th class="num">Held</th></tr></thead><tbody>
-    {% for t in j.trades[:12] %}<tr><td class="code">{{ t.date }}</td><td>{{ t.kind }}</td><td class="num">{{ (('+' if t.units > 0 else '') ~ (t.units|units)) if t.units else '—' }}</td><td class="num">{{ t.price|money(False,2 if t.price < 10 else 0) if t.price is not none else '—' }}</td><td class="num">{{ t.amount|money }}</td><td class="num">{{ t.held|units }}</td></tr>{% else %}<tr><td colspan="6" class="empty">No trades yet.</td></tr>{% endfor %}
+  <section><div class="overview-block-head"><div><h3>{{ "Trades and payouts"|tr(locale) }}</h3></div></div>
+    <table class="journey-table"><thead><tr><th>{{ 'Date'|tr(locale) }}</th><th>{{ 'What'|tr(locale) }}</th><th class="num">{{ 'Units'|tr(locale) }}</th><th class="num">{{ "Price"|tr(locale) }}</th><th class="num">{{ 'Amount'|tr(locale) }}</th><th class="num">{{ 'Held'|tr(locale) }}</th></tr></thead><tbody>
+    {% for t in j.trades[:12] %}<tr><td class="code">{{ t.date }}</td><td>{{ t.kind }}</td><td class="num">{{ (('+' if t.units > 0 else '') ~ (t.units|units)) if t.units else '—' }}</td><td class="num">{{ t.price|money(False,2 if t.price < 10 else 0) if t.price is not none else '—' }}</td><td class="num">{{ t.amount|money }}</td><td class="num">{{ t.held|units }}</td></tr>{% else %}<tr><td colspan="6" class="empty">{{ "No trades yet."|tr(locale) }}</td></tr>{% endfor %}
     </tbody></table>{% if j.trades|length > 12 %}<p class="muted small">{{ j.trades|length - 12 }} earlier entries</p>{% endif %}</section>
 </div></section>
 
-<header class="overview-section-head inv-head"><h2>Planning</h2><span>Your own classification</span></header>
-<section class="card"><p class="muted small">Horizon is your intended holding period: Short up to 1 year, Medium over 1 through 5 years, Long over 5 years. Edits save when you change them.</p><form method="post" action="/investments/asset-plan/{{ asset.id }}" data-asset-autosave class="sc-row settings-compact"><label>Allocation bucket<select name="allocation_bucket">{% for option in allocation_classes %}<option value="{{ option }}" {% if bucket==option %}selected{% endif %}>{{ option }}</option>{% endfor %}</select></label><label>Horizon<select name="investment_horizon"><option value="">Unassigned</option>{% for option in ['Short','Medium','Long'] %}<option {% if horizon==option %}selected{% endif %}>{{ option }}</option>{% endfor %}</select></label><span class="muted" data-plan-state></span><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
+<header class="overview-section-head inv-head"><h2>{{ "Planning"|tr(locale) }}</h2><span>{{ "Your own classification"|tr(locale) }}</span></header>
+<section class="card"><p class="muted small">{{ "Horizon is your intended holding period: Short up to 1 year, Medium over 1 through 5 years, Long over 5 years. Edits save when you change them."|tr(locale) }}</p><form method="post" action="/investments/asset-plan/{{ asset.id }}" data-asset-autosave class="sc-row settings-compact"><label>{{ "Allocation bucket"|tr(locale) }}<select name="allocation_bucket">{% for option in allocation_classes %}<option value="{{ option }}" {% if bucket==option %}selected{% endif %}>{{ option }}</option>{% endfor %}</select></label><label>{{ 'Horizon'|tr(locale) }}<select name="investment_horizon"><option value="">{{ 'Unassigned'|tr(locale) }}</option>{% for option in ['Short','Medium','Long'] %}<option {% if horizon==option %}selected{% endif %}>{{ option }}</option>{% endfor %}</select></label><span class="muted" data-plan-state></span><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
 <p class="muted small">Exposure {{ h.exposure }} · {{ fig.realized_gain.label }} in the period {{ period_realized|money(True) }} · {{ fig.dividends_and_interest.label }} in the period {{ period_dividends|money }}</p></section>
 <script nonce="{{ request.state.csp_nonce|default('') }}">document.querySelectorAll('[data-asset-autosave]').forEach(f=>{f.addEventListener('change',e=>{if(e.target.matches('select')&&f.allocation_bucket.value.trim())f.requestSubmit()})});</script>
-{% if h.price_source=='COST' %}<p class="muted">No market valuation is available for this date; current value is shown at cost.</p>{% endif %}{% endblock %}
+{% if h.price_source=='COST' %}<p class="muted">{{ "No market valuation is available for this date; current value is shown at cost."|tr(locale) }}</p>{% endif %}{% endblock %}

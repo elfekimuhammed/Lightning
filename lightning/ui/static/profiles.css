@@ -21,7 +21,7 @@ body {
   margin: 0;
   color: var(--ink);
   background: linear-gradient(160deg, #E3F6EC 0%, #E6F4F1 52%, #E1EEFB 100%);
-  font: 500 14px/1.6 "Manrope", "Plus Jakarta Sans", system-ui, sans-serif;
+  font: 500 14px/1.6 "Manrope", "IBM Plex Sans Arabic", "Plus Jakarta Sans", system-ui, sans-serif;
   font-feature-settings: "cv11", "ss01";
 }
 a { color: var(--nile); text-decoration: none; }
@@ -36,6 +36,9 @@ button, a, input { -webkit-tap-highlight-color: transparent; }
 .brand:hover { text-decoration: none; }
 .brand img { width: 25px; height: 25px; flex: none; object-fit: contain; }
 .masthead-label { color: var(--ink-2); font-size: 12px; font-weight: 700; }
+.gate-language { display:flex; align-items:center; gap:7px; margin-inline-start:auto; font-size:12px; }
+.gate-language label { color:var(--ink-2); }
+.gate-language select { max-width:120px; border:1px solid rgba(48,74,92,.2); border-radius:8px; padding:6px 8px; color:var(--ink); background:#fff; font:inherit; }
 .content-wrap { width: min(100%, 620px); margin: 0 auto; padding: 48px 0 36px; flex: 1; }
 .intro { margin-bottom: 24px; }
 .eyebrow { margin: 0 0 5px; color: var(--ink-2); font-size: 12px; font-weight: 700; letter-spacing: .04em; }
@@ -137,6 +140,9 @@ input:focus { background: #E2EFE9; outline: 0; box-shadow: 0 0 0 2px #097852; }
 
 /* On the phone app (guideline C02, C09.6): clear of the status and gesture bars. */
 html.phone .profile-page { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+html[dir="rtl"] .masthead { border-inline-start:0; }
+html[dir="rtl"] input[type="password"], html[dir="rtl"] input[type="email"],
+html[dir="rtl"] input[inputmode="numeric"], html[dir="rtl"] code { direction:ltr; unicode-bidi:isolate; }
 html.phone input { font-size: 16px; }
 /* On a phone the profile's actions stack full width, the main one first (guideline C05.3, C09.5): never three
    squeezed side by side with their words broken over two lines. */

@@ -15,6 +15,7 @@ from starlette.responses import JSONResponse, PlainTextResponse, RedirectRespons
 from lightning.database.backup import list_backups
 from lightning.sync.state import ProtocolError
 from lightning.security.keys import SUGGESTED_QUESTIONS, suggest_password
+from lightning.ui.i18n import ARABIC_UI
 from lightning.ui.web import create_app, templates
 
 from .http import (MARKET_IMPORT_PATH, MAX_IMPORT_CONFIRM_BODY, MAX_IMPORT_CONFIRM_FIELDS, MAX_MARKET_IMPORT_BODY,
@@ -242,11 +243,14 @@ def profile_app(credentials: Credentials, root: Path | str | None = None, device
         return Response(status_code=204)
 
     def page(request: Request, mode: str, *, error="", status=200, **context):
+        locale = request.cookies.get("lightning_ui_locale", "en")
+        locale = locale if locale in ("en", "ar") else "en"
         values = dict(mode=mode, csrf=session.csrf, error=error, root=str(session.root), borrowed=[],
                       is_borrowed=session.borrowed is not None, writable=session.role.writable,
                       profiles=[], backups=[], selected="", backup="", name="", recovery="",
                       active_name=session.name, notice="", suggestion="", chosen_password="",
-                      questions=SUGGESTED_QUESTIONS, question="", new_recovery="")
+                      questions=SUGGESTED_QUESTIONS, question="", new_recovery="", locale=locale,
+                      arabic_translations=ARABIC_UI if locale == "ar" else {})
         if mode == "setup" and not context.get("suggestion"):
             values["suggestion"] = suggest_password()
         if mode == "manage":
@@ -287,6 +291,20 @@ def profile_app(credentials: Credentials, root: Path | str | None = None, device
             return page(request, "choose", profiles=found, backups=backups, borrowed=devices.borrowed())
         except (OSError, ValueError):
             return page(request, "choose", error="That folder could not be read. Choose another location.", status=400)
+
+    @app.post("/profiles/locale")
+    async def save_gate_locale(request: Request):
+        """Remember the locked-screen language separately from encrypted profile settings."""
+        form = await request.form()
+        locale = str(form.get("locale", "en"))
+        locale = locale if locale in ("en", "ar") else "en"
+        return_to = str(form.get("return_to", "/profiles"))
+        if not return_to.startswith("/profiles") or return_to.startswith("//") or "\\" in return_to:
+            return_to = "/profiles"
+        response = RedirectResponse(return_to, 303)
+        response.set_cookie("lightning_ui_locale", locale, max_age=60 * 60 * 24 * 365,
+                            httponly=False, secure=request.url.scheme == "https", samesite="lax", path="/")
+        return response
 
     @app.get("/profiles/new")
     async def new(request: Request):

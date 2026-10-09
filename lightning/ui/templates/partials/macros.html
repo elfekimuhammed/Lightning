@@ -16,10 +16,10 @@
     <tr class="{{ 'void' if r.status == 'VOID' }}">
       <td class="code">{{ r.date }}</td>
       <td><a class="code" href="/transactions/{{ r.id }}">{{ r.ref }}</a></td>
-      <td>{{ r.description or r.counterparty or r.type_label }}{% if r.counterparty and r.description %} <span class="muted small">· {{ r.counterparty }}</span>{% endif %}
+      <td>{% if r.description or r.counterparty %}{{ r.description or r.counterparty }}{% else %}{{ r.type_label|tr(locale) }}{% endif %}{% if r.counterparty and r.description %} <span class="muted small">· {{ r.counterparty }}</span>{% endif %}
         {% if r.status == 'VOID' %}<span class="pill void">void</span>{% endif %}</td>
       {% if show_account %}<td class="small">{{ r.account_label }}{% if r.to_account_label %} → {{ r.to_account_label }}{% endif %}</td>{% endif %}
-      <td class="small">{% if r.category_label %}{{ r.category_label }}{% else %}<span class="pill {{ r.type }}">{{ r.type_label }}</span>{% endif %}</td>
+      <td class="small">{% if r.category_label %}{{ r.category_label }}{% else %}<span class="pill {{ r.type }}">{{ r.type_label|tr(locale) }}</span>{% endif %}</td>
       <td class="num">{% if r.type == 'TRF' %}<span class="num">{{ r.amount|money }}</span>{% else %}{{ amount(r.amount, '', True) }}{% endif %}</td>
     </tr>
   {% endfor %}

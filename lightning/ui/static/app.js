@@ -1,4 +1,5 @@
 // Small helpers only — no financial logic lives in the browser.
+const t = (text, values) => window.lightningT ? window.lightningT(text, values) : String(text);
 
 // Give every server-rendered or dynamically-inserted message the same
 // accessible behavior. Success/status messages are transient; errors stay
@@ -74,7 +75,7 @@ const initOwnDataPickers = (root = document) => {
   if (select.hasAttribute("form")) input.setAttribute("form", select.getAttribute("form"));
   input.autocomplete = "off";
   input.className = select.className;
-  input.placeholder = select.selectedOptions[0]?.textContent.trim() || select.options[0]?.textContent.trim() || "Type to find";
+  input.placeholder = select.selectedOptions[0]?.textContent.trim() || select.options[0]?.textContent.trim() || t("Type to find");
   input.setAttribute("role", "combobox");
   input.setAttribute("aria-autocomplete", "list");
   input.setAttribute("aria-expanded", "false");
@@ -227,7 +228,7 @@ window.ask = (() => {
     info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>',
   };
   let queue = Promise.resolve();
-  const open = ({ title, message = "", ok = "OK", cancel = "Cancel", tone = "info" }) => new Promise((resolve) => {
+  const open = ({ title, message = "", ok = t("OK"), cancel = t("Cancel"), tone = "info" }) => new Promise((resolve) => {
     const dialog = document.createElement("dialog");
     dialog.className = `ask-dialog tone-${tone}`;
     dialog.setAttribute("aria-labelledby", "ask-title");
@@ -237,11 +238,11 @@ window.ask = (() => {
       <div class="ask-text"><h2 id="ask-title"></h2>${message ? '<p id="ask-message"></p>' : ""}</div>
       <div class="ask-actions">${cancel === false ? "" : '<button type="button" class="btn" data-ask="no"></button>'}
         <button type="submit" class="btn ${tone === "danger" ? "is-danger" : "primary"}" data-ask="yes"></button></div></form>`;
-    dialog.querySelector("h2").textContent = title;
-    if (message) dialog.querySelector("p").textContent = message;
-    dialog.querySelector('[data-ask="yes"]').textContent = ok;
+    dialog.querySelector("h2").textContent = t(title);
+    if (message) dialog.querySelector("p").textContent = t(message);
+    dialog.querySelector('[data-ask="yes"]').textContent = t(ok);
     const no = dialog.querySelector('[data-ask="no"]');
-    if (no) no.textContent = cancel;
+    if (no) no.textContent = t(cancel);
     const back = document.activeElement;
     let answer = false;
     const finish = () => { dialog.remove(); if (back?.isConnected) back.focus?.(); resolve(answer); };
@@ -258,7 +259,7 @@ window.ask = (() => {
 })();
 // "Delete this category? If it is in use, it is archived instead." → a title and a line under it.
 window.askFrom = (text, extra = {}) => {
-  const [title, ...rest] = String(text).split(/(?<=\?)\s+/);
+  const [title, ...rest] = t(text).split(/(?<=\?)\s+/);
   const danger = /\b(delete|remove)\b/i.test(title);
   return window.ask({ title, message: rest.join(" "), ok: danger ? "Delete" : "OK", tone: danger ? "danger" : "info", ...extra });
 };
@@ -328,7 +329,9 @@ const DATE_ERROR = "Use yyyy-mm-dd, like 2026-01-31.";
 // Our calendar for every date field (App guideline · Fields): a month at a time, weeks from Monday,
 // today ringed, the chosen day in Nile. It writes yyyy-mm-dd into the text field, which stays typeable.
 const CALENDAR_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>';
-const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const CALENDAR_LOCALE = document.documentElement.lang || "en";
+const MONTH_NAMES = Array.from({length: 12}, (_, month) => new Intl.DateTimeFormat(CALENDAR_LOCALE, {month: "long"}).format(new Date(2024, month, 1)));
+const WEEKDAY_NAMES = Array.from({length: 7}, (_, day) => new Intl.DateTimeFormat(CALENDAR_LOCALE, {weekday: "short"}).format(new Date(2024, 0, 1 + day)));
 const isoOf = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 let openCal = null;
 const closeCalendar = () => { if (!openCal) return; openCal.panel.remove(); openCal.button?.setAttribute("aria-expanded", "false"); openCal = null; };
@@ -341,7 +344,7 @@ const openCalendar = (text, button) => {
   let view = new Date(Number(start.slice(0, 4)), Number(start.slice(5, 7)) - 1, 1);
   let focus = start;
   const panel = document.createElement("div");
-  panel.className = "date-popup"; panel.setAttribute("role", "dialog"); panel.setAttribute("aria-label", "Choose a date");
+  panel.className = "date-popup"; panel.setAttribute("role", "dialog"); panel.setAttribute("aria-label", t("Choose a date"));
   const set = (value) => {
     text.value = value; text.setCustomValidity("");
     text.dispatchEvent(new Event("input", { bubbles: true }));
@@ -355,15 +358,15 @@ const openCalendar = (text, button) => {
     const cells = [];
     for (let i = 0; i < 42; i += 1) cells.push(new Date(year, month, 1 - lead + i));
     const rows = cells[35].getMonth() !== month ? 5 : 6;
-    panel.innerHTML = `<div class="date-popup-head"><button type="button" data-step="-1" aria-label="Previous month">‹</button>
-      <b>${MONTH_NAMES[month]} ${year}</b><button type="button" data-step="1" aria-label="Next month">›</button></div>
-      <div class="date-popup-grid" role="grid">${["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => `<span class="date-popup-dow">${d}</span>`).join("")}
+    panel.innerHTML = `<div class="date-popup-head"><button type="button" data-step="-1" aria-label="${t("Previous month")}">‹</button>
+      <b>${MONTH_NAMES[month]} ${year}</b><button type="button" data-step="1" aria-label="${t("Next month")}">›</button></div>
+      <div class="date-popup-grid" role="grid">${WEEKDAY_NAMES.map((d) => `<span class="date-popup-dow">${d}</span>`).join("")}
       ${cells.slice(0, rows * 7).map((d) => {
         const iso = isoOf(d);
         const cls = ["date-popup-day", d.getMonth() !== month ? "is-other" : "", iso === today ? "is-today" : "", iso === picked ? "is-picked" : ""].join(" ");
         return `<button type="button" class="${cls}" data-day="${iso}" tabindex="${iso === focus ? 0 : -1}" aria-label="${iso}"${iso === picked ? ' aria-pressed="true"' : ""}>${d.getDate()}</button>`;
       }).join("")}</div>
-      <div class="date-popup-foot"><button type="button" data-today>Today</button>${picked ? '<button type="button" data-clear>Clear</button>' : ""}</div>`;
+      <div class="date-popup-foot"><button type="button" data-today>${t("Today")}</button>${picked ? `<button type="button" data-clear>${t("Clear")}</button>` : ""}</div>`;
   };
   const move = (days) => {
     const d = new Date(Number(focus.slice(0, 4)), Number(focus.slice(5, 7)) - 1, Number(focus.slice(8, 10)) + days);
@@ -447,8 +450,8 @@ const initDateFields = (root = document) => {
     button.type = "button";
     button.className = "btn small date-picker-button";
     button.dataset.openDatePicker = input.id;
-    button.setAttribute("aria-label", "Choose date");
-    button.title = "Choose date";
+    button.setAttribute("aria-label", t("Choose date"));
+    button.title = t("Choose date");
     button.textContent = "▦";
     wrapper.append(input, native, button);
   });
@@ -509,17 +512,17 @@ if (ledger) {
   const syncSelection = () => {
     const selected = selectedIds();
     if (tools) tools.hidden = selected.length === 0;
-    if (count) count.textContent = `${selected.length} selected`;
+    if (count) count.textContent = t("{count} selected", {count: selected.length});
     if (selectAll) {
       selectAll.checked = visibleChecks().length > 0 && visibleChecks().every((box) => box.checked);
       selectAll.indeterminate = selected.length > 0 && !selectAll.checked;
     }
     if (menu && !menu.hidden && !menu.dataset.editing) menu.querySelector("[data-context-delete]").textContent =
-      selected.length > 1 ? `Delete ${selected.length} selected` : "Delete";
+      selected.length > 1 ? t("Delete {count} selected", {count: selected.length}) : t("Delete");
   };
   const deleteTransactions = (ids, backTo) => {
     if (!ids.length) return;
-    window.ask({ title: `Delete ${ids.length === 1 ? "this transaction" : `${ids.length} transactions`}?`, tone: "danger", ok: "Delete",
+    window.ask({ title: t("Delete {subject}?", {subject: t(ids.length === 1 ? "this transaction" : "these transactions")}), tone: "danger", ok: t("Delete"),
       message: `${ids.length === 1 ? "It leaves" : "They leave"} the register and can be restored from transaction history.` }).then((yes) => { if (yes) send(ids, backTo); });
   };
   const send = (ids, backTo) => {
@@ -580,7 +583,7 @@ if (ledger) {
       menu.dataset.editing = "1";
       menu.dataset.txn = editing.dataset.txn;
       menu.dataset.cancel = editing.dataset.cancelHref;
-      menu.querySelector("[data-context-delete]").textContent = "Delete";
+      menu.querySelector("[data-context-delete]").textContent = t("Delete");
     } else {
       const checkbox = row.querySelector(".transaction-select");
       if (!checkbox || checkbox.disabled) return;
@@ -633,7 +636,7 @@ document.querySelectorAll(".category-input").forEach((category) => {
     const input = cell.querySelector("input");
     if (input) {
       input.disabled = !visible;
-      input.placeholder = "Held for (if not you)";
+      input.placeholder = t("Held for (if not you)");
     }
   };
   category.addEventListener("input", syncWhom);
@@ -696,7 +699,7 @@ document.querySelectorAll(".import-transfer-suggestion").forEach((button) => {
     if (choice) choice.value = "";
     const whom = row.querySelector('[name^="whom_"]');
     if (whom && !whom.disabled && button.dataset.owner) whom.value = button.dataset.owner;
-    button.textContent = `Transfer to ${counterparty.value} selected`;
+    button.textContent = t("Transfer to {name} selected", {name: counterparty.value});
     button.disabled = true;
   });
 });
@@ -899,17 +902,17 @@ if (tradeCatalogueNode) {
     if (feesToggleField) feesToggleField.hidden = isDividend;
     if (fees) fees.disabled = isDividend;
     const feesLabel = feesField?.querySelector("label");
-    if (feesLabel) feesLabel.textContent = feesExcluded?.checked ? "Fees (on top of the amount)" : "Fees (inside the amount)";
+    if (feesLabel) feesLabel.textContent = t(feesExcluded?.checked ? "Fees (on top of the amount)" : "Fees (inside the amount)");
     if (feesExcluded) feesExcluded.disabled = isDividend;
     if (unitPrice) unitPrice.disabled = isDividend;
     if (isDividend) {
       const perShare = dividendBasis?.value === "per_share";
-      amountLabel.textContent = perShare ? "Amount per unit" : "Amount";
-      total.placeholder = perShare ? "Amount per unit" : "Amount received";
+      amountLabel.textContent = t(perShare ? "Amount per unit" : "Amount");
+      total.placeholder = t(perShare ? "Amount per unit" : "Amount received");
     }
     else {
-      amountLabel.textContent = "Amount";
-      total.placeholder = actionKind === "sell" ? "Amount received" : "Amount paid";
+      amountLabel.textContent = t("Amount");
+      total.placeholder = t(actionKind === "sell" ? "Amount received" : "Amount paid");
     }
     if (qty !== null && Math.abs(qty) > 0) {
       if (basis.value === "unit_price" && price !== null) {
@@ -925,17 +928,17 @@ if (tradeCatalogueNode) {
       const owned = Number(selected.holding || 0);
       exceeds = Math.abs(qty) > owned;
       positionHint.textContent = exceeds
-        ? `You have ${formatted(owned, selected.decimals)} ${selected.unit}(s); you cannot sell ${formatted(Math.abs(qty), selected.decimals)}.`
-        : `You hold ${formatted(owned, selected.decimals)} ${selected.unit}(s) here.`;
+        ? t("You have {owned} {unit}(s); you cannot sell {quantity}.", {owned: formatted(owned, selected.decimals), unit: selected.unit, quantity: formatted(Math.abs(qty), selected.decimals)})
+        : t("You hold {quantity} {unit}(s) here.", {quantity: formatted(owned, selected.decimals), unit: selected.unit});
     } else if (selected) {
-      positionHint.textContent = `You hold ${formatted(Number(selected.holding || 0), selected.decimals)} ${selected.unit}(s) here.`;
+      positionHint.textContent = t("You hold {quantity} {unit}(s) here.", {quantity: formatted(Number(selected.holding || 0), selected.decimals), unit: selected.unit});
     }
     if (isDividend) entryHint.textContent = dividendBasis?.value === "per_share"
-      ? "The total dividend uses this rate × shares held by the selected owner on the transaction date."
-      : "Enter the total dividend received. The selected owner must hold shares on the transaction date.";
+      ? t("The total dividend uses this rate × shares held by the selected owner on the transaction date.")
+      : t("Enter the total dividend received. The selected owner must hold shares on the transaction date.");
     else entryHint.textContent = actionKind === "sell"
-      ? "Enter the number of units sold. Choose whether the sale total includes fees below."
-      : "Enter the number of units bought. Fees are included in your cost basis.";
+      ? t("Enter the number of units sold. Choose whether the sale total includes fees below.")
+      : t("Enter the number of units bought. Fees are included in your cost basis.");
     addButton.disabled = exceeds;
   };
   const renderResults = () => {
@@ -948,7 +951,7 @@ if (tradeCatalogueNode) {
     if (!matches.length) {
       const empty = document.createElement("div");
       empty.className = "instrument-result";
-      empty.textContent = "No match in your list. Choose a listed stock or fund.";
+      empty.textContent = t("No match in your list. Choose a listed stock or fund.");
       results.append(empty);
     }
     matches.forEach((item, index) => {
@@ -995,7 +998,7 @@ if (tradeCatalogueNode) {
   });
   search.addEventListener("input", () => {
     selected = null; selectedKey.value = ""; selectedLabel.value = "";
-    positionHint.textContent = "Choose an instrument from the results."; renderResults(); sync();
+    positionHint.textContent = t("Choose an instrument from the results."); renderResults(); sync();
   });
   search.addEventListener("focus", renderResults);
   units.addEventListener("input", sync);
@@ -1044,11 +1047,11 @@ if (catalogueNode) {
     const query = search.value.trim().toLocaleLowerCase(); results.replaceChildren();
     if (!query) { results.hidden = true; search.setAttribute("aria-expanded", "false"); return; }
     const matches = catalogue.filter((item) => `${item.name} ${item.ticker} ${item.kind}`.toLocaleLowerCase().includes(query)).slice(0, 12);
-    if (!matches.length) { const empty=document.createElement("div"); empty.className="instrument-result"; empty.textContent="No match. You can enter the investment details below."; results.append(empty); }
+    if (!matches.length) { const empty=document.createElement("div"); empty.className="instrument-result"; empty.textContent=t("No match. You can enter the investment details below."); results.append(empty); }
     matches.forEach((item) => {
       const button=document.createElement("button"); button.type="button"; button.className="instrument-result"; button.setAttribute("role","option");
       const label=document.createElement("span"); label.textContent=item.name; const ticker=document.createElement("small"); ticker.textContent=`${item.kind} · ${item.ticker}`; button.append(label,ticker);
-      button.addEventListener("click", () => { name.value=item.name; kind.value=item.class_code; if(symbol) symbol.value=item.ticker; search.value=`${item.name} · ${item.ticker}`; results.hidden=true; search.setAttribute("aria-expanded","false"); selection.textContent=`Selected ${item.name} (${item.ticker}). Review the details, then save.`; }); results.append(button);
+      button.addEventListener("click", () => { name.value=item.name; kind.value=item.class_code; if(symbol) symbol.value=item.ticker; search.value=`${item.name} · ${item.ticker}`; results.hidden=true; search.setAttribute("aria-expanded","false"); selection.textContent=t("Selected {name} ({ticker}). Review the details, then save.", {name: item.name, ticker: item.ticker}); }); results.append(button);
     }); results.hidden=false; search.setAttribute("aria-expanded","true");
   };
   search.addEventListener("input",render); search.addEventListener("focus",render);
@@ -1114,13 +1117,13 @@ if (categoryCatalogueNode) {
       if (allMatches.length > matches.length) {
         const hint = document.createElement("div");
         hint.className = "category-group-title";
-        hint.textContent = "Type to find more categories";
+        hint.textContent = t("Type to find more categories");
         results.append(hint);
       }
       if (!matches.length) {
         const empty = document.createElement("div");
         empty.className = "category-group-title";
-        empty.textContent = "No matching category";
+        empty.textContent = t("No matching category");
         results.append(empty);
       }
       const rect = input.getBoundingClientRect();
@@ -1197,7 +1200,7 @@ if (ledger) {
       const isTransfer = accounts.some((name) => name.toLocaleLowerCase() === counterparty.value.trim().toLocaleLowerCase());
       if (category) {
         category.disabled = isTransfer;
-        category.placeholder = isTransfer ? "Transfer — no category needed" : "Category — type to search";
+        category.placeholder = t(isTransfer ? "Transfer — no category needed" : "Category — type to search");
         if (isTransfer) category.value = "";
         else if (!category.value) {
           const knownName = parties.find((name) => name.toLocaleLowerCase() === counterparty.value.trim().toLocaleLowerCase());
@@ -1244,13 +1247,13 @@ if (ledger) {
       if (!query) { closeResults(); return; }
       const internal = accounts.filter((name) => name.toLocaleLowerCase().includes(query)).slice(0, 8);
       const saved = parties.filter((name) => name.toLocaleLowerCase().includes(query)).slice(0, 8);
-      addGroup("Your accounts · internal transfers", internal, "Internal");
-      addGroup("People & businesses", saved, "External");
+      addGroup(t("Your accounts · internal transfers"), internal, t("Internal"));
+      addGroup(t("People & businesses"), saved, t("External"));
       const close = query.length >= 3 ? parties.filter((name) => !saved.includes(name) && similar(query, name.toLocaleLowerCase()) >= 0.68).slice(0, 3) : [];
-      addGroup("Did you mean", close, "External");
+      addGroup(t("Did you mean"), close, t("External"));
       if (!internal.length && !saved.length && !close.length) {
         const empty = document.createElement("div"); empty.className = "counterparty-group-title";
-        empty.textContent = "No saved match · press Enter to review this new name"; results.append(empty);
+        empty.textContent = t("No saved match · press Enter to review this new name"); results.append(empty);
       }
       const rect = counterparty.getBoundingClientRect();
       results.style.left = `${Math.max(8, rect.left)}px`;
@@ -1290,13 +1293,13 @@ document.querySelectorAll("form[data-autosave-existing]").forEach((form) => {
   const save = async () => {
     const data = new URLSearchParams(new FormData(form)), next = data.toString();
     if (busy || next === saved || !form.reportValidity()) return;
-    busy = true; status.textContent = "Saving…";
+    busy = true; status.textContent = t("Saving…");
     try {
       const response = await fetch(form.action || location.href, { method: "POST", body: data,
         headers: { "X-Requested-With": "fetch" } });
       if (!response.ok) throw Error((await response.text()) || "Could not save. Correct the value and retry.");
-      saved = next; status.textContent = "Saved";
-    } catch (error) { status.textContent = error.message || "Could not save. Correct the value and retry."; }
+      saved = next; status.textContent = t("Saved");
+    } catch (error) { status.textContent = t(error.message || "Could not save. Correct the value and retry."); }
     finally { busy = false; }
   };
   form.querySelectorAll("input,select,textarea").forEach((field) => {
@@ -1397,13 +1400,13 @@ document.querySelectorAll("[data-counterparty-filter]").forEach((search) => {
     const main = doc.querySelector("main.main") || doc.querySelector("main");
     return main?.innerHTML || doc.body.innerHTML;
   };
-  const show = (html, title = "Dialog") => {
+  const show = (html, title = t("Dialog")) => {
     content.innerHTML = html;
     initFlashMessages(content, true);
     initOwnDataPickers(content);
     const h = content.querySelector("h1, h2, [data-popup-title]");
     if (h) { h.id = "app-popup-title"; dialog.setAttribute("aria-labelledby", h.id); }
-    else { dialog.removeAttribute("aria-labelledby"); dialog.setAttribute("aria-label", title); }
+    else { dialog.removeAttribute("aria-labelledby"); dialog.setAttribute("aria-label", t(title)); }
     dirty = false;
     keepAfterError = false;
     document.body.classList.add("popup-open");
@@ -1457,7 +1460,7 @@ document.querySelectorAll("[data-counterparty-filter]").forEach((search) => {
         const next = data.toString();
         if (busy || next === saved || !form.reportValidity()) return;
         busy = true;
-        if (status) status.textContent = "Saving…";
+        if (status) status.textContent = t("Saving…");
         let succeeded = false;
         try {
           const response = await fetch(form.action || location.href, { method: "POST", body: data,
@@ -1465,10 +1468,10 @@ document.querySelectorAll("[data-counterparty-filter]").forEach((search) => {
           if (!response.ok) throw Error((await response.text()) || "Could not save. Correct the value and retry.");
           saved = next;
           succeeded = true;
-          if (status) status.textContent = "Saved";
+          if (status) status.textContent = t("Saved");
           if (new URLSearchParams(new FormData(form)).toString() === saved) dirty = false;
         } catch (error) {
-          if (status) status.textContent = error.message || "Could not save. Correct the value and retry.";
+          if (status) status.textContent = t(error.message || "Could not save. Correct the value and retry.");
         } finally {
           busy = false;
           if (succeeded && new URLSearchParams(new FormData(form)).toString() !== saved) queueMicrotask(save);
@@ -1509,10 +1512,10 @@ document.querySelectorAll("[data-counterparty-filter]").forEach((search) => {
       const account = root.dataset.accountName, currency = root.dataset.currency;
       if (kind === "transfer") {
         const to = destination.selectedOptions[0]?.textContent || "the selected account";
-        note.textContent = `Cash in ${account} decreases by ${shown} ${currency}; cash in ${to} increases by the same amount.`;
+        note.textContent = t("Cash in {account} decreases by {amount} {currency}; cash in {target} increases by the same amount.", {account, amount: shown, currency, target: to});
       } else {
         const own = owner.selectedOptions[0]?.textContent || "you";
-        note.textContent = `Cash in ${account} ${kind === "out" ? "decreases" : "increases"} by ${shown} ${currency}; balance owned by ${own}.`;
+        note.textContent = t("Cash in {account} {direction} by {amount} {currency}; balance owned by {owner}.", {account, direction: t(kind === "out" ? "decreases" : "increases"), amount: shown, currency, owner: own});
       }
     };
     form.addEventListener("input", update); form.addEventListener("change", update); update();
@@ -1586,7 +1589,7 @@ document.querySelectorAll("[data-counterparty-filter]").forEach((search) => {
     event.preventDefault();
     const submit = form.querySelector("button[type=submit]:not([form]),button:not([type])") || form.querySelector("button[type=submit]");
     const status = content.querySelector("[data-popup-status]");
-    if (status) status.textContent = "Saving…";
+    if (status) status.textContent = t("Saving…");
     if (submit) submit.disabled = true;
     try {
       const response = await fetch(form.action || location.href, {
@@ -1622,7 +1625,7 @@ document.querySelectorAll("[data-counterparty-filter]").forEach((search) => {
         }
       }
     } catch (error) {
-      if (status) status.textContent = "Could not save. Check your connection and try again.";
+      if (status) status.textContent = t("Could not save. Check your connection and try again.");
       if (submit) submit.disabled = false;
     }
   });
@@ -1760,10 +1763,10 @@ document.querySelectorAll("[data-month-picker]").forEach((picker) => {
     const pop = document.createElement("div");
     pop.className = "month-popup";
     pop.setAttribute("role", "dialog");
-    pop.setAttribute("aria-label", "Choose a month");
+    pop.setAttribute("aria-label", t("Choose a month"));
     const render = () => {
       const maxYear = max ? Number(max.slice(0, 4)) : 9999;
-      pop.innerHTML = `<div class="month-popup-year"><button type="button" data-year="-1" aria-label="Previous year"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button><b>${year}</b><button type="button" data-year="1" aria-label="Next year" ${year >= maxYear ? "disabled" : ""}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button></div>`
+      pop.innerHTML = `<div class="month-popup-year"><button type="button" data-year="-1" aria-label="${t("Previous year")}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button><b>${year}</b><button type="button" data-year="1" aria-label="${t("Next year")}" ${year >= maxYear ? "disabled" : ""}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button></div>`
         + `<div class="month-popup-grid">${MONTHS.map((name, i) => {
           const value = `${year}-${String(i + 1).padStart(2, "0")}`;
           const disabled = max && value > max;
@@ -1823,7 +1826,7 @@ document.querySelectorAll("[data-month-picker]").forEach((picker) => {
         if (value === before.trim().replace("%", "") || (form.elements.bucket.value || "") === "") return;  // empty clears the target
         const box = form.closest(".targets"), state = box?.querySelector(".save-state");
         const data = new URLSearchParams(new FormData(form)); data.set("target_weight", value);
-        if (state) state.textContent = "Saving…";
+        if (state) state.textContent = t("Saving…");
         const response = await fetch(form.action, { method: "POST", body: data, headers: { "X-Requested-With": "fetch" } });
         if (!response.ok) { if (state) state.textContent = await response.text(); return; }
         before = input.value;
@@ -1832,7 +1835,7 @@ document.querySelectorAll("[data-month-picker]").forEach((picker) => {
         const holder = document.createElement("div"); holder.innerHTML = fresh;
         const next = holder.querySelector(".targets");
         box.replaceWith(next); bind(next);
-        next.querySelector(".save-state").textContent = "Saved";
+        next.querySelector(".save-state").textContent = t("Saved");
         const rows = [...next.querySelectorAll('[data-target-save] input[name="bucket"]')];
         const at = rows.findIndex((b) => b.value === focusBucket);
         rows[at + 1]?.closest("form").elements.target_weight.focus();
@@ -1894,8 +1897,8 @@ document.addEventListener("click", (event) => {
     box.classList.add("has-stepper");
     const wrap = document.createElement("span");
     wrap.className = "pct-stepper";
-    wrap.innerHTML = `<button type="button" tabindex="-1" aria-label="Up 1%" data-step="1">${chevron("m6 15 6-6 6 6")}</button>` +
-                     `<button type="button" tabindex="-1" aria-label="Down 1%" data-step="-1">${chevron("m6 9 6 6 6-6")}</button>`;
+    wrap.innerHTML = `<button type="button" tabindex="-1" aria-label="${t("Up 1%")}" data-step="1">${chevron("m6 15 6-6 6 6")}</button>` +
+                     `<button type="button" tabindex="-1" aria-label="${t("Down 1%")}" data-step="-1">${chevron("m6 9 6 6 6-6")}</button>`;
     box.append(wrap);
     let timer;
     wrap.addEventListener("mousedown", (event) => event.preventDefault());
@@ -1939,7 +1942,7 @@ document.addEventListener("click", (event) => {
     let search;
     if (long) {
       search = document.createElement("input");
-      search.type = "search"; search.className = "pick-search"; search.placeholder = "Type to find"; search.autocomplete = "off";
+      search.type = "search"; search.className = "pick-search"; search.placeholder = t("Type to find"); search.autocomplete = "off";
       panel.append(search);
     }
     const list = document.createElement("div"); list.className = "pick-list"; panel.append(list);
@@ -2110,7 +2113,7 @@ window.lightningPrivacy = (() => {
         kind = row.kind;
         const head = document.createElement("div");
         head.className = "pick-group";
-        head.textContent = groups[kind] || kind;
+        head.textContent = t(groups[kind] || kind);
         list.append(head);
       }
       const option = document.createElement("a");
@@ -2194,7 +2197,7 @@ window.lightningPrivacy = (() => {
   let slow = 0, safety = 0, fade = 0;
   const show = (words, done = false) => {
     window.clearTimeout(fade);
-    text.textContent = words;
+    text.textContent = t(words);
     toast.classList.toggle("done", done);
     link.hidden = !done;
     toast.hidden = false;
@@ -2222,7 +2225,7 @@ window.lightningPrivacy = (() => {
       button.dataset.busyOn = "1";
       button.setAttribute("aria-busy", "true");
       button.disabled = true;
-      if (button.dataset.busy) { button.dataset.busyWas = button.textContent; button.textContent = button.dataset.busy; }
+      if (button.dataset.busy) { button.dataset.busyWas = button.textContent; button.textContent = t(button.dataset.busy); }
       button.insertAdjacentHTML("beforeend", '<span class="busy-square" aria-hidden="true"></span>');
       safety = window.setTimeout(reset, 20000);  // a page that never comes: give the button back
     }, 0);

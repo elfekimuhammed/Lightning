@@ -12,7 +12,7 @@
   <p class="muted">The matched payment on {{ r.last_paid.due_date }} was {{ r.last_paid.paid_amount|money }}, while future payments are planned at {{ r.item.amount|money }}.</p>
   <div class="actions"><form method="post" action="/plan/items/{{ r.item.id }}/amount"><input type="hidden" name="amount" value="{{ r.last_paid.paid_amount }}"><input type="hidden" name="back" value="/plan/recurring"><button class="btn primary">Use {{ r.last_paid.paid_amount|money }} for future payments</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
   {% if r.reserve_links %}<a class="btn" href="/plan/reserves">Review reserve target{% if r.reserve_links|length == 1 %} for {{ r.reserve_links[0].name }}{% endif %}</a>
-  {% else %}<a class="btn" href="/plan/reserves">Review reserves</a>{% endif %}</div>
+  {% else %}<a class="btn" href="/plan/reserves">{{ "Review reserves"|tr(locale) }}</a>{% endif %}</div>
 </section>
 {% endif %}{% endfor %}
 <section class="plan-section" aria-labelledby="recurring-totals">
@@ -30,29 +30,29 @@
   <article class="card">
     {% if rows %}<div class="compact-list">{% for r in rows %}{% set i = r.item %}
       <div class="compact-row plan-item-row">
-        <span><a href="/plan/items/{{ i.id }}/edit" data-popup-open><b>{{ i.name }}</b></a><small class="muted">{{ i.kind_label }} · {{ r.schedule }}{% if r.category %} · {{ r.category }}{% endif %}{% if r.account %} · {{ r.account }}{% endif %}</small></span>
+        <span><a href="/plan/items/{{ i.id }}/edit" data-popup-open><b>{{ i.name }}</b></a><small class="muted">{{ i.kind_label|tr(locale) }} · {{ r.schedule }}{% if r.category %} · {{ r.category }}{% endif %}{% if r.account %} · {{ r.account }}{% endif %}</small></span>
         <span class="plan-payment-side">
-          {% if r.due %}<a class="plan-status plan-status-due" data-popup-open href="/plan/items/{{ i.id }}/pay?due={{ r.due[0].due_date }}&amp;back=%2Fplan%2Frecurring">{{ r.due|length }} due</a>{% elif r.next %}<small class="muted">Next {{ r.next.due_date }}</small>{% if r.review_next %} <a class="small" data-popup-open href="/plan/items/{{ i.id }}/pay?due={{ r.next.due_date }}&amp;back=%2Fplan%2Frecurring">Possible early/changed payment — review</a>{% endif %}{% else %}<small class="muted">{{ 'No more payments'|tr(locale) }}</small>{% endif %}{% if r.last_paid and r.last_paid.paid_amount and r.last_paid.paid_amount != i.amount and i.frequency.value != 'ONCE' %}<form method="post" action="/plan/items/{{ i.id }}/amount" class="plan-amount-update"><input type="hidden" name="amount" value="{{ r.last_paid.paid_amount }}"><input type="hidden" name="back" value="/plan/recurring"><small class="muted">Last paid {{ r.last_paid.paid_amount|money }}</small> <button class="btn small">Use {{ r.last_paid.paid_amount|money }} from now on</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>{% endif %}{% for p in r.skipped %} <a class="muted small" data-popup-open href="/plan/items/{{ i.id }}/pay?due={{ p.due_date }}&amp;back=%2Fplan%2Frecurring">Skipped {{ p.due_date }} · undo</a>{% endfor %}
+          {% if r.due %}<a class="plan-status plan-status-due" data-popup-open href="/plan/items/{{ i.id }}/pay?due={{ r.due[0].due_date }}&amp;back=%2Fplan%2Frecurring">{{ r.due|length }} due</a>{% elif r.next %}<small class="muted">Next {{ r.next.due_date }}</small>{% if r.review_next %} <a class="small" data-popup-open href="/plan/items/{{ i.id }}/pay?due={{ r.next.due_date }}&amp;back=%2Fplan%2Frecurring">{{ "Possible early/changed payment — review"|tr(locale) }}</a>{% endif %}{% else %}<small class="muted">{{ 'No more payments'|tr(locale) }}</small>{% endif %}{% if r.last_paid and r.last_paid.paid_amount and r.last_paid.paid_amount != i.amount and i.frequency.value != 'ONCE' %}<form method="post" action="/plan/items/{{ i.id }}/amount" class="plan-amount-update"><input type="hidden" name="amount" value="{{ r.last_paid.paid_amount }}"><input type="hidden" name="back" value="/plan/recurring"><small class="muted">Last paid {{ r.last_paid.paid_amount|money }}</small> <button class="btn small">Use {{ r.last_paid.paid_amount|money }} from now on</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>{% endif %}{% for p in r.skipped %} <a class="muted small" data-popup-open href="/plan/items/{{ i.id }}/pay?due={{ p.due_date }}&amp;back=%2Fplan%2Frecurring">Skipped {{ p.due_date }} · undo</a>{% endfor %}
           <b class="{{ 'pos' if i.is_income }}">{{ '+' if i.is_income else '−' }}{{ i.amount|money }}</b>
         </span>
       </div>{% endfor %}</div>
-    {% else %}<p class="muted">Nothing yet. Add rent, internet, phone, subscriptions and your salary so the plan knows what is coming.</p>{% endif %}
+    {% else %}<p class="muted">{{ "Nothing yet. Add rent, internet, phone, subscriptions and your salary so the plan knows what is coming."|tr(locale) }}</p>{% endif %}
   </article>
 </section>
 
 {% if suggestions %}<section class="plan-section" aria-labelledby="recurring-suggest">
-  <header class="overview-section-head"><h2 id="recurring-suggest">Looks recurring</h2><span>From your last six months</span></header>
+  <header class="overview-section-head"><h2 id="recurring-suggest">{{ "Looks recurring"|tr(locale) }}</h2><span>{{ "From your last six months"|tr(locale) }}</span></header>
   <article class="card">
-    <p class="muted small">Repeated about monthly. Track one to plan for it.</p>
+    <p class="muted small">{{ "Repeated about monthly. Track one to plan for it."|tr(locale) }}</p>
     <div class="compact-list">{% for s in suggestions %}
       <div class="compact-row plan-item-row">
         <span><b>{{ s.name }}</b><small class="muted">{{ s.months }} months · usually around day {{ s.day }} · last {{ s.last_date }}</small></span>
         <span class="plan-payment-side"><b class="{{ 'pos' if s.kind == 'INCOME' }}">{{ '+' if s.kind == 'INCOME' else '−' }}{{ s.amount|money }}</b>
         <a class="btn small" data-popup-open href="/plan/items/new?kind={{ s.kind }}&amp;name={{ s.name|urlencode }}&amp;amount={{ s.amount }}&amp;frequency=MONTHLY&amp;counterparty={{ s.name|urlencode }}&amp;account_id={{ s.account_id or '' }}&amp;category_id={{ s.category_id or '' }}&amp;start_date={{ as_of[:8] }}{{ '%02d'|format([s.day, 28]|min) }}">{{ 'Track'|tr(locale) }}</a>
-        <form method="post" action="/plan/suggestions/{{ s.counterparty_id }}/not-recurring"><button class="btn small">Not recurring</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form></span>
+        <form method="post" action="/plan/suggestions/{{ s.counterparty_id }}/not-recurring"><button class="btn small">{{ "Not recurring"|tr(locale) }}</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form></span>
       </div>{% endfor %}</div>
   </article>
 </section>{% endif %}
 
-{% if stopped %}<details class="card context-detail"><summary>Stopped · {{ stopped|length }}</summary><div class="compact-list">{% for i in stopped %}<div class="compact-row"><span>{{ i.name }}<small class="muted">{{ i.kind_label }}</small></span><b>{{ i.amount|money }}</b></div>{% endfor %}</div></details>{% endif %}
+{% if stopped %}<details class="card context-detail"><summary>Stopped · {{ stopped|length }}</summary><div class="compact-list">{% for i in stopped %}<div class="compact-row"><span>{{ i.name }}<small class="muted">{{ i.kind_label|tr(locale) }}</small></span><b>{{ i.amount|money }}</b></div>{% endfor %}</div></details>{% endif %}
 {% endblock %}
