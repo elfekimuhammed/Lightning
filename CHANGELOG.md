@@ -10,6 +10,11 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-10 · Codex: move loading feedback from the pressed button to an animated, labelled status box in the top right.
+- 2026-10-10 · Codex: keep the page header visible as an app top bar and add a working full-screen toggle.
+- 2026-10-10 · Codex: sale factor estimates recalculate in place; date fields open the calendar directly and keep the ISO date legible.
+- 2026-10-10 · Codex: register labels are clearer, POST saves preserve scroll position, success messages appear as readable top toasts, and negative amounts use rose.
+- 2026-10-10 · Codex: compact single key notes on Cash planning and tighten the Sale factors settings table.
 - 2026-10-10 · Claude: the 13 Arabic website pages are rebuilt for Egypt (Egyptian copy, order and examples, fewer sections) on the English design system; the website repo owns the details.
 - 2026-10-10 · Claude: Arabic guideline type is Readex Pro (headings, figures) and IBM Plex Sans Arabic (text), never heavier than 600; `website-ar.html` B04/B10 now hold the Arabic type and Egyptian voice rules the Arabic website follows.
 - 2026-10-10 · Claude: the Arabic guideline (`guideline/*-ar.html`) mirrors the English documents again: removed the unstyled summary over A and C, restored the full translated Part B in place of the separate compass, Alexandria for Arabic, layout flipped right to left. The website's `ar/` pages now mirror the English pages too.

@@ -7,7 +7,7 @@
              autocomplete="off" aria-autocomplete="list" aria-expanded="false" aria-controls="{{ form_id }}-counterparty-results"
              data-counterparty-results="{{ form_id }}-counterparty-results"
              class="counterparty-input {{ 'bad' if error_field in ('counterparty', 'counterparty_review', 'to_account', 'from_account') }}"
-             {{ '' if is_edit else 'id=counterparty' }} {{ 'autofocus' if is_edit }}>
+             {{ '' if is_edit else 'id=counterparty' }}>
       <div id="{{ form_id }}-counterparty-results" class="counterparty-results" role="listbox" hidden></div>
     </div>
     <div class="register-edit-meta">
@@ -155,7 +155,7 @@
     <button type="button" class="btn small danger" id="delete-selected">{{ 'Delete selected'|tr(locale) }}</button>
   </div>
   <div class="register-table-scroll"><table class="register-rows">
-    <thead><tr><th id="select-visible-header" class="select-visible-header" title="Select or clear all visible transactions"><input id="select-visible" type="checkbox" aria-label="Select all visible transactions"></th><th>{{ 'Counterparty'|tr(locale) }}</th><th class="num">{{ 'Amount'|tr(locale) }} ({{ base }})</th></tr></thead>
+    <thead><tr><th id="select-visible-header" class="select-visible-header" title="Select or clear all visible transactions"><input id="select-visible" type="checkbox" aria-label="Select all visible transactions"></th><th>{{ 'Date'|tr(locale) }} · {{ 'Counterparty'|tr(locale) }} · {{ 'Category'|tr(locale) }} · {{ 'Notes'|tr(locale) }}</th><th class="num">{{ 'Amount'|tr(locale) }} ({{ base }}) · {{ 'Balance'|tr(locale) }}</th></tr></thead>
     <tbody>
     {% if (not account or account.active) and (not account or account.account_type.value != 'DEPOSIT') %}<tr class="add-row quick-add-row" id="quick-add">
       <td><span class="muted small">{{ "New"|tr(locale) }}</span></td>
@@ -177,7 +177,7 @@
         {% set cat = r.type_label if r.type in ('BUY', 'SEL', 'DIV') or r.type_label == 'Ownership change' else r.category_label.split(' › ')[-1] %}
         {% set note_text = (r.notes ~ ((' ' ~ r.description) if r.type == 'TRF' and r.description else ''))|trim %}
         <td class="register-row-details"><div class="register-primary-line">{% if r.type == 'TRF' %}<span class="pill transfer">↔</span> {{ r.other_account_label }}{% else %}{{ r.counterparty or r.description or '—' }}{% endif %}</div>
-          <div class="register-meta-line"><span title="{{ r.category_label.split(' › ')[-1] ~ (' · in ' ~ r.category_label.split(' › ')[:-1]|join(' · ') if ' › ' in r.category_label else '') }}">{{ cat if cat != (r.counterparty or r.description) else '' }}</span>{% if show_account %}<span>{{ r.account_label }}</span>{% elif r.type == 'TRF' %}<span>{{ r.other_account_label }}</span>{% endif %}<time class="code {{ 'same-day' if r.date == ns.last_date }}">{{ r.date }}</time>{% if custody_owners.get(r.txn_id) %}<span>Held for {{ custody_owners[r.txn_id] }}</span>{% endif %}{% if note_text %}<span class="register-note" title="{{ note_text }}">{{ note_text|tagged }}</span>{% endif %}</div>
+          <div class="register-meta-line"><time class="code {{ 'same-day' if r.date == ns.last_date }}">{{ r.date }}</time><span title="{{ r.category_label.split(' › ')[-1] ~ (' · in ' ~ r.category_label.split(' › ')[:-1]|join(' · ') if ' › ' in r.category_label else '') }}">{{ cat if cat != (r.counterparty or r.description) else '' }}</span>{% if show_account %}<span>{{ r.account_label }}</span>{% elif r.type == 'TRF' %}<span>{{ r.other_account_label }}</span>{% endif %}{% if custody_owners.get(r.txn_id) %}<span>Held for {{ custody_owners[r.txn_id] }}</span>{% endif %}{% if note_text %}<span class="register-note" title="{{ note_text }}">{{ note_text|tagged }}</span>{% endif %}</div>
         </td>
         {# A11: in is green with +, out is ink with −, a transfer has no sign. #}
         <td class="register-row-action"><span class="num amount {{ '' if r.type == 'TRF' else r.amount_base|tone }}">{{ r.amount_base|abs|money(False, 0) if r.type == 'TRF' else r.amount_base|money(True, 0) }}</span>{% if r.currency != base %}<small class="register-balance">{{ r.currency }} · {{ r.amount|money(True, 2) }}</small>{% endif %}{% if with_balance %}<small class="register-balance">{{ 'Balance'|tr(locale) }} {{ r.balance|money(False, 0) }} {{ r.currency }}</small>{% endif %}<a class="sr-only" href="{{ href }}">{{ 'Edit' if r.type in ('IN','OUT','TRF') else 'Details' }}</a></td>

@@ -29,6 +29,39 @@ const initFlashMessages = (root = document, refresh = false) => {
   });
 };
 initFlashMessages();
+const fullscreenButton = document.querySelector("[data-fullscreen-toggle]");
+if (fullscreenButton) {
+  const label = fullscreenButton.querySelector("[data-fullscreen-label]");
+  const syncFullscreenButton = () => {
+    const active = Boolean(document.fullscreenElement);
+    const text = t(active ? "Exit full screen" : "Full screen");
+    fullscreenButton.setAttribute("aria-label", text);
+    fullscreenButton.title = text;
+    if (label) label.textContent = text;
+  };
+  fullscreenButton.addEventListener("click", async () => {
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else await document.documentElement.requestFullscreen();
+    } catch {
+      fullscreenButton.setAttribute("aria-label", t("Full screen unavailable"));
+      fullscreenButton.title = t("Full screen unavailable");
+    }
+  });
+  document.addEventListener("fullscreenchange", syncFullscreenButton);
+  syncFullscreenButton();
+}
+// Keep the reader's place when a normal form post returns a fresh server page.
+const savedPageScroll = sessionStorage.getItem("lightning-page-scroll");
+if (savedPageScroll !== null) {
+  sessionStorage.removeItem("lightning-page-scroll");
+  requestAnimationFrame(() => window.scrollTo({ top: Number(savedPageScroll) || 0, behavior: "instant" }));
+}
+document.addEventListener("submit", (event) => {
+  if ((event.target.method || "get").toLowerCase() === "post" && !event.target.closest("#app-popup-content")) {
+    sessionStorage.setItem("lightning-page-scroll", String(window.scrollY));
+  }
+}, true);
 const flashObserver = new MutationObserver((changes) => {
   changes.forEach((change) => {
     if (change.type === "characterData") {
@@ -458,6 +491,8 @@ const initDateFields = (root = document) => {
   root.querySelectorAll("[data-smart-date]:not([data-date-ready])").forEach((input) => {
     input.dataset.dateReady = "1";
     input.addEventListener("input", () => input.setCustomValidity(""));
+    input.addEventListener("click", () => openCalendar(input, null));
+    input.addEventListener("focus", () => { if (input.dataset.openPickerOnFocus === "true") openCalendar(input, null); });
     input.addEventListener("blur", () => normalizeDateField(input));
     const form = input.form;
     if (form && !form.dataset.dateSubmitReady) {
@@ -2226,7 +2261,7 @@ window.lightningPrivacy = (() => {
       button.setAttribute("aria-busy", "true");
       button.disabled = true;
       if (button.dataset.busy) { button.dataset.busyWas = button.textContent; button.textContent = t(button.dataset.busy); }
-      button.insertAdjacentHTML("beforeend", '<span class="busy-square" aria-hidden="true"></span>');
+      slow = window.setTimeout(() => show(button.dataset.busy || "Loading…"), 300);
       safety = window.setTimeout(reset, 20000);  // a page that never comes: give the button back
     }, 0);
   });
