@@ -1,6 +1,6 @@
 # Lightning — Project Overview
 
-**Last updated 2026-10-05 · app 0.5.0b1.**
+**Last updated 2026-10-10 · app 1.0.0-beta.1.**
 
 This file tells the story: what Lightning is, who it is for, what it answers and where it goes next. [Architecture](ARCHITECTURE.md) holds the technical side. The [Brand guideline](../guideline/) (`app.html`, `website.html`, `phone.html`) holds the visual side. The [Glossary](GLOSSARY.md) defines every term and figure. Shipped changes go in `CHANGELOG.md`; the hand-off is in `NOW.md`.
 
@@ -374,6 +374,12 @@ Features worth building, each with the app it came from (added 2026-10-05). Unle
 | 16 | **US stocks** (Roadmap M4; needs #15) | **Monarch, Copilot** (US holdings and net worth); **Quicken, Banktivity** (return in both currencies) | Holdings listed on NYSE or Nasdaq, priced in USD, valued in EGP. A holding's return shows twice: in dollars, and in pounds, with the exchange part separated, so a dollar stock that rose 10% while the pound weakened is not shown as a pure stock gain. US prices come from the US price file (`docs/proposals/market_data.md`) |
 | 17 | **Read PDF and Excel files** (Roadmap M7) | **Say** (reads invoices and bank SMS); **Masroofy** (scans receipts, imports bank messages); **Say's** reviewers (a Wallet user cannot move in); **Quicken, Monarch** (statement import) | Import bank statements as **PDF** (text statements first; scanned ones later and optional) and as **Excel** (`.xlsx`, `.xls`), through the same review as CSV: a column mapping remembered per bank, rows reviewed before anything posts, duplicates flagged. Also the way in for other apps' exports (#11). Reading is ordinary code, never an AI call. Today the PDF is refused and Excel is only written (the AI workbook), so this adds a reader with tighter limits than CSV: size caps, no macros, no formulas run, no external links followed, and nothing written to disk in plain text |
 
+**Asked for by the owner, third batch (2026-10-10):** high priority: expand listed-equity coverage from EGX to Nasdaq and the major European and GCC markets, keeping prices, currencies and EGP valuation explicit.
+
+| # | Project | Idea from | What it would do |
+|---|---|---|---|
+| 18 | **High priority: listed shares across the US, Europe and GCC** (Roadmap M4; builds on #15–16) | **Owner request** | Extend stock lookup, price history, holdings and investment returns beyond EGX. Cover Nasdaq-listed US shares; leading European exchanges (London Stock Exchange, Euronext, Deutsche Börse/Xetra, SIX Swiss Exchange and Nasdaq Nordic); and all six GCC markets (Saudi Tadawul, Abu Dhabi Securities Exchange, Dubai Financial Market, Qatar Stock Exchange, Boursa Kuwait, Bahrain Bourse and Muscat Stock Exchange). Keep exchange, identifier and trading currency explicit, value foreign holdings in the profile's base currency using FX, and verify data-source coverage and licensing before choosing providers. |
+
 **From the Competition research** (the order follows Competition › Actual Budget code analysis › Suggested order, then the Egyptian apps):
 
 | # | Project | Idea from | What it would do |
@@ -406,7 +412,7 @@ Verified UI fixes: Budget overlap at about 941px, the Cash planning tab strip an
 | M3 Manual investments | Shipped | — |
 | M3.1 Instrument catalogue | Partial | Coverage and identifier quality |
 | M3.2 Wealth history | Partial | Wealth-change bridge; owned-only XIRR (net-worth trend is shipped) |
-| M4 Market data and FX | Started | Price files per market and foreign cash accounts with manual dated FX and month-end FX reevaluation built. Still planned: account currency conversion, foreign securities, and rate-pack use in the account workflow (Upcoming projects #15, #16) |
+| M4 Market data and FX | Started | Price files per market and foreign cash accounts with manual dated FX and month-end FX reevaluation built. **High priority next:** expand listed shares from EGX to Nasdaq, leading European exchanges and all GCC markets (Upcoming project #18). Also planned: account currency conversion, foreign securities, and rate-pack use in the account workflow (#15, #16) |
 | M6 Deposits and gold details | Partial | Bank-specific CD portfolios, per-certificate purchase/redemption ledger activity and forecast-only interest are built; next: ordinary-PC acceptance, legacy conversion, statement reconciliation, local gold costs and buyback |
 | Physical gold items | In progress | Item purchase/sale and report integration |
 | M7 Planning and imports | Partial | Shipped: CSV import, Cash planning, and linking statement rows to entries already recorded (no money counted twice). Next: reminders; reading PDF and Excel statements (Upcoming projects #17) |
