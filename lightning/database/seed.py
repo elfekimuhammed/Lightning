@@ -74,9 +74,12 @@ CATEGORIES: list[tuple[str, str, dict]] = [
     ("EXP.WORK.OFFICE", "Office Supplies", {}),
     ("EXP.WORK.TRAVEL", "Travel", {}),
     ("EXP.WORK.OTHER", "Other Work", {}),
-    ("EXP.SYSTEM", "Loans & held money", {"scope": "PERSONAL", "family": "PERSONAL"}),
+    ("EXP.SYSTEM", "System Categories", {"scope": "PERSONAL", "family": "PERSONAL"}),
     ("EXP.SYSTEM.CUSTODY", "Money Held for Others", {"movement": "INFLOW", "family": "PERSONAL"}),
     ("EXP.SYSTEM.LOANS", "Loan payments", {"scope": "PERSONAL"}),
+    ("EXP.SYSTEM.TRANSFERS", "Internal transfers", {"direction": "BOTH"}),
+    ("EXP.SYSTEM.CAPITAL", "Capital allocation", {"direction": "BOTH"}),
+    ("EXP.SYSTEM.ADJUSTMENT", "Adjustment", {"direction": "BOTH"}),
     ("EXP.UNACCOUNTED", "Unaccounted Spending", {"scope": "PERSONAL", "is_system": 1}),
     ("EXP.INVEST", "Investment", {"family": "INVESTMENT", "income_class": "INVESTMENT"}),
     ("EXP.INVEST.INTEREST", "Interest", {"movement": "INFLOW", "income_class": "INVESTMENT"}),
@@ -155,8 +158,8 @@ def seed(db: Database) -> None:
                 )
                 db.execute(
                     "INSERT INTO categories(code, name, parent_id, movement, scope, income_class, family,"
-                    " default_reimbursable, is_system, sort_order, created_at, updated_at)"
-                    " VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                    " default_reimbursable, is_system, sort_order, direction, created_at, updated_at)"
+                    " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     (
                         code,
                         name,
@@ -168,6 +171,7 @@ def seed(db: Database) -> None:
                         reimb,
                         extra.get("is_system", 0),
                         order,
+                        extra.get("direction"),
                         now,
                         now,
                     ),

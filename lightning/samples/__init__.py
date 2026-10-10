@@ -163,5 +163,5 @@ def _plan(c, accounts: dict[str, int], day: date) -> None:
                           counterparty_id=party(payee))
     c.planning.create(kind="LOAN", name="Car loan", amount="2,500", frequency="MONTHLY", interval_count="1",
                       start_date="2026-01-05", payment_count="24", principal="60,000", account_id=cib,
-                      category_id=category("Loans & held money › Loan payments"), counterparty_id=party("Toyota Finance"),
+                      category_id=category("System Categories › Loan payments"), counterparty_id=party("Toyota Finance"),
                       notes="Toyota Finance")

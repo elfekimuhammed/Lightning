@@ -10,6 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-10 · Codex: register edits now save on a click outside their row; aligned Notes with the other fields and tightened the loan popup. Income recurring items show only income categories; System Categories contains loans, held money, internal transfers, capital allocation and Adjustment.
 - 2026-10-10 · Codex: make long register pages keep their edit position, remove the sticky header, add a quiet page-jump control, and keep date, notes and balance columns readable.
 - 2026-10-10 · Codex: collapse Overview investments, center the investment-planning action, make expense intensity a day calendar, and retain net cash flow beside it.
 - 2026-10-10 · Codex: give Currency settings an Overview-style page title, make full screen a compact Settings icon, and restructure FX rates and reevaluation history as focused sections.

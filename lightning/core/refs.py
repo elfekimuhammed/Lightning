@@ -31,7 +31,7 @@ DOC_LABELS = {
     DocType.OPN: "Opening balance",
     DocType.IN: "Money in",
     DocType.OUT: "Money out",
-    DocType.TRF: "Transfer",
+    DocType.TRF: "Internal transfer",
     DocType.CNV: "Conversion",
     DocType.BUY: "Buy",
     DocType.SEL: "Sell",

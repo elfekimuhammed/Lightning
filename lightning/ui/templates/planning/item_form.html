@@ -3,7 +3,7 @@
 {% block heading %}<div><h1>{{ item.name if item else ('Add a loan' if is_loan else 'Add a recurring item') }}</h1><p class="muted small page-subtitle">{{ 'A loan or installment plan: each payment, when the next one is, and how many are left.' if is_loan else 'Something that repeats: a bill, a subscription, or income.' }}</p></div>{% endblock %}
 {% block content %}
 {% macro err(name) %}{{ 'has-error' if error_field == name }}{% endmacro %}
-<form method="post" action="{{ '/plan/items/' ~ item.id ~ '/edit' if item else '/plan/items' }}" class="card stack plan-form" autocomplete="off">
+<form method="post" action="{{ '/plan/items/' ~ item.id ~ '/edit' if item else '/plan/items' }}" class="card stack plan-form{{ ' loan-form' if is_loan }}" autocomplete="off">
   <input type="hidden" name="back" value="{{ back }}">
   <div class="row">
     <div class="field {{ err('kind') }}"><label for="kind">{{ 'Type'|tr(locale) }}</label><select id="kind" name="kind">{% for value, label in kinds %}<option value="{{ value }}" {{ 'selected' if values.kind == value }}>{{ label|tr(locale) }}</option>{% endfor %}</select></div>
@@ -30,7 +30,7 @@
   </div>
   <div class="row">
     <div class="field"><label for="counterparty">{{ 'Counterparty'|tr(locale) }} <span class="muted small">{{ "who you pay, or who pays you · optional"|tr(locale) }}</span></label><input id="counterparty" name="counterparty" value="{{ values.counterparty }}" list="plan-counterparties" data-own-suggestions placeholder="{{ 'Employer' if values.kind == 'INCOME' else 'WE' }}"><datalist id="plan-counterparties">{% for p in counterparties %}<option value="{{ p.name }}">{% endfor %}</datalist></div>
-    {% if is_loan %}<div class="field {{ err('principal') }}"><label for="principal">{{ "Amount borrowed"|tr(locale) }}<span class="muted small">{{ 'optional'|tr(locale) }}</span></label><input id="principal" name="principal" value="{{ values.principal }}" inputmode="decimal" class="money-input"></div>
+    {% if is_loan %}<div class="field {{ err('principal') }}"><label for="principal">{{ "Amount borrowed"|tr(locale) }} <span class="muted small">{{ 'optional'|tr(locale) }}</span></label><input id="principal" name="principal" value="{{ values.principal }}" inputmode="decimal" class="money-input"></div>
     {% else %}<div class="field"><label for="notes">{{ 'Notes'|tr(locale) }} <span class="muted small">{{ 'optional'|tr(locale) }}</span></label><input id="notes" name="notes" value="{{ values.notes }}"></div>{% endif %}
   </div>
   {% if is_loan %}<input type="hidden" name="notes" value="{{ values.notes }}">{% endif %}

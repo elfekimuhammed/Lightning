@@ -1,6 +1,6 @@
 {# Buy, sell or a dividend in a brokerage account: the PC register and the phone account page (C11.2) share it. #}
 {% if can_invest and account.active %}
-<details class="card investment-entry-card context-detail" {{ 'open' if investment_error_field else '' }}><summary>{{ "Record an investment transaction"|tr(locale) }}</summary>
+<section class="card investment-entry-card">
   <div class="investment-entry-heading">
     <b>{{ "Investment transaction"|tr(locale) }}</b>
     <span class="muted small">{{ "Choose Buy, Sell, or Dividend. Units are always entered as a positive quantity."|tr(locale) }}</span>
@@ -48,9 +48,8 @@
         <label for="investment-unit-price" id="investment-price-label">{{ 'Price per unit'|tr(locale) }}</label>
         <input id="investment-unit-price" type="text" name="unit_price" value="{{ investment_entry.get('unit_price', '') }}" placeholder="Or enter unit price" inputmode="decimal" class="money-input">
       </div>
-      <div class="field investment-fees-toggle" id="investment-fees-toggle-field"><label><input id="investment-fees-included" type="checkbox" name="fees_included" value="0" data-fees-excluded {{ 'checked' if investment_entry.get('fees_included') == '0' }}>{{ "Fees are extra (not in the amount)"|tr(locale) }}</label></div>
       <div class="field" id="investment-fees-field">
-        <label for="investment-fees">{{ "Fees"|tr(locale) }}</label>
+        <label for="investment-fees">{{ "Fees inside the amount"|tr(locale) }}</label>
         <input id="investment-fees" type="text" name="fees" value="{{ investment_entry.get('fees', '') }}" placeholder="0.00" inputmode="decimal" class="money-input">
       </div>
       <button class="btn primary small investment-entry-submit">{{ "Add"|tr(locale) }}</button>
@@ -64,6 +63,10 @@
     </div>
     {% endif %}
   <div class="investment-entry-foot">
+      <div class="investment-options">
+        <label class="investment-fee-mode" id="investment-fees-toggle-field"><input id="investment-fees-included" type="checkbox" name="fees_included" value="0" data-fees-excluded {{ 'checked' if investment_entry.get('fees_included') == '0' }}>{{ "Add fees on top instead"|tr(locale) }}</label>
+        <small class="muted">{{ "Leave fees at 0 when there were none."|tr(locale) }}</small>
+      </div>
       <div class="investment-ownership-area">
         <label class="investment-owner-flag"><input type="checkbox" name="is_others" value="1" {{ 'checked' if investment_entry.get('is_others') }}>{{ "Held for someone else"|tr(locale) }}</label>
         <div class="field investment-owner-field" {{ 'hidden' if not investment_entry.get('is_others') }}>
@@ -79,5 +82,5 @@
     <div class="small"><a href="/investments/new?kind=holding&account={{ account.id }}">{{ "Add an existing holding"|tr(locale) }}</a></div>
   <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>
   <script nonce="{{ request.state.csp_nonce|default('') }}" id="trade-instrument-catalogue" type="application/json">{{ trade_choices | tojson }}</script>
-</details>
+</section>
 {% endif %}

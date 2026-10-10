@@ -7,7 +7,6 @@
 | Codex | 02d — Code/fault tests pass; ordinary Windows reboot drill remains. Abrupt power-loss behavior is unverified; see Architecture › Promotion durability risk and [OWNER.md](OWNER.md). | `tests/test_database_promotion.py` | 2026-10-06 |
 | Claude | M3 bank SMS, then Android reading it; M1–2 in owner review | `lightning/sms_imports.py`, `lightning/sync/`, `runtime/devices.py`, `ui/templates/phone/`, `phone.css`, `android/` | 2026-10-06 |
 | Luna, for Codex | 03a restore safety: durable intent and source-copy manifest, Windows marker publication, then explicit deterministic repair. Codex reviews it and owns the restore UI and docs | `lightning/runtime/restore.py`, `lightning/database/promotion_windows.py`, `tests/test_profile_session.py`, `tests/test_database_promotion_windows.py` | 2026-10-05 |
-| Codex | Feedback follow-up: spreadsheet save/alignment, category and capital-transfer model, loan dialog, and bundled profiles. | `lightning/ui/`, `lightning/transactions/`, `lightning/profiles/`, relevant tests/docs | 2026-10-10 |
 
 ## Messages
 
@@ -33,3 +32,4 @@
 3. **Multi-currency phone and import paths.** Check foreign entry, reporting and rates on phone; review bank import currency handling. **Read:** Architecture › UI contract; `tests/test_mohab_phone.py`, `lightning/ui/routes/bank_imports.py`.
 4. **Gold: test source from home; silver needs holdings.** Read: `docs/proposals/market_data.md`.
 5. **Optional: stable origin/cache, trim CSS.** Read: Architecture › Page speed.
+6. **Add the four requested sample profiles once their names and source data are supplied.** Read: `OWNER.md` › To decide 9, `lightning/samples/__init__.py`, `tests/test_sample_2026.py`.

@@ -258,6 +258,9 @@ form.stack label, .field label { display: block; font-weight: 550; font-size: 13
 .investment-action-button.action-dividend.is-active { color: #fff; background: var(--sky-600); border-color: var(--sky-600); }
 .investment-entry-submit { min-height: 40px; }
 .investment-entry-foot { display: grid; grid-template-columns: minmax(220px,.8fr) minmax(300px,1.2fr); align-items: start; gap: 18px; margin-top: 14px; }
+.investment-options { display:grid; gap:5px; }
+.investment-fee-mode { display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:600; }
+.investment-fee-mode input { width:auto; }
 .investment-ownership-area { min-width: 0; }
 .investment-owner-flag { display: flex; align-items: center; gap: 8px; cursor: pointer; }
 .investment-owner-flag input { width: auto; }
@@ -3066,6 +3069,12 @@ a.chart-sankey-label:hover b { color:var(--azure); }
 .main .section-gear:hover, .main .section-gear:focus-visible { color:var(--ink); background:rgba(10,36,66,.1); }
 .main .section-gear svg { width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
 .app-popup .section-bar { display:none; }
+/* A loan opens in the shared popup. Keep its paired rows compact and aligned there,
+   rather than inheriting the roomy full-page form rhythm. */
+.app-popup .plan-form.loan-form { gap:14px!important; padding:4px 0 0!important; box-shadow:none!important; }
+.app-popup .plan-form.loan-form > .row { gap:12px!important; }
+.app-popup .plan-form.loan-form .field { min-width:0; }
+.app-popup .plan-form.loan-form .help { margin-top:4px; }
 /* Holdings: more columns, no lines under the names (owner, 2026-10-06). */
 .main .holdings-wide :is(th,td) { padding:8px 6px; white-space:nowrap; font-size:var(--fs-2); }
 .main .holdings-wide td:first-child, .main .holdings-wide th:first-child { white-space:normal; min-width:150px; padding-left:0; }
@@ -3149,9 +3158,13 @@ html[dir="rtl"] .code, html[dir="rtl"] code, html[dir="rtl"] [data-ref], html[di
 .main .register-rows .register-edit-amount input { display:inline-block; width:calc(100% - 36px)!important; vertical-align:middle; }
 .main .register-rows .register-edit-amount .register-submit { display:inline-grid; vertical-align:middle; margin-left:3px; color:var(--ink); }
 .main .register-rows .register-edit-balance { color:var(--muted); text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
+.main .register-rows :is(th:last-child, .register-balance-cell, .register-edit-balance) { text-align:center!important; }
 .main .register-rows .register-row-action { text-align:right; white-space:nowrap; }
 .main .register-rows .register-notes-cell .register-note { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .main .register-rows .register-edit-notes input { overflow:hidden; text-overflow:ellipsis; }
+.main .register-rows .register-edit-notes { vertical-align:middle!important; }
+.main .register-rows .register-notes-field { height:30px; display:flex; align-items:center; }
+.main .register-rows .register-notes-field > input:not(.whom-cell) { display:block; margin:0; }
 .main .register-rows tr.editing td { background:var(--tint-held)!important; }
 .main > .topbar { position:static; margin:0 0 24px; padding:0 0 14px; border-bottom:1px solid var(--line); background:transparent; }
 .main > .topbar .actions { display:flex; }

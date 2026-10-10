@@ -32,8 +32,8 @@ SHOP = "Personal › Shopping"
 OTHER = "Personal › Other Personal"
 TRAVEL = "Personal › Travel"
 FEES = "Personal › Fees & Charges"
-LOAN = "Loans & held money › Loan payments"
-HELD = "Loans & held money › Money Held for Others"
+LOAN = "System Categories › Loan payments"
+HELD = "System Categories › Money Held for Others"
 INTERNAL = "Internal transfer"   # money moving between Mohab's own accounts
 
 

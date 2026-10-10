@@ -545,6 +545,18 @@ document.addEventListener("click", (e) => {
   }
 });
 
+// An in-place register edit is a row, not a modal: leaving that row saves it.
+// Capture pointerdown so a click on plain page space (which does not move focus)
+// behaves just like leaving a normal field.
+document.addEventListener("pointerdown", (event) => {
+  const row = document.querySelector("tr.editing[data-txn]");
+  if (!row || row.contains(event.target) || event.target.closest(".date-popup, .counterparty-results, .category-results")) return;
+  const form = document.getElementById("f-edit");
+  if (!form || form.dataset.submitting === "true" || !form.checkValidity()) return;
+  event.preventDefault();
+  form.requestSubmit();
+}, true);
+
 // Keep repeated Enter presses from posting the quick-add form twice.
 document.addEventListener("submit", (event) => {
   const form = event.target;
