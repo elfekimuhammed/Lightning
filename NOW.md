@@ -33,4 +33,3 @@
 4. **Multi-currency phone/import:** check foreign entry, reporting, FX and bank imports. **Read:** Architecture › UI contract; phone test; bank import route.
 5. **Gold:** test source from home; silver needs holdings. **Read:** `docs/proposals/market_data.md`.
 6. **Optional:** stable origin/cache and CSS trim. **Read:** Architecture › Page speed.
-7. **Add the four requested sample profiles once their names and source data are supplied.** Read: `OWNER.md` › To decide 9, `lightning/samples/__init__.py`, `tests/test_sample_2026.py`.

@@ -10,6 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-10 · Codex: empty profiles can now load four more fictional Egyptian stories—Amr, Abdelrahman, Menna and Fatma—alongside Mohab. They include irregular income, negative-cash-flow months, overspending and emergency-reserve cases for analysis.
 - 2026-10-10 · Codex: the first-account welcome screen now lets a new profile choose its base currency before adding an account, rather than hiding that choice in Settings.
 - 2026-10-10 · Codex: profile setup now lets you choose its starting currency, including EGP, USD, EUR, GBP, SAR and AED; the selected currency becomes the profile base before any money is recorded.
 - 2026-10-10 · Codex: register edits now save on a click outside their row; aligned Notes with the other fields and tightened the loan popup. Income recurring items show only income categories; System Categories contains loans, held money, internal transfers, capital allocation and Adjustment.

@@ -184,6 +184,11 @@ code, .code { font-family: "JetBrains Mono", ui-monospace, "Cascadia Mono", Cons
 .welcome-currency label { font-weight:700; }
 .welcome-currency select { min-width:190px; }
 .welcome-currency-note { margin:0 0 20px; }
+.sample-story-list { display:grid; gap:8px; margin:12px 0 18px; }
+.sample-story { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:12px 0; border-bottom:1px solid var(--border); }
+.sample-story:last-child { border-bottom:0; }
+.sample-story span { display:grid; gap:3px; }
+.sample-story small { color:var(--ink-700); }
 .onboarding-actions { display: flex; align-items: center; gap: 16px; margin-top: 24px; flex-wrap: wrap; }
 .onboarding-note { text-align: right; margin: 18px 0 0; }
 .getting-started { padding: 42px 38px; background: var(--grad-glow); border: 0; display: flex; flex-direction: column; }

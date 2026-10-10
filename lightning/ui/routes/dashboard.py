@@ -102,7 +102,9 @@ async def dashboard(request: Request):
     first, as_of = period.start, period.end
     accounts = c.accounts.list()
     if not accounts:
-        return render(request, "dashboard/welcome.html", base=c.base_currency, currencies=CASH_ASSETS)
+        from lightning.samples.profiles import sample_stories
+        return render(request, "dashboard/welcome.html", base=c.base_currency, currencies=CASH_ASSETS,
+                      sample_stories=sample_stories())
     # Every position figure comes from one calculation; see lightning/planning/position.py.
     period_position = c.position.at(as_of)
     position = c.position.at(today())
@@ -366,6 +368,20 @@ async def add_sample_2026(request: Request):
     except (LightningError, ValueError) as exc:
         return redirect("/", f"The 2026 sample could not be added: {getattr(exc, 'message', exc)}")
     return redirect("/", f"Mohab's 2026 added: {summary['rows']} imported rows across {summary['accounts']} accounts, "
+                         f"{summary['from']} to {summary['to']}.")
+
+
+@router.post("/sample/{story}")
+async def add_sample_story(request: Request, story: str):
+    c = container(request)
+    if c.accounts.list():
+        return redirect("/", "A sample story can only be added to an empty Lightning.")
+    from lightning.samples.profiles import load_story
+    try:
+        summary = load_story(c, story)
+    except (LightningError, ValueError) as exc:
+        return redirect("/", f"The sample story could not be added: {getattr(exc, 'message', exc)}")
+    return redirect("/", f"{summary['name']}'s sample added: {summary['rows']} fictional entries, "
                          f"{summary['from']} to {summary['to']}.")
 
 
