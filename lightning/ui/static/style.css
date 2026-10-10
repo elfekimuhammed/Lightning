@@ -3149,7 +3149,7 @@ html[dir="rtl"] .code, html[dir="rtl"] code, html[dir="rtl"] [data-ref], html[di
 .main .register-rows tr.editing td { background:var(--tint-held)!important; }
 .main > .topbar { position:sticky; top:0; z-index:30; margin:-24px -24px 24px; padding:14px 24px; border-bottom:1px solid var(--line); background:rgba(248,252,250,.96); backdrop-filter:blur(14px); }
 .main > .topbar .actions { display:flex; }
-.main > .topbar .fullscreen-toggle { display:inline-flex; align-items:center; gap:8px; min-height:36px; padding-inline:12px; white-space:nowrap; }
+.main > .topbar .fullscreen-toggle { display:inline-grid; place-items:center; flex:none; width:36px; height:36px; min-height:36px; padding:0; border-radius:50%; color:var(--ink-2); }
 .main > .topbar .fullscreen-toggle .icon { width:17px; height:17px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
 .main > .topbar .fullscreen-toggle:hover { color:var(--ink); background:var(--tint-held); }
 .main .currency-tabs { margin-bottom:18px; }
@@ -3173,6 +3173,11 @@ html[dir="rtl"] .code, html[dir="rtl"] code, html[dir="rtl"] [data-ref], html[di
 .currency-custom form { align-items:end; margin-top:12px; }
 .currency-rate-form { align-items:end; margin:16px 0; }
 .currency-rate-form .field { min-width:150px; }
+.currency-rate-section { padding-bottom:24px; border-bottom:1px solid var(--line); }
+.currency-history { padding-top:24px; }
+.currency-history .section-head { margin-bottom:8px; }
+.currency-pending { display:flex; align-items:center; gap:8px; margin:14px 0; color:var(--ink-2); font-size:var(--fs-meta); }
+.currency-rate-list { margin-top:16px; }
 @media (max-width:760px) {
   .main .currency-tabs { display:flex; width:100%; }
   .main .currency-tabs .plan-tab { flex:1; justify-content:center; padding-inline:8px; font-size:var(--fs-meta); white-space:normal; text-align:center; }

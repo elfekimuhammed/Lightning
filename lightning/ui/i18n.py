@@ -1554,6 +1554,7 @@ ARABIC_UI = {
     'Account and asset': 'الحساب والأصل',
     'FX reevaluation history': 'سجل إعادة تقييم العملات',
     'No FX reevaluations yet.': 'لا توجد إعادة تقييم للعملات بعد.',
+    'Changes in value caused by exchange rates, without changing the cash balance.': 'تغيّرات القيمة الناتجة عن أسعار الصرف من غير تغيير رصيد النقدية.',
     'Choose the currency used for totals. You can change it before recording money or exchange rates.': 'اختار العملة اللي تظهر بها الإجماليات. تقدر تغيّرها قبل تسجيل فلوس أو أسعار صرف.',
     'Save currency': 'احفظ العملة',
     'Add currency': 'أضف عملة',
