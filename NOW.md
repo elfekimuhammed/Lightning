@@ -27,9 +27,10 @@
 
 ## Next
 
-1. **Arabic release acceptance: inspect PC and phone layouts on real devices, run the full suite and Mohab's year, then ship matching Windows and Android builds.** Read: `docs/ARCHITECTURE.md` › UI contract and Build and release, `tests/test_mohab_year.py`, `tests/test_mohab_phone.py`, and the A/C Arabic guideline pages.
-2. **Multi-currency follow-up: conversion and foreign investments.** Profile setup now selects its starting base currency. Add sent/received amounts, spread or fee and realized FX to conversion; show foreign-priced holdings' price and FX returns separately. **Read:** Architecture › Persistence; Project Overview › #15–16; `lightning/transactions/service.py`, `lightning/reevaluations.py`.
-3. **Multi-currency phone and import paths.** Check foreign entry, reporting and rates on phone; review bank import currency handling. **Read:** Architecture › UI contract; `tests/test_mohab_phone.py`, `lightning/ui/routes/bank_imports.py`.
-4. **Gold: test source from home; silver needs holdings.** Read: `docs/proposals/market_data.md`.
-5. **Optional: stable origin/cache, trim CSS.** Read: Architecture › Page speed.
-6. **Add the four requested sample profiles once their names and source data are supplied.** Read: `OWNER.md` › To decide 9, `lightning/samples/__init__.py`, `tests/test_sample_2026.py`.
+1. **Arabic release acceptance:** inspect PC/phone on real devices; run the full suite and Mohab's year; ship matching builds. **Read:** Architecture › UI contract and release; Mohab year/phone tests; A/C guidelines.
+2. **HIGH PRIORITY: Expand listed shares beyond EGX to Nasdaq, leading European exchanges and all GCC markets.** Read: Project Overview › #18 and Roadmap M4; `docs/proposals/market_data.md`.
+3. **Multi-currency conversion and foreign returns:** profile setup now selects its starting base currency. Add conversion amounts, fees/spread and realized FX; separate FX and price returns for foreign holdings. **Read:** Architecture › Persistence; Overview #15–16; transaction and reevaluation services.
+4. **Multi-currency phone/import:** check foreign entry, reporting, FX and bank imports. **Read:** Architecture › UI contract; phone test; bank import route.
+5. **Gold:** test source from home; silver needs holdings. **Read:** `docs/proposals/market_data.md`.
+6. **Optional:** stable origin/cache and CSS trim. **Read:** Architecture › Page speed.
+7. **Add the four requested sample profiles once their names and source data are supplied.** Read: `OWNER.md` › To decide 9, `lightning/samples/__init__.py`, `tests/test_sample_2026.py`.
