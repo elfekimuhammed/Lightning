@@ -18,6 +18,8 @@ FIELDS = ("name", "account_type", "institution", "last4", "notes", "opening_bala
 
 def _form_context(request: Request, values: dict, account=None, error: LightningError | None = None):
     c = container(request)
+    groups = {t.value: c.assets.get_class_by_code(DEFAULT_CASH_CLASS[t]).name for t in OFFERED_TYPES}
+    groups["CASH_AT_HAND"] = c.assets.get_class_by_code("CASH").name
     return dict(
         values=values,
         account=account,
@@ -25,7 +27,7 @@ def _form_context(request: Request, values: dict, account=None, error: Lightning
         base=c.base_currency,
         types=sorted(((t.value, TYPE_LABELS[t]) for t in OFFERED_TYPES), key=lambda row: row[1].casefold()),
         # where each type shows up in "What your wealth is made of", in plain words
-        groups={t.value: c.assets.get_class_by_code(DEFAULT_CASH_CLASS[t]).name for t in OFFERED_TYPES},
+        groups=groups,
         counterparties=c.counterparties.list_active(),
         error=error.message if error else "",
         error_field=(error.field or "") if error else "",
@@ -359,7 +361,7 @@ async def edit_account(request: Request, account_id: int):
     opening_txn = c.transactions.get(opening_id) if opening_id else None
     first_activity = c.transactions.earliest_activity(account_id)
     values = {
-        "name": a.name, "account_type": a.account_type.value,
+        "name": a.name, "account_type": "CASH_AT_HAND" if a.cash_at_hand else a.account_type.value,
         "opening_date": a.opening_date, "opening_balance": str(c.account_flows.opening_of(a)),
         "opening_balance_date": opening_txn.date if opening_txn else (first_activity or today().isoformat()),
         "institution": a.institution or "",

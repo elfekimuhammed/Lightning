@@ -10,6 +10,8 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-10 · Codex: add Cash at hand as an account type under Liquid Cash, preserving its subtype across edits and upgrades.
+- 2026-10-10 · Codex: rebuild the transaction register as aligned spreadsheet columns for date, counterparty, category, notes, amount and balance, including add and edit rows.
 - 2026-10-10 · Codex: move loading feedback from the pressed button to an animated, labelled status box in the top right.
 - 2026-10-10 · Codex: keep the page header visible as an app top bar and add a working full-screen toggle.
 - 2026-10-10 · Codex: sale factor estimates recalculate in place; date fields open the calendar directly and keep the ISO date legible.

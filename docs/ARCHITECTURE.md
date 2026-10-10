@@ -101,6 +101,8 @@ core/                 dates, money, identifiers, posting rules; no app dependenc
 
 The public `fx` pack takes Banque Misr's dated transfer buy/sell midpoint per currency unit. The CBE page rejects the collector; the pack therefore names Banque Misr and never labels this rate official CBE. The parser requires a bulletin date, US dollar row, at least ten currency rows, positive rates and a plausible spread before the pack can change.
 
+Cash at hand is a form subtype of the cash account type. It is stored with the existing cash account ledger behavior plus `accounts.cash_at_hand`; its balance remains in the Physical Cash child under Liquid Cash. Existing Cash wallet accounts keep their current reporting class and behavior.
+
 ## One main ledger; one linked valuation ledger
 
 The main ledger is the source of truth for user-recorded activity. Account registers, all-transactions, budgets, net worth, investment positions, and analysis are views or calculations over it—not separate competing transaction stores.

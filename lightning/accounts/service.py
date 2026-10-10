@@ -95,7 +95,9 @@ class AccountService:
         if not name:
             raise ValidationError("Enter an account name.", "name")
         self._ensure_unique_name(name)
-        account_type = self._type(account_type)
+        selected_type = self._type(account_type)
+        cash_at_hand = selected_type == AccountType.CASH_AT_HAND
+        account_type = AccountType.CASH if cash_at_hand else selected_type
         currency = (currency or self.base_currency).strip().upper()
         if not self.db.scalar("SELECT 1 FROM registered_currencies WHERE code=?", (currency,)):
             raise ValidationError(f"Currency {currency} is not registered. Add it in Settings first.", "currency")
@@ -125,6 +127,7 @@ class AccountService:
             active=True,
             sort_order=self.repo.next_sort_order(),
             notes=(notes or "").strip(),
+            cash_at_hand=cash_at_hand,
         )
         with self.db.transaction():
             new_id = self.repo.insert(account)
@@ -147,7 +150,9 @@ class AccountService:
         if not name:
             raise ValidationError("Enter an account name.", "name")
         self._ensure_unique_name(name, exclude_id=account_id)
-        account_type = self._type(account_type)
+        selected_type = self._type(account_type)
+        cash_at_hand = selected_type == AccountType.CASH_AT_HAND
+        account_type = AccountType.CASH if cash_at_hand else selected_type
         new_code = validate_account_code(code) if code and code.strip() else current.code
         if self.repo.code_exists(new_code, exclude_id=current.id):
             raise ConflictError(f"The code {new_code} is already used by another account.", "code")
@@ -158,6 +163,7 @@ class AccountService:
             institution=(institution or "").strip(),
             account_type=account_type,
             cash_class_id=self._cash_class_id(account_type),
+            cash_at_hand=cash_at_hand,
             opening_date=self._start(opening_date),
             last4=self._last4(last4),
             notes=(notes or "").strip(),

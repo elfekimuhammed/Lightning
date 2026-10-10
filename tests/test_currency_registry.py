@@ -91,6 +91,7 @@ def test_existing_base_currency_is_registered_by_migration(tmp_path, monkeypatch
         older = tmp_path / "migrations"
         shutil.copytree(migrator._BUNDLED_MIGRATIONS_DIR, older)
         (older / "0049_currency_registry.sql").unlink()
+        (older / "0050_cash_at_hand.sql").unlink()
         monkeypatch.setattr(migrator, "MIGRATIONS_DIR", older)
         migrate(db)
         db.execute("INSERT INTO settings(key,value,updated_at) VALUES('base_currency','EGP','old')")

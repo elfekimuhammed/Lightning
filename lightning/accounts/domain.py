@@ -13,6 +13,7 @@ from lightning.core.codes import slug
 
 class AccountType(StrEnum):
     CASH = "CASH"
+    CASH_AT_HAND = "CASH_AT_HAND"  # form-only subtype; stored as CASH with cash_at_hand set
     BANK = "BANK"  # current or savings — the same thing here
     DEPOSIT = "DEPOSIT"  # bank-specific portfolio of non-cash certificates
     BROKERAGE = "BROKERAGE"
@@ -22,6 +23,7 @@ class AccountType(StrEnum):
 
 TYPE_LABELS: dict[AccountType, str] = {
     AccountType.CASH: "Cash wallet",
+    AccountType.CASH_AT_HAND: "Cash at hand",
     AccountType.BANK: "Bank account (current or savings)",
     AccountType.DEPOSIT: "Certificates of deposit (CD portfolio)",
     AccountType.BROKERAGE: "Brokerage (stocks and funds)",
@@ -32,6 +34,7 @@ TYPE_LABELS: dict[AccountType, str] = {
 # For lists, where the picker's hints would only repeat (review, 2026-10-06).
 TYPE_SHORT: dict[AccountType, str] = {
     AccountType.CASH: "Cash",
+    AccountType.CASH_AT_HAND: "Cash at hand",
     AccountType.BANK: "Bank account",
     AccountType.DEPOSIT: "Certificates",
     AccountType.BROKERAGE: "Brokerage",
@@ -41,6 +44,7 @@ TYPE_SHORT: dict[AccountType, str] = {
 
 TYPE_ABBR: dict[AccountType, str] = {
     AccountType.CASH: "CSH",
+    AccountType.CASH_AT_HAND: "CSH",
     AccountType.BANK: "CUR",
     AccountType.DEPOSIT: "CD",
     AccountType.BROKERAGE: "BRK",
@@ -51,6 +55,7 @@ TYPE_ABBR: dict[AccountType, str] = {
 # Cash is one asset (CASH:EGP) wherever it sits; the account type decides where it is reported.
 DEFAULT_CASH_CLASS: dict[AccountType, str] = {
     AccountType.CASH: "CASH.PHYSICAL",
+    AccountType.CASH_AT_HAND: "CASH.PHYSICAL",
     AccountType.BANK: "CASH.BANK",
     AccountType.DEPOSIT: "DEPOSIT.CD",
     AccountType.BROKERAGE: "CASH.BROKERAGE",
@@ -61,6 +66,7 @@ DEFAULT_CASH_CLASS: dict[AccountType, str] = {
 # Types a user can pick today
 OFFERED_TYPES = [
     AccountType.CASH,
+    AccountType.CASH_AT_HAND,
     AccountType.BANK,
     AccountType.DEPOSIT,
     AccountType.BROKERAGE,
@@ -74,6 +80,7 @@ INVESTMENT_ACCOUNT_TYPES = {AccountType.BROKERAGE, AccountType.PHYSICAL_ASSET, A
 # How the sidebar groups accounts (the dashboard groups wealth by asset class instead)
 SIDEBAR_GROUPS: dict[AccountType, str] = {
     AccountType.CASH: "Cash & bank",
+    AccountType.CASH_AT_HAND: "Cash & bank",
     AccountType.BANK: "Cash & bank",
     AccountType.DEPOSIT: "Deposits",
     AccountType.BROKERAGE: "Investments",
@@ -90,13 +97,14 @@ class Account:
     institution: str
     account_type: AccountType
     currency: str
-    cash_class_id: int  # always follows account_type (DEFAULT_CASH_CLASS)
+    cash_class_id: int  # follows account_type, with the Cash at hand form subtype preserved separately
     opening_date: str  # yyyy-mm-dd
     is_system: bool
     last4: str | None
     active: bool
     sort_order: int
     notes: str
+    cash_at_hand: bool = False
 
     @property
     def label(self) -> str:
@@ -105,11 +113,11 @@ class Account:
 
     @property
     def type_label(self) -> str:
-        return TYPE_LABELS[self.account_type]
+        return TYPE_LABELS[AccountType.CASH_AT_HAND if self.cash_at_hand else self.account_type]
 
     @property
     def type_short(self) -> str:
-        return TYPE_SHORT[self.account_type]
+        return TYPE_SHORT[AccountType.CASH_AT_HAND if self.cash_at_hand else self.account_type]
 
 
 def suggest_code(institution: str, name: str, account_type: AccountType, currency: str) -> str:

@@ -389,6 +389,8 @@ ARABIC_UI = {
     'Investments': 'الاستثمارات',
     'Expenses': 'المصروفات',
     'Cash': 'الكاش',
+    'Cash wallet': 'محفظة نقدية',
+    'Cash at hand': 'كاش في البيت',
     'Reserves': 'المبالغ المحجوزة',
     'Financial health': 'صحتك المالية',
     'Accounts': 'حساباتك',

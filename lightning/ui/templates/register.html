@@ -2,7 +2,11 @@
 {% block title %}{{ account.name if account else 'Transactions' }}{% endblock %}
 
 {% macro inputs(form_id, v, is_edit, balance=none) -%}
-  <td class="register-edit-details">
+  <td class="register-edit-date">
+    <input id="{{ form_id }}-date" form="{{ form_id }}" type="text" name="date" value="{{ v.get('date', '') }}" placeholder="yyyy-mm-dd"
+           inputmode="numeric" autocomplete="off" data-smart-date title="yyyy-mm-dd, like 2026-01-31" required class="{{ 'bad' if error_field == 'date' }}">
+  </td>
+  <td class="register-edit-counterparty">
     <div class="counterparty-picker"><input form="{{ form_id }}" type="text" name="counterparty" value="{{ v.get('counterparty', '') }}" placeholder="Counterparty or your account"
              autocomplete="off" aria-autocomplete="list" aria-expanded="false" aria-controls="{{ form_id }}-counterparty-results"
              data-counterparty-results="{{ form_id }}-counterparty-results"
@@ -10,29 +14,27 @@
              {{ '' if is_edit else 'id=counterparty' }}>
       <div id="{{ form_id }}-counterparty-results" class="counterparty-results" role="listbox" hidden></div>
     </div>
-    <div class="register-edit-meta">
-      <input id="{{ form_id }}-date" form="{{ form_id }}" type="text" name="date" value="{{ v.get('date', '') }}" placeholder="yyyy-mm-dd"
-             inputmode="numeric" autocomplete="off" data-smart-date title="yyyy-mm-dd, like 2026-01-31" required class="{{ 'bad' if error_field == 'date' }}">
-      {% if show_account %}<select form="{{ form_id }}" name="account_id" required class="{{ 'bad' if error_field == 'account' }}" data-own-picker>
-        <option value="">{{ 'Account…'|tr(locale) }}</option>{% for a in accounts %}<option value="{{ a.id }}" {{ 'selected' if v.get('account_id') == a.id|string }}>{{ a.label }}</option>{% endfor %}
-      </select>{% endif %}
-      <div class="category-picker">
+    {% if show_account %}<select form="{{ form_id }}" name="account_id" required class="register-account-picker {{ 'bad' if error_field == 'account' }}" data-own-picker>
+      <option value="">{{ 'Account…'|tr(locale) }}</option>{% for a in accounts %}<option value="{{ a.id }}" {{ 'selected' if v.get('account_id') == a.id|string }}>{{ a.label }}</option>{% endfor %}
+    </select>{% endif %}
+  </td>
+  <td class="register-edit-category">
+    <div class="category-picker">
     <input form="{{ form_id }}" type="text" name="category" value="{{ v.get('category', '') }}" placeholder="Category — type to search"
            autocomplete="off" aria-autocomplete="list" aria-expanded="false"
            aria-controls="{{ form_id }}-category-results" data-category-results="{{ form_id }}-category-results"
            class="category-input {{ 'bad' if error_field == 'category' }}">
     {% if v.get('category_choice') and review_mode != 'category' %}<input form="{{ form_id }}" type="hidden" name="category_choice" value="{{ v.category_choice }}">{% endif %}
     <div id="{{ form_id }}-category-results" class="category-results" role="listbox" hidden></div>
-      </div>
-      <input class="whom-cell is-hidden" form="{{ form_id }}" type="text" name="whom" value="{{ v.get('whom', '') }}"
-             placeholder="Held for (if not you)" list="counterparty-options" data-own-suggestions>
-      <input form="{{ form_id }}" type="text" name="notes" value="{{ v.get('notes', '') }}" placeholder="Notes">
     </div>
   </td>
+  <td class="register-edit-notes"><input form="{{ form_id }}" type="text" name="notes" value="{{ v.get('notes', '') }}" placeholder="Notes">
+    <input class="whom-cell is-hidden" form="{{ form_id }}" type="text" name="whom" value="{{ v.get('whom', '') }}"
+           placeholder="Held for (if not you)" list="counterparty-options" data-own-suggestions"></td>
   <td class="register-edit-amount"><input form="{{ form_id }}" type="text" name="amount" value="{{ v.get('amount', '') }}" placeholder="-450 or 1,200"
              inputmode="decimal" required class="num money-input {{ 'bad' if error_field == 'amount' }}">
-    {% if balance is not none %}<small class="register-balance">Balance {{ balance|money(False, 0) }}</small>{% endif %}
-    <button form="{{ form_id }}" class="btn {{ 'primary' if is_edit else 'primary' }} small">{{ 'Save' if is_edit else 'Add' }}</button></td>
+    <button form="{{ form_id }}" class="btn primary small">{{ 'Save' if is_edit else 'Add' }}</button></td>
+  <td class="register-edit-balance">{% if balance is not none %}{{ balance|money(False, 0) }} {{ account.currency }}{% else %}<span class="muted">—</span>{% endif %}</td>
 {%- endmacro %}
 
 {% block heading %}
@@ -61,7 +63,7 @@
 
 {% block content %}
 {% set with_balance = account and not q %}
-{% set ncols = 3 %}
+{% set ncols = 7 %}
 
 {% if account and account.account_type.value == 'OTHER_ASSET' %}<section class="card"><h2>{{ 'Estimated value'|tr(locale) }}</h2><p class="muted small">{{ 'Update an asset you value as a whole, such as your share of a home. The dated estimate changes its value in reports, without changing cash activity.'|tr(locale) }}</p><form method="post" action="/accounts/{{ account.id }}/value" class="row" style="align-items:end"><label class="field">{{ 'As of'|tr(locale) }}<input name="date" value="{{ today }}" type="text" inputmode="numeric" data-smart-date required></label><label class="field">Value ({{ account.currency }})<input name="value" inputmode="decimal" value="{{ manual_asset_value.value|money(False, 2) if manual_asset_value else account_balance|money(False, 2) }}" required></label><button class="btn">{{ 'Update value'|tr(locale) }}</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form></section>{% endif %}
 
@@ -155,7 +157,8 @@
     <button type="button" class="btn small danger" id="delete-selected">{{ 'Delete selected'|tr(locale) }}</button>
   </div>
   <div class="register-table-scroll"><table class="register-rows">
-    <thead><tr><th id="select-visible-header" class="select-visible-header" title="Select or clear all visible transactions"><input id="select-visible" type="checkbox" aria-label="Select all visible transactions"></th><th>{{ 'Date'|tr(locale) }} · {{ 'Counterparty'|tr(locale) }} · {{ 'Category'|tr(locale) }} · {{ 'Notes'|tr(locale) }}</th><th class="num">{{ 'Amount'|tr(locale) }} ({{ base }}) · {{ 'Balance'|tr(locale) }}</th></tr></thead>
+    <colgroup><col class="col-select"><col class="col-date"><col class="col-counterparty"><col class="col-category"><col class="col-notes"><col class="col-amount"><col class="col-balance"></colgroup>
+    <thead><tr><th id="select-visible-header" class="select-visible-header" title="Select or clear all visible transactions"><input id="select-visible" type="checkbox" aria-label="Select all visible transactions"></th><th>{{ 'Date'|tr(locale) }}</th><th>{{ 'Counterparty'|tr(locale) }}</th><th>{{ 'Category'|tr(locale) }}</th><th>{{ 'Notes'|tr(locale) }}</th><th class="num">{{ 'Amount'|tr(locale) }} ({{ base }})</th><th class="num">{{ 'Balance'|tr(locale) }}</th></tr></thead>
     <tbody>
     {% if (not account or account.active) and (not account or account.account_type.value != 'DEPOSIT') %}<tr class="add-row quick-add-row" id="quick-add">
       <td><span class="muted small">{{ "New"|tr(locale) }}</span></td>
@@ -176,11 +179,13 @@
         <td><input type="checkbox" class="transaction-select" value="{{ r.txn_id }}" data-type="{{ r.type }}" aria-label="Select {{ r.counterparty or r.type_label }}" {{ 'disabled title="Edit opening balances from the account page"' if r.type == 'OPN' else '' }}></td>
         {% set cat = r.type_label if r.type in ('BUY', 'SEL', 'DIV') or r.type_label == 'Ownership change' else r.category_label.split(' › ')[-1] %}
         {% set note_text = (r.notes ~ ((' ' ~ r.description) if r.type == 'TRF' and r.description else ''))|trim %}
-        <td class="register-row-details"><div class="register-primary-line">{% if r.type == 'TRF' %}<span class="pill transfer">↔</span> {{ r.other_account_label }}{% else %}{{ r.counterparty or r.description or '—' }}{% endif %}</div>
-          <div class="register-meta-line"><time class="code {{ 'same-day' if r.date == ns.last_date }}">{{ r.date }}</time><span title="{{ r.category_label.split(' › ')[-1] ~ (' · in ' ~ r.category_label.split(' › ')[:-1]|join(' · ') if ' › ' in r.category_label else '') }}">{{ cat if cat != (r.counterparty or r.description) else '' }}</span>{% if show_account %}<span>{{ r.account_label }}</span>{% elif r.type == 'TRF' %}<span>{{ r.other_account_label }}</span>{% endif %}{% if custody_owners.get(r.txn_id) %}<span>Held for {{ custody_owners[r.txn_id] }}</span>{% endif %}{% if note_text %}<span class="register-note" title="{{ note_text }}">{{ note_text|tagged }}</span>{% endif %}</div>
-        </td>
+        <td class="register-date-cell"><time class="code {{ 'same-day' if r.date == ns.last_date }}">{{ r.date }}</time></td>
+        <td class="register-counterparty-cell"><span class="register-primary-line">{% if r.type == 'TRF' %}<span class="pill transfer">↔</span> {{ r.other_account_label }}{% else %}{{ r.counterparty or r.description or '—' }}{% endif %}</span>{% if show_account %}<small class="register-subline">{{ r.account_label }}</small>{% elif r.type == 'TRF' %}<small class="register-subline">{{ r.other_account_label }}</small>{% endif %}{% if custody_owners.get(r.txn_id) %}<small class="register-subline">Held for {{ custody_owners[r.txn_id] }}</small>{% endif %}</td>
+        <td class="register-category-cell" title="{{ r.category_label }}">{{ cat or '—' }}</td>
+        <td class="register-notes-cell">{% if note_text %}<span class="register-note" title="{{ note_text }}">{{ note_text|tagged }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
         {# A11: in is green with +, out is ink with −, a transfer has no sign. #}
-        <td class="register-row-action"><span class="num amount {{ '' if r.type == 'TRF' else r.amount_base|tone }}">{{ r.amount_base|abs|money(False, 0) if r.type == 'TRF' else r.amount_base|money(True, 0) }}</span>{% if r.currency != base %}<small class="register-balance">{{ r.currency }} · {{ r.amount|money(True, 2) }}</small>{% endif %}{% if with_balance %}<small class="register-balance">{{ 'Balance'|tr(locale) }} {{ r.balance|money(False, 0) }} {{ r.currency }}</small>{% endif %}<a class="sr-only" href="{{ href }}">{{ 'Edit' if r.type in ('IN','OUT','TRF') else 'Details' }}</a></td>
+        <td class="register-row-action"><span class="num amount {{ '' if r.type == 'TRF' else r.amount_base|tone }}">{{ r.amount_base|abs|money(False, 0) if r.type == 'TRF' else r.amount_base|money(True, 0) }}</span>{% if r.currency != base %}<small class="register-balance">{{ r.currency }} · {{ r.amount|money(True, 2) }}</small>{% endif %}<a class="sr-only" href="{{ href }}">{{ 'Edit' if r.type in ('IN','OUT','TRF') else 'Details' }}</a></td>
+        <td class="register-balance-cell">{% if with_balance %}{{ r.balance|money(False, 0) }} {{ r.currency }}{% else %}<span class="muted">—</span>{% endif %}</td>
       </tr>
       {% if reserve_suggestions.get(r.txn_id) %}<tr class="reserve-match-prompt"><td colspan="{{ ncols }}"><div class="reserve-match-actions"><span>Is this the payment for {% for reserve in reserve_suggestions[r.txn_id] %}{{ reserve.name }}{% if not loop.last %} or {% endif %}{% endfor %}?</span>{% for reserve in reserve_suggestions[r.txn_id] %}<form method="post" action="/transactions/{{ r.txn_id }}/reserve?back={{ request.url.path|urlencode }}"><input type="hidden" name="reserve_id" value="{{ reserve.id }}"><input type="hidden" name="amount" value="{{ reserve.amount }}"><input type="hidden" name="complete" value="1"><button class="btn small primary">Yes, close {{ reserve.name }}</button><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"></form>{% endfor %}<button type="button" class="btn small" data-remove-row>{{ 'Not this payment'|tr(locale) }}</button></div></td></tr>{% endif %}
       {% set ns.last_date = r.date %}
