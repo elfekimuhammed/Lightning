@@ -1878,7 +1878,13 @@ a.chart-meter:hover { background:var(--hover); }
 @media (max-width:760px) { .main .overview-cash-figure { flex-wrap:wrap; } }
 .main .overview-cash-figure { flex-wrap:wrap; row-gap:8px; }
 .main .overview-cash-figure .overview-headline { flex-shrink:0; white-space:nowrap; }
-.main .overview-cash-figure .btn-planner { margin-left:auto; }
+.main .overview-cash-figure .btn-planner { margin:auto; }
+.main .overview-cash-figure { justify-content:center; }
+.main .overview-cash-figure .overview-headline { flex:0 0 100%; text-align:left; }
+.main .investment-toggle > summary { align-items:center; }
+.main .investment-toggle > summary > span { display:grid; gap:2px; }
+.main .investment-toggle > summary small { color:var(--muted); font:500 var(--fs-meta)/1.3 var(--body); }
+.main .investment-toggle-body { padding-top:16px; }
 /* Popups: a full-page button beside close; full pages opened from somewhere get one Back button. */
 .app-popup-expand { position:absolute; z-index:2; top:12px; right:60px; display:grid; place-items:center; width:38px; height:38px; border-radius:50%; color:var(--muted); background:var(--surface-2); }
 .app-popup-expand:hover { color:var(--ink); background:var(--hover); }
@@ -3116,14 +3122,14 @@ html[dir="rtl"] .code, html[dir="rtl"] code, html[dir="rtl"] [data-ref], html[di
 }
 .main .key-notes:has(> :only-child) { grid-template-columns:minmax(0, 680px); }
 .main .key-notes:has(> :only-child) .key-note { width:100%; }
-.main .register-rows { min-width:1080px!important; table-layout:fixed; border-collapse:collapse; }
+.main .register-rows { min-width:1120px!important; table-layout:fixed; border-collapse:collapse; }
 .main .register-rows .col-select { width:40px; }
-.main .register-rows .col-date { width:120px; }
-.main .register-rows .col-counterparty { width:24%; }
-.main .register-rows .col-category { width:21%; }
-.main .register-rows .col-notes { width:10%; }
+.main .register-rows .col-date { width:132px; }
+.main .register-rows .col-counterparty { width:23%; }
+.main .register-rows .col-category { width:20%; }
+.main .register-rows .col-notes { width:13%; }
 .main .register-rows .col-amount { width:160px; }
-.main .register-rows .col-balance { width:145px; }
+.main .register-rows .col-balance { width:160px; }
 .main .register-rows thead th { padding:10px 8px!important; white-space:nowrap; color:var(--ink); font-size:var(--fs-meta); border-bottom:1px solid var(--line); }
 .main .register-rows tbody td { padding:8px!important; vertical-align:middle; }
 .main .register-rows :is(.register-date-cell,.register-category-cell,.register-notes-cell,.register-balance-cell) { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -3147,7 +3153,7 @@ html[dir="rtl"] .code, html[dir="rtl"] code, html[dir="rtl"] [data-ref], html[di
 .main .register-rows .register-notes-cell .register-note { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .main .register-rows .register-edit-notes input { overflow:hidden; text-overflow:ellipsis; }
 .main .register-rows tr.editing td { background:var(--tint-held)!important; }
-.main > .topbar { position:sticky; top:0; z-index:30; margin:-24px -24px 24px; padding:14px 24px; border-bottom:1px solid var(--line); background:rgba(248,252,250,.96); backdrop-filter:blur(14px); }
+.main > .topbar { position:static; margin:0 0 24px; padding:0 0 14px; border-bottom:1px solid var(--line); background:transparent; }
 .main > .topbar .actions { display:flex; }
 .main > .topbar .fullscreen-toggle { display:inline-grid; place-items:center; flex:none; width:36px; height:36px; min-height:36px; padding:0; border-radius:50%; color:var(--ink-2); }
 .main > .topbar .fullscreen-toggle .icon { width:17px; height:17px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
@@ -3187,6 +3193,24 @@ html[dir="rtl"] .code, html[dir="rtl"] code, html[dir="rtl"] [data-ref], html[di
   .main > .topbar { margin:-18px -18px 22px; padding:13px 18px; }
 }
 @media (max-width:760px) {
-  .main > .topbar { margin:-16px -14px 20px; padding:12px 14px; }
+  .main > .topbar { margin:0 0 20px; padding:0 0 12px; }
   .main > .topbar .fullscreen-toggle span { display:none; }
 }
+
+/* Account notes are supporting text, not another card after the register. */
+.main .account-notes { margin-top:var(--gap-block); padding-top:16px; border-top:1px solid var(--line); max-width:760px; }
+.main .account-notes h2 { margin:0 0 4px; font:700 var(--fs-section)/1.3 var(--display); color:var(--ink); }
+.main .account-notes p { margin:0; color:var(--ink-2); white-space:pre-wrap; }
+
+/* A10.1: one Nile primary action; the remaining header controls are quiet. */
+.main .topbar .btn:not(.primary), .main .topbar .action-menu > summary { background:var(--paper); border-color:var(--line); color:var(--ink); box-shadow:none; }
+.main .topbar .btn:not(.primary):hover, .main .topbar .action-menu > summary:hover { background:var(--hover); }
+.main .topbar .btn.primary { background:var(--action); border-color:var(--action); color:var(--on-action); }
+
+/* A quiet right-side jump for long pages. */
+.page-jump { position:fixed; right:20px; bottom:20px; z-index:40; display:grid; place-items:center; width:44px; height:44px; padding:0; border:1px solid var(--line); border-radius:50%; background:var(--paper); color:var(--ink); box-shadow:var(--shadow-float); cursor:pointer; }
+.page-jump[hidden] { display:none; }
+.page-jump:hover { background:var(--hover); color:var(--action); }
+.page-jump svg { width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+.page-jump.is-top svg { transform:rotate(180deg); }
+@media (max-width:760px) { .page-jump { right:14px; bottom:14px; } }

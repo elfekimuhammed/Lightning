@@ -3,7 +3,7 @@
 {% block heading %}<div><h1>{{ 'Overview'|tr(locale) }}</h1></div>{% endblock %}
 {% block top_actions %}{% from "partials/macros.html" import period_control with context %}{{ period_control("/", period.key, month, this_month, request.query_params.get("date_from", "") if period_error and period.key == "custom" else period.start_text, request.query_params.get("date_to", "") if period_error and period.key == "custom" else period.end_text) }}{% endblock %}
 {% block content %}
-{% from "partials/charts.html" import stat_tiles, donut, trend, waterfall, column_waterfall, sankey, month_calendar as month_cal %}
+{% from "partials/charts.html" import stat_tiles, donut, trend, waterfall, column_waterfall, sankey, day_calendar, month_calendar as month_cal %}
 {% if period_error %}<p class="flash error">{{ period_error }}</p>{% endif %}
 {% if setup %}{% set done = setup|selectattr("done")|list|length %}
 <section class="card setup-card" aria-labelledby="setup-heading">
@@ -99,24 +99,26 @@
     <header class="overview-section-head"><h2 id="investments-heading">{{ 'Investments'|tr(locale) }}</h2><span>{{ date_from }} to {{ date_to }}</span></header>
     {# Owner decision 2026-10-03: one row of figures here; the detail lives on the Investments tab. #}
     <article class="overview-block wide-card overview-investment-row" aria-label="Investments in this period">
+      <details class="overview-disclosure investment-toggle"><summary><span><b>{{ fig.portfolio_value.label }}</b><small>{{ pos.portfolio_value|money }} · {{ investment_report.holdings_count }} holdings</small></span><b>{{ "Show investments"|tr(locale) }}</b></summary><div class="overview-disclosure-body investment-toggle-body">
       <div class="overview-figure-row">
         {# Position figures come from the one Position (Architecture › Data ownership): the same Holdings value as "Your position" above. #}
         <div><span>{{ fig.portfolio_value.label }}</span><b>{{ pos.portfolio_value|money }}</b></div>
         <div><span>{{ fig.holdings_value.label }}</span><b>{{ pos.holdings_value|money }}</b></div>
         <div><span>{{ fig.new_money_in.label }}</span><b>{{ investment_report.new_money|money }}</b></div>
         <div><span>{{ fig.result.label }}</span><b class="{{ investment_report.period_result|tone if investment_report.period_result_available else '' }}">{% if investment_report.period_result_available %}{{ investment_report.period_result|money(True) }}{% else %}Unavailable{% endif %}</b></div>
-        <a class="quiet-link" href="/investments?{{ period_query }}">{{ "See investments"|tr(locale) }}</a>
+        <a class="quiet-link" data-popup-open href="/investments?{{ period_query }}">{{ "Open investments"|tr(locale) }}</a>
       </div>
       {% if investment_report.missing %}<p class="overview-context">{{ "A required valuation is missing, so the result is unavailable."|tr(locale) }}</p>{% elif investment_report.at_cost %}<p class="overview-context">{{ investment_report.at_cost|length }} holding(s) valued at cost until a price is entered.</p>{% endif %}
+      </div></details>
     </article>
   </section>
 
-  {% if month_calendar.years %}{% set mc = month_calendar %}<section class="overview-section" aria-labelledby="months-heading">
+  {% if expense_calendar.months %}{% set mc = month_calendar %}<section class="overview-section" aria-labelledby="months-heading">
     <header class="overview-section-head"><h2 id="months-heading">{{ 'Month by month'|tr(locale) }}</h2><span>{{ mc.from }} to today</span></header>
     <article class="overview-block wide-card"><div class="overview-split">
       <section><div class="overview-block-head"><div><h3>{{ "Total expenses"|tr(locale) }}</h3><p>{% if mc.biggest and mc.biggest.spend %}Most in {{ mc.biggest.key }} · {{ mc.biggest.spend|money }}{% else %}No spending yet{% endif %}</p></div></div>
-        {{ month_cal(mc, 'spend') }}
-        <p class="muted small heat-key"><span class="heat-1"></span><span class="heat-2"></span><span class="heat-3"></span><span class="heat-4"></span>{{ "less to more spent · the biggest month darkest"|tr(locale) }}</p></section>
+        {{ day_calendar(expense_calendar, 'spend') }}
+        <p class="muted small heat-key"><span class="heat-1"></span><span class="heat-2"></span><span class="heat-3"></span><span class="heat-4"></span>{{ "less to more spent · the biggest day darkest"|tr(locale) }}</p></section>
       <section><div class="overview-block-head"><div><h3>{{ "Net cash flow"|tr(locale) }}</h3><p>{{ mc.kept }} of {{ mc.count }} month{{ '' if mc.count == 1 else 's' }} kept money{% if mc.best and mc.best.net > 0 %} · best {{ mc.best.key }} · {{ mc.best.net|money(True) }}{% endif %}</p></div></div>
         {{ month_cal(mc, 'net') }}
         <p class="muted small heat-key"><span class="flow-in-2"></span><span class="flow-in-4"></span>{{ "kept"|tr(locale) }}<span class="flow-out-2"></span><span class="flow-out-4"></span>{{ "short · darker is more"|tr(locale) }}</p></section>

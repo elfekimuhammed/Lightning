@@ -206,5 +206,5 @@
   <hr>
   <button type="button" role="menuitem" class="danger-text" data-context-delete>{{ 'Delete'|tr(locale) }}</button>
 </div>
-{% if account and account.notes %}<div class="card" style="margin-top:16px"><h2>{{ 'Notes'|tr(locale) }}</h2>{{ account.notes }}</div>{% endif %}
+{% if account and account.notes %}<section class="account-notes" aria-labelledby="account-notes-title"><h2 id="account-notes-title">{{ 'Notes'|tr(locale) }}</h2><p>{{ account.notes }}</p></section>{% endif %}
 {% endblock %}

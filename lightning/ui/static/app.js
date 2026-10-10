@@ -143,7 +143,7 @@ const initOwnDataPickers = (root = document) => {
   const shown = () => { const option = select.selectedOptions[0]; return option && option.value !== "" ? option.textContent.trim() : ""; };
   const render = (all = false) => {
     const query = all ? "" : input.value.trim().toLocaleLowerCase();
-    const matches = entries().filter((option) => !query || `${groupOf(option)} ${option.textContent}`.toLocaleLowerCase().includes(query)).slice(0, 80);
+    const matches = entries().filter((option) => !query || `${groupOf(option)} ${option.textContent}`.toLocaleLowerCase().includes(query)).slice(0, all ? 5 : 80);
     list.replaceChildren();
     let lastGroup = "";
     matches.forEach((option, i) => {
@@ -217,7 +217,7 @@ find("input[data-own-suggestions][list]").forEach((input) => {
   const close = () => { list.hidden = true; input.setAttribute("aria-expanded", "false"); input.removeAttribute("aria-activedescendant"); active = -1; };
   const render = () => {
     const query = input.value.trim().toLocaleLowerCase();
-    const matches = Array.from(source.querySelectorAll("option")).map((option) => option.value).filter((value) => value && (!query || value.toLocaleLowerCase().includes(query))).slice(0, 50);
+    const matches = Array.from(source.querySelectorAll("option")).map((option) => option.value).filter((value) => value && (!query || value.toLocaleLowerCase().includes(query))).slice(0, query ? 50 : 5);
     list.replaceChildren();
     matches.forEach((value, i) => {
       const option = document.createElement("button"); option.type = "button"; option.className = "counterparty-option";
@@ -250,6 +250,26 @@ find("input[data-own-suggestions][list]").forEach((input) => {
   });
 };
 initOwnDataPickers();
+
+// A small page jump replaces a sticky header while reading a long register.
+(() => {
+  const jump = document.getElementById("page-jump");
+  if (!jump) return;
+  const atEnd = () => window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 32;
+  const update = () => {
+    const canMove = document.documentElement.scrollHeight > window.innerHeight + 180;
+    const nearTop = window.scrollY < 180;
+    jump.hidden = !canMove || (nearTop && atEnd());
+    const toTop = !nearTop;
+    jump.dataset.target = toTop ? "top" : "end";
+    const label = t(toTop ? "Go to top of page" : "Go to end of page");
+    jump.setAttribute("aria-label", label); jump.title = label;
+    jump.classList.toggle("is-top", toTop);
+  };
+  jump.addEventListener("click", () => window.scrollTo({ top: jump.dataset.target === "top" ? 0 : document.documentElement.scrollHeight, behavior: "smooth" }));
+  window.addEventListener("scroll", update, { passive: true });
+  window.addEventListener("resize", update); update();
+})();
 
 // The app's own question dialog, in place of the browser's confirm and alert boxes.
 // ask({title, message, ok, cancel, tone}) resolves true for the action, false for Cancel or Escape.
@@ -519,7 +539,10 @@ initDateFields();
 // Register: click a row to edit it in place.
 document.addEventListener("click", (e) => {
   const row = e.target.closest("tr[data-href]");
-  if (row && !e.target.closest("a, button, input, select")) location.href = row.dataset.href;
+  if (row && !e.target.closest("a, button, input, select")) {
+    sessionStorage.setItem("lightning-page-scroll", String(window.scrollY));
+    location.href = row.dataset.href;
+  }
 });
 
 // Keep repeated Enter presses from posting the quick-add form twice.
@@ -1118,7 +1141,7 @@ if (categoryCatalogueNode) {
       results.replaceChildren();
       activeIndex = -1;
       const allMatches = matchesFor();
-      const matches = allMatches.slice(0, 30);
+      const matches = allMatches.slice(0, input.value.trim() ? 30 : 5);
       const groups = new Map();
       matches.forEach((item) => {
         if (!groups.has(item.parent)) groups.set(item.parent, []);
@@ -1279,9 +1302,9 @@ if (ledger) {
     const renderResults = () => {
       const query = counterparty.value.trim().toLocaleLowerCase();
       results.replaceChildren();
-      if (!query) { closeResults(); return; }
-      const internal = accounts.filter((name) => name.toLocaleLowerCase().includes(query)).slice(0, 8);
-      const saved = parties.filter((name) => name.toLocaleLowerCase().includes(query)).slice(0, 8);
+      const limit = query ? 8 : 5;
+      const internal = accounts.filter((name) => name.toLocaleLowerCase().includes(query)).slice(0, limit);
+      const saved = parties.filter((name) => name.toLocaleLowerCase().includes(query)).slice(0, Math.max(0, limit - internal.length));
       addGroup(t("Your accounts · internal transfers"), internal, t("Internal"));
       addGroup(t("People & businesses"), saved, t("External"));
       const close = query.length >= 3 ? parties.filter((name) => !saved.includes(name) && similar(query, name.toLocaleLowerCase()) >= 0.68).slice(0, 3) : [];
