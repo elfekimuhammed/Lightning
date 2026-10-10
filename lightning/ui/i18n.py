@@ -1541,6 +1541,8 @@ ARABIC_UI = {
     'FX rates and reevaluation': 'أسعار الصرف وإعادة التقييم',
     'Active': 'نشطة',
     'Set active': 'تعيين كنشطة',
+    'Set active {currency}': 'تعيين {currency} كعملة نشطة',
+    'Add {currency}': 'إضافة {currency}',
     'Search currencies': 'ابحث عن عملة',
     'Search by code or currency name': 'ابحث برمز العملة أو اسمها',
     'No currencies match your search.': 'لا توجد عملات تطابق البحث.',

@@ -10,6 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-10 · Codex: fix live currency filtering and restyle the currency tabs, current-currency marker and row actions to match the Nile selected state and quiet list controls.
 - 2026-10-10 · Codex: move full screen into Settings and add a dedicated searchable currency page with active currency actions plus FX rates and reevaluation history in a second tab.
 - 2026-10-10 · Codex: truncate register notes with a full-text hover tooltip, rebalance column widths and align compact add/save icon actions beside amounts.
 - 2026-10-10 · Codex: add Cash at hand as an account type under Liquid Cash, preserving its subtype across edits and upgrades.
