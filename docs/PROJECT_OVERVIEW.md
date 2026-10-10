@@ -91,7 +91,7 @@ Every number comes from one of three layers, and each screen says which:
 - **Find and type faster:** Ctrl-K (or Search in the sidebar) finds a page, an action, an account, a counterparty, a category, an investment, a #tag or a transaction reference, and offers to search transactions. Amount fields take sums (`120+35*2`). A #tag in a note gathers its transactions with their Money in and Money out. The eye beside Search blurs every amount on screen.
 - **Every page:** months are picked from a month picker, never typed. Up to three key notes under the title give the page's answer in one sentence, and one set of charts follows the brand guideline.
 - **Version 1.0 beta:** the paired Windows ZIP and signed Android APK are published together from one tested commit. `Lightning.exe` needs no Python; the phone and PC hand one encrypted ledger between them over local Wi-Fi, with one writer at a time. Named profiles open with a password, recovery key and security question. Ordinary Windows recovery/fault acceptance and legacy import remain open; beta testers may use sample or real data with an independent backup.
-- **Demo:** `python -m lightning --demo`, or "See Lightning with a sample household" on an empty welcome page, opens Mohab's last three months in a separate database.
+- **Samples:** `python -m lightning --demo` opens Mohab's last three months in a separate database. An empty profile's welcome page can load Mohab's full 2026 CSV sample or one of four fictional Egyptian stories—Amr, Abdelrahman, Menna and Fatma—with distinct cash-flow, investing, freelance-income and emergency-reserve cases.
 
 ## Period and fixed-horizon visuals
 
