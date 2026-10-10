@@ -83,6 +83,11 @@ async def settings_page(request: Request):
         ai_preview = ai_snapshot["preview"]
         ai_filename = f"lightning-analysis-{ai_period.start_text}-to-{ai_period.end_text}.xlsx"
         ai_prompt = ai_service.prompt(ai_period, ai_filename, ai_snapshot)
+    currency_registry = CurrencyRegistry(c.db)
+    currency_suggestions = currency_registry.suggestions()
+    currency_tab = "rates" if request.query_params.get("tab") == "rates" else "currencies"
+    fx_history = ([row for row in c.reevaluations.history() if row["price_source"] == "FX"]
+                  if section == "currencies" and currency_tab == "rates" else [])
     return render(request, "settings/index.html", db_path=c.db.path, backups=[b.name for b in backups], plan=plan,
                   classes=c.assets.list_classes(), assets=c.assets.list_assets(), factor_rows=factor_rows, factor_groups=factor_groups,
                   section=request.query_params.get("section", "general"), return_to=return_to,
@@ -98,10 +103,12 @@ async def settings_page(request: Request):
                   ai_month=month_of(ai_period.end) if ai_period else month_of(today()),
                   current_month=month_of(today()), health_limits=health_limits,
                   health_fund=health_fund,
-                  currencies=CurrencyRegistry(c.db).list(),
-                  currency_suggestions=CurrencyRegistry(c.db).suggestions(),
+                  currencies=currency_registry.list(),
+                  currency_suggestions=currency_suggestions,
+                  currency_suggestion_codes={row["code"] for row in currency_suggestions},
+                  currency_tab=currency_tab, fx_history=fx_history,
                   fx_rates=c.fx.list() if hasattr(c, "fx") else [],
-                  pending_fx=c.reevaluations.pending_fx() if section == "general" else [],
+                  pending_fx=c.reevaluations.pending_fx() if section == "currencies" and request.query_params.get("tab") == "rates" else [],
                   # Every tab's gear, so each tab's settings can be reached from Settings too.
                   tab_settings=[{"label": tab.gear_label, "href": tab.gear, "where": section.label
                                  if len(section.tabs) == 1 else f"{section.label} · {tab.label}"}
@@ -122,8 +129,8 @@ async def save_currency(request: Request):
             c.set_profile_currency(str(form.get("base_currency", "")))
             message = "Profile currency saved."
     except (ValueError, LightningError) as exc:
-        return redirect("/settings", exc.message if isinstance(exc, LightningError) else str(exc))
-    return redirect("/settings", message)
+        return redirect("/settings?section=currencies", exc.message if isinstance(exc, LightningError) else str(exc))
+    return redirect("/settings?section=currencies", message)
 
 
 @router.post("/fx-rate")
@@ -134,8 +141,8 @@ async def save_fx_rate(request: Request):
         c.fx.save(str(form.get("currency", "")), str(form.get("date", "")), str(form.get("rate", "")))
         c.reevaluations.process_due()
     except (ValueError, LightningError) as exc:
-        return redirect("/settings", exc.message if isinstance(exc, LightningError) else str(exc))
-    return redirect("/settings", "Exchange rate saved.")
+        return redirect("/settings?section=currencies&tab=rates", exc.message if isinstance(exc, LightningError) else str(exc))
+    return redirect("/settings?section=currencies&tab=rates", "Exchange rate saved.")
 
 
 @router.post("/financial-health-limit")

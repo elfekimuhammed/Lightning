@@ -235,12 +235,19 @@ def test_settings_registers_and_selects_profile_currencies(client, c):
     from lightning.database.currencies import CurrencyRegistry
 
     CurrencyRegistry(c.db).register("USD")
-    page = client.get("/settings")
-    assert 'id="base_currency" name="base_currency"' in page.text
-    assert 'list="registered-base-currencies" value="EGP"' in page.text
-    assert 'value="USD"' in page.text
+    page = client.get("/settings?section=currencies")
+    assert 'data-currency-search' in page.text
+    assert 'data-search="usd us dollar"' in page.text.lower()
+    assert 'Set active' in page.text and 'Active' in page.text
+    fx_page = client.get('/settings?section=currencies&tab=rates')
+    assert 'FX reevaluation history' in fx_page.text and 'name="currency"' in fx_page.text
     assert client.post("/settings/currency", data={"action": "base", "base_currency": "USD"}).status_code == 200
     assert c.settings.base_currency == "USD"
+
+
+def test_fullscreen_control_is_only_in_settings(client):
+    assert 'data-fullscreen-toggle' not in client.get('/').text
+    assert 'data-fullscreen-toggle' in client.get('/settings').text
 
 
 def test_account_form_offers_registered_currencies(client, c):
