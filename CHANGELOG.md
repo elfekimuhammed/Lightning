@@ -10,6 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-10 · Codex: stress-audited all four sample stories through monthly cash-flow and spending reports; clarified each welcome-page question so it describes the scenario the ledger actually demonstrates.
 - 2026-10-10 · Codex: deepen all four sample ledgers with locally grounded, categorized transactions; Abdelrahman now has CIB naming, varied conservative spending and a June cash-flow shortfall, while other stories show variable invoices, side-deal inventory and Fatma's repair.
 - 2026-10-10 · Codex: empty profiles can now load four more fictional Egyptian stories—Amr, Abdelrahman, Menna and Fatma—alongside Mohab. They include irregular income, negative-cash-flow months, overspending and emergency-reserve cases for analysis.
 - 2026-10-10 · Codex: the first-account welcome screen now lets a new profile choose its base currency before adding an account, rather than hiding that choice in Settings.

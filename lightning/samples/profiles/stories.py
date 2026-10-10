@@ -27,7 +27,7 @@ STORY_PROFILES = {
                   ("EXP.PERSONAL.DINING", "Local café", [300, 350, 300, 400, 350, 400, 350, 300, 450, 400], 23),
                   ("EXP.WORK.OTHER", "Resale stock supplier", [0, 0, 5200, 0, 0, 0, 4800, 0, 0, 0], 21),
               ],
-              "question": "Which months run short if a side deal pays late?"},
+              "question": "Which months did resale-stock costs push cash flow below zero?"},
     "abdelrahman": {"name": "Abdelrahman", "label": "Consistency", "title": "The steady engineer",
                       "opening": "60000", "income": [32000] * 5 + [34000] * 3 + [36000] * 2,
                       "income_category": "EXP.WORK.SALARY", "income_counterparty": "Engineering salary",
@@ -56,7 +56,7 @@ STORY_PROFILES = {
                           ("EXP.PERSONAL.FEES", "CIB account fees", [100] * 10, 28),
                           ("EXP.PERSONAL.SHOPPING", "Laptop replacement", [0, 0, 0, 0, 0, 14500, 0, 0, 0, 0], 24),
                       ],
-                      "question": "How does one overspend month affect steady investing?"},
+                      "question": "Did June's laptop and weekend erase his surplus, and did he keep investing?"},
     "menna": {"name": "Menna", "label": "Safety", "title": "The freelance artist",
                 "opening": "60000", "income": [12000, 26000, 0, 33000, 8000, 0, 28000, 15000, 0, 24000],
                 "income_category": "EXP.WORK.BUSINESS", "income_counterparty": "Illustration client invoice",
@@ -80,7 +80,7 @@ STORY_PROFILES = {
                     ("EXP.WORK.OFFICE", "Art supplies", [1200, 1800, 900, 2400, 1500, 1100, 2100, 1700, 1000, 1900], 21),
                     ("EXP.WORK.SOFTWARE", "Design software", [450] * 10, 26),
                 ],
-                "question": "How much reserve bridges quiet months and late invoices?"},
+                "question": "How do zero-invoice months affect cash flow, and how far is her EGP 4,000 reserve from its EGP 60,000 goal?"},
     "fatma": {"name": "Fatma", "label": "Emergency reserve", "title": "The household organiser",
                 "opening": "30000", "income": [18000] * 10, "income_category": "EXP.WORK.SALARY",
                 "income_counterparty": "Monthly salary", "income_days": [25] * 10, "extra": [0] * 10,
@@ -100,7 +100,7 @@ STORY_PROFILES = {
                     ("EXP.PERSONAL.UTILITIES", "Vodafone mobile", [350] * 10, 18),
                     ("EXP.PERSONAL.OTHER", "Refrigerator repair", [0, 0, 0, 0, 0, 7800, 0, 0, 0, 0], 24),
                 ],
-                "question": "How does a gradual reserve absorb a refrigerator repair?"},
+                "question": "What does a EGP 7,800 refrigerator repair do to a near-balanced household budget?"},
 }
 
 
