@@ -1396,6 +1396,24 @@ document.querySelectorAll("[data-counterparty-filter]").forEach((search) => {
   });
 });
 
+// Currency settings: filter the full ISO list as the user types.
+document.querySelectorAll("[data-currency-search]").forEach((search) => {
+  const list = search.closest(".currency-settings")?.querySelector("[data-currency-list]");
+  const empty = list?.querySelector("[data-currency-empty]");
+  const filter = () => {
+    const query = search.value.trim().toLocaleLowerCase();
+    let shown = 0;
+    list?.querySelectorAll("[data-currency-row]").forEach((row) => {
+      const matches = !query || (row.dataset.search || "").includes(query);
+      row.hidden = !matches;
+      if (matches) shown += 1;
+    });
+    if (empty) empty.hidden = shown !== 0;
+  };
+  search.addEventListener("input", filter);
+  filter();
+});
+
 // One contextual dialog for server-rendered forms and transaction details.
 (() => {
   const dialog = document.getElementById("app-popup");

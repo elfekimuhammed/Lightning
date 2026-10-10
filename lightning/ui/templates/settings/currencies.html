@@ -1,11 +1,11 @@
 <section class="card data-panel currency-settings">
-  <div class="section-head"><div><h2>{{ 'Currency settings'|tr(locale) }}</h2><p class="muted small">{{ 'Manage the currencies available to this profile and its exchange rates.'|tr(locale) }}</p></div></div>
+  <div class="section-head"><div><h2>{{ 'Currencies'|tr(locale) }}</h2><p class="muted small">{{ 'Manage the currencies available to this profile and its exchange rates.'|tr(locale) }}</p></div></div>
   <nav class="plan-tabs-bar currency-tabs" aria-label="{{ 'Currency settings'|tr(locale) }}">
     <a class="plan-tab tab-currencies" {% if currency_tab != 'rates' %}aria-current="page"{% endif %} href="/settings?section=currencies">{{ 'Currencies'|tr(locale) }}</a>
     <a class="plan-tab tab-currencies" {% if currency_tab == 'rates' %}aria-current="page"{% endif %} href="/settings?section=currencies&amp;tab=rates">{{ 'FX rates and reevaluation'|tr(locale) }}</a>
   </nav>
   {% if currency_tab != 'rates' %}
-  <div class="currency-current"><div><span class="muted small">{{ 'Profile currency'|tr(locale) }}</span><strong>{{ base }}</strong></div><span class="currency-active-status"><i aria-hidden="true"></i>{{ 'Active'|tr(locale) }}</span></div>
+  <div class="currency-current"><span class="muted">{{ 'Profile currency'|tr(locale) }}</span><strong>{{ base }}</strong><span class="currency-active-status"><i aria-hidden="true"></i>{{ 'Active'|tr(locale) }}</span></div>
   <label class="field currency-search"><span>{{ 'Search currencies'|tr(locale) }}</span><input type="search" data-currency-search placeholder="{{ 'Search by code or currency name'|tr(locale) }}" autocomplete="off"></label>
   <div class="currency-list" data-currency-list>
     {% set registered_codes = currencies|map(attribute='code')|list %}
@@ -14,14 +14,14 @@
       <div class="currency-setting-row" data-currency-row data-search="{{ (currency.code ~ ' ' ~ currency.name)|lower }}">
         <span class="currency-code">{{ currency.code }}</span><span>{{ currency.name }}</span>
         {% if is_base %}<span class="currency-active-status"><i aria-hidden="true"></i>{{ 'Active'|tr(locale) }}</span>
-        {% elif is_registered %}<form method="post" action="/settings/currency"><input type="hidden" name="action" value="base"><input type="hidden" name="base_currency" value="{{ currency.code }}"><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"><button class="cat-icon currency-action" type="submit" title="{{ 'Set active'|tr(locale) }}" aria-label="{{ 'Set active {currency}'|tr(locale, currency=currency.code) }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg></button></form>
-        {% else %}<form method="post" action="/settings/currency"><input type="hidden" name="action" value="register"><input type="hidden" name="code" value="{{ currency.code }}"><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"><button class="cat-icon currency-action" type="submit" title="{{ 'Add currency'|tr(locale) }}" aria-label="{{ 'Add {currency}'|tr(locale, currency=currency.code) }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button></form>{% endif %}
+        {% elif is_registered %}<form method="post" action="/settings/currency"><input type="hidden" name="action" value="base"><input type="hidden" name="base_currency" value="{{ currency.code }}"><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"><button class="btn small" type="submit">{{ 'Set active'|tr(locale) }}</button></form>
+        {% else %}<form method="post" action="/settings/currency"><input type="hidden" name="action" value="register"><input type="hidden" name="code" value="{{ currency.code }}"><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"><button class="btn small" type="submit">{{ 'Add currency'|tr(locale) }}</button></form>{% endif %}
       </div>
     {% endfor %}
     {% for currency in currencies if currency.code not in currency_suggestion_codes %}
       <div class="currency-setting-row" data-currency-row data-search="{{ (currency.code ~ ' ' ~ currency.name)|lower }}"><span class="currency-code">{{ currency.code }}</span><span>{{ currency.name }}</span>
         {% if currency.code == base %}<span class="currency-active-status"><i aria-hidden="true"></i>{{ 'Active'|tr(locale) }}</span>
-        {% else %}<form method="post" action="/settings/currency"><input type="hidden" name="action" value="base"><input type="hidden" name="base_currency" value="{{ currency.code }}"><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"><button class="cat-icon currency-action" type="submit" title="{{ 'Set active'|tr(locale) }}" aria-label="{{ 'Set active {currency}'|tr(locale, currency=currency.code) }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg></button></form>{% endif %}
+        {% else %}<form method="post" action="/settings/currency"><input type="hidden" name="action" value="base"><input type="hidden" name="base_currency" value="{{ currency.code }}"><input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}"><button class="btn small" type="submit">{{ 'Set active'|tr(locale) }}</button></form>{% endif %}
       </div>
     {% endfor %}
     <p class="muted small" data-currency-empty hidden>{{ 'No currencies match your search.'|tr(locale) }}</p>
@@ -37,4 +37,3 @@
   <h2>{{ 'FX reevaluation history'|tr(locale) }}</h2><table><thead><tr><th>{{ 'Date'|tr(locale) }}</th><th>{{ 'Account and asset'|tr(locale) }}</th><th class="num">{{ 'Units'|tr(locale) }}</th><th class="num">{{ 'Change'|tr(locale) }} ({{ base }})</th></tr></thead><tbody>{% for row in fx_history %}<tr><td>{{ row.date }}</td><td>{{ row.account_name }}<small class="muted"> · {{ row.asset_name }}</small></td><td class="num">{{ row.units_e6|money(False, 2) }} {{ row.currency }}</td><td class="num {{ row.return_base_e6|tone if row.return_base_e6 is not none else '' }}">{{ row.return_base_e6|money(True) if row.return_base_e6 is not none else '—' }}</td></tr>{% else %}<tr><td colspan="4" class="empty">{{ 'No FX reevaluations yet.'|tr(locale) }}</td></tr>{% endfor %}</tbody></table>
   {% endif %}
 </section>
-{% if currency_tab != 'rates' %}<script nonce="{{ request.state.csp_nonce|default('') }}">(()=>{const search=document.querySelector('[data-currency-search]'),rows=[...document.querySelectorAll('[data-currency-row]')],empty=document.querySelector('[data-currency-empty]');search?.addEventListener('input',()=>{const q=search.value.trim().toLocaleLowerCase();let visible=0;rows.forEach(row=>{const match=row.dataset.search.includes(q);row.hidden=!match;if(match)visible++});if(empty)empty.hidden=visible>0})})();</script>{% endif %}
