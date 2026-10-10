@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import secrets
 import time
 from dataclasses import dataclass
@@ -10,6 +11,8 @@ from pathlib import Path
 
 from lightning.bootstrap import Container, ReadOnlyCopyError, build
 from lightning.database.connection import Database
+from lightning.database.currencies import CurrencyRegistry
+from lightning.database.seed import CASH_ASSETS
 from lightning.database.migrator import inspect_schema
 from lightning.database.snapshot import verify_connection
 from lightning.security.keys import (clean_question, create_key_file, new_data_key, new_recovery_key,
@@ -23,6 +26,9 @@ from .roles import SessionRole
 
 class ProfileError(ValueError):
     """Safe, deliberately authored messages suitable for the locked UI."""
+
+
+PROFILE_CURRENCIES = frozenset(code for code, _ in CASH_ASSETS)
 
 
 def validate_password(password: str, confirm: str) -> None:
@@ -188,6 +194,7 @@ class PendingProfile:
     recovery: str
     key: bytes
     slot: dict          # the whole key file: both locks, the question and the checks
+    base_currency: str
     expires: float
 
 
@@ -231,11 +238,15 @@ class ProfileSession:
         if self.container is not None:
             raise ProfileError("Lock the current profile before choosing another one.")
 
-    def prepare(self, name: str, password: str, confirm: str, question: str, answer: str) -> PendingProfile:
+    def prepare(self, name: str, password: str, confirm: str, question: str, answer: str,
+                currency: str = "EGP") -> PendingProfile:
         self._locked()
         validate_password(password, confirm)
         if not name.strip() or len(name) > 200:
             raise ProfileError("Enter a profile name of 1–200 characters.")
+        currency = currency.strip().upper()
+        if not re.fullmatch(r"[A-Z]{3}", currency) or currency not in PROFILE_CURRENCIES:
+            raise ProfileError("Choose a currency from the list.")
         try:
             question, _ = clean_question(question), normalize_answer(answer)
         except ValueError as exc:
@@ -243,7 +254,7 @@ class ProfileSession:
         paths = create_profile(name, root=self.root)
         key, recovery = new_data_key(), new_recovery_key()
         self.pending = PendingProfile(paths, recovery, key, create_key_file(key, password, recovery, question, answer),
-                                      time.monotonic() + 900)
+                                      currency, time.monotonic() + 900)
         # Invalidate confirmation forms from any older setup tab. Otherwise a
         # user could acknowledge key A while the pending database uses key B.
         self.csrf = secrets.token_urlsafe(32)
@@ -283,6 +294,8 @@ class ProfileSession:
                 finally:
                     os.close(directory)
             container = build(paths.db_path, key=pending.key, backup_dir=paths.backups_dir)
+            CurrencyRegistry(container.db).register(pending.base_currency)
+            container.set_profile_currency(pending.base_currency)
             self._activate(paths, lock, container)
         except BaseException:
             if container is not None:

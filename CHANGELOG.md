@@ -10,6 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-10 · Codex: profile setup now lets you choose its starting currency, including EGP, USD, EUR, GBP, SAR and AED; the selected currency becomes the profile base before any money is recorded.
 - 2026-10-10 · Codex: register edits now save on a click outside their row; aligned Notes with the other fields and tightened the loan popup. Income recurring items show only income categories; System Categories contains loans, held money, internal transfers, capital allocation and Adjustment.
 - 2026-10-10 · Codex: make long register pages keep their edit position, remove the sticky header, add a quiet page-jump control, and keep date, notes and balance columns readable.
 - 2026-10-10 · Codex: collapse Overview investments, center the investment-planning action, make expense intensity a day calendar, and retain net cash flow beside it.

@@ -13,6 +13,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, PlainTextResponse, RedirectResponse, Response
 
 from lightning.database.backup import list_backups
+from lightning.database.seed import CASH_ASSETS
 from lightning.sync.state import ProtocolError
 from lightning.security.keys import SUGGESTED_QUESTIONS, suggest_password
 from lightning.ui.i18n import ARABIC_UI
@@ -250,6 +251,7 @@ def profile_app(credentials: Credentials, root: Path | str | None = None, device
                       profiles=[], backups=[], selected="", backup="", name="", recovery="",
                       active_name=session.name, notice="", suggestion="", chosen_password="",
                       questions=SUGGESTED_QUESTIONS, question="", new_recovery="", locale=locale,
+                      profile_currencies=CASH_ASSETS, currency="EGP",
                       arabic_translations=ARABIC_UI if locale == "ar" else {})
         if mode == "setup" and not context.get("suggestion"):
             values["suggestion"] = suggest_password()
@@ -320,13 +322,14 @@ def profile_app(credentials: Credentials, root: Path | str | None = None, device
         chosen = suggestion if form.get("use_suggestion") == "yes" else ""
         password = chosen or str(form.get("password", ""))
         confirm = chosen or str(form.get("confirm", ""))
+        currency = str(form.get("currency", "EGP"))
         def operation():
             pending = session.prepare(str(form.get("name", "")), password, confirm,
-                                      str(form.get("question", "")), str(form.get("answer", "")))
+                                      str(form.get("question", "")), str(form.get("answer", "")), currency)
             return page(request, "recovery-key", recovery=pending.recovery, name=pending.paths.profile.name,
                         chosen_password=chosen, notice="Will create: " + str(pending.paths.db_path))
         return await action(request, "setup", operation, name=str(form.get("name", "")), suggestion=suggestion,
-                            question=str(form.get("question", "")))
+                            question=str(form.get("question", "")), currency=currency)
 
     @app.post("/profiles/confirm")
     async def confirm(request: Request):

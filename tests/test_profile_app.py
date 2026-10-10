@@ -25,10 +25,11 @@ def recovery_shown(text):
     return re.search(r'aria-label="Recovery key">([0-9-]+)<', text).group(1)
 
 
-def create(browser, name="Home"):
+def create(browser, name="Home", currency="EGP"):
     page = browser.get("/profiles/new")
     csrf = token(page.text)
-    page = browser.post("/profiles/new", data={"csrf": csrf, "name": name, "password": PASSWORD, "confirm": PASSWORD, **SECRET})
+    page = browser.post("/profiles/new", data={"csrf": csrf, "name": name, "currency": currency,
+                                                "password": PASSWORD, "confirm": PASSWORD, **SECRET})
     assert page.status_code == 200, page.text
     assert "Save your recovery key" in page.text
     csrf = token(page.text)
@@ -64,6 +65,17 @@ def test_real_finance_profile_flow_and_stale_form_rejection(tmp_path):
         assert page.status_code == 200, page.text
         assert "My wallet" in browser.get("/accounts").text
     assert app.session.container is None
+
+
+def test_profile_setup_sets_the_chosen_currency(tmp_path):
+    browser, app, cfg = start(tmp_path)
+    with browser:
+        browser.get("/__launch", params={"code": cfg.launch_code})
+        setup = browser.get("/profiles/new").text
+        assert 'name="currency"' in setup
+        assert "USD — US Dollar" in setup
+        create(browser, currency="USD")
+        assert app.session.container.base_currency == "USD"
 
 
 def test_host_auth_origin_and_body_limits(tmp_path):
