@@ -3116,14 +3116,14 @@ html[dir="rtl"] .code, html[dir="rtl"] code, html[dir="rtl"] [data-ref], html[di
 }
 .main .key-notes:has(> :only-child) { grid-template-columns:minmax(0, 680px); }
 .main .key-notes:has(> :only-child) .key-note { width:100%; }
-.main .register-rows { min-width:1000px!important; table-layout:fixed; border-collapse:collapse; }
+.main .register-rows { min-width:1080px!important; table-layout:fixed; border-collapse:collapse; }
 .main .register-rows .col-select { width:40px; }
-.main .register-rows .col-date { width:115px; }
-.main .register-rows .col-counterparty { width:22%; }
-.main .register-rows .col-category { width:18%; }
-.main .register-rows .col-notes { width:19%; }
-.main .register-rows .col-amount { width:130px; }
-.main .register-rows .col-balance { width:125px; }
+.main .register-rows .col-date { width:120px; }
+.main .register-rows .col-counterparty { width:24%; }
+.main .register-rows .col-category { width:21%; }
+.main .register-rows .col-notes { width:10%; }
+.main .register-rows .col-amount { width:160px; }
+.main .register-rows .col-balance { width:145px; }
 .main .register-rows thead th { padding:10px 8px!important; white-space:nowrap; color:var(--ink); font-size:var(--fs-meta); border-bottom:1px solid var(--line); }
 .main .register-rows tbody td { padding:8px!important; vertical-align:middle; }
 .main .register-rows :is(.register-date-cell,.register-category-cell,.register-notes-cell,.register-balance-cell) { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -3139,10 +3139,13 @@ html[dir="rtl"] .code, html[dir="rtl"] code, html[dir="rtl"] [data-ref], html[di
 .main .register-rows .register-edit-category .category-picker { width:100%; min-width:0; }
 .main .register-rows .register-edit-counterparty select { margin-top:4px; }
 .main .register-rows .register-edit-amount { text-align:right; }
-.main .register-rows .register-edit-amount button { margin-top:4px; }
+.main .register-rows .register-edit-amount { white-space:nowrap; }
+.main .register-rows .register-edit-amount input { display:inline-block; width:calc(100% - 36px)!important; vertical-align:middle; }
+.main .register-rows .register-edit-amount .register-submit { display:inline-grid; vertical-align:middle; margin-left:3px; color:var(--ink); }
 .main .register-rows .register-edit-balance { color:var(--muted); text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
 .main .register-rows .register-row-action { text-align:right; white-space:nowrap; }
 .main .register-rows .register-notes-cell .register-note { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.main .register-rows .register-edit-notes input { overflow:hidden; text-overflow:ellipsis; }
 .main .register-rows tr.editing td { background:var(--tint-held)!important; }
 .main > .topbar { position:sticky; top:0; z-index:30; margin:-24px -24px 24px; padding:14px 24px; border-bottom:1px solid var(--line); background:rgba(248,252,250,.96); backdrop-filter:blur(14px); }
 .main > .topbar .actions { display:flex; }
