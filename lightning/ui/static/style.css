@@ -180,6 +180,10 @@ code, .code { font-family: "JetBrains Mono", ui-monospace, "Cascadia Mono", Cons
 .setup-row span:nth-child(2) { flex: 1; display: flex; flex-direction: column; gap: 2px; }
 .setup-row small { color: var(--ink-700); font-size: 14px; }
 .setup-action { color: var(--sky-600); font-weight: 600; }
+.welcome-currency { display:flex; align-items:center; flex-wrap:wrap; gap:8px 12px; margin:12px 0 4px; }
+.welcome-currency label { font-weight:700; }
+.welcome-currency select { min-width:190px; }
+.welcome-currency-note { margin:0 0 20px; }
 .onboarding-actions { display: flex; align-items: center; gap: 16px; margin-top: 24px; flex-wrap: wrap; }
 .onboarding-note { text-align: right; margin: 18px 0 0; }
 .getting-started { padding: 42px 38px; background: var(--grad-glow); border: 0; display: flex; flex-direction: column; }

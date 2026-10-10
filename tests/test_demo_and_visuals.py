@@ -194,6 +194,15 @@ def test_the_welcome_button_adds_the_demo_only_once(c, monkeypatch):
     assert again.status_code == 303 and len(c.accounts.list()) == 6
 
 
+def test_welcome_screen_can_set_the_profile_currency_before_the_first_account(c):
+    client = TestClient(create_app(c), base_url="http://127.0.0.1")
+    page = client.get("/")
+    assert 'action="/setup/currency"' in page.text and "USD — US Dollar" in page.text
+    saved = client.post("/setup/currency", data={"currency": "USD"}, follow_redirects=False)
+    assert saved.status_code == 303
+    assert c.base_currency == "USD"
+
+
 def test_the_demo_launcher_never_touches_another_database(tmp_path):
     from lightning.main import main
     real = tmp_path / "lightning.db"

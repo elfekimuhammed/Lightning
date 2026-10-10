@@ -4,6 +4,13 @@
 {% block content %}
 <section class="card first-account-card">
   <div class="label">{{ "First step"|tr(locale) }}</div>
+  <form method="post" action="/setup/currency" class="welcome-currency">
+    <label for="welcome-currency">{{ 'Profile currency'|tr(locale) }}</label>
+    <select id="welcome-currency" name="currency">{% for code, label in currencies %}<option value="{{ code }}"{% if code == base %} selected{% endif %}>{{ code }} — {{ label }}</option>{% endfor %}</select>
+    <button class="btn small" type="submit">{{ 'Save currency'|tr(locale) }}</button>
+    <input type="hidden" name="__session" value="{{ request.state.session_token|default('') }}">
+  </form>
+  <p class="muted small welcome-currency-note">{{ 'Choose the currency used for totals. You can change it before recording money or exchange rates.'|tr(locale) }}</p>
   <h2>{{ "Where do you keep your money?"|tr(locale) }}</h2>
   <p class="muted">{{ "Start with the account your salary goes into. Next you can import its statement, so your history is in from day one."|tr(locale) }}</p>
   <div class="setup-list first-account-choices">
