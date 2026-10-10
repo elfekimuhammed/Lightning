@@ -10,6 +10,7 @@ Every change to Lightning is recorded here — newest first. Dates are `yyyy-mm-
 - When a version is tagged, rename `Unreleased` to that version and start a new `Unreleased` above it.
 
 ## [Unreleased]
+- 2026-10-10 · Claude: the Arabic guideline (`guideline/*-ar.html`) mirrors the English documents again: removed the unstyled summary over A and C, restored the full translated Part B in place of the separate compass, Alexandria for Arabic, layout flipped right to left. The website's `ar/` pages now mirror the English pages too.
 - 2026-10-09 · Luna, for Codex: Arabic PC and phone screens localize visible digits and number separators, including charts and dynamic text; form values and identifiers stay intact. A06/C10 now record the Arabic numeral rule.
 - 2026-10-09 · Codex and Luna: rebuilt the 13 Arabic website pages from the Arabic compass, with Egyptian copy, Arabic numerals, responsive layouts and preserved SEO/download links; desktop and mobile browser checks passed.
 - 2026-10-09 · Codex and Luna: redesigned the Arabic website compass in `guideline/website-ar.html` with locally hosted Alexandria, Egyptian copy, Arabic numerals and RTL component examples; mirrored it in the website repository.

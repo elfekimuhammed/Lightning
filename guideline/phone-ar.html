@@ -58,12 +58,12 @@ h1,h2,h3,h4,p{margin:0}
 a{color:var(--ink);text-decoration-color:var(--line-ctl);text-underline-offset:3px}
 :focus-visible{outline:3px solid var(--green);outline-offset:3px}
 .num{font-family:var(--display);font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
-.unit{font:600 13px/1 var(--body);color:var(--muted);margin-left:5px;letter-spacing:0}
+.unit{font:600 13px/1 var(--body);color:var(--muted);margin-inline-start:5px;letter-spacing:0}
 .tab{font-variant-numeric:tabular-nums}
 
 /* ===== Layout ===== */
 .wrap{display:grid;grid-template-columns:240px minmax(0,1fr);max-width:1360px;margin:0 auto}
-nav.side{position:sticky;top:0;height:100vh;overflow:auto;padding:26px 14px;border-right:1px solid var(--line)}
+nav.side{position:sticky;top:0;height:100vh;overflow:auto;padding:26px 14px;border-inline-end:1px solid var(--line)}
 nav.side .brand{display:flex;align-items:center;gap:10px;margin:0 10px 4px;font:800 19px/1 var(--display)}
 nav.side .brand img{height:30px;width:auto}
 nav.side small{display:block;margin:6px 10px 20px;color:var(--muted);font-size:12px}
@@ -83,17 +83,17 @@ h3.sub{font:700 18px/1.3 var(--display);margin:32px 0 12px}
 .note{color:var(--ink2);max-width:72ch}
 .note+.note{margin-top:8px}
 .muted{color:var(--muted)}
-ul.rules{margin:10px 0 0;padding-left:18px;max-width:78ch;color:var(--ink2)}ul.rules li{margin:6px 0}ul.rules b{color:var(--ink)}
+ul.rules{margin:10px 0 0;padding-inline-start:18px;max-width:78ch;color:var(--ink2)}ul.rules li{margin:6px 0}ul.rules b{color:var(--ink)}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
 .grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
 .grid4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
 .scroll{overflow-x:auto}
 table.t{border-collapse:collapse;width:100%;background:var(--white);border-radius:16px;overflow:hidden;box-shadow:var(--shadow)}
-table.t th,table.t td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+table.t th,table.t td{text-align:start;padding:10px 14px;border-bottom:1px solid var(--line);vertical-align:top}
 table.t th{font-size:12px;color:var(--muted);font-weight:700}
 table.t tr:last-child td{border-bottom:0}
 table.t td b{color:var(--ink)}
-table.t td.r{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+table.t td.r{text-align:end;font-variant-numeric:tabular-nums;white-space:nowrap}
 code{font:600 12px/1.4 ui-monospace,Consolas,monospace;background:var(--rowfield);padding:1px 6px;border-radius:6px;color:var(--ink2)}
 
 /* ===== Cards: four tiers ===== */
@@ -121,9 +121,9 @@ code{font:600 12px/1.4 ui-monospace,Consolas,monospace;background:var(--rowfield
   min-height:176px;padding:18px 18px 16px;border-radius:var(--r-card);
   background:linear-gradient(165deg,var(--white) 0%,var(--white) 38%,var(--tint) 100%);
   border:1px solid color-mix(in srgb,var(--tone) 26%,var(--line));box-shadow:var(--shadow);color:var(--ink);text-decoration:none}
-.kpi::before{content:"";position:absolute;z-index:-1;top:-56px;right:20px;width:46px;height:190px;border-radius:23px;
+.kpi::before{content:"";position:absolute;z-index:-1;top:-56px;inset-inline-end:20px;width:46px;height:190px;border-radius:23px;
   background:linear-gradient(180deg,var(--tone),transparent 85%);opacity:.18;transform:rotate(var(--angle))}
-.kpi::after{content:"";position:absolute;z-index:-1;top:-30px;right:-18px;width:46px;height:150px;border-radius:23px;
+.kpi::after{content:"";position:absolute;z-index:-1;top:-30px;inset-inline-end:-18px;width:46px;height:150px;border-radius:23px;
   background:linear-gradient(180deg,var(--tone),transparent 85%);opacity:.10;transform:rotate(var(--angle))}
 .kpi.azure{--tone:var(--azure);--tint:var(--t-azure)}
 .kpi.rose{--tone:var(--rose);--tint:var(--t-rose)}
@@ -133,7 +133,7 @@ code{font:600 12px/1.4 ui-monospace,Consolas,monospace;background:var(--rowfield
 .kpi.rose .ico{background:linear-gradient(135deg,#E68CA8,#D7678F)}
 .kpi .ico svg{width:18px;height:18px}
 .kpi .lbl{font:700 14px/1.3 var(--body);color:var(--ink2);margin-top:-2px}
-.kpi .top .chip{margin-left:auto}
+.kpi .top .chip{margin-inline-start:auto}
 .chip{flex:none;display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 9px;border-radius:999px;font:700 12px/1 var(--body);background:color-mix(in srgb,var(--white) 70%,transparent);color:var(--ink2);border:1px solid var(--line)}
 .chip.up{background:var(--t-green);color:var(--green-text);border-color:transparent}
 .chip.down{background:var(--t-rose);color:var(--ink2);border-color:transparent}
@@ -172,7 +172,7 @@ code{font:600 12px/1.4 ui-monospace,Consolas,monospace;background:var(--rowfield
 .logo-tile{border-radius:var(--r-card);min-height:200px;display:grid;place-items:center;padding:24px;position:relative;box-shadow:var(--shadow)}
 .logo-tile img{max-height:120px;max-width:80%}
 .logo-tile.lock img{max-height:56px}
-.logo-tile figcaption{position:absolute;left:16px;bottom:12px;font-size:12px;font-weight:600}
+.logo-tile figcaption{position:absolute;inset-inline-start:16px;bottom:12px;font-size:12px;font-weight:600}
 .on-canvas{background:linear-gradient(160deg,#E3F6EC,#E1EEFB)}.on-canvas figcaption{color:#5C7483}
 .on-white{background:#fff}.on-white figcaption{color:#5C7483}
 .on-nile{background:#0A2442}.on-nile figcaption{color:#B8CAD2}
@@ -182,14 +182,14 @@ figure{margin:0}
 .dont .stage img{height:80px}
 .dont b{color:var(--rose-strong)}
 
-.cdef td:first-child{white-space:nowrap}.cd{display:inline-block;width:22px;height:22px;border-radius:7px;background:var(--c);vertical-align:-6px;margin-right:10px;border:1px solid rgba(13,34,51,.08)}
+.cdef td:first-child{white-space:nowrap}.cd{display:inline-block;width:22px;height:22px;border-radius:7px;background:var(--c);vertical-align:-6px;margin-inline-end:10px;border:1px solid rgba(13,34,51,.08)}
 .aclass{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
 .fam{display:flex;gap:12px;align-items:flex-start;background:var(--white);border-radius:16px;padding:12px;box-shadow:var(--shadow)}
 .fam>span{flex:none;width:40px;height:40px;border-radius:12px;background:var(--c)}
 .fam.pair>span{width:28px}
 .fam b{display:block;font-size:13px}.fam code{background:none;padding:0;font-size:11px;color:var(--muted)}.fam small{display:block;color:var(--ink2);font-size:12px;margin-top:3px}
 .aorder{display:flex;gap:2px;height:40px;border-radius:12px;overflow:hidden}
-.aorder i{background:var(--c);color:#fff;font:700 11px/40px var(--body);font-style:normal;padding-left:8px;white-space:nowrap;overflow:hidden;min-width:0}
+.aorder i{background:var(--c);color:#fff;font:700 11px/40px var(--body);font-style:normal;padding-inline-start:8px;white-space:nowrap;overflow:hidden;min-width:0}
 /* ===== Type ===== */
 .ty td:first-child{white-space:nowrap}
 
@@ -221,8 +221,8 @@ figure{margin:0}
 .viz{--tone:var(--green);--tint:var(--t-green);position:relative;overflow:hidden;isolation:isolate;
   background:linear-gradient(165deg,var(--white) 0%,var(--white) 42%,var(--tint) 100%);
   border:1px solid color-mix(in srgb,var(--tone) 24%,var(--line));border-radius:var(--r-card);padding:16px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:10px}
-.viz::before{content:"";position:absolute;z-index:-1;top:-60px;right:26px;width:44px;height:190px;border-radius:22px;background:linear-gradient(180deg,var(--tone),transparent 85%);opacity:.14;transform:rotate(var(--angle))}
-.viz::after{content:"";position:absolute;z-index:-1;top:-34px;right:-16px;width:44px;height:150px;border-radius:22px;background:linear-gradient(180deg,var(--tone),transparent 85%);opacity:.08;transform:rotate(var(--angle))}
+.viz::before{content:"";position:absolute;z-index:-1;top:-60px;inset-inline-end:26px;width:44px;height:190px;border-radius:22px;background:linear-gradient(180deg,var(--tone),transparent 85%);opacity:.14;transform:rotate(var(--angle))}
+.viz::after{content:"";position:absolute;z-index:-1;top:-34px;inset-inline-end:-16px;width:44px;height:150px;border-radius:22px;background:linear-gradient(180deg,var(--tone),transparent 85%);opacity:.08;transform:rotate(var(--angle))}
 .t-azure{--tone:var(--azure);--tint:var(--t-azure)}.t-rose{--tone:var(--rose);--tint:var(--t-rose)}.t-alert{--tone:var(--rose-strong);--tint:var(--t-rose)}
 .t-neutral{--tone:var(--neutral);--tint:var(--track)}.t-class{--tone:#00907F;--tint:color-mix(in srgb,#00907F 9%,var(--white))}
 .viz header{display:flex;justify-content:space-between;align-items:center;gap:10px}
@@ -249,7 +249,7 @@ figure{margin:0}
 .row{display:flex;justify-content:space-between;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
 .row:first-child{border-top:0}
 .row .who b{display:block}.row .who small{color:var(--muted);font-size:12px}
-.row .amt{text-align:right;font-variant-numeric:tabular-nums}.row .amt b{display:block}.row .amt small{color:var(--muted);font-size:12px}
+.row .amt{text-align:end;font-variant-numeric:tabular-nums}.row .amt b{display:block}.row .amt small{color:var(--muted);font-size:12px}
 .in-amt{color:var(--green-text)}
 .cat-l1{display:flex;justify-content:space-between;padding:12px 0 8px;border-top:1px solid var(--line);font-weight:800}.cat-l1:first-child{border-top:0;padding-top:0}.cat-l1 span{font-weight:800}
 .cat-l2{display:flex;justify-content:space-between;padding:6px 0 6px 14px;color:var(--ink2)}
@@ -259,8 +259,8 @@ figure{margin:0}
 /* ===== Charts (demo) ===== */
 .bars .b{display:grid;grid-template-columns:110px 1fr 90px;align-items:center;gap:10px;margin:8px 0;font-size:13px}
 .bars .b i{display:block;height:12px;border-radius:0 6px 6px 0;background:var(--c)}
-.bars .b span:last-child{text-align:right;font-variant-numeric:tabular-nums;font-weight:700}
-.bars .b.l1{margin-top:12px}.bars .b.l1:first-child{margin-top:0}.bars .b.l1 span:first-child{font-weight:800;color:var(--ink)}.bars .b.l2 span:first-child{padding-left:14px;color:var(--ink2)}.bars .b.l2 i{height:8px;opacity:.75}.bars .b.other span:first-child{color:var(--muted)}
+.bars .b span:last-child{text-align:end;font-variant-numeric:tabular-nums;font-weight:700}
+.bars .b.l1{margin-top:12px}.bars .b.l1:first-child{margin-top:0}.bars .b.l1 span:first-child{font-weight:800;color:var(--ink)}.bars .b.l2 span:first-child{padding-inline-start:14px;color:var(--ink2)}.bars .b.l2 i{height:8px;opacity:.75}.bars .b.other span:first-child{color:var(--muted)}
 
 /* ===== Mock screen ===== */
 .screen{border-radius:24px;padding:24px;background:var(--canvas);border:1px solid var(--line);box-shadow:var(--shadow)}
@@ -276,14 +276,14 @@ figure{margin:0}
 .diff td:nth-child(4){color:var(--ink)}
 .diff td:nth-child(4) b{color:var(--green-text)}
 .anat{display:grid;grid-template-columns:minmax(0,320px) minmax(0,1fr);gap:28px;align-items:start}
-.anat ol{margin:0;padding-left:20px;color:var(--ink2)}.anat ol li{margin:7px 0}.anat ol b{color:var(--ink)}
+.anat ol{margin:0;padding-inline-start:20px;color:var(--ink2)}.anat ol li{margin:7px 0}.anat ol b{color:var(--ink)}
 
 .pyr{display:grid;gap:10px}
 .pyr .lv{display:grid;grid-template-columns:160px 1fr;gap:16px;align-items:center;padding:14px 16px;border-radius:16px;box-shadow:var(--shadow)}
 .pyr .lv b{font:700 16px/1.2 var(--display)}.pyr .lv span{color:var(--ink2);font-size:13px}
 
 @media (max-width:1100px){.grid4{grid-template-columns:repeat(2,minmax(0,1fr))}.grid3{grid-template-columns:1fr 1fr}.hero{grid-template-columns:1fr}}
-@media (max-width:860px){.wrap{grid-template-columns:1fr}nav.side{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line);display:flex;flex-wrap:nowrap;overflow-x:auto;padding:12px}nav.side .brand,nav.side small{display:none}nav.side a{white-space:nowrap}main{padding:24px 16px 80px}.grid2,.anat,.pagestrip{grid-template-columns:1fr}.hero h1{font-size:32px}}
+@media (max-width:860px){.wrap{grid-template-columns:1fr}nav.side{position:static;height:auto;border-inline-end:0;border-bottom:1px solid var(--line);display:flex;flex-wrap:nowrap;overflow-x:auto;padding:12px}nav.side .brand,nav.side small{display:none}nav.side a{white-space:nowrap}main{padding:24px 16px 80px}.grid2,.anat,.pagestrip{grid-template-columns:1fr}.hero h1{font-size:32px}}
 @media (max-width:560px){.grid4,.grid3{grid-template-columns:1fr}.pyr .lv{grid-template-columns:1fr}.lead-num{font-size:42px}.bars .b{grid-template-columns:90px 1fr 80px}}
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
 /* ===== 3.6: two parts, visual rules ===== */
@@ -294,7 +294,7 @@ body[data-part="a"] [data-part="b"],body[data-part="a"] [data-part="c"],body[dat
 nav.side .grp{margin:14px 10px 6px;font:800 12px/1 var(--body);color:var(--muted)}
 .secnum{font:800 13px/1 var(--display);color:var(--on-nile);background:var(--nile);border-radius:999px;padding:6px 9px;font-variant-numeric:tabular-nums;letter-spacing:0}
 .g-head h2::before{display:none}
-.subnum{font:800 .82em/1 var(--display);color:var(--muted);margin-right:10px;font-variant-numeric:tabular-nums}
+.subnum{font:800 .82em/1 var(--display);color:var(--muted);margin-inline-end:10px;font-variant-numeric:tabular-nums}
 .navnum{display:inline-block;width:34px;color:var(--muted);font-weight:800;font-variant-numeric:tabular-nums}
 .g-head p{max-width:56ch}
 /* rule tiles */
@@ -306,17 +306,17 @@ nav.side .grp{margin:14px 10px 6px;font:800 12px/1 var(--body);color:var(--muted
 /* do / don't */
 .dd{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
 .dd>div{border-radius:16px;padding:14px;background:var(--white);box-shadow:var(--shadow);position:relative}
-.dd>div::before{position:absolute;top:12px;right:14px;font:800 14px/1 var(--body)}
+.dd>div::before{position:absolute;top:12px;inset-inline-end:14px;font:800 14px/1 var(--body)}
 .dd .y{border-top:4px solid var(--green)}.dd .y::before{content:"✓";color:var(--green-text)}
 .dd .n{border-top:4px solid var(--rose-strong)}.dd .n::before{content:"✕";color:var(--rose-strong)}
 .dd small{display:block;margin-top:8px;font-size:12px;color:var(--muted);font-weight:700}
 .ddrows{display:grid;gap:10px}
 .ddrow{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .ddrow>div{border-radius:12px;padding:10px 14px;background:var(--white);box-shadow:var(--shadow);font-size:14px}
-.ddrow .y{border-left:4px solid var(--green)}.ddrow .n{border-left:4px solid var(--rose-strong);color:var(--muted)}
+.ddrow .y{border-inline-start:4px solid var(--green)}.ddrow .n{border-inline-start:4px solid var(--rose-strong);color:var(--muted)}
 .short{margin:10px 0 0;padding:0;list-style:none;display:grid;gap:6px;max-width:70ch}
-.short li{padding-left:18px;position:relative;color:var(--ink2)}
-.short li::before{content:"";position:absolute;left:0;top:.55em;width:8px;height:8px;border-radius:3px;background:var(--line-ctl);transform:rotate(var(--angle))}
+.short li{padding-inline-start:18px;position:relative;color:var(--ink2)}
+.short li::before{content:"";position:absolute;inset-inline-start:0;top:.55em;width:8px;height:8px;border-radius:3px;background:var(--line-ctl);transform:rotate(var(--angle))}
 .short b{color:var(--ink)}
 /* header specimens */
 .hspec{display:grid;gap:12px}
@@ -380,8 +380,8 @@ nav.side .grp{margin:14px 10px 6px;font:800 12px/1 var(--body);color:var(--muted
 .pf{width:100%;max-width:360px;border-radius:34px;background:var(--canvas);border:1px solid var(--line);box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column;position:relative;font-size:14px;color:var(--ink)}
 .pf-status{height:30px;padding:0 24px;display:flex;justify-content:space-between;align-items:center;font:700 11px/1 var(--body);color:var(--ink2);font-variant-numeric:tabular-nums}
 .pf-bar{height:56px;display:flex;align-items:center;gap:2px;padding:0 6px 0 16px}
-.pf-bar .pf-mark{height:28px;width:auto;margin-right:auto}
-.pf-bar .back{display:flex;align-items:center;gap:2px;margin-right:auto;font-weight:700;color:var(--ink2);margin-left:-8px}
+.pf-bar .pf-mark{height:28px;width:auto;margin-inline-end:auto}
+.pf-bar .back{display:flex;align-items:center;gap:2px;margin-inline-end:auto;font-weight:700;color:var(--ink2);margin-inline-start:-8px}
 .pf-icon{width:44px;height:44px;display:grid;place-items:center;border-radius:999px;color:var(--ink2)}
 .pf-body{padding:4px 16px 18px;display:flex;flex-direction:column;gap:12px;flex:1}
 .pf-title h3{font:700 24px/1.15 var(--display);letter-spacing:-.03em;margin:0}
@@ -401,11 +401,11 @@ nav.side .grp{margin:14px 10px 6px;font:800 12px/1 var(--body);color:var(--muted
 .pf-seg.two{display:grid;grid-template-columns:1fr 1fr;border-radius:22px}
 .pf-need{display:flex;align-items:center;gap:10px;height:56px;padding:0 8px 0 16px;border-radius:16px;background:var(--white);border:1px solid var(--line);font-weight:800}
 .pf-need::before{content:"";width:9px;height:9px;border-radius:50%;background:var(--rose-strong)}
-.pf-need em{font-style:normal;margin-left:auto;height:26px;min-width:30px;padding:0 9px;border-radius:999px;background:var(--t-rose);color:var(--rose-strong);display:grid;place-items:center;font-size:13px}
+.pf-need em{font-style:normal;margin-inline-start:auto;height:26px;min-width:30px;padding:0 9px;border-radius:999px;background:var(--t-rose);color:var(--rose-strong);display:grid;place-items:center;font-size:13px}
 .pf-need .ic{color:var(--muted)}
 .kt-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .kt{--tone:var(--green);--tint:var(--t-green);position:relative;overflow:hidden;isolation:isolate;display:flex;flex-direction:column;gap:6px;min-height:142px;padding:12px;border-radius:18px;background:linear-gradient(165deg,var(--white) 0%,var(--white) 40%,var(--tint) 100%);border:1px solid color-mix(in srgb,var(--tone) 26%,var(--line));box-shadow:var(--shadow);min-width:0}
-.kt::before{content:"";position:absolute;z-index:-1;top:-50px;right:10px;width:30px;height:140px;border-radius:15px;background:linear-gradient(180deg,var(--tone),transparent 85%);opacity:.16;transform:rotate(var(--angle))}
+.kt::before{content:"";position:absolute;z-index:-1;top:-50px;inset-inline-end:10px;width:30px;height:140px;border-radius:15px;background:linear-gradient(180deg,var(--tone),transparent 85%);opacity:.16;transform:rotate(var(--angle))}
 .kt.azure{--tone:var(--azure);--tint:var(--t-azure)}.kt.rose{--tone:var(--rose);--tint:var(--t-rose)}
 .kt .top{display:flex;align-items:center;justify-content:space-between;gap:6px}
 .kt .ico{width:28px;height:28px;border-radius:9px;display:grid;place-items:center;background:var(--tone);color:#fff}
@@ -414,7 +414,7 @@ nav.side .grp{margin:14px 10px 6px;font:800 12px/1 var(--body);color:var(--muted
 .kt .chip{height:22px;padding:0 7px;font-size:11px}
 .kt .lbl{font:700 13px/1.25 var(--body);color:var(--ink2)}
 .kt .fig{margin-top:auto;font-size:26px;line-height:1}
-.kt .fig small{font:600 12px/1 var(--body);color:var(--muted);margin-left:3px;letter-spacing:0}
+.kt .fig small{font:600 12px/1 var(--body);color:var(--muted);margin-inline-start:3px;letter-spacing:0}
 .kt .foot{font-size:12px;color:var(--ink2);white-space:nowrap;overflow:hidden}
 .kt .foot b{color:var(--ink);font-variant-numeric:tabular-nums}
 .kt .meter{height:5px;border-radius:99px;background:var(--track);overflow:hidden}.kt .meter i{display:block;height:100%;background:var(--tone);border-radius:99px}
@@ -423,7 +423,7 @@ nav.side .grp{margin:14px 10px 6px;font:800 12px/1 var(--body);color:var(--muted
 .pf-card h4{font:700 16px/1.3 var(--display);margin:0}
 .pf-card .sub{font-size:13px;color:var(--ink2);margin-top:2px}
 .pf-card .big{font-size:40px;line-height:1.05;margin:10px 0 4px}
-.pf-card .big small{font:600 13px/1 var(--body);color:var(--muted);margin-left:5px;letter-spacing:0}
+.pf-card .big small{font:600 13px/1 var(--body);color:var(--muted);margin-inline-start:5px;letter-spacing:0}
 .pf-rows>div{display:flex;justify-content:space-between;align-items:center;gap:12px;min-height:48px;border-top:1px solid var(--line);font-size:14px}
 .pf-rows>div span{color:var(--ink2)}.pf-rows>div b{font-variant-numeric:tabular-nums;white-space:nowrap}
 .pf-sec{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding-bottom:10px;border-bottom:1px solid var(--line);margin-top:12px}
@@ -434,7 +434,7 @@ nav.side .grp{margin:14px 10px 6px;font:800 12px/1 var(--body);color:var(--muted
 .pf-nav>span.on{color:var(--ink)}.pf-nav>span.on i{background:var(--nile);color:var(--on-nile)}
 .pf-gest{height:22px;display:grid;place-items:center;background:color-mix(in srgb,var(--paper) 92%,transparent)}
 .pf-gest::after{content:"";width:110px;height:4px;border-radius:99px;background:var(--line-ctl);opacity:.6}
-.pf-fab{position:absolute;right:16px;bottom:112px;width:56px;height:56px;border-radius:18px;background:var(--nile);color:var(--on-nile);display:grid;place-items:center;box-shadow:0 14px 26px -12px rgba(10,36,66,.6)}
+.pf-fab{position:absolute;inset-inline-end:16px;bottom:112px;width:56px;height:56px;border-radius:18px;background:var(--nile);color:var(--on-nile);display:grid;place-items:center;box-shadow:0 14px 26px -12px rgba(10,36,66,.6)}
 .pf-fab .ic{width:24px;height:24px}
 .pf-acts{display:flex;gap:8px}.pf-acts .btn{height:40px;font-size:13px;padding:0 16px}
 .pf-acts .more{width:40px;height:40px;border-radius:999px;border:1px solid var(--line-ctl);display:grid;place-items:center;background:var(--white);color:var(--ink2)}
@@ -448,7 +448,7 @@ nav.side .grp{margin:14px 10px 6px;font:800 12px/1 var(--body);color:var(--muted
 .pf-tx{display:flex;justify-content:space-between;gap:12px;min-height:60px;align-items:center;border-top:1px solid var(--line)}
 .pf-day+.pf-tx{border-top:0}
 .pf-tx b{display:block;font-size:15px}.pf-tx small{display:block;color:var(--muted);font-size:12.5px;margin-top:2px}
-.pf-tx .a{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}.pf-tx .a b.in{color:var(--green-text)}
+.pf-tx .a{text-align:end;font-variant-numeric:tabular-nums;white-space:nowrap}.pf-tx .a b.in{color:var(--green-text)}
 /* frame diagram */
 .zones{display:grid;grid-template-columns:minmax(0,300px) minmax(0,1fr);gap:28px;align-items:start}
 .zf{border-radius:30px;overflow:hidden;border:1px solid var(--line);box-shadow:var(--shadow);background:var(--canvas);font-size:12px;font-weight:700}
@@ -483,7 +483,7 @@ nav.side .grp{margin:14px 10px 6px;font:800 12px/1 var(--body);color:var(--muted
 .lrows>div{display:flex;align-items:center;gap:10px;min-height:40px;border-top:1px solid var(--line);font-size:13.5px}
 .lrows>div:first-child{border-top:0}
 .lrows>div::before{content:"";width:10px;height:10px;border-radius:3px;background:var(--c);flex:none}
-.lrows>div span{color:var(--ink2)}.lrows>div b{margin-left:auto;font-variant-numeric:tabular-nums}.lrows>div small{width:42px;text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
+.lrows>div span{color:var(--ink2)}.lrows>div b{margin-inline-start:auto;font-variant-numeric:tabular-nums}.lrows>div small{width:42px;text-align:end;color:var(--muted);font-variant-numeric:tabular-nums}
 .hm{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
 .hm>span{height:52px;min-width:0;border-radius:12px;padding:7px 7px;display:flex;flex-direction:column;justify-content:space-between;font:700 11px/1 var(--body);color:var(--ink2);background:var(--c,var(--track))}
 .hm>span b{font:800 12.5px/1 var(--display);font-variant-numeric:tabular-nums;color:var(--ink)}
@@ -499,12 +499,14 @@ nav.side .grp{margin:14px 10px 6px;font:800 12px/1 var(--body);color:var(--muted
 .pickdoc{margin-top:16px;padding:14px 16px;border-radius:16px;background:var(--track);font-size:14px;color:var(--ink2);max-width:62ch}
 .pickdoc b{color:var(--ink)}
 .pickdoc a{color:var(--ink);font-weight:800}
-:root{--body:'Noto Kufi Arabic',Tahoma,Arial,sans-serif}
+:root{--display:"Bricolage Grotesque",Alexandria,"Segoe UI",system-ui,sans-serif;--body:Manrope,Alexandria,"Segoe UI",system-ui,sans-serif}
+/* Arabic letters join: never space them out */
+html[dir=rtl] *{letter-spacing:normal!important}
 </style>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Kufi+Arabic:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;500;600;700;800&display=swap">
 </head>
 <!-- AI AGENTS: this is ONE of THREE guideline documents, all in this folder: app.html (Part A, the app on a PC, A01-A16), website.html (Part B, lightningeg.com, B01-B11), phone.html (Part C, the app on a phone, C01-C12). This file is phone.html. For anything about another surface, open that file; do not guess. Do not read a file whole (about 95,000 tokens in all): run `python tools/guideline.py` in the app repo to list sections and `python tools/guideline.py C05` to print one. -->
-<body data-part="c"><div dir="rtl" style="font-family:Tahoma,Arial,sans-serif"><header><h1>دليل العلامة التجارية · الهاتف</h1><p>نسخة عربية موجزة تحفظ ترتيب أقسام الدليل الأصلي. الأرقام وألوان النظام وأمثلة الرسوم التفصيلية موثقة في النسخة الإنجليزية المقابلة.</p><p>تحتوي النسخة الأصلية الكاملة أدناه على الرسوم والعينات والتفاصيل المرجعية. استخدم أرقام الأقسام لمطابقة الشرح العربي مع النموذج المرئي.</p></header><section><h2><span class="num">C01</span>القواعد</h2><p>الهاتف يتبع قواعد هذا الجزء؛ عند الاختلاف تكون قواعد الهاتف مقدمة على دليل الحاسوب. صمم للشاشة واللمس.</p></section><section><h2><span class="num">C02</span>الإطار والمناطق الآمنة</h2><p>احترم فتحة الكاميرا وشريط الحالة ومؤشر النظام ومناطق الإيماءات. لا تضع إجراءً مهماً تحتها.</p></section><section><h2><span class="num">C03</span>التنقل</h2><p>شريط سفلي للأقسام الخمسة، وشريط التطبيق للأوامر والسياق، وتبويبات داخل القسم عند الحاجة. وفّر رجوعاً ظاهراً عند التعمق.</p></section><section><h2><span class="num">C04</span>رأس الصفحة</h2><p>اعرض اسم الصفحة وعنوانها والسياق الضروري. لا تكرر المسار كاملاً داخل كل عنصر.</p></section><section><h2><span class="num">C05</span>اللمس والأزرار</h2><p>اجعل الأهداف كبيرة ومريحة للمس، مع فصل كافٍ. زر الإضافة واضح وثابت الموضع؛ الأيقونات لها تسميات أو وصف وصول.</p></section><section><h2><span class="num">C06</span>البطاقات والمؤشرات</h2><p>بطاقات المؤشرات في شبكة اثنتين باثنتين. اعرض المؤشر الرئيسي والداعم بتكديس واضح، واحتفظ بدلالات اللون.</p></section><section><h2><span class="num">C07</span>الرسوم</h2><p>بسّط الرسم المكتبي ليناسب العرض الضيق. أظهر التسميات والقيم والفترة ووحدات القياس؛ لا تعتمد على التحويم أو اللون وحده.</p></section><section><h2><span class="num">C08</span>القوائم والمعاملات</h2><p>اجعل الصفوف سهلة المسح، مع الاسم والمبلغ والتاريخ بتراتب واضح. اختصر التفاصيل الثانوية دون إخفائها عن المستخدم.</p></section><section><h2><span class="num">C09</span>النماذج والألواح</h2><p>رتب الحقول في عمود، واستخدم لوحة مناسبة للهاتف مع أزرار واضحة للحفظ والإلغاء. أظهر الأخطاء بجوار الحقل.</p></section><section><h2><span class="num">C10</span>الخط والأرقام</h2><p>استخدم أحجاماً مقروءة وتبايناً كافياً. لا تقطع المبالغ أو التواريخ، واعرض مبالغ الجنيه بأعداد صحيحة.</p></section><section><h2><span class="num">C11</span>الشاشات</h2><p>طبّق النظام على النظرة العامة والميزانية والاستثمارات والتحليلات والنماذج. حافظ على التنقل والهرمية في كل شاشة.</p></section><section><h2><span class="num">C12</span>قبل الإصدار</h2><p>افحص المناطق الآمنة واللمس والتنقل والرجوع والقص والتباين والرسوم والنماذج على عرض الهاتف.</p></section><footer>Lightning · دليل العلامة التجارية · النسخة العربية</footer><section dir="rtl" style="font-family:Tahoma,Arial,sans-serif;direction:rtl;text-align:right;margin:16px auto;max-width:1000px;padding:22px;background:#EAF8F0;border-radius:16px;color:#0D2233"><h2>تفاصيل تخطيط الهاتف والتنقل</h2><p>اترك شريط الحالة وفتحة الكاميرا ومؤشر الإيماءات ضمن المساحات الآمنة. ثبّت شريط الأقسام الخمسة أسفل الشاشة، واستخدم شريط التطبيق للأوامر والعنوان، والتبويبات للتنقل بين صفحات القسم. عند فتح تفاصيل أعمق، اعرض رجوعاً واضحاً يعيد المستخدم للمكان السابق.</p><p>حافظ على أهداف لمس كبيرة ومتباعدة، وزر إضافة واضح، وصفوف يمكن قراءتها بسرعة. اعرض مؤشرات الأداء في شبكة ٢×٢، ثم البطاقات الرئيسية والداعمة بشكل متراص. بسّط الرسوم للعرض الضيق وأظهر القيم والفترة والمحاور؛ لا تعتمد على التحويم. رتب حقول النماذج عمودياً، وأظهر الخطأ بجوار الحقل، واجعل الحفظ والإلغاء واضحين. لا تقطع المبالغ أو التواريخ، واختبر الشاشة مع المساحات الآمنة ولوحة المفاتيح.</p><p>الرسوم والعينات وتفاصيل كل قاعدة موجودة في <a href="phone.html">مرجع الهاتف الإنجليزي</a>.</p></section></div>
+<body data-part="c">
 <div class="wrap">
 <nav class="side" aria-label="Sections">
   <div class="brand"><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9Ii00IC00IDIwOCAyODgiID48ZGVmcz4KPGxpbmVhckdyYWRpZW50IGlkPSJhekIiIHgxPSIwIiB5MT0iMCIgeDI9IjAuMzUiIHkyPSIxIj48c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiMzNkI0RjIiLz48c3RvcCBvZmZzZXQ9Ii41IiBzdG9wLWNvbG9yPSIjMEI2REQ2Ii8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjMEEzRDhGIi8+PC9saW5lYXJHcmFkaWVudD4KPGxpbmVhckdyYWRpZW50IGlkPSJhelQiIHgxPSIwIiB5MT0iMSIgeDI9IjEiIHkyPSIwIj48c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiM1Q0M4RjciLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiMxQTdGRTAiLz48L2xpbmVhckdyYWRpZW50Pgo8bGluZWFyR3JhZGllbnQgaWQ9Im1kQiIgeDE9IjAiIHkxPSIwIiB4Mj0iMC4zNSIgeTI9IjEiPjxzdG9wIG9mZnNldD0iMCIgc3RvcC1jb2xvcj0iIzJGRDY5QSIvPjxzdG9wIG9mZnNldD0iLjUiIHN0b3AtY29sb3I9IiMxNEE4NzQiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiMwQTVFNDciLz48L2xpbmVhckdyYWRpZW50Pgo8bGluZWFyR3JhZGllbnQgaWQ9Im1kVCIgeDE9IjAiIHkxPSIxIiB4Mj0iMSIgeTI9IjAiPjxzdG9wIG9mZnNldD0iMCIgc3RvcC1jb2xvcj0iIzhCRTZCNiIvPjxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iIzFGQjU3RSIvPjwvbGluZWFyR3JhZGllbnQ+PC9kZWZzPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDAgMCkiPjxwYXRoIGQ9Ik0xMDAgMTAgQzEwMCAzIDk0IC0xIDg4IDIuNSBMNTAgMjIgQzE5IDM3LjUgMCA2NiAwIDEwNSBMMCAxOTYgQzAgMjIxIDIwIDIzMSA0MSAyMTkgTDEwMCAxOTAgWiIgZmlsbD0idXJsKCNhekIpIi8+PHBhdGggZD0iTTAgMTM4LjUgTDEwMCA5MCBMMTAwIDE5MCBMNDEgMjE5IEMyMCAyMzEgMCAyMjEgMCAxOTYgWiIgZmlsbD0idXJsKCNhelQpIi8+PC9nPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDAgMCkgcm90YXRlKDE4MCAxMDAgMTQwKSI+PHBhdGggZD0iTTEwMCAxMCBDMTAwIDMgOTQgLTEgODggMi41IEw1MCAyMiBDMTkgMzcuNSAwIDY2IDAgMTA1IEwwIDE5NiBDMCAyMjEgMjAgMjMxIDQxIDIxOSBMMTAwIDE5MCBaIiBmaWxsPSJ1cmwoI21kQikiLz48cGF0aCBkPSJNMCAxMzguNSBMMTAwIDkwIEwxMDAgMTkwIEw0MSAyMTkgQzIwIDIzMSAwIDIyMSAwIDE5NiBaIiBmaWxsPSJ1cmwoI21kVCkiLz48L2c+PC9zdmc+" alt="">Lightning</div>
@@ -585,7 +587,7 @@ nav.side .grp{margin:14px 10px 6px;font:800 12px/1 var(--body);color:var(--muted
       <div class="z-gest">C02.5 شريط الإيماءات <span>مساحة أمان</span></div>
     </div>
     <div>
-      <ol class="anat" style="display:block;margin:0;padding-left:20px;color:var(--ink2)">
+      <ol class="anat" style="display:block;margin:0;padding-inline-start:20px;color:var(--ink2)">
         <li style="margin:8px 0"><b>شريط الحالة:</b> تابع للموبايل. الصفحة تبدأ تحته: <code>padding-top: env(safe-area-inset-top)</code>. الشعار ما يظهرش تحت الساعة.</li>
         <li style="margin:8px 0"><b>شريط التطبيق، 56px:</b> الشعار على الشمال ولحد ثلاث أيقونات على اليمين (C03.2). يفضل فوق؛ ولما عنوان الصفحة يختفي بالتمرير، يظهر مكانه بحجم 17px.</li>
         <li style="margin:8px 0"><b>المحتوى:</b> حشو جانبي 16px، و12px بين البطاقات، و32px بين الأقسام. عمود واحد. آخر بطاقة تقف فوق شريط التبويبات وما تدخلش تحته.</li>
@@ -649,7 +651,7 @@ nav.side .grp{margin:14px 10px 6px;font:800 12px/1 var(--body);color:var(--muted
       <div class="pf-seg"><span class="on">الملخص</span><span>الإنفاق</span><span>الصحة</span></div>
       <div class="pf-need">محتاج تدخل <em>18</em><svg class="ic"><use href="#i-down"/></svg></div>
     </div>
-    <ol style="margin:0;padding-left:20px;color:var(--ink2)">
+    <ol style="margin:0;padding-inline-start:20px;color:var(--ink2)">
       <li style="margin:6px 0"><b style="color:var(--ink)">C04.1 العنوان،</b> 24px، وتحته التواريخ الدقيقة وملاحظة بلون خافت.</li>
       <li style="margin:6px 0"><b style="color:var(--ink)">C04.2 اختيار الفترة،</b> بعرض كامل: الكل، من بداية السنة، الشهر بأسهم، ومخصص. ما تكتبش «شهري» وما تقصش كلمة عند الحافة. المخصص يفتح لوحة فيها اختيار تاريخ البداية والنهاية.</li>
       <li style="margin:6px 0"><b style="color:var(--ink)">C04.3 التبويبات</b> (راجع C03.3).</li>
@@ -689,10 +691,10 @@ nav.side .grp{margin:14px 10px 6px;font:800 12px/1 var(--body);color:var(--muted
   <div class="g-head"><div><h2><span class="secnum">C06</span>البطاقات والمؤشرات</h2><p>كل بطاقة تفضل بنفس وظيفتها، لكن بارتفاع أقل. بطاقات المؤشرات تتشارك الصف.</p></div></div>
   <h3 class="sub"><span class="subnum">C06.1</span>بطاقات المؤشرات: ٢×٢</h3>
   <div style="max-width:360px" class="kt-grid">
-    <div class="kt"><div class="top"><span class="ico"><svg class="ic"><use href="#i-trend"/></svg></span><span class="chip up">↑ من بداية السنة</span></div><div class="lbl">التغير في صافي الثروة</div><div class="fig num">+37,884</div><div class="foot">صافي الثروة <b>156,084</b></div></div>
-    <div class="kt"><div class="top"><span class="ico"><svg class="ic"><use href="#i-pie"/></svg></span><span class="chip up">↑ من بداية السنة</span></div><div class="lbl">نسبة الادخار</div><div class="fig num">49.1<small>%</small></div><div class="foot">متبقي <b>69,013</b></div></div>
+    <div class="kt"><div class="top"><span class="ico"><svg class="ic"><use href="#i-trend"/></svg></span><span class="chip up">↑ من بداية السنة</span></div><div class="lbl">التغير في صافي الثروة</div><div class="fig num">+٣٧٬٨٨٤</div><div class="foot">صافي الثروة <b>١٥٦٬٠٨٤</b></div></div>
+    <div class="kt"><div class="top"><span class="ico"><svg class="ic"><use href="#i-pie"/></svg></span><span class="chip up">↑ من بداية السنة</span></div><div class="lbl">نسبة الادخار</div><div class="fig num">49.1<small>%</small></div><div class="foot">متبقي <b>٦٩٬٠١٣</b></div></div>
     <div class="kt azure"><div class="top"><span class="ico"><svg class="ic"><use href="#i-chart"/></svg></span><span class="chip up">↑ من بداية السنة</span></div><div class="lbl">نسبة الاستثمار</div><div class="fig num">49.1<small>%</small></div><div class="meter"><i style="width:49%"></i></div></div>
-    <div class="kt rose"><div class="top"><span class="ico"><svg class="ic"><use href="#i-wallet"/></svg></span><span class="chip">2026-10</span></div><div class="lbl">المتبقي في الخطة</div><div class="fig num">24,698</div><div class="meter"><i style="width:2%"></i></div></div>
+    <div class="kt rose"><div class="top"><span class="ico"><svg class="ic"><use href="#i-wallet"/></svg></span><span class="chip">2026-10</span></div><div class="lbl">المتبقي في الخطة</div><div class="fig num">٢٤٬٦٩٨</div><div class="meter"><i style="width:2%"></i></div></div>
   </div>
   <ul class="short">
     <li><b>لحد أربع بطاقات في شبكة ٢×٢،</b> في أعلى الصفحة. نفس الألوان والشارات في A08؛ الشارة تعرض الفترة باختصار: من بداية السنة أو النهارده أو 2026-10 أو تاريخ أو «3 شهور». لو الشارة هتتقَص، شيلها.</li>
@@ -702,7 +704,7 @@ nav.side .grp{margin:14px 10px 6px;font:800 12px/1 var(--body);color:var(--muted
 
   <h3 class="sub"><span class="subnum">C06.2</span>الرئيسية والداعمة: واحدة فوق التانية</h3>
   <div class="grid2" style="max-width:760px">
-    <div class="pf-card lead"><h4>صافي الثروة</h4><p class="sub">مش شامل فلوس مملوكة لناس تانية</p><div class="big num">156,084<small>EGP</small></div><div class="pf-rows"><div><span>اللي تملكه</span><b>261,024</b></div><div><span>اللي عليك</span><b>−104,940</b></div></div></div>
+    <div class="pf-card lead"><h4>صافي الثروة</h4><p class="sub">مش شامل فلوس مملوكة لناس تانية</p><div class="big num">١٥٦٬٠٨٤<small>EGP</small></div><div class="pf-rows"><div><span>اللي تملكه</span><b>٢٦١٬٠٢٤</b></div><div><span>اللي عليك</span><b>−١٠٤٬٩٤٠</b></div></div></div>
     <ul class="short" style="margin:0">
       <li>البطاقة الرئيسية أولاً وتحتها بطاقة الشرح؛ ما يكونوش جنب بعض.</li>
       <li>حشو داخلي 16px وزوايا 20px ومسافة 12px. الرقم 40px أو 34px لو طويل.</li>
@@ -741,58 +743,58 @@ nav.side .grp{margin:14px 10px 6px;font:800 12px/1 var(--body);color:var(--muted
   <h3 class="sub"><span class="subnum">C07.3</span>أمثلة بعرض 360</h3>
   <div class="pgrid">
     <article class="viz t-azure st-app pv"><header><h4>C07.3.1 اتجاه المساحة</h4><span class="st">الموبايل</span></header>
-      <div class="vhead"><div class="num">156,084<span class="unit">EGP</span></div><p>صافي الثروة في نهاية كل شهر</p></div>
-      <div class="well"><svg class="viz-svg" viewBox="0 0 300 150"><path d="M8 104 L56 86 L104 50 L152 51 L200 56 L248 59 L284 54 L284 140 L8 140Z" fill="var(--azure)" opacity=".12"/><path d="M8 104 L56 86 L104 50 L152 51 L200 56 L248 59 L284 54" fill="none" stroke="var(--azure)" stroke-width="2.5" stroke-linejoin="round"/><line x1="8" y1="140" x2="292" y2="140" stroke="var(--line)"/><circle cx="284" cy="54" r="5" fill="var(--azure)" stroke="var(--white)" stroke-width="2"/><text x="284" y="38" text-anchor="end" font-size="12" font-weight="800" fill="var(--ink)">156,084</text><g font-size="11" fill="var(--muted)" font-weight="600"><text x="8" y="149">2026-04</text><text x="146" y="149" text-anchor="middle">2026-07</text><text x="292" y="149" text-anchor="end">2026-10</text></g></svg></div>
+      <div class="vhead"><div class="num">١٥٦٬٠٨٤<span class="unit">EGP</span></div><p>صافي الثروة في نهاية كل شهر</p></div>
+      <div class="well"><svg class="viz-svg" viewBox="0 0 300 150"><path d="M8 104 L56 86 L104 50 L152 51 L200 56 L248 59 L284 54 L284 140 L8 140Z" fill="var(--azure)" opacity=".12"/><path d="M8 104 L56 86 L104 50 L152 51 L200 56 L248 59 L284 54" fill="none" stroke="var(--azure)" stroke-width="2.5" stroke-linejoin="round"/><line x1="8" y1="140" x2="292" y2="140" stroke="var(--line)"/><circle cx="284" cy="54" r="5" fill="var(--azure)" stroke="var(--white)" stroke-width="2"/><text x="284" y="38" text-anchor="end" font-size="12" font-weight="800" fill="var(--ink)">١٥٦٬٠٨٤</text><g font-size="11" fill="var(--muted)" font-weight="600"><text x="8" y="149">2026-04</text><text x="146" y="149" text-anchor="middle">2026-07</text><text x="292" y="149" text-anchor="end">2026-10</text></g></svg></div>
     </article>
 
     <article class="viz st-app pv"><header><h4>C07.3.2 مخطط شلالي أفقي</h4><span class="st">الموبايل</span></header>
-      <div class="vhead"><div class="num">+69,013<span class="unit">EGP</span></div><p>صافي التدفق من بداية السنة</p></div>
+      <div class="vhead"><div class="num">+٦٩٬٠١٣<span class="unit">EGP</span></div><p>صافي التدفق من بداية السنة</p></div>
       <div class="well wf">
-        <div><p>فلوس داخلة <b>140,500</b></p><div class="tr"><i style="left:0;width:100%;--c:var(--green)"></i></div></div>
-        <div><p>شخصي <b>−63,987</b></p><div class="tr"><i style="left:54.5%;width:45.5%;--c:var(--rose)"></i></div></div>
-        <div><p>النظام <b>−7,500</b></p><div class="tr"><i style="left:49.1%;width:5.4%;--c:var(--rose)"></i></div></div>
-        <div><p><span style="color:var(--ink);font-weight:800">صافي التدفق</span> <b>69,013</b></p><div class="tr"><i style="left:0;width:49.1%;--c:var(--azure)"></i></div></div>
+        <div><p>فلوس داخلة <b>١٤٠٬٥٠٠</b></p><div class="tr"><i style="inset-inline-start:0;width:100%;--c:var(--green)"></i></div></div>
+        <div><p>شخصي <b>−٦٣٬٩٨٧</b></p><div class="tr"><i style="inset-inline-start:54.5%;width:45.5%;--c:var(--rose)"></i></div></div>
+        <div><p>النظام <b>−٧٬٥٠٠</b></p><div class="tr"><i style="inset-inline-start:49.1%;width:5.4%;--c:var(--rose)"></i></div></div>
+        <div><p><span style="color:var(--ink);font-weight:800">صافي التدفق</span> <b>٦٩٬٠١٣</b></p><div class="tr"><i style="inset-inline-start:0;width:49.1%;--c:var(--azure)"></i></div></div>
       </div>
     </article>
 
     <article class="viz t-rose st-app pv"><header><h4>C07.3.3 وجهة الفلوس الداخلة</h4><span class="st">الموبايل</span></header>
-      <div class="vhead"><div class="num">140,500<span class="unit">EGP</span></div><p>فلوس داخلة من بداية السنة</p></div>
+      <div class="vhead"><div class="num">١٤٠٬٥٠٠<span class="unit">EGP</span></div><p>فلوس داخلة من بداية السنة</p></div>
       <div class="well">
         <div class="stk-l"><span>داخل</span></div>
         <div class="stk"><i style="flex:135000;--c:var(--green)"></i><i style="flex:5500;--c:color-mix(in srgb,var(--green) 50%,var(--white))"></i></div>
         <div class="stk-l"><span>المنصرف والمتبقي</span></div>
         <div class="stk"><i style="flex:36000;--c:var(--rose-strong)"></i><i style="flex:14002;--c:var(--rose)"></i><i style="flex:7500;--c:color-mix(in srgb,var(--rose) 55%,var(--white))"></i><i style="flex:13985;--c:var(--neutral)"></i><i style="flex:69013;--c:var(--green)"></i></div>
         <div class="lrows" style="margin-top:8px">
-          <div style="--c:var(--green)"><span>الراتب</span><b>135,000</b><small>96%</small></div>
-          <div style="--c:color-mix(in srgb,var(--green) 50%,var(--white))"><span>الفوائد</span><b>5,500</b><small>4%</small></div>
-          <div style="--c:var(--rose-strong)"><span>السكن</span><b>36,000</b><small>26%</small></div>
-          <div style="--c:var(--rose)"><span>الأكل</span><b>14,002</b><small>10%</small></div>
-          <div style="--c:color-mix(in srgb,var(--rose) 55%,var(--white))"><span>القرض</span><b>7,500</b><small>5%</small></div>
-          <div style="--c:var(--neutral)"><span>أخرى</span><b>13,985</b><small>10%</small></div>
-          <div style="--c:var(--green)"><span style="color:var(--ink);font-weight:800">متبقي</span><b>69,013</b><small>49%</small></div>
+          <div style="--c:var(--green)"><span>الراتب</span><b>١٣٥٬٠٠٠</b><small>96%</small></div>
+          <div style="--c:color-mix(in srgb,var(--green) 50%,var(--white))"><span>الفوائد</span><b>٥٬٥٠٠</b><small>4%</small></div>
+          <div style="--c:var(--rose-strong)"><span>السكن</span><b>٣٦٬٠٠٠</b><small>26%</small></div>
+          <div style="--c:var(--rose)"><span>الأكل</span><b>١٤٬٠٠٢</b><small>10%</small></div>
+          <div style="--c:color-mix(in srgb,var(--rose) 55%,var(--white))"><span>القرض</span><b>٧٬٥٠٠</b><small>5%</small></div>
+          <div style="--c:var(--neutral)"><span>أخرى</span><b>١٣٬٩٨٥</b><small>10%</small></div>
+          <div style="--c:var(--green)"><span style="color:var(--ink);font-weight:800">متبقي</span><b>٦٩٬٠١٣</b><small>49%</small></div>
         </div>
       </div>
     </article>
 
     <article class="viz t-rose st-app pv"><header><h4>C07.3.4 شبكة الشهور</h4><span class="st">الموبايل</span></header>
-      <div class="vhead"><div class="num">24,754<span class="unit">EGP</span></div><p>أعلى إنفاق، 2026-05</p></div>
+      <div class="vhead"><div class="num">٢٤٬٧٥٤<span class="unit">EGP</span></div><p>أعلى إنفاق، 2026-05</p></div>
       <div class="well">
         <div class="hm">
-          <span class="none">يناير<b>–</b></span><span class="none">فبراير<b>–</b></span><span class="none">مارس<b>–</b></span><span style="--c:color-mix(in srgb,var(--rose) 35%,var(--white))">أبريل<b>18,240</b></span>
-          <span class="dk" style="--c:var(--rose-strong)">مايو<b>24,754</b></span><span style="--c:var(--rose)">يونيو<b>21,020</b></span><span style="--c:color-mix(in srgb,var(--rose) 55%,var(--white))">يوليو<b>19,480</b></span><span style="--c:color-mix(in srgb,var(--rose) 55%,var(--white))">أغسطس<b>20,110</b></span>
-          <span style="--c:var(--rose)">سبتمبر<b>22,300</b></span><span style="--c:var(--t-rose)">أكتوبر<b>6,120</b></span><span class="fut">نوفمبر<b></b></span><span class="fut">ديسمبر<b></b></span>
+          <span class="none">يناير<b>–</b></span><span class="none">فبراير<b>–</b></span><span class="none">مارس<b>–</b></span><span style="--c:color-mix(in srgb,var(--rose) 35%,var(--white))">أبريل<b>١٨٬٢٤٠</b></span>
+          <span class="dk" style="--c:var(--rose-strong)">مايو<b>٢٤٬٧٥٤</b></span><span style="--c:var(--rose)">يونيو<b>٢١٬٠٢٠</b></span><span style="--c:color-mix(in srgb,var(--rose) 55%,var(--white))">يوليو<b>١٩٬٤٨٠</b></span><span style="--c:color-mix(in srgb,var(--rose) 55%,var(--white))">أغسطس<b>٢٠٬١١٠</b></span>
+          <span style="--c:var(--rose)">سبتمبر<b>٢٢٬٣٠٠</b></span><span style="--c:var(--t-rose)">أكتوبر<b>٦٬١٢٠</b></span><span class="fut">نوفمبر<b></b></span><span class="fut">ديسمبر<b></b></span>
         </div>
         <div class="stk-l" style="margin:10px 0 4px"><span>أقل</span><span>المزيد</span></div>
       </div>
     </article>
 
     <article class="viz t-neutral st-app pv"><header><h4>C07.3.5 أشرطة والاسم فوق</h4><span class="st">الموبايل</span></header>
-      <div class="vhead"><div class="num">9,777<span class="unit">EGP</span></div><p>النقدية المتاحة</p></div>
+      <div class="vhead"><div class="num">٩٬٧٧٧<span class="unit">EGP</span></div><p>النقدية المتاحة</p></div>
       <div class="well hbars">
-        <div><p>النقدية اللي تملكها <b>72,663</b></p><i style="width:100%;--c:var(--azure)"></i></div>
-        <div><p>المبالغ المحجوزة <b>−20,000</b></p><i style="width:27.5%;--c:var(--rose)"></i></div>
-        <div><p>فواتير مستحقة <b>−62,440</b></p><i style="width:85.9%;--c:var(--rose)"></i></div>
-        <div><p><span style="color:var(--ink);font-weight:800">النقدية المتاحة</span> <b>9,777</b></p><i style="width:13.5%;--c:var(--green)"></i></div>
+        <div><p>النقدية اللي تملكها <b>٧٢٬٦٦٣</b></p><i style="width:100%;--c:var(--azure)"></i></div>
+        <div><p>المبالغ المحجوزة <b>−٢٠٬٠٠٠</b></p><i style="width:27.5%;--c:var(--rose)"></i></div>
+        <div><p>فواتير مستحقة <b>−٦٢٬٤٤٠</b></p><i style="width:85.9%;--c:var(--rose)"></i></div>
+        <div><p><span style="color:var(--ink);font-weight:800">النقدية المتاحة</span> <b>٩٬٧٧٧</b></p><i style="width:13.5%;--c:var(--green)"></i></div>
       </div>
     </article>
   </div>
@@ -856,14 +858,14 @@ nav.side .grp{margin:14px 10px 6px;font:800 12px/1 var(--body);color:var(--muted
     <tr><td><b>عنوان الصفحة</b></td><td class="r">28</td><td class="r">24</td><td><span style="font:700 24px/1.15 var(--display);letter-spacing:-.03em">نظرة عامة</span></td></tr>
     <tr><td><b>عنوان القسم</b></td><td class="r">20</td><td class="r">18</td><td><span style="font:700 18px/1.3 var(--display)">مركزك المالي</span></td></tr>
     <tr><td><b>عنوان البطاقة</b></td><td class="r">17</td><td class="r">16</td><td><span style="font:700 16px/1.3 var(--display)">النقدية المتاحة</span></td></tr>
-    <tr><td><b>الرقم الرئيسي</b></td><td class="r">52</td><td class="r">40px · و34px للأرقام الطويلة</td><td><span class="num" style="font-size:40px;line-height:1">156,084</span></td></tr>
-    <tr><td><b>رقم المؤشر</b></td><td class="r">38</td><td class="r">26px · و22px للأرقام الطويلة</td><td><span class="num" style="font-size:26px">+37,884</span></td></tr>
+    <tr><td><b>الرقم الرئيسي</b></td><td class="r">52</td><td class="r">40px · و34px للأرقام الطويلة</td><td><span class="num" style="font-size:40px;line-height:1">١٥٦٬٠٨٤</span></td></tr>
+    <tr><td><b>رقم المؤشر</b></td><td class="r">38</td><td class="r">26px · و22px للأرقام الطويلة</td><td><span class="num" style="font-size:26px">+٣٧٬٨٨٤</span></td></tr>
     <tr><td><b>مبلغ الصف</b></td><td class="r">14</td><td class="r">15</td><td><b style="font-variant-numeric:tabular-nums">−1,250.00</b></td></tr>
     <tr><td><b>النص والحقول</b></td><td class="r">14</td><td class="r">15px · الحقول 16px</td><td>النقدية اللي تملكها</td></tr>
     <tr><td><b>صغير</b></td><td class="r">12</td><td class="r">12.5px · ما ينزلش عن 12</td><td><span class="muted" style="font-size:12.5px">بقالة</span></td></tr>
   </table></div>
   <ul class="short">
-    <li><b>الأرقام الكبيرة بالجنيه من غير كسور،</b> حتى إجمالي الحسابات (271,024 مش 271,024.29). الكسور تظهر في الصفوف بس.</li>
+    <li><b>الأرقام الكبيرة بالجنيه من غير كسور،</b> حتى إجمالي الحسابات (٢٧١٬٠٢٤ مش 271,024.29). الكسور تظهر في الصفوف بس.</li>
     <li><b>الرقم الطويل يصغر درجة،</b> ما يلفش لسطر تاني أو ينتهي بعلامة «…».</li>
     <li><b>اكتب الجنيه مرة واحدة،</b> جنب الرقم الكبير. الصفوف تعرض أرقاماً فقط.</li>
   </ul>
@@ -882,13 +884,13 @@ nav.side .grp{margin:14px 10px 6px;font:800 12px/1 var(--body);color:var(--muted
           <div class="pf-seg"><span class="on">الملخص</span><span>الإنفاق</span><span>الصحة</span></div>
           <div class="pf-need">محتاج تدخل <em>18</em><svg class="ic"><use href="#i-down"/></svg></div>
           <div class="kt-grid">
-            <div class="kt"><div class="top"><span class="ico"><svg class="ic"><use href="#i-trend"/></svg></span><span class="chip up">↑ من بداية السنة</span></div><div class="lbl">التغير في صافي الثروة</div><div class="fig num">+37,884</div><div class="foot">صافي الثروة <b>156,084</b></div></div>
-            <div class="kt"><div class="top"><span class="ico"><svg class="ic"><use href="#i-pie"/></svg></span><span class="chip up">↑ من بداية السنة</span></div><div class="lbl">نسبة الادخار</div><div class="fig num">49.1<small>%</small></div><div class="foot">متبقي <b>69,013</b></div></div>
+            <div class="kt"><div class="top"><span class="ico"><svg class="ic"><use href="#i-trend"/></svg></span><span class="chip up">↑ من بداية السنة</span></div><div class="lbl">التغير في صافي الثروة</div><div class="fig num">+٣٧٬٨٨٤</div><div class="foot">صافي الثروة <b>١٥٦٬٠٨٤</b></div></div>
+            <div class="kt"><div class="top"><span class="ico"><svg class="ic"><use href="#i-pie"/></svg></span><span class="chip up">↑ من بداية السنة</span></div><div class="lbl">نسبة الادخار</div><div class="fig num">49.1<small>%</small></div><div class="foot">متبقي <b>٦٩٬٠١٣</b></div></div>
             <div class="kt azure"><div class="top"><span class="ico"><svg class="ic"><use href="#i-chart"/></svg></span><span class="chip up">↑ من بداية السنة</span></div><div class="lbl">نسبة الاستثمار</div><div class="fig num">49.1<small>%</small></div><div class="meter"><i style="width:49%"></i></div></div>
-            <div class="kt rose"><div class="top"><span class="ico"><svg class="ic"><use href="#i-wallet"/></svg></span><span class="chip">2026-10</span></div><div class="lbl">المتبقي في الخطة</div><div class="fig num">24,698</div><div class="meter"><i style="width:2%"></i></div></div>
+            <div class="kt rose"><div class="top"><span class="ico"><svg class="ic"><use href="#i-wallet"/></svg></span><span class="chip">2026-10</span></div><div class="lbl">المتبقي في الخطة</div><div class="fig num">٢٤٬٦٩٨</div><div class="meter"><i style="width:2%"></i></div></div>
           </div>
           <div class="pf-sec"><h4>مركزك المالي</h4><span>كما في 2026-10-06</span></div>
-          <div class="pf-card lead"><h4>صافي الثروة</h4><div class="big num">156,084<small>EGP</small></div><div class="pf-rows"><div><span>اللي تملكه</span><b>261,024</b></div><div><span>اللي عليك</span><b>−104,940</b></div></div></div>
+          <div class="pf-card lead"><h4>صافي الثروة</h4><div class="big num">١٥٦٬٠٨٤<small>EGP</small></div><div class="pf-rows"><div><span>اللي تملكه</span><b>٢٦١٬٠٢٤</b></div><div><span>اللي عليك</span><b>−١٠٤٬٩٤٠</b></div></div></div>
         </div>
         <div class="pf-nav"><span class="on"><i><svg class="ic"><use href="#i-home"/></svg></i>نظرة عامة</span><span><i><svg class="ic"><use href="#i-wallet"/></svg></i>الميزانية</span><span><i><svg class="ic"><use href="#i-cash"/></svg></i>الكاش</span><span><i><svg class="ic"><use href="#i-chart"/></svg></i>الاستثمارات</span><span><i><svg class="ic"><use href="#i-bank"/></svg></i>الحسابات</span></div>
         <div class="pf-gest"></div>
@@ -899,7 +901,7 @@ nav.side .grp{margin:14px 10px 6px;font:800 12px/1 var(--body);color:var(--muted
         <div class="pf-status"><span>4:32</span><span>47%</span></div>
         <div class="pf-bar"><span class="back"><svg class="ic"><use href="#i-left"/></svg>الحسابات</span><span class="pf-icon"><svg class="ic"><use href="#i-search"/></svg></span><span class="pf-icon"><svg class="ic"><use href="#i-eye"/></svg></span><span class="pf-icon"><svg class="ic"><use href="#i-gear"/></svg></span></div>
         <div class="pf-body">
-          <div class="pf-card lead"><h4>محفظة نقدية</h4><p class="sub">الكاش</p><div class="big num">10,220<small>EGP</small></div><div class="pf-acts"><span class="btn secondary">تغيير الملكية</span><span class="more"><svg class="ic" style="width:20px;height:20px"><use href="#i-more"/></svg></span></div></div>
+          <div class="pf-card lead"><h4>محفظة نقدية</h4><p class="sub">الكاش</p><div class="big num">١٠٬٢٢٠<small>EGP</small></div><div class="pf-acts"><span class="btn secondary">تغيير الملكية</span><span class="more"><svg class="ic" style="width:20px;height:20px"><use href="#i-more"/></svg></span></div></div>
           <div class="pf-search"><svg class="ic"><use href="#i-search"/></svg>البحث في المعاملات</div>
           <div class="pf-chips"><span class="on">‹ 2026-06 ›</span><span>الفئة<svg class="ic" style="width:16px;height:16px"><use href="#i-down"/></svg></span></div>
           <div class="pf-list">
