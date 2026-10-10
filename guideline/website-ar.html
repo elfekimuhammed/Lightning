@@ -2,10 +2,10 @@
 <html lang="ar-EG" dir="rtl">
 <head>
 <meta name="robots" content="noindex,follow">
-<meta name="description" content="قواعد تصميم موقع لايتنينغ بالعربي المصري، مع أمثلة الدليل الأصلي ورسومه.">
+<meta name="description" content="قواعد تصميم موقع لايتنينج بالعربي المصري، مع أمثلة الدليل الأصلي ورسومه.">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>دليل لايتنينغ للموقع</title>
+<title>دليل لايتنينج للموقع</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -497,11 +497,13 @@ nav.side .grp{margin:14px 10px 6px;font:800 12px/1 var(--body);color:var(--muted
 .pickdoc{margin-top:16px;padding:14px 16px;border-radius:16px;background:var(--track);font-size:14px;color:var(--ink2);max-width:62ch}
 .pickdoc b{color:var(--ink)}
 .pickdoc a{color:var(--ink);font-weight:800}
-:root{--display:"Bricolage Grotesque",Alexandria,"Segoe UI",system-ui,sans-serif;--body:Manrope,Alexandria,"Segoe UI",system-ui,sans-serif}
+:root{--display:"Bricolage Grotesque","Readex Pro","Segoe UI",system-ui,sans-serif;--body:Manrope,"IBM Plex Sans Arabic","Segoe UI",system-ui,sans-serif}
+/* Arabic type (B04): Readex Pro shows, IBM Plex Sans Arabic reads; Arabic never heavier than 600 */
+html[dir=rtl] :is(h1,h2,h3,.num,.secnum,b,strong,th){font-weight:600}html[dir=rtl] body{line-height:1.75}
 /* Arabic letters join: never space them out */
 html[dir=rtl] *{letter-spacing:normal!important}
 </style>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@400;500;600;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600&display=swap">
 </head>
 <!-- AI AGENTS: this is ONE of THREE guideline documents, all in this folder: app.html (Part A, the app on a PC, A01-A16), website.html (Part B, lightningeg.com, B01-B11), phone.html (Part C, the app on a phone, C01-C12). This file is website.html. For anything about another surface, open that file; do not guess. Do not read a file whole (about 95,000 tokens in all): run `python tools/guideline.py` in the app repo to list sections and `python tools/guideline.py B05` to print one. -->
 <body data-part="b">
@@ -543,22 +545,22 @@ html[dir=rtl] *{letter-spacing:normal!important}
 <section class="g" id="b-pages" data-part="b">
   <div class="g-head"><div><h2><span class="secnum">B01</span>الصفحات</h2><p>كل صفحة بتجاوب على سؤال واحد.</p></div></div>
   <div class="pagemap">
-    <div class="pm"><b>الرئيسية</b><span>كل فلوسك في صورة واحدة واضحة · index.html</span><div class="q">← ابدأ بدري</div></div>
-    <div class="pm"><b>المزايا</b><span>لايتنينغ بيعمل إيه دلوقتي · features.html</span><div class="q">← ابدأ بدري</div></div>
-    <div class="pm"><b>طريقة الاستخدام</b><span>نص ساعة مرة كل شهر</span><div class="q">← ابدأ بدري</div></div>
+    <div class="pm"><b>الرئيسية</b><span>كل فلوسك في صورة واحدة واضحة · index.html</span><div class="q">← جرّب ببلاش</div></div>
+    <div class="pm"><b>المزايا</b><span>لايتنينج بيعمل إيه دلوقتي · features.html</span><div class="q">← جرّب ببلاش</div></div>
+    <div class="pm"><b>بيشتغل إزاي</b><span>نص ساعة مرة كل شهر</span><div class="q">← جرّب ببلاش</div></div>
     <div class="pm"><b>أدلة الفلوس</b><span>كل دليل بيجاوب على سؤال بيبحثوا عنه · guides.html</span><div class="q">← نزّل النسخة التجريبية المجانية</div></div>
-    <div class="pm"><b>الحالة الحالية</b><span>إيه اللي اتعمل وإيه المتاح للتنزيل</span><div class="q">← شارك في الاستبيان</div></div>
+    <div class="pm"><b>التنزيل</b><span>إيه اللي اتعمل وإيه المتاح للتنزيل</span><div class="q">← جاوب على الاستبيان</div></div>
     <div class="pm"><b>الاستبيان</b><span>قول لنا محتاج إيه</span><div class="q">← إرسال</div></div>
   </div>
-  <ul class="short"><li>فيه صفحة رئيسية واحدة. رابط الرئيسية بيرجع لها دايماً؛ والنسخ الأقدم موجودة في أرشيف الإصدارات.</li><li>كل دليل بيجاوب على سؤال الناس بتدور عليه، زي صافي الثروة أو ميزانية بالجنيه أو المتاح الآمن للصرف. عنوانه بيسمي الموضوع (زي «متابعة صافي الثروة في مصر»)، وعنوان الصفحة يبدأ بكلمات البحث وينتهي بـ «· Lightning».</li><li>الدليل بيتبني من مكونات B06 بس: الواجهة الرئيسية، والإجابة محسوبة من سنة محاب جنب صورة الشاشة الحقيقية (B07)، وبعدها ٣ بطاقات أو خطوات، وأسئلة مفيدة، و٣ أدلة تانية، وبعدين شريط التسجيل. مفيش مقارنة بتطبيق تاني (B10).</li><li>صفحة المزايا بتعرض كل اللي لايتنينغ بيعمله حالياً، مقسّم لمجموعات: بطاقة لكل مجموعة، ونقطة لكل ميزة. اسم الميزة بخط عريض وشرحها في سطر. من غير صور شاشات. اذكر الموجود فعلاً في التطبيق بس (B10)، ومن غير ذكر تطبيق تاني.</li><li>كل صفحة بتنتهي بنفس شريط التسجيل.</li></ul>
+  <ul class="short"><li>فيه صفحة رئيسية واحدة. رابط الرئيسية بيرجع لها دايماً؛ والنسخ الأقدم موجودة في أرشيف الإصدارات.</li><li>كل دليل بيجاوب على سؤال الناس بتدور عليه، زي صافي الثروة أو ميزانية بالجنيه أو المتاح الآمن للصرف. عنوانه بيسمي الموضوع (زي «متابعة صافي الثروة في مصر»)، وعنوان الصفحة يبدأ بكلمات البحث وينتهي بـ «· Lightning».</li><li>الدليل بيتبني من مكونات B06 بس: الواجهة الرئيسية، والإجابة محسوبة من سنة محاب جنب صورة الشاشة الحقيقية (B07)، وبعدها ٣ بطاقات أو خطوات، وأسئلة مفيدة، و٣ أدلة تانية، وبعدين شريط التسجيل. مفيش مقارنة بتطبيق تاني (B10).</li><li>صفحة المزايا بتعرض كل اللي لايتنينج بيعمله حالياً، مقسّم لمجموعات: بطاقة لكل مجموعة، ونقطة لكل ميزة. اسم الميزة بخط عريض وشرحها في سطر. من غير صور شاشات. اذكر الموجود فعلاً في التطبيق بس (B10)، ومن غير ذكر تطبيق تاني.</li><li>كل صفحة بتنتهي بنفس شريط التسجيل.</li></ul>
 </section>
 
 <section class="g" id="b-headers" data-part="b">
   <div class="g-head"><div><h2><span class="secnum">B02</span>العناوين</h2><p>في الموقع أربع أنواع بس من العناوين.</p></div></div>
   <div class="hspec">
-    <div class="hs"><b>الشريط العلوي</b><div><div class="sitebar"><span class="lk"><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9Ii00IC00IDIwOCAyODgiID48ZGVmcz4KPGxpbmVhckdyYWRpZW50IGlkPSJhekIiIHgxPSIwIiB5MT0iMCIgeDI9IjAuMzUiIHkyPSIxIj48c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiMzNkI0RjIiLz48c3RvcCBvZmZzZXQ9Ii41IiBzdG9wLWNvbG9yPSIjMEI2REQ2Ii8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjMEEzRDhGIi8+PC9saW5lYXJHcmFkaWVudD4KPGxpbmVhckdyYWRpZW50IGlkPSJhelQiIHgxPSIwIiB5MT0iMSIgeDI9IjEiIHkyPSIwIj48c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiM1Q0M4RjciLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiMxQTdGRTAiLz48L2xpbmVhckdyYWRpZW50Pgo8bGluZWFyR3JhZGllbnQgaWQ9Im1kQiIgeDE9IjAiIHkxPSIwIiB4Mj0iMC4zNSIgeTI9IjEiPjxzdG9wIG9mZnNldD0iMCIgc3RvcC1jb2xvcj0iIzJGRDY5QSIvPjxzdG9wIG9mZnNldD0iLjUiIHN0b3AtY29sb3I9IiMxNEE4NzQiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiMwQTVFNDciLz48L2xpbmVhckdyYWRpZW50Pgo8bGluZWFyR3JhZGllbnQgaWQ9Im1kVCIgeDE9IjAiIHkxPSIxIiB4Mj0iMSIgeTI9IjAiPjxzdG9wIG9mZnNldD0iMCIgc3RvcC1jb2xvcj0iIzhCRTZCNiIvPjxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iIzFGQjU3RSIvPjwvbGluZWFyR3JhZGllbnQ+PC9kZWZzPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDAgMCkiPjxwYXRoIGQ9Ik0xMDAgMTAgQzEwMCAzIDk0IC0xIDg4IDIuNSBMNTAgMjIgQzE5IDM3LjUgMCA2NiAwIDEwNSBMMCAxOTYgQzAgMjIxIDIwIDIzMSA0MSAyMTkgTDEwMCAxOTAgWiIgZmlsbD0idXJsKCNhekIpIi8+PHBhdGggZD0iTTAgMTM4LjUgTDEwMCA5MCBMMTAwIDE5MCBMNDEgMjE5IEMyMCAyMzEgMCAyMjEgMCAxOTYgWiIgZmlsbD0idXJsKCNhelQpIi8+PC9nPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDAgMCkgcm90YXRlKDE4MCAxMDAgMTQwKSI+PHBhdGggZD0iTTEwMCAxMCBDMTAwIDMgOTQgLTEgODggMi41IEw1MCAyMiBDMTkgMzcuNSAwIDY2IDAgMTA1IEwwIDE5NiBDMCAyMjEgMjAgMjMxIDQxIDIxOSBMMTAwIDE5MCBaIiBmaWxsPSJ1cmwoI21kQikiLz48cGF0aCBkPSJNMCAxMzguNSBMMTAwIDkwIEwxMDAgMTkwIEw0MSAyMTkgQzIwIDIzMSAwIDIyMSAwIDE5NiBaIiBmaWxsPSJ1cmwoI21kVCkiLz48L2c+PC9zdmc+" alt="">Lightning</span><nav><span>الرئيسية</span><span>المزايا</span><span>طريقة الاستخدام</span><span>الحالة الحالية</span></nav><span class="btn primary sm">شارك في الاستبيان</span></div><p class="spec">ثابت · ٧٠ بكسل · الشعار على الشمال (يرجع للرئيسية) · أربع روابط · زر واحد على اليمين</p></div></div>
+    <div class="hs"><b>الشريط العلوي</b><div><div class="sitebar"><span class="lk"><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9Ii00IC00IDIwOCAyODgiID48ZGVmcz4KPGxpbmVhckdyYWRpZW50IGlkPSJhekIiIHgxPSIwIiB5MT0iMCIgeDI9IjAuMzUiIHkyPSIxIj48c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiMzNkI0RjIiLz48c3RvcCBvZmZzZXQ9Ii41IiBzdG9wLWNvbG9yPSIjMEI2REQ2Ii8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjMEEzRDhGIi8+PC9saW5lYXJHcmFkaWVudD4KPGxpbmVhckdyYWRpZW50IGlkPSJhelQiIHgxPSIwIiB5MT0iMSIgeDI9IjEiIHkyPSIwIj48c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiM1Q0M4RjciLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiMxQTdGRTAiLz48L2xpbmVhckdyYWRpZW50Pgo8bGluZWFyR3JhZGllbnQgaWQ9Im1kQiIgeDE9IjAiIHkxPSIwIiB4Mj0iMC4zNSIgeTI9IjEiPjxzdG9wIG9mZnNldD0iMCIgc3RvcC1jb2xvcj0iIzJGRDY5QSIvPjxzdG9wIG9mZnNldD0iLjUiIHN0b3AtY29sb3I9IiMxNEE4NzQiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiMwQTVFNDciLz48L2xpbmVhckdyYWRpZW50Pgo8bGluZWFyR3JhZGllbnQgaWQ9Im1kVCIgeDE9IjAiIHkxPSIxIiB4Mj0iMSIgeTI9IjAiPjxzdG9wIG9mZnNldD0iMCIgc3RvcC1jb2xvcj0iIzhCRTZCNiIvPjxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iIzFGQjU3RSIvPjwvbGluZWFyR3JhZGllbnQ+PC9kZWZzPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDAgMCkiPjxwYXRoIGQ9Ik0xMDAgMTAgQzEwMCAzIDk0IC0xIDg4IDIuNSBMNTAgMjIgQzE5IDM3LjUgMCA2NiAwIDEwNSBMMCAxOTYgQzAgMjIxIDIwIDIzMSA0MSAyMTkgTDEwMCAxOTAgWiIgZmlsbD0idXJsKCNhekIpIi8+PHBhdGggZD0iTTAgMTM4LjUgTDEwMCA5MCBMMTAwIDE5MCBMNDEgMjE5IEMyMCAyMzEgMCAyMjEgMCAxOTYgWiIgZmlsbD0idXJsKCNhelQpIi8+PC9nPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDAgMCkgcm90YXRlKDE4MCAxMDAgMTQwKSI+PHBhdGggZD0iTTEwMCAxMCBDMTAwIDMgOTQgLTEgODggMi41IEw1MCAyMiBDMTkgMzcuNSAwIDY2IDAgMTA1IEwwIDE5NiBDMCAyMjEgMjAgMjMxIDQxIDIxOSBMMTAwIDE5MCBaIiBmaWxsPSJ1cmwoI21kQikiLz48cGF0aCBkPSJNMCAxMzguNSBMMTAwIDkwIEwxMDAgMTkwIEw0MSAyMTkgQzIwIDIzMSAwIDIyMSAwIDE5NiBaIiBmaWxsPSJ1cmwoI21kVCkiLz48L2c+PC9zdmc+" alt="">Lightning</span><nav><span>الرئيسية</span><span>المزايا</span><span>بيشتغل إزاي</span><span>التنزيل</span></nav><span class="btn primary sm">جاوب على الاستبيان</span></div><p class="spec">ثابت · ٧٠ بكسل · الشعار على الشمال (يرجع للرئيسية) · أربع روابط · زر واحد على اليمين</p></div></div>
     <div class="hs"><b>واجهة الصفحة</b><div><div class="sitehero" style="text-align:center"><span style="display:inline-flex;align-items:center;gap:8px;font:700 13px/1 var(--body);letter-spacing:.01em;color:var(--muted)"><i style="width:16px;height:4px;border-radius:99px;background:var(--vivid)"></i>إدارة مالية شخصية مجانية في مصر</span><h1 style="margin:10px auto 0">كل فلوسك. <span style="display:block;background:var(--vivid);-webkit-background-clip:text;background-clip:text;color:transparent">في صورة واحدة واضحة.</span></h1><p style="margin:12px auto 0">البنوك والكاش وTHNDR والدهب، كلهم بالجنيه المصري.</p></div><p class="spec">التسمية · عنوان H1 بحجم ٤٦–٧٨ بكسل، والجملة الأهم بتدرج لوني · سطر تحته، وممكن سطرين بالكتير · لحد زرين · وبعدهم سطر قصير («استخدمه مجاناً. من غير بطاقة ولا حساب.») · في المنتصف</p></div></div>
-    <div class="hs"><b>عنوان القسم</b><div><div class="sitesec" style="text-align:center"><span style="display:inline-flex;align-items:center;gap:8px;font:700 13px/1 var(--body);letter-spacing:.01em;color:var(--muted)"><i style="width:16px;height:4px;border-radius:99px;background:var(--vivid)"></i>إيه المجاني بجد؟</span><h2 style="margin:10px auto 0">مش كل رصيدك متاح للصرف.</h2><p style="margin:8px auto 0">لايتنينغ بيخصم الفلوس اللي مش بتاعتك.</p></div><p class="spec">التسمية · عنوان H2 بحجم ٣٠–٤٨ بكسل بلون Ink · سطر تحته · في المنتصف</p></div></div>
+    <div class="hs"><b>عنوان القسم</b><div><div class="sitesec" style="text-align:center"><span style="display:inline-flex;align-items:center;gap:8px;font:700 13px/1 var(--body);letter-spacing:.01em;color:var(--muted)"><i style="width:16px;height:4px;border-radius:99px;background:var(--vivid)"></i>إيه المجاني بجد؟</span><h2 style="margin:10px auto 0">مش كل رصيدك متاح للصرف.</h2><p style="margin:8px auto 0">لايتنينج بيخصم الفلوس اللي مش بتاعتك.</p></div><p class="spec">التسمية · عنوان H2 بحجم ٣٠–٤٨ بكسل بلون Ink · سطر تحته · في المنتصف</p></div></div>
     <div class="hs"><b>عنوان البطاقة</b><div><b style="font:700 21px/1.2 var(--display)">فلوسك بتفضل معاك</b><p class="spec">عنوان H3 بحجم ٢١–٢٦ بكسل · وتحته جملة واحدة</p></div></div>
   </div>
   <div class="dd">
@@ -578,7 +580,7 @@ html[dir=rtl] *{letter-spacing:normal!important}
     <div class="al" style="--c:#EAF3FD"><i></i><div><b>درجة أزرق فاتح</b><span>بطاقات الفلوس المحتفظ بيها للغير</span></div></div>
     <div class="al" style="--c:#0D2233"><i></i><div><b>درجات Ink</b><span>كل النصوص</span></div></div>
     <div class="al" style="--c:#0A2442"><i></i><div><b>Nile</b><span>الأزرار والأرقام داخل الدوائر</span></div></div>
-    <div class="al" style="--c:var(--vivid)"><i></i><div><b>Vivid</b><span>الشعار وزر «ابدأ بدري» والجملة الأهم في الواجهة وعلامات التسميات</span></div></div>
+    <div class="al" style="--c:var(--vivid)"><i></i><div><b>Vivid</b><span>الشعار وزر «جرّب ببلاش» والجملة الأهم في الواجهة وعلامات التسميات</span></div></div>
     <div class="al" style="--c:#14A874"><i></i><div><b>Green</b><span>الدخل والفلوس اللي ادخرتها والمكاسب</span></div></div>
     <div class="al" style="--c:#0B6DD6"><i></i><div><b>Azure</b><span>فلوس محتفظ بيها لغيرك</span></div></div>
     <div class="al" style="--c:#E68CA8"><i></i><div><b>وردي هادي</b><span>المصروفات الخارجة</span></div></div>
@@ -594,17 +596,17 @@ html[dir=rtl] *{letter-spacing:normal!important}
 </section>
 
 <section class="g" id="b-type" data-part="b">
-  <div class="g-head"><div><h2><span class="secnum">B04</span>الخطوط</h2><p>نفس الخطين، بس بأحجام أكبر.</p></div></div>
+  <div class="g-head"><div><h2><span class="secnum">B04</span>الخطوط</h2><p>نفس الدورين، بخطين عربي: Readex Pro بيعرض، وIBM Plex Sans Arabic بيتقري.</p></div></div>
   <div class="scroll"><table class="t ty">
     <tr><th>الاستخدام</th><th>كمبيوتر · موبايل</th><th>مثال</th></tr>
-    <tr><td><b>عنوان الواجهة H1</b></td><td>٧٨ · ٤٦ · Bricolage 800</td><td style="font:800 34px/1.05 var(--display);letter-spacing:-.035em">في صورة واحدة واضحة.</td></tr>
-    <tr><td><b>عنوان القسم H2</b></td><td>٤٨ · ٣٠ · Bricolage 800</td><td style="font:800 26px/1.1 var(--display)">أسئلة وإجابات</td></tr>
-    <tr><td><b>عنوان البطاقة H3</b></td><td>٢٦ · ٢١ · Bricolage 800</td><td style="font:800 20px/1.2 var(--display)">فلوسك بتفضل معاك</td></tr>
-    <tr><td><b>رقم النتيجة</b></td><td>٦٤ · ٤٦ · Bricolage 800</td><td><span class="num" style="font-size:34px">٦٠٬٠٠٠</span><span class="unit">EGP</span></td></tr>
-    <tr><td><b>النص الأساسي</b></td><td>١٨ · ١٦ · Manrope 500</td><td style="font-size:16px">محسوبة صح بالجنيه المصري.</td></tr>
-    <tr><td><b>التسمية</b></td><td>١٣ · ١٢ · Manrope 700</td><td style="font-weight:700;font-size:13px">البريد الإلكتروني</td></tr>
+    <tr><td><b>عنوان الواجهة H1</b></td><td>٧٤ · ٤٠ · Readex Pro 600 · سطر ١٫٢٨</td><td style="font:600 34px/1.28 var(--display)">فلوسك كلها. في صورة واحدة.</td></tr>
+    <tr><td><b>عنوان القسم H2</b></td><td>٤٤ · ٢٨ · Readex Pro 600 · سطر ١٫٣٥</td><td style="font:600 26px/1.35 var(--display)">تقدر تصرف كام لحد القبض؟</td></tr>
+    <tr><td><b>عنوان البطاقة H3</b></td><td>٢٠ · ٢٠ · Readex Pro 600</td><td style="font:600 20px/1.4 var(--display)">فلوسك عندك إنت</td></tr>
+    <tr><td><b>رقم النتيجة</b></td><td>٦٤ · ٤٦ · Readex Pro 600</td><td><span class="num" style="font-size:34px">٦٠٬٠٠٠</span><span class="unit">جنيه</span></td></tr>
+    <tr><td><b>النص الأساسي</b></td><td>١٧ · ١٧ · IBM Plex Sans Arabic 400 · سطر ١٫٨</td><td style="font:400 16px/1.8 var(--body)">محسوبة صح بالجنيه.</td></tr>
+    <tr><td><b>التسمية</b></td><td>١٣ · ١٣ · IBM Plex Sans Arabic 500</td><td style="font:500 13px/1.4 var(--body)">إيميلك</td></tr>
   </table></div>
-  <ul class="short"><li>أرقام الموقع بالجنيه المصري من غير كسور، و«EGP» صغيرة بعد الرقم.</li><li>في تفاصيل التقسيم، اكتب EGP مرة واحدة جنب الرقم الكبير؛ صفوف التفاصيل أرقام بس.</li><li>وحدة واحدة لكل عمود: العدد في قائمة الفلوس لازم تظهر إشارته، زي <b>× ٢٠</b>.</li></ul>
+  <ul class="short"><li>الكلمات اللاتيني جوه الكلام العربي (CIB، THNDR، Windows) بتفضل بـBricolage وManrope.</li><li>العربي عمره ما بيبقى أتقل من ٦٠٠، ومن غير أي مسافات بين الحروف: الحروف العربي بتتشبك.</li><li>الأرقام هندي عربي (٢١٥٬٦٥٧)، و«جنيه» صغيرة بعد الرقم. في تفاصيل التقسيم، «جنيه» مرة واحدة جنب الرقم الكبير.</li><li>عنوان الواجهة سطرين بالكتير على الموبايل؛ والسطر التاني بس هو اللي بالتدرّج.</li></ul>
 </section>
 
 <section class="g" id="b-layout" data-part="b">
@@ -614,8 +616,8 @@ html[dir=rtl] *{letter-spacing:normal!important}
     <div><b>الواجهة الرئيسية</b><span>تسمية · H1 · سطر · أزرار · ٣ شاشات للمنتج</span></div>
     <div><b>قسم</b><span>تسمية · H2 · سطر · عنصر مرئي واحد</span></div>
     <div><b>قسم</b><span>تسمية · H2 · سطر · عنصر مرئي واحد</span></div>
-    <div><b>شريط التسجيل</b><span>البريد الإلكتروني · ابدأ بدري · أو · شارك في الاستبيان</span></div>
-    <div><b>التوقيع</b><span>الشعار · «افهم عاداتك. وامسك زمام مستقبلك.»</span></div>
+    <div><b>شريط التسجيل</b><span>البريد الإلكتروني · جرّب ببلاش · أو · جاوب على الاستبيان</span></div>
+    <div><b>التوقيع</b><span>الشعار · «اعرف فلوسك راحت فين. وقرّر هتروح فين.»</span></div>
     <div><b>التذييل</b><span>الشعار · العبارة · الروابط</span></div>
   </div>
   <ul class="short"><li>العرض ١٬١٢٠ بكسل. الهوامش ٢٤ بكسل، و١٦ على الموبايل. المسافة بين الأقسام ٧٢ بكسل، و٤٨ على الموبايل.</li><li>عناوين الواجهة والأقسام في المنتصف؛ والنص جوه البطاقات على الشمال. زوايا البطاقات ٢٢ بكسل، والمسافة بينها ١٦.</li><li><b>الموبايل أولاً.</b> أغلب الناس بتقرأ من الموبايل. خلي كل جملة في الواجهة سطر واحد (وتصغر لو احتاجت)، والأزرار بعرض الشاشة وارتفاع ٥٢ بكسل، والشاشات التلاتة في عمود واحد، والحقول ارتفاعها ٥٤ بكسل، والأيقونة فوق اسم العنصر في البلاطات. ما تكسّرش السطر في نص حاجة المفروض تتقري كسطر واحد.</li></ul>
@@ -629,7 +631,7 @@ html[dir=rtl] *{letter-spacing:normal!important}
     <div class="card support"><div class="chead"><div><h4>التفاصيل</h4><p>قائمة التفاصيل (A12)</p></div></div><div class="trow"><span>النقدية المتاحة</span><b>٨٢٬٦٦٣</b></div><div class="trow"><span>مبالغ محجوزة للعيلة</span><b>−١٠٬٠٠٠</b></div><div class="trow result"><span>المتاح الآمن للصرف</span><b>٧١٬٣٥٤</b></div></div>
     <div class="card support"><div class="chead"><div><h4>الخطوات</h4><p>للتسلسل الحقيقي بس</p></div></div><div class="demo-row" style="margin:0"><span class="secnum">1</span><b>استورد</b><span class="secnum">2</span><b>راجع</b><span class="secnum">3</span><b>حلّل</b></div></div>
     <div class="card support"><div class="chead"><div><h4>اقتباس</h4><p>اقتباس واحد بالكتير في الصفحة</p></div></div><p style="font:700 17px/1.35 var(--display)">«بتسقط لمستوى أنظمتك.»</p><p class="lead-sub">James Clear</p></div>
-    <div class="card support"><div class="chead"><div><h4>شريط التسجيل</h4><p>نهاية كل صفحة</p></div></div><div style="display:flex;gap:8px"><span style="flex:1;height:40px;border:1px solid var(--line);border-radius:999px;background:var(--white);display:flex;align-items:center;padding:0 16px;color:var(--muted);font-size:14px">البريد الإلكتروني</span><span class="btn vivid sm">ابدأ بدري</span></div><p style="text-align:center;margin:10px 0;color:var(--muted);font:700 11px var(--body);letter-spacing:.1em">أو</p><span class="btn primary sm" style="width:100%;justify-content:center">شارك في الاستبيان · من ٣ لـ٥ دقايق</span></div>
+    <div class="card support"><div class="chead"><div><h4>شريط التسجيل</h4><p>نهاية كل صفحة</p></div></div><div style="display:flex;gap:8px"><span style="flex:1;height:40px;border:1px solid var(--line);border-radius:999px;background:var(--white);display:flex;align-items:center;padding:0 16px;color:var(--muted);font-size:14px">البريد الإلكتروني</span><span class="btn vivid sm">جرّب ببلاش</span></div><p style="text-align:center;margin:10px 0;color:var(--muted);font:700 11px var(--body);letter-spacing:.1em">أو</p><span class="btn primary sm" style="width:100%;justify-content:center">جاوب على الاستبيان · من ٣ لـ٥ دقايق</span></div>
     <div class="card support"><div class="chead"><div><h4>قائمة المزايا</h4><p>صفحة المزايا بس</p></div></div><ul style="margin:0;padding-inline-start:18px;font-size:14px;line-height:1.5"><li><b>صافي ثروتك.</b> اللي تملكه ناقص اللي عليك.</li><li><b>النقدية المتاحة.</b> الفلوس اللي تقدر تستخدمها.</li></ul></div>
   </div>
   <ul class="short"><li>الأرقام داخل دوائر Nile للخطوات الحقيقية بس: زي الخطوات أو المعتقدات بترتيبها.</li><li><b>استثناء الحكاية من قاعدة «أربع نقاط وبعدها غيرها»:</b> لو فكرة القسم مبنية على عدد (زي «ست أماكن»)، اعرض كل الأماكن اللي داخلة في العدد. في باقي الحالات اعرض أربع نقاط وبعدها «غيرها».</li></ul>
@@ -651,7 +653,7 @@ html[dir=rtl] *{letter-spacing:normal!important}
     <div style="padding:24px;background:var(--paper)"><b style="font:800 18px/1.25 var(--display)">ممكن تدخر كام كل شهر من غير ما تحس؟</b><div class="field" style="margin-top:12px;max-width:none"><div class="in amount">٢٬٠٠٠<span class="unit" style="margin-left:8px">EGP</span></div></div></div>
     <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;background:var(--vivid);color:#fff"><span style="font:800 12px var(--body);opacity:.85">يعني كأن معاك</span><div style="font:800 52px/1.05 var(--display);margin-top:6px">١٢٠٬٠٠٠ <span style="font-size:14px;opacity:.85">EGP</span></div><p style="margin-top:8px;font-size:14px;max-width:30ch">في البنك. بعائد ٢٠٪ في السنة، المبلغ ده يجيب لك <b>٢٬٠٠٠ EGP</b> كل شهر، من غير ما تحتاج تحوش رأس المال الأول.</p></div>
   </div>
-  <ul class="short"><li>بطاقة واحدة متقسمة نصين: السؤال والمدخلات على خلفية عادية، والنتيجة برقم أبيض على التدرج الحيوي. دي البطاقة الوحيدة المسموح لها بالتدرج.</li><li>النتيجة هي رأس المال اللي يجيب قيمة اللي بتدخره: المبلغ الشهري × ١٢ ÷ العائد السنوي. تظهر في نص الجانب المتدرج، لحد ٩٦ بكسل (٤٦ على الموبايل)، وتحتها شارة واحدة: «اللي ادخرته في سنة».</li><li>تبدأ بـ ٢٬٠٠٠ EGP وعائد ٢٠٪. من غير زر أو سطر إخلاء مسؤولية. النتيجة تتقري كأنها فلوس في البنك: «يعني كأن معاك ١٢٠٬٠٠٠ EGP في البنك. بعائد ٢٠٪ في السنة، المبلغ ده يجيب لك ٢٬٠٠٠ EGP كل شهر، من غير ما تحتاج تحوش رأس المال الأول.»</li><li>في صفحة A بعد «طريقة الاستخدام»؛ وفي صفحة B بعد حكاية الفطار، اللي بتحسب اللي ادخرته مش اللي بطلت تصرفه: ١٥٠ في الكافيه، و٥٠ في البيت، و١٠٠ اتدخروا، × ٢٠ = ٢٬٠٠٠ في الشهر.</li><li>مفيش ملاحظة تفسيرية أو تلميح في خانة الإدخال. لو محتاجة شرح، أعد كتابة الفكرة.</li></ul>
+  <ul class="short"><li>بطاقة واحدة متقسمة نصين: السؤال والمدخلات على خلفية عادية، والنتيجة برقم أبيض على التدرج الحيوي. دي البطاقة الوحيدة المسموح لها بالتدرج.</li><li>النتيجة هي رأس المال اللي يجيب قيمة اللي بتدخره: المبلغ الشهري × ١٢ ÷ العائد السنوي. تظهر في نص الجانب المتدرج، لحد ٩٦ بكسل (٤٦ على الموبايل)، وتحتها شارة واحدة: «اللي ادخرته في سنة».</li><li>تبدأ بـ ٢٬٠٠٠ EGP وعائد ٢٠٪. من غير زر أو سطر إخلاء مسؤولية. النتيجة تتقري كأنها فلوس في البنك: «يعني كأن معاك ١٢٠٬٠٠٠ EGP في البنك. بعائد ٢٠٪ في السنة، المبلغ ده يجيب لك ٢٬٠٠٠ EGP كل شهر، من غير ما تحتاج تحوش رأس المال الأول.»</li><li>في صفحة A بعد «بيشتغل إزاي»؛ وفي صفحة B بعد حكاية الفطار، اللي بتحسب اللي ادخرته مش اللي بطلت تصرفه: ١٥٠ في الكافيه، و٥٠ في البيت، و١٠٠ اتدخروا، × ٢٠ = ٢٬٠٠٠ في الشهر.</li><li>مفيش ملاحظة تفسيرية أو تلميح في خانة الإدخال. لو محتاجة شرح، أعد كتابة الفكرة.</li></ul>
 </section>
 
 <section class="g" id="b-dark" data-part="b">
@@ -669,15 +671,15 @@ html[dir=rtl] *{letter-spacing:normal!important}
 </section>
 
 <section class="g" id="b-words" data-part="b">
-  <div class="g-head"><div><h2><span class="secnum">B10</span>الكلام</h2><p>واضح ومشجّع ومحدد وصادق ومن البلد.</p></div></div>
+  <div class="g-head"><div><h2><span class="secnum">B10</span>الكلام</h2><p>معمول لمصر، مش مترجم: زي ما واحد صاحبك فاهم في الفلوس بيكلمك.</p></div></div>
   <div class="ddrows">
-    <div class="ddrow"><div class="y">ادخار ٢٬٠٠٠ EGP في الشهر يساوي ٢٤٬٠٠٠ EGP في السنة.</div><div class="n">افتح لنفسك فرص مالية بلا حدود.</div></div>
-    <div class="ddrow"><div class="y">تغييرات صغيرة ممكن تسيب لك مساحة في ميزانيتك.</div><div class="n">بطّل تضيّع فلوسك.</div></div>
+    <div class="ddrow"><div class="y">تقدر تصرف كام لحد القبض؟</div><div class="n">المبلغ الآمن للإنفاق حتى موعد الراتب القادم.</div></div>
+    <div class="ddrow"><div class="y">ببلاش. من غير فيزا، ومن غير حساب.</div><div class="n">مجاني تماماً! لا حاجة لبطاقة ائتمان.</div></div>
+    <div class="ddrow"><div class="y">٢٬٠٠٠ جنيه في الشهر، يعني ٢٤ ألف في السنة.</div><div class="n">افتح لنفسك فرص مالية بلا حدود.</div></div>
     <div class="ddrow"><div class="y">رسم توضيحي، مش توقع.</div><div class="n">اكسب عائد ٢٠٪ في السنة.</div></div>
-    <div class="ddrow"><div class="y">شهادات CIB وNBE، وTHNDR، ودهب في البيت</div><div class="n">حسابك الجاري</div></div>
-    <div class="ddrow"><div class="y">اعرف اللي جاي: كل فاتورة وقسط مستنيك.</div><div class="n">معظم التطبيقات ما بتوريكش غير رصيد النهارده.</div></div>
+    <div class="ddrow"><div class="y">شهادة الأهلي، وTHNDR، ودهب في البيت</div><div class="n">حسابك الجاري</div></div>
   </div>
-  <ul class="short"><li>اوصف اللي التطبيق بيعمله دلوقتي بس. الاقتباسات: Buffett وHousel وClear؛ راجع نصها قبل النشر.</li><li>وضّح الحاجات اللي لايتنينغ بيعملها كويس. ما تقارنوش بتطبيقات تانية وما تذكرهاش.</li></ul>
+  <ul class="short"><li><b>اتبنت لمصر.</b> الصفحة العربية مش ترجمة للإنجليزي: نفس الحقايق والشاشات، بس الترتيب والأمثلة والكلام على مقاس القارئ المصري، وأقسام أقل.</li><li><b>عامية مصرية مهذبة.</b> جمل قصيرة، فكرة في كل جملة. لا فصحى جامدة («يتيح لك»، «قم بـ») ولا مبالغة ولا علامات تعجب.</li><li><b>كلمات ثابتة:</b> «التنزيل»، «جرّب ببلاش»، «المتاح للصرف»، «صافي ثروتك»، «الفلوس اللي خرجت»، «السجل»، «مهاب». وأسماء التطبيق نفسها من المسرد العربي.</li><li>اوصف اللي التطبيق بيعمله دلوقتي بس. ما تقارنوش بتطبيقات تانية وما تذكرهاش.</li></ul>
 </section>
 
 <section class="g" id="b-ship" data-part="b">

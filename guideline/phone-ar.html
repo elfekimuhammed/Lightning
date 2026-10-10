@@ -499,11 +499,13 @@ nav.side .grp{margin:14px 10px 6px;font:800 12px/1 var(--body);color:var(--muted
 .pickdoc{margin-top:16px;padding:14px 16px;border-radius:16px;background:var(--track);font-size:14px;color:var(--ink2);max-width:62ch}
 .pickdoc b{color:var(--ink)}
 .pickdoc a{color:var(--ink);font-weight:800}
-:root{--display:"Bricolage Grotesque",Alexandria,"Segoe UI",system-ui,sans-serif;--body:Manrope,Alexandria,"Segoe UI",system-ui,sans-serif}
+:root{--display:"Bricolage Grotesque","Readex Pro","Segoe UI",system-ui,sans-serif;--body:Manrope,"IBM Plex Sans Arabic","Segoe UI",system-ui,sans-serif}
+/* Arabic type (B04): Readex Pro shows, IBM Plex Sans Arabic reads; Arabic never heavier than 600 */
+html[dir=rtl] :is(h1,h2,h3,.num,.secnum,b,strong,th){font-weight:600}html[dir=rtl] body{line-height:1.75}
 /* Arabic letters join: never space them out */
 html[dir=rtl] *{letter-spacing:normal!important}
 </style>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@400;500;600;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600&display=swap">
 </head>
 <!-- AI AGENTS: this is ONE of THREE guideline documents, all in this folder: app.html (Part A, the app on a PC, A01-A16), website.html (Part B, lightningeg.com, B01-B11), phone.html (Part C, the app on a phone, C01-C12). This file is phone.html. For anything about another surface, open that file; do not guess. Do not read a file whole (about 95,000 tokens in all): run `python tools/guideline.py` in the app repo to list sections and `python tools/guideline.py C05` to print one. -->
 <body data-part="c">
