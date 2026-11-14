@@ -120,3 +120,10 @@ def test_a_scenario_purchase_offers_plan_this_purchase(mohab_now):
     page = _get(c, "/plan/scenarios", purchase="5000", purchase_date="2026-12-05", account_id=str(bank.id)).text
     assert "Plan this purchase" in page and "start_date=2026-12-05" in html.unescape(page)
     assert "Plan this purchase" not in _get(c, "/plan/scenarios").text
+
+
+def test_a_missing_rate_leaves_the_first_day_below_zero_unknown_not_an_error():
+    from lightning.planning.scenarios import ScenarioResult
+    result = ScenarioResult(None, None, None, None, ("x",), None, None, (),
+                            (("2026-11", 100, None, (("2026-11-20", None), ("2026-11-30", -5))),))
+    assert result.first_below_zero == ("2026-11-30", -5)

@@ -34,7 +34,7 @@ class ScenarioResult:
     @property
     def first_below_zero(self):
         """BV-7AW: the first day the plan, with the change, goes below zero: (date, value), or None."""
-        return next(((on, value) for _, _, _, days in self._days for on, value in days if value < 0), None)
+        return next(((on, value) for _, _, _, days in self._days for on, value in days if value is not None and value < 0), None)
 
     _days: tuple = ()  # (month, plan closing, lowest, ((date, value), ...)) for each month, in order
 
