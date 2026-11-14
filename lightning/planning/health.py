@@ -38,6 +38,11 @@ class Health:
     bills_a_month: Decimal       # bills and subscriptions, a month
     loans_a_month: Decimal       # loan payments still to make, a month
 
+    @property
+    def fixed_a_month(self) -> Decimal:
+        """Bills, subscriptions and loan payments together, a month (the phone's Every month)."""
+        return self.bills_a_month + self.loans_a_month
+
 
 @dataclass(frozen=True)
 class HealthMonth:
