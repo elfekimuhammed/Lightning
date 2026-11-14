@@ -1103,6 +1103,29 @@ class ReportingService:
         from .cash_analytics import cash_age
         return cash_age(self.q.db, self._day(as_of), self.base_currency)
 
+    def spending_pattern(self, month_keys: list[str], today_: date) -> dict:
+        """Net spending in each of ``month_keys`` (yyyy-mm, oldest first, the last one is the month being read, up to
+        ``today_``), the usual month (the average of the earlier months that had spending), this month's daily average
+        and daily usual, and its biggest day. One home for the phone's Spending tab."""
+        first, last = parse_month(month_keys[0])[0], parse_month(month_keys[-1])[1]
+        current_first = parse_month(month_keys[-1])[0]
+        end = min(last, today_)
+        days = self.spending_calendar(first, end) if end >= first else []
+        months = {key: ZERO for key in month_keys}
+        for d in days:
+            key = str(d["date"])[:7]
+            if key in months:
+                months[key] += d["amount"]
+        current = month_keys[-1]
+        earlier = [v for k, v in months.items() if k != current and v > ZERO]
+        usual = sum(earlier, ZERO) / len(earlier) if earlier else None
+        elapsed = max((end - current_first).days + 1, 0)
+        this = [d for d in days if str(d["date"])[:7] == current]
+        return {"months": months, "usual": usual,
+                "daily": months[current] / elapsed if elapsed > 0 else None,
+                "daily_usual": usual / 30 if usual else None,
+                "biggest": max(this, key=lambda d: d["amount"]) if this else None}
+
     def spending_calendar(self, date_from, date_to):
         """Daily net spending, including refunds, with register links built by the UI."""
         days = {}

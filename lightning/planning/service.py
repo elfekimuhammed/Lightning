@@ -56,6 +56,21 @@ class PlanningService:
     def _currency_of(self, account_id: int | None) -> str:
         return self.accounts.get(account_id).currency if account_id else self.transactions.base_currency
 
+    def flows(self, payments, day: date | str) -> tuple[Decimal, Decimal]:
+        """(money coming in, money going out) of these payments, in profile currency at the rate known on ``day``,
+        each at what is still owed; a payment with no rate yet counts as scheduled."""
+        coming = going = Decimal(0)
+        for p in payments:
+            try:
+                value = self.amount_in_base(p, p.still_owed, day)
+            except ValidationError:
+                value = p.still_owed
+            if p.item.is_income:
+                coming += value
+            else:
+                going += value
+        return coming, going
+
     def amount_in_base(self, payment_or_item: Payment | PlannedItem, amount: Decimal,
                        day: date | str) -> Decimal:
         """Value a native scheduled amount in profile currency at the rate known on ``day``."""
