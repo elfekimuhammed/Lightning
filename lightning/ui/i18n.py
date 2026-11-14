@@ -1429,6 +1429,7 @@ ARABIC_UI = {
     'Bills inside the plan': 'الفواتير ضمن الخطة',
     'Budget until payday': 'الميزانية لحد الراتب',
     'Due before payday': 'المستحق قبل القبض',
+    'Income before payday': 'دخل قبل القبض',
     'Saving for goals': 'الادخار للأهداف',
     'Rest of savings target': 'باقي هدف الادخار',
     'Create plan': 'اعمل الخطة',

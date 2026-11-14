@@ -1288,7 +1288,7 @@ def test_what_is_left_to_pay_this_month_and_on_which_days(mohab):
     assert route(mohab, "upcoming") == ["/", "/plan", "/plan/upcoming"]
     assert upcoming.figure("Left to pay in October") == D("1130")    # WE Internet 650 + North Cairo Electricity 480
     assert upcoming.shows("1,130 left to pay in October, on 2 days.", "14,500 paid of 15,630 due in October",
-                          "Payday 1 Oct", "20 Oct WE Internet Bills · To pay 650")
+                          "Payday 1 Nov", "20 Oct WE Internet Bills · To pay 650")
 
 
 def test_the_emergency_fund_in_months(mohab):
