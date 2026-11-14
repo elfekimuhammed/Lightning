@@ -123,7 +123,7 @@ def test_the_add_sheet_is_amount_first_with_chips_and_no_card(month):
     chips = re.findall(r'data-category="(\d+)"[^>]*>([^<]+)<', out_group)
     # IV-11M4 (mockup v2.0): five usual categories, then More
     assert [int(i) for i, _ in chips] == c.transactions.usual_capture_categories("out", 5)        # the service's order
-    assert unescape(chips[0][1]) == "Food & Groceries"                                                       # the usual first
+    assert unescape(chips[0][1]) == "Food & groceries"                                                       # the usual first
     assert "data-chip-other" in sheet and 'name="category_id"' in sheet                          # the field itself stays
     assert "decreases by" not in sheet and "balance owned by" not in sheet
 
@@ -208,7 +208,7 @@ def test_a_row_opens_its_sheet_first_and_the_sheet_looks_before_it_edits(month):
     body = re.sub(r"<[^>]+>", " ", sheet)
     assert "phone-txn-av is-out" in sheet                                           # the arrow chip
     assert ">−250</bdi>" in sheet and "−250.00" not in sheet                         # whole EGP, no .00
-    assert "Seoudi" in body and "Food & Groceries" in unescape(body)
+    assert "Seoudi" in body and "Food & groceries" in unescape(body)
     left = D("5000") - D("1200") - D("300") - D("250")
     # IV-11M4 (mockup v2.0): the Category row says what is left after this one; it opens Change category
     assert f"{left:,.0f} left after this" in body                                        # Plan left, from BudgetService

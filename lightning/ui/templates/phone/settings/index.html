@@ -41,9 +41,9 @@
     {% if play_offers is none %}<ol class="theme-unlock-steps">
       <li>{{ 'Buy it on lightningeg.com.'|tr(locale) }} <a data-theme-prices data-marketplace="{{ marketplace }}" href="{{ marketplace }}?from=app#themes" target="_blank" rel="noopener">{{ 'See prices'|tr(locale) }}</a></li>
       <li>{{ 'On your account page, press Get app code.'|tr(locale) }}</li>
-      <li>{{ "Paste it here. Do this once: your profile's other devices unlock by themselves."|tr(locale) }}</li>
+      <li>{{ "Paste it here. Do this once: your profile’s other devices unlock by themselves."|tr(locale) }}</li>
     </ol>
-    <p class="muted small">{{ 'Your other profiles unlock free, each with its own code, up to 5.'|tr(locale) }}</p>{% else %}<p class="muted small">{{ "Have an unlock code? Paste it here. Your profile's other devices unlock by themselves."|tr(locale) }}</p>{% endif %}
+    <p class="muted small">{{ 'Your other profiles unlock free, each with its own code, up to 5.'|tr(locale) }}</p>{% else %}<p class="muted small">{{ "Have an unlock code? Paste it here. Your profile’s other devices unlock by themselves."|tr(locale) }}</p>{% endif %}
     {% set mine = paid|selectattr('owned')|map(attribute='name')|list %}{% if mine %}<p>{{ 'Yours on this profile:'|tr(locale) }} {% for n in mine %}<b>{{ n|tr(locale) }}</b>{% if not loop.last %} · {% endif %}{% endfor %}</p>{% endif %}
     <form method="post" action="/settings/theme/unlock" class="theme-unlock-form">
       <label for="unlock-code">{{ ('Code from your account page' if play_offers is none else 'Unlock code')|tr(locale) }}</label>
@@ -99,7 +99,7 @@
     <a class="phone-row" href="/settings/licences"><span>{{ 'Licences'|tr(locale) }}<small>{{ 'Lightning and the parts it is built from'|tr(locale) }}</small></span><b>{{ chevron() }}</b></a>
   </div>
   <h3 class="phone-sub-title" id="delete-heading">{{ 'Delete your data'|tr(locale) }}</h3>
-  <p class="phone-note">{{ "Your profiles live only in Lightning's own storage on this phone. To delete them all, open Android's Settings › Apps › Lightning › Storage and clear it, or uninstall Lightning. Save a copy first if you may want them back."|tr(locale) }}</p>
+  <p class="phone-note">{{ "Your profiles live only in Lightning’s own storage on this phone. To delete them all, open Android’s Settings › Apps › Lightning › Storage and clear it, or uninstall Lightning. Save a copy first if you may want them back."|tr(locale) }}</p>
 </section>
 <p class="phone-pc-note" id="pc-heading"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg><span><b>{{ 'Best on your PC'|tr(locale) }}</b> {{ 'Ask an AI, sale factors, target allocation, price files and each tab’s settings.'|tr(locale) }}</span></p>
 <script nonce="{{ request.state.csp_nonce|default('') }}">document.querySelectorAll('[data-autosubmit],[data-locale-auto]').forEach(control=>control.addEventListener('change',()=>control.form?.requestSubmit()));document.getElementById('privacy-on')?.addEventListener('change',()=>window.lightningPrivacy?.toggle());</script>

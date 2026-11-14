@@ -22,6 +22,7 @@ from .. import charts, keynotes, kpis, status as page_status
 from ..web import container, redirect, render, settled_save
 from ..periods import parse_period
 from ..budget_rows import cover_from, last_payments, neighbours, pace_line
+from ..budget_exclusions import exclusion_context
 
 router = APIRouter(prefix="/budget")
 TRACK_SUGGESTION_PERCENT = Decimal(20)
@@ -223,6 +224,7 @@ def _page(request: Request, month: str, values: dict | None = None, error: str =
                   monthly_income_basis=income_basis,
                   category_periods=category_periods,
                   bulk_undo=bulk_undo,
+                  **exclusion_context(c),
                   effective_month=month, previous_month=neighbours(month)[0],
                   previous_bridge=c.budgets.month_view(neighbours(month)[0], schedule=c.schedules.view()))
 
@@ -290,10 +292,15 @@ async def mark_budget_one_off(request: Request):
     try:
         category_id = int(str(form.get("category_id", "")))
         month = str(form.get("month", month_of(today()))); parse_month(month)
-        c.budgets._budgetable(category_id)
-        excluded = _category_setting_ids(c, "budget_one_off_exclusions")
-        excluded.add(category_id)
+        action = str(form.get("action", "exclude"))
+        if action not in {"exclude", "restore"}:
+            raise ValidationError("Choose a valid exclusion action.")
+        c.categories.get(category_id)
+        if action == "exclude":
+            c.budgets._budgetable(category_id)
         with settled_save(request, container(request)):
+            excluded = _category_setting_ids(c, "budget_one_off_exclusions")
+            (excluded.add if action == "exclude" else excluded.discard)(category_id)
             if getattr(c, "is_journal", False):
                 codes = {c.categories.get(item).code for item in excluded}
                 c.settings.set("budget_one_off_exclusions", json.dumps(sorted(codes)))
@@ -301,7 +308,8 @@ async def mark_budget_one_off(request: Request):
                 _save_category_setting(c, "budget_one_off_exclusions", excluded)
     except (ValueError, TypeError, LightningError) as exc:
         return redirect("/budget", exc.message if isinstance(exc, LightningError) else "Choose a valid category.")
-    return redirect(f"/budget?period=month&month={month}", "Category excluded from background estimates.")
+    message = "Category put back in the budget." if action == "restore" else f"{c.categories.get(category_id).name} is outside the budget now; it still counts in Cash flow. Put it back in Budget settings."
+    return redirect(f"/budget?period=month&month={month}#budget-exclusions", message)
 
 
 def _budget_return_to(raw: str | None) -> str:
@@ -474,7 +482,9 @@ async def one_category_limit(request: Request, category_id: int):
     from ..charts import meter
     used = line.planned_actual if line else ZERO
     return render(request, "budget_category_rule.html", category=category, month=month, rule=rule, line=line,
-                  used=used, bar=meter(used, line.available if line else None))
+                  used=used, bar=meter(used, line.available if line else None),
+                  subcategories=exclusion_context(c)["subcategory_counts"].get(category_id, 0),
+                  estimate_excluded=category_id in c.budgets.one_off_ids())
 
 
 @router.post("/limit/{category_id:int}")
@@ -663,7 +673,7 @@ async def budget_page(request: Request):
     return _page(request, month)
 
 
-FILL_SOURCES = ("last_month", "average", "schedule")
+FILL_SOURCES = ("changes", "last_month", "average", "schedule")
 
 
 @router.get("/fill")
@@ -675,28 +685,18 @@ async def budget_fill_page(request: Request):
         return redirect("/budget", "That month is invalid. Use YYYY-MM, for example 2026-09.")
     if month > month_of(today()):
         return redirect("/budget", f"{month} has not started yet. Choose a current or past month to fill.")
-    source = request.query_params.get("source")
-    tried = []
+    # NF-12AI (#635): opened without a source (Fill this month, Give it a job), the page shows What changed: only
+    # rows that would change something; an unchanged month says the plan continues. The other sources stay a pick.
+    source = request.query_params.get("source") or FILL_SOURCES[0]
     try:
-        if source:
-            proposal = c.budgets.fill_proposal(month, source, schedule=c.schedules.view())
-        else:
-            # IV-12Q3: opened without a source (Fill this month, Give it a job), the page opens on the first source
-            # that has something to offer, never on an empty "last month".
-            for source in FILL_SOURCES:
-                proposal = c.budgets.fill_proposal(month, source, schedule=c.schedules.view())
-                if any(row.selectable for row in proposal.rows):
-                    break
-                tried.append(source)
-            else:
-                source, proposal = FILL_SOURCES[0], c.budgets.fill_proposal(month, FILL_SOURCES[0], schedule=c.schedules.view())
+        proposal = c.budgets.fill_proposal(month, source, schedule=c.schedules.view())
     except LightningError as exc:
-        return render(request, "budget_fill.html", month=month, source="last_month", proposal=None,
+        return render(request, "budget_fill.html", month=month, source=FILL_SOURCES[0], proposal=None,
                       error=exc.message, status_code=400)
     proposal, room_left = c.health.fit_fill(proposal)
     return render(request, "budget_fill.html", month=month, source=source, proposal=proposal, error="",
                   check=c.health.plan_check(month), room_left=room_left, other_sources=[
-                      key for key in FILL_SOURCES if key != source and key not in tried])
+                      key for key in FILL_SOURCES if key != source])
 
 
 @router.post("/fill")

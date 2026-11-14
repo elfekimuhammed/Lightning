@@ -99,12 +99,15 @@ _TABLE = [
      "(Bills and subscriptions a month + Loan payments a month) ÷ Average monthly income"),
     ("kept_apart", "Kept apart", "Cash you own that is not ready to spend: cash in a brokerage, cash in another "
      "currency, or an account you set apart. It stays in what you own and in If you sold today."),
+    ("counted_as_cash", "Counted as cash", "Investments you marked to count with cash (Count in free cash on the "
+     "investment), such as a fund you can sell in days at no loss. Their value joins Free cash; they stay in "
+     "Holdings and Net worth, and If you sold today counts them once. A certificate in its lock-up never counts."),
     ("bill_reserve_coverage", "Bill cash already set aside",
      "Saved cash in a reserve explicitly linked to a bill, covering its earliest unpaid payments once. "
      "Added back when those payments are deducted, because Reserves already holds the same cash."),
     ("free_cash", "Free cash", "Cash you can spend without touching reserves or leaving a bill unpaid. Cash kept "
      "apart (brokerage, other currencies) is left out.",
-     "Cash you own − Kept apart − Reserves − Bills due + Bill cash already set aside"),
+     "Cash you own − Kept apart + Counted as cash − Reserves − Bills due + Bill cash already set aside"),
     ("portfolio_value", "Portfolio value", "Holdings value under the name the Investments tab uses: everything "
      "you own that is not cash. Cash waiting in a brokerage account counts in Cash you own (owner decisions "
      "2026-10-04).", "Holdings value"),
@@ -177,7 +180,7 @@ _TABLE = [
      "(Settings › Budget). Until a completed month has income, the income set up in Recurring stands in. "
      "The budget, reserves and the cash forecast all use it."),
     ("average_monthly_spending", "Average monthly spending",
-     "Money out in your budget categories, leaving out investments and one-off categories, averaged over the same "
+     "Money out in your budget categories, leaving out investments and categories outside the budget, averaged over the same "
      "3 or 6 completed months as Average monthly income. The emergency fund can be counted in it (Settings › Budget)."),
     # ------------------------------------------------------------ budget (a month)
     ("base_budget", "Base budget", "The amount the budget rule gives: fixed, a share of income or an average."),
@@ -188,7 +191,7 @@ _TABLE = [
      "\"!\" that says why.", "Base budget + Carryover"),
     ("spent", "Spent", "Money out in the category this month."),
     ("left_in_plan", "Left in plan", "What is left of the plan; the Overview and Budget show the same month "
-     "figure, and a negative one reads \"Over plan\". One-off categories are left out of Spent.", "Planned − Spent"),
+     "figure, and a negative one reads \"Over plan\". Categories outside the budget are left out of Spent.", "Planned − Spent"),
     ("everyday_left", "Left for everyday", "The plan's remaining money after unpaid planned bills and loans, "
      "floored at zero this month. Other months use Left in plan. The phone Budget's everyday spending allowance and "
      "the phone Home's lead (owner, 2026-11-09); Safe to spend leads Cash planning on both apps (IV-12P)."),
@@ -227,16 +230,16 @@ _TABLE = [
      "Net gain or loss ÷ (Portfolio value at the start + Money added)"),
     # ------------------------------------------------------------ foreign money (a period)
     ("average_rate", "Average rate", "What each unit of a foreign currency you still hold cost you, in the profile "
-     "currency: conversions count at the rate you got, money in at the day's rate, and money out takes units at this rate."),
-    ("unrealized_fx_gain", "Unrealized FX gain", "Today's value of the foreign money you hold minus what it cost: the "
+     "currency: conversions count at the rate you got, money in at the day’s rate, and money out takes units at this rate."),
+    ("unrealized_fx_gain", "Unrealized FX gain", "Today’s value of the foreign money you hold minus what it cost: the "
      "exchange-rate gain or loss not yet locked in."),
     ("realized_fx_gain", "Realized FX gain", "For foreign money that left in the period (spent or converted), what it "
      "fetched minus what it cost at the average rate."),
     ("spread_paid", "Spread paid", "What conversions in the period cost beyond the market rate of their day: the market "
      "value of what you sent minus the market value of what you received. Fees are separate."),
-    ("price_part", "Price part", "The part of a foreign holding's unrealized gain that comes from its price in its own "
-     "currency, at today's rate."),
-    ("fx_part", "FX part", "The part of a foreign holding's unrealized gain that comes from the exchange rate.",
+    ("price_part", "Price part", "The part of a foreign holding’s unrealized gain that comes from its price in its own "
+     "currency, at today’s rate."),
+    ("fx_part", "FX part", "The part of a foreign holding’s unrealized gain that comes from the exchange rate.",
      "Unrealized gain − Price part"),
     # ------------------------------------------------------------ cash planning
     ("safe_to_spend", "Safe to spend", "Free cash after what is promised before your next income. An estimate. Budget until payday, Saving for goals, Emergency fund top-up and Rest of savings target count for every month until that income (only the days before it in the month it lands), so a long gap between pays is covered.",
@@ -297,6 +300,7 @@ _SOURCES = {
     "loan_payments_to_income": (BOTH, "lightning.planning.health.Ratio.percent"),
     "fixed_costs_to_income": (BOTH, "lightning.planning.health.Ratio.percent"),
     "kept_apart": (LEDGER, "lightning.reporting.service.ReportingService.owned_cash_kept_apart"),
+    "counted_as_cash": (LEDGER, f"{P}.counted_as_cash"),
     "bill_reserve_coverage": (PLAN, "lightning.planning.service.PlanningService.bill_reserve_coverage"),
     "free_cash": (BOTH, f"{P}.free_cash"),
     "portfolio_value": (LEDGER, f"{P}.portfolio_value"),
