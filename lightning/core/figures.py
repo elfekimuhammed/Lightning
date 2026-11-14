@@ -242,8 +242,11 @@ _TABLE = [
     ("fx_part", "FX part", "The part of a foreign holding’s unrealized gain that comes from the exchange rate.",
      "Unrealized gain − Price part"),
     # ------------------------------------------------------------ cash planning
-    ("safe_to_spend", "Safe to spend", "Free cash after what is promised before your next income. An estimate. Budget until payday, Saving for goals, Emergency fund top-up and Rest of savings target count for every month until that income (only the days before it in the month it lands), so a long gap between pays is covered.",
-     "Free cash − Due before payday + Bill cash already set aside − Budget until payday − Saving for goals − Emergency fund top-up − Rest of savings target"),
+    ("safe_to_spend", "Safe to spend", "Free cash after what is promised before your next payday (the salary; other "
+     "income before it counts as money in). An estimate. Budget until payday, Saving for goals, Emergency fund top-up "
+     "and Rest of savings target count for every month until payday (only the days before it in the month it lands), "
+     "so a long gap between pays is covered.",
+     "Free cash + Income before payday − Due before payday + Bill cash already set aside − Budget until payday − Saving for goals − Emergency fund top-up − Rest of savings target"),
     ("bills_inside_the_plan", "Bills inside the plan",
      "This month's scheduled bills, due or upcoming, in a category that has a budget. They are part of that budget."),
     ("left_in_plan_after_bills", "Budget until payday",
@@ -258,7 +261,9 @@ _TABLE = [
     ("already_paid_in_month", "Already paid", "What of the month's bills, subscriptions, loan payments and gam'eya "
      "instalments is settled (Upcoming)."),
     ("payments_before_next_income", "Due before payday",
-     "Scheduled bills, subscriptions and loan payments that are not due yet, up to your next income."),
+     "Scheduled bills, subscriptions and loan payments that are not due yet, up to your next payday."),
+    ("income_before_payday", "Income before payday",
+     "Scheduled income other than the salary that arrives before the next payday (BT-7AZ)."),
     ("lowest_point_ahead", "Lowest point ahead", "The lowest month-end free cash in the cash forecast, everyday "
      "spending and savings included. Compare scenarios shows the same figure, day by day: each day "
      "is its month's closing moved by what the scenario changes in scheduled cash that day, so a late salary shows on "
@@ -373,6 +378,7 @@ _SOURCES = {
     "left_to_pay_in_month": (PLAN, "lightning.planning.calendar.PaymentMonth.left_to_pay"),
     "already_paid_in_month": (PLAN, "lightning.planning.calendar.PaymentMonth.already_paid"),
     "payments_before_next_income": (PLAN, f"{FC}._safe_to_spend"),
+    "income_before_payday": (PLAN, f"{FC}._safe_to_spend"),
     "lowest_point_ahead": (PLAN, "lightning.planning.domain.CashForecast.lowest"),
     "saving_for_goals": (PLAN, f"{FC}._goal_need"),
     "savings_target_rest": (PLAN, f"{FC}.forecast"),
