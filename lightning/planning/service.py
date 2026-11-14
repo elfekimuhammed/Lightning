@@ -101,6 +101,29 @@ class PlanningService:
         items = self.repo.items(active_only)
         return [i for i in items if kinds is None or i.kind in kinds]
 
+    def payday_item_ids(self) -> set[int]:
+        """The income items whose dates are payday (BT-7AZ, owner 2026-11-14: payday is the salary only).
+
+        The items set up as the salary (category Salary or one under it); with none, the largest regular income
+        by what it brings in a year; with no regular income, every income item, so a one-off still ends the window."""
+        incomes = self.items((PlanKind.INCOME,))
+        if not incomes:
+            return set()
+        ids = [i.category_id for i in incomes if i.category_id is not None]
+        salary_cats = set()
+        if ids:
+            marks = ",".join("?" * len(set(ids)))
+            salary_cats = {r["id"] for r in self.db.all(
+                f"SELECT id FROM categories WHERE id IN ({marks}) "
+                "AND (code='EXP.WORK.SALARY' OR code LIKE 'EXP.WORK.SALARY.%')", tuple(set(ids)))}
+        salary = {i.id for i in incomes if i.category_id in salary_cats}
+        if salary:
+            return salary
+        regular = [i for i in incomes if per_year(i) > ZERO]
+        if regular:
+            return {max(regular, key=lambda i: (per_year(i), -i.id)).id}
+        return {i.id for i in incomes}
+
     def get(self, item_id: int) -> PlannedItem:
         item = self.repo.item(item_id)
         if not item:
