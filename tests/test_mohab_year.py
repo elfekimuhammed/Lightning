@@ -541,7 +541,8 @@ def _live_the_year(o: Mohab) -> None:
     o.enter("CIB Payroll", "2027-04-25", "Misr Insurance", "Personal › Transportation", "-9,000")
     o.to_reserve("CIB Payroll", "Misr Insurance", "Car insurance")
     o.prices("2027-04-20", {"Commercial International": "95"})
-    o.trade("sell", "2027-04-20", "COMI", units="75", total="7,100", fees="25")
+    # BT-12AO: his statement gives net cash, price and fees; Lightning works out the 75 sold units.
+    o.trade("sell", "2027-04-20", "COMI", total="7,100", unit_price="95", fees="25")
     o.enter("THNDR", "2027-04-21", "CIB Payroll", "", "-7,100")
     o.ask("sale", "What did I make on the COMI I sold?", "Investments", "COMI")
     # The phone installments started this month, on top of the car: the plan still says 2,500 for loans.
@@ -722,6 +723,8 @@ def _a_dollar_account_and_a_nasdaq_etf(o: Mohab) -> None:
                                       "date": "2027-09-30", "units": "10", "total": "2,200", "fees": "5"},
                                      action="investment-entry")
     o.ask("usd_investments", "Is my Nasdaq ETF in my investments?", "Investments")
+    o.ask("usd_purchase_return", "Does each purchase agree with my holding in pounds?",
+          "Investments", "Invesco NASDAQ 100 ETF")
 
 
 def _exercise_cash_ownership(o: Mohab) -> None:
@@ -1207,6 +1210,7 @@ def test_a_tag_in_a_note_gathers_eid(mohab):
 
 
 def test_a_sale_shows_its_gain_after_fees(mohab):
+    """An amount-only sale removes 75 units, with gains based on net proceeds after fees (BT-12AO)."""
     answer = mohab.answers["sale"]
     assert route(mohab, "sale")[:2] == ["/", "/investments"]   # then the holding itself
     assert answer.shows("Gain from sales +1,025", "Total return +2,375")  # 7,100 − 75/150 of 12,150
@@ -1859,3 +1863,14 @@ def test_mohab_asks_search_three_questions(mohab):
     assert 'class="search-answer"' in pc and "Open in Transactions" in pc
     nothing = client.get("/search", params={"q": "qqqqzz"}).text
     assert 'class="search-answer"' not in nothing
+
+
+def test_his_dollar_purchase_returns_are_in_pounds(mohab):
+    """BT-12AN: the fee is a small loss, not a fictitious 98% loss from comparing dollars with pounds."""
+    screen = mohab.answers["usd_purchase_return"].screen
+    assert route(mohab, "usd_purchase_return")[-1].startswith("/investments/holding/")
+    table = screen.html.split('Each purchase', 1)[1].split('<tbody>', 1)[1].split('</tbody>', 1)[0]
+    cells = [re.sub('<[^>]+>', '', td).strip() for td in re.findall(r'<td[^>]*>(.*?)</td>', table, re.S)]
+    assert money(cells[2]) == D('108900')
+    assert money(cells[3]) == D('108653')
+    assert money(cells[4]) == D('-0.2')
