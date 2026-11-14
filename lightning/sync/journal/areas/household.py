@@ -27,6 +27,8 @@ COMMANDS = {
     "refunds.link": Command("refunds.link", dict(
         refund_id=ref("transactions"), expense_id=ref("transactions"), amount=optional(AMOUNT)),
         target=("transactions", "refund_id"), creates="refund_links"),
+    "refunds.record_refund": Command("refunds.record_refund", dict(
+        expense_id=ref("transactions"), date=DATE, amount=AMOUNT, notes=TEXT), creates="transactions"),
     "refunds.unlink": Command("refunds.unlink", dict(refund_id=ref("transactions")),
                               target=("transactions", "refund_id")),
     # The settings are one row that always exists; the last save wins.

@@ -29,8 +29,9 @@ _OWNED = ("le.category_id IS NOT NULL AND le.owner_id IS NULL AND c.movement='OU
 
 
 class RefundLinkService:
-    def __init__(self, db: Database):
+    def __init__(self, db: Database, transactions=None):
         self.db = db
+        self.transactions = transactions  # TransactionService: records a refund from its purchase
 
     def _require_writable(self) -> None:
         if self.db.read_only:
@@ -68,7 +69,7 @@ class RefundLinkService:
                            (transaction_id,))
 
     # ------------------------------------------------------------------ reads
-    def link_for(self, refund_id) -> dict | None:
+    def refunded_purchase(self, refund_id) -> dict | None:
         """The purchase a refund names, with the amount linked, or None."""
         refund_id = parse_row_id(refund_id, "refund_id")
         row = self.db.one(
@@ -87,6 +88,16 @@ class RefundLinkService:
             "SELECT rl.id,rl.refund_id,rl.amount_e6,t.ref,t.date,t.description,t.status FROM refund_links rl "
             "JOIN transactions t ON t.id=rl.refund_id WHERE rl.expense_id=? ORDER BY t.date,rl.id", (expense_id,))
         return [{**dict(row), "amount": from_e6(row["amount_e6"])} for row in rows]
+
+    def room_for_refund(self, expense_id) -> dict | None:
+        """What a purchase still has to return, and whether *Record a refund* can take it in one category; None
+        when the transaction is not a posted purchase of the user's own."""
+        expense_id = parse_row_id(expense_id, "expense_id")
+        lines = self._lines(expense_id, "OUT")
+        if not lines:
+            return None
+        left = max(sum(lines.values()) - self._returned_e6(expense_id), 0)
+        return {"left": from_e6(left), "one_category": len(lines) == 1}
 
     def candidates(self, refund_id) -> list[dict]:
         """Purchases a refund can name: posted, in one of the refund's expense categories, from six months before
@@ -150,7 +161,8 @@ class RefundLinkService:
             if value_e6 <= 0:
                 raise ValidationError("Enter an amount greater than zero.", "amount")
             if value_e6 > room:
-                raise ValidationError(f"At most {from_e6(room)} of this refund can return that purchase.", "amount")
+                raise ValidationError("That is more than the refund, or more than the purchase has left to return.",
+                                      "amount")
             now = now_iso()
             self.db.execute("DELETE FROM refund_links WHERE refund_id=?", (refund_id,))
             cur = self.db.execute(
@@ -158,6 +170,30 @@ class RefundLinkService:
                 (refund_id, expense_id, value_e6, now, now))
         return {"id": int(cur.lastrowid), "refund_id": refund_id, "expense_id": expense_id,
                 "amount": from_e6(value_e6)}
+
+    def record_refund(self, expense_id, date: str, amount, notes: str = "") -> dict:
+        """*Record a refund* on a purchase: money back to the purchase's account, in its category, already naming
+        the purchase. One save: the refund and its link land together or not at all."""
+        self._require_writable()
+        expense_id = parse_row_id(expense_id, "expense_id")
+        lines = self._lines(expense_id, "OUT")
+        if not lines:
+            raise ValidationError("Choose a posted purchase of your own.", "expense_id")
+        if len(lines) > 1:
+            raise ValidationError("This purchase is split across categories: record the refund from its account, "
+                                  "then name the purchase on it.", "expense_id")
+        account = self.db.one(
+            "SELECT le.account_id FROM ledger_entries le JOIN financial_assets a ON a.id=le.asset_id "
+            "WHERE le.transaction_id=? AND a.is_cash=1 AND le.owner_id IS NULL ORDER BY le.line_no LIMIT 1",
+            (expense_id,))
+        expense = self._transaction(expense_id)
+        with self.db.transaction(undo_label="Record a refund"):
+            refund = self.transactions.record_refund(
+                date, int(account["account_id"]), amount, next(iter(lines)),
+                description=f"Refund: {expense['description']}" if expense["description"] else "Refund",
+                counterparty=expense["counterparty"] or "", notes=notes)
+            link = self.link(refund.id, expense_id)
+        return {**link, "ref": refund.ref}
 
     def unlink(self, refund_id) -> None:
         """The refund no longer names a purchase; estimates count it on its own date again."""

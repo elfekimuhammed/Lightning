@@ -32,13 +32,13 @@ def test_a_linked_refund_counts_in_its_purchase_month(c, setup):
     assert _basis(c, "2026-09").get(food, 0) == 0  # 6,000 out, 6,000 back: nothing spent in September
     assert _basis(c, "2026-11")[food] == Decimal("500")  # November keeps only its own spending
     assert (_spent(c, food, "2026-09"), _spent(c, food, "2026-11")) == (Decimal("6000"), Decimal("-5500"))
-    assert c.refunds.link_for(refund.id)["expense_id"] == purchase.id
+    assert c.refunds.refunded_purchase(refund.id)["expense_id"] == purchase.id
     assert [r["refund_id"] for r in c.refunds.refunds_of(purchase.id)] == [refund.id]
 
     c.refunds.unlink(refund.id)  # unlinking restores the real dates in the basis
     assert _basis(c, "2026-09")[food] == Decimal("6000")
     assert _basis(c, "2026-11")[food] == Decimal("0")  # floored, never -5,500
-    assert c.refunds.link_for(refund.id) is None
+    assert c.refunds.refunded_purchase(refund.id) is None
     with pytest.raises(NotFoundError):
         c.refunds.unlink(refund.id)
 
@@ -85,7 +85,7 @@ def test_relinking_replaces_and_frees_room(c, setup):
     c.refunds.link(refund.id, first.id)
     assert [x["id"] for x in c.refunds.candidates(refund.id)] == [second.id, first.id]  # its own link is room
     c.refunds.link(refund.id, second.id)
-    assert c.refunds.link_for(refund.id)["expense_id"] == second.id
+    assert c.refunds.refunded_purchase(refund.id)["expense_id"] == second.id
     assert c.refunds.refunds_of(first.id) == []
 
 
@@ -124,4 +124,66 @@ def test_link_and_unlink_undo(c, setup):
     refund = c.transactions.record_refund("2026-10-12", accounts["cib"].id, "600", food)
     c.refunds.link(refund.id, purchase.id)
     c.undo.replay()
-    assert c.refunds.link_for(refund.id) is None
+    assert c.refunds.refunded_purchase(refund.id) is None
+
+
+# --------------------------------------------------------------------------- screens (PC and phone, EN and AR)
+from fastapi.testclient import TestClient  # noqa: E402
+
+from lightning.ui.web import create_app  # noqa: E402
+from tests.screens import visible_text  # noqa: E402
+
+
+def _client(c, phone=False, locale="en"):
+    app = create_app(c)
+    if phone:
+        inner = app
+
+        async def phone_app(scope, receive, send):
+            if scope["type"] == "http":
+                scope.setdefault("state", {})["phone"] = True
+            await inner(scope, receive, send)
+        app = phone_app
+    client = TestClient(app, follow_redirects=False)
+    if locale != "en":
+        assert client.post("/settings/locale", data={"locale": locale}).status_code == 303
+    return client
+
+
+@pytest.mark.parametrize("phone", [False, True])
+def test_link_a_refund_and_record_one_through_the_screens(c, setup, phone):
+    accounts, _ = setup
+    food, _ = _ids(c)
+    purchase = c.transactions.record_outflow("2026-09-02", accounts["cib"].id, "6000", food, description="Laptop")
+    refund = c.transactions.record_refund("2026-11-12", accounts["cib"].id, "4000", food)
+    client = _client(c, phone)
+    page = visible_text(client.get(f"/transactions/{refund.id}").text)
+    assert "This refunds…" in page and "Laptop" in page
+    assert client.post(f"/transactions/{refund.id}/refund-link",
+                       data={"action": "link", "expense_id": str(purchase.id)}).status_code == 303
+    assert c.refunds.refunded_purchase(refund.id)["expense_id"] == purchase.id
+    page = visible_text(client.get(f"/transactions/{purchase.id}").text)
+    assert "Refunds" in page and "2,000.00 not returned" in page and "Record a refund" in page
+    assert client.post(f"/transactions/{purchase.id}/refund",
+                       data={"date": "2026-11-20", "amount": "2000"}).status_code == 303
+    assert sum(r["amount"] for r in c.refunds.refunds_of(purchase.id)) == Decimal("6000")
+    assert "Fully returned" in visible_text(client.get(f"/transactions/{purchase.id}").text)
+    assert c.budgets.estimate_spending(*parse_month("2026-09")).get(food, 0) == 0
+    over = client.post(f"/transactions/{refund.id}/refund-link", data={"action": "link", "expense_id": str(purchase.id),
+                                                                       "amount": "9000"})
+    assert over.status_code == 303 and c.refunds.refunded_purchase(refund.id)["amount"] == Decimal("4000")
+    assert client.post(f"/transactions/{refund.id}/refund-link", data={"action": "unlink"}).status_code == 303
+    assert c.refunds.refunded_purchase(refund.id) is None
+
+
+@pytest.mark.parametrize("phone", [False, True])
+def test_the_refund_panel_reads_arabic(c, setup, phone):
+    accounts, _ = setup
+    food, _ = _ids(c)
+    purchase = c.transactions.record_outflow("2026-09-02", accounts["cib"].id, "6000", food)
+    refund = c.transactions.record_refund("2026-11-12", accounts["cib"].id, "1000", food)
+    c.refunds.link(refund.id, purchase.id)
+    client = _client(c, phone, "ar")
+    assert "ده استرداد لـ…" in visible_text(client.get(f"/transactions/{refund.id}").text)
+    page = visible_text(client.get(f"/transactions/{purchase.id}").text)
+    assert "الاستردادات" in page and "سجّل استرداد" in page
