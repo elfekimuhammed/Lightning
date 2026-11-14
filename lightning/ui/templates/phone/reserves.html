@@ -11,7 +11,7 @@
   <div class="phone-lead">{{ set_aside_total|money(False, 0) }} <small>{{ base }}</small></div></div>
   {% if goals_pct is not none %}<span class="phone-ring" role="img" aria-label="{{ '{pct}% of goals'|tr(locale, pct=goals_pct) }}"><svg viewBox="0 0 84 84" aria-hidden="true"><circle cx="42" cy="42" r="35"/><circle class="is-fill" cx="42" cy="42" r="35" pathLength="100" stroke-dasharray="{{ goals_pct }} 100"/></svg><span><b>{{ goals_pct }}%</b><small>{{ 'of goals'|tr(locale) }}</small></span></span>{% endif %}</div>
   <p class="phone-hero-line">{{ 'Kept out of Safe to spend, so it is there when you need it.'|tr(locale) }}</p>
-  <div class="phone-wells"><span class="phone-well"><span>{{ 'Reserves'|tr(locale) }}</span><b class="fig">{{ emergency_set_aside|money(False, 0) }}</b></span><span class="phone-well"><span>{{ 'Goals'|tr(locale) }}</span><b class="fig">{{ goals_set|money(False, 0) }}</b></span></div>
+  <div class="phone-wells"><span class="phone-well"><span>{{ fig.reserves.label }}</span><b class="fig">{{ emergency_set_aside|money(False, 0) }}</b></span><span class="phone-well"><span>{{ 'Goals'|tr(locale) }}</span><b class="fig">{{ goals_set|money(False, 0) }}</b></span></div>
 </section>{% endblock %}
 {% block content %}
 {% macro repeat_seg(current) %}<span class="phone-note">{{ "Repeat"|tr(locale) }}</span><div class="phone-segment phone-segment-4" role="radiogroup" aria-label="{{ 'Repeat'|tr(locale) }}">{% for value, text in [('NONE', 'Once'), ('WEEKLY', 'Weekly'), ('MONTHLY', 'Monthly'), ('YEARLY', 'Yearly')] %}<label{% if value == 'NONE' %} title="Does not repeat"{% endif %}><input type="radio" name="recurrence" value="{{ value }}"{% if value == current %} checked{% endif %}><span>{{ text|tr(locale) }}</span></label>{% endfor %}</div>{% endmacro %}
@@ -43,7 +43,7 @@
 {% set edit = request.query_params.get('edit', '') or ('all' if request.method == 'POST' else '') %}
 
 <section class="phone-section is-green phone-form phone-fields">
-  <header class="phone-section-head"><span class="phone-head-tile" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg></span><span class="phone-head-text"><h2>{{ 'Reserves'|tr(locale) }}</h2><small>{{ 'For when things go wrong'|tr(locale) }}</small></span></header>
+  <header class="phone-section-head"><span class="phone-head-tile" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg></span><span class="phone-head-text"><h2>{{ fig.reserves.label }}</h2><small>{{ 'For when things go wrong'|tr(locale) }}</small></span></header>
   {% if refill %}<div class="refill-prompt" role="status">
     {% if refill.move > 0 %}<span>{{ ('Free cash can fill your emergency fund.' if refill.full else 'This month\'s top-up for your emergency fund fits your free cash.' if refill.is_top_up else 'Part of your free cash can go to your emergency fund without cutting into your plan.')|tr(locale) }}
       <small class="phone-note">{{ 'Safe to spend after: {amount}'|tr(locale, amount=refill.after|money(False, 0) ~ ' ' ~ base) }}{% if refill.until %} · {{ 'until {date}'|tr(locale, date=refill.until) }}{% endif %}</small></span>

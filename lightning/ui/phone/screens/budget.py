@@ -129,37 +129,22 @@ def work_claims(c) -> tuple:
 
 
 def spending_trend(c, month: str, day: date) -> dict | None:
-    """Six months of spending ending with ``month`` (the reporting service's daily spending, summed by month), the
-    usual month (the average of the five before it that had spending), this month's daily average and its biggest day."""
-    first, last = parse_month(month)
-    start = first
-    for _ in range(5):
-        start = (start - timedelta(days=1)).replace(day=1)
-    end = min(last, day)
-    if end < start:
+    """Six months of spending ending with ``month``, the usual month, this month's daily average and its biggest day
+    (the reporting service's ``spending_pattern``); here only the bars' heights."""
+    keys = []
+    cursor = parse_month(month)[0]
+    for _ in range(6):  # not money: six months back
+        keys.insert(0, month_of(cursor))
+        cursor = (cursor - timedelta(days=1)).replace(day=1)  # not money: the month before
+    if parse_month(month)[0] > day:
         return None
-    days = c.reporting.spending_calendar(start, end)
-    months: dict[str, Decimal] = {}
-    cursor = start
-    while cursor <= first:
-        months[month_of(cursor)] = ZERO
-        cursor = (cursor + timedelta(days=32)).replace(day=1)
-    for d in days:
-        key = str(d["date"])[:7]
-        if key in months:
-            months[key] += d["amount"]
-    earlier = [v for k, v in months.items() if k != month and v > ZERO]
-    usual = sum(earlier, ZERO) / len(earlier) if earlier else None
-    this = [d for d in days if str(d["date"])[:7] == month]
-    elapsed = (end - first).days + 1
-    top = max(months.values()) if months else ZERO
-    biggest = max(this, key=lambda d: d["amount"]) if this else None
+    pattern = c.reporting.spending_pattern(keys, day)
+    months, usual = pattern["months"], pattern["usual"]
+    top = max(months.values())
     return {"months": [{"month": k, "spent": v, "share": float(v / top * 100) if top > 0 else 0.0, "current": k == month}  # not money: bar heights
                        for k, v in months.items()],
             "usual": usual, "usual_share": float(usual / top * 100) if usual and top > 0 else None,  # not money: the line's height
-            "daily": months[month] / elapsed if elapsed > 0 else None,
-            "daily_usual": usual / 30 if usual else None,
-            "biggest": biggest}
+            "daily": pattern["daily"], "daily_usual": pattern["daily_usual"], "biggest": pattern["biggest"]}
 
 
 def month_bar(plan: Decimal, spent: Decimal) -> dict | None:
@@ -250,10 +235,9 @@ def plan_list(c, month: str) -> PlanList:
             rows.append(PlanRow(line.category_id, line.name, value, holder, line.actual))
         if rows:
             groups.append((current, tuple(rows)))
-    income = c.budgets.income_average(shown, schedule=c.schedules.view()).amount
-    planned = view.budget
+    income, planned, left = c.budgets.plan_gap(shown, view, schedule=c.schedules.view())
     return PlanList(shown, tuple(groups), tuple((g, tuple(rows)) for g, rows in first.items()),
-                    income=income, planned=planned, left=income - planned if income is not None else None)
+                    income=income, planned=planned, left=left)
 
 
 def _plain_amount(amount) -> str:

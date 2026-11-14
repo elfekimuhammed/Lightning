@@ -19,7 +19,7 @@
     {{ arrow(kind, category_mark(category.id) if category and kind in ('in', 'out') else '') }}
     <div class="phone-txn-head-text">
       <h2 data-popup-title class="phone-sheet-title">{{ who if who else ('Transfer' if kind == 'move' else label)|tr(locale) }}</h2>
-      <p class="phone-note">{{ ('Money out' if kind == 'out' else 'Money in' if kind == 'in' else 'Between your accounts')|tr(locale) }} · {{ txn.date|day_label(locale) }}{% if target %} · {{ account.name }} → {{ target.name }}{% endif %}</p>
+      <p class="phone-note">{{ (fig.money_out.label if kind == 'out' else fig.money_in.label if kind == 'in' else 'Between your accounts'|tr(locale)) }} · {{ txn.date|day_label(locale) }}{% if target %} · {{ account.name }} → {{ target.name }}{% endif %}</p>
     </div>
     <p class="phone-txn-sheet-amount is-{{ kind }}"><bdi class="fig">{% if kind == 'move' %}{{ amount|amount_role('row') }}{% else %}{{ ((amount if kind == 'in' else -amount))|amount_role('row', True) }}{% endif %}</bdi> <small>{{ currency }}</small></p>
   </header>

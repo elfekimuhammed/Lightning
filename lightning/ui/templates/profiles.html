@@ -29,8 +29,9 @@
       {% if error %}<div class="alert alert-error" role="alert" aria-live="assertive">{{ error|tr(locale) }}</div>{% endif %}
       {% if notice %}<div class="alert alert-notice" role="status">{{ notice|tr(locale) }}</div>{% endif %}
       <a class="button button-primary v2-big" href="/profiles/new">{{ 'Set up Lightning'|tr(locale) }}{{ chevron() }}</a>
-      <a class="v2-welcome-link" href="/profiles/receive"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>{{ 'Bring my profile from my PC'|tr(locale) }}</a>
+      <a class="v2-welcome-link" href="/profiles/receive"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>{{ 'Bring a profile from your PC'|tr(locale) }}</a>
       <a class="v2-welcome-link is-quiet" href="/profiles/journal/join">{{ 'Find your phone or PC'|tr(locale) }}</a>
+      <a class="v2-welcome-link is-quiet" href="/profiles/open-file">{{ 'Open a profile file'|tr(locale) }}</a>
     </section>
     {% else %}
     {% if stepped %}<header class="v2-steps">{% if mode == 'setup' %}<a class="v2-steps-back" href="/profiles" aria-label="{{ 'Back'|tr(locale) }}">{{ chevron(true) }}</a>{% else %}<span class="v2-steps-back" aria-hidden="true"></span>{% endif %}<span class="v2-steps-bar" role="img" aria-label="{{ ('1 of 2' if mode == 'setup' else '2 of 2')|tr(locale) }}"><i class="is-done"></i><i class="{{ 'is-done' if mode == 'recovery-key' }}"></i></span><span class="v2-steps-n">{{ ('1 of 2' if mode == 'setup' else '2 of 2')|tr(locale) }}</span></header>

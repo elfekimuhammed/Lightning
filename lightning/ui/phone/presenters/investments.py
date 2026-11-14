@@ -76,10 +76,10 @@ def _six_months(c, divisor: Decimal) -> dict:
     """Portfolio value at the end of each of the last six months (today for this one): the mockup's Six months line."""
     now = today()
     keys, days = [], []
-    for back in range(SIX_MONTHS - 1, -1, -1):
-        index = now.year * 12 + now.month - 1 - back
+    for back in range(SIX_MONTHS - 1, -1, -1):  # not money: months back
+        index = now.year * 12 + now.month - 1 - back  # not money: a month index
         year, month = divmod(index, 12)
-        month += 1
+        month += 1  # not money: a month number
         last = date(year + (month == 12), month % 12 + 1, 1) - timedelta(days=1)  # not money: the month's last day
         keys.append(f"{year}-{month:02d}")
         days.append(min(last, now))

@@ -398,6 +398,13 @@ class BudgetService:
         return bool(self.amounts_for(month, loans=False, schedule=schedule))
 
     @request_cached(deep=True)
+    def plan_gap(self, month: str, view: BudgetMonth, *, schedule: ScheduleView):
+        """Left to plan: the income the plan stands on, everything the month plans, and what is still without a job
+        (None when there is no income to plan from)."""
+        income = self.income_average(month, schedule=schedule).amount
+        planned = view.budget
+        return income, planned, (income - planned if income is not None else None)
+
     def month_view(self, month: str, *, schedule: ScheduleView) -> BudgetMonth:
         first, last = parse_month(month)
         direct = self.amounts_for(month, schedule=schedule)

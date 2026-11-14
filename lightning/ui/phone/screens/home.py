@@ -103,9 +103,10 @@ def _cash_accounts(c, day: date) -> tuple[tuple, Decimal, int]:
     total = c.reporting.balances_total([r["balance"] for r in rows]) if rows else Decimal(0)
     count = len(rows)
     if len(rows) > ACCOUNTS_SHOWN:
-        rest = rows[ACCOUNTS_SHOWN - 1:]
-        rows = rows[:ACCOUNTS_SHOWN - 1] + [{"id": 0, "name": "Other", "kind": "{n} accounts", "count": len(rest), "institution": "",
-                                              "type": "", "balance": c.reporting.balances_total([r["balance"] for r in rest])}]
+        rest = rows[ACCOUNTS_SHOWN - 1:]  # not money: the rows after the first three
+        other = {"id": 0, "name": "Other", "kind": "{n} accounts", "count": len(rest), "institution": "", "type": "",
+                 "balance": c.reporting.balances_total([r["balance"] for r in rest])}
+        rows = rows[:ACCOUNTS_SHOWN - 1] + [other]  # not money: three rows, then Other
     for r in rows:
         r["share"] = float(r["balance"] / total * 100) if total > 0 else 0.0  # not money: a bar's length
     return tuple(rows), total, count

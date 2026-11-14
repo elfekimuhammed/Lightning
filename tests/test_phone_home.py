@@ -163,7 +163,7 @@ def test_add_sheet_returns_to_its_slot_and_offers_bills(sample):
     assert "/accounts/add-transaction?return_to=/home" in home
     from test_phone_capture import _phone
     sheet = _phone(c).get("/accounts/add-transaction?return_to=/home").text
-    assert "phone-pay-bill" in sheet and ">Move<" in sheet and ">Transfer<" not in sheet
+    assert "phone-pay-bill" in sheet and ">Transfer<" in sheet   # IV-11M4 (mockup v2.0): Expense, Income, Transfer
     bills = client.get("/add/bills?return_to=/home")
     assert bills.status_code == 200 and "/plan/items/" in bills.text
 

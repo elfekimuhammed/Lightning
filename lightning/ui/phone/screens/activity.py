@@ -39,6 +39,12 @@ def review_items(c, day: date) -> list[dict]:
     return [i for i in ReviewInbox(c).items(day) if group_of(i) == "activity"]
 
 
+def _after(items: list, card) -> list:
+    """The next three cards after this one, wrapping round (a list of cards, not money)."""
+    at = items.index(card)
+    return (items[at + 1:] + items[:at])[:3]  # not money
+
+
 def _shift(month: str, step: int) -> str:
     first, _ = parse_month(month)
     return month_of(first + timedelta(days=32) if step > 0 else first - timedelta(days=1))  # not money
@@ -73,4 +79,4 @@ def build(c, day: date, tab: str = "all", month: str = "", index: int = 0) -> Ac
                           money_in=money_in, money_out=money_out, in_share=in_share, out_share=out_share, review_total=len(items), card=card,
                           index=items.index(card) if card else 0, more_rows=more,
                           ledger_empty=c.reporting.first_activity_date() is None,
-                          up_next=tuple((items[items.index(card) + 1:] + items[:items.index(card)])[:3]) if card else ())
+                          up_next=tuple(_after(items, card)) if card else ())
