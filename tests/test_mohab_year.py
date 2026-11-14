@@ -541,7 +541,8 @@ def _live_the_year(o: Mohab) -> None:
     o.enter("CIB Payroll", "2027-04-25", "Misr Insurance", "Personal › Transportation", "-9,000")
     o.to_reserve("CIB Payroll", "Misr Insurance", "Car insurance")
     o.prices("2027-04-20", {"Commercial International": "95"})
-    o.trade("sell", "2027-04-20", "COMI", units="75", total="7,100", fees="25")
+    # BT-12AO: his statement gives net cash, price and fees; Lightning works out the 75 sold units.
+    o.trade("sell", "2027-04-20", "COMI", total="7,100", unit_price="95", fees="25")
     o.enter("THNDR", "2027-04-21", "CIB Payroll", "", "-7,100")
     o.ask("sale", "What did I make on the COMI I sold?", "Investments", "COMI")
     # The phone installments started this month, on top of the car: the plan still says 2,500 for loans.
@@ -1209,6 +1210,7 @@ def test_a_tag_in_a_note_gathers_eid(mohab):
 
 
 def test_a_sale_shows_its_gain_after_fees(mohab):
+    """An amount-only sale removes 75 units, with gains based on net proceeds after fees (BT-12AO)."""
     answer = mohab.answers["sale"]
     assert route(mohab, "sale")[:2] == ["/", "/investments"]   # then the holding itself
     assert answer.shows("Gain from sales +1,025", "Total return +2,375")  # 7,100 − 75/150 of 12,150

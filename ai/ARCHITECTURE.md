@@ -172,6 +172,8 @@ The reevaluation ledger keeps per-asset, per-account month-end units, price, val
 
 ### Investment report contract
 
+Register trades entered without units derive them from the dated native unit price and gross trade amount (`workflows/investment_entry.py`). A fee-inclusive cash amount becomes gross by subtracting buy fees or adding sale fees; with separate fees the amount is already gross. Derived units round half up to the asset's quantity precision. The ordinary trade service then validates holdings and posts the unchanged cash total and fees atomically.
+
 Silver (`SILVER` class, code prefix `SLV`, NF-9C1) is held by the gram like gold but has no purity, karat or reference series; its exposure is Other and its price is typed by hand until a silver source exists (IT-6D). It follows every ordinary holding rule: lots, cost, XIRR, the risk-free comparison.
 
 Return against the risk-free rate (`lightning/investments/benchmark.py`, NF-9E): the owner types dated yearly rates in the `investment_risk_free_rates` setting (synchronized like every setting); a rate holds until a later one is typed. For a holding with no other owners the page replays its own dated cash flows (`Position.flows`, money in negative as XIRR reads them) at the rate in force each day (365-day years, yearly compounding) and shows the value the same money would have reached, the gap to the holding's value, and the holding's XIRR minus that benchmark's yearly rate. It reads cash flows only (no price history), never changes the ledger, and shows nothing for flows dated before the first typed rate.
